@@ -11,11 +11,11 @@ header .last-updated { margin-left: auto; color: #9fb0ff; font-size: 12px; opaci
 .row.head .venue { background: #0f1530; border: 1px solid #25316a; padding: 2px 6px; border-radius: 6px; color: #c9d3ff; }
 .row.head .state { background: #162a11; border: 1px solid #2a6b1e; padding: 2px 6px; border-radius: 6px; color: #b7f3c7; font-weight: 700; }
 .row.matchup { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; }
-.team .name { font-weight: 800; font-size: 20px; letter-spacing: 0.2px; }
+.team .name { font-weight: 800; font-size: 18px; letter-spacing: 0.2px; }
 .team .sub { color: #b9c4ff; font-size: 11px; margin-top: 2px; }
 .team.side { display: grid; gap: 4px; align-content: start; }
 .team-line { display: flex; align-items: center; gap: 8px; }
-.proj-score { font-size: 34px; font-weight: 800; color: #f5f7ff; line-height: 1.1; }
+.proj-score { font-size: 32px; font-weight: 800; color: #f5f7ff; line-height: 1.1; }
 .vs { font-size: 20px; color: #8ea1ff; padding: 0 8px; font-weight: 700; }
 .row.chips { display: flex; flex-wrap: nowrap; gap: 8px; }
 .row.chips::-webkit-scrollbar { height: 6px; }

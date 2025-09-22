@@ -24,6 +24,9 @@
   </header>
   <main>
     <div class="container">
+    {% if note %}
+      <div class="alert info">{{ note }}</div>
+    {% endif %}
     {% if rows|length == 0 %}
       <p>No predictions found for {{ date }} yet. Try Refresh Odds or check back later.</p>
     {% else %}
@@ -59,13 +62,15 @@
               {% set ev_a_ml = r.ev_away_ml if 'ev_away_ml' in r else None %}
               {% set ev_h_ml = r.ev_home_ml if 'ev_home_ml' in r else None %}
               <div class="chip {{ 'positive' if (ev_a_ml is not none and ev_a_ml > 0) else ('negative' if (ev_a_ml is not none and ev_a_ml < 0) else 'neutral') }}">
-                Away {% if r.away_ml_odds is defined and r.away_ml_odds is not none %}{{ r.away_ml_odds }}{% else %}—{% endif %}{% if r.away_ml_book is defined and r.away_ml_book %} @ {{ r.away_ml_book }}{% endif %}
+                Away {% if r.away_ml_odds is defined and r.away_ml_odds is not none %}{{ r.away_ml_odds }}{% else %}—{% endif %}
                 · {{ '%.1f' % (100*r.p_away_ml) }}%
+                <span class="book-badge" title="{{ r.away_ml_book if r.away_ml_book else 'DraftKings' }}">{{ (r.away_ml_book or 'draftkings')[:2]|upper }}</span>
                 {% if ev_a_ml is not none %}<span class="ev-badge {{ 'pos' if ev_a_ml > 0 else ('neg' if ev_a_ml < 0 else 'neu') }}">EV {{ '%.3f' % ev_a_ml }}</span>{% endif %}
               </div>
               <div class="chip {{ 'positive' if (ev_h_ml is not none and ev_h_ml > 0) else ('negative' if (ev_h_ml is not none and ev_h_ml < 0) else 'neutral') }}">
-                Home {% if r.home_ml_odds is defined and r.home_ml_odds is not none %}{{ r.home_ml_odds }}{% else %}—{% endif %}{% if r.home_ml_book is defined and r.home_ml_book %} @ {{ r.home_ml_book }}{% endif %}
+                Home {% if r.home_ml_odds is defined and r.home_ml_odds is not none %}{{ r.home_ml_odds }}{% else %}—{% endif %}
                 · {{ '%.1f' % (100*r.p_home_ml) }}%
+                <span class="book-badge" title="{{ r.home_ml_book if r.home_ml_book else 'DraftKings' }}">{{ (r.home_ml_book or 'draftkings')[:2]|upper }}</span>
                 {% if ev_h_ml is not none %}<span class="ev-badge {{ 'pos' if ev_h_ml > 0 else ('neg' if ev_h_ml < 0 else 'neu') }}">EV {{ '%.3f' % ev_h_ml }}</span>{% endif %}
               </div>
             </div>
@@ -74,13 +79,15 @@
               {% set ev_o = r.ev_over if 'ev_over' in r else None %}
               {% set ev_u = r.ev_under if 'ev_under' in r else None %}
               <div class="chip {{ 'positive' if (ev_o is not none and ev_o > 0) else ('negative' if (ev_o is not none and ev_o < 0) else 'neutral') }}">
-                Over {% if r.over_odds is defined and r.over_odds is not none %}{{ r.over_odds }}{% else %}—{% endif %}{% if r.over_book is defined and r.over_book %} @ {{ r.over_book }}{% endif %}
+                Over {% if r.over_odds is defined and r.over_odds is not none %}{{ r.over_odds }}{% else %}—{% endif %}
                 · {{ '%.1f' % (100*r.p_over) }}%
+                <span class="book-badge" title="{{ r.over_book if r.over_book else 'DraftKings' }}">{{ (r.over_book or 'draftkings')[:2]|upper }}</span>
                 {% if ev_o is not none %}<span class="ev-badge {{ 'pos' if ev_o > 0 else ('neg' if ev_o < 0 else 'neu') }}">EV {{ '%.3f' % ev_o }}</span>{% endif %}
               </div>
               <div class="chip {{ 'positive' if (ev_u is not none and ev_u > 0) else ('negative' if (ev_u is not none and ev_u < 0) else 'neutral') }}">
-                Under {% if r.under_odds is defined and r.under_odds is not none %}{{ r.under_odds }}{% else %}—{% endif %}{% if r.under_book is defined and r.under_book %} @ {{ r.under_book }}{% endif %}
+                Under {% if r.under_odds is defined and r.under_odds is not none %}{{ r.under_odds }}{% else %}—{% endif %}
                 · {{ '%.1f' % (100*r.p_under) }}%
+                <span class="book-badge" title="{{ r.under_book if r.under_book else 'DraftKings' }}">{{ (r.under_book or 'draftkings')[:2]|upper }}</span>
                 {% if ev_u is not none %}<span class="ev-badge {{ 'pos' if ev_u > 0 else ('neg' if ev_u < 0 else 'neu') }}">EV {{ '%.3f' % ev_u }}</span>{% endif %}
               </div>
               {% set pov = (r.get('p_over') or 0) %}
@@ -94,13 +101,15 @@
               {% set ev_apl = r['ev_away_pl_+1.5'] if 'ev_away_pl_+1.5' in r else None %}
               {% set ev_hpl = r['ev_home_pl_-1.5'] if 'ev_home_pl_-1.5' in r else None %}
               <div class="chip {{ 'positive' if (ev_apl is not none and ev_apl > 0) else ('negative' if (ev_apl is not none and ev_apl < 0) else 'neutral') }}">
-                Away +1.5 {% if r['away_pl_+1.5_odds'] is defined and r['away_pl_+1.5_odds'] is not none %}{{ r['away_pl_+1.5_odds'] }}{% else %}—{% endif %}{% if r['away_pl_+1.5_book'] is defined and r['away_pl_+1.5_book'] %} @ {{ r['away_pl_+1.5_book'] }}{% endif %}
+                Away +1.5 {% if r['away_pl_+1.5_odds'] is defined and r['away_pl_+1.5_odds'] is not none %}{{ r['away_pl_+1.5_odds'] }}{% else %}—{% endif %}
                 · {{ '%.1f' % (100*r['p_away_pl_+1.5']) }}%
+                <span class="book-badge" title="{{ r['away_pl_+1.5_book'] if r['away_pl_+1.5_book'] else 'DraftKings' }}">{{ (r['away_pl_+1.5_book'] or 'draftkings')[:2]|upper }}</span>
                 {% if ev_apl is not none %}<span class="ev-badge {{ 'pos' if ev_apl > 0 else ('neg' if ev_apl < 0 else 'neu') }}">EV {{ '%.3f' % ev_apl }}</span>{% endif %}
               </div>
               <div class="chip {{ 'positive' if (ev_hpl is not none and ev_hpl > 0) else ('negative' if (ev_hpl is not none and ev_hpl < 0) else 'neutral') }}">
-                Home -1.5 {% if r['home_pl_-1.5_odds'] is defined and r['home_pl_-1.5_odds'] is not none %}{{ r['home_pl_-1.5_odds'] }}{% else %}—{% endif %}{% if r['home_pl_-1.5_book'] is defined and r['home_pl_-1.5_book'] %} @ {{ r['home_pl_-1.5_book'] }}{% endif %}
+                Home -1.5 {% if r['home_pl_-1.5_odds'] is defined and r['home_pl_-1.5_odds'] is not none %}{{ r['home_pl_-1.5_odds'] }}{% else %}—{% endif %}
                 · {{ '%.1f' % (100*r['p_home_pl_-1.5']) }}%
+                <span class="book-badge" title="{{ r['home_pl_-1.5_book'] if r['home_pl_-1.5_book'] else 'DraftKings' }}">{{ (r['home_pl_-1.5_book'] or 'draftkings')[:2]|upper }}</span>
                 {% if ev_hpl is not none %}<span class="ev-badge {{ 'pos' if ev_hpl > 0 else ('neg' if ev_hpl < 0 else 'neu') }}">EV {{ '%.3f' % ev_hpl }}</span>{% endif %}
               </div>
             </div>

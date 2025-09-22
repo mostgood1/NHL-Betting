@@ -31,6 +31,7 @@ header .last-updated { margin-left: auto; color: #9fb0ff; font-size: 12px; opaci
 .ev-badge.neu { background: #2a376d; color: #dfe6ff; }
 .ev-badge.neg { background: #6b1a3c; color: #ffd9e8; }
 .team-logo { height: 36px; vertical-align: middle; margin-right: 8px; }
+.book-badge { background: #243056; color: #cfe0ff; padding: 2px 6px; border-radius: 6px; font-size: 11px; font-weight: 700; opacity: 0.9; }
 
 /* Responsive tweaks */
 @media (max-width: 1000px) {

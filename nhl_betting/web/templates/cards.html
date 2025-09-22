@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NHL Betting – Cards</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header>
+    <div class="container header-inner">
+      <h1>NHL Betting – Cards</h1>
+      <form method="get" action="/">
+        <label>Date: <input type="date" name="date" value="{{ date }}" /></label>
+        <button type="submit">Apply</button>
+        <a class="btn" href="/api/refresh-odds?date={{ date }}">Refresh Odds</a>
+        <a class="btn" href="/recommendations?date={{ date }}">Recommendations</a>
+        <a class="btn" href="/props">Props</a>
+        <a class="btn" href="/odds-coverage?date={{ date }}">Odds Coverage</a>
+      </form>
+      <div id="last-updated" class="last-updated">Last updated: —</div>
+      <label class="toggle"><input type="checkbox" id="autoUpdateToggle" /> Auto-update</label>
+    </div>
+  </header>
+  <main>
+    <div class="container">
+    {% if rows|length == 0 %}
+      <p>No predictions found for {{ date }} yet. Try Refresh Odds or check back later.</p>
+    {% else %}
+      <div class="cards">
+        {% for r in rows %}
+          <div class="card" data-game-date="{{ r.date }}">
+            <div class="row head">
+              <div class="game-date">{{ r.local_time if r.local_time else r.date }}</div>
+              {% if r.venue %}<div class="venue">{{ r.venue }}</div>{% endif %}
+              {% if r.game_state %}<div class="state">{{ r.game_state }}</div>{% endif %}
+            </div>
+            <div class="row matchup">
+              <div class="team side">
+                <div class="team-line">
+                  {% if r.away_logo %}<img alt="" title="{{ r.away }}" src="{{ r.away_logo }}" class="team-logo" />{% endif %}
+                  <div class="name">{{ r.away }}</div>
+                </div>
+                <div class="proj-score">{{ '%.2f' % r.proj_away_goals }}</div>
+                <div class="sub">ML {{ '%.1f' % (100*r.p_away_ml) }}%{% if r.away_ml_odds is defined and r.away_ml_odds is not none %} · {{ r.away_ml_odds }}{% if r.away_ml_book is defined and r.away_ml_book %} @ {{ r.away_ml_book }}{% endif %}{% endif %}</div>
+              </div>
+              <div class="vs">@</div>
+              <div class="team side">
+                <div class="team-line">
+                  {% if r.home_logo %}<img alt="" title="{{ r.home }}" src="{{ r.home_logo }}" class="team-logo" />{% endif %}
+                  <div class="name">{{ r.home }}</div>
+                </div>
+                <div class="proj-score">{{ '%.2f' % r.proj_home_goals }}</div>
+                <div class="sub">ML {{ '%.1f' % (100*r.p_home_ml) }}%{% if r.home_ml_odds is defined and r.home_ml_odds is not none %} · {{ r.home_ml_odds }}{% if r.home_ml_book is defined and r.home_ml_book %} @ {{ r.home_ml_book }}{% endif %}{% endif %}</div>
+              </div>
+            </div>
+            <div class="row chips">
+              <div class="chip title">Moneyline</div>
+              {% set ev_a_ml = r.ev_away_ml if 'ev_away_ml' in r else None %}
+              {% set ev_h_ml = r.ev_home_ml if 'ev_home_ml' in r else None %}
+              <div class="chip {{ 'positive' if (ev_a_ml is not none and ev_a_ml > 0) else ('negative' if (ev_a_ml is not none and ev_a_ml < 0) else 'neutral') }}">
+                Away {% if r.away_ml_odds is defined and r.away_ml_odds is not none %}{{ r.away_ml_odds }}{% else %}—{% endif %}{% if r.away_ml_book is defined and r.away_ml_book %} @ {{ r.away_ml_book }}{% endif %}
+                · {{ '%.1f' % (100*r.p_away_ml) }}%
+                {% if ev_a_ml is not none %}<span class="ev-badge {{ 'pos' if ev_a_ml > 0 else ('neg' if ev_a_ml < 0 else 'neu') }}">EV {{ '%.3f' % ev_a_ml }}</span>{% endif %}
+              </div>
+              <div class="chip {{ 'positive' if (ev_h_ml is not none and ev_h_ml > 0) else ('negative' if (ev_h_ml is not none and ev_h_ml < 0) else 'neutral') }}">
+                Home {% if r.home_ml_odds is defined and r.home_ml_odds is not none %}{{ r.home_ml_odds }}{% else %}—{% endif %}{% if r.home_ml_book is defined and r.home_ml_book %} @ {{ r.home_ml_book }}{% endif %}
+                · {{ '%.1f' % (100*r.p_home_ml) }}%
+                {% if ev_h_ml is not none %}<span class="ev-badge {{ 'pos' if ev_h_ml > 0 else ('neg' if ev_h_ml < 0 else 'neu') }}">EV {{ '%.3f' % ev_h_ml }}</span>{% endif %}
+              </div>
+            </div>
+            <div class="row chips">
+              <div class="chip title">Totals {{ '%.1f' % r.total_line_used if r.total_line_used is defined else '' }}</div>
+              {% set ev_o = r.ev_over if 'ev_over' in r else None %}
+              {% set ev_u = r.ev_under if 'ev_under' in r else None %}
+              <div class="chip {{ 'positive' if (ev_o is not none and ev_o > 0) else ('negative' if (ev_o is not none and ev_o < 0) else 'neutral') }}">
+                Over {% if r.over_odds is defined and r.over_odds is not none %}{{ r.over_odds }}{% else %}—{% endif %}{% if r.over_book is defined and r.over_book %} @ {{ r.over_book }}{% endif %}
+                · {{ '%.1f' % (100*r.p_over) }}%
+                {% if ev_o is not none %}<span class="ev-badge {{ 'pos' if ev_o > 0 else ('neg' if ev_o < 0 else 'neu') }}">EV {{ '%.3f' % ev_o }}</span>{% endif %}
+              </div>
+              <div class="chip {{ 'positive' if (ev_u is not none and ev_u > 0) else ('negative' if (ev_u is not none and ev_u < 0) else 'neutral') }}">
+                Under {% if r.under_odds is defined and r.under_odds is not none %}{{ r.under_odds }}{% else %}—{% endif %}{% if r.under_book is defined and r.under_book %} @ {{ r.under_book }}{% endif %}
+                · {{ '%.1f' % (100*r.p_under) }}%
+                {% if ev_u is not none %}<span class="ev-badge {{ 'pos' if ev_u > 0 else ('neg' if ev_u < 0 else 'neu') }}">EV {{ '%.3f' % ev_u }}</span>{% endif %}
+              </div>
+              {% set pov = (r.get('p_over') or 0) %}
+              {% set pun = (r.get('p_under') or 0) %}
+              {% set push = 1 - pov - pun %}
+              {% if push < 0 %}{% set push = 0 %}{% endif %}
+              <div class="chip neutral">Push · {{ '%.1f' % (100*push) }}%</div>
+            </div>
+            <div class="row chips">
+              <div class="chip title">Puck Line</div>
+              {% set ev_apl = r['ev_away_pl_+1.5'] if 'ev_away_pl_+1.5' in r else None %}
+              {% set ev_hpl = r['ev_home_pl_-1.5'] if 'ev_home_pl_-1.5' in r else None %}
+              <div class="chip {{ 'positive' if (ev_apl is not none and ev_apl > 0) else ('negative' if (ev_apl is not none and ev_apl < 0) else 'neutral') }}">
+                Away +1.5 {% if r['away_pl_+1.5_odds'] is defined and r['away_pl_+1.5_odds'] is not none %}{{ r['away_pl_+1.5_odds'] }}{% else %}—{% endif %}{% if r['away_pl_+1.5_book'] is defined and r['away_pl_+1.5_book'] %} @ {{ r['away_pl_+1.5_book'] }}{% endif %}
+                · {{ '%.1f' % (100*r['p_away_pl_+1.5']) }}%
+                {% if ev_apl is not none %}<span class="ev-badge {{ 'pos' if ev_apl > 0 else ('neg' if ev_apl < 0 else 'neu') }}">EV {{ '%.3f' % ev_apl }}</span>{% endif %}
+              </div>
+              <div class="chip {{ 'positive' if (ev_hpl is not none and ev_hpl > 0) else ('negative' if (ev_hpl is not none and ev_hpl < 0) else 'neutral') }}">
+                Home -1.5 {% if r['home_pl_-1.5_odds'] is defined and r['home_pl_-1.5_odds'] is not none %}{{ r['home_pl_-1.5_odds'] }}{% else %}—{% endif %}{% if r['home_pl_-1.5_book'] is defined and r['home_pl_-1.5_book'] %} @ {{ r['home_pl_-1.5_book'] }}{% endif %}
+                · {{ '%.1f' % (100*r['p_home_pl_-1.5']) }}%
+                {% if ev_hpl is not none %}<span class="ev-badge {{ 'pos' if ev_hpl > 0 else ('neg' if ev_hpl < 0 else 'neu') }}">EV {{ '%.3f' % ev_hpl }}</span>{% endif %}
+              </div>
+            </div>
+            <div class="row details">
+              <div class="detail-col">
+                <div>
+                  {% set mt = r.get('model_total') %}
+                  {% if mt is not none %}
+                    Model Total: <strong>{{ '%.2f' % mt }}</strong>
+                  {% endif %}
+                  {% if r.get('actual_total') is not none %}
+                    · Actual Total: <strong>{{ '%.2f' % r.get('actual_total') }}</strong>
+                  {% endif %}
+                  {% if r.get('total_diff') is not none %}
+                    · Diff: <strong>{{ '%.2f' % r.get('total_diff') }}</strong>
+                  {% endif %}
+                </div>
+                <div>Win Prob: Away {{ '%.1f' % (100*r.p_away_ml) }}% / Home {{ '%.1f' % (100*r.p_home_ml) }}%{% if r.get('winner_actual') %} · Winner: <strong>{{ r.get('winner_actual') }}</strong> {% if r.get('winner_correct') %}✓{% else %}✗{% endif %}{% endif %}</div>
+              </div>
+            </div>
+            {% if r.get('totals_pick') or r.get('ats_pick') %}
+            <div class="row details">
+              <div class="detail-col">
+                {% if r.get('totals_pick') %}
+                <div>Totals Pick: <strong>{{ r.get('totals_pick') }}</strong>{% if r.get('totals_edge_pts') is not none %} (edge {{ '%.2f' % r.get('totals_edge_pts') }} pts){% endif %}{% if r.get('result_total') %} · Result: <strong>{{ r.get('result_total') }}</strong> {% if r.get('totals_pick_correct') %}✓{% elif r.get('result_total') == 'Push' %}–{% else %}✗{% endif %}{% endif %}</div>
+                {% endif %}
+                {% if r.get('ats_pick') %}
+                <div>ATS Pick: <strong>{{ 'Home -1.5' if r.get('ats_pick') == 'home_-1.5' else 'Away +1.5' }}</strong>{% if r.get('ats_edge_pts') is not none %} (edge {{ '%.2f' % r.get('ats_edge_pts') }} pts){% endif %}{% if r.get('result_ats') %} · Result: <strong>{{ 'Home -1.5' if r.get('result_ats') == 'home_-1.5' else 'Away +1.5' }}</strong> {% if r.get('ats_pick_correct') %}✓{% else %}✗{% endif %}{% endif %}</div>
+                {% endif %}
+              </div>
+            </div>
+            {% endif %}
+            {% if r.over_odds is defined or r.home_ml_odds is defined %}
+            <div class="row details small">
+              <div class="detail-col">
+                <div>
+                  Lines: ML {% if r.home_ml_odds is not none and r.away_ml_odds is not none %}H {{ r.home_ml_odds }} / A {{ r.away_ml_odds }}{% else %}—{% endif %}
+                  · Total {% if r.total_line_used is defined %}{{ '%.1f' % r.total_line_used }}{% else %}—{% endif %}
+                  · PL ±1.5
+                </div>
+              </div>
+            </div>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+    </div>
+  </main>
+</body>
+<script>
+(function() {
+  const qsDate = new URLSearchParams(window.location.search).get('date');
+  const date = qsDate || '{{ date }}';
+  const lastEl = document.getElementById('last-updated');
+  let lastVal = null;
+  const pollIntervalMs = 60000; // 60s last-updated polling
+  const refreshOddsMs = 600000; // 10m background odds refresh during window
+  const toggleEl = document.getElementById('autoUpdateToggle');
+
+  async function updateLastUpdated() {
+    try {
+      const res = await fetch(`/api/last-updated?date=${encodeURIComponent(date)}`, { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        const val = data.last_modified || null;
+        if (lastEl) {
+          lastEl.textContent = 'Last updated: ' + (val ? new Date(val).toLocaleString() : '—');
+        }
+        return val;
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  function computeGameWindow() {
+    const times = Array.from(document.querySelectorAll('.card[data-game-date]'))
+      .map(el => new Date(el.getAttribute('data-game-date')))
+      .filter(d => !isNaN(d));
+    if (!times.length) return null;
+    const earliest = new Date(Math.min.apply(null, times));
+    const latest = new Date(Math.max.apply(null, times));
+    // Define a polling window: 90 min before first game to 4 hours after last start
+    const start = new Date(earliest.getTime() - 90*60*1000);
+    const end = new Date(latest.getTime() + 4*60*60*1000);
+    return { start, end };
+  }
+
+  async function maybeReloadOnChange() {
+    const val = await updateLastUpdated();
+    if (lastVal && val && val !== lastVal) {
+      // Data file changed; reload to update cards
+      window.location.reload();
+      return;
+    }
+    if (val) lastVal = val;
+  }
+
+  async function refreshOdds() {
+    try {
+      await fetch(`/api/refresh-odds?date=${encodeURIComponent(date)}`, { method: 'GET', cache: 'no-store' });
+    } catch (e) {}
+  }
+
+  // Initialize
+  updateLastUpdated().then(v => { lastVal = v; });
+
+  const windowRange = computeGameWindow();
+  let pollTimer = null;
+  let oddsTimer = null;
+  function inWindow() {
+    if (!windowRange) return false;
+    const now = new Date();
+    return now >= windowRange.start && now <= windowRange.end;
+  }
+  function startLoops() {
+    if (!pollTimer) pollTimer = setInterval(maybeReloadOnChange, pollIntervalMs);
+    if (!oddsTimer) oddsTimer = setInterval(refreshOdds, refreshOddsMs);
+  }
+  function stopLoops() {
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    if (oddsTimer) { clearInterval(oddsTimer); oddsTimer = null; }
+  }
+
+  // Engage loops only during game-time window
+  function shouldAutoUpdate() {
+    try { return localStorage.getItem('autoUpdate') !== 'off'; } catch { return true; }
+  }
+  function applyToggleState() {
+    if (!toggleEl) return;
+    toggleEl.checked = shouldAutoUpdate();
+  }
+  applyToggleState();
+  if (toggleEl) {
+    toggleEl.addEventListener('change', () => {
+      try { localStorage.setItem('autoUpdate', toggleEl.checked ? 'on' : 'off'); } catch {}
+      if (toggleEl.checked && inWindow()) startLoops(); else stopLoops();
+    });
+  }
+  if (windowRange && inWindow() && shouldAutoUpdate()) {
+    startLoops();
+  }
+  // Re-check every 5 minutes whether we've entered/left the window
+  setInterval(() => {
+    if (!windowRange) return;
+    if (inWindow() && shouldAutoUpdate()) startLoops(); else stopLoops();
+  }, 5*60*1000);
+
+  window.addEventListener('beforeunload', stopLoops);
+})();
+</script>
+</html>

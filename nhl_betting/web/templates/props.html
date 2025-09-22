@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NHL Betting - Props</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  <style>
+    .table { width: 100%; border-collapse: collapse; }
+    .table th, .table td { padding: 8px 10px; border-bottom: 1px solid #2a2a2a; text-align: left; }
+    .ev-pos { color: #57d657; font-weight: 600; }
+    .ev-neg { color: #ff6b6b; }
+    .controls { display: flex; gap: 8px; align-items: center; }
+    .controls input, .controls select { background: #1e1e1e; color: #f0f0f0; border: 1px solid #333; border-radius: 4px; padding: 6px 8px; }
+    .controls label { font-size: 12px; color: #bbb; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Props</h1>
+      <div class="controls">
+        <label>Market
+          <select id="market">
+            <option value="">All</option>
+            <option value="SOG">SOG</option>
+            <option value="SAVES">Saves</option>
+            <option value="GOALS">Goals</option>
+          </select>
+        </label>
+        <label>Min EV
+          <input id="min_ev" type="number" step="0.01" value="0.0" />
+        </label>
+        <label>Top N
+          <input id="top" type="number" step="1" value="50" />
+        </label>
+        <button onclick="reloadPage()">Apply</button>
+      </div>
+    </div>
+
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Market</th>
+          <th>Player</th>
+          <th>Team</th>
+          <th>Line</th>
+          <th>Odds (Over)</th>
+          <th>Proj λ</th>
+          <th>P(Over)</th>
+          <th>EV (Over)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+          <tr>
+            <td>{{ r.market }}</td>
+            <td>{{ r.player }}</td>
+            <td>{{ r.team if r.team is defined else '' }}</td>
+            <td>{{ r.line }}</td>
+            <td>{{ r.odds }}</td>
+            <td>{{ '%.2f' % r.proj_lambda }}</td>
+            <td>{{ '%.1f' % (r.p_over * 100) }}%</td>
+            <td class="{{ 'ev-pos' if r.ev_over >= 0 else 'ev-neg' }}">{{ '%.3f' % r.ev_over }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <script>
+    function reloadPage() {
+      const params = new URLSearchParams(window.location.search);
+      const market = document.getElementById('market').value;
+      const min_ev = document.getElementById('min_ev').value || '0';
+      const top = document.getElementById('top').value || '50';
+      if (market) params.set('market', market); else params.delete('market');
+      params.set('min_ev', min_ev);
+      params.set('top', top);
+      window.location.search = params.toString();
+    }
+  </script>
+</body>
+</html>

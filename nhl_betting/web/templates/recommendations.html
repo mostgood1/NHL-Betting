@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NHL Betting - Recommendations</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  <style>
+    .table { width: 100%; border-collapse: collapse; }
+    .table th, .table td { padding: 8px 10px; border-bottom: 1px solid #2a2a2a; text-align: left; }
+    .ev-pos { color: #57d657; font-weight: 600; }
+    .ev-neg { color: #ff6b6b; }
+    .pill { display: inline-block; padding: 2px 6px; border-radius: 4px; background: #2f2f2f; margin-right: 6px; font-size: 12px; }
+    .header { display: flex; align-items: center; justify-content: space-between; }
+    .controls { display: flex; gap: 8px; align-items: center; }
+    .controls input, .controls select { background: #1e1e1e; color: #f0f0f0; border: 1px solid #333; border-radius: 4px; padding: 6px 8px; }
+    .controls label { font-size: 12px; color: #bbb; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Recommendations - {{ date }}</h1>
+      <div class="controls">
+        <label>Min EV
+          <input id="min_ev" type="number" step="0.01" value="{{ min_ev }}" />
+        </label>
+        <label>Top N
+          <input id="top" type="number" step="1" value="{{ top }}" />
+        </label>
+        <label>Markets
+          <select id="markets">
+            <option value="all" {% if markets == 'all' %}selected{% endif %}>All</option>
+            <option value="moneyline" {% if markets == 'moneyline' %}selected{% endif %}>Moneyline</option>
+            <option value="totals" {% if markets == 'totals' %}selected{% endif %}>Totals</option>
+            <option value="puckline" {% if markets == 'puckline' %}selected{% endif %}>Puck Line</option>
+          </select>
+        </label>
+        <label>Bankroll
+          <input id="bankroll" type="number" step="10" value="{{ bankroll }}" />
+        </label>
+        <label>Kelly %
+          <input id="kelly" type="number" step="0.1" value="{{ kelly_fraction_part }}" />
+        </label>
+        <button onclick="reloadPage()">Apply</button>
+      </div>
+    </div>
+
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Matchup</th>
+          <th>Market</th>
+          <th>Bet</th>
+          <th>Model Prob</th>
+          <th>EV</th>
+          <th>Edge</th>
+          <th>Price</th>
+          <th>Book</th>
+          <th>Stake</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+          <tr>
+            <td>{{ r.away }} @ {{ r.home }}</td>
+            <td><span class="pill">{{ r.market }}</span></td>
+            <td>{{ r.bet }}</td>
+            <td>{{ '%.1f' % (r.model_prob * 100) }}%</td>
+            <td class="{{ 'ev-pos' if r.ev >= 0 else 'ev-neg' }}">{{ '%.3f' % r.ev }}</td>
+            <td>{{ '%.3f' % r.edge if r.edge is not none else '' }}</td>
+            <td>{{ r.price if r.price is not none else '' }}</td>
+            <td>{{ r.book if r.book is not none else '' }}</td>
+            <td>{{ ('$' + '%.2f' % r.stake) if r.stake is not none else '' }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    function reloadPage() {
+      const params = new URLSearchParams(window.location.search);
+      const min_ev = document.getElementById('min_ev').value || '0';
+      const top = document.getElementById('top').value || '20';
+      const markets = document.getElementById('markets').value || 'all';
+      const bankroll = document.getElementById('bankroll').value || '0';
+      const kelly = document.getElementById('kelly').value || '0.5';
+      params.set('min_ev', min_ev);
+      params.set('top', top);
+      params.set('markets', markets);
+      params.set('bankroll', bankroll);
+      params.set('kelly_fraction_part', kelly);
+      window.location.search = params.toString();
+    }
+  </script>
+</body>
+</html>

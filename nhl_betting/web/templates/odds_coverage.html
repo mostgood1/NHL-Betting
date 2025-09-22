@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NHL Betting - Odds Coverage</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  <style>
+    .table { width: 100%; border-collapse: collapse; }
+    .table th, .table td { padding: 8px 10px; border-bottom: 1px solid #2a2a2a; text-align: left; }
+    .pill { display: inline-block; padding: 2px 6px; border-radius: 4px; background: #2f2f2f; margin-right: 6px; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Odds Coverage - {{ summary.date }}</h1>
+    <div class="cards">
+      <div class="card">
+        <div>Games: {{ summary.games }}</div>
+        <div>Moneyline Covered: {{ summary.moneyline_covered }}</div>
+        <div>Totals Covered: {{ summary.totals_covered }}</div>
+        <div>Puck Line Covered: {{ summary.puckline_covered }}</div>
+      </div>
+    </div>
+
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Matchup</th>
+          <th>Moneyline</th>
+          <th>Totals</th>
+          <th>Puck Line</th>
+          <th>Books</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+          <tr>
+            <td>{{ r.away }} @ {{ r.home }}</td>
+            <td>{{ 'Yes' if r.has_moneyline else 'No' }}</td>
+            <td>{{ 'Yes' if r.has_totals else 'No' }}</td>
+            <td>{{ 'Yes' if r.has_puckline else 'No' }}</td>
+            <td>
+              {% for b in r.ml_books %}<span class="pill">ML: {{ b }}</span>{% endfor %}
+              {% for b in r.totals_books %}<span class="pill">Totals: {{ b }}</span>{% endfor %}
+              {% for b in r.puckline_books %}<span class="pill">PL: {{ b }}</span>{% endfor %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</body>
+</html>

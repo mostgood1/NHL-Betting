@@ -410,32 +410,61 @@ def predict_core(
             key_date = pd.to_datetime(g.gameDate).strftime("%Y-%m-%d")
             g_home_n = norm_team(g.home)
             g_away_n = norm_team(g.away)
-            match = odds_df[(odds_df["date"] == key_date) & (odds_df["home_norm"] == g_home_n) & (odds_df["away_norm"] == g_away_n)]
+            # Also derive team abbreviations for robust matching
+            try:
+                from .web.teams import get_team_assets as _assets
+                g_home_abbr = (_assets(g.home).get("abbr") or "").upper()
+                g_away_abbr = (_assets(g.away).get("abbr") or "").upper()
+            except Exception:
+                g_home_abbr = ""
+                g_away_abbr = ""
+            match = pd.DataFrame()
+            if {"home_abbr","away_abbr"}.issubset(set(odds_df.columns)) and g_home_abbr and g_away_abbr:
+                match = odds_df[(odds_df["date"] == key_date) & (odds_df["home_abbr"] == g_home_abbr) & (odds_df["away_abbr"] == g_away_abbr)]
+            if match.empty:
+                match = odds_df[(odds_df["date"] == key_date) & (odds_df["home_norm"] == g_home_n) & (odds_df["away_norm"] == g_away_n)]
             if match.empty:
                 # Fallback: match by teams only (handles date boundary differences)
-                match = odds_df[(odds_df["home_norm"] == g_home_n) & (odds_df["away_norm"] == g_away_n)]
+                if {"home_abbr","away_abbr"}.issubset(set(odds_df.columns)) and g_home_abbr and g_away_abbr:
+                    match = odds_df[(odds_df["home_abbr"] == g_home_abbr) & (odds_df["away_abbr"] == g_away_abbr)]
+                if match.empty:
+                    match = odds_df[(odds_df["home_norm"] == g_home_n) & (odds_df["away_norm"] == g_away_n)]
             if match.empty:
                 # Fallback: reversed sides
-                match = odds_df[(odds_df["home_norm"] == g_away_n) & (odds_df["away_norm"] == g_home_n)]
+                if {"home_abbr","away_abbr"}.issubset(set(odds_df.columns)) and g_home_abbr and g_away_abbr:
+                    match = odds_df[(odds_df["home_abbr"] == g_away_abbr) & (odds_df["away_abbr"] == g_home_abbr)]
+                if match.empty:
+                    match = odds_df[(odds_df["home_norm"] == g_away_n) & (odds_df["away_norm"] == g_home_n)]
             if not match.empty:
                 m = match.iloc[0]
                 # Moneyline EVs (two-way)
-                dec_home = american_to_decimal(float(m["home_ml"]))
-                dec_away = american_to_decimal(float(m["away_ml"]))
-                imp_h = decimal_to_implied_prob(dec_home)
-                imp_a = decimal_to_implied_prob(dec_away)
-                nv_h, nv_a = remove_vig_two_way(imp_h, imp_a)
-                row["ev_home_ml"] = round(ev_unit(row["p_home_ml"], dec_home), 4)
-                row["ev_away_ml"] = round(ev_unit(row["p_away_ml"], dec_away), 4)
-                row["edge_home_ml"] = round(row["p_home_ml"] - nv_h, 4)
-                row["edge_away_ml"] = round(row["p_away_ml"] - nv_a, 4)
+                def _to_float_odds(x):
+                    if x is None or (isinstance(x, float) and pd.isna(x)):
+                        return None
+                    s = str(x).strip().upper()
+                    if s in ("EVEN", "EV", "E"):
+                        return 100.0
+                    try:
+                        return float(s)
+                    except Exception:
+                        return None
+                dec_home = american_to_decimal(_to_float_odds(m["home_ml"])) if pd.notna(m.get("home_ml")) else None
+                dec_away = american_to_decimal(_to_float_odds(m["away_ml"])) if pd.notna(m.get("away_ml")) else None
+                if dec_home is not None and dec_away is not None:
+                    imp_h = decimal_to_implied_prob(dec_home)
+                    imp_a = decimal_to_implied_prob(dec_away)
+                    nv_h, nv_a = remove_vig_two_way(imp_h, imp_a)
+                    row["ev_home_ml"] = round(ev_unit(row["p_home_ml"], dec_home), 4)
+                    row["ev_away_ml"] = round(ev_unit(row["p_away_ml"], dec_away), 4)
+                    row["edge_home_ml"] = round(row["p_home_ml"] - nv_h, 4)
+                    row["edge_away_ml"] = round(row["p_away_ml"] - nv_a, 4)
                 # Save odds and bookmaker metadata if present
                 try:
-                    row["home_ml_odds"] = float(m.get("home_ml")) if pd.notna(m.get("home_ml")) else None
+                    row["home_ml_odds"] = _to_float_odds(m.get("home_ml")) if pd.notna(m.get("home_ml")) else None
                 except Exception:
                     row["home_ml_odds"] = None
                 try:
-                    row["away_ml_odds"] = float(m.get("away_ml")) if pd.notna(m.get("away_ml")) else None
+                    row["away_ml_odds"] = _to_float_odds(m.get("away_ml")) if pd.notna(m.get("away_ml")) else None
                 except Exception:
                     row["away_ml_odds"] = None
                 if "home_ml_book" in m and pd.notna(m.get("home_ml_book")):
@@ -447,21 +476,22 @@ def predict_core(
                     row["stake_away_ml"] = round(kelly_stake(row["p_away_ml"], dec_away, bankroll, kelly_fraction_part), 2)
                 # Totals EVs (two-way at half-line)
                 if all(k in m for k in ["over", "under"]):
-                    dec_over = american_to_decimal(float(m["over"]))
-                    dec_under = american_to_decimal(float(m["under"]))
-                    imp_o = decimal_to_implied_prob(dec_over)
-                    imp_u = decimal_to_implied_prob(dec_under)
-                    nv_o, nv_u = remove_vig_two_way(imp_o, imp_u)
-                    row["ev_over"] = round(ev_unit(row["p_over"], dec_over), 4)
-                    row["ev_under"] = round(ev_unit(row["p_under"], dec_under), 4)
-                    row["edge_over"] = round(row["p_over"] - nv_o, 4)
-                    row["edge_under"] = round(row["p_under"] - nv_u, 4)
+                    dec_over = american_to_decimal(_to_float_odds(m["over"])) if pd.notna(m.get("over")) else None
+                    dec_under = american_to_decimal(_to_float_odds(m["under"])) if pd.notna(m.get("under")) else None
+                    if dec_over is not None and dec_under is not None:
+                        imp_o = decimal_to_implied_prob(dec_over)
+                        imp_u = decimal_to_implied_prob(dec_under)
+                        nv_o, nv_u = remove_vig_two_way(imp_o, imp_u)
+                        row["ev_over"] = round(ev_unit(row["p_over"], dec_over), 4)
+                        row["ev_under"] = round(ev_unit(row["p_under"], dec_under), 4)
+                        row["edge_over"] = round(row["p_over"] - nv_o, 4)
+                        row["edge_under"] = round(row["p_under"] - nv_u, 4)
                     try:
-                        row["over_odds"] = float(m.get("over")) if pd.notna(m.get("over")) else None
+                        row["over_odds"] = _to_float_odds(m.get("over")) if pd.notna(m.get("over")) else None
                     except Exception:
                         row["over_odds"] = None
                     try:
-                        row["under_odds"] = float(m.get("under")) if pd.notna(m.get("under")) else None
+                        row["under_odds"] = _to_float_odds(m.get("under")) if pd.notna(m.get("under")) else None
                     except Exception:
                         row["under_odds"] = None
                     if "over_book" in m and pd.notna(m.get("over_book")):
@@ -473,21 +503,22 @@ def predict_core(
                         row["stake_under"] = round(kelly_stake(row["p_under"], dec_under, bankroll, kelly_fraction_part), 2)
                 # Puck line EVs (assume home -1.5 / away +1.5 two-way)
                 if all(k in m for k in ["home_pl_-1.5", "away_pl_+1.5"]):
-                    dec_hpl = american_to_decimal(float(m["home_pl_-1.5"]))
-                    dec_apl = american_to_decimal(float(m["away_pl_+1.5"]))
-                    imp_hpl = decimal_to_implied_prob(dec_hpl)
-                    imp_apl = decimal_to_implied_prob(dec_apl)
-                    nv_hpl, nv_apl = remove_vig_two_way(imp_hpl, imp_apl)
-                    row["ev_home_pl_-1.5"] = round(ev_unit(row["p_home_pl_-1.5"], dec_hpl), 4)
-                    row["ev_away_pl_+1.5"] = round(ev_unit(row["p_away_pl_+1.5"], dec_apl), 4)
-                    row["edge_home_pl_-1.5"] = round(row["p_home_pl_-1.5"] - nv_hpl, 4)
-                    row["edge_away_pl_+1.5"] = round(row["p_away_pl_+1.5"] - nv_apl, 4)
+                    dec_hpl = american_to_decimal(_to_float_odds(m["home_pl_-1.5"])) if pd.notna(m.get("home_pl_-1.5")) else None
+                    dec_apl = american_to_decimal(_to_float_odds(m["away_pl_+1.5"])) if pd.notna(m.get("away_pl_+1.5")) else None
+                    if dec_hpl is not None and dec_apl is not None:
+                        imp_hpl = decimal_to_implied_prob(dec_hpl)
+                        imp_apl = decimal_to_implied_prob(dec_apl)
+                        nv_hpl, nv_apl = remove_vig_two_way(imp_hpl, imp_apl)
+                        row["ev_home_pl_-1.5"] = round(ev_unit(row["p_home_pl_-1.5"], dec_hpl), 4)
+                        row["ev_away_pl_+1.5"] = round(ev_unit(row["p_away_pl_+1.5"], dec_apl), 4)
+                        row["edge_home_pl_-1.5"] = round(row["p_home_pl_-1.5"] - nv_hpl, 4)
+                        row["edge_away_pl_+1.5"] = round(row["p_away_pl_+1.5"] - nv_apl, 4)
                     try:
-                        row["home_pl_-1.5_odds"] = float(m.get("home_pl_-1.5")) if pd.notna(m.get("home_pl_-1.5")) else None
+                        row["home_pl_-1.5_odds"] = _to_float_odds(m.get("home_pl_-1.5")) if pd.notna(m.get("home_pl_-1.5")) else None
                     except Exception:
                         row["home_pl_-1.5_odds"] = None
                     try:
-                        row["away_pl_+1.5_odds"] = float(m.get("away_pl_+1.5")) if pd.notna(m.get("away_pl_+1.5")) else None
+                        row["away_pl_+1.5_odds"] = _to_float_odds(m.get("away_pl_+1.5")) if pd.notna(m.get("away_pl_+1.5")) else None
                     except Exception:
                         row["away_pl_+1.5_odds"] = None
                     if "home_pl_-1.5_book" in m and pd.notna(m.get("home_pl_-1.5_book")):
@@ -675,6 +706,30 @@ def odds_fetch_bovada(
     print(df.head())
     print("Saved Bovada odds to", out_path)
 
+
+@app.command()
+def daily_update(days_ahead: int = typer.Option(2, help="How many days ahead to update (including today)")):
+    """Refresh predictions with odds for today (+N days).
+
+    Tries Bovada, then The Odds API (preferring DraftKings), then ensures a predictions CSV exists.
+    """
+    from datetime import datetime, timedelta, timezone
+    base = datetime.now(timezone.utc)
+    for i in range(0, max(1, days_ahead)):
+        d = (base + timedelta(days=i)).strftime("%Y-%m-%d")
+        snapshot = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        try:
+            predict_core(date=d, source="web", odds_source="bovada", snapshot=snapshot, odds_best=True)
+        except Exception:
+            pass
+        try:
+            predict_core(date=d, source="web", odds_source="oddsapi", snapshot=snapshot, odds_best=False, odds_bookmaker="draftkings")
+        except Exception:
+            pass
+        try:
+            predict_core(date=d, source="web", odds_source="csv")
+        except Exception:
+            pass
 
 @app.command()
 def props_fetch_bovada(

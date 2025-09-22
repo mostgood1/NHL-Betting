@@ -88,6 +88,13 @@ class BovadaClient:
     @staticmethod
     def _collect_markets(ev: Dict) -> Dict[str, any]:
         out: Dict[str, any] = {}
+        def _norm_american(v):
+            if v is None:
+                return None
+            s = str(v).strip().upper()
+            if s in ("EVEN", "EV", "E"):
+                return "+100"
+            return s
         dgs = ev.get("displayGroups") or []
         for dg in dgs:
             markets = dg.get("markets") or []
@@ -99,7 +106,7 @@ class BovadaClient:
                     for oc in outcomes:
                         name = (oc.get("description") or oc.get("name") or "").strip()
                         price = oc.get("price") or {}
-                        american = price.get("american")
+                        american = _norm_american(price.get("american"))
                         if not american:
                             continue
                         out[f"ml::{name}"] = american
@@ -108,19 +115,27 @@ class BovadaClient:
                     for oc in outcomes:
                         ocdesc = (oc.get("description") or oc.get("name") or "").strip()
                         price = oc.get("price") or {}
-                        american = price.get("american")
-                        point = oc.get("handicap")
+                        american = _norm_american(price.get("american"))
+                        # Bovada sometimes places the handicap on the price object
+                        point = oc.get("handicap") if oc.get("handicap") is not None else price.get("handicap")
                         if ocdesc.lower() in ("over", "under"):
                             out[f"tot::{ocdesc}"] = american
-                            out["tot::point"] = point
+                            # Preserve the first discovered total point
+                            if point is not None and out.get("tot::point") is None:
+                                try:
+                                    out["tot::point"] = float(point)
+                                except Exception:
+                                    out["tot::point"] = point
                 # Puckline / Spread
                 if any(k in mdesc for k in ["puck line", "puckline", "spread"]):
                     for oc in outcomes:
                         ocname = (oc.get("description") or oc.get("name") or "").strip()
                         price = oc.get("price") or {}
-                        american = price.get("american")
+                        american = _norm_american(price.get("american"))
                         try:
-                            pt = float(oc.get("handicap"))
+                            # Handicap may be on the price object
+                            hcap = oc.get("handicap") if oc.get("handicap") is not None else price.get("handicap")
+                            pt = float(hcap)
                         except Exception:
                             pt = None
                         if american and pt is not None and abs(pt) == 1.5:

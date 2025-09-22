@@ -18,6 +18,7 @@ from ..data.nhl_api import NHLClient as NHLStatsClient
 from .teams import get_team_assets
 from ..cli import predict_core, fetch as cli_fetch, train as cli_train
 import asyncio
+from ..data.bovada import BovadaClient
 
 BASE_DIR = Path(__file__).resolve().parent
 TEMPLATES_DIR = BASE_DIR / "templates"
@@ -282,6 +283,127 @@ async def api_predictions(date: Optional[str] = Query(None)):
         return JSONResponse({"error": "No predictions for date", "date": date}, status_code=404)
     df = pd.read_csv(path)
     return JSONResponse(df.to_dict(orient="records"))
+
+
+@app.get("/api/debug/odds-match")
+async def api_debug_odds_match(date: Optional[str] = Query(None)):
+    """Debug endpoint: for each game on date, show how Bovada odds would match and what prices were found."""
+    date = date or _today_ymd()
+    path = PROC_DIR / f"predictions_{date}.csv"
+    if not path.exists():
+        return JSONResponse({"error": "No predictions for date", "date": date}, status_code=404)
+    df = pd.read_csv(path)
+    if df.empty:
+        return JSONResponse({"error": "Empty predictions file", "date": date}, status_code=400)
+    # Fetch fresh Bovada odds
+    try:
+        bc = BovadaClient()
+        odds = bc.fetch_game_odds(date)
+        if odds is None:
+            odds = pd.DataFrame()
+    except Exception:
+        odds = pd.DataFrame()
+    def norm_team(s: str) -> str:
+        import re, unicodedata
+        if s is None:
+            return ""
+        s = str(s)
+        s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode()
+        s = s.lower()
+        s = re.sub(r"[^a-z0-9]+", "", s)
+        return s
+    # Prepare odds matching keys
+    if not odds.empty:
+        odds["date"] = pd.to_datetime(odds["date"], errors="coerce").dt.strftime("%Y-%m-%d")
+        odds["home_norm"] = odds["home"].apply(norm_team)
+        odds["away_norm"] = odds["away"].apply(norm_team)
+        try:
+            from .teams import get_team_assets as _assets
+            def to_abbr(x):
+                try:
+                    return (_assets(str(x)).get("abbr") or "").upper()
+                except Exception:
+                    return ""
+            odds["home_abbr"] = odds["home"].apply(to_abbr)
+            odds["away_abbr"] = odds["away"].apply(to_abbr)
+        except Exception:
+            odds["home_abbr"] = ""
+            odds["away_abbr"] = ""
+    out = []
+    for _, r in df.iterrows():
+        gh = str(r.get("home"))
+        ga = str(r.get("away"))
+        key_date = pd.to_datetime(r.get("date")).strftime("%Y-%m-%d") if pd.notna(r.get("date")) else date
+        gh_n = norm_team(gh)
+        ga_n = norm_team(ga)
+        try:
+            from .teams import get_team_assets as _assets
+            gh_ab = (_assets(gh).get("abbr") or "").upper()
+            ga_ab = (_assets(ga).get("abbr") or "").upper()
+        except Exception:
+            gh_ab = ""; ga_ab = ""
+        status = "none"
+        found = None
+        if odds.empty:
+            status = "no-odds-df"
+        else:
+            m = pd.DataFrame()
+            # Try abbr+date
+            if gh_ab and ga_ab and {"home_abbr","away_abbr"}.issubset(set(odds.columns)):
+                m = odds[(odds["date"] == key_date) & (odds["home_abbr"] == gh_ab) & (odds["away_abbr"] == ga_ab)]
+                if not m.empty:
+                    status = "date_abbr"
+            # Try names+date
+            if m.empty:
+                m = odds[(odds["date"] == key_date) & (odds["home_norm"] == gh_n) & (odds["away_norm"] == ga_n)]
+                if not m.empty:
+                    status = "date_names"
+            # Try abbr-only
+            if m.empty and gh_ab and ga_ab and {"home_abbr","away_abbr"}.issubset(set(odds.columns)):
+                m = odds[(odds["home_abbr"] == gh_ab) & (odds["away_abbr"] == ga_ab)]
+                if not m.empty:
+                    status = "abbr_only"
+            # Try names-only
+            if m.empty:
+                m = odds[(odds["home_norm"] == gh_n) & (odds["away_norm"] == ga_n)]
+                if not m.empty:
+                    status = "names_only"
+            # Try reversed
+            if m.empty:
+                if gh_ab and ga_ab and {"home_abbr","away_abbr"}.issubset(set(odds.columns)):
+                    m = odds[(odds["home_abbr"] == ga_ab) & (odds["away_abbr"] == gh_ab)]
+                    if not m.empty:
+                        status = "reversed_abbr"
+                if m.empty:
+                    m = odds[(odds["home_norm"] == ga_n) & (odds["away_norm"] == gh_n)]
+                    if not m.empty:
+                        status = "reversed_names"
+            if not m.empty:
+                row = m.iloc[0]
+                found = {
+                    "date": row.get("date"),
+                    "home": row.get("home"),
+                    "away": row.get("away"),
+                    "home_ml": row.get("home_ml"),
+                    "away_ml": row.get("away_ml"),
+                    "over": row.get("over"),
+                    "under": row.get("under"),
+                    "total_line": row.get("total_line"),
+                    "home_pl_-1.5": row.get("home_pl_-1.5"),
+                    "away_pl_+1.5": row.get("away_pl_+1.5"),
+                }
+        out.append({
+            "game_date": key_date,
+            "home": gh,
+            "away": ga,
+            "match": status,
+            "found": found,
+            "home_abbr": gh_ab,
+            "away_abbr": ga_ab,
+            "home_norm": gh_n,
+            "away_norm": ga_n,
+        })
+    return JSONResponse(out)
 
 @app.get("/api/props")
 async def api_props(

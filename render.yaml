@@ -13,4 +13,6 @@ services:
         sync: false
       - key: PYTHON_VERSION
         value: 3.11.9
+      - key: NIXPACKS_PYTHON_VERSION
+        value: 3.11.9
     autoDeploy: true

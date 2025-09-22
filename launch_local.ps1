@@ -8,7 +8,7 @@ $ErrorActionPreference = "Stop"
 
 $Inner = Join-Path $PSScriptRoot "scripts/launch_local.ps1"
 if (-not (Test-Path $Inner)) {
-    Write-Error "Inner launcher not found: $Inner"
+    Write-Error ("Inner launcher not found: {0}" -f $Inner)
     exit 1
 }
 

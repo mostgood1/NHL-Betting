@@ -10,7 +10,7 @@ $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot = Split-Path -Parent $ScriptDir
 
-Write-Host "Repo root: $RepoRoot"
+Write-Host ("Repo root: {0}" -f $RepoRoot)
 
 # Ensure venv exists
 $VenvPath = Join-Path $RepoRoot ".venv"
@@ -32,10 +32,10 @@ if (Test-Path $Req) {
 }
 
 # Export app envs (optional)
-$env:PYTHONPATH = $RepoRoot
+${env:PYTHONPATH} = $RepoRoot
 
 # Build the uvicorn args
-$UvicornArgs = @("nhl_betting.web.app:app", "--host", $HostAddress, "--port", "$Port")
+$UvicornArgs = @('nhl_betting.web.app:app', '--host', $HostAddress, '--port', "$Port")
 if (-not $NoReload) {
     $UvicornArgs += "--reload"
 }
@@ -46,5 +46,5 @@ if (-not (Test-Path $PythonExe)) {
     $PythonExe = "python"
 }
 
-Write-Host "Starting server at http://${HostAddress}:${Port}" -ForegroundColor Green
+Write-Host ("Starting server at http://{0}:{1}" -f $HostAddress, $Port) -ForegroundColor Green
 & $PythonExe -m uvicorn @UvicornArgs

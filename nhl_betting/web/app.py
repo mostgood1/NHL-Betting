@@ -88,24 +88,51 @@ async def _bootstrap_models_if_missing():
         pass
 
 
+async def _ensure_models(quick: bool = False) -> None:
+    """
+    Ensure Elo ratings and config exist. If missing, fetch schedule and train.
+    Tries multiple sources to avoid preseason/offseason gaps.
+    quick=True limits to ~1 season for speed; otherwise ~2 seasons.
+    """
+    try:
+        ratings_path = _MODEL_DIR / "elo_ratings.json"
+        cfg_path = _MODEL_DIR / "config.json"
+        if ratings_path.exists() and cfg_path.exists():
+            return
+        now = datetime.now(timezone.utc)
+        if quick:
+            start = f"{now.year-1}-09-01"
+            end = f"{now.year}-08-01"
+        else:
+            start = f"{now.year-2}-09-01"
+            end = f"{now.year}-08-01"
+        # Try WEB source first
+        try:
+            await asyncio.to_thread(cli_fetch, start, end, "web")
+        except Exception:
+            pass
+        # If RAW games seems empty or ratings still missing after training, try STATS as fallback
+        try:
+            await asyncio.to_thread(cli_train)
+        except Exception:
+            pass
+        if not ratings_path.exists() or not cfg_path.exists():
+            try:
+                await asyncio.to_thread(cli_fetch, start, end, "stats")
+                await asyncio.to_thread(cli_train)
+            except Exception:
+                pass
+    except Exception:
+        # Silent failure; callers may try again
+        pass
+
 @app.get("/")
 async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD")):
     date = date or _today_ymd()
     note_msg = None
     # Ensure models exist (Elo/config); if missing, do a quick bootstrap inline
     try:
-        ratings_path = _MODEL_DIR / "elo_ratings.json"
-        cfg_path = _MODEL_DIR / "config.json"
-        if not ratings_path.exists() or not cfg_path.exists():
-            # Build a one-season window to be faster
-            now = datetime.now(timezone.utc)
-            start = f"{now.year-1}-09-01"
-            end = f"{now.year}-08-01"
-            try:
-                await asyncio.to_thread(cli_fetch, start, end, "web")
-                await asyncio.to_thread(cli_train)
-            except Exception:
-                pass
+        await _ensure_models(quick=True)
     except Exception:
         pass
     # Ensure we have predictions for the date; run inline if missing
@@ -330,17 +357,7 @@ async def api_refresh_odds(
         snapshot = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     # Ensure models exist (Elo/config)
     try:
-        ratings_path = _MODEL_DIR / "elo_ratings.json"
-        cfg_path = _MODEL_DIR / "config.json"
-        if not ratings_path.exists() or not cfg_path.exists():
-            now = datetime.now(timezone.utc)
-            start = f"{now.year-1}-09-01"
-            end = f"{now.year}-08-01"
-            try:
-                await asyncio.to_thread(cli_fetch, start, end, "web")
-                await asyncio.to_thread(cli_train)
-            except Exception:
-                pass
+        await _ensure_models(quick=True)
     except Exception:
         pass
     # Try Bovada first; fall back to Odds API if no odds
@@ -401,7 +418,50 @@ async def api_refresh_odds(
         else:
             return {"status": "ok", "date": date, "snapshot": snapshot, "bankroll": bankroll, "kelly_fraction_part": kelly_fraction_part}
     except Exception:
-        return JSONResponse({"status": "partial", "message": "Failed to create predictions file.", "date": date}, status_code=200)
+        # Improve diagnostics: indicate whether model files exist
+        try:
+            exist = {
+                "elo": (_MODEL_DIR / "elo_ratings.json").exists(),
+                "config": (_MODEL_DIR / "config.json").exists(),
+            }
+        except Exception:
+            exist = {"elo": False, "config": False}
+        return JSONResponse({"status": "partial", "message": "Failed to create predictions file.", "date": date, "models_present": exist}, status_code=200)
+
+
+@app.get("/api/debug/status")
+async def api_debug_status(date: Optional[str] = Query(None)):
+    """Lightweight debug endpoint to inspect presence of model/data files and sizes."""
+    date = date or _today_ymd()
+    items = {}
+    try:
+        items["models"] = {
+            "elo_path": str((_MODEL_DIR / "elo_ratings.json").resolve()),
+            "elo_exists": (_MODEL_DIR / "elo_ratings.json").exists(),
+            "config_path": str((_MODEL_DIR / "config.json").resolve()),
+            "config_exists": (_MODEL_DIR / "config.json").exists(),
+        }
+    except Exception:
+        items["models"] = {"elo_exists": False, "config_exists": False}
+    try:
+        raw_games = RAW_DIR / "games.csv"
+        items["raw_games"] = {
+            "path": str(raw_games.resolve()),
+            "exists": raw_games.exists(),
+            "size": raw_games.stat().st_size if raw_games.exists() else 0,
+        }
+    except Exception:
+        items["raw_games"] = {"exists": False}
+    try:
+        pred = PROC_DIR / f"predictions_{date}.csv"
+        items["predictions"] = {
+            "path": str(pred.resolve()),
+            "exists": pred.exists(),
+            "size": pred.stat().st_size if pred.exists() else 0,
+        }
+    except Exception:
+        items["predictions"] = {"exists": False}
+    return JSONResponse(items)
 
 
 @app.get("/api/recommendations")

@@ -34,8 +34,12 @@ env/
 .vscode/
 
 # Data
+# Ignore all by default
 data/**
 !data/.gitkeep
+# But include trained models and processed outputs so Render has the same data
+!data/models/**
+!data/processed/**
 
 # OS files
 Thumbs.db

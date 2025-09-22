@@ -7,8 +7,11 @@ from typing import Dict, List, Optional, Tuple
 import pandas as pd
 import requests
 
-
-BASE = "https://www.bovada.lv/services/sports/event/coupon/events/A/description/ice-hockey/nhl"
+BASE_PREFIX = "https://www.bovada.lv/services/sports/event/coupon/events/A/description"
+SPORT_PATHS = [
+    "ice-hockey/nhl",
+    "ice-hockey/nhl-preseason",
+]
 
 
 class BovadaClient:
@@ -16,11 +19,20 @@ class BovadaClient:
         self.sleep = 1.0 / rate_limit_per_sec
         self.timeout = timeout
 
-    def _get(self, params: Dict) -> List[Dict]:
+    def _get(self, url: str, params: Dict) -> List[Dict]:
         time.sleep(self.sleep)
-        r = requests.get(BASE, params=params, timeout=self.timeout)
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+            "Accept": "application/json, text/plain, */*",
+            "Accept-Language": "en-US,en;q=0.9",
+        }
+        r = requests.get(url, params=params, headers=headers, timeout=self.timeout)
         r.raise_for_status()
-        return r.json() or []
+        try:
+            return r.json() or []
+        except Exception:
+            # Bovada sometimes returns HTML (e.g., Cloudflare); treat as no data
+            return []
 
     def fetch_events(self, pre_match_only: bool = True, market_filter: str = "def") -> List[Dict]:
         params = {
@@ -28,7 +40,17 @@ class BovadaClient:
             "lang": "en",
             "marketFilterId": market_filter,
         }
-        return self._get(params)
+        all_groups: List[Dict] = []
+        for path in SPORT_PATHS:
+            url = f"{BASE_PREFIX}/{path}"
+            try:
+                groups = self._get(url, params)
+                if groups:
+                    all_groups.extend(groups)
+            except Exception:
+                # Ignore path-specific failures
+                continue
+        return all_groups
 
     @staticmethod
     def _ms_to_iso(ms: int) -> str:
@@ -102,7 +124,10 @@ class BovadaClient:
 
     def fetch_game_odds(self, date: str) -> pd.DataFrame:
         # Fetch default markets and filter by date
+        # Try default markets; if empty, fall back to 'all' to broaden
         events = self.fetch_events(pre_match_only=True, market_filter="def")
+        if not events:
+            events = self.fetch_events(pre_match_only=True, market_filter="all")
         rows: List[Dict] = []
         y, m, d = date.split("-")
         for group in events:

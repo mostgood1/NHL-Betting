@@ -1,0 +1,15 @@
+date,home,away,market,ev
+2024-03-02T00:00:00Z,Washington Capitals,Philadelphia Flyers,ev_home_ml,0.3129
+2024-03-02T03:00:00Z,Anaheim Ducks,New Jersey Devils,ev_home_ml,0.3002
+2024-03-02T03:00:00Z,Anaheim Ducks,New Jersey Devils,ev_under,0.1878
+2024-03-02T00:00:00Z,Ottawa Senators,Arizona Coyotes,ev_away_pl_+1.5,0.1808
+2024-03-02T00:00:00Z,Ottawa Senators,Arizona Coyotes,ev_under,0.1595
+2024-03-02T00:00:00Z,Ottawa Senators,Arizona Coyotes,ev_away_ml,0.0321
+2024-03-02T00:00:00Z,Ottawa Senators,Arizona Coyotes,ev_home_ml,-0.0376
+2024-03-02T03:00:00Z,Anaheim Ducks,New Jersey Devils,ev_away_ml,-0.1589
+2024-03-02T00:00:00Z,Washington Capitals,Philadelphia Flyers,ev_over,-0.1631
+2024-03-02T00:00:00Z,Ottawa Senators,Arizona Coyotes,ev_over,-0.1741
+2024-03-02T03:00:00Z,Anaheim Ducks,New Jersey Devils,ev_over,-0.2008
+2024-03-02T00:00:00Z,Washington Capitals,Philadelphia Flyers,ev_under,-0.2181
+2024-03-02T00:00:00Z,Ottawa Senators,Arizona Coyotes,ev_home_pl_-1.5,-0.2625
+2024-03-02T00:00:00Z,Washington Capitals,Philadelphia Flyers,ev_away_ml,-0.2992

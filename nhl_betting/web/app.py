@@ -14,6 +14,7 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from ..utils.io import RAW_DIR, PROC_DIR
 from ..utils.io import MODEL_DIR as _MODEL_DIR
 from ..data.nhl_api_web import NHLWebClient
+from ..data.nhl_api import NHLClient as NHLStatsClient
 from .teams import get_team_assets
 from ..cli import predict_core, fetch as cli_fetch, train as cli_train
 import asyncio
@@ -142,7 +143,24 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
                 df = pd.read_csv(pred_path)
             except Exception:
                 pass
-    # If no games for requested date, try to find the next available slate within 10 days
+    # If no games for requested date, first try alternate schedule source, then try to find the next available slate within 10 days
+    if df.empty:
+        # Try using the NHL stats API as an alternate source for schedule
+        try:
+            # If stats API has games, generate predictions using that source
+            stats_client = NHLStatsClient()
+            stats_games = stats_client.schedule(date, date)
+            if stats_games:
+                snapshot = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+                try:
+                    predict_core(date=date, source="stats", odds_source="oddsapi", snapshot=snapshot, odds_best=False, odds_bookmaker="draftkings")
+                    df_alt = pd.read_csv(PROC_DIR / f"predictions_{date}.csv")
+                    if not df_alt.empty:
+                        df = df_alt
+                except Exception:
+                    pass
+        except Exception:
+            pass
     if df.empty:
         try:
             client = NHLWebClient()

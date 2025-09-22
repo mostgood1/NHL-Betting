@@ -128,6 +128,12 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
                     predict_core(date=date, source="web", odds_source="oddsapi", snapshot=snapshot, odds_best=False, odds_bookmaker="draftkings")
                 except Exception:
                     pass
+        # If file still doesn't exist, at least generate predictions without odds
+        if not pred_path.exists():
+            try:
+                predict_core(date=date, source="web", odds_source="csv")
+            except Exception:
+                pass
     df = pd.read_csv(pred_path) if pred_path.exists() else pd.DataFrame()
     # If predictions exist but odds are missing, try Bovada then Odds API to populate
     if pred_path.exists() and not _has_any_odds_df(df):
@@ -197,6 +203,22 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
                             note_msg = f"No games on {date}. Showing next slate on {d2}."
                             date = d2
                             break
+                    # If odds pipeline failed to produce a file, just generate without odds
+                    if not alt_path.exists():
+                        try:
+                            predict_core(date=d2, source="web", odds_source="csv")
+                        except Exception:
+                            pass
+                        if alt_path.exists():
+                            try:
+                                df2 = pd.read_csv(alt_path)
+                            except Exception:
+                                df2 = pd.DataFrame()
+                            if not df2.empty:
+                                df = df2
+                                note_msg = f"No games on {date}. Showing next slate on {d2}."
+                                date = d2
+                                break
         except Exception:
             pass
     rows = df.to_dict(orient="records") if not df.empty else []
@@ -306,6 +328,21 @@ async def api_refresh_odds(
     date = date or _today_ymd()
     if not snapshot:
         snapshot = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    # Ensure models exist (Elo/config)
+    try:
+        ratings_path = _MODEL_DIR / "elo_ratings.json"
+        cfg_path = _MODEL_DIR / "config.json"
+        if not ratings_path.exists() or not cfg_path.exists():
+            now = datetime.now(timezone.utc)
+            start = f"{now.year-1}-09-01"
+            end = f"{now.year}-08-01"
+            try:
+                await asyncio.to_thread(cli_fetch, start, end, "web")
+                await asyncio.to_thread(cli_train)
+            except Exception:
+                pass
+    except Exception:
+        pass
     # Try Bovada first; fall back to Odds API if no odds
     try:
         predict_core(
@@ -338,8 +375,33 @@ async def api_refresh_odds(
             )
         except Exception as e:
             # Return ok even if odds fallback fails; frontend will still render predictions
-            return JSONResponse({"status": "partial", "message": "Bovada failed and Odds API fallback failed; predictions updated without odds.", "date": date}, status_code=200)
-    return {"status": "ok", "date": date, "snapshot": snapshot, "bankroll": bankroll, "kelly_fraction_part": kelly_fraction_part}
+            pass
+    # Ensure we have at least a predictions CSV (even without odds)
+    pred_path = PROC_DIR / f"predictions_{date}.csv"
+    if not pred_path.exists():
+        try:
+            predict_core(date=date, source="web", odds_source="csv")
+        except Exception:
+            pass
+    # If still no file or empty, try using stats API as schedule source
+    try:
+        df = pd.read_csv(pred_path) if pred_path.exists() else pd.DataFrame()
+    except Exception:
+        df = pd.DataFrame()
+    if df.empty:
+        try:
+            predict_core(date=date, source="stats", odds_source="csv")
+        except Exception:
+            pass
+    # Final status
+    try:
+        df2 = pd.read_csv(PROC_DIR / f"predictions_{date}.csv")
+        if df2.empty:
+            return JSONResponse({"status": "partial", "message": "No odds available and no games found for date; created empty predictions.", "date": date}, status_code=200)
+        else:
+            return {"status": "ok", "date": date, "snapshot": snapshot, "bankroll": bankroll, "kelly_fraction_part": kelly_fraction_part}
+    except Exception:
+        return JSONResponse({"status": "partial", "message": "Failed to create predictions file.", "date": date}, status_code=200)
 
 
 @app.get("/api/recommendations")

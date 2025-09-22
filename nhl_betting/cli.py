@@ -259,6 +259,19 @@ def predict_core(
                 df["date"] = pd.to_datetime(df["date"], errors="coerce").dt.strftime("%Y-%m-%d")
                 df["home_norm"] = df["home"].apply(norm_team)
                 df["away_norm"] = df["away"].apply(norm_team)
+                # Map to NHL abbreviations for robust matching (handles 'LA Kings' vs 'Los Angeles Kings')
+                try:
+                    from .web.teams import get_team_assets as _assets
+                    def to_abbr(x):
+                        try:
+                            return (_assets(str(x)).get("abbr") or "").upper()
+                        except Exception:
+                            return ""
+                    df["home_abbr"] = df["home"].apply(to_abbr)
+                    df["away_abbr"] = df["away"].apply(to_abbr)
+                except Exception:
+                    df["home_abbr"] = ""
+                    df["away_abbr"] = ""
                 odds_df = df.copy()
         except Exception as e:
             print("Failed to fetch odds from Bovada:", e)
@@ -280,14 +293,32 @@ def predict_core(
             key_date = pd.to_datetime(g.gameDate).strftime("%Y-%m-%d")
             g_home_n = norm_team(g.home)
             g_away_n = norm_team(g.away)
+            # Also derive team abbreviations for robust matching
+            try:
+                from .web.teams import get_team_assets as _assets
+                g_home_abbr = (_assets(g.home).get("abbr") or "").upper()
+                g_away_abbr = (_assets(g.away).get("abbr") or "").upper()
+            except Exception:
+                g_home_abbr = ""
+                g_away_abbr = ""
             # Try exact date+team match
-            m = odds_df[(odds_df["date"] == key_date) & (odds_df["home_norm"] == g_home_n) & (odds_df["away_norm"] == g_away_n)]
+            m = pd.DataFrame()
+            if {"home_abbr","away_abbr"}.issubset(set(odds_df.columns)) and g_home_abbr and g_away_abbr:
+                m = odds_df[(odds_df["date"] == key_date) & (odds_df["home_abbr"] == g_home_abbr) & (odds_df["away_abbr"] == g_away_abbr)]
+            if m.empty:
+                m = odds_df[(odds_df["date"] == key_date) & (odds_df["home_norm"] == g_home_n) & (odds_df["away_norm"] == g_away_n)]
             if m.empty:
                 # Fallback: team-only
-                m = odds_df[(odds_df["home_norm"] == g_home_n) & (odds_df["away_norm"] == g_away_n)]
+                if {"home_abbr","away_abbr"}.issubset(set(odds_df.columns)) and g_home_abbr and g_away_abbr:
+                    m = odds_df[(odds_df["home_abbr"] == g_home_abbr) & (odds_df["away_abbr"] == g_away_abbr)]
+                if m.empty:
+                    m = odds_df[(odds_df["home_norm"] == g_home_n) & (odds_df["away_norm"] == g_away_n)]
             if m.empty:
                 # Fallback: reversed sides
-                m = odds_df[(odds_df["home_norm"] == g_away_n) & (odds_df["away_norm"] == g_home_n)]
+                if {"home_abbr","away_abbr"}.issubset(set(odds_df.columns)) and g_home_abbr and g_away_abbr:
+                    m = odds_df[(odds_df["home_abbr"] == g_away_abbr) & (odds_df["away_abbr"] == g_home_abbr)]
+                if m.empty:
+                    m = odds_df[(odds_df["home_norm"] == g_away_n) & (odds_df["away_norm"] == g_home_n)]
             if not m.empty and "total_line" in m.columns:
                 val = m.iloc[0].get("total_line")
                 try:

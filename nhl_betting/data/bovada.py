@@ -9,8 +9,8 @@ import requests
 
 BASE_PREFIX = "https://www.bovada.lv/services/sports/event/coupon/events/A/description"
 SPORT_PATHS = [
-    "ice-hockey/nhl",
-    "ice-hockey/nhl-preseason",
+    "hockey/nhl",
+    "hockey/nhl-preseason",
 ]
 
 
@@ -19,13 +19,16 @@ class BovadaClient:
         self.sleep = 1.0 / rate_limit_per_sec
         self.timeout = timeout
 
-    def _get(self, url: str, params: Dict) -> List[Dict]:
+    def _get(self, url: str, params: Dict, referer: Optional[str] = None) -> List[Dict]:
         time.sleep(self.sleep)
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
             "Accept": "application/json, text/plain, */*",
             "Accept-Language": "en-US,en;q=0.9",
+            "Origin": "https://www.bovada.lv",
         }
+        if referer:
+            headers["Referer"] = referer
         r = requests.get(url, params=params, headers=headers, timeout=self.timeout)
         r.raise_for_status()
         try:
@@ -39,12 +42,14 @@ class BovadaClient:
             "preMatchOnly": "true" if pre_match_only else "false",
             "lang": "en",
             "marketFilterId": market_filter,
+            "eventsLimit": 200,
         }
         all_groups: List[Dict] = []
         for path in SPORT_PATHS:
             url = f"{BASE_PREFIX}/{path}"
             try:
-                groups = self._get(url, params)
+                referer = f"https://www.bovada.lv/sports/{path}"
+                groups = self._get(url, params, referer=referer)
                 if groups:
                     all_groups.extend(groups)
             except Exception:
@@ -123,13 +128,11 @@ class BovadaClient:
         return out
 
     def fetch_game_odds(self, date: str) -> pd.DataFrame:
-        # Fetch default markets and filter by date
-        # Try default markets; if empty, fall back to 'all' to broaden
+        # Fetch default markets; if empty, fall back to 'all' to broaden
         events = self.fetch_events(pre_match_only=True, market_filter="def")
         if not events:
             events = self.fetch_events(pre_match_only=True, market_filter="all")
         rows: List[Dict] = []
-        y, m, d = date.split("-")
         for group in events:
             evs = group.get("events") or []
             for ev in evs:
@@ -142,8 +145,6 @@ class BovadaClient:
                         date_key = dt.strftime("%Y-%m-%d")
                 except Exception:
                     pass
-                if date_key != date:
-                    continue
                 home, away = self._event_teams(ev)
                 if not home or not away:
                     continue

@@ -32,7 +32,8 @@
     {% else %}
       <div class="cards">
         {% for r in rows %}
-          <div class="card" data-game-date="{{ r.date }}">
+          {% set has_any_odds = (r.get('home_ml_odds') is not none) or (r.get('away_ml_odds') is not none) or (r.get('over_odds') is not none) or (r.get('under_odds') is not none) or (r.get('home_pl_-1.5_odds') is not none) or (r.get('away_pl_+1.5_odds') is not none) %}
+          <div class="card" data-game-date="{{ r.date }}" data-has-odds="{{ 1 if has_any_odds else 0 }}">
             <div class="row head">
               <div class="game-date">{{ r.local_time if r.local_time else r.date }}</div>
               {% if r.venue %}<div class="venue">{{ r.venue }}</div>{% endif %}
@@ -112,6 +113,9 @@
                 <span class="book-badge" title="{{ r['home_pl_-1.5_book'] if r['home_pl_-1.5_book'] else 'DraftKings' }}">{{ (r['home_pl_-1.5_book'] or 'draftkings')[:2]|upper }}</span>
                 {% if ev_hpl is not none %}<span class="ev-badge {{ 'pos' if ev_hpl > 0 else ('neg' if ev_hpl < 0 else 'neu') }}">EV {{ '%.3f' % ev_hpl }}</span>{% endif %}
               </div>
+              {% if not has_any_odds %}
+              <div class="chip neutral">No odds available yet</div>
+              {% endif %}
             </div>
             <div class="row details">
               <div class="detail-col">
@@ -184,6 +188,11 @@
     } catch (e) {}
     return null;
   }
+  function anyOddsPresent() {
+    const cards = Array.from(document.querySelectorAll('.card[data-has-odds]'));
+    if (!cards.length) return false;
+    return cards.some(el => el.getAttribute('data-has-odds') === '1');
+  }
 
   function computeGameWindow() {
     const times = Array.from(document.querySelectorAll('.card[data-game-date]'))
@@ -215,7 +224,20 @@
   }
 
   // Initialize
-  updateLastUpdated().then(v => { lastVal = v; });
+  updateLastUpdated().then(async (v) => {
+    lastVal = v;
+    // If no odds on any card, try a one-shot background refresh now
+    if (!anyOddsPresent()) {
+      try { await refreshOdds(); } catch {}
+      // Kick a quick re-check of last-updated after 5s; if changed, reload
+      setTimeout(async () => {
+        const nv = await updateLastUpdated();
+        if (nv && lastVal && nv !== lastVal) {
+          window.location.reload();
+        }
+      }, 5000);
+    }
+  });
 
   const windowRange = computeGameWindow();
   let pollTimer = null;

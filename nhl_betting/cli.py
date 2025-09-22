@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -730,6 +731,81 @@ def daily_update(days_ahead: int = typer.Option(2, help="How many days ahead to 
             predict_core(date=d, source="web", odds_source="csv")
         except Exception:
             pass
+
+@app.command()
+def build_range(
+    start: str = typer.Option(..., help="Start date YYYY-MM-DD"),
+    end: str = typer.Option(..., help="End date YYYY-MM-DD"),
+    source: str = typer.Option("web", help="Data source for schedule: web | stats | nhlpy"),
+    bankroll: float = typer.Option(0.0, help="Bankroll for Kelly sizing; 0 disables"),
+    kelly_fraction_part: float = typer.Option(0.5, help="Kelly fraction (0-1)"),
+):
+    """Build predictions with odds for all dates with NHL games in [start, end].
+
+    Strategy per date: Bovada → The Odds API → ensure predictions exist without odds.
+    """
+    from datetime import timedelta
+    # Collect schedule once, then iterate unique dates with NHL vs NHL games
+    if source == "web":
+        client = NHLWebClient()
+        games = client.schedule_range(start, end)
+    elif source == "stats":
+        client = NHLClient()
+        games = client.schedule(start, end)
+    elif source == "nhlpy":
+        try:
+            from .data.nhl_api_nhlpy import NHLNhlPyClient  # lazy import
+        except Exception as e:
+            print("nhl-api-py adapter not available:", e)
+            raise typer.Exit(code=1)
+        client = NHLNhlPyClient()
+        games = client.schedule_range(start, end)
+    else:
+        print(f"Unknown source '{source}'. Use one of: web, stats, nhlpy")
+        raise typer.Exit(code=1)
+    # Filter to NHL teams via assets (avoid non-NHL exhibitions)
+    try:
+        from .web.teams import get_team_assets as _assets
+        games = [g for g in games if (_assets(getattr(g, 'home', '')).get('abbr') and _assets(getattr(g, 'away', '')).get('abbr'))]
+    except Exception:
+        pass
+    dates = sorted({pd.to_datetime(getattr(g, 'gameDate')).strftime('%Y-%m-%d') for g in games})
+    print(f"Found {len(dates)} dates with NHL games between {start} and {end}.")
+    for d in dates:
+        snapshot = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        print(f"\n=== Building {d} ===")
+        try:
+            predict_core(date=d, source="web", odds_source="bovada", snapshot=snapshot, odds_best=True, bankroll=bankroll, kelly_fraction_part=kelly_fraction_part)
+        except Exception as e:
+            print("Bovada step failed:", e)
+        # If no odds present, try Odds API
+        try:
+            path = PROC_DIR / f"predictions_{d}.csv"
+            df = pd.read_csv(path) if path.exists() else pd.DataFrame()
+        except Exception:
+            df = pd.DataFrame()
+        if df.empty or not any(c in df.columns and df[c].notna().any() for c in ["home_ml_odds","away_ml_odds","over_odds","under_odds"]):
+            try:
+                predict_core(date=d, source="web", odds_source="oddsapi", snapshot=snapshot, odds_best=False, odds_bookmaker="draftkings", bankroll=bankroll, kelly_fraction_part=kelly_fraction_part)
+            except Exception as e:
+                print("Odds API step failed:", e)
+        # Ensure file exists even without odds
+        try:
+            predict_core(date=d, source="web", odds_source="csv")
+        except Exception:
+            pass
+
+@app.command()
+def build_season(
+    season: int = typer.Option(..., help="Season start year, e.g., 2025"),
+    include_preseason: bool = typer.Option(True, help="Include preseason (Sep)"),
+    include_playoffs: bool = typer.Option(False, help="Include playoffs (Apr-Jun)"),
+):
+    """Build predictions across a season window (preseason + regular by default)."""
+    start = f"{season}-09-01" if include_preseason else f"{season}-10-01"
+    # End at Aug 1 next year to include entire season window safely
+    end = f"{season+1}-08-01"
+    build_range(start=start, end=end, source="web")
 
 @app.command()
 def props_fetch_bovada(

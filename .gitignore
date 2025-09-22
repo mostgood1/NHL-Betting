@@ -38,7 +38,9 @@ env/
 data/**
 !data/.gitkeep
 # But include trained models and processed outputs so Render has the same data
+!data/models/
 !data/models/**
+!data/processed/
 !data/processed/**
 
 # OS files

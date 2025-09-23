@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
 from pathlib import Path
 from typing import Optional
 
@@ -31,7 +32,34 @@ env = Environment(loader=FileSystemLoader(str(TEMPLATES_DIR)), autoescape=select
 
 
 def _today_ymd() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    """Return today's date in US/Eastern to align the slate with 'tonight'."""
+    try:
+        et = ZoneInfo("America/New_York")
+        return datetime.now(et).strftime("%Y-%m-%d")
+    except Exception:
+        # Fallback to UTC if zoneinfo not available
+        return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+
+def _iso_to_et_date(iso_utc: str) -> str:
+    """Convert an ISO UTC timestamp (e.g., 2025-09-22T23:00:00Z) to an ET YYYY-MM-DD date string."""
+    if not iso_utc:
+        return ""
+    try:
+        s = str(iso_utc).replace("Z", "+00:00")
+        dt_utc = datetime.fromisoformat(s)
+        et = ZoneInfo("America/New_York")
+        dt_et = dt_utc.astimezone(et)
+        return dt_et.strftime("%Y-%m-%d")
+    except Exception:
+        try:
+            # Best-effort fallback: treat as UTC naive
+            dt_utc = datetime.fromisoformat(str(iso_utc)[:19])
+            et = ZoneInfo("America/New_York")
+            dt_et = dt_utc.replace(tzinfo=timezone.utc).astimezone(et)
+            return dt_et.strftime("%Y-%m-%d")
+        except Exception:
+            return ""
 
 
 def _is_live_day(date: str) -> bool:
@@ -306,6 +334,18 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
             except Exception:
                 pass
     df = pd.read_csv(pred_path) if pred_path.exists() else pd.DataFrame()
+    # Also ensure neighbor-day predictions exist so late ET games (crossing UTC midnight) can be surfaced
+    try:
+        nd = (datetime.fromisoformat(date) + timedelta(days=1)).strftime("%Y-%m-%d")
+        next_path = PROC_DIR / f"predictions_{nd}.csv"
+        if not next_path.exists():
+            try:
+                # Cheapest generation to create rows; odds can be injected later
+                predict_core(date=nd, source="web", odds_source="csv")
+            except Exception:
+                pass
+    except Exception:
+        pass
     # If predictions exist but odds are missing, try Bovada then Odds API to populate
     if pred_path.exists() and not _has_any_odds_df(df) and not live_now:
         snapshot = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -352,10 +392,10 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
     if df.empty:
         try:
             client = NHLWebClient()
-            from datetime import timedelta
             base = pd.to_datetime(date)
             for i in range(1, 11):
                 d2 = (base + timedelta(days=i)).strftime("%Y-%m-%d")
+                # Load schedule for that day
                 games = client.schedule_range(d2, d2)
                 # Filter to known NHL teams using assets
                 elig = []
@@ -612,7 +652,7 @@ def _inject_bovada_odds_only(date: str) -> dict:
         except Exception:
             pass
     if odds is None or odds.empty:
-        return {"status": "no-odds"}
+        return {"status": "no-odds", "date": date}
     # Normalize matching keys
     def norm_team(s: str) -> str:
         import re, unicodedata

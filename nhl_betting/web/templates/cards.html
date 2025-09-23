@@ -14,8 +14,7 @@
     <label>Date: <input type="date" name="date" value="{{ date }}" /></label>
     <button type="submit">Apply</button>
   {% if not settled %}
-  <a class="btn" href="/api/refresh-odds?date={{ date }}">Refresh Odds</a>
-  <button type="button" id="refreshOddsBtn" class="btn" title="Fetch updated lines in the background">Refetch Lines</button>
+  <button type="button" id="refreshOddsBtn" class="btn" title="Refresh odds and recommendations in the background">Refresh Odds</button>
   {% endif %}
         <a class="btn" href="/recommendations?date={{ date }}">Recommendations</a>
         <a class="btn" href="/props">Props</a>

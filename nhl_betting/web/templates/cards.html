@@ -416,13 +416,14 @@
 
   // Engage loops only during game-time window
   function shouldAutoUpdate() {
-    try { return localStorage.getItem('autoUpdate') !== 'off'; } catch { return true; }
+    // Now opt-in: only auto update (poll + live scoreboard + odds refresh interval) if explicitly set to 'on'
+    try { return localStorage.getItem('autoUpdate') === 'on'; } catch { return false; }
   }
   function applyToggleState() {
     if (!toggleEl) return;
     toggleEl.checked = shouldAutoUpdate();
   }
-  applyToggleState();
+  applyToggleState(); // Will be unchecked unless user previously set 'on'
   // Disable the toggle visually for settled slates
   if (isSettled && toggleEl) {
     toggleEl.disabled = true;

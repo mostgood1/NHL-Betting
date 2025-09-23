@@ -16,13 +16,14 @@
     table.rec { width: 100%; border-collapse: collapse; }
     table.rec th, table.rec td { padding: 8px 10px; border-bottom: 1px solid #25316a; text-align: left; }
     .pill { display: inline-block; padding: 2px 6px; border-radius: 999px; background: #0f1530; border: 1px solid #25316a; font-size: 12px; color: #d5dbff; }
-  .ev-pos { color: #a7f3c6; font-weight: 700; }
-  .ev-neg { color: #ffd5e6; font-weight: 600; }
-  .confidence-badge { display:inline-block; padding:2px 6px; border-radius:6px; font-size:11px; font-weight:600; letter-spacing:0.5px; }
-  .high { background:#123f18; color:#c4ffd1; border:1px solid #2c7c3a; }
-  .medium { background:#243056; color:#d2e0ff; border:1px solid #3d5996; }
-  .low { background:#4a2d00; color:#ffe1b8; border:1px solid #a06000; }
-  .other { background:#3a3a3a; color:#d0d0d0; border:1px solid #5a5a5a; }
+    .conf-badge { font-size:11px; font-weight:600; padding:2px 6px; border-radius:6px; display:inline-block; }
+    .conf-high { background:#145025; color:#c9ffd8; border:1px solid #2e8a49; }
+    .conf-medium { background:#253c6e; color:#d5e2ff; border:1px solid #3d5c9e; }
+    .conf-low { background:#5a3a00; color:#ffe7c2; border:1px solid #a56b00; }
+    .conf-other { background:#3d3d3d; color:#d0d0d0; border:1px solid #5a5a5a; }
+    .export-btn { background:#243056; color:#dbe6ff; border:1px solid #384a7a; padding:6px 10px; border-radius:4px; cursor:pointer; }
+    .export-btn:hover { background:#2d3d70; }
+    .auto-refresh-label { font-size:12px; display:flex; align-items:center; gap:4px; }
     .book-badge { background: #243056; color: #cfe0ff; padding: 2px 6px; border-radius: 6px; font-size: 11px; font-weight: 700; opacity: 0.9; }
     .meta { color: #9fb0ff; font-size: 12px; margin-top: 6px; }
   </style>
@@ -53,6 +54,16 @@
             <label>Kelly Part <input type="number" step="0.05" name="kelly_fraction_part" value="{{ kelly_fraction_part }}" /></label>
             <label>High EV ≥ <input type="number" step="0.01" name="high_ev" value="{{ high_ev }}" /></label>
             <label>Med EV ≥ <input type="number" step="0.01" name="med_ev" value="{{ med_ev }}" /></label>
+            <label>Sort By
+              <select name="sort_by">
+                <option value="ev" {% if sort_by=='ev' %}selected{% endif %}>EV</option>
+                <option value="edge" {% if sort_by=='edge' %}selected{% endif %}>Edge</option>
+                <option value="prob" {% if sort_by=='prob' %}selected{% endif %}>Model %</option>
+                <option value="price" {% if sort_by=='price' %}selected{% endif %}>Price</option>
+              </select>
+            </label>
+            <label class="auto-refresh-label"><input type="checkbox" id="autoRefreshBox" /> Auto-refresh</label>
+            <button type="button" id="exportCsv" class="export-btn" title="Download current recommendations as CSV">Export CSV</button>
             <button type="submit">Apply</button>
           </form>
 
@@ -101,6 +112,7 @@
           <table class="recs-table">
             <thead>
               <tr>
+                <th>Conf</th>
                 <th>Matchup</th>
                 <th>Market</th>
                 <th>Bet</th>
@@ -117,14 +129,18 @@
             <tbody>
               {% for r in rows %}
               <tr>
+                <td>
+                  {% set c = r.confidence or '' %}
+                  {% if c=='high' %}<span class="conf-badge conf-high">High</span>{% elif c=='medium' %}<span class="conf-badge conf-medium">Med</span>{% elif c=='low' %}<span class="conf-badge conf-low">Low</span>{% else %}<span class="conf-badge conf-other">—</span>{% endif %}
+                </td>
                 <td>{{ r.away }} @ {{ r.home }}</td>
                 <td><span class="pill">{{ r.market|capitalize }}</span></td>
                 <td>{{ r.bet }}</td>
                 <td>{% if r.price is not none %}{{ r.price }}{% else %}-{% endif %}</td>
                 <td>{% if r.model_prob is not none %}{{ (r.model_prob*100)|round(1) }}%{% else %}-{% endif %}</td>
-                <td>{% if r.ev is not none %}{{ (r.ev*100)|round(1) }}%{% else %}-{% endif %}</td>
+                <td>{% if r.ev is not none %}{% set evp=(r.ev*100) %}{% if evp>0 %}+{% endif %}{{ evp|round(1) }}%{% else %}-{% endif %}</td>
                 {% set edge_val = r.edge if r.edge is not none else r.edge_pts %}
-                <td>{% if edge_val is not none %}{{ edge_val|round(2) }}{% else %}-{% endif %}</td>
+                <td>{% if edge_val is not none %}{% if edge_val>0 %}+{% endif %}{{ edge_val|round(2) }}{% if r.market!='moneyline' and edge_val is not none %}g{% endif %}{% else %}-{% endif %}</td>
                 <td>
                   {% if r.book %}<span class="book-badge">{{ r.book }}</span>{% else %}<span class="book-badge">DK</span>{% endif %}
                 </td>
@@ -164,20 +180,73 @@
   </div>
 
   <script>
-    function reloadPage() {
-      const params = new URLSearchParams(window.location.search);
-      const min_ev = document.getElementById('min_ev').value || '0';
-      const top = document.getElementById('top').value || '20';
-      const markets = document.getElementById('markets').value || 'all';
-      const bankroll = document.getElementById('bankroll').value || '0';
-      const kelly = document.getElementById('kelly').value || '0.5';
-      params.set('min_ev', min_ev);
-      params.set('top', top);
-      params.set('markets', markets);
-      params.set('bankroll', bankroll);
-      params.set('kelly_fraction_part', kelly);
-      window.location.search = params.toString();
-    }
+    (function(){
+      const bankEl = document.querySelector('input[name="bankroll"]');
+      const kellyEl = document.querySelector('input[name="kelly_fraction_part"]');
+      const autoBox = document.getElementById('autoRefreshBox');
+      const exportBtn = document.getElementById('exportCsv');
+      // Persist bankroll & kelly
+      try {
+        if (bankEl) {
+          const v = localStorage.getItem('rec_bankroll');
+          if (v && !bankEl.value) bankEl.value = v;
+          bankEl.addEventListener('change', ()=> localStorage.setItem('rec_bankroll', bankEl.value||''));
+        }
+        if (kellyEl) {
+          const v2 = localStorage.getItem('rec_kelly');
+          if (v2 && !kellyEl.value) kellyEl.value = v2;
+          kellyEl.addEventListener('change', ()=> localStorage.setItem('rec_kelly', kellyEl.value||''));
+        }
+      } catch(e){}
+      // Auto-refresh
+      function applyAutoState(){
+        try { autoBox.checked = localStorage.getItem('recs_auto')==='on'; } catch {}
+      }
+      applyAutoState();
+      if (autoBox) {
+        autoBox.addEventListener('change', ()=>{
+          try { localStorage.setItem('recs_auto', autoBox.checked?'on':'off'); } catch {}
+        });
+      }
+      setInterval(()=>{
+        if (autoBox && autoBox.checked) {
+          const url = new URL(window.location.href);
+          window.location.href = url.toString();
+        }
+      }, 120000);
+      // CSV export
+      if (exportBtn) {
+        exportBtn.addEventListener('click', async ()=>{
+          try {
+            const qs = window.location.search || '?';
+            const apiUrl = '/api/recommendations'+qs;
+            const r = await fetch(apiUrl, {cache:'no-store'});
+            if (!r.ok) return alert('Failed to fetch recommendations JSON');
+            const rows = await r.json();
+            if (!Array.isArray(rows)) return alert('No data');
+            const cols = ['date','away','home','market','bet','price','model_prob','ev','edge','edge_pts','book','stake','result','confidence'];
+            const header = cols.join(',');
+            const lines = [header];
+            for (const row of rows) {
+              const out = cols.map(c=>{
+                let v = row[c];
+                if (v === null || v === undefined) return '';
+                if (typeof v === 'number') return String(v);
+                const s = String(v).replace(/"/g,'""');
+                if (s.search(/[",\n]/)>=0) return '"'+s+'"';
+                return s;
+              }).join(',');
+              lines.push(out);
+            }
+            const blob = new Blob([lines.join('\n')], {type:'text/csv'});
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'recommendations_'+(new Date().toISOString().slice(0,10))+'.csv';
+            document.body.appendChild(a); a.click(); a.remove();
+          } catch(e){ alert('Export failed'); }
+        });
+      }
+    })();
   </script>
 </body>
 </html>

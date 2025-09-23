@@ -1430,6 +1430,7 @@ async def recommendations(
     kelly_fraction_part: float = Query(0.5, description="Kelly fraction; used only if bankroll>0"),
     high_ev: float = Query(0.05, description="EV threshold for High confidence grouping (e.g., 0.05 for 5%)"),
     med_ev: float = Query(0.02, description="EV threshold for Medium confidence grouping (e.g., 0.02 for 2%)"),
+    sort_by: str = Query("ev", description="Sort key within groups: ev, edge, prob, price"),
 ):
     date = date or _today_ymd()
     # Ensure predictions exist
@@ -1467,15 +1468,29 @@ async def recommendations(
             return "low"
         else:
             return "other"
-    rows_high = [r for r in rows if group_row(r) == "high"]
-    rows_medium = [r for r in rows if group_row(r) == "medium"]
-    rows_low = [r for r in rows if group_row(r) == "low"]
-    rows_other = [r for r in rows if group_row(r) == "other"]
+    # Annotate confidence on each row
+    for r in rows:
+        r["confidence"] = group_row(r)
+    rows_high = [r for r in rows if r["confidence"] == "high"]
+    rows_medium = [r for r in rows if r["confidence"] == "medium"]
+    rows_low = [r for r in rows if r["confidence"] == "low"]
+    rows_other = [r for r in rows if r["confidence"] == "other"]
     # Sort within groups by EV desc
-    rows_high.sort(key=lambda x: x.get("ev", 0), reverse=True)
-    rows_medium.sort(key=lambda x: x.get("ev", 0), reverse=True)
-    rows_low.sort(key=lambda x: x.get("ev", 0), reverse=True)
-    rows_other.sort(key=lambda x: x.get("ev", 0), reverse=True)
+    def sort_key_func(sb: str):
+        sb = (sb or "").lower()
+        if sb == "edge":
+            return lambda x: x.get("edge") if x.get("edge") is not None else x.get("edge_pts") or -999
+        if sb == "prob":
+            return lambda x: x.get("model_prob", -999)
+        if sb == "price":
+            return lambda x: x.get("price", -999)
+        # default ev
+        return lambda x: x.get("ev", -999)
+    _sk = sort_key_func(sort_by)
+    rows_high.sort(key=_sk, reverse=True)
+    rows_medium.sort(key=_sk, reverse=True)
+    rows_low.sort(key=_sk, reverse=True)
+    rows_other.sort(key=_sk, reverse=True)
     # Summary metrics (overall and per-group)
     def american_to_decimal_local(american):
         try:
@@ -1566,6 +1581,7 @@ async def recommendations(
         kelly_fraction_part=kelly_fraction_part,
         high_ev=high_ev,
         med_ev=med_ev,
+        sort_by=sort_by,
     )
     return HTMLResponse(content=html)
 

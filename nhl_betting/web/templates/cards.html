@@ -344,27 +344,26 @@
     } catch (e) {}
   }
 
-  // Initialize
-  updateLastUpdated().then(async (v) => {
+  // Move bootstrap logic inside opt-in auto-update; when disabled we skip all background network calls.
+  async function bootstrapAuto() {
+    const v = await updateLastUpdated();
     lastVal = v;
-    // If any card is missing odds, try a one-shot background refresh (skips during live)
-    if (!isSettled && !liveNow && anyOddsMissing()) {
-      await refreshOdds();
-      // Re-check last-updated to trigger reload if changed
-      setTimeout(async () => {
-        const nv = await updateLastUpdated();
-        if (nv && lastVal && nv !== lastVal) {
-          window.location.reload();
-        }
-      }, 3000);
-    }
-    // If not live and we already have odds, snapshot openers once (idempotent server-side)
-    try {
-      if (!isSettled && !liveNow && anyHasOdds()) {
-        await fetch(`/api/capture-openers?date=${encodeURIComponent(date)}`, { method: 'POST' });
+    if (!isSettled && !liveNow) {
+      // One-shot odds fill only if missing
+      if (anyOddsMissing()) {
+        await refreshOdds();
+        setTimeout(async () => {
+          const nv = await updateLastUpdated();
+            if (nv && lastVal && nv !== lastVal) {
+              window.location.reload();
+            }
+        }, 3000);
+      } else if (anyHasOdds()) {
+        // Capture openers once (idempotent)
+        try { await fetch(`/api/capture-openers?date=${encodeURIComponent(date)}`, { method: 'POST' }); } catch(_){}
       }
-    } catch (_) {}
-  });
+    }
+  }
 
   // manual inject removed
 
@@ -403,10 +402,16 @@
   }
   function startLoops() {
     if (isSettled) return; // disable auto loops on settled slates
+    // Run bootstrap + first scoreboard refresh only the first time loops engage
+    const first = !pollTimer && !oddsTimer && !liveTimer;
     if (!pollTimer) pollTimer = setInterval(maybeReloadOnChange, pollIntervalMs);
     if (!oddsTimer) oddsTimer = setInterval(refreshOdds, refreshOddsMs);
-    // Start live polling regardless of game window to ensure scores appear
     if (!liveTimer) liveTimer = setInterval(refreshLive, liveIntervalMs);
+    if (first) {
+      // Initial immediate actions
+      bootstrapAuto();
+      refreshLive();
+    }
   }
   function stopLoops() {
     if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
@@ -435,9 +440,7 @@
       if (toggleEl.checked && inWindow()) startLoops(); else stopLoops();
     });
   }
-  if (shouldAutoUpdate()) {
-    startLoops();
-  }
+  if (shouldAutoUpdate()) startLoops();
   // Re-check every 5 minutes to honor toggle and adjust other loops if desired
   setInterval(() => {
     if (shouldAutoUpdate()) startLoops(); else stopLoops();
@@ -519,10 +522,7 @@
       });
     } catch (e) { /* ignore */ }
   }
-  // Do an initial live refresh immediately so scores appear without waiting for the first interval
-  if (!isSettled) {
-    refreshLive();
-  }
+  // If auto-update is off, we intentionally do NOT perform any background fetches (no initial refreshLive call).
 })();
 </script>
 </html>

@@ -339,7 +339,8 @@
   async function refreshOdds() {
     if (isSettled) return; // never refresh odds for settled slates
     try {
-      await fetch(`/api/refresh-odds?date=${encodeURIComponent(date)}`, { method: 'GET', cache: 'no-store' });
+      const url = liveNow ? `/api/refresh-odds?date=${encodeURIComponent(date)}&backfill=1` : `/api/refresh-odds?date=${encodeURIComponent(date)}`;
+      await fetch(url, { method: 'GET', cache: 'no-store' });
     } catch (e) {}
   }
 
@@ -375,7 +376,8 @@
         const label = refetchBtn.textContent;
         refetchBtn.textContent = 'Refetching…';
         const before = await updateLastUpdated();
-        await fetch(`/api/refresh-odds?date=${encodeURIComponent(date)}`, { method: 'GET', cache: 'no-store' });
+  const url = liveNow ? `/api/refresh-odds?date=${encodeURIComponent(date)}&backfill=1` : `/api/refresh-odds?date=${encodeURIComponent(date)}`;
+  await fetch(url, { method: 'GET', cache: 'no-store' });
         setTimeout(async () => {
           const after = await updateLastUpdated();
           refetchBtn.disabled = false;

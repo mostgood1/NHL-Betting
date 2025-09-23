@@ -1132,10 +1132,11 @@ async def api_refresh_odds(
     snapshot: Optional[str] = Query(None),
     bankroll: float = Query(0.0, description="Bankroll for Kelly sizing; 0 disables"),
     kelly_fraction_part: float = Query(0.5, description="Kelly fraction, e.g., 0.5 for half-Kelly"),
+    backfill: bool = Query(False, description="If true, during live slates only fill missing odds without overwriting existing prices"),
 ):
     date = date or _today_ymd()
-    # Do not refresh odds during live games to avoid clobbering saved lines
-    if _is_live_day(date):
+    # Do not refresh odds during live games to avoid clobbering saved lines, unless backfill mode is requested
+    if _is_live_day(date) and not backfill:
         return JSONResponse({"status": "skipped-live", "date": date, "message": "Live games in progress; odds refresh skipped."}, status_code=200)
     if not snapshot:
         snapshot = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -1163,8 +1164,54 @@ async def api_refresh_odds(
         try:
             df_new = pd.read_csv(PROC_DIR / f"predictions_{date}.csv")
             if not df_old.empty:
-                df_m = _merge_preserve_odds(df_old, df_new)
-                df_m.to_csv(PROC_DIR / f"predictions_{date}.csv", index=False)
+                if backfill:
+                    # Backfill mode: keep existing prices, fill only missing from new
+                    def _backfill_missing(df_target: pd.DataFrame, df_source: pd.DataFrame) -> pd.DataFrame:
+                        if df_target is None or df_target.empty:
+                            return df_target
+                        if df_source is None or df_source.empty:
+                            return df_target
+                        def norm_team(s: str) -> str:
+                            import re, unicodedata
+                            if s is None:
+                                return ""
+                            s = str(s)
+                            s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode()
+                            s = s.lower()
+                            s = re.sub(r"[^a-z0-9]+", "", s)
+                            return s
+                        def date_key(x) -> str:
+                            try:
+                                return pd.to_datetime(x).strftime("%Y-%m-%d")
+                            except Exception:
+                                return None
+                        src_idx = {}
+                        for _, r in df_source.iterrows():
+                            k = (date_key(r.get("date")), norm_team(r.get("home")), norm_team(r.get("away")))
+                            src_idx[k] = r
+                        cols = [
+                            "home_ml_odds","away_ml_odds","over_odds","under_odds","home_pl_-1.5_odds","away_pl_+1.5_odds",
+                            "home_ml_book","away_ml_book","over_book","under_book","home_pl_-1.5_book","away_pl_+1.5_book",
+                            "total_line_used","total_line",
+                        ]
+                        rows = []
+                        for _, r in df_target.iterrows():
+                            k = (date_key(r.get("date")), norm_team(r.get("home")), norm_team(r.get("away")))
+                            if k in src_idx:
+                                rs = src_idx[k]
+                                for c in cols:
+                                    tgt_has = (c in r and pd.notna(r.get(c)))
+                                    src_has = (c in rs and pd.notna(rs.get(c)))
+                                    if (not tgt_has) and src_has:
+                                        r[c] = rs.get(c)
+                            rows.append(r)
+                        return pd.DataFrame(rows, columns=df_target.columns)
+                    df_keep = _backfill_missing(df_old, df_new)
+                    df_keep.to_csv(PROC_DIR / f"predictions_{date}.csv", index=False)
+                else:
+                    # Normal: fill missing odds in new from old (preserve existing values)
+                    df_m = _merge_preserve_odds(df_old, df_new)
+                    df_m.to_csv(PROC_DIR / f"predictions_{date}.csv", index=False)
         except Exception:
             pass
     except Exception:
@@ -1233,7 +1280,7 @@ async def api_refresh_odds(
                     _capture_openers_for_day(date)
             except Exception:
                 pass
-            return {"status": "ok", "date": date, "snapshot": snapshot, "bankroll": bankroll, "kelly_fraction_part": kelly_fraction_part}
+            return {"status": "ok", "date": date, "snapshot": snapshot, "bankroll": bankroll, "kelly_fraction_part": kelly_fraction_part, "backfill": backfill}
     except Exception:
         # Improve diagnostics: indicate whether model files exist
         try:

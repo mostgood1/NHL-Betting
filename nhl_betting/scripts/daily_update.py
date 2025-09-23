@@ -11,6 +11,10 @@ from nhl_betting.cli import predict_core, featurize, train
 from nhl_betting.data.nhl_api_web import NHLWebClient
 from nhl_betting.utils.io import RAW_DIR, PROC_DIR, save_df
 from nhl_betting.data.odds_api import OddsAPIClient, normalize_snapshot_to_rows
+from nhl_betting.cli import props_fetch_bovada as _props_fetch_bovada
+from nhl_betting.cli import props_predict as _props_predict
+from nhl_betting.data.collect import collect_player_game_stats
+from nhl_betting.utils.odds import american_to_decimal
 
 
 def _today_et() -> datetime:
@@ -330,6 +334,168 @@ def run(days_ahead: int = 2, years_back: int = 2, reconcile_yesterday: bool = Tr
         except Exception:
             pass
         reconcile_date(y_str)
+        # Also reconcile props for yesterday
+        try:
+            reconcile_props_date(y_str)
+        except Exception:
+            pass
+
+
+def reconcile_props_date(date: str, flat_stake: float = 100.0) -> dict:
+    """Reconcile previous day's props (SOG/GOALS/SAVES) OVER bets with positive EV.
+
+    Steps:
+      - Fetch Bovada props odds for the date and run props predictions
+      - Ensure player boxscore stats for that date are collected
+      - Compare outcomes vs lines, compute PnL summary
+      - Persist reconciliation_{date}.json (props) and append to props_reconciliations_log.csv
+    """
+    # 1) Fetch props odds and run predictions (writes PROC_DIR/props_predictions.csv)
+    odds_csv = str(RAW_DIR / f"bovada_props_{date}.csv")
+    try:
+        _props_fetch_bovada.callback(date=date, out_csv=odds_csv)  # typer command function is callable
+    except Exception:
+        # If fetch fails, continue only if odds file already exists
+        pass
+    preds_tmp = PROC_DIR / "props_predictions.csv"
+    if not preds_tmp.exists():
+        try:
+            _props_predict.callback(odds_csv=odds_csv)
+        except Exception:
+            # If prediction still missing, bail gracefully
+            return {"status": "no-props-predictions", "date": date}
+    else:
+        # Rebuild predictions using fresh odds file when possible
+        try:
+            _props_predict.callback(odds_csv=odds_csv)
+        except Exception:
+            pass
+    if not preds_tmp.exists():
+        return {"status": "no-props-predictions", "date": date}
+    # Move/copy to date-stamped file for persistence
+    preds_out = PROC_DIR / f"props_predictions_{date}.csv"
+    try:
+        pd.read_csv(preds_tmp).to_csv(preds_out, index=False)
+    except Exception:
+        return {"status": "props-read-failed", "date": date}
+    preds = pd.read_csv(preds_out)
+    if preds.empty:
+        return {"status": "empty-props", "date": date}
+    # Only consider positive EV OVER bets
+    preds = preds[preds["ev_over"].astype(float) > 0]
+    if preds.empty:
+        return {"status": "no-positive-ev", "date": date}
+    # 2) Ensure player stats exist for the date
+    try:
+        collect_player_game_stats(date, date, source="stats")
+    except Exception:
+        pass
+    stats_path = RAW_DIR / "player_game_stats.csv"
+    if not stats_path.exists():
+        return {"status": "no-player-stats", "date": date}
+    stats = pd.read_csv(stats_path)
+    # Filter to date only and relevant fields
+    def fmt_date(x):
+        try:
+            return pd.to_datetime(x).strftime("%Y-%m-%d")
+        except Exception:
+            return None
+    stats = stats[stats["date"].apply(fmt_date) == date]
+    # Build picks and compute outcomes
+    rows = []
+    pnl = 0.0
+    staked = 0.0
+    wins = losses = pushes = 0
+    decided = 0
+    for _, r in preds.iterrows():
+        market = str(r.get("market")).upper()
+        player = str(r.get("player"))
+        line = float(r.get("line")) if pd.notna(r.get("line")) else None
+        odds = float(r.get("odds")) if pd.notna(r.get("odds")) else None
+        if line is None or odds is None:
+            continue
+        # Find player stat row(s)
+        ps = stats[stats["player"] == player]
+        actual = None
+        if not ps.empty:
+            if market == "SOG":
+                actual = ps.iloc[0].get("shots")
+            elif market == "GOALS":
+                actual = ps.iloc[0].get("goals")
+            elif market == "SAVES":
+                actual = ps.iloc[0].get("saves")
+        result = None
+        if actual is not None and pd.notna(actual):
+            try:
+                av = float(actual)
+                if av > float(line):
+                    result = "win"
+                elif av < float(line):
+                    result = "loss"
+                else:
+                    result = "push"
+            except Exception:
+                result = None
+        # Compute payout if decided
+        stake = flat_stake
+        dec = american_to_decimal(odds) if odds is not None else None
+        payout = None
+        if result == "win" and dec is not None:
+            pnl += stake * (dec - 1.0)
+            staked += stake
+            decided += 1
+            wins += 1
+            payout = stake * (dec - 1.0)
+        elif result == "loss":
+            pnl -= stake
+            staked += stake
+            decided += 1
+            losses += 1
+            payout = -stake
+        elif result == "push":
+            pushes += 1
+            payout = 0.0
+        rows.append({
+            "date": date,
+            "market": market,
+            "player": player,
+            "line": line,
+            "odds": odds,
+            "ev_over": float(r.get("ev_over")) if pd.notna(r.get("ev_over")) else None,
+            "actual": actual,
+            "result": result,
+            "stake": stake,
+            "payout": payout,
+        })
+    summary = {
+        "date": date,
+        "picks": len(rows),
+        "decided": decided,
+        "wins": wins,
+        "losses": losses,
+        "pushes": pushes,
+        "staked": staked,
+        "pnl": pnl,
+        "roi": (pnl / staked) if staked > 0 else None,
+    }
+    out = {"summary": summary, "rows": rows}
+    with open(PROC_DIR / f"reconciliation_props_{date}.json", "w", encoding="utf-8") as f:
+        json.dump(out, f, indent=2)
+    # Append to props log CSV
+    try:
+        log_path = PROC_DIR / "props_reconciliations_log.csv"
+        log_df = pd.read_csv(log_path) if log_path.exists() else pd.DataFrame()
+        rows_df = pd.DataFrame(rows)
+        keys = ["date","market","player","line"]
+        if not log_df.empty:
+            combined = pd.concat([log_df, rows_df], ignore_index=True)
+            combined = combined.drop_duplicates(subset=keys, keep="first")
+            combined.to_csv(log_path, index=False)
+        else:
+            rows_df.to_csv(log_path, index=False)
+    except Exception:
+        pass
+    return {"status": "ok", **summary}
 
 
 if __name__ == "__main__":

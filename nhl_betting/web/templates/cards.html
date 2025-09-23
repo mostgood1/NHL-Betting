@@ -448,7 +448,14 @@
       if (toggleEl.checked && inWindow()) startLoops(); else stopLoops();
     });
   }
-  if (shouldAutoUpdate()) startLoops();
+  if (shouldAutoUpdate()) {
+    startLoops();
+  } else {
+    // One-shot scoreboard fetch so period/time-left pill is populated even without auto-update
+    if (!isSettled && inWindow()) {
+      refreshLive();
+    }
+  }
   // Re-check every 5 minutes to honor toggle and adjust other loops if desired
   setInterval(() => {
     if (shouldAutoUpdate()) startLoops(); else stopLoops();
@@ -536,7 +543,7 @@
       });
     } catch (e) { /* ignore */ }
   }
-  // If auto-update is off, we intentionally do NOT perform any background fetches (no initial refreshLive call).
+  // When auto-update is off, only the one-shot refreshLive above will have run (if within window).
 })();
 </script>
 </html>

@@ -1429,6 +1429,7 @@ async def recommendations(
     bankroll: float = Query(0.0, description="If > 0, show Kelly stake using provided bankroll"),
     kelly_fraction_part: float = Query(0.5, description="Kelly fraction; used only if bankroll>0"),
     high_ev: float = Query(0.05, description="EV threshold for High confidence grouping (e.g., 0.05 for 5%)"),
+    med_ev: float = Query(0.02, description="EV threshold for Medium confidence grouping (e.g., 0.02 for 2%)"),
 ):
     date = date or _today_ymd()
     # Ensure predictions exist
@@ -1447,8 +1448,12 @@ async def recommendations(
         rows = _json.loads(data)
     except Exception:
         rows = []
-    # Compute confidence groupings (NFL-style): High (ev>=high_ev), Low (0<=ev<high_ev), Other (ev<0)
+    # Compute confidence groupings (NFL-style):
+    # High (ev >= high_ev), Medium (med_ev <= ev < high_ev), Low (0 <= ev < med_ev), Other (ev < 0)
     EV_HIGH = float(high_ev)
+    EV_MED = float(med_ev)
+    if EV_MED > EV_HIGH:  # safety swap
+        EV_MED, EV_HIGH = EV_HIGH, EV_MED
     def group_row(r):
         try:
             ev = float(r.get("ev"))
@@ -1456,15 +1461,19 @@ async def recommendations(
             ev = -999
         if ev >= EV_HIGH:
             return "high"
+        elif ev >= EV_MED:
+            return "medium"
         elif ev >= 0:
             return "low"
         else:
             return "other"
     rows_high = [r for r in rows if group_row(r) == "high"]
+    rows_medium = [r for r in rows if group_row(r) == "medium"]
     rows_low = [r for r in rows if group_row(r) == "low"]
     rows_other = [r for r in rows if group_row(r) == "other"]
     # Sort within groups by EV desc
     rows_high.sort(key=lambda x: x.get("ev", 0), reverse=True)
+    rows_medium.sort(key=lambda x: x.get("ev", 0), reverse=True)
     rows_low.sort(key=lambda x: x.get("ev", 0), reverse=True)
     rows_other.sort(key=lambda x: x.get("ev", 0), reverse=True)
     # Summary metrics (overall and per-group)
@@ -1526,6 +1535,7 @@ async def recommendations(
         }
     summary_overall = compute_summary(rows)
     summary_high = compute_summary(rows_high)
+    summary_medium = compute_summary(rows_medium)
     summary_low = compute_summary(rows_low)
     summary_other = compute_summary(rows_other)
     # Market counts for top bar (based on displayed rows)
@@ -1539,10 +1549,12 @@ async def recommendations(
         date=date,
         rows=rows,
         rows_high=rows_high,
+        rows_medium=rows_medium,
         rows_low=rows_low,
         rows_other=rows_other,
         summary_overall=summary_overall,
         summary_high=summary_high,
+        summary_medium=summary_medium,
         summary_low=summary_low,
         summary_other=summary_other,
         counts=counts,
@@ -1553,6 +1565,7 @@ async def recommendations(
         bankroll=bankroll,
         kelly_fraction_part=kelly_fraction_part,
         high_ev=high_ev,
+        med_ev=med_ev,
     )
     return HTMLResponse(content=html)
 

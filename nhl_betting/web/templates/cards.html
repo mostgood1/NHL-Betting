@@ -86,7 +86,7 @@
                 {% endif %}
                 {% if ev_h_ml is not none %}<span class="ev-badge {{ 'pos' if ev_h_ml > 0 else ('neg' if ev_h_ml < 0 else 'neu') }}">EV {{ '%.3f' % ev_h_ml }}</span>{% endif %}
               </div>
-              {% if r.get('game_state') and ('FINAL' in r.get('game_state')|upper) and (r.get('close_home_ml_odds') or r.get('close_away_ml_odds')) %}
+              {% if (r.get('game_state') and ('FINAL' in r.get('game_state')|upper)) or ((r.get('close_home_ml_odds') or r.get('close_away_ml_odds')) and (settled)) %}
               <div class="chip neutral" title="Closing moneyline">
                 Closed: H {{ r.get('close_home_ml_odds') if r.get('close_home_ml_odds') is not none else '—' }} / A {{ r.get('close_away_ml_odds') if r.get('close_away_ml_odds') is not none else '—' }}
               </div>
@@ -206,6 +206,7 @@
   const refreshOddsMs = 600000; // 10m background odds refresh during window
   const toggleEl = document.getElementById('autoUpdateToggle');
   const injectBtn = document.getElementById('injectOddsBtn');
+  const isSettled = '{{ 1 if settled else 0 }}' === '1';
 
   // Format all game dates into the user's local timezone
   (function formatLocalTimes(){
@@ -293,6 +294,7 @@
   }
 
   async function refreshOdds() {
+    if (isSettled) return; // never refresh odds for settled slates
     try {
       await fetch(`/api/refresh-odds?date=${encodeURIComponent(date)}`, { method: 'GET', cache: 'no-store' });
     } catch (e) {}
@@ -302,13 +304,13 @@
   updateLastUpdated().then(async (v) => {
     lastVal = v;
     // If any card is missing odds, try a one-shot safe injection now
-    if (anyOddsMissing()) {
+    if (!isSettled && anyOddsMissing()) {
       // Prefer safe injection (no regeneration) to preserve live slate; refreshOdds is disabled during live anyway
       await injectOddsIfLiveAndMissing();
     }
     // If not live and we already have odds, snapshot openers once (idempotent server-side)
     try {
-      if (!liveNow && anyHasOdds()) {
+      if (!isSettled && !liveNow && anyHasOdds()) {
         await fetch(`/api/capture-openers?date=${encodeURIComponent(date)}`, { method: 'POST' });
       }
     } catch (_) {}
@@ -347,6 +349,7 @@
     return now >= windowRange.start && now <= windowRange.end;
   }
   function startLoops() {
+    if (isSettled) return; // disable auto loops on settled slates
     if (!pollTimer) pollTimer = setInterval(maybeReloadOnChange, pollIntervalMs);
     if (!oddsTimer) oddsTimer = setInterval(refreshOdds, refreshOddsMs);
     // Start live polling regardless of game window to ensure scores appear
@@ -458,7 +461,9 @@
     } catch (e) { /* ignore */ }
   }
   // Do an initial live refresh immediately so scores appear without waiting for the first interval
-  refreshLive();
+  if (!isSettled) {
+    refreshLive();
+  }
 })();
 </script>
 </html>

@@ -296,6 +296,14 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
     date = date or _today_ymd()
     note_msg = None
     live_now = _is_live_day(date)
+    # Consider a slate 'settled' if it is strictly before today's ET date and not live
+    try:
+        et_today = _today_ymd()
+        settled = (str(date) < str(et_today)) and (not live_now)
+    except Exception:
+        settled = False
+    if settled:
+        note_msg = note_msg or "Finalized slate (prior day). Background updates are disabled; showing saved closing numbers."
     # Capture any existing predictions to preserve odds if updates fail/are partial
     try:
         df_old_global = pd.read_csv(PROC_DIR / f"predictions_{date}.csv")
@@ -632,7 +640,7 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
         # Informational note: during live games we do not regenerate odds/predictions automatically
         note_msg = note_msg or "Live slate detected. Odds are frozen to previously saved values; no regeneration during live games."
     template = env.get_template("cards.html")
-    html = template.render(date=date, rows=rows, note=note_msg, live_now=live_now)
+    html = template.render(date=date, rows=rows, note=note_msg, live_now=live_now, settled=settled)
     return HTMLResponse(content=html)
 
 

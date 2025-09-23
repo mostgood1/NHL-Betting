@@ -45,4 +45,37 @@ python @argsList
 
 # Final status
 if (-not $Quiet) { Write-Host "[run] Daily update complete." }
+
+# Optional: push changes to git (models/predictions/reconciliations)
+try {
+  $isGit = git rev-parse --is-inside-work-tree 2>$null
+  if ($LASTEXITCODE -eq 0 -and $isGit -eq 'true') {
+    # Check for changes
+    $status = git --no-pager status -s
+    if ($status) {
+      if (-not $Quiet) { Write-Host "[git] Changes detected; staging and committing…" }
+      # Stage common outputs from daily update
+      git add data/models/*.json 2>$null | Out-Null
+      git add data/processed/*.csv 2>$null | Out-Null
+      git add data/processed/*.json 2>$null | Out-Null
+      # Commit with timestamped message; ignore if nothing staged
+      $date = Get-Date -AsUTC -Format 'yyyy-MM-ddTHH:mm:ssZ'
+  git commit -m "[auto] Daily update ${date}: models/predictions/reconciliations" 2>$null | Out-Null
+      if ($LASTEXITCODE -eq 0) {
+        if (-not $Quiet) { Write-Host "[git] Committed. Pushing…" }
+        git push | Out-Null
+        if (-not $Quiet) { Write-Host "[git] Push complete." }
+      } else {
+        if (-not $Quiet) { Write-Host "[git] Nothing to commit after staging or commit failed." }
+      }
+    } else {
+      if (-not $Quiet) { Write-Host "[git] No changes to commit." }
+    }
+  } else {
+    if (-not $Quiet) { Write-Host "[git] Not a git repository; skipping push." }
+  }
+} catch {
+  if (-not $Quiet) { Write-Host "[git] Skipping git push due to error: $($_.Exception.Message)" }
+}
+
 exit $LASTEXITCODE

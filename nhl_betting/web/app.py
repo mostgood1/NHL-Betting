@@ -296,10 +296,10 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
     date = date or _today_ymd()
     note_msg = None
     live_now = _is_live_day(date)
-    # Consider a slate 'settled' if it is strictly before today's ET date and not live
+    # Consider a slate 'settled' if it is strictly before today's ET date (independent of live scoreboard noise)
     try:
         et_today = _today_ymd()
-        settled = (str(date) < str(et_today)) and (not live_now)
+        settled = (str(date) < str(et_today))
     except Exception:
         settled = False
     if settled:
@@ -309,17 +309,18 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
         df_old_global = pd.read_csv(PROC_DIR / f"predictions_{date}.csv")
     except Exception:
         df_old_global = pd.DataFrame()
-    # Ensure models exist (Elo/config); if missing, do a quick bootstrap inline
-    try:
-        await _ensure_models(quick=True)
-    except Exception:
-        pass
+    # Ensure models exist (Elo/config); if missing, do a quick bootstrap inline (only needed for non-settled views)
+    if not settled:
+        try:
+            await _ensure_models(quick=True)
+        except Exception:
+            pass
     # Ensure we have predictions for the date; run inline if missing
     pred_path = PROC_DIR / f"predictions_{date}.csv"
     if not pred_path.exists():
         # Attempt Bovada first
         snapshot = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-        if not live_now:
+        if (not live_now) and (not settled):
             try:
                 predict_core(date=date, source="web", odds_source="bovada", snapshot=snapshot, odds_best=True)
             except Exception:
@@ -331,10 +332,11 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
                 except Exception:
                     tmp = pd.DataFrame()
                 if not _has_any_odds_df(tmp):
-                    try:
-                        predict_core(date=date, source="web", odds_source="oddsapi", snapshot=snapshot, odds_best=False, odds_bookmaker="draftkings")
-                    except Exception:
-                        pass
+                    if not settled:
+                        try:
+                            predict_core(date=date, source="web", odds_source="oddsapi", snapshot=snapshot, odds_best=False, odds_bookmaker="draftkings")
+                        except Exception:
+                            pass
         # If file still doesn't exist, at least generate predictions without odds (allowed during live to show something)
         if not pred_path.exists():
             try:
@@ -343,19 +345,20 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
                 pass
     df = pd.read_csv(pred_path) if pred_path.exists() else pd.DataFrame()
     # Also ensure neighbor-day predictions exist so late ET games (crossing UTC midnight) can be surfaced
-    try:
-        nd = (datetime.fromisoformat(date) + timedelta(days=1)).strftime("%Y-%m-%d")
-        next_path = PROC_DIR / f"predictions_{nd}.csv"
-        if not next_path.exists():
-            try:
-                # Cheapest generation to create rows; odds can be injected later
-                predict_core(date=nd, source="web", odds_source="csv")
-            except Exception:
-                pass
-    except Exception:
-        pass
+    if not settled:
+        try:
+            nd = (datetime.fromisoformat(date) + timedelta(days=1)).strftime("%Y-%m-%d")
+            next_path = PROC_DIR / f"predictions_{nd}.csv"
+            if not next_path.exists():
+                try:
+                    # Cheapest generation to create rows; odds can be injected later
+                    predict_core(date=nd, source="web", odds_source="csv")
+                except Exception:
+                    pass
+        except Exception:
+            pass
     # If predictions exist but odds are missing, try Bovada then Odds API to populate
-    if pred_path.exists() and not _has_any_odds_df(df) and not live_now:
+    if pred_path.exists() and not _has_any_odds_df(df) and (not live_now) and (not settled):
         snapshot = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         # Preserve any existing odds if present in old df
         try:
@@ -452,12 +455,13 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
         except Exception:
             pass
     # Final odds preservation pass: if we had older data, fill missing odds/book fields
-    try:
-        if not df.empty and not df_old_global.empty:
-            df = _merge_preserve_odds(df_old_global, df)
-            df.to_csv(PROC_DIR / f"predictions_{date}.csv", index=False)
-    except Exception:
-        pass
+    if not settled:
+        try:
+            if not df.empty and not df_old_global.empty:
+                df = _merge_preserve_odds(df_old_global, df)
+                df.to_csv(PROC_DIR / f"predictions_{date}.csv", index=False)
+        except Exception:
+            pass
     # Cross-midnight inclusion: merge neighbor-day predictions and filter to ET date bucket
     try:
         frames = []
@@ -498,6 +502,13 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
     except Exception:
         pass
     rows = df.to_dict(orient="records") if not df.empty else []
+    # For settled slates, mark rows as FINAL to avoid relying on live scoreboard
+    if settled:
+        try:
+            for r in rows:
+                r["game_state"] = r.get("game_state") or "FINAL"
+        except Exception:
+            pass
     # Load inferred odds as a tertiary display fallback (not persisted): inferred_odds_{date}.csv
     inferred_map = {}
     try:

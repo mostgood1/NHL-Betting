@@ -20,7 +20,7 @@
         <a class="btn" href="/odds-coverage?date={{ date }}">Odds Coverage</a>
       </form>
       <div id="last-updated" class="last-updated">Last updated: —</div>
-      <label class="toggle"><input type="checkbox" id="autoUpdateToggle" /> Auto-update</label>
+  <label class="toggle"><input type="checkbox" id="autoUpdateToggle" /> Auto-update</label>
     </div>
   </header>
   <main>
@@ -370,6 +370,11 @@
     toggleEl.checked = shouldAutoUpdate();
   }
   applyToggleState();
+  // Disable the toggle visually for settled slates
+  if (isSettled && toggleEl) {
+    toggleEl.disabled = true;
+    toggleEl.checked = false;
+  }
   if (toggleEl) {
     toggleEl.addEventListener('change', () => {
       try { localStorage.setItem('autoUpdate', toggleEl.checked ? 'on' : 'off'); } catch {}

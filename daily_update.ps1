@@ -2,18 +2,16 @@ Param(
   [int]$DaysAhead = 2,
   [int]$YearsBack = 2,
   [switch]$NoReconcile,
-  [switch]$__BypassOk
+  [switch]$Quiet,
+  [switch]$BootstrapModels,
+  [double]$TrendsDecay = 0.98,
+  [switch]$ResetTrends,
+  [switch]$SkipProps
 )
 $ErrorActionPreference = "Stop"
 
-# If not already relaunched with ExecutionPolicy Bypass, relaunch self so it runs without prompts
-if (-not $__BypassOk) {
-  $argsList = @("-NoProfile","-ExecutionPolicy","Bypass","-File", $PSCommandPath, "-DaysAhead", "$DaysAhead", "-YearsBack", "$YearsBack")
-  if ($NoReconcile) { $argsList += "-NoReconcile" }
-  $argsList += "-__BypassOk"
-  Start-Process -FilePath "powershell.exe" -ArgumentList $argsList -Wait
-  exit $LASTEXITCODE
-}
+# Best-effort: set execution policy for this process so it runs without prompts
+try { Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force | Out-Null } catch {}
 
 # Resolve repo root (this file lives at repo root)
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -38,4 +36,13 @@ pip install -q -r (Join-Path $RepoRoot "requirements.txt")
 # Build args and run
 $argsList = @("-m", "nhl_betting.scripts.daily_update", "--days-ahead", "$DaysAhead", "--years-back", "$YearsBack")
 if ($NoReconcile) { $argsList += "--no-reconcile" }
+if (-not $Quiet) { $argsList += "--verbose" }
+if ($BootstrapModels) { $argsList += "--bootstrap-models" }
+$argsList += @("--trends-decay", "$TrendsDecay")
+if ($ResetTrends) { $argsList += "--reset-trends" }
+if ($SkipProps) { $argsList += "--skip-props" }
 python @argsList
+
+# Final status
+if (-not $Quiet) { Write-Host "[run] Daily update complete." }
+exit $LASTEXITCODE

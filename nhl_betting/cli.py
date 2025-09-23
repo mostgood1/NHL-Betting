@@ -14,6 +14,7 @@ from .data.nhl_api_web import NHLWebClient
 from .features.engineering import make_team_game_features
 from .models.elo import Elo
 from .models.poisson import PoissonGoals
+from .models.trends import TrendAdjustments, team_keys, get_adjustment
 from .utils.odds import american_to_decimal, decimal_to_implied_prob, remove_vig_two_way, ev_unit, kelly_stake
 from .data.collect import collect_player_game_stats
 from .models.props import SkaterShotsModel, GoalieSavesModel, SkaterGoalsModel
@@ -185,6 +186,8 @@ def predict_core(
             except Exception:
                 base_mu = None
     pois = PoissonGoals(base_mu=base_mu or 3.05)
+    # Load subgroup adjustments
+    trends = TrendAdjustments.load()
 
     rows = []
     odds_df = None
@@ -288,6 +291,12 @@ def predict_core(
         except Exception:
             pass
         p_home, p_away = elo.predict_moneyline_prob(g.home, g.away)
+        # Apply ML subgroup adjustment (home side bias): team/div/conf of home team
+        h_keys = team_keys(g.home)
+        ml_delta = get_adjustment(trends.ml_home, h_keys)
+        if ml_delta:
+            p_home = min(max(p_home + ml_delta, 0.01), 0.99)
+            p_away = 1.0 - p_home
         # Per-game total line: use odds total_line if available, else provided total_line
         per_game_total = total_line
         if odds_df is not None:
@@ -329,6 +338,11 @@ def predict_core(
                     per_game_total = total_line
         # Derive matchup-specific lambdas and probabilities
         lam_h, lam_a = pois.lambdas_from_total_split(per_game_total, p_home)
+        # Apply goals adjustments separately for home and away based on each team subgroup
+        gh_delta = get_adjustment(trends.goals, team_keys(g.home))
+        ga_delta = get_adjustment(trends.goals, team_keys(g.away))
+        lam_h = max(0.1, lam_h + gh_delta)
+        lam_a = max(0.1, lam_a + ga_delta)
         p = pois.probs(total_line=per_game_total, lam_h=lam_h, lam_a=lam_a)
         # Derivative model metrics: totals/ATS picks and edges
         pl_line_used = 1.5
@@ -359,6 +373,10 @@ def predict_core(
             "date": g.gameDate,
             "home": g.home,
             "away": g.away,
+            # Transparency: applied subgroup adjustments
+            "adj_home_ml_delta": round(float(ml_delta), 4) if ml_delta is not None else 0.0,
+            "adj_home_goals_delta": round(float(gh_delta), 3) if gh_delta is not None else 0.0,
+            "adj_away_goals_delta": round(float(ga_delta), 3) if ga_delta is not None else 0.0,
             "p_home_ml": round(p_home, 4),
             "p_away_ml": round(p_away, 4),
             "p_over": round(p["over"], 4),

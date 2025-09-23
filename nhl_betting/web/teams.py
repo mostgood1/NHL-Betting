@@ -63,11 +63,56 @@ def get_team_assets(name: str) -> dict:
             "abbr": None,
             "logo_light": None,
             "logo_dark": None,
+            "division": None,
+            "conference": None,
         }
     base = "https://assets.nhle.com/logos/nhl/svg"
+    # Minimal static mapping for division/conference (2024-25 structure)
+    _DIV_CONF = {
+        # Eastern Conference
+        "BOS": ("Atlantic", "East"),
+        "BUF": ("Atlantic", "East"),
+        "DET": ("Atlantic", "East"),
+        "FLA": ("Atlantic", "East"),
+        "MTL": ("Atlantic", "East"),
+        "OTT": ("Atlantic", "East"),
+        "TBL": ("Atlantic", "East"),
+        "TOR": ("Atlantic", "East"),
+        "CAR": ("Metropolitan", "East"),
+        "CBJ": ("Metropolitan", "East"),
+        "NJD": ("Metropolitan", "East"),
+        "NYI": ("Metropolitan", "East"),
+        "NYR": ("Metropolitan", "East"),
+        "PHI": ("Metropolitan", "East"),
+        "PIT": ("Metropolitan", "East"),
+        "WSH": ("Metropolitan", "East"),
+        # Western Conference
+        "ANA": ("Pacific", "West"),
+        "CGY": ("Pacific", "West"),
+        "EDM": ("Pacific", "West"),
+        "LAK": ("Pacific", "West"),
+        "SJS": ("Pacific", "West"),
+        "SEA": ("Pacific", "West"),
+        "VAN": ("Pacific", "West"),
+        "VGK": ("Pacific", "West"),
+        "CHI": ("Central", "West"),
+        "COL": ("Central", "West"),
+        "DAL": ("Central", "West"),
+        "MIN": ("Central", "West"),
+        "NSH": ("Central", "West"),
+        "STL": ("Central", "West"),
+        "WPG": ("Central", "West"),
+        # Arizona historical; Utah current in Central/West
+        "ARI": ("Central", "West"),
+        "UTA": ("Central", "West"),
+        # Additional aliases can be added as needed
+    }
+    div, conf = _DIV_CONF.get(abbr, (None, None))
     return {
         "name": name,
         "abbr": abbr,
         "logo_light": f"{base}/{abbr}_light.svg",
         "logo_dark": f"{base}/{abbr}_dark.svg",
+        "division": div,
+        "conference": conf,
     }

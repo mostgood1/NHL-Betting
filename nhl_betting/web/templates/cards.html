@@ -5,6 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>NHL Betting – Cards</title>
   <link rel="stylesheet" href="/static/style.css" />
+  <style>
+    .row.head .period-pill { font-weight:600; padding:2px 6px; border-radius:12px; background:#222; color:#fff; font-size:0.75rem; letter-spacing:0.5px; }
+    .row.head .time-left { font-size:0.75rem; color:#555; min-width:34px; text-align:center; }
+    .row.head .period-pill.crit, .row.head .time-left.crit { background:#8b0000; color:#fff; }
+  </style>
 </head>
 <body>
   <header>
@@ -68,7 +73,8 @@
               <div class="game-date js-local-time">{{ r.date }}</div>
               {% if r.venue %}<div class="venue">{{ r.venue }}</div>{% endif %}
               <div class="state">{{ r.game_state if r.game_state else '' }}</div>
-              <div class="time-left">—</div>
+              <div class="period-pill" title="Current period">{% if r.game_state and ('FINAL' in r.game_state|upper) %}Final{% else %}{% if r.get('game_state') and ('LIVE' in r.game_state|upper or 'PROGRESS' in r.game_state|upper) and r.get('period') %}P{{ r.get('period') }}{% endif %}{% endif %}</div>
+              <div class="time-left" title="Time left in period">—</div>
               {% if is_final %}
               <div class="result-badge">{{ result_badge }}</div>
               {% endif %}
@@ -479,29 +485,35 @@
         const stateEl = card.querySelector('.row.head .state');
         const timeEl = card.querySelector('.row.head .time-left');
         if (stateEl) {
-          const seg = [];
-          if (g.gameState) seg.push(g.gameState);
-          if (g.clock) seg.push(String(g.clock));
-          if (g.period) seg.push('P' + g.period);
-          stateEl.textContent = seg.join(' · ');
           const st = (g.gameState || '').toUpperCase();
+          stateEl.textContent = g.gameState || '';
           stateEl.classList.toggle('crit', st.includes('CRIT'));
         }
-        if (timeEl) {
-          let t = '';
+        const periodEl = card.querySelector('.row.head .period-pill');
+        if (periodEl) {
           const st = (g.gameState || '').toUpperCase();
           if (st.includes('FINAL')) {
-            t = 'Final';
-          } else if (g.period || g.clock) {
-            const pd = g.period ? ('P' + g.period) : '';
-            const cl = g.clock ? String(g.clock) : '';
-            t = [pd, cl].filter(Boolean).join(' ');
+            periodEl.textContent = 'Final';
+          } else if (g.period) {
+            periodEl.textContent = 'P' + g.period;
           } else if (st.includes('LIVE') || st.includes('IN') || st.includes('PROGRESS') || st.includes('CRIT')) {
-            t = 'Live';
+            periodEl.textContent = 'Live';
           } else {
-            t = '';
+            periodEl.textContent = '';
           }
-          timeEl.textContent = t || '—';
+          periodEl.classList.toggle('crit', st.includes('CRIT'));
+        }
+        if (timeEl) {
+          const st = (g.gameState || '').toUpperCase();
+            if (st.includes('FINAL')) {
+              timeEl.textContent = '—';
+            } else if (g.clock) {
+              timeEl.textContent = String(g.clock);
+            } else if (st.includes('LIVE') || st.includes('IN') || st.includes('PROGRESS') || st.includes('CRIT')) {
+              timeEl.textContent = '—';
+            } else {
+              timeEl.textContent = '—';
+            }
           timeEl.classList.toggle('crit', st.includes('CRIT'));
         }
         // Update live scores (do not overwrite projections)

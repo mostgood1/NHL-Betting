@@ -4,6 +4,9 @@ from __future__ import annotations
 
 _NAME_TO_ABBR = {
     "anaheim ducks": "ANA",
+    "utah mammoth": "UTA",
+    "utah hockey club": "UTA",
+    "utah hc": "UTA",
     "arizona coyotes": "ARI",
     "boston bruins": "BOS",
     "buffalo sabres": "BUF",

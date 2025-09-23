@@ -11,10 +11,12 @@
     <div class="container header-inner">
       <h1>NHL Betting – Cards</h1>
       <form method="get" action="/">
-        <label>Date: <input type="date" name="date" value="{{ date }}" /></label>
-        <button type="submit">Apply</button>
-        <a class="btn" href="/api/refresh-odds?date={{ date }}">Refresh Odds</a>
-        <button type="button" id="injectOddsBtn" class="btn" title="Safely inject odds without regenerating predictions">Inject Odds (safe)</button>
+    <label>Date: <input type="date" name="date" value="{{ date }}" /></label>
+    <button type="submit">Apply</button>
+  {% if not settled %}
+  <a class="btn" href="/api/refresh-odds?date={{ date }}">Refresh Odds</a>
+  <button type="button" id="refreshOddsBtn" class="btn" title="Fetch updated lines in the background">Refetch Lines</button>
+  {% endif %}
         <a class="btn" href="/recommendations?date={{ date }}">Recommendations</a>
         <a class="btn" href="/props">Props</a>
         <a class="btn" href="/odds-coverage?date={{ date }}">Odds Coverage</a>
@@ -211,15 +213,24 @@
               </div>
             </div>
             {% endif %}
-            {% if settled and r.get('rec_market') %}
+            {% if r.get('rec_market') %}
             <div class="row details">
               <div class="detail-col">
-                <div class="rec-pill {{ 'ok' if r.get('rec_success') else ('push' if r.get('rec_result') == 'Push' else 'bad') }}">
-                  Recommendation: <strong>{{ r.get('rec_label') }}</strong> · EV {{ '%.3f' % r.get('rec_ev') if r.get('rec_ev') is not none else '—' }}
+                <div class="rec-pill {{ 'ok' if r.get('rec_success') else ('push' if r.get('rec_result') == 'Push' else ('')) }}">
+                  Recommendation: <strong>{{ r.get('rec_label') }}</strong>
+                  {% if r.get('rec_confidence') %} <span class="rec-conf {{ r.get('rec_confidence')|lower }}">{{ r.get('rec_confidence') }}</span>{% endif %}
+                  · EV {{ '%.3f' % r.get('rec_ev') if r.get('rec_ev') is not none else '—' }}
                   {% if r.get('rec_odds') is not none %} · {{ r.get('rec_odds') }}{% endif %}
                   {% if r.get('rec_book') %} @ {{ r.get('rec_book') }}{% endif %}
                   {% if r.get('rec_result') %} · Result: <strong>{{ r.get('rec_result') }}</strong>{% endif %}
                 </div>
+              </div>
+            </div>
+            {% endif %}
+            {% if r.get('model_pick') and r.get('model_pick_prob') is not none %}
+            <div class="row details small">
+              <div class="detail-col">
+                <div class="model-pill">Model Pick: <strong>{{ r.get('model_pick') }}</strong> · {{ '%.1f' % (100*r.get('model_pick_prob')) }}%</div>
               </div>
             </div>
             {% endif %}
@@ -247,7 +258,8 @@
   const liveIntervalMs = 15000; // 15s live scoreboard polling
   const refreshOddsMs = 600000; // 10m background odds refresh during window
   const toggleEl = document.getElementById('autoUpdateToggle');
-  const injectBtn = document.getElementById('injectOddsBtn');
+  // injectOdds button removed
+  const refetchBtn = document.getElementById('refreshOddsBtn');
 
   // Format all game dates into the user's local timezone
   (function formatLocalTimes(){
@@ -364,25 +376,27 @@
     } catch (_) {}
   });
 
-  // Manual injection handler
-  if (injectBtn) {
-    injectBtn.addEventListener('click', async () => {
+  // manual inject removed
+
+  // Manual refetch handler (current day)
+  if (refetchBtn) {
+    refetchBtn.addEventListener('click', async () => {
       try {
-        injectBtn.disabled = true;
-        const label = injectBtn.textContent;
-        injectBtn.textContent = 'Injecting…';
+        refetchBtn.disabled = true;
+        const label = refetchBtn.textContent;
+        refetchBtn.textContent = 'Refetching…';
         const before = await updateLastUpdated();
-        await fetch(`/api/inject-odds?date=${encodeURIComponent(date)}`, { method: 'POST' });
+        await fetch(`/api/refresh-odds?date=${encodeURIComponent(date)}`, { method: 'GET', cache: 'no-store' });
         setTimeout(async () => {
           const after = await updateLastUpdated();
-          injectBtn.disabled = false;
-          injectBtn.textContent = label;
+          refetchBtn.disabled = false;
+          refetchBtn.textContent = label;
           if (before && after && before !== after) {
             window.location.reload();
           }
         }, 2500);
       } catch (_) {
-        try { injectBtn.disabled = false; } catch {}
+        try { refetchBtn.disabled = false; } catch {}
       }
     });
   }

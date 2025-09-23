@@ -509,7 +509,7 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
                 r["game_state"] = r.get("game_state") or "FINAL"
         except Exception:
             pass
-    # Enrich rows for settled slates: final scores from scoreboard and a per-game recommendation
+    # Enrich rows for settled slates: final scores from scoreboard
     if settled and rows:
         try:
             client = NHLWebClient()
@@ -531,12 +531,6 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
                     sb_idx[(hk, ak)] = g
         except Exception:
             pass
-        # Helpers to pick recommendation
-        def _to_float(x):
-            try:
-                return float(x)
-            except Exception:
-                return None
         for r in rows:
             # Final scores
             try:
@@ -552,39 +546,50 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
                     r["game_state"] = r.get("game_state") or g.get("gameState") or "FINAL"
             except Exception:
                 pass
-            # Build candidates for recommendation
-            cands = []
-            # Moneyline
-            ev_h = _to_float(r.get("ev_home_ml"))
-            ev_a = _to_float(r.get("ev_away_ml"))
-            if ev_h is not None:
-                cands.append({"market": "moneyline", "bet": "home_ml", "label": "Home ML", "ev": ev_h, "odds": r.get("home_ml_odds"), "book": r.get("home_ml_book")})
-            if ev_a is not None:
-                cands.append({"market": "moneyline", "bet": "away_ml", "label": "Away ML", "ev": ev_a, "odds": r.get("away_ml_odds"), "book": r.get("away_ml_book")})
-            # Totals
-            ev_o = _to_float(r.get("ev_over"))
-            ev_u = _to_float(r.get("ev_under"))
-            if ev_o is not None:
-                cands.append({"market": "totals", "bet": "over", "label": "Over", "ev": ev_o, "odds": r.get("over_odds"), "book": r.get("over_book")})
-            if ev_u is not None:
-                cands.append({"market": "totals", "bet": "under", "label": "Under", "ev": ev_u, "odds": r.get("under_odds"), "book": r.get("under_book")})
-            # Puck line
-            ev_hpl = _to_float(r.get("ev_home_pl_-1.5"))
-            ev_apl = _to_float(r.get("ev_away_pl_+1.5"))
-            if ev_hpl is not None:
-                cands.append({"market": "puckline", "bet": "home_pl_-1.5", "label": "Home -1.5", "ev": ev_hpl, "odds": r.get("home_pl_-1.5_odds"), "book": r.get("home_pl_-1.5_book")})
-            if ev_apl is not None:
-                cands.append({"market": "puckline", "bet": "away_pl_+1.5", "label": "Away +1.5", "ev": ev_apl, "odds": r.get("away_pl_+1.5_odds"), "book": r.get("away_pl_+1.5_book")})
-            # Choose best by EV (ties arbitrary)
-            best = None
-            if cands:
-                best = sorted(cands, key=lambda x: (x.get("ev") if x.get("ev") is not None else -999), reverse=True)[0]
-            # Determine result for chosen rec
-            rec_res = None
-            rec_ok = None
-            if best:
-                m = best["market"]
-                b = best["bet"]
+    # Build a recommendation (best EV) for all rows; result only for completed games
+    def _to_float(x):
+        try:
+            return float(x)
+        except Exception:
+            return None
+    for r in rows:
+        # Candidates
+        cands = []
+        ev_h = _to_float(r.get("ev_home_ml")); ev_a = _to_float(r.get("ev_away_ml"))
+        if ev_h is not None:
+            cands.append({"market": "moneyline", "bet": "home_ml", "label": "Home ML", "ev": ev_h, "odds": r.get("home_ml_odds"), "book": r.get("home_ml_book")})
+        if ev_a is not None:
+            cands.append({"market": "moneyline", "bet": "away_ml", "label": "Away ML", "ev": ev_a, "odds": r.get("away_ml_odds"), "book": r.get("away_ml_book")})
+        ev_o = _to_float(r.get("ev_over")); ev_u = _to_float(r.get("ev_under"))
+        if ev_o is not None:
+            cands.append({"market": "totals", "bet": "over", "label": "Over", "ev": ev_o, "odds": r.get("over_odds"), "book": r.get("over_book")})
+        if ev_u is not None:
+            cands.append({"market": "totals", "bet": "under", "label": "Under", "ev": ev_u, "odds": r.get("under_odds"), "book": r.get("under_book")})
+        ev_hpl = _to_float(r.get("ev_home_pl_-1.5")); ev_apl = _to_float(r.get("ev_away_pl_+1.5"))
+        if ev_hpl is not None:
+            cands.append({"market": "puckline", "bet": "home_pl_-1.5", "label": "Home -1.5", "ev": ev_hpl, "odds": r.get("home_pl_-1.5_odds"), "book": r.get("home_pl_-1.5_book")})
+        if ev_apl is not None:
+            cands.append({"market": "puckline", "bet": "away_pl_+1.5", "label": "Away +1.5", "ev": ev_apl, "odds": r.get("away_pl_+1.5_odds"), "book": r.get("away_pl_+1.5_book")})
+        best = None
+        if cands:
+            best = sorted(cands, key=lambda x: (x.get("ev") if x.get("ev") is not None else -999), reverse=True)[0]
+        # Confidence by EV thresholds
+        conf = None
+        try:
+            evv = best.get("ev") if best else None
+            if evv is not None:
+                if evv >= 0.05:
+                    conf = "High"
+                elif evv >= 0.02:
+                    conf = "Medium"
+                elif evv >= 0:
+                    conf = "Low"
+        except Exception:
+            conf = None
+        rec_res = None; rec_ok = None
+        if best:
+            m = best["market"]; b = best["bet"]
+            if settled:
                 if m == "moneyline":
                     wact = r.get("winner_actual")
                     if isinstance(wact, str) and wact:
@@ -605,15 +610,28 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
                     if isinstance(ra, str) and ra:
                         rec_ok = (ra == b)
                         rec_res = "Win" if rec_ok else "Loss"
-            if best:
-                r["rec_market"] = best.get("market")
-                r["rec_bet"] = best.get("bet")
-                r["rec_label"] = best.get("label")
-                r["rec_ev"] = best.get("ev")
-                r["rec_odds"] = best.get("odds")
-                r["rec_book"] = best.get("book")
-                r["rec_result"] = rec_res
-                r["rec_success"] = rec_ok
+            r["rec_market"] = best.get("market")
+            r["rec_bet"] = best.get("bet")
+            r["rec_label"] = best.get("label")
+            r["rec_ev"] = best.get("ev")
+            r["rec_odds"] = best.get("odds")
+            r["rec_book"] = best.get("book")
+            r["rec_result"] = rec_res
+            r["rec_success"] = rec_ok
+            r["rec_confidence"] = conf
+        # Add model pick (moneyline highest probability)
+        try:
+            ph = float(r.get("p_home_ml")) if r.get("p_home_ml") is not None else None
+            pa = float(r.get("p_away_ml")) if r.get("p_away_ml") is not None else None
+            if ph is not None and pa is not None:
+                if ph >= pa:
+                    r["model_pick"] = "Home ML"
+                    r["model_pick_prob"] = ph
+                else:
+                    r["model_pick"] = "Away ML"
+                    r["model_pick_prob"] = pa
+        except Exception:
+            pass
     # Load inferred odds as a tertiary display fallback (not persisted): inferred_odds_{date}.csv
     inferred_map = {}
     try:

@@ -57,6 +57,11 @@ header .last-updated { margin-left: auto; color: #9fb0ff; font-size: 12px; opaci
 .rec-pill.ok { background: #0f2d1b; border: 1px solid #1e7a45; color: #a7f3c6; }
 .rec-pill.bad { background: #3a1212; border: 1px solid #7a1e1e; color: #ffb7b7; }
 .rec-pill.push { background: #111834; border: 1px solid #2a3a7a; color: #cfe0ff; }
+.rec-conf { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 999px; font-size: 10px; font-weight: 800; }
+.rec-conf.high { background: #1a6b3a; color: #d9ffe9; }
+.rec-conf.medium { background: #6a5a1f; color: #ffeaa7; }
+.rec-conf.low { background: #2a376d; color: #dfe6ff; }
+.model-pill { display: inline-block; background: #0f1530; border: 1px solid #2a3a7a; color: #d5dbff; padding: 4px 8px; border-radius: 999px; font-weight: 700; }
 .team-logo { height: 36px; vertical-align: middle; margin-right: 8px; }
 .book-badge { background: #243056; color: #cfe0ff; padding: 0 4px; border-radius: 6px; font-size: 9px; font-weight: 700; opacity: 0.9; }
 

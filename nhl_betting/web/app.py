@@ -886,39 +886,45 @@ async def api_scoreboard(date: Optional[str] = Query(None)):
                             r["period"] = ls.get("period")
                         if ls.get("clock"):
                             r["clock"] = ls.get("clock")
+                            r["source_clock"] = "web"
                 except Exception:
                     pass
-                # Fallback to Stats API for clock if still missing/empty
+                # Stats API always fetched for deterministic clock & intermission info
                 try:
-                    if not r.get("clock") or r.get("clock") in ("", None):
-                        stats_client = NHLStatsClient()
-                        glf = stats_client.game_live_feed(int(r.get("gamePk")))
-                        live = (glf or {}).get("liveData", {})
-                        ls2 = live.get("linescore", {})
-                        # Prefer exact time remaining like "03:25". Stats API sometimes returns "END"; treat that as 0:00
-                        clock2 = ls2.get("currentPeriodTimeRemaining")
-                        if isinstance(clock2, str) and clock2:
-                            if clock2.strip().upper() == "END":
-                                clock2 = "0:00"
-                            r["clock"] = clock2
-                        # Try currentPlay as last resort
-                        if not r.get("clock") or r.get("clock") in ("", None):
-                            cur = live.get("plays", {}).get("currentPlay", {}).get("about", {})
-                            clock3 = cur.get("periodTimeRemaining")
-                            if isinstance(clock3, str) and clock3:
-                                r["clock"] = clock3
-                        # Period enrich
-                        if r.get("period") is None:
-                            per2 = ls2.get("currentPeriod") or ls2.get("period") or cur.get("period")
-                            if per2 is not None:
-                                r["period"] = per2
+                    stats_client = NHLStatsClient()
+                    glf = stats_client.game_live_feed(int(r.get("gamePk")))
+                    live = (glf or {}).get("liveData", {})
+                    ls2 = live.get("linescore", {})
+                    inter = ls2.get("intermissionInfo", {}) if isinstance(ls2, dict) else {}
+                    in_inter = bool(inter.get("inIntermission"))
+                    # Primary precise clock
+                    clock2 = ls2.get("currentPeriodTimeRemaining")
+                    if isinstance(clock2, str) and clock2:
+                        if clock2.strip().upper() == "END":
+                            clock2 = "0:00"
+                        r["clock"] = clock2
+                        r["source_clock"] = "stats"
+                    # If still no clock, attempt currentPlay
+                    if (not r.get("clock")) or r.get("clock") in ("", None):
+                        cur = live.get("plays", {}).get("currentPlay", {}).get("about", {})
+                        clock3 = cur.get("periodTimeRemaining")
+                        if isinstance(clock3, str) and clock3:
+                            r["clock"] = clock3
+                            if not r.get("source_clock"):
+                                r["source_clock"] = "stats-currentPlay"
+                    # Period enrich from stats
+                    if r.get("period") is None:
+                        per2 = ls2.get("currentPeriod") or ls2.get("period") or cur.get("period")
+                        if per2 is not None:
+                            r["period"] = per2
+                    # Mark intermission explicitly
+                    r["intermission"] = in_inter
                 except Exception:
                     pass
             # Derive display period and intermission flag
             try:
                 per = r.get("period")
                 st2 = str(r.get("gameState") or "").upper()
-                intermission = False
                 period_disp = None
                 if st2.startswith("FINAL"):
                     period_disp = "Final"
@@ -928,23 +934,16 @@ async def api_scoreboard(date: Optional[str] = Query(None)):
                             p_int = int(per)
                         except Exception:
                             p_int = None
-                        if p_int == 1:
-                            period_disp = "P1"
-                        elif p_int == 2:
-                            period_disp = "P2"
-                        elif p_int == 3:
-                            period_disp = "P3"
-                        elif p_int == 4:
-                            period_disp = "OT"
-                        elif p_int == 5:
-                            period_disp = "SO"
-                        else:
-                            period_disp = f"P{per}"
-                # Intermission heuristic: live state but no clock while period known and not final
-                if (not r.get("clock")) and per is not None and not (st2.startswith("FINAL")) and any(k in st2 for k in ["LIVE", "PROGRESS", "IN", "CRIT"]):
-                    intermission = True
+                        if p_int == 1: period_disp = "P1"
+                        elif p_int == 2: period_disp = "P2"
+                        elif p_int == 3: period_disp = "P3"
+                        elif p_int == 4: period_disp = "OT"
+                        elif p_int == 5: period_disp = "SO"
+                        else: period_disp = f"P{per}"
                 r["period_disp"] = period_disp
-                r["intermission"] = intermission
+                # If stats intermission flag not set earlier, ensure boolean present
+                if "intermission" not in r:
+                    r["intermission"] = False
             except Exception:
                 pass
     except Exception:

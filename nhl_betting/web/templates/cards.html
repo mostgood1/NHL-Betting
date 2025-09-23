@@ -560,10 +560,17 @@
       });
       // If this was a one-shot and many live games still have blank period, schedule a retry
       if (isOneShot) {
-        const anyBlank = document.querySelectorAll('.row.head .period-pill').length > 0 && Array.from(document.querySelectorAll('.row.head .period-pill')).some(el=>!el.textContent);
-        if (anyBlank) {
-          setTimeout(()=>refreshLive(true), 5000);
-        }
+        const pills = Array.from(document.querySelectorAll('.row.head .period-pill'));
+        const blanks = pills.filter(el=>!el.textContent);
+        if (blanks.length>0) setTimeout(()=>refreshLive(true), 5000);
+        // second quicker retry if still missing clock but period present
+        const liveNoClock = Array.from(document.querySelectorAll('.card')).some(card=>{
+          const st = (card.querySelector('.row.head .state')||{}).textContent || '';
+          const stU = st.toUpperCase();
+          const periodTxt = (card.querySelector('.row.head .period-pill')||{}).textContent || '';
+          const timeTxt = (card.querySelector('.row.head .time-left')||{}).textContent || '';
+          return periodTxt && !timeTxt && (stU.includes('LIVE')||stU.includes('PROGRESS')); });
+        if (liveNoClock) setTimeout(()=>refreshLive(true), 2000);
       }
     } catch (e) { /* ignore */ }
   }

@@ -34,12 +34,41 @@
       <div class="cards">
         {% for r in rows %}
           {% set has_any_odds = r.get('has_any_odds') %}
-          <div class="card" data-game-date="{{ r.date }}" data-gamepk="{{ r.gamePk if r.get('gamePk') else '' }}" data-home-abbr="{{ r.home_abbr }}" data-away-abbr="{{ r.away_abbr }}" data-has-odds="{{ 1 if has_any_odds else 0 }}">
+          {# Compute final result summary for completed games #}
+          {% set is_final = (r.get('game_state') and ('FINAL' in r.get('game_state')|upper)) or (settled) %}
+          {% set w = 0 %}{% set l = 0 %}{% set psh = 0 %}
+          {# Moneyline correctness if available #}
+          {% if r.get('winner_correct') is not none %}
+            {% if r.get('winner_correct') %}{% set w = w + 1 %}{% else %}{% set l = l + 1 %}{% endif %}
+          {% endif %}
+          {# Totals pick correctness if available #}
+          {% if r.get('totals_pick') and r.get('result_total') %}
+            {% if r.get('result_total') == 'Push' %}{% set psh = psh + 1 %}
+            {% elif r.get('totals_pick')|lower == r.get('result_total')|lower %}{% set w = w + 1 %}
+            {% else %}{% set l = l + 1 %}{% endif %}
+          {% endif %}
+          {# Puck line pick correctness if available #}
+          {% if r.get('ats_pick') and r.get('result_ats') %}
+            {% if r.get('ats_pick') == r.get('result_ats') %}{% set w = w + 1 %}{% else %}{% set l = l + 1 %}{% endif %}
+          {% endif %}
+          {% set result_class = '' %}
+          {% if is_final %}
+            {% if w > 0 and l == 0 %}{% set result_class = 'final-all-win' %}
+            {% elif l > 0 and w == 0 and psh == 0 %}{% set result_class = 'final-all-loss' %}
+            {% elif w > 0 and l > 0 %}{% set result_class = 'final-mixed' %}
+            {% elif w == 0 and l == 0 and psh > 0 %}{% set result_class = 'final-push' %}
+            {% else %}{% set result_class = 'final-neutral' %}{% endif %}
+          {% endif %}
+          {% set result_badge = ('W' ~ w ~ '-L' ~ l ~ (('-P' ~ psh) if (psh > 0) else '')) if is_final else '' %}
+          <div class="card {{ result_class }}" data-game-date="{{ r.date }}" data-gamepk="{{ r.gamePk if r.get('gamePk') else '' }}" data-home-abbr="{{ r.home_abbr }}" data-away-abbr="{{ r.away_abbr }}" data-has-odds="{{ 1 if has_any_odds else 0 }}">
             <div class="row head">
               <div class="game-date js-local-time">{{ r.date }}</div>
               {% if r.venue %}<div class="venue">{{ r.venue }}</div>{% endif %}
               <div class="state">{{ r.game_state if r.game_state else '' }}</div>
               <div class="time-left">—</div>
+              {% if is_final %}
+              <div class="result-badge">{{ result_badge }}</div>
+              {% endif %}
             </div>
             <div class="row matchup">
               <div class="team side">

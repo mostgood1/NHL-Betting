@@ -7,7 +7,17 @@ header .last-updated { margin-left: auto; color: #9fb0ff; font-size: 12px; opaci
 .container { max-width: 1200px; margin: 0 auto; padding: 0 16px; }
 .cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; padding: 18px 0; }
 .card { background: #141b3a; border: 1px solid #1f2a5a; border-radius: 14px; padding: 16px; display: grid; gap: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.28); }
+.card.final-all-win { border-color: #1f6a3a; box-shadow: 0 0 0 1px rgba(31,106,58,0.5), 0 2px 10px rgba(0,0,0,0.35); }
+.card.final-all-loss { border-color: #7a1e1e; box-shadow: 0 0 0 1px rgba(122,30,30,0.5), 0 2px 10px rgba(0,0,0,0.35); }
+.card.final-mixed { border-color: #6a5a1f; box-shadow: 0 0 0 1px rgba(106,90,31,0.5), 0 2px 10px rgba(0,0,0,0.35); }
+.card.final-push { border-color: #2a3a7a; box-shadow: 0 0 0 1px rgba(42,58,122,0.5), 0 2px 10px rgba(0,0,0,0.35); }
+.card.final-neutral { border-color: #2a3a7a; }
 .row.head { display: flex; gap: 10px; align-items: center; font-size: 13px; color: #9fb0ff; }
+.row.head .result-badge { margin-left: auto; background: #0f1530; border: 1px solid #2a3a7a; color: #d5dbff; padding: 2px 6px; border-radius: 999px; font-weight: 800; font-size: 11px; }
+.card.final-all-win .row.head .result-badge { background: #0f2d1b; border-color: #1e7a45; color: #a7f3c6; }
+.card.final-all-loss .row.head .result-badge { background: #3a1212; border-color: #7a1e1e; color: #ffb7b7; }
+.card.final-mixed .row.head .result-badge { background: #2a2310; border-color: #6a5a1f; color: #ffeaa7; }
+.card.final-push .row.head .result-badge { background: #111834; border-color: #2a3a7a; color: #cfe0ff; }
 .row.head .venue { background: #0f1530; border: 1px solid #25316a; padding: 2px 6px; border-radius: 6px; color: #c9d3ff; }
 .row.head .state { background: #162a11; border: 1px solid #2a6b1e; padding: 2px 6px; border-radius: 6px; color: #b7f3c7; font-weight: 700; }
 .row.head .state.crit { background: #3a1212; border-color: #7a1e1e; color: #ffb7b7; }

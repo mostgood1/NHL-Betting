@@ -914,8 +914,45 @@ async def api_scoreboard(date: Optional[str] = Query(None)):
                                 r["period"] = per2
                 except Exception:
                     pass
+            # Derive display period and intermission flag
+            try:
+                per = r.get("period")
+                st2 = str(r.get("gameState") or "").upper()
+                intermission = False
+                period_disp = None
+                if st2.startswith("FINAL"):
+                    period_disp = "Final"
+                else:
+                    if per is not None:
+                        try:
+                            p_int = int(per)
+                        except Exception:
+                            p_int = None
+                        if p_int == 1:
+                            period_disp = "P1"
+                        elif p_int == 2:
+                            period_disp = "P2"
+                        elif p_int == 3:
+                            period_disp = "P3"
+                        elif p_int == 4:
+                            period_disp = "OT"
+                        elif p_int == 5:
+                            period_disp = "SO"
+                        else:
+                            period_disp = f"P{per}"
+                # Intermission heuristic: live state but no clock while period known and not final
+                if (not r.get("clock")) and per is not None and not (st2.startswith("FINAL")) and any(k in st2 for k in ["LIVE", "PROGRESS", "IN", "CRIT"]):
+                    intermission = True
+                r["period_disp"] = period_disp
+                r["intermission"] = intermission
+            except Exception:
+                pass
     except Exception:
         pass
+    # Attach a fetched_at timestamp (UTC)
+    fetched_at = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+    for r in rows:
+        r["fetched_at"] = fetched_at
     return JSONResponse(rows)
 
 

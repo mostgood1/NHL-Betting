@@ -313,22 +313,6 @@
     return cards.some(el => el.getAttribute('data-has-odds') === '1');
   }
 
-  async function injectOddsIfLiveAndMissing() {
-    try {
-      const missing = anyOddsMissing();
-      // If any card lacks odds, try a safe odds-only injection (no regeneration)
-      if (missing) {
-        await fetch(`/api/inject-odds?date=${encodeURIComponent(date)}`, { method: 'POST' });
-        // Re-check last-updated to trigger reload if changed
-        setTimeout(async () => {
-          const nv = await updateLastUpdated();
-          if (nv && lastVal && nv !== lastVal) {
-            window.location.reload();
-          }
-        }, 3000);
-      }
-    } catch (_) {}
-  }
 
   function computeGameWindow() {
     const times = Array.from(document.querySelectorAll('.card[data-game-date]'))
@@ -363,10 +347,16 @@
   // Initialize
   updateLastUpdated().then(async (v) => {
     lastVal = v;
-    // If any card is missing odds, try a one-shot safe injection now
-    if (!isSettled && anyOddsMissing()) {
-      // Prefer safe injection (no regeneration) to preserve live slate; refreshOdds is disabled during live anyway
-      await injectOddsIfLiveAndMissing();
+    // If any card is missing odds, try a one-shot background refresh (skips during live)
+    if (!isSettled && !liveNow && anyOddsMissing()) {
+      await refreshOdds();
+      // Re-check last-updated to trigger reload if changed
+      setTimeout(async () => {
+        const nv = await updateLastUpdated();
+        if (nv && lastVal && nv !== lastVal) {
+          window.location.reload();
+        }
+      }, 3000);
     }
     // If not live and we already have odds, snapshot openers once (idempotent server-side)
     try {

@@ -778,139 +778,7 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
     return HTMLResponse(content=html)
 
 
-def _inject_bovada_odds_only(date: str) -> dict:
-    """Inject Bovada odds into existing predictions file for date without recomputing projections.
-
-    Returns a summary dict with counts and status.
-    """
-    path = PROC_DIR / f"predictions_{date}.csv"
-    if not path.exists():
-        return {"status": "no-file", "date": date}
-    df = pd.read_csv(path)
-    if df.empty:
-        return {"status": "empty", "date": date}
-    # Try Bovada first
-    odds = pd.DataFrame()
-    try:
-        bc = BovadaClient()
-        o_bov = bc.fetch_game_odds(date)
-        if o_bov is not None and not o_bov.empty:
-            odds = o_bov
-    except Exception:
-        pass
-    # Fallback to The Odds API current odds (nhl then preseason) if Bovada empty
-    if odds is None or odds.empty:
-        try:
-            from ..data.odds_api import OddsAPIClient, normalize_snapshot_to_rows
-            import requests as _req
-            client_oa = OddsAPIClient()
-            base = "https://api.the-odds-api.com/v4"
-            params = {
-                "apiKey": client_oa.api_key,
-                "regions": "us",
-                "markets": "h2h,totals,spreads",
-                "oddsFormat": "american",
-                "dateFormat": "iso",
-            }
-            url = f"{base}/sports/icehockey_nhl/odds"
-            r = _req.get(url, params=params, timeout=40)
-            df_cur = pd.DataFrame()
-            if r.ok:
-                df_cur = normalize_snapshot_to_rows(r.json(), bookmaker=None, best_of_all=True)
-            if df_cur is None or df_cur.empty:
-                url2 = f"{base}/sports/icehockey_nhl_preseason/odds"
-                r2 = _req.get(url2, params=params, timeout=40)
-                if r2.ok:
-                    df_cur = normalize_snapshot_to_rows(r2.json(), bookmaker=None, best_of_all=True)
-            if df_cur is not None and not df_cur.empty:
-                odds = df_cur
-        except Exception:
-            pass
-    if odds is None or odds.empty:
-        return {"status": "no-odds", "date": date}
-    # Normalize matching keys
-    def norm_team(s: str) -> str:
-        import re, unicodedata
-        if s is None:
-            return ""
-        s = str(s)
-        s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode()
-        s = s.lower()
-        s = re.sub(r"[^a-z0-9]+", "", s)
-        return s
-    odds["date"] = pd.to_datetime(odds["date"], errors="coerce").dt.strftime("%Y-%m-%d")
-    odds["home_norm"] = odds["home"].apply(norm_team)
-    odds["away_norm"] = odds["away"].apply(norm_team)
-    try:
-        from .teams import get_team_assets as _assets
-        def to_abbr(x):
-            try:
-                return (_assets(str(x)).get("abbr") or "").upper()
-            except Exception:
-                return ""
-        odds["home_abbr"] = odds["home"].apply(to_abbr)
-        odds["away_abbr"] = odds["away"].apply(to_abbr)
-    except Exception:
-        odds["home_abbr"] = ""
-        odds["away_abbr"] = ""
-    # Build date key
-    dkey = pd.to_datetime(df.iloc[0].get("date")).strftime("%Y-%m-%d") if not df.empty else date
-    updated = 0
-    def _to_float_odds(x):
-        if x is None or (isinstance(x, float) and pd.isna(x)):
-            return None
-        s = str(x).strip().upper()
-        if s in ("EVEN", "EV", "E"):
-            return 100.0
-        try:
-            return float(s)
-        except Exception:
-            return None
-    for i, r in df.iterrows():
-        h = r.get("home"); a = r.get("away")
-        try:
-            from .teams import get_team_assets as _assets2
-            h_ab = (_assets2(str(h)).get("abbr") or "").upper()
-            a_ab = (_assets2(str(a)).get("abbr") or "").upper()
-        except Exception:
-            h_ab = ""; a_ab = ""
-        h_n = norm_team(h); a_n = norm_team(a)
-        m = pd.DataFrame()
-        if {"home_abbr","away_abbr"}.issubset(set(odds.columns)) and h_ab and a_ab:
-            m = odds[(odds["date"] == dkey) & (odds["home_abbr"] == h_ab) & (odds["away_abbr"] == a_ab)]
-        if m.empty:
-            m = odds[(odds["date"] == dkey) & (odds["home_norm"] == h_n) & (odds["away_norm"] == a_n)]
-        if m.empty and {"home_abbr","away_abbr"}.issubset(set(odds.columns)) and h_ab and a_ab:
-            m = odds[(odds["home_abbr"] == h_ab) & (odds["away_abbr"] == a_ab)]
-        if m.empty:
-            m = odds[(odds["home_norm"] == a_n) & (odds["away_norm"] == h_n)]
-        if m.empty:
-            continue
-        row = m.iloc[0]
-        # Set odds without altering model probabilities
-        df.at[i, "home_ml_odds"] = _to_float_odds(row.get("home_ml")) if pd.notna(row.get("home_ml")) else pd.NA
-        df.at[i, "away_ml_odds"] = _to_float_odds(row.get("away_ml")) if pd.notna(row.get("away_ml")) else pd.NA
-        df.at[i, "over_odds"] = _to_float_odds(row.get("over")) if pd.notna(row.get("over")) else pd.NA
-        df.at[i, "under_odds"] = _to_float_odds(row.get("under")) if pd.notna(row.get("under")) else pd.NA
-        df.at[i, "home_pl_-1.5_odds"] = _to_float_odds(row.get("home_pl_-1.5")) if pd.notna(row.get("home_pl_-1.5")) else pd.NA
-        df.at[i, "away_pl_+1.5_odds"] = _to_float_odds(row.get("away_pl_+1.5")) if pd.notna(row.get("away_pl_+1.5")) else pd.NA
-        # Books
-        if pd.notna(row.get("home_ml_book")): df.at[i, "home_ml_book"] = row.get("home_ml_book")
-        if pd.notna(row.get("away_ml_book")): df.at[i, "away_ml_book"] = row.get("away_ml_book")
-        if pd.notna(row.get("over_book")): df.at[i, "over_book"] = row.get("over_book")
-        if pd.notna(row.get("under_book")): df.at[i, "under_book"] = row.get("under_book")
-        if pd.notna(row.get("home_pl_-1.5_book")): df.at[i, "home_pl_-1.5_book"] = row.get("home_pl_-1.5_book")
-        if pd.notna(row.get("away_pl_+1.5_book")): df.at[i, "away_pl_+1.5_book"] = row.get("away_pl_+1.5_book")
-        # Total line used: only set if currently missing
-        try:
-            if ("total_line_used" not in df.columns) or pd.isna(df.at[i, "total_line_used"]):
-                if pd.notna(row.get("total_line")):
-                    df.at[i, "total_line_used"] = float(row.get("total_line"))
-        except Exception:
-            pass
-        updated += 1
-    df.to_csv(path, index=False)
-    return {"status": "ok", "updated": int(updated)}
+    
 
 
 def _capture_openers_for_day(date: str) -> dict:
@@ -975,12 +843,7 @@ def _capture_openers_for_day(date: str) -> dict:
     return {"status": "ok", "updated": int(updated), "date": date}
 
 
-@app.post("/api/inject-odds")
-async def api_inject_odds(date: Optional[str] = Query(None)):
-    date = date or _today_ymd()
-    res = _inject_bovada_odds_only(date)
-    code = 200 if res.get("status") in ("ok", "no-file", "empty", "no-odds") else 400
-    return JSONResponse(res, status_code=code)
+    
 
 
 @app.post("/api/capture-openers")

@@ -34,6 +34,23 @@ def _today_ymd() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
 
+def _is_live_day(date: str) -> bool:
+    """Return True if any game for the date is currently LIVE/in progress.
+
+    Uses the NHL Web API scoreboard; treats states containing LIVE/IN/PROGRESS as live.
+    """
+    try:
+        client = NHLWebClient()
+        rows = client.scoreboard_day(date)
+        for r in rows:
+            st = str(r.get("gameState") or "").upper()
+            if any(k in st for k in ["LIVE", "IN", "PROGRESS", "CRIT"]):
+                return True
+    except Exception:
+        pass
+    return False
+
+
 def _has_any_odds_df(df: pd.DataFrame) -> bool:
     try:
         if df is None or df.empty:
@@ -52,6 +69,125 @@ def _has_any_odds_df(df: pd.DataFrame) -> bool:
         return any(df[c].notna().any() for c in present_cols)
     except Exception:
         return False
+
+
+def _merge_preserve_odds(df_old: pd.DataFrame, df_new: pd.DataFrame) -> pd.DataFrame:
+    """Fill any missing odds/book fields in df_new from df_old by matching games.
+
+    Match on date (YYYY-MM-DD) and normalized home/away names. Only fills when df_new is NaN/null
+    and df_old has a value. Returns a new DataFrame (does not mutate inputs).
+    """
+    if df_new is None or df_new.empty:
+        return df_new
+    if df_old is None or df_old.empty:
+        return df_new
+    def norm_team(s: str) -> str:
+        import re, unicodedata
+        if s is None:
+            return ""
+        s = str(s)
+        s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode()
+        s = s.lower()
+        s = re.sub(r"[^a-z0-9]+", "", s)
+        return s
+    def date_key(x) -> str:
+        try:
+            return pd.to_datetime(x).strftime("%Y-%m-%d")
+        except Exception:
+            return None
+    # Build lookup from old
+    old_idx = {}
+    for _, r in df_old.iterrows():
+        k = (date_key(r.get("date")), norm_team(r.get("home")), norm_team(r.get("away")))
+        old_idx[k] = r
+    # Columns to preserve
+    cand_cols = [
+        "home_ml_odds","away_ml_odds","over_odds","under_odds","home_pl_-1.5_odds","away_pl_+1.5_odds",
+        "home_ml_book","away_ml_book","over_book","under_book","home_pl_-1.5_book","away_pl_+1.5_book",
+        "total_line_used","total_line",
+    ]
+    cols = [c for c in cand_cols if c in df_new.columns or c in df_old.columns]
+    rows = []
+    for _, r in df_new.iterrows():
+        k = (date_key(r.get("date")), norm_team(r.get("home")), norm_team(r.get("away")))
+        if k in old_idx:
+            ro = old_idx[k]
+            for c in cols:
+                # If new missing and old present, fill
+                new_has = (c in r and pd.notna(r.get(c)))
+                old_has = (c in ro and pd.notna(ro.get(c)))
+                if (not new_has) and old_has:
+                    r[c] = ro.get(c)
+        rows.append(r)
+    return pd.DataFrame(rows, columns=df_new.columns)
+
+
+def _capture_closing_for_game(date: str, home_abbr: str, away_abbr: str, snapshot: Optional[str] = None) -> dict:
+    """Persist first-seen 'closing' odds into predictions_{date}.csv for reconciliation.
+
+    We match the row by team abbreviations; then copy current odds fields into close_* columns
+    if they are missing. Returns a small status dict.
+    """
+    path = PROC_DIR / f"predictions_{date}.csv"
+    if not path.exists():
+        return {"status": "no-file", "date": date}
+    df = pd.read_csv(path)
+    if df.empty:
+        return {"status": "empty", "date": date}
+    from .teams import get_team_assets as _assets
+    def to_abbr(x):
+        try:
+            return (_assets(str(x)).get("abbr") or "").upper()
+        except Exception:
+            return ""
+    # Build mask
+    m = (df.apply(lambda r: to_abbr(r.get("home")) == (home_abbr or "").upper() and to_abbr(r.get("away")) == (away_abbr or "").upper(), axis=1))
+    if not m.any():
+        return {"status": "not-found", "home_abbr": home_abbr, "away_abbr": away_abbr}
+    idx = df.index[m][0]
+    # Ensure close_* columns exist
+    def ensure(col):
+        if col not in df.columns:
+            df[col] = pd.NA
+    closing_cols = [
+        "close_home_ml_odds","close_away_ml_odds","close_over_odds","close_under_odds",
+        "close_home_pl_-1.5_odds","close_away_pl_+1.5_odds","close_total_line_used",
+        "close_home_ml_book","close_away_ml_book","close_over_book","close_under_book",
+        "close_home_pl_-1.5_book","close_away_pl_+1.5_book","close_snapshot",
+    ]
+    for c in closing_cols:
+        ensure(c)
+    # Helper to set first
+    def set_first(dst_col, src_col):
+        try:
+            cur = df.at[idx, dst_col]
+            if pd.isna(cur) or cur is None:
+                if src_col in df.columns and pd.notna(df.at[idx, src_col]):
+                    df.at[idx, dst_col] = df.at[idx, src_col]
+        except Exception:
+            pass
+    set_first("close_home_ml_odds", "home_ml_odds")
+    set_first("close_away_ml_odds", "away_ml_odds")
+    set_first("close_over_odds", "over_odds")
+    set_first("close_under_odds", "under_odds")
+    set_first("close_home_pl_-1.5_odds", "home_pl_-1.5_odds")
+    set_first("close_away_pl_+1.5_odds", "away_pl_+1.5_odds")
+    set_first("close_total_line_used", "total_line_used")
+    set_first("close_home_ml_book", "home_ml_book")
+    set_first("close_away_ml_book", "away_ml_book")
+    set_first("close_over_book", "over_book")
+    set_first("close_under_book", "under_book")
+    set_first("close_home_pl_-1.5_book", "home_pl_-1.5_book")
+    set_first("close_away_pl_+1.5_book", "away_pl_+1.5_book")
+    # snapshot
+    try:
+        if pd.isna(df.at[idx, "close_snapshot"]) or df.at[idx, "close_snapshot"] is None:
+            df.at[idx, "close_snapshot"] = snapshot or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    except Exception:
+        pass
+    # Persist
+    df.to_csv(path, index=False)
+    return {"status": "ok", "date": date, "home_abbr": home_abbr, "away_abbr": away_abbr}
 
 
 @app.get("/health")
@@ -131,6 +267,12 @@ async def _ensure_models(quick: bool = False) -> None:
 async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD")):
     date = date or _today_ymd()
     note_msg = None
+    live_now = _is_live_day(date)
+    # Capture any existing predictions to preserve odds if updates fail/are partial
+    try:
+        df_old_global = pd.read_csv(PROC_DIR / f"predictions_{date}.csv")
+    except Exception:
+        df_old_global = pd.DataFrame()
     # Ensure models exist (Elo/config); if missing, do a quick bootstrap inline
     try:
         await _ensure_models(quick=True)
@@ -141,22 +283,23 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
     if not pred_path.exists():
         # Attempt Bovada first
         snapshot = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-        try:
-            predict_core(date=date, source="web", odds_source="bovada", snapshot=snapshot, odds_best=True)
-        except Exception:
-            pass
-        # Fallback to Odds API if no odds captured
-        if pred_path.exists():
+        if not live_now:
             try:
-                tmp = pd.read_csv(pred_path)
+                predict_core(date=date, source="web", odds_source="bovada", snapshot=snapshot, odds_best=True)
             except Exception:
-                tmp = pd.DataFrame()
-            if not _has_any_odds_df(tmp):
+                pass
+            # Fallback to Odds API if no odds captured
+            if pred_path.exists():
                 try:
-                    predict_core(date=date, source="web", odds_source="oddsapi", snapshot=snapshot, odds_best=False, odds_bookmaker="draftkings")
+                    tmp = pd.read_csv(pred_path)
                 except Exception:
-                    pass
-        # If file still doesn't exist, at least generate predictions without odds
+                    tmp = pd.DataFrame()
+                if not _has_any_odds_df(tmp):
+                    try:
+                        predict_core(date=date, source="web", odds_source="oddsapi", snapshot=snapshot, odds_best=False, odds_bookmaker="draftkings")
+                    except Exception:
+                        pass
+        # If file still doesn't exist, at least generate predictions without odds (allowed during live to show something)
         if not pred_path.exists():
             try:
                 predict_core(date=date, source="web", odds_source="csv")
@@ -164,17 +307,28 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
                 pass
     df = pd.read_csv(pred_path) if pred_path.exists() else pd.DataFrame()
     # If predictions exist but odds are missing, try Bovada then Odds API to populate
-    if pred_path.exists() and not _has_any_odds_df(df):
+    if pred_path.exists() and not _has_any_odds_df(df) and not live_now:
         snapshot = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        # Preserve any existing odds if present in old df
+        try:
+            df_old = pd.read_csv(pred_path)
+        except Exception:
+            df_old = pd.DataFrame()
         try:
             predict_core(date=date, source="web", odds_source="bovada", snapshot=snapshot, odds_best=True)
             df = pd.read_csv(pred_path)
+            if not df_old.empty:
+                df = _merge_preserve_odds(df_old, df)
+                df.to_csv(pred_path, index=False)
         except Exception:
             pass
         if not _has_any_odds_df(df):
             try:
                 predict_core(date=date, source="web", odds_source="oddsapi", snapshot=snapshot, odds_best=False, odds_bookmaker="draftkings")
                 df = pd.read_csv(pred_path)
+                if not df_old.empty:
+                    df = _merge_preserve_odds(df_old, df)
+                    df.to_csv(pred_path, index=False)
             except Exception:
                 pass
     # If no games for requested date, first try alternate schedule source, then try to find the next available slate within 10 days
@@ -249,7 +403,37 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
                                 break
         except Exception:
             pass
+    # Final odds preservation pass: if we had older data, fill missing odds/book fields
+    try:
+        if not df.empty and not df_old_global.empty:
+            df = _merge_preserve_odds(df_old_global, df)
+            df.to_csv(PROC_DIR / f"predictions_{date}.csv", index=False)
+    except Exception:
+        pass
     rows = df.to_dict(orient="records") if not df.empty else []
+    # Load inferred odds as a tertiary display fallback (not persisted): inferred_odds_{date}.csv
+    inferred_map = {}
+    try:
+        inf_path = PROC_DIR / f"inferred_odds_{date}.csv"
+        if inf_path.exists():
+            dfi = pd.read_csv(inf_path)
+            def norm_team(s: str) -> str:
+                import re, unicodedata
+                if s is None:
+                    return ""
+                s = str(s)
+                s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode()
+                s = s.lower()
+                s = re.sub(r"[^a-z0-9]+", "", s)
+                return s
+            for _, ir in dfi.iterrows():
+                key = (norm_team(ir.get("home")), norm_team(ir.get("away")), str(ir.get("market")))
+                try:
+                    inferred_map[key] = float(ir.get("american_inferred")) if pd.notna(ir.get("american_inferred")) else None
+                except Exception:
+                    inferred_map[key] = None
+    except Exception:
+        inferred_map = {}
     # Attach team assets; convert UTC to local time string
     def to_local(iso_utc: str) -> str:
         try:
@@ -267,12 +451,409 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
         r["home_logo"] = h.get("logo_dark") or h.get("logo_light")
         r["away_abbr"] = a.get("abbr")
         r["away_logo"] = a.get("logo_dark") or a.get("logo_light")
+        # Compute display odds (fallback to closing, then inferred) and presence flag
+        try:
+            import math
+            def _has(v):
+                return (v is not None) and (not (isinstance(v, float) and math.isnan(v))) and (str(v).strip() != "")
+            def _fb(primary, closev):
+                return primary if _has(primary) else (closev if _has(closev) else None)
+            def _norm(s: str) -> str:
+                import re, unicodedata
+                if s is None:
+                    return ""
+                s = str(s)
+                s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode()
+                s = s.lower()
+                s = re.sub(r"[^a-z0-9]+", "", s)
+                return s
+            # Moneyline
+            r["disp_home_ml_odds"] = _fb(r.get("home_ml_odds"), r.get("close_home_ml_odds"))
+            r["disp_away_ml_odds"] = _fb(r.get("away_ml_odds"), r.get("close_away_ml_odds"))
+            r["disp_home_ml_book"] = _fb(r.get("home_ml_book"), r.get("close_home_ml_book"))
+            r["disp_away_ml_book"] = _fb(r.get("away_ml_book"), r.get("close_away_ml_book"))
+            # Inferred fallback for ML
+            hn = _norm(r.get("home")); an = _norm(r.get("away"))
+            if not _has(r.get("disp_home_ml_odds")):
+                v = inferred_map.get((hn, an, "home_ml"))
+                if _has(v):
+                    r["disp_home_ml_odds"] = v
+                    r["disp_home_ml_book"] = "Inferred"
+            if not _has(r.get("disp_away_ml_odds")):
+                v = inferred_map.get((hn, an, "away_ml"))
+                if _has(v):
+                    r["disp_away_ml_odds"] = v
+                    r["disp_away_ml_book"] = "Inferred"
+            # Totals
+            r["disp_over_odds"] = _fb(r.get("over_odds"), r.get("close_over_odds"))
+            r["disp_under_odds"] = _fb(r.get("under_odds"), r.get("close_under_odds"))
+            r["disp_over_book"] = _fb(r.get("over_book"), r.get("close_over_book"))
+            r["disp_under_book"] = _fb(r.get("under_book"), r.get("close_under_book"))
+            r["disp_total_line_used"] = _fb(r.get("total_line_used"), r.get("close_total_line_used"))
+            # Inferred fallback for totals (line may remain unknown)
+            if not _has(r.get("disp_over_odds")):
+                v = inferred_map.get((hn, an, "over"))
+                if _has(v):
+                    r["disp_over_odds"] = v
+                    r["disp_over_book"] = "Inferred"
+            if not _has(r.get("disp_under_odds")):
+                v = inferred_map.get((hn, an, "under"))
+                if _has(v):
+                    r["disp_under_odds"] = v
+                    r["disp_under_book"] = "Inferred"
+            # Puck line
+            r["disp_home_pl_-1.5_odds"] = _fb(r.get("home_pl_-1.5_odds"), r.get("close_home_pl_-1.5_odds"))
+            r["disp_away_pl_+1.5_odds"] = _fb(r.get("away_pl_+1.5_odds"), r.get("close_away_pl_+1.5_odds"))
+            r["disp_home_pl_-1.5_book"] = _fb(r.get("home_pl_-1.5_book"), r.get("close_home_pl_-1.5_book"))
+            r["disp_away_pl_+1.5_book"] = _fb(r.get("away_pl_+1.5_book"), r.get("close_away_pl_+1.5_book"))
+            # Inferred fallback for puck line
+            if not _has(r.get("disp_home_pl_-1.5_odds")):
+                v = inferred_map.get((hn, an, "home_pl_-1.5"))
+                if _has(v):
+                    r["disp_home_pl_-1.5_odds"] = v
+                    r["disp_home_pl_-1.5_book"] = "Inferred"
+            if not _has(r.get("disp_away_pl_+1.5_odds")):
+                v = inferred_map.get((hn, an, "away_pl_+1.5"))
+                if _has(v):
+                    r["disp_away_pl_+1.5_odds"] = v
+                    r["disp_away_pl_+1.5_book"] = "Inferred"
+            # Presence: consider display odds (may include inferred) as well
+            r["has_any_odds"] = any(_has(r.get(k)) for k in [
+                "disp_home_ml_odds","disp_away_ml_odds","disp_over_odds","disp_under_odds",
+                "disp_home_pl_-1.5_odds","disp_away_pl_+1.5_odds"
+            ])
+        except Exception:
+            r["has_any_odds"] = False
+        # Attach gamePk using fresh schedule lookup for reliable scoreboard polling
+        try:
+            if r.get("date") and r.get("home") and r.get("away"):
+                dkey = pd.to_datetime(r["date"]).strftime("%Y-%m-%d")
+                _client = NHLWebClient()
+                gms = _client.schedule_day(dkey)
+                # Find matching by abbr first, then names
+                def _abbr(x):
+                    try:
+                        return (get_team_assets(str(x)).get("abbr") or "").upper()
+                    except Exception:
+                        return ""
+                h_ab = _abbr(r.get("home"))
+                a_ab = _abbr(r.get("away"))
+                gid = None
+                for g in gms:
+                    if _abbr(getattr(g, 'home', '')) == h_ab and _abbr(getattr(g, 'away', '')) == a_ab:
+                        gid = getattr(g, 'gamePk', None)
+                        break
+                if gid is None:
+                    for g in gms:
+                        if str(getattr(g, 'home', '')).strip() == str(r.get('home')).strip() and str(getattr(g, 'away', '')).strip() == str(r.get('away')).strip():
+                            gid = getattr(g, 'gamePk', None)
+                            break
+                if gid is not None:
+                    r["gamePk"] = int(gid)
+        except Exception:
+            pass
         if r.get("date"):
-            r["local_time"] = to_local(r["date"])
+            r["local_time"] = to_local(r["date"]) 
 
+    if live_now:
+        # Informational note: during live games we do not regenerate odds/predictions automatically
+        note_msg = note_msg or "Live slate detected. Odds are frozen to previously saved values; no regeneration during live games."
     template = env.get_template("cards.html")
-    html = template.render(date=date, rows=rows, note=note_msg)
+    html = template.render(date=date, rows=rows, note=note_msg, live_now=live_now)
     return HTMLResponse(content=html)
+
+
+def _inject_bovada_odds_only(date: str) -> dict:
+    """Inject Bovada odds into existing predictions file for date without recomputing projections.
+
+    Returns a summary dict with counts and status.
+    """
+    path = PROC_DIR / f"predictions_{date}.csv"
+    if not path.exists():
+        return {"status": "no-file", "date": date}
+    df = pd.read_csv(path)
+    if df.empty:
+        return {"status": "empty", "date": date}
+    # Try Bovada first
+    odds = pd.DataFrame()
+    try:
+        bc = BovadaClient()
+        o_bov = bc.fetch_game_odds(date)
+        if o_bov is not None and not o_bov.empty:
+            odds = o_bov
+    except Exception:
+        pass
+    # Fallback to The Odds API current odds (nhl then preseason) if Bovada empty
+    if odds is None or odds.empty:
+        try:
+            from ..data.odds_api import OddsAPIClient, normalize_snapshot_to_rows
+            import requests as _req
+            client_oa = OddsAPIClient()
+            base = "https://api.the-odds-api.com/v4"
+            params = {
+                "apiKey": client_oa.api_key,
+                "regions": "us",
+                "markets": "h2h,totals,spreads",
+                "oddsFormat": "american",
+                "dateFormat": "iso",
+            }
+            url = f"{base}/sports/icehockey_nhl/odds"
+            r = _req.get(url, params=params, timeout=40)
+            df_cur = pd.DataFrame()
+            if r.ok:
+                df_cur = normalize_snapshot_to_rows(r.json(), bookmaker=None, best_of_all=True)
+            if df_cur is None or df_cur.empty:
+                url2 = f"{base}/sports/icehockey_nhl_preseason/odds"
+                r2 = _req.get(url2, params=params, timeout=40)
+                if r2.ok:
+                    df_cur = normalize_snapshot_to_rows(r2.json(), bookmaker=None, best_of_all=True)
+            if df_cur is not None and not df_cur.empty:
+                odds = df_cur
+        except Exception:
+            pass
+    if odds is None or odds.empty:
+        return {"status": "no-odds"}
+    # Normalize matching keys
+    def norm_team(s: str) -> str:
+        import re, unicodedata
+        if s is None:
+            return ""
+        s = str(s)
+        s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode()
+        s = s.lower()
+        s = re.sub(r"[^a-z0-9]+", "", s)
+        return s
+    odds["date"] = pd.to_datetime(odds["date"], errors="coerce").dt.strftime("%Y-%m-%d")
+    odds["home_norm"] = odds["home"].apply(norm_team)
+    odds["away_norm"] = odds["away"].apply(norm_team)
+    try:
+        from .teams import get_team_assets as _assets
+        def to_abbr(x):
+            try:
+                return (_assets(str(x)).get("abbr") or "").upper()
+            except Exception:
+                return ""
+        odds["home_abbr"] = odds["home"].apply(to_abbr)
+        odds["away_abbr"] = odds["away"].apply(to_abbr)
+    except Exception:
+        odds["home_abbr"] = ""
+        odds["away_abbr"] = ""
+    # Build date key
+    dkey = pd.to_datetime(df.iloc[0].get("date")).strftime("%Y-%m-%d") if not df.empty else date
+    updated = 0
+    def _to_float_odds(x):
+        if x is None or (isinstance(x, float) and pd.isna(x)):
+            return None
+        s = str(x).strip().upper()
+        if s in ("EVEN", "EV", "E"):
+            return 100.0
+        try:
+            return float(s)
+        except Exception:
+            return None
+    for i, r in df.iterrows():
+        h = r.get("home"); a = r.get("away")
+        try:
+            from .teams import get_team_assets as _assets2
+            h_ab = (_assets2(str(h)).get("abbr") or "").upper()
+            a_ab = (_assets2(str(a)).get("abbr") or "").upper()
+        except Exception:
+            h_ab = ""; a_ab = ""
+        h_n = norm_team(h); a_n = norm_team(a)
+        m = pd.DataFrame()
+        if {"home_abbr","away_abbr"}.issubset(set(odds.columns)) and h_ab and a_ab:
+            m = odds[(odds["date"] == dkey) & (odds["home_abbr"] == h_ab) & (odds["away_abbr"] == a_ab)]
+        if m.empty:
+            m = odds[(odds["date"] == dkey) & (odds["home_norm"] == h_n) & (odds["away_norm"] == a_n)]
+        if m.empty and {"home_abbr","away_abbr"}.issubset(set(odds.columns)) and h_ab and a_ab:
+            m = odds[(odds["home_abbr"] == h_ab) & (odds["away_abbr"] == a_ab)]
+        if m.empty:
+            m = odds[(odds["home_norm"] == a_n) & (odds["away_norm"] == h_n)]
+        if m.empty:
+            continue
+        row = m.iloc[0]
+        # Set odds without altering model probabilities
+        df.at[i, "home_ml_odds"] = _to_float_odds(row.get("home_ml")) if pd.notna(row.get("home_ml")) else pd.NA
+        df.at[i, "away_ml_odds"] = _to_float_odds(row.get("away_ml")) if pd.notna(row.get("away_ml")) else pd.NA
+        df.at[i, "over_odds"] = _to_float_odds(row.get("over")) if pd.notna(row.get("over")) else pd.NA
+        df.at[i, "under_odds"] = _to_float_odds(row.get("under")) if pd.notna(row.get("under")) else pd.NA
+        df.at[i, "home_pl_-1.5_odds"] = _to_float_odds(row.get("home_pl_-1.5")) if pd.notna(row.get("home_pl_-1.5")) else pd.NA
+        df.at[i, "away_pl_+1.5_odds"] = _to_float_odds(row.get("away_pl_+1.5")) if pd.notna(row.get("away_pl_+1.5")) else pd.NA
+        # Books
+        if pd.notna(row.get("home_ml_book")): df.at[i, "home_ml_book"] = row.get("home_ml_book")
+        if pd.notna(row.get("away_ml_book")): df.at[i, "away_ml_book"] = row.get("away_ml_book")
+        if pd.notna(row.get("over_book")): df.at[i, "over_book"] = row.get("over_book")
+        if pd.notna(row.get("under_book")): df.at[i, "under_book"] = row.get("under_book")
+        if pd.notna(row.get("home_pl_-1.5_book")): df.at[i, "home_pl_-1.5_book"] = row.get("home_pl_-1.5_book")
+        if pd.notna(row.get("away_pl_+1.5_book")): df.at[i, "away_pl_+1.5_book"] = row.get("away_pl_+1.5_book")
+        # Total line used: only set if currently missing
+        try:
+            if ("total_line_used" not in df.columns) or pd.isna(df.at[i, "total_line_used"]):
+                if pd.notna(row.get("total_line")):
+                    df.at[i, "total_line_used"] = float(row.get("total_line"))
+        except Exception:
+            pass
+        updated += 1
+    df.to_csv(path, index=False)
+    return {"status": "ok", "updated": int(updated)}
+
+
+def _capture_openers_for_day(date: str) -> dict:
+    """Persist first-seen 'opening' odds into predictions_{date}.csv.
+
+    For each row, if open_* columns are missing or empty, copy current odds/book/line fields.
+    Idempotent: does not overwrite existing open_* values.
+    """
+    path = PROC_DIR / f"predictions_{date}.csv"
+    if not path.exists():
+        return {"status": "no-file", "date": date}
+    df = pd.read_csv(path)
+    if df.empty:
+        return {"status": "empty", "date": date}
+    def ensure(col: str):
+        if col not in df.columns:
+            df[col] = pd.NA
+    opener_cols = [
+        "open_home_ml_odds","open_away_ml_odds","open_over_odds","open_under_odds",
+        "open_home_pl_-1.5_odds","open_away_pl_+1.5_odds","open_total_line_used",
+        "open_home_ml_book","open_away_ml_book","open_over_book","open_under_book",
+        "open_home_pl_-1.5_book","open_away_pl_+1.5_book","open_snapshot",
+    ]
+    for c in opener_cols:
+        ensure(c)
+    import pandas as _pd
+    updated = 0
+    for i, r in df.iterrows():
+        def set_first(dst_col, src_col):
+            try:
+                cur = df.at[i, dst_col]
+                if _pd.isna(cur) or cur is None or str(cur).strip() == "":
+                    if src_col in df.columns and _pd.notna(df.at[i, src_col]):
+                        df.at[i, dst_col] = df.at[i, src_col]
+                        return True
+            except Exception:
+                return False
+            return False
+        changed = False
+        changed |= set_first("open_home_ml_odds", "home_ml_odds")
+        changed |= set_first("open_away_ml_odds", "away_ml_odds")
+        changed |= set_first("open_over_odds", "over_odds")
+        changed |= set_first("open_under_odds", "under_odds")
+        changed |= set_first("open_home_pl_-1.5_odds", "home_pl_-1.5_odds")
+        changed |= set_first("open_away_pl_+1.5_odds", "away_pl_+1.5_odds")
+        changed |= set_first("open_total_line_used", "total_line_used")
+        changed |= set_first("open_home_ml_book", "home_ml_book")
+        changed |= set_first("open_away_ml_book", "away_ml_book")
+        changed |= set_first("open_over_book", "over_book")
+        changed |= set_first("open_under_book", "under_book")
+        changed |= set_first("open_home_pl_-1.5_book", "home_pl_-1.5_book")
+        changed |= set_first("open_away_pl_+1.5_book", "away_pl_+1.5_book")
+        if changed:
+            updated += 1
+            try:
+                if _pd.isna(df.at[i, "open_snapshot"]) or df.at[i, "open_snapshot"] is None or str(df.at[i, "open_snapshot"]).strip() == "":
+                    df.at[i, "open_snapshot"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            except Exception:
+                pass
+    if updated > 0:
+        df.to_csv(path, index=False)
+    return {"status": "ok", "updated": int(updated), "date": date}
+
+
+@app.post("/api/inject-odds")
+async def api_inject_odds(date: Optional[str] = Query(None)):
+    date = date or _today_ymd()
+    res = _inject_bovada_odds_only(date)
+    code = 200 if res.get("status") in ("ok", "no-file", "empty", "no-odds") else 400
+    return JSONResponse(res, status_code=code)
+
+
+@app.post("/api/capture-openers")
+async def api_capture_openers(date: Optional[str] = Query(None)):
+    date = date or _today_ymd()
+    # Don't capture openers if slate is live; we want pregame numbers
+    if _is_live_day(date):
+        return JSONResponse({"status": "skipped-live", "date": date})
+    res = _capture_openers_for_day(date)
+    return JSONResponse(res, status_code=200 if res.get("status") == "ok" else 400)
+
+
+@app.get("/api/scoreboard")
+async def api_scoreboard(date: Optional[str] = Query(None)):
+    """Lightweight live scoreboard for a date: state, score, period/clock per game.
+
+    Matches by gamePk when possible, else by team abbreviations.
+    """
+    date = date or _today_ymd()
+    client = NHLWebClient()
+    rows = client.scoreboard_day(date)
+    # Attach abbreviations for robust client matching
+    for r in rows:
+        try:
+            h = get_team_assets(str(r.get("home", "")))
+            a = get_team_assets(str(r.get("away", "")))
+            r["home_abbr"] = (h.get("abbr") or "").upper()
+            r["away_abbr"] = (a.get("abbr") or "").upper()
+        except Exception:
+            r["home_abbr"] = ""; r["away_abbr"] = ""
+    # For LIVE games, try to enrich with linescore to get precise period/clock
+    try:
+        for r in rows:
+            st = str(r.get("gameState") or "").upper()
+            if any(k in st for k in ["LIVE", "IN", "PROGRESS", "CRIT"]) and r.get("gamePk"):
+                try:
+                    ls = client.linescore(int(r.get("gamePk")))
+                    if ls:
+                        if ls.get("period") is not None:
+                            r["period"] = ls.get("period")
+                        if ls.get("clock"):
+                            r["clock"] = ls.get("clock")
+                except Exception:
+                    pass
+                # Fallback to Stats API for clock if still missing/empty
+                try:
+                    if not r.get("clock") or r.get("clock") in ("", None):
+                        stats_client = NHLStatsClient()
+                        glf = stats_client.game_live_feed(int(r.get("gamePk")))
+                        live = (glf or {}).get("liveData", {})
+                        ls2 = live.get("linescore", {})
+                        # Prefer exact time remaining like "03:25". Stats API sometimes returns "END"; treat that as 0:00
+                        clock2 = ls2.get("currentPeriodTimeRemaining")
+                        if isinstance(clock2, str) and clock2:
+                            if clock2.strip().upper() == "END":
+                                clock2 = "0:00"
+                            r["clock"] = clock2
+                        # Try currentPlay as last resort
+                        if not r.get("clock") or r.get("clock") in ("", None):
+                            cur = live.get("plays", {}).get("currentPlay", {}).get("about", {})
+                            clock3 = cur.get("periodTimeRemaining")
+                            if isinstance(clock3, str) and clock3:
+                                r["clock"] = clock3
+                        # Period enrich
+                        if r.get("period") is None:
+                            per2 = ls2.get("currentPeriod") or ls2.get("period") or cur.get("period")
+                            if per2 is not None:
+                                r["period"] = per2
+                except Exception:
+                    pass
+    except Exception:
+        pass
+    return JSONResponse(rows)
+
+
+@app.post("/api/capture-closing")
+async def api_capture_closing(
+    date: Optional[str] = Query(None),
+    home_abbr: Optional[str] = Query(None),
+    away_abbr: Optional[str] = Query(None),
+    snapshot: Optional[str] = Query(None),
+):
+    date = date or _today_ymd()
+    if not home_abbr or not away_abbr:
+        return JSONResponse({"status": "missing-params"}, status_code=400)
+    res = _capture_closing_for_game(date, home_abbr.strip().upper(), away_abbr.strip().upper(), snapshot)
+    code = 200 if res.get("status") in ("ok", "not-found", "no-file", "empty") else 400
+    return JSONResponse(res, status_code=code)
 
 
 @app.get("/api/predictions")
@@ -475,6 +1056,9 @@ async def api_refresh_odds(
     kelly_fraction_part: float = Query(0.5, description="Kelly fraction, e.g., 0.5 for half-Kelly"),
 ):
     date = date or _today_ymd()
+    # Do not refresh odds during live games to avoid clobbering saved lines
+    if _is_live_day(date):
+        return JSONResponse({"status": "skipped-live", "date": date, "message": "Live games in progress; odds refresh skipped."}, status_code=200)
     if not snapshot:
         snapshot = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     # Ensure models exist (Elo/config)
@@ -484,6 +1068,10 @@ async def api_refresh_odds(
         pass
     # Try Bovada first; fall back to Odds API if no odds
     try:
+        try:
+            df_old = pd.read_csv(PROC_DIR / f"predictions_{date}.csv")
+        except Exception:
+            df_old = pd.DataFrame()
         predict_core(
             date=date,
             source="web",
@@ -493,6 +1081,14 @@ async def api_refresh_odds(
             bankroll=bankroll,
             kelly_fraction_part=kelly_fraction_part,
         )
+        # Merge preserve after Bovada run (even if Bovada added odds, preserve any older fields still missing)
+        try:
+            df_new = pd.read_csv(PROC_DIR / f"predictions_{date}.csv")
+            if not df_old.empty:
+                df_m = _merge_preserve_odds(df_old, df_new)
+                df_m.to_csv(PROC_DIR / f"predictions_{date}.csv", index=False)
+        except Exception:
+            pass
     except Exception:
         pass
     # Check whether odds present; if not, attempt Odds API fallback
@@ -500,8 +1096,16 @@ async def api_refresh_odds(
         df = pd.read_csv(PROC_DIR / f"predictions_{date}.csv")
     except Exception:
         df = pd.DataFrame()
+    try:
+        df = pd.read_csv(PROC_DIR / f"predictions_{date}.csv")
+    except Exception:
+        df = pd.DataFrame()
     if not _has_any_odds_df(df):
         try:
+            try:
+                df_old2 = pd.read_csv(PROC_DIR / f"predictions_{date}.csv")
+            except Exception:
+                df_old2 = pd.DataFrame()
             predict_core(
                 date=date,
                 source="web",
@@ -512,8 +1116,15 @@ async def api_refresh_odds(
                 bankroll=bankroll,
                 kelly_fraction_part=kelly_fraction_part,
             )
-        except Exception as e:
-            # Return ok even if odds fallback fails; frontend will still render predictions
+            # Merge preserve after Odds API run
+            try:
+                df_new2 = pd.read_csv(PROC_DIR / f"predictions_{date}.csv")
+                if not df_old2.empty:
+                    df_m2 = _merge_preserve_odds(df_old2, df_new2)
+                    df_m2.to_csv(PROC_DIR / f"predictions_{date}.csv", index=False)
+            except Exception:
+                pass
+        except Exception:
             pass
     # Ensure we have at least a predictions CSV (even without odds)
     pred_path = PROC_DIR / f"predictions_{date}.csv"
@@ -538,6 +1149,12 @@ async def api_refresh_odds(
         if df2.empty:
             return JSONResponse({"status": "partial", "message": "No odds available and no games found for date; created empty predictions.", "date": date}, status_code=200)
         else:
+            # Persist openers automatically on refresh if slate is not live (idempotent)
+            try:
+                if not _is_live_day(date):
+                    _capture_openers_for_day(date)
+            except Exception:
+                pass
             return {"status": "ok", "date": date, "snapshot": snapshot, "bankroll": bankroll, "kelly_fraction_part": kelly_fraction_part}
     except Exception:
         # Improve diagnostics: indicate whether model files exist
@@ -866,6 +1483,125 @@ async def api_odds_coverage(date: Optional[str] = Query(None)):
     return JSONResponse({"summary": summary, "rows": rows})
 
 
+@app.get("/api/reconciliation")
+async def api_reconciliation(
+    date: Optional[str] = Query(None),
+    bankroll: float = Query(1000.0, description="Bankroll used for stake calc fallback"),
+    flat_stake: float = Query(100.0, description="Fallback flat stake when stake not present"),
+):
+    """Compare model recommendations vs closing lines and compute simple PnL summary.
+
+    Uses predictions_{date}.csv and close_* fields captured earlier. Assumes one bet per market per game if EV>0.
+    """
+    date = date or _today_ymd()
+    path = PROC_DIR / f"predictions_{date}.csv"
+    if not path.exists():
+        return JSONResponse({"error": "No predictions for date", "date": date}, status_code=404)
+    df = pd.read_csv(path)
+    if df.empty:
+        return JSONResponse({"error": "Empty predictions"}, status_code=400)
+    # Build picks (moneyline + totals + puckline) with EV>0
+    picks = []
+    def add_pick(r: pd.Series, market: str, bet: str, ev_key: str, price_key: str, result_field: Optional[str] = None):
+        ev = r.get(ev_key)
+        if ev is None or (isinstance(ev, float) and pd.isna(ev)):
+            return
+        try:
+            evf = float(ev)
+        except Exception:
+            return
+        if evf <= 0:
+            return
+        # Closing price fallback to open/current
+        close_map = {
+            "home_ml_odds": "close_home_ml_odds",
+            "away_ml_odds": "close_away_ml_odds",
+            "over_odds": "close_over_odds",
+            "under_odds": "close_under_odds",
+            "home_pl_-1.5_odds": "close_home_pl_-1.5_odds",
+            "away_pl_+1.5_odds": "close_away_pl_+1.5_odds",
+        }
+        close_key = close_map.get(price_key)
+        price = r.get(close_key)
+        if price is None or (isinstance(price, float) and pd.isna(price)):
+            price = r.get(price_key)
+        # Determine result if available
+        res = None
+        if result_field and r.get(result_field) is not None:
+            res = r.get(result_field)
+        picks.append({
+            "date": r.get("date"),
+            "home": r.get("home"),
+            "away": r.get("away"),
+            "market": market,
+            "bet": bet,
+            "ev": evf,
+            "price": price,
+            "result_field": result_field,
+            "result": res,
+        })
+    for _, r in df.iterrows():
+        add_pick(r, "moneyline", "home_ml", "ev_home_ml", "home_ml_odds", None)
+        add_pick(r, "moneyline", "away_ml", "ev_away_ml", "away_ml_odds", None)
+        add_pick(r, "totals", "over", "ev_over", "over_odds", "result_total")
+        add_pick(r, "totals", "under", "ev_under", "under_odds", "result_total")
+        add_pick(r, "puckline", "home_pl_-1.5", "ev_home_pl_-1.5", "home_pl_-1.5_odds", "result_ats")
+        add_pick(r, "puckline", "away_pl_+1.5", "ev_away_pl_+1.5", "away_pl_+1.5_odds", "result_ats")
+    # Compute PnL assuming flat_stake when stake not recorded
+    def american_to_decimal_local(american):
+        if american is None or (isinstance(american, float) and pd.isna(american)):
+            return None
+        try:
+            a = float(american)
+        except Exception:
+            return None
+        if a > 0:
+            return 1.0 + (a / 100.0)
+        else:
+            return 1.0 + (100.0 / abs(a))
+    pnl = 0.0
+    staked = 0.0
+    wins = losses = pushes = 0
+    decided = 0
+    rows = []
+    for p in picks:
+        stake = flat_stake
+        dec = american_to_decimal_local(p["price"]) if p.get("price") is not None else None
+        res = p.get("result")
+        # Interpret results for totals/puckline; moneyline requires winner mapping not included here, so skip unless present later
+        if isinstance(res, str):
+            rl = res.lower()
+            if rl == "push":
+                pushes += 1
+                rows.append({**p, "stake": stake, "payout": 0.0})
+                continue
+            if rl == "win":
+                wins += 1
+                if dec:
+                    pnl += stake * (dec - 1.0)
+            elif rl == "loss":
+                losses += 1
+                pnl -= stake
+            decided += 1
+            staked += stake
+            rows.append({**p, "stake": stake, "payout": (stake * (dec - 1.0)) if (dec and rl == 'win') else (-stake if rl == 'loss' else 0.0)})
+        else:
+            # undecided or moneyline without explicit result mapping
+            rows.append({**p, "stake": stake, "payout": None})
+    summary = {
+        "date": date,
+        "picks": len(picks),
+        "decided": decided,
+        "wins": wins,
+        "losses": losses,
+        "pushes": pushes,
+        "staked": staked,
+        "pnl": pnl,
+        "roi": (pnl / staked) if staked > 0 else None,
+    }
+    return JSONResponse({"summary": summary, "rows": rows})
+
+
 @app.get("/odds-coverage")
 async def odds_coverage(date: Optional[str] = Query(None)):
     date = date or _today_ymd()
@@ -878,5 +1614,21 @@ async def odds_coverage(date: Optional[str] = Query(None)):
         except Exception:
             payload = {"summary": {"date": date}, "rows": []}
     template = env.get_template("odds_coverage.html")
+    html = template.render(summary=payload.get("summary", {}), rows=payload.get("rows", []))
+    return HTMLResponse(content=html)
+
+
+@app.get("/reconciliation")
+async def reconciliation(date: Optional[str] = Query(None)):
+    date = date or _today_ymd()
+    resp = await api_reconciliation(date=date)
+    payload = {}
+    if isinstance(resp, JSONResponse):
+        try:
+            import json as _json
+            payload = _json.loads(resp.body)
+        except Exception:
+            payload = {"summary": {"date": date}, "rows": []}
+    template = env.get_template("reconciliation.html")
     html = template.render(summary=payload.get("summary", {}), rows=payload.get("rows", []))
     return HTMLResponse(content=html)

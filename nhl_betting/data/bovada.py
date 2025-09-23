@@ -143,10 +143,29 @@ class BovadaClient:
         return out
 
     def fetch_game_odds(self, date: str) -> pd.DataFrame:
-        # Fetch default markets; if empty, fall back to 'all' to broaden
-        events = self.fetch_events(pre_match_only=True, market_filter="def")
-        if not events:
-            events = self.fetch_events(pre_match_only=True, market_filter="all")
+        """Fetch Bovada odds for a given YYYY-MM-DD.
+
+        Strategy:
+        - Try pre-match only (default markets), then broaden to 'all'.
+        - If no matches for the requested date, retry with pre_match_only=False (includes in-play), for both filters.
+        - Filter returned rows to the requested date to avoid cross-date noise.
+        """
+        # Try a few combinations
+        attempts = [
+            (True, "def"),
+            (True, "all"),
+            (False, "def"),
+            (False, "all"),
+        ]
+        events: List[Dict] = []
+        for prematch, mf in attempts:
+            try:
+                groups = self.fetch_events(pre_match_only=prematch, market_filter=mf)
+                if groups:
+                    events = groups
+                    break
+            except Exception:
+                continue
         rows: List[Dict] = []
         for group in events:
             evs = group.get("events") or []
@@ -160,6 +179,9 @@ class BovadaClient:
                         date_key = dt.strftime("%Y-%m-%d")
                 except Exception:
                     pass
+                # Filter strictly to requested date if we have a date_key
+                if date_key and date_key != date:
+                    continue
                 home, away = self._event_teams(ev)
                 if not home or not away:
                     continue
@@ -183,7 +205,9 @@ class BovadaClient:
                     "away_pl_+1.5_book": "bovada",
                 }
                 rows.append(row)
-        return pd.DataFrame(rows)
+        # If we couldn't determine a date_key, as a last resort include undated rows for this fetch
+        df = pd.DataFrame(rows)
+        return df
 
     def fetch_props_odds(self, date: str) -> pd.DataFrame:
         # Attempt to fetch more markets; Bovada's props are grouped differently

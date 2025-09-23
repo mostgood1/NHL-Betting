@@ -1,0 +1,4 @@
+date,home,away,p_home_ml,p_away_ml,p_over,p_under,p_home_pl_-1.5,p_away_pl_+1.5,total_line_used,proj_home_goals,proj_away_goals,model_total,model_spread,pl_line_used,totals_pick,totals_edge_pts,ats_pick,ats_edge_pts,edge_over_pts,edge_under_pts,edge_home_pl_pts,edge_away_pl_pts,actual_home_goals,actual_away_goals,actual_total,venue,game_state
+2026-02-28T00:00:00Z,Florida Panthers,Buffalo Sabres,0.7469,0.2531,0.4003,0.4326,0.5964,0.4036,6.0,4.12,1.95,6.07,2.17,1.5,Under,-0.07,home_-1.5,0.67,0.07,-0.07,0.67,-0.67,,,,Amerant Bank Arena,FUT
+2026-02-28T00:00:00Z,Washington Capitals,Vegas Golden Knights,0.4908,0.5092,0.4044,0.4339,0.2677,0.7323,6.0,3.04,3.03,6.07,0.02,1.5,Under,-0.07,away_+1.5,1.48,0.07,-0.07,-1.48,1.48,,,,Capital One Arena,FUT
+2026-02-28T03:00:00Z,Anaheim Ducks,Winnipeg Jets,0.2773,0.7227,0.4018,0.4331,0.0854,0.9146,6.0,2.15,3.92,6.07,-1.78,1.5,Under,-0.07,away_+1.5,3.28,0.07,-0.07,-3.28,3.28,,,,Honda Center,FUT

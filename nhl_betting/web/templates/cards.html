@@ -14,6 +14,7 @@
         <label>Date: <input type="date" name="date" value="{{ date }}" /></label>
         <button type="submit">Apply</button>
         <a class="btn" href="/api/refresh-odds?date={{ date }}">Refresh Odds</a>
+        <button type="button" id="injectOddsBtn" class="btn" title="Safely inject odds without regenerating predictions">Inject Odds (safe)</button>
         <a class="btn" href="/recommendations?date={{ date }}">Recommendations</a>
         <a class="btn" href="/props">Props</a>
         <a class="btn" href="/odds-coverage?date={{ date }}">Odds Coverage</a>
@@ -32,12 +33,13 @@
     {% else %}
       <div class="cards">
         {% for r in rows %}
-          {% set has_any_odds = (r.get('home_ml_odds') is not none) or (r.get('away_ml_odds') is not none) or (r.get('over_odds') is not none) or (r.get('under_odds') is not none) or (r.get('home_pl_-1.5_odds') is not none) or (r.get('away_pl_+1.5_odds') is not none) %}
-          <div class="card" data-game-date="{{ r.date }}" data-has-odds="{{ 1 if has_any_odds else 0 }}">
+          {% set has_any_odds = r.get('has_any_odds') %}
+          <div class="card" data-game-date="{{ r.date }}" data-gamepk="{{ r.gamePk if r.get('gamePk') else '' }}" data-home-abbr="{{ r.home_abbr }}" data-away-abbr="{{ r.away_abbr }}" data-has-odds="{{ 1 if has_any_odds else 0 }}">
             <div class="row head">
               <div class="game-date">{{ r.local_time if r.local_time else r.date }}</div>
               {% if r.venue %}<div class="venue">{{ r.venue }}</div>{% endif %}
-              {% if r.game_state %}<div class="state">{{ r.game_state }}</div>{% endif %}
+              <div class="state">{{ r.game_state if r.game_state else '' }}</div>
+              <div class="time-left">—</div>
             </div>
             <div class="row matchup">
               <div class="team side">
@@ -45,17 +47,23 @@
                   {% if r.away_logo %}<img alt="" title="{{ r.away }}" src="{{ r.away_logo }}" class="team-logo" />{% endif %}
                   <div class="name">{{ r.away }}</div>
                 </div>
-                <div class="proj-score">{{ '%.2f' % r.proj_away_goals }}</div>
-                <div class="sub">ML {{ '%.1f' % (100*r.p_away_ml) }}%{% if r.away_ml_odds is defined and r.away_ml_odds is not none %} · {{ r.away_ml_odds }}{% if r.away_ml_book is defined and r.away_ml_book %} @ {{ r.away_ml_book }}{% endif %}{% endif %}</div>
+                <div class="score-block">
+                  <div class="live-score js-live-away" title="Live score">—</div>
+                  <div class="sub proj-score" title="Projected goals">{{ '%.2f' % r.proj_away_goals }}</div>
+                  <div class="sub ml-line"><span class="ml-label">ML {{ '%.1f' % (100*r.p_away_ml) }}%</span>{% if r.disp_away_ml_odds is defined and r.disp_away_ml_odds is not none %} · {{ r.disp_away_ml_odds }}{% if r.disp_away_ml_book is defined and r.disp_away_ml_book %} @ {{ r.disp_away_ml_book }}{% endif %}{% endif %}</div>
+                </div>
               </div>
-              <div class="vs">@</div>
+              <div class="vs">vs</div>
               <div class="team side">
                 <div class="team-line">
                   {% if r.home_logo %}<img alt="" title="{{ r.home }}" src="{{ r.home_logo }}" class="team-logo" />{% endif %}
                   <div class="name">{{ r.home }}</div>
                 </div>
-                <div class="proj-score">{{ '%.2f' % r.proj_home_goals }}</div>
-                <div class="sub">ML {{ '%.1f' % (100*r.p_home_ml) }}%{% if r.home_ml_odds is defined and r.home_ml_odds is not none %} · {{ r.home_ml_odds }}{% if r.home_ml_book is defined and r.home_ml_book %} @ {{ r.home_ml_book }}{% endif %}{% endif %}</div>
+                <div class="score-block">
+                  <div class="live-score js-live-home" title="Live score">—</div>
+                  <div class="sub proj-score" title="Projected goals">{{ '%.2f' % r.proj_home_goals }}</div>
+                  <div class="sub ml-line"><span class="ml-label">ML {{ '%.1f' % (100*r.p_home_ml) }}%</span>{% if r.disp_home_ml_odds is defined and r.disp_home_ml_odds is not none %} · {{ r.disp_home_ml_odds }}{% if r.disp_home_ml_book is defined and r.disp_home_ml_book %} @ {{ r.disp_home_ml_book }}{% endif %}{% endif %}</div>
+                </div>
               </div>
             </div>
             <div class="row chips">
@@ -63,39 +71,44 @@
               {% set ev_a_ml = r.ev_away_ml if 'ev_away_ml' in r else None %}
               {% set ev_h_ml = r.ev_home_ml if 'ev_home_ml' in r else None %}
               <div class="chip {{ 'positive' if (ev_a_ml is not none and ev_a_ml > 0) else ('negative' if (ev_a_ml is not none and ev_a_ml < 0) else 'neutral') }}">
-                Away {% if r.away_ml_odds is defined and r.away_ml_odds is not none %}{{ r.away_ml_odds }}{% else %}—{% endif %}
+                Away {% if r.disp_away_ml_odds is defined and r.disp_away_ml_odds is not none %}{{ r.disp_away_ml_odds }}{% else %}—{% endif %}
                 · {{ '%.1f' % (100*r.p_away_ml) }}%
-                {% if r.away_ml_odds is defined and r.away_ml_odds is not none %}
-                <span class="book-badge" title="{{ r.away_ml_book if r.away_ml_book else 'DraftKings' }}">{{ (r.away_ml_book or 'draftkings')[:2]|upper }}</span>
+                {% if r.disp_away_ml_odds is defined and r.disp_away_ml_odds is not none %}
+                <span class="book-badge" title="{{ r.disp_away_ml_book if (r.disp_away_ml_book is string) else 'DraftKings' }}">{{ ((r.disp_away_ml_book if (r.disp_away_ml_book is string) else 'DK') | upper)[:2] }}</span>
                 {% endif %}
                 {% if ev_a_ml is not none %}<span class="ev-badge {{ 'pos' if ev_a_ml > 0 else ('neg' if ev_a_ml < 0 else 'neu') }}">EV {{ '%.3f' % ev_a_ml }}</span>{% endif %}
               </div>
               <div class="chip {{ 'positive' if (ev_h_ml is not none and ev_h_ml > 0) else ('negative' if (ev_h_ml is not none and ev_h_ml < 0) else 'neutral') }}">
-                Home {% if r.home_ml_odds is defined and r.home_ml_odds is not none %}{{ r.home_ml_odds }}{% else %}—{% endif %}
+                Home {% if r.disp_home_ml_odds is defined and r.disp_home_ml_odds is not none %}{{ r.disp_home_ml_odds }}{% else %}—{% endif %}
                 · {{ '%.1f' % (100*r.p_home_ml) }}%
-                {% if r.home_ml_odds is defined and r.home_ml_odds is not none %}
-                <span class="book-badge" title="{{ r.home_ml_book if r.home_ml_book else 'DraftKings' }}">{{ (r.home_ml_book or 'draftkings')[:2]|upper }}</span>
+                {% if r.disp_home_ml_odds is defined and r.disp_home_ml_odds is not none %}
+                <span class="book-badge" title="{{ r.disp_home_ml_book if (r.disp_home_ml_book is string) else 'DraftKings' }}">{{ ((r.disp_home_ml_book if (r.disp_home_ml_book is string) else 'DK') | upper)[:2] }}</span>
                 {% endif %}
                 {% if ev_h_ml is not none %}<span class="ev-badge {{ 'pos' if ev_h_ml > 0 else ('neg' if ev_h_ml < 0 else 'neu') }}">EV {{ '%.3f' % ev_h_ml }}</span>{% endif %}
               </div>
+              {% if r.get('game_state') and ('FINAL' in r.get('game_state')|upper) and (r.get('close_home_ml_odds') or r.get('close_away_ml_odds')) %}
+              <div class="chip neutral" title="Closing moneyline">
+                Closed: H {{ r.get('close_home_ml_odds') if r.get('close_home_ml_odds') is not none else '—' }} / A {{ r.get('close_away_ml_odds') if r.get('close_away_ml_odds') is not none else '—' }}
+              </div>
+              {% endif %}
             </div>
             <div class="row chips">
-              <div class="chip title">Totals {{ '%.1f' % r.total_line_used if r.total_line_used is defined else '' }}</div>
+              <div class="chip title">Totals {{ '%.1f' % r.disp_total_line_used if r.disp_total_line_used is defined and r.disp_total_line_used is not none else '' }}</div>
               {% set ev_o = r.ev_over if 'ev_over' in r else None %}
               {% set ev_u = r.ev_under if 'ev_under' in r else None %}
               <div class="chip {{ 'positive' if (ev_o is not none and ev_o > 0) else ('negative' if (ev_o is not none and ev_o < 0) else 'neutral') }}">
-                Over {% if r.over_odds is defined and r.over_odds is not none %}{{ r.over_odds }}{% else %}—{% endif %}
+                Over {% if r.disp_over_odds is defined and r.disp_over_odds is not none %}{{ r.disp_over_odds }}{% else %}—{% endif %}
                 · {{ '%.1f' % (100*r.p_over) }}%
-                {% if r.over_odds is defined and r.over_odds is not none %}
-                <span class="book-badge" title="{{ r.over_book if r.over_book else 'DraftKings' }}">{{ (r.over_book or 'draftkings')[:2]|upper }}</span>
+                {% if r.disp_over_odds is defined and r.disp_over_odds is not none %}
+                <span class="book-badge" title="{{ r.disp_over_book if (r.disp_over_book is string) else 'DraftKings' }}">{{ ((r.disp_over_book if (r.disp_over_book is string) else 'DK') | upper)[:2] }}</span>
                 {% endif %}
                 {% if ev_o is not none %}<span class="ev-badge {{ 'pos' if ev_o > 0 else ('neg' if ev_o < 0 else 'neu') }}">EV {{ '%.3f' % ev_o }}</span>{% endif %}
               </div>
               <div class="chip {{ 'positive' if (ev_u is not none and ev_u > 0) else ('negative' if (ev_u is not none and ev_u < 0) else 'neutral') }}">
-                Under {% if r.under_odds is defined and r.under_odds is not none %}{{ r.under_odds }}{% else %}—{% endif %}
+                Under {% if r.disp_under_odds is defined and r.disp_under_odds is not none %}{{ r.disp_under_odds }}{% else %}—{% endif %}
                 · {{ '%.1f' % (100*r.p_under) }}%
-                {% if r.under_odds is defined and r.under_odds is not none %}
-                <span class="book-badge" title="{{ r.under_book if r.under_book else 'DraftKings' }}">{{ (r.under_book or 'draftkings')[:2]|upper }}</span>
+                {% if r.disp_under_odds is defined and r.disp_under_odds is not none %}
+                <span class="book-badge" title="{{ r.disp_under_book if (r.disp_under_book is string) else 'DraftKings' }}">{{ ((r.disp_under_book if (r.disp_under_book is string) else 'DK') | upper)[:2] }}</span>
                 {% endif %}
                 {% if ev_u is not none %}<span class="ev-badge {{ 'pos' if ev_u > 0 else ('neg' if ev_u < 0 else 'neu') }}">EV {{ '%.3f' % ev_u }}</span>{% endif %}
               </div>
@@ -110,18 +123,18 @@
               {% set ev_apl = r['ev_away_pl_+1.5'] if 'ev_away_pl_+1.5' in r else None %}
               {% set ev_hpl = r['ev_home_pl_-1.5'] if 'ev_home_pl_-1.5' in r else None %}
               <div class="chip {{ 'positive' if (ev_apl is not none and ev_apl > 0) else ('negative' if (ev_apl is not none and ev_apl < 0) else 'neutral') }}">
-                Away +1.5 {% if r['away_pl_+1.5_odds'] is defined and r['away_pl_+1.5_odds'] is not none %}{{ r['away_pl_+1.5_odds'] }}{% else %}—{% endif %}
+                Away +1.5 {% if r['disp_away_pl_+1.5_odds'] is defined and r['disp_away_pl_+1.5_odds'] is not none %}{{ r['disp_away_pl_+1.5_odds'] }}{% else %}—{% endif %}
                 · {{ '%.1f' % (100*r['p_away_pl_+1.5']) }}%
-                {% if r['away_pl_+1.5_odds'] is defined and r['away_pl_+1.5_odds'] is not none %}
-                <span class="book-badge" title="{{ r['away_pl_+1.5_book'] if r['away_pl_+1.5_book'] else 'DraftKings' }}">{{ (r['away_pl_+1.5_book'] or 'draftkings')[:2]|upper }}</span>
+                {% if r['disp_away_pl_+1.5_odds'] is defined and r['disp_away_pl_+1.5_odds'] is not none %}
+                <span class="book-badge" title="{{ r['disp_away_pl_+1.5_book'] if (r['disp_away_pl_+1.5_book'] is string) else 'DraftKings' }}">{{ ((r['disp_away_pl_+1.5_book'] if (r['disp_away_pl_+1.5_book'] is string) else 'DK') | upper)[:2] }}</span>
                 {% endif %}
                 {% if ev_apl is not none %}<span class="ev-badge {{ 'pos' if ev_apl > 0 else ('neg' if ev_apl < 0 else 'neu') }}">EV {{ '%.3f' % ev_apl }}</span>{% endif %}
               </div>
               <div class="chip {{ 'positive' if (ev_hpl is not none and ev_hpl > 0) else ('negative' if (ev_hpl is not none and ev_hpl < 0) else 'neutral') }}">
-                Home -1.5 {% if r['home_pl_-1.5_odds'] is defined and r['home_pl_-1.5_odds'] is not none %}{{ r['home_pl_-1.5_odds'] }}{% else %}—{% endif %}
+                Home -1.5 {% if r['disp_home_pl_-1.5_odds'] is defined and r['disp_home_pl_-1.5_odds'] is not none %}{{ r['disp_home_pl_-1.5_odds'] }}{% else %}—{% endif %}
                 · {{ '%.1f' % (100*r['p_home_pl_-1.5']) }}%
-                {% if r['home_pl_-1.5_odds'] is defined and r['home_pl_-1.5_odds'] is not none %}
-                <span class="book-badge" title="{{ r['home_pl_-1.5_book'] if r['home_pl_-1.5_book'] else 'DraftKings' }}">{{ (r['home_pl_-1.5_book'] or 'draftkings')[:2]|upper }}</span>
+                {% if r['disp_home_pl_-1.5_odds'] is defined and r['disp_home_pl_-1.5_odds'] is not none %}
+                <span class="book-badge" title="{{ r['disp_home_pl_-1.5_book'] if (r['disp_home_pl_-1.5_book'] is string) else 'DraftKings' }}">{{ ((r['disp_home_pl_-1.5_book'] if (r['disp_home_pl_-1.5_book'] is string) else 'DK') | upper)[:2] }}</span>
                 {% endif %}
                 {% if ev_hpl is not none %}<span class="ev-badge {{ 'pos' if ev_hpl > 0 else ('neg' if ev_hpl < 0 else 'neu') }}">EV {{ '%.3f' % ev_hpl }}</span>{% endif %}
               </div>
@@ -158,17 +171,22 @@
               </div>
             </div>
             {% endif %}
-            {% if r.over_odds is defined or r.home_ml_odds is defined %}
+            {% if r.disp_over_odds is defined or r.disp_home_ml_odds is defined %}
             <div class="row details small">
               <div class="detail-col">
                 <div>
-                  Lines: ML {% if r.home_ml_odds is not none and r.away_ml_odds is not none %}H {{ r.home_ml_odds }} / A {{ r.away_ml_odds }}{% else %}—{% endif %}
-                  · Total {% if r.total_line_used is defined %}{{ '%.1f' % r.total_line_used }}{% else %}—{% endif %}
+                  Lines: ML {% if r.disp_home_ml_odds is not none and r.disp_away_ml_odds is not none %}H {{ r.disp_home_ml_odds }} / A {{ r.disp_away_ml_odds }}{% else %}—{% endif %}
+                  · Total {% if r.disp_total_line_used is defined and r.disp_total_line_used is not none %}{{ '%.1f' % r.disp_total_line_used }}{% else %}—{% endif %}
                   · PL ±1.5
                 </div>
               </div>
             </div>
             {% endif %}
+            <div class="row details small">
+              <div class="detail-col">
+                <div>Debug: {{ date }} | {{ r.home_abbr }}-{{ r.away_abbr }} | gamePk={{ r.gamePk if r.get('gamePk') else '—' }} | hasOdds={{ 1 if has_any_odds else 0 }}</div>
+              </div>
+            </div>
           </div>
         {% endfor %}
       </div>
@@ -180,11 +198,14 @@
 (function() {
   const qsDate = new URLSearchParams(window.location.search).get('date');
   const date = qsDate || '{{ date }}';
+  const liveNow = '{{ 1 if live_now else 0 }}' === '1';
   const lastEl = document.getElementById('last-updated');
   let lastVal = null;
   const pollIntervalMs = 60000; // 60s last-updated polling
+  const liveIntervalMs = 15000; // 15s live scoreboard polling
   const refreshOddsMs = 600000; // 10m background odds refresh during window
   const toggleEl = document.getElementById('autoUpdateToggle');
+  const injectBtn = document.getElementById('injectOddsBtn');
 
   async function updateLastUpdated() {
     try {
@@ -200,10 +221,32 @@
     } catch (e) {}
     return null;
   }
-  function anyOddsPresent() {
+  function anyOddsMissing() {
+    const cards = Array.from(document.querySelectorAll('.card[data-has-odds]'));
+    if (!cards.length) return true;
+    return cards.some(el => el.getAttribute('data-has-odds') !== '1');
+  }
+  function anyHasOdds() {
     const cards = Array.from(document.querySelectorAll('.card[data-has-odds]'));
     if (!cards.length) return false;
     return cards.some(el => el.getAttribute('data-has-odds') === '1');
+  }
+
+  async function injectOddsIfLiveAndMissing() {
+    try {
+      const missing = anyOddsMissing();
+      // If any card lacks odds, try a safe odds-only injection (no regeneration)
+      if (missing) {
+        await fetch(`/api/inject-odds?date=${encodeURIComponent(date)}`, { method: 'POST' });
+        // Re-check last-updated to trigger reload if changed
+        setTimeout(async () => {
+          const nv = await updateLastUpdated();
+          if (nv && lastVal && nv !== lastVal) {
+            window.location.reload();
+          }
+        }, 3000);
+      }
+    } catch (_) {}
   }
 
   function computeGameWindow() {
@@ -238,22 +281,46 @@
   // Initialize
   updateLastUpdated().then(async (v) => {
     lastVal = v;
-    // If no odds on any card, try a one-shot background refresh now
-    if (!anyOddsPresent()) {
-      try { await refreshOdds(); } catch {}
-      // Kick a quick re-check of last-updated after 5s; if changed, reload
-      setTimeout(async () => {
-        const nv = await updateLastUpdated();
-        if (nv && lastVal && nv !== lastVal) {
-          window.location.reload();
-        }
-      }, 5000);
+    // If any card is missing odds, try a one-shot safe injection now
+    if (anyOddsMissing()) {
+      // Prefer safe injection (no regeneration) to preserve live slate; refreshOdds is disabled during live anyway
+      await injectOddsIfLiveAndMissing();
     }
+    // If not live and we already have odds, snapshot openers once (idempotent server-side)
+    try {
+      if (!liveNow && anyHasOdds()) {
+        await fetch(`/api/capture-openers?date=${encodeURIComponent(date)}`, { method: 'POST' });
+      }
+    } catch (_) {}
   });
+
+  // Manual injection handler
+  if (injectBtn) {
+    injectBtn.addEventListener('click', async () => {
+      try {
+        injectBtn.disabled = true;
+        const label = injectBtn.textContent;
+        injectBtn.textContent = 'Injecting…';
+        const before = await updateLastUpdated();
+        await fetch(`/api/inject-odds?date=${encodeURIComponent(date)}`, { method: 'POST' });
+        setTimeout(async () => {
+          const after = await updateLastUpdated();
+          injectBtn.disabled = false;
+          injectBtn.textContent = label;
+          if (before && after && before !== after) {
+            window.location.reload();
+          }
+        }, 2500);
+      } catch (_) {
+        try { injectBtn.disabled = false; } catch {}
+      }
+    });
+  }
 
   const windowRange = computeGameWindow();
   let pollTimer = null;
   let oddsTimer = null;
+  let liveTimer = null;
   function inWindow() {
     if (!windowRange) return false;
     const now = new Date();
@@ -262,10 +329,13 @@
   function startLoops() {
     if (!pollTimer) pollTimer = setInterval(maybeReloadOnChange, pollIntervalMs);
     if (!oddsTimer) oddsTimer = setInterval(refreshOdds, refreshOddsMs);
+    // Start live polling regardless of game window to ensure scores appear
+    if (!liveTimer) liveTimer = setInterval(refreshLive, liveIntervalMs);
   }
   function stopLoops() {
     if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
     if (oddsTimer) { clearInterval(oddsTimer); oddsTimer = null; }
+    if (liveTimer) { clearInterval(liveTimer); liveTimer = null; }
   }
 
   // Engage loops only during game-time window
@@ -283,16 +353,92 @@
       if (toggleEl.checked && inWindow()) startLoops(); else stopLoops();
     });
   }
-  if (windowRange && inWindow() && shouldAutoUpdate()) {
+  if (shouldAutoUpdate()) {
     startLoops();
   }
-  // Re-check every 5 minutes whether we've entered/left the window
+  // Re-check every 5 minutes to honor toggle and adjust other loops if desired
   setInterval(() => {
-    if (!windowRange) return;
-    if (inWindow() && shouldAutoUpdate()) startLoops(); else stopLoops();
+    if (shouldAutoUpdate()) startLoops(); else stopLoops();
   }, 5*60*1000);
 
   window.addEventListener('beforeunload', stopLoops);
+
+  async function refreshLive() {
+    try {
+      const res = await fetch(`/api/scoreboard?date=${encodeURIComponent(date)}`, { cache: 'no-store' });
+      if (!res.ok) return;
+      const data = await res.json();
+      // Index by gamePk and by abbr pair
+      const byPk = new Map();
+      const byAbbr = new Map();
+      for (const g of data) {
+        if (g.gamePk) byPk.set(String(g.gamePk), g);
+        const key = (g.home_abbr || '') + '|' + (g.away_abbr || '');
+        byAbbr.set(key, g);
+      }
+      const cards = document.querySelectorAll('.card');
+      cards.forEach(async (card) => {
+        const pk = card.getAttribute('data-gamepk');
+        const h = (card.getAttribute('data-home-abbr') || '').toUpperCase();
+        const a = (card.getAttribute('data-away-abbr') || '').toUpperCase();
+        let g = null;
+        if (pk && byPk.has(pk)) g = byPk.get(pk);
+        if (!g) {
+          const key = h + '|' + a;
+          if (byAbbr.has(key)) g = byAbbr.get(key);
+        }
+        if (!g) return;
+        // Update state text and time-left
+        const stateEl = card.querySelector('.row.head .state');
+        const timeEl = card.querySelector('.row.head .time-left');
+        if (stateEl) {
+          const seg = [];
+          if (g.gameState) seg.push(g.gameState);
+          if (g.clock) seg.push(String(g.clock));
+          if (g.period) seg.push('P' + g.period);
+          stateEl.textContent = seg.join(' · ');
+          const st = (g.gameState || '').toUpperCase();
+          stateEl.classList.toggle('crit', st.includes('CRIT'));
+        }
+        if (timeEl) {
+          let t = '';
+          const st = (g.gameState || '').toUpperCase();
+          if (st.includes('FINAL')) {
+            t = 'Final';
+          } else if (g.period || g.clock) {
+            const pd = g.period ? ('P' + g.period) : '';
+            const cl = g.clock ? String(g.clock) : '';
+            t = [pd, cl].filter(Boolean).join(' ');
+          } else if (st.includes('LIVE') || st.includes('IN') || st.includes('PROGRESS') || st.includes('CRIT')) {
+            t = 'Live';
+          } else {
+            t = '';
+          }
+          timeEl.textContent = t || '—';
+          timeEl.classList.toggle('crit', st.includes('CRIT'));
+        }
+        // Update live scores (do not overwrite projections)
+        const ha = card.querySelector('.js-live-home');
+        const aa = card.querySelector('.js-live-away');
+        if (ha && g.home_goals != null) ha.textContent = String(g.home_goals);
+        if (aa && g.away_goals != null) aa.textContent = String(g.away_goals);
+
+        // If the game is LIVE or FINAL and we haven't captured closing odds yet, do it once
+        try {
+          const already = card.getAttribute('data-close-captured') === '1';
+          const st = (g.gameState || '').toUpperCase();
+          const isLive = st.includes('LIVE') || st.includes('IN') || st.includes('PROGRESS') || st.includes('FINAL');
+          if (!already && isLive && h && a) {
+            const url = `/api/capture-closing?date=${encodeURIComponent(date)}&home_abbr=${encodeURIComponent(h)}&away_abbr=${encodeURIComponent(a)}`;
+            await fetch(url, { method: 'POST' });
+            card.setAttribute('data-close-captured', '1');
+          }
+        } catch (_) { /* ignore capture errors */ }
+      });
+    } catch (e) { /* ignore */ }
+  }
+  // Do an initial live refresh immediately so scores appear without waiting for the first interval
+  refreshLive();
 })();
 </script>
 </html>

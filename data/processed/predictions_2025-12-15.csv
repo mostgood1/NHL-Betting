@@ -1,0 +1,6 @@
+date,home,away,p_home_ml,p_away_ml,p_over,p_under,p_home_pl_-1.5,p_away_pl_+1.5,total_line_used,proj_home_goals,proj_away_goals,model_total,model_spread,pl_line_used,totals_pick,totals_edge_pts,ats_pick,ats_edge_pts,edge_over_pts,edge_under_pts,edge_home_pl_pts,edge_away_pl_pts,actual_home_goals,actual_away_goals,actual_total,venue,game_state
+2025-12-16T00:00:00Z,Tampa Bay Lightning,Florida Panthers,0.3993,0.6007,0.404,0.4337,0.175,0.825,6.0,2.66,3.41,6.07,-0.75,1.5,Under,-0.07,away_+1.5,2.25,0.07,-0.07,-2.25,2.25,,,,Benchmark International Arena,FUT
+2025-12-16T00:00:00Z,New York Rangers,Anaheim Ducks,0.8734,0.1266,0.3936,0.4305,0.7487,0.2513,6.0,4.65,1.42,6.07,3.23,1.5,Under,-0.07,home_-1.5,1.73,0.07,-0.07,1.73,-1.73,,,,Madison Square Garden,FUT
+2025-12-16T00:30:00Z,Winnipeg Jets,Ottawa Senators,0.661,0.339,0.4028,0.4334,0.4821,0.5179,6.0,3.76,2.31,6.07,1.45,1.5,Under,-0.07,away_+1.5,0.05,0.07,-0.07,-0.05,0.05,,,,Canada Life Centre,FUT
+2025-12-16T01:00:00Z,St. Louis Blues,Nashville Predators,0.5283,0.4717,0.4043,0.4338,0.3113,0.6887,6.0,3.2,2.87,6.07,0.33,1.5,Under,-0.07,away_+1.5,1.17,0.07,-0.07,-1.17,1.17,,,,Enterprise Center,FUT
+2025-12-16T01:00:00Z,Dallas Stars,Los Angeles Kings,0.7036,0.2964,0.4017,0.433,0.5391,0.4609,6.0,3.94,2.13,6.07,1.8,1.5,Under,-0.07,home_-1.5,0.3,0.07,-0.07,0.3,-0.3,,,,American Airlines Center,FUT

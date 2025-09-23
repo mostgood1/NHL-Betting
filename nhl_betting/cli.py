@@ -732,19 +732,18 @@ def daily_update(days_ahead: int = typer.Option(2, help="How many days ahead to 
         except Exception:
             pass
 
-@app.command()
-def build_range(
-    start: str = typer.Option(..., help="Start date YYYY-MM-DD"),
-    end: str = typer.Option(..., help="End date YYYY-MM-DD"),
-    source: str = typer.Option("web", help="Data source for schedule: web | stats | nhlpy"),
-    bankroll: float = typer.Option(0.0, help="Bankroll for Kelly sizing; 0 disables"),
-    kelly_fraction_part: float = typer.Option(0.5, help="Kelly fraction (0-1)"),
+def build_range_core(
+    start: str,
+    end: str,
+    source: str = "web",
+    bankroll: float = 0.0,
+    kelly_fraction_part: float = 0.5,
 ):
-    """Build predictions with odds for all dates with NHL games in [start, end].
+    """Core implementation to build predictions with odds for all dates with NHL games in [start, end].
 
     Strategy per date: Bovada → The Odds API → ensure predictions exist without odds.
+    This function is safe to call from non-CLI contexts and expects plain Python types.
     """
-    from datetime import timedelta
     # Collect schedule once, then iterate unique dates with NHL vs NHL games
     if source == "web":
         client = NHLWebClient()
@@ -795,17 +794,34 @@ def build_range(
         except Exception:
             pass
 
+
+@app.command()
+def build_range(
+    start: str = typer.Option(..., help="Start date YYYY-MM-DD"),
+    end: str = typer.Option(..., help="End date YYYY-MM-DD"),
+    source: str = typer.Option("web", help="Data source for schedule: web | stats | nhlpy"),
+    bankroll: float = typer.Option(0.0, help="Bankroll for Kelly sizing; 0 disables"),
+    kelly_fraction_part: float = typer.Option(0.5, help="Kelly fraction (0-1)"),
+):
+    """Build predictions with odds for all dates with NHL games in [start, end].
+
+    Strategy per date: Bovada → The Odds API → ensure predictions exist without odds.
+    """
+    build_range_core(start=start, end=end, source=source, bankroll=bankroll, kelly_fraction_part=kelly_fraction_part)
+
 @app.command()
 def build_season(
     season: int = typer.Option(..., help="Season start year, e.g., 2025"),
     include_preseason: bool = typer.Option(True, help="Include preseason (Sep)"),
     include_playoffs: bool = typer.Option(False, help="Include playoffs (Apr-Jun)"),
+    bankroll: float = typer.Option(0.0, help="Bankroll for Kelly sizing; 0 disables"),
+    kelly_fraction_part: float = typer.Option(0.5, help="Kelly fraction (0-1)"),
 ):
     """Build predictions across a season window (preseason + regular by default)."""
     start = f"{season}-09-01" if include_preseason else f"{season}-10-01"
     # End at Aug 1 next year to include entire season window safely
     end = f"{season+1}-08-01"
-    build_range(start=start, end=end, source="web")
+    build_range_core(start=start, end=end, source="web", bankroll=bankroll, kelly_fraction_part=kelly_fraction_part)
 
 @app.command()
 def props_fetch_bovada(

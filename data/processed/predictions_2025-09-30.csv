@@ -1,0 +1,8 @@
+date,home,away,p_home_ml,p_away_ml,p_over,p_under,p_home_pl_-1.5,p_away_pl_+1.5,total_line_used,proj_home_goals,proj_away_goals,model_total,model_spread,pl_line_used,totals_pick,totals_edge_pts,ats_pick,ats_edge_pts,edge_over_pts,edge_under_pts,edge_home_pl_pts,edge_away_pl_pts,actual_home_goals,actual_away_goals,actual_total,venue,game_state
+2025-09-30T23:00:00Z,Tampa Bay Lightning,Florida Panthers,0.3993,0.6007,0.404,0.4337,0.175,0.825,6.0,2.66,3.41,6.07,-0.75,1.5,Under,-0.07,away_+1.5,2.25,0.07,-0.07,-2.25,2.25,,,,Kia Center,FUT
+2025-09-30T23:00:00Z,Ottawa Senators,Montréal Canadiens,0.7115,0.2885,0.4015,0.433,0.5497,0.4503,6.0,3.97,2.1,6.07,1.87,1.5,Under,-0.07,home_-1.5,0.37,0.07,-0.07,0.37,-0.37,,,,Centre Videotron,FUT
+2025-09-30T23:00:00Z,Columbus Blue Jackets,Washington Capitals,0.4442,0.5558,0.4043,0.4338,0.218,0.782,6.0,2.85,3.22,6.07,-0.37,1.5,Under,-0.07,away_+1.5,1.87,0.07,-0.07,-1.87,1.87,,,,Nationwide Arena,FUT
+2025-10-01T00:00:00Z,Chicago Blackhawks,Detroit Red Wings,0.339,0.661,0.4032,0.4335,0.1258,0.8742,6.0,2.41,3.67,6.07,-1.26,1.5,Under,-0.07,away_+1.5,2.76,0.07,-0.07,-2.76,2.76,,,,United Center,FUT
+2025-10-01T00:00:00Z,Colorado Avalanche,Vegas Golden Knights,0.6421,0.3579,0.4031,0.4335,0.4568,0.5432,6.0,3.68,2.39,6.07,1.29,1.5,Under,-0.07,away_+1.5,0.21,0.07,-0.07,-0.21,0.21,,,,Ball Arena,FUT
+2025-10-01T00:00:00Z,Minnesota Wild,Winnipeg Jets,0.4629,0.5371,0.4044,0.4339,0.2373,0.7627,6.0,2.93,3.15,6.07,-0.22,1.5,Under,-0.07,away_+1.5,1.72,0.07,-0.07,-1.72,1.72,,,,Grand Casino Arena,FUT
+2025-10-01T00:00:00Z,St. Louis Blues,Dallas Stars,0.4373,0.5627,0.4043,0.4338,0.2111,0.7889,6.0,2.82,3.25,6.07,-0.43,1.5,Under,-0.07,away_+1.5,1.93,0.07,-0.07,-1.93,1.93,,,,Enterprise Center,FUT

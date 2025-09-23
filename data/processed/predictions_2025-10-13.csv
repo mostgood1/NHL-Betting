@@ -1,0 +1,10 @@
+date,home,away,p_home_ml,p_away_ml,p_over,p_under,p_home_pl_-1.5,p_away_pl_+1.5,total_line_used,proj_home_goals,proj_away_goals,model_total,model_spread,pl_line_used,totals_pick,totals_edge_pts,ats_pick,ats_edge_pts,edge_over_pts,edge_under_pts,edge_home_pl_pts,edge_away_pl_pts,actual_home_goals,actual_away_goals,actual_total,venue,game_state
+2025-10-13T16:30:00Z,Buffalo Sabres,Colorado Avalanche,0.4656,0.5344,0.4044,0.4339,0.2402,0.7598,6.0,2.94,3.13,6.07,-0.19,1.5,Under,-0.07,away_+1.5,1.69,0.07,-0.07,-1.69,1.69,,,,KeyBank Center,FUT
+2025-10-13T17:00:00Z,Boston Bruins,Tampa Bay Lightning,0.6051,0.3949,0.4037,0.4337,0.4079,0.5921,6.0,3.52,2.55,6.07,0.98,1.5,Under,-0.07,away_+1.5,0.52,0.07,-0.07,-0.52,0.52,,,,TD Garden,FUT
+2025-10-13T17:00:00Z,Ottawa Senators,Nashville Predators,0.5153,0.4847,0.4044,0.4339,0.2959,0.7041,6.0,3.15,2.92,6.07,0.22,1.5,Under,-0.07,away_+1.5,1.28,0.07,-0.07,-1.28,1.28,,,,Canadian Tire Centre,FUT
+2025-10-13T17:00:00Z,New York Islanders,Winnipeg Jets,0.4974,0.5026,0.4044,0.4339,0.2753,0.7247,6.0,3.07,3.0,6.07,0.07,1.5,Under,-0.07,away_+1.5,1.43,0.07,-0.07,-1.43,1.43,,,,UBS Arena,FUT
+2025-10-13T20:00:00Z,Toronto Maple Leafs,Detroit Red Wings,0.6372,0.3628,0.4032,0.4335,0.4503,0.5497,6.0,3.66,2.41,6.07,1.25,1.5,Under,-0.07,away_+1.5,0.25,0.07,-0.07,-0.25,0.25,,,,Scotiabank Arena,FUT
+2025-10-13T23:00:00Z,Philadelphia Flyers,Florida Panthers,0.2811,0.7189,0.4019,0.4331,0.0876,0.9124,6.0,2.16,3.91,6.07,-1.75,1.5,Under,-0.07,away_+1.5,3.25,0.07,-0.07,-3.25,3.25,,,,Xfinity Mobile Arena,FUT
+2025-10-13T23:00:00Z,Columbus Blue Jackets,New Jersey Devils,0.466,0.534,0.4044,0.4339,0.2406,0.7594,6.0,2.94,3.13,6.07,-0.19,1.5,Under,-0.07,away_+1.5,1.69,0.07,-0.07,-1.69,1.69,,,,Nationwide Arena,FUT
+2025-10-13T23:30:00Z,Vancouver Canucks,St. Louis Blues,0.6368,0.3632,0.4032,0.4335,0.4498,0.5502,6.0,3.66,2.41,6.07,1.24,1.5,Under,-0.07,away_+1.5,0.26,0.07,-0.07,-0.26,0.26,,,,Rogers Arena,FUT
+2025-10-14T00:00:00Z,Minnesota Wild,Los Angeles Kings,0.5538,0.4462,0.4042,0.4338,0.3425,0.6575,6.0,3.31,2.76,6.07,0.55,1.5,Under,-0.07,away_+1.5,0.95,0.07,-0.07,-0.95,0.95,,,,Grand Casino Arena,FUT

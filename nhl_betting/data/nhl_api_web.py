@@ -97,6 +97,56 @@ class NHLWebClient:
                 )
         return games
 
+    def scoreboard_day(self, date: str) -> List[dict]:
+        """Return lightweight live scoreboard info for a given date.
+
+        Includes current score even if game not final, plus state/period/clock when available.
+        """
+        data = self._get(f"/schedule/{date}")
+        rows: List[dict] = []
+        for wk in data.get("gameWeek", []):
+            if wk.get("date") != date:
+                continue
+            for g in wk.get("games", []):
+                home = _team_name(g.get("homeTeam", {}))
+                away = _team_name(g.get("awayTeam", {}))
+                home_score = g.get("homeTeam", {}).get("score")
+                away_score = g.get("awayTeam", {}).get("score")
+                state = g.get("gameState")
+                # Attempt to extract period and clock in a robust way
+                period = None
+                try:
+                    pd = g.get("periodDescriptor") or {}
+                    period = pd.get("number") or pd.get("period") or g.get("period")
+                except Exception:
+                    period = None
+                clock = None
+                try:
+                    cl = g.get("clock")
+                    if isinstance(cl, dict):
+                        clock = cl.get("timeRemaining") or cl.get("timeRemainingInPeriod") or cl.get("displayValue")
+                    elif isinstance(cl, str):
+                        clock = cl
+                except Exception:
+                    clock = None
+                start_utc = g.get("startTimeUTC") or (date + "T00:00:00Z")
+                try:
+                    game_pk = int(g.get("id"))
+                except Exception:
+                    game_pk = None
+                rows.append({
+                    "gamePk": game_pk,
+                    "gameDate": start_utc,
+                    "home": home,
+                    "away": away,
+                    "home_goals": int(home_score) if home_score is not None else None,
+                    "away_goals": int(away_score) if away_score is not None else None,
+                    "gameState": state,
+                    "period": period,
+                    "clock": clock,
+                })
+        return rows
+
     def schedule_range(self, start_date: str, end_date: str) -> List[Game]:
         def to_dt(s: str) -> datetime:
             return datetime.fromisoformat(s)
@@ -113,3 +163,35 @@ class NHLWebClient:
             all_games.extend(self.schedule_day(d))
             cur += timedelta(days=1)
         return all_games
+
+    def linescore(self, gamePk: int) -> dict:
+        """Fetch live linescore for a game: period and clock when available.
+
+        Uses /gamecenter/{gamePk}/linescore endpoint of the NHL Web API.
+        Returns a dict like {"period": <int|str|None>, "clock": <str|None>}.
+        """
+        try:
+            data = self._get(f"/gamecenter/{int(gamePk)}/linescore")
+        except Exception:
+            return {"period": None, "clock": None}
+        period = None
+        clock = None
+        try:
+            # Try typical fields
+            period = data.get("currentPeriod") or data.get("period")
+        except Exception:
+            period = None
+        try:
+            # clock may be nested
+            cl = data.get("clock")
+            if isinstance(cl, dict):
+                clock = cl.get("timeRemaining") or cl.get("displayValue") or cl.get("timeRemainingInPeriod")
+            elif isinstance(cl, str):
+                clock = cl
+            # Fallback: sometimes available in periodDescriptor
+            if not clock:
+                pd = data.get("periodDescriptor") or {}
+                clock = pd.get("timeRemaining") or pd.get("displayValue")
+        except Exception:
+            clock = None
+        return {"period": period, "clock": clock}

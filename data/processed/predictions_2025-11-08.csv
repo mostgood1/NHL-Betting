@@ -1,0 +1,13 @@
+date,home,away,p_home_ml,p_away_ml,p_over,p_under,p_home_pl_-1.5,p_away_pl_+1.5,total_line_used,proj_home_goals,proj_away_goals,model_total,model_spread,pl_line_used,totals_pick,totals_edge_pts,ats_pick,ats_edge_pts,edge_over_pts,edge_under_pts,edge_home_pl_pts,edge_away_pl_pts,actual_home_goals,actual_away_goals,actual_total,venue,game_state
+2025-11-08T17:30:00Z,New Jersey Devils,Pittsburgh Penguins,0.5416,0.4584,0.4042,0.4338,0.3274,0.6726,6.0,3.26,2.81,6.07,0.44,1.5,Under,-0.07,away_+1.5,1.06,0.07,-0.07,-1.06,1.06,,,,Prudential Center,FUT
+2025-11-08T18:00:00Z,Philadelphia Flyers,Ottawa Senators,0.4852,0.5148,0.4044,0.4339,0.2615,0.7385,6.0,3.02,3.05,6.07,-0.03,1.5,Under,-0.07,away_+1.5,1.53,0.07,-0.07,-1.53,1.53,,,,Xfinity Mobile Arena,FUT
+2025-11-08T20:30:00Z,Nashville Predators,Dallas Stars,0.4806,0.5194,0.4044,0.4339,0.2565,0.7435,6.0,3.0,3.07,6.07,-0.07,1.5,Under,-0.07,away_+1.5,1.57,0.07,-0.07,-1.57,1.57,,,,Bridgestone Arena,FUT
+2025-11-09T00:00:00Z,Toronto Maple Leafs,Boston Bruins,0.5578,0.4422,0.4041,0.4338,0.3474,0.6526,6.0,3.33,2.75,6.07,0.58,1.5,Under,-0.07,away_+1.5,0.92,0.07,-0.07,-0.92,0.92,,,,Scotiabank Arena,FUT
+2025-11-09T00:00:00Z,Tampa Bay Lightning,Washington Capitals,0.6416,0.3584,0.4031,0.4335,0.4561,0.5439,6.0,3.68,2.39,6.07,1.28,1.5,Under,-0.07,away_+1.5,0.22,0.07,-0.07,-0.22,0.22,,,,Benchmark International Arena,FUT
+2025-11-09T00:00:00Z,New York Rangers,New York Islanders,0.7279,0.2721,0.401,0.4328,0.5714,0.4286,6.0,4.04,2.03,6.07,2.01,1.5,Under,-0.07,home_-1.5,0.51,0.07,-0.07,0.51,-0.51,,,,Madison Square Garden,FUT
+2025-11-09T00:00:00Z,Carolina Hurricanes,Buffalo Sabres,0.713,0.287,0.4015,0.433,0.5517,0.4483,6.0,3.98,2.09,6.07,1.88,1.5,Under,-0.07,home_-1.5,0.38,0.07,-0.07,0.38,-0.38,,,,Lenovo Center,FUT
+2025-11-09T00:00:00Z,St. Louis Blues,Seattle Kraken,0.6684,0.3316,0.4026,0.4333,0.492,0.508,6.0,3.79,2.28,6.07,1.51,1.5,Under,-0.07,away_+1.5,-0.01,0.07,-0.07,0.01,-0.01,,,,Enterprise Center,FUT
+2025-11-09T03:00:00Z,Edmonton Oilers,Colorado Avalanche,0.6169,0.3831,0.4035,0.4336,0.4234,0.5766,6.0,3.57,2.5,6.07,1.08,1.5,Under,-0.07,away_+1.5,0.42,0.07,-0.07,-0.42,0.42,,,,Rogers Place,FUT
+2025-11-09T03:00:00Z,Vancouver Canucks,Columbus Blue Jackets,0.7749,0.2251,0.3992,0.4323,0.6324,0.3676,6.0,4.24,1.83,6.07,2.4,1.5,Under,-0.07,home_-1.5,0.9,0.07,-0.07,0.9,-0.9,,,,Rogers Arena,FUT
+2025-11-09T03:00:00Z,Vegas Golden Knights,Anaheim Ducks,0.7971,0.2029,0.3982,0.4319,0.6602,0.3398,6.0,4.33,1.74,6.07,2.59,1.5,Under,-0.07,home_-1.5,1.09,0.07,-0.07,1.09,-1.09,,,,T-Mobile Arena,FUT
+2025-11-09T03:00:00Z,San Jose Sharks,Florida Panthers,0.133,0.867,0.3955,0.4311,0.0272,0.9728,6.0,1.54,4.53,6.07,-2.99,1.5,Under,-0.07,away_+1.5,4.49,0.07,-0.07,-4.49,4.49,,,,SAP Center at San Jose,FUT

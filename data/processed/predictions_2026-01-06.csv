@@ -1,0 +1,11 @@
+date,home,away,p_home_ml,p_away_ml,p_over,p_under,p_home_pl_-1.5,p_away_pl_+1.5,total_line_used,proj_home_goals,proj_away_goals,model_total,model_spread,pl_line_used,totals_pick,totals_edge_pts,ats_pick,ats_edge_pts,edge_over_pts,edge_under_pts,edge_home_pl_pts,edge_away_pl_pts,actual_home_goals,actual_away_goals,actual_total,venue,game_state
+2026-01-07T00:00:00Z,Buffalo Sabres,Vancouver Canucks,0.5119,0.4881,0.4044,0.4339,0.2919,0.7081,6.0,3.13,2.94,6.07,0.19,1.5,Under,-0.07,away_+1.5,1.31,0.07,-0.07,-1.31,1.31,,,,KeyBank Center,FUT
+2026-01-07T00:00:00Z,Tampa Bay Lightning,Colorado Avalanche,0.4902,0.5098,0.4044,0.4339,0.267,0.733,6.0,3.04,3.03,6.07,0.01,1.5,Under,-0.07,away_+1.5,1.49,0.07,-0.07,-1.49,1.49,,,,Benchmark International Arena,FUT
+2026-01-07T00:00:00Z,Philadelphia Flyers,Anaheim Ducks,0.6914,0.3086,0.4021,0.4331,0.5228,0.4772,6.0,3.89,2.19,6.07,1.7,1.5,Under,-0.07,home_-1.5,0.2,0.07,-0.07,0.2,-0.2,,,,Xfinity Mobile Arena,FUT
+2026-01-07T00:00:00Z,Carolina Hurricanes,Dallas Stars,0.5996,0.4004,0.4037,0.4337,0.4008,0.5992,6.0,3.5,2.57,6.07,0.93,1.5,Under,-0.07,away_+1.5,0.57,0.07,-0.07,-0.57,0.57,,,,Lenovo Center,FUT
+2026-01-07T00:30:00Z,New York Islanders,New Jersey Devils,0.6383,0.3617,0.4032,0.4335,0.4518,0.5482,6.0,3.66,2.41,6.07,1.26,1.5,Under,-0.07,away_+1.5,0.24,0.07,-0.07,-0.24,0.24,,,,UBS Arena,FUT
+2026-01-07T00:30:00Z,Toronto Maple Leafs,Florida Panthers,0.4194,0.5806,0.4041,0.4338,0.1936,0.8064,6.0,2.74,3.33,6.07,-0.58,1.5,Under,-0.07,away_+1.5,2.08,0.07,-0.07,-2.08,2.08,,,,Scotiabank Arena,FUT
+2026-01-07T01:00:00Z,Winnipeg Jets,Vegas Golden Knights,0.6115,0.3885,0.4036,0.4336,0.4163,0.5837,6.0,3.55,2.52,6.07,1.03,1.5,Under,-0.07,away_+1.5,0.47,0.07,-0.07,-0.47,0.47,,,,Canada Life Centre,FUT
+2026-01-07T02:00:00Z,Edmonton Oilers,Nashville Predators,0.6816,0.3184,0.4023,0.4332,0.5097,0.4903,6.0,3.85,2.23,6.07,1.62,1.5,Under,-0.07,home_-1.5,0.12,0.07,-0.07,0.12,-0.12,,,,Rogers Place,FUT
+2026-01-07T03:00:00Z,San Jose Sharks,Columbus Blue Jackets,0.408,0.592,0.4041,0.4338,0.183,0.817,6.0,2.7,3.38,6.07,-0.68,1.5,Under,-0.07,away_+1.5,2.18,0.07,-0.07,-2.18,2.18,,,,SAP Center at San Jose,FUT
+2026-01-07T03:00:00Z,Seattle Kraken,Boston Bruins,0.4023,0.5977,0.404,0.4338,0.1777,0.8223,6.0,2.67,3.4,6.07,-0.73,1.5,Under,-0.07,away_+1.5,2.23,0.07,-0.07,-2.23,2.23,,,,Climate Pledge Arena,FUT

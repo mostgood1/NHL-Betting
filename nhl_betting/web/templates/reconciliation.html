@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NHL Betting – Reconciliation</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header>
+    <div class="container header-inner">
+      <h1>NHL Betting – Reconciliation</h1>
+      <form method="get" action="/reconciliation">
+        <label>Date: <input type="date" name="date" value="{{ summary.date }}" /></label>
+        <button type="submit">Apply</button>
+        <a class="btn" href="/">Cards</a>
+      </form>
+    </div>
+  </header>
+  <main>
+    <div class="container">
+      <div class="card">
+        <div class="row details">
+          <div class="detail-col">
+            <div>Date: <strong>{{ summary.date }}</strong></div>
+            <div>Picks: <strong>{{ summary.picks }}</strong> · Decided: <strong>{{ summary.decided }}</strong> · Wins: <strong>{{ summary.wins }}</strong> · Losses: <strong>{{ summary.losses }}</strong> · Pushes: <strong>{{ summary.pushes }}</strong></div>
+            <div>Staked: <strong>{{ '%.2f' % summary.staked if summary.staked is not none else '—' }}</strong> · PnL: <strong>{{ '%.2f' % summary.pnl if summary.pnl is not none else '—' }}</strong> · ROI: <strong>{{ '%.2f' % (100*summary.roi) ~ '%' if summary.roi is not none else '—' }}</strong></div>
+          </div>
+        </div>
+        <div class="row details">
+          <div class="detail-col">
+            {% if rows|length == 0 %}
+              <div>No picks with EV>0 found for this date.</div>
+            {% else %}
+              <div class="row chips">
+                <div class="chip title">Picks</div>
+                {% for r in rows %}
+                  <div class="chip neutral" title="{{ r.market }}">
+                    {{ r.away }} @ {{ r.home }} · {{ r.market }} · {{ r.bet }} · Close {{ r.price if r.price is not none else '—' }}
+                    {% if r.payout is not none %}
+                      · Payout {{ '%.2f' % r.payout }}
+                    {% endif %}
+                  </div>
+                {% endfor %}
+              </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

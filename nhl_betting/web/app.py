@@ -513,14 +513,20 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
                     inferred_map[key] = None
     except Exception:
         inferred_map = {}
-    # Attach team assets; convert UTC to local time string
+    # Attach team assets; convert UTC to Eastern Time (ET) for consistent display
     def to_local(iso_utc: str) -> str:
         try:
             ts = pd.to_datetime(iso_utc, utc=True)
-            # Convert to system local timezone via tzlocal None, then append TZ offset
+            try:
+                et = ZoneInfo("America/New_York")
+            except Exception:
+                et = None
+            if et is not None:
+                et_ts = ts.tz_convert(et)
+                return et_ts.strftime("%Y-%m-%d %I:%M %p ET")
+            # Fallback: system local time with a generic label
             local_ts = ts.tz_convert(None)
-            # Show local date/time; we cannot reliably get TZ abbrev without pytz/zoneinfo in this context
-            return local_ts.strftime("%Y-%m-%d %I:%M %p")
+            return local_ts.strftime("%Y-%m-%d %I:%M %p (local)")
         except Exception:
             return iso_utc
     for r in rows:

@@ -450,6 +450,45 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
             df.to_csv(PROC_DIR / f"predictions_{date}.csv", index=False)
     except Exception:
         pass
+    # Cross-midnight inclusion: merge neighbor-day predictions and filter to ET date bucket
+    try:
+        frames = []
+        if not df.empty:
+            frames.append(df)
+        # Previous and next day files, if they exist
+        base_dt = datetime.fromisoformat(date)
+        pd_str = (base_dt - timedelta(days=1)).strftime("%Y-%m-%d")
+        nd_str = (base_dt + timedelta(days=1)).strftime("%Y-%m-%d")
+        for d_nei in (pd_str, nd_str):
+            p = PROC_DIR / f"predictions_{d_nei}.csv"
+            if p.exists():
+                try:
+                    dfn = pd.read_csv(p)
+                    if not dfn.empty:
+                        frames.append(dfn)
+                except Exception:
+                    pass
+        if frames:
+            dfall = pd.concat(frames, ignore_index=True)
+            # Compute ET date for each row from ISO 'date' if available, else try 'gameDate'
+            def _row_et_date(x):
+                v = x.get("date") if isinstance(x, dict) else None
+                if not v and hasattr(x, "get"):
+                    v = x.get("gameDate")
+                if not v and isinstance(x, pd.Series):
+                    v = x.get("gameDate")
+                return _iso_to_et_date(v)
+            try:
+                et_dates = dfall.apply(lambda r: _iso_to_et_date(r.get("date") if pd.notna(r.get("date")) else r.get("gameDate")), axis=1)
+            except Exception:
+                et_dates = dfall.apply(lambda r: _row_et_date(r), axis=1)
+            dfall = dfall[et_dates == date]
+            # Drop potential duplicates (same home/away)
+            if {"home","away"}.issubset(dfall.columns):
+                dfall = dfall.drop_duplicates(subset=["home","away"], keep="first")
+            df = dfall
+    except Exception:
+        pass
     rows = df.to_dict(orient="records") if not df.empty else []
     # Load inferred odds as a tertiary display fallback (not persisted): inferred_odds_{date}.csv
     inferred_map = {}
@@ -567,7 +606,8 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
         # Attach gamePk using fresh schedule lookup for reliable scoreboard polling
         try:
             if r.get("date") and r.get("home") and r.get("away"):
-                dkey = pd.to_datetime(r["date"]).strftime("%Y-%m-%d")
+                # Use ET calendar day for schedule lookup to handle cross-midnight games
+                dkey = _iso_to_et_date(r["date"]) if r.get("date") else date
                 _client = NHLWebClient()
                 gms = _client.schedule_day(dkey)
                 # Find matching by abbr first, then names

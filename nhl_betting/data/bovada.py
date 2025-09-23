@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import time
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
@@ -175,8 +176,10 @@ class BovadaClient:
                 date_key = None
                 try:
                     if iso:
-                        dt = datetime.fromisoformat(iso.replace("Z", "+00:00"))
-                        date_key = dt.strftime("%Y-%m-%d")
+                        # Map Bovada start time to US/Eastern calendar day to match slate grouping
+                        dt_utc = datetime.fromisoformat(iso.replace("Z", "+00:00"))
+                        dt_et = dt_utc.astimezone(ZoneInfo("America/New_York"))
+                        date_key = dt_et.strftime("%Y-%m-%d")
                 except Exception:
                     pass
                 # Filter strictly to requested date if we have a date_key

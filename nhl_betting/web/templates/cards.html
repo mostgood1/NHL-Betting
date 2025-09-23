@@ -77,7 +77,7 @@
                   <div class="name">{{ r.away }}</div>
                 </div>
                 <div class="score-block">
-                  <div class="live-score js-live-away" title="Live score">—</div>
+                  <div class="live-score js-live-away" title="Score">{% if settled and r.get('final_away_goals') is not none %}{{ r.get('final_away_goals') }}{% else %}—{% endif %}</div>
                   <div class="sub proj-score" title="Projected goals">{{ '%.2f' % r.proj_away_goals }}</div>
                   <div class="sub ml-line"><span class="ml-label">ML {{ '%.1f' % (100*r.p_away_ml) }}%</span>{% if r.disp_away_ml_odds is defined and r.disp_away_ml_odds is not none %} · {{ r.disp_away_ml_odds }}{% if r.disp_away_ml_book is defined and r.disp_away_ml_book %} @ {{ r.disp_away_ml_book }}{% endif %}{% endif %}</div>
                 </div>
@@ -89,7 +89,7 @@
                   <div class="name">{{ r.home }}</div>
                 </div>
                 <div class="score-block">
-                  <div class="live-score js-live-home" title="Live score">—</div>
+                  <div class="live-score js-live-home" title="Score">{% if settled and r.get('final_home_goals') is not none %}{{ r.get('final_home_goals') }}{% else %}—{% endif %}</div>
                   <div class="sub proj-score" title="Projected goals">{{ '%.2f' % r.proj_home_goals }}</div>
                   <div class="sub ml-line"><span class="ml-label">ML {{ '%.1f' % (100*r.p_home_ml) }}%</span>{% if r.disp_home_ml_odds is defined and r.disp_home_ml_odds is not none %} · {{ r.disp_home_ml_odds }}{% if r.disp_home_ml_book is defined and r.disp_home_ml_book %} @ {{ r.disp_home_ml_book }}{% endif %}{% endif %}</div>
                 </div>
@@ -185,17 +185,17 @@
                     · Diff: <strong>{{ '%.2f' % r.get('total_diff') }}</strong>
                   {% endif %}
                 </div>
-                <div>Win Prob: Away {{ '%.1f' % (100*r.p_away_ml) }}% / Home {{ '%.1f' % (100*r.p_home_ml) }}%{% if r.get('winner_actual') %} · Winner: <strong>{{ r.get('winner_actual') }}</strong> {% if r.get('winner_correct') %}✓{% else %}✗{% endif %}{% endif %}</div>
+                <div>Win Prob: Away {{ '%.1f' % (100*r.p_away_ml) }}% / Home {{ '%.1f' % (100*r.p_home_ml) }}%{% if r.get('winner_actual') %} · Winner: <strong>{{ r.get('winner_actual') }}</strong> <span class="mark {{ 'ok' if r.get('winner_correct') else 'bad' }}">{{ '✓' if r.get('winner_correct') else '✗' }}</span>{% endif %}</div>
               </div>
             </div>
             {% if r.get('totals_pick') or r.get('ats_pick') %}
             <div class="row details">
               <div class="detail-col">
                 {% if r.get('totals_pick') %}
-                <div>Totals Pick: <strong>{{ r.get('totals_pick') }}</strong>{% if r.get('totals_edge_pts') is not none %} (edge {{ '%.2f' % r.get('totals_edge_pts') }} pts){% endif %}{% if r.get('result_total') %} · Result: <strong>{{ r.get('result_total') }}</strong> {% if r.get('totals_pick_correct') %}✓{% elif r.get('result_total') == 'Push' %}–{% else %}✗{% endif %}{% endif %}</div>
+                <div>Totals Pick: <strong>{{ r.get('totals_pick') }}</strong>{% if r.get('totals_edge_pts') is not none %} (edge {{ '%.2f' % r.get('totals_edge_pts') }} pts){% endif %}{% if r.get('result_total') %} · Result: <strong>{{ r.get('result_total') }}</strong> {% if r.get('result_total') == 'Push' %}<span class="mark push">–</span>{% else %}<span class="mark {{ 'ok' if r.get('totals_pick_correct') else 'bad' }}">{{ '✓' if r.get('totals_pick_correct') else '✗' }}</span>{% endif %}{% endif %}</div>
                 {% endif %}
                 {% if r.get('ats_pick') %}
-                <div>ATS Pick: <strong>{{ 'Home -1.5' if r.get('ats_pick') == 'home_-1.5' else 'Away +1.5' }}</strong>{% if r.get('ats_edge_pts') is not none %} (edge {{ '%.2f' % r.get('ats_edge_pts') }} pts){% endif %}{% if r.get('result_ats') %} · Result: <strong>{{ 'Home -1.5' if r.get('result_ats') == 'home_-1.5' else 'Away +1.5' }}</strong> {% if r.get('ats_pick_correct') %}✓{% else %}✗{% endif %}{% endif %}</div>
+                <div>ATS Pick: <strong>{{ 'Home -1.5' if r.get('ats_pick') == 'home_-1.5' else 'Away +1.5' }}</strong>{% if r.get('ats_edge_pts') is not none %} (edge {{ '%.2f' % r.get('ats_edge_pts') }} pts){% endif %}{% if r.get('result_ats') %} · Result: <strong>{{ 'Home -1.5' if r.get('result_ats') == 'home_-1.5' else 'Away +1.5' }}</strong> <span class="mark {{ 'ok' if r.get('ats_pick_correct') else 'bad' }}">{{ '✓' if r.get('ats_pick_correct') else '✗' }}</span>{% endif %}</div>
                 {% endif %}
               </div>
             </div>
@@ -207,6 +207,18 @@
                   Lines: ML {% if r.disp_home_ml_odds is not none and r.disp_away_ml_odds is not none %}H {{ r.disp_home_ml_odds }} / A {{ r.disp_away_ml_odds }}{% else %}—{% endif %}
                   · Total {% if r.disp_total_line_used is defined and r.disp_total_line_used is not none %}{{ '%.1f' % r.disp_total_line_used }}{% else %}—{% endif %}
                   · PL ±1.5
+                </div>
+              </div>
+            </div>
+            {% endif %}
+            {% if settled and r.get('rec_market') %}
+            <div class="row details">
+              <div class="detail-col">
+                <div class="rec-pill {{ 'ok' if r.get('rec_success') else ('push' if r.get('rec_result') == 'Push' else 'bad') }}">
+                  Recommendation: <strong>{{ r.get('rec_label') }}</strong> · EV {{ '%.3f' % r.get('rec_ev') if r.get('rec_ev') is not none else '—' }}
+                  {% if r.get('rec_odds') is not none %} · {{ r.get('rec_odds') }}{% endif %}
+                  {% if r.get('rec_book') %} @ {{ r.get('rec_book') }}{% endif %}
+                  {% if r.get('rec_result') %} · Result: <strong>{{ r.get('rec_result') }}</strong>{% endif %}
                 </div>
               </div>
             </div>

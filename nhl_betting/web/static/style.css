@@ -49,6 +49,14 @@ header .last-updated { margin-left: auto; color: #9fb0ff; font-size: 12px; opaci
 .ev-badge.pos { background: #1a6b3a; color: #d9ffe9; }
 .ev-badge.neu { background: #2a376d; color: #dfe6ff; }
 .ev-badge.neg { background: #6b1a3c; color: #ffd9e8; }
+.mark { font-weight: 900; padding: 0 4px; border-radius: 4px; }
+.mark.ok { color: #a7f3c6; background: #103321; border: 1px solid #1e7a45; }
+.mark.bad { color: #ffb7b7; background: #3a1212; border: 1px solid #7a1e1e; }
+.mark.push { color: #cfe0ff; background: #111834; border: 1px solid #2a3a7a; }
+.rec-pill { display: inline-block; padding: 6px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+.rec-pill.ok { background: #0f2d1b; border: 1px solid #1e7a45; color: #a7f3c6; }
+.rec-pill.bad { background: #3a1212; border: 1px solid #7a1e1e; color: #ffb7b7; }
+.rec-pill.push { background: #111834; border: 1px solid #2a3a7a; color: #cfe0ff; }
 .team-logo { height: 36px; vertical-align: middle; margin-right: 8px; }
 .book-badge { background: #243056; color: #cfe0ff; padding: 0 4px; border-radius: 6px; font-size: 9px; font-weight: 700; opacity: 0.9; }
 

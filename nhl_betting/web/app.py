@@ -509,6 +509,111 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
                 r["game_state"] = r.get("game_state") or "FINAL"
         except Exception:
             pass
+    # Enrich rows for settled slates: final scores from scoreboard and a per-game recommendation
+    if settled and rows:
+        try:
+            client = NHLWebClient()
+            sb = client.scoreboard_day(date)
+        except Exception:
+            sb = []
+        # Build lookup by abbr pair
+        def _abbr(x: str) -> str:
+            try:
+                return (get_team_assets(str(x)).get("abbr") or "").upper()
+            except Exception:
+                return ""
+        sb_idx = {}
+        try:
+            for g in sb:
+                hk = _abbr(g.get("home"))
+                ak = _abbr(g.get("away"))
+                if hk and ak:
+                    sb_idx[(hk, ak)] = g
+        except Exception:
+            pass
+        # Helpers to pick recommendation
+        def _to_float(x):
+            try:
+                return float(x)
+            except Exception:
+                return None
+        for r in rows:
+            # Final scores
+            try:
+                hk = _abbr(r.get("home"))
+                ak = _abbr(r.get("away"))
+                g = sb_idx.get((hk, ak))
+                if g:
+                    if g.get("home_goals") is not None:
+                        r["final_home_goals"] = int(g.get("home_goals"))
+                    if g.get("away_goals") is not None:
+                        r["final_away_goals"] = int(g.get("away_goals"))
+                    # Ensure FINAL label visible
+                    r["game_state"] = r.get("game_state") or g.get("gameState") or "FINAL"
+            except Exception:
+                pass
+            # Build candidates for recommendation
+            cands = []
+            # Moneyline
+            ev_h = _to_float(r.get("ev_home_ml"))
+            ev_a = _to_float(r.get("ev_away_ml"))
+            if ev_h is not None:
+                cands.append({"market": "moneyline", "bet": "home_ml", "label": "Home ML", "ev": ev_h, "odds": r.get("home_ml_odds"), "book": r.get("home_ml_book")})
+            if ev_a is not None:
+                cands.append({"market": "moneyline", "bet": "away_ml", "label": "Away ML", "ev": ev_a, "odds": r.get("away_ml_odds"), "book": r.get("away_ml_book")})
+            # Totals
+            ev_o = _to_float(r.get("ev_over"))
+            ev_u = _to_float(r.get("ev_under"))
+            if ev_o is not None:
+                cands.append({"market": "totals", "bet": "over", "label": "Over", "ev": ev_o, "odds": r.get("over_odds"), "book": r.get("over_book")})
+            if ev_u is not None:
+                cands.append({"market": "totals", "bet": "under", "label": "Under", "ev": ev_u, "odds": r.get("under_odds"), "book": r.get("under_book")})
+            # Puck line
+            ev_hpl = _to_float(r.get("ev_home_pl_-1.5"))
+            ev_apl = _to_float(r.get("ev_away_pl_+1.5"))
+            if ev_hpl is not None:
+                cands.append({"market": "puckline", "bet": "home_pl_-1.5", "label": "Home -1.5", "ev": ev_hpl, "odds": r.get("home_pl_-1.5_odds"), "book": r.get("home_pl_-1.5_book")})
+            if ev_apl is not None:
+                cands.append({"market": "puckline", "bet": "away_pl_+1.5", "label": "Away +1.5", "ev": ev_apl, "odds": r.get("away_pl_+1.5_odds"), "book": r.get("away_pl_+1.5_book")})
+            # Choose best by EV (ties arbitrary)
+            best = None
+            if cands:
+                best = sorted(cands, key=lambda x: (x.get("ev") if x.get("ev") is not None else -999), reverse=True)[0]
+            # Determine result for chosen rec
+            rec_res = None
+            rec_ok = None
+            if best:
+                m = best["market"]
+                b = best["bet"]
+                if m == "moneyline":
+                    wact = r.get("winner_actual")
+                    if isinstance(wact, str) and wact:
+                        want = r.get("home") if b == "home_ml" else r.get("away")
+                        rec_ok = (wact == want)
+                        rec_res = "Win" if rec_ok else "Loss"
+                elif m == "totals":
+                    rt = r.get("result_total")
+                    if isinstance(rt, str) and rt:
+                        if rt == "Push":
+                            rec_res = "Push"; rec_ok = None
+                        else:
+                            want = "Over" if b == "over" else "Under"
+                            rec_ok = (rt == want)
+                            rec_res = "Win" if rec_ok else "Loss"
+                elif m == "puckline":
+                    ra = r.get("result_ats")
+                    if isinstance(ra, str) and ra:
+                        rec_ok = (ra == b)
+                        rec_res = "Win" if rec_ok else "Loss"
+            if best:
+                r["rec_market"] = best.get("market")
+                r["rec_bet"] = best.get("bet")
+                r["rec_label"] = best.get("label")
+                r["rec_ev"] = best.get("ev")
+                r["rec_odds"] = best.get("odds")
+                r["rec_book"] = best.get("book")
+                r["rec_result"] = rec_res
+                r["rec_success"] = rec_ok
     # Load inferred odds as a tertiary display fallback (not persisted): inferred_odds_{date}.csv
     inferred_map = {}
     try:

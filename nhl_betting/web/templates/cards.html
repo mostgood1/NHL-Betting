@@ -199,6 +199,7 @@
   const qsDate = new URLSearchParams(window.location.search).get('date');
   const date = qsDate || '{{ date }}';
   const liveNow = '{{ 1 if live_now else 0 }}' === '1';
+  const isSettled = '{{ 1 if settled else 0 }}' === '1';
   const lastEl = document.getElementById('last-updated');
   let lastVal = null;
   const pollIntervalMs = 60000; // 60s last-updated polling
@@ -206,7 +207,6 @@
   const refreshOddsMs = 600000; // 10m background odds refresh during window
   const toggleEl = document.getElementById('autoUpdateToggle');
   const injectBtn = document.getElementById('injectOddsBtn');
-  const isSettled = '{{ 1 if settled else 0 }}' === '1';
 
   // Format all game dates into the user's local timezone
   (function formatLocalTimes(){
@@ -227,6 +227,13 @@
       node.textContent = fmt.format(d);
     });
   })();
+
+  // If settled, disable toggle and fully skip any background polling/network calls
+  if (isSettled) {
+    if (toggleEl) { try { toggleEl.disabled = true; toggleEl.checked = false; } catch(_){} }
+    // Still show last-updated once (already rendered server-side note). No timers.
+    return;
+  }
 
   async function updateLastUpdated() {
     try {

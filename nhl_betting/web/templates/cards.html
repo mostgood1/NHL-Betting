@@ -36,7 +36,7 @@
           {% set has_any_odds = r.get('has_any_odds') %}
           <div class="card" data-game-date="{{ r.date }}" data-gamepk="{{ r.gamePk if r.get('gamePk') else '' }}" data-home-abbr="{{ r.home_abbr }}" data-away-abbr="{{ r.away_abbr }}" data-has-odds="{{ 1 if has_any_odds else 0 }}">
             <div class="row head">
-              <div class="game-date">{{ r.local_time if r.local_time else r.date }}</div>
+              <div class="game-date js-local-time">{{ r.date }}</div>
               {% if r.venue %}<div class="venue">{{ r.venue }}</div>{% endif %}
               <div class="state">{{ r.game_state if r.game_state else '' }}</div>
               <div class="time-left">—</div>
@@ -206,6 +206,26 @@
   const refreshOddsMs = 600000; // 10m background odds refresh during window
   const toggleEl = document.getElementById('autoUpdateToggle');
   const injectBtn = document.getElementById('injectOddsBtn');
+
+  // Format all game dates into the user's local timezone
+  (function formatLocalTimes(){
+    const nodes = Array.from(document.querySelectorAll('.card[data-game-date] .js-local-time'));
+    const fmt = new Intl.DateTimeFormat(undefined, {
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hour12: true
+    });
+    nodes.forEach(node => {
+      const card = node.closest('.card');
+      const iso = card ? card.getAttribute('data-game-date') : null;
+      if (!iso) return;
+      const d = new Date(iso);
+      if (isNaN(d)) {
+        node.textContent = iso;
+        return;
+      }
+      node.textContent = fmt.format(d);
+    });
+  })();
 
   async function updateLastUpdated() {
     try {

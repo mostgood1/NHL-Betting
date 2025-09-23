@@ -513,22 +513,9 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
                     inferred_map[key] = None
     except Exception:
         inferred_map = {}
-    # Attach team assets; convert UTC to Eastern Time (ET) for consistent display
+    # Keep UTC ISO in rows; client formats to user local time
     def to_local(iso_utc: str) -> str:
-        try:
-            ts = pd.to_datetime(iso_utc, utc=True)
-            try:
-                et = ZoneInfo("America/New_York")
-            except Exception:
-                et = None
-            if et is not None:
-                et_ts = ts.tz_convert(et)
-                return et_ts.strftime("%Y-%m-%d %I:%M %p ET")
-            # Fallback: system local time with a generic label
-            local_ts = ts.tz_convert(None)
-            return local_ts.strftime("%Y-%m-%d %I:%M %p (local)")
-        except Exception:
-            return iso_utc
+        return iso_utc
     for r in rows:
         h = get_team_assets(str(r.get("home", "")))
         a = get_team_assets(str(r.get("away", "")))
@@ -639,7 +626,7 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
         except Exception:
             pass
         if r.get("date"):
-            r["local_time"] = to_local(r["date"]) 
+            r["local_time"] = r["date"]
 
     if live_now:
         # Informational note: during live games we do not regenerate odds/predictions automatically

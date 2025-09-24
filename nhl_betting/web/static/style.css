@@ -34,13 +34,13 @@ header .last-updated { margin-left: auto; color: #9fb0ff; font-size: 12px; opaci
 .score-block { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 2px; width: 100%; }
 .live-score { font-size: 30px; font-weight: 800; color: #f5f7ff; line-height: 1; }
 .vs { font-size: 20px; color: #8ea1ff; padding: 0 8px; font-weight: 700; }
-.row.chips { display: flex; flex-wrap: nowrap; gap: 8px; }
+.row.chips { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start; }
 .row.chips::-webkit-scrollbar { height: 6px; }
 .row.chips::-webkit-scrollbar-thumb { background: #2a3a7a; border-radius: 6px; }
 .row.details { font-size: 11px; color: #c9d3ff; }
 .row.details.small { opacity: 0.8; }
 .row.details .detail-col { display: grid; gap: 4px; }
-.chip { display: inline-flex; align-items: center; gap: 4px; padding: 5px 8px; border-radius: 999px; background: #0f1530; border: 1px solid #25316a; font-size: 10px; white-space: nowrap; }
+.chip { display: inline-flex; align-items: center; gap: 4px; padding: 5px 8px; border-radius: 999px; background: #0f1530; border: 1px solid #25316a; font-size: 10px; white-space: normal; line-height: 1.2; }
 .chip.title { background: transparent; border-color: transparent; color: #9fb0ff; font-weight: 700; padding-left: 0; font-size: 10px; }
 .chip.positive { background: #0f2d1b; border-color: #1e7a45; color: #a7f3c6; }
 .chip.neutral { background: #161c3b; border-color: #2a3a7a; color: #d5dbff; }

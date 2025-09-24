@@ -560,24 +560,30 @@ def reconcile_props_date(date: str, flat_stake: float = 100.0, verbose: bool = F
     """
     # 1) Fetch props odds and run predictions (writes PROC_DIR/props_predictions.csv)
     odds_csv = str(RAW_DIR / f"bovada_props_{date}.csv")
+    def _call_typer_or_func(cmd, **kwargs):
+        """Call either a Typer command (with .callback) or a plain function."""
+        if hasattr(cmd, 'callback') and callable(getattr(cmd, 'callback')):
+            return cmd.callback(**kwargs)
+        elif callable(cmd):
+            return cmd(**kwargs)
+        else:
+            raise RuntimeError('Unsupported command object for props fetch/predict')
     try:
-        _props_fetch_bovada.callback(date=date, out_csv=odds_csv)  # typer command function is callable
+        _call_typer_or_func(_props_fetch_bovada, date=date, out_csv=odds_csv)
         _vprint(verbose, f"[props] Fetched Bovada props odds for {date}")
     except Exception as e:
-        # If fetch fails, continue only if odds file already exists
         _vprint(verbose, f"[props] Fetch props failed: {e}")
     preds_tmp = PROC_DIR / "props_predictions.csv"
     if not preds_tmp.exists():
         try:
-            _props_predict.callback(odds_csv=odds_csv)
+            _call_typer_or_func(_props_predict, odds_csv=odds_csv)
             _vprint(verbose, f"[props] Ran props predictions for {date}")
         except Exception:
-            # If prediction still missing, bail gracefully
             return {"status": "no-props-predictions", "date": date}
     else:
         # Rebuild predictions using fresh odds file when possible
         try:
-            _props_predict.callback(odds_csv=odds_csv)
+            _call_typer_or_func(_props_predict, odds_csv=odds_csv)
             _vprint(verbose, f"[props] Refreshed props predictions for {date}")
         except Exception:
             pass

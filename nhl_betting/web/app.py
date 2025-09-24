@@ -293,7 +293,13 @@ async def _ensure_models(quick: bool = False) -> None:
 
 @app.get("/")
 async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD")):
-    date = date or _today_ymd()
+    # Preserve the originally requested date (may differ if auto-forward logic adjusts for future empty slates)
+    requested_date = date or _today_ymd()
+    date = requested_date
+    try:
+        print(f"[cards] requested_date={requested_date} initial date={date}")
+    except Exception:
+        pass
     note_msg = None
     live_now = _is_live_day(date)
     # Consider a slate 'settled' if it is strictly before today's ET date (independent of live scoreboard noise)
@@ -400,15 +406,15 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
                     pass
         except Exception:
             pass
-    if df.empty:
+    # Only auto-forward to the next available slate for non-settled (today/future) dates.
+    # For past (settled) dates, preserve the user's requested date even if there were no games.
+    if df.empty and not settled:
         try:
             client = NHLWebClient()
             base = pd.to_datetime(date)
             for i in range(1, 11):
                 d2 = (base + timedelta(days=i)).strftime("%Y-%m-%d")
-                # Load schedule for that day
                 games = client.schedule_range(d2, d2)
-                # Filter to known NHL teams using assets
                 elig = []
                 for g in games:
                     try:
@@ -419,7 +425,6 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
                     except Exception:
                         pass
                 if elig:
-                    # Generate predictions for this next slate
                     snapshot = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
                     try:
                         predict_core(date=d2, source="web", odds_source="bovada", snapshot=snapshot, odds_best=True)
@@ -436,7 +441,6 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
                             note_msg = f"No games on {date}. Showing next slate on {d2}."
                             date = d2
                             break
-                    # If odds pipeline failed to produce a file, just generate without odds
                     if not alt_path.exists():
                         try:
                             predict_core(date=d2, source="web", odds_source="csv")
@@ -774,7 +778,7 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
         # Informational note: during live games we do not regenerate odds/predictions automatically
         note_msg = note_msg or "Live slate detected. Odds are frozen to previously saved values; no regeneration during live games."
     template = env.get_template("cards.html")
-    html = template.render(date=date, rows=rows, note=note_msg, live_now=live_now, settled=settled)
+    html = template.render(date=date, original_date=requested_date, rows=rows, note=note_msg, live_now=live_now, settled=settled)
     return HTMLResponse(content=html)
 
 

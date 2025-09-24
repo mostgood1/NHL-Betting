@@ -59,7 +59,8 @@ try {
       git add data/processed/*.csv 2>$null | Out-Null
       git add data/processed/*.json 2>$null | Out-Null
       # Commit with timestamped message; ignore if nothing staged
-      $date = Get-Date -AsUTC -Format 'yyyy-MM-ddTHH:mm:ssZ'
+  # Use PS5.1 compatible UTC timestamp (AsUTC not available on older shells)
+  $date = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
   git commit -m "[auto] Daily update ${date}: models/predictions/reconciliations" 2>$null | Out-Null
       if ($LASTEXITCODE -eq 0) {
         if (-not $Quiet) { Write-Host "[git] Committed. Pushing…" }

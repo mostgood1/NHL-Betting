@@ -364,6 +364,163 @@ def capture_closing_for_date(date: str, prefer_book: str | None = None, best_of_
     return {"status": "ok", "date": date, "updated": updated}
 
 
+def archive_finals_for_date(date: str, verbose: bool = False) -> dict:
+    """Archive final scores and derive outcome/correctness fields into predictions_{date}.csv.
+
+    Ensures downstream reconciliation and web UI do not rely on dynamic backfilling.
+
+    Steps:
+      1. Load predictions_{date}.csv (skip if missing/empty)
+      2. Fetch scoreboard for the date (NHLWebClient)
+      3. Map each prediction row to scoreboard game (team abbreviations)
+      4. Fill final_home_goals/final_away_goals (and actual_* equivalents)
+      5. Derive winner_actual, winner_model, winner_correct
+      6. Derive result_total, result_ats, totals_pick_correct, ats_pick_correct, total_diff
+      7. Force game_state to FINAL when final scores present
+      8. Persist updated CSV (only if any change)
+    """
+    path = PROC_DIR / f"predictions_{date}.csv"
+    if not path.exists():
+        return {"status": "no-file", "date": date}
+    try:
+        df = pd.read_csv(path)
+    except Exception as e:
+        return {"status": "read-failed", "date": date, "error": str(e)}
+    if df.empty:
+        return {"status": "empty", "date": date}
+    try:
+        client = NHLWebClient()
+        sb = client.scoreboard_day(date)
+    except Exception as e:
+        if verbose:
+            print(f"[archive] scoreboard fetch failed {date}: {e}")
+        sb = []
+    # Build scoreboard index keyed by (home_abbr, away_abbr)
+    from nhl_betting.web.teams import get_team_assets as _assets
+    def _abbr(x: str) -> str:
+        try:
+            return (_assets(str(x)).get("abbr") or "").upper()
+        except Exception:
+            return ""
+    sb_idx = {}
+    for g in sb:
+        try:
+            hk = _abbr(g.get("home"))
+            ak = _abbr(g.get("away"))
+            if hk and ak:
+                sb_idx[(hk, ak)] = g
+        except Exception:
+            continue
+    # Ensure columns exist
+    need_cols = [
+        "final_home_goals","final_away_goals","actual_home_goals","actual_away_goals","actual_total",
+        "winner_actual","winner_model","winner_correct","result_total","result_ats","totals_pick_correct","ats_pick_correct","total_diff","game_state"
+    ]
+    for c in need_cols:
+        if c not in df.columns:
+            df[c] = pd.NA
+    import math
+    changed = 0
+    for idx, r in df.iterrows():
+        try:
+            hk = _abbr(r.get("home")); ak = _abbr(r.get("away"))
+            g = sb_idx.get((hk, ak))
+            if g:
+                hg = g.get("home_goals")
+                ag = g.get("away_goals")
+                if hg is not None and ag is not None:
+                    try:
+                        hg_i = int(hg); ag_i = int(ag)
+                    except Exception:
+                        hg_i = ag_i = None
+                    if hg_i is not None and ag_i is not None:
+                        # Final & actual goals
+                        for col, val in (
+                            ("final_home_goals", hg_i),("final_away_goals", ag_i),
+                            ("actual_home_goals", hg_i),("actual_away_goals", ag_i),
+                        ):
+                            cur = df.at[idx, col]
+                            if (pd.isna(cur) or cur in (None, "")) and val is not None:
+                                df.at[idx, col] = val; changed += 1
+                        # actual_total
+                        at_cur = df.at[idx, "actual_total"]
+                        if (pd.isna(at_cur) or at_cur in (None, "")):
+                            df.at[idx, "actual_total"] = hg_i + ag_i; changed += 1
+                        # winner_actual
+                        wa_cur = df.at[idx, "winner_actual"]
+                        if (pd.isna(wa_cur) or wa_cur in (None, "")):
+                            if hg_i > ag_i:
+                                df.at[idx, "winner_actual"] = r.get("home"); changed += 1
+                            elif ag_i > hg_i:
+                                df.at[idx, "winner_actual"] = r.get("away"); changed += 1
+                            else:
+                                df.at[idx, "winner_actual"] = "Draw"; changed += 1
+                        # winner_model (probabilities)
+                        if pd.isna(df.at[idx, "winner_model"]) or df.at[idx, "winner_model"] in (None, ""):
+                            try:
+                                ph = float(r.get("p_home_ml")) if pd.notna(r.get("p_home_ml")) else None
+                                pa = float(r.get("p_away_ml")) if pd.notna(r.get("p_away_ml")) else None
+                                if ph is not None and pa is not None:
+                                    df.at[idx, "winner_model"] = r.get("home") if ph >= pa else r.get("away"); changed += 1
+                            except Exception:
+                                pass
+                        # winner_correct
+                        if (pd.isna(df.at[idx, "winner_correct"]) or df.at[idx, "winner_correct"] in (None, "")) and pd.notna(df.at[idx, "winner_actual"]) and pd.notna(df.at[idx, "winner_model"]):
+                            df.at[idx, "winner_correct"] = (df.at[idx, "winner_actual"] == df.at[idx, "winner_model"]); changed += 1
+                        # total_line determination
+                        total_line = None
+                        for key in ("close_total_line_used","total_line_used","pl_line_used"):
+                            v = r.get(key)
+                            if v is None or (isinstance(v, float) and math.isnan(v)):
+                                continue
+                            try:
+                                total_line = float(v); break
+                            except Exception:
+                                continue
+                        if total_line is not None and (pd.isna(df.at[idx, "result_total"]) or df.at[idx, "result_total"] in (None, "")):
+                            act_tot = hg_i + ag_i
+                            if act_tot > total_line:
+                                df.at[idx, "result_total"] = "Over"; changed += 1
+                            elif act_tot < total_line:
+                                df.at[idx, "result_total"] = "Under"; changed += 1
+                            else:
+                                df.at[idx, "result_total"] = "Push"; changed += 1
+                        # result_ats (puck line ±1.5)
+                        if pd.isna(df.at[idx, "result_ats"]) or df.at[idx, "result_ats"] in (None, ""):
+                            diff = hg_i - ag_i
+                            df.at[idx, "result_ats"] = "home_-1.5" if diff > 1.5 else "away_+1.5"; changed += 1
+                        # totals_pick_correct
+                        if (pd.isna(df.at[idx, "totals_pick_correct"]) or df.at[idx, "totals_pick_correct"] in (None, "")) and pd.notna(df.at[idx, "result_total"]) and str(df.at[idx, "result_total"]).lower() not in ("push",):
+                            t_pick = r.get("totals_pick")
+                            if t_pick and isinstance(t_pick, str):
+                                df.at[idx, "totals_pick_correct"] = (t_pick == df.at[idx, "result_total"]); changed += 1
+                        # ats_pick_correct
+                        if (pd.isna(df.at[idx, "ats_pick_correct"]) or df.at[idx, "ats_pick_correct"] in (None, "")) and pd.notna(df.at[idx, "result_ats"]):
+                            a_pick = r.get("ats_pick")
+                            if a_pick and isinstance(a_pick, str):
+                                df.at[idx, "ats_pick_correct"] = (a_pick == df.at[idx, "result_ats"]); changed += 1
+                        # total_diff (model_total - actual_total)
+                        if pd.notna(r.get("model_total")) and (pd.isna(df.at[idx, "total_diff"]) or df.at[idx, "total_diff"] in (None, "")):
+                            try:
+                                df.at[idx, "total_diff"] = round(float(r.get("model_total")) - float(hg_i + ag_i), 2); changed += 1
+                            except Exception:
+                                pass
+                        # Force FINAL state
+                        cur_state = df.at[idx, "game_state"] if "game_state" in df.columns else None
+                        if cur_state is None or str(cur_state).strip() == "" or "FINAL" not in str(cur_state).upper():
+                            df.at[idx, "game_state"] = "FINAL"; changed += 1
+        except Exception:
+            continue
+    if changed > 0:
+        try:
+            df.to_csv(path, index=False)
+            if verbose:
+                print(f"[archive] {date}: archived finals / derived outcomes (changes={changed})")
+        except Exception as e:
+            return {"status": "write-failed", "date": date, "changed": changed, "error": str(e)}
+    return {"status": "ok", "date": date, "changed": int(changed)}
+
+
 def reconcile_date(date: str, bankroll: float = 1000.0, flat_stake: float = 100.0, verbose: bool = False) -> dict:
     """Write reconciliation summary/rows for a given date to data/processed/reconciliation_{date}.json.
 
@@ -514,6 +671,11 @@ def run(days_ahead: int = 2, years_back: int = 2, reconcile_yesterday: bool = Tr
         y_str = y_et.strftime("%Y-%m-%d")
         _vprint(verbose, f"[run] Reconciling previous ET day: {y_str}")
         t2 = time.perf_counter()
+        try:
+            # First archive finals/outcomes to ensure predictions CSV has settled fields
+            archive_finals_for_date(y_str, verbose=verbose)
+        except Exception:
+            pass
         try:
             capture_closing_for_date(y_str, verbose=verbose)
         except Exception:

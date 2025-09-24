@@ -547,7 +547,131 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
                     if g.get("away_goals") is not None:
                         r["final_away_goals"] = int(g.get("away_goals"))
                     # Ensure FINAL label visible
-                    r["game_state"] = r.get("game_state") or g.get("gameState") or "FINAL"
+                    r_state = r.get("game_state") or g.get("gameState")
+                    # If we have final scores but state not clearly final, force it
+                    if (r.get("final_home_goals") is not None and r.get("final_away_goals") is not None) and (not r_state or "FINAL" not in str(r_state).upper()):
+                        r_state = "FINAL"
+                    r["game_state"] = r_state or "FINAL"
+            except Exception:
+                pass
+        # Backfill outcome fields if missing (winner_actual, result_total, result_ats) using final scores.
+        # Persist updates to the original predictions CSV only if we successfully compute at least one field.
+        try:
+            pred_csv_path = PROC_DIR / f"predictions_{date}.csv"
+            df_pred = pd.read_csv(pred_csv_path) if pred_csv_path.exists() else pd.DataFrame()
+        except Exception:
+            df_pred = pd.DataFrame()
+        backfilled = 0
+        # Helper to look up model per-game total line for totals result; fallback order.
+        for r in rows:
+            try:
+                fh = r.get("final_home_goals")
+                fa = r.get("final_away_goals")
+                if fh is None or fa is None:
+                    continue
+                # Skip if already populated
+                # We still may need to compute correctness fields even if some present; do not early-continue yet.
+                total_line = None
+                for key in ("close_total_line_used", "total_line_used", "pl_line_used"):
+                    v = r.get(key)
+                    if v is None:
+                        continue
+                    s = str(v).strip()
+                    if s == "":
+                        continue
+                    try:
+                        total_line = float(s)
+                        break
+                    except Exception:
+                        continue
+                fh_i = int(fh); fa_i = int(fa)
+                actual_total = fh_i + fa_i
+                # winner_actual
+                if not r.get("winner_actual"):
+                    r["winner_actual"] = r.get("home") if fh_i > fa_i else (r.get("away") if fa_i > fh_i else "Draw")
+                # result_total
+                if total_line is not None and not r.get("result_total"):
+                    if actual_total > total_line:
+                        r["result_total"] = "Over"
+                    elif actual_total < total_line:
+                        r["result_total"] = "Under"
+                    else:
+                        r["result_total"] = "Push"
+                # result_ats (puck line at -1.5 / +1.5)
+                if not r.get("result_ats"):
+                    diff = fh_i - fa_i
+                    r["result_ats"] = "home_-1.5" if diff > 1.5 else "away_+1.5"
+                # Populate actual_* convenience fields if absent
+                if r.get("actual_home_goals") is None:
+                    r["actual_home_goals"] = fh_i
+                if r.get("actual_away_goals") is None:
+                    r["actual_away_goals"] = fa_i
+                if r.get("actual_total") is None:
+                    r["actual_total"] = actual_total
+                # winner_model (based on probabilities) if missing
+                if not r.get("winner_model"):
+                    try:
+                        ph = float(r.get("p_home_ml")) if r.get("p_home_ml") is not None else None
+                        pa = float(r.get("p_away_ml")) if r.get("p_away_ml") is not None else None
+                        if ph is not None and pa is not None:
+                            r["winner_model"] = r.get("home") if ph >= pa else r.get("away")
+                    except Exception:
+                        pass
+                # winner_correct
+                if r.get("winner_actual") and r.get("winner_model") and r.get("winner_correct") is None:
+                    r["winner_correct"] = (r.get("winner_actual") == r.get("winner_model"))
+                # total_diff (model_total - actual_total)
+                if r.get("model_total") is not None and r.get("total_diff") is None:
+                    try:
+                        r["total_diff"] = round(float(r.get("model_total")) - float(actual_total), 2)
+                    except Exception:
+                        pass
+                # totals_pick_correct
+                if r.get("totals_pick") and r.get("result_total") and r.get("totals_pick_correct") is None:
+                    if r.get("result_total") != "Push":
+                        r["totals_pick_correct"] = (r.get("result_total") == r.get("totals_pick"))
+                # ats_pick_correct
+                if r.get("ats_pick") and r.get("result_ats") and r.get("ats_pick_correct") is None:
+                    r["ats_pick_correct"] = (r.get("ats_pick") == r.get("result_ats"))
+                backfilled += 1
+            except Exception:
+                pass
+        # Persist backfill into CSV (match by home/away abbreviations for robustness)
+        if backfilled and not df_pred.empty:
+            def _abbr2(x: str) -> str:
+                try:
+                    return (get_team_assets(str(x)).get("abbr") or "").upper()
+                except Exception:
+                    return ""
+            try:
+                if {"home","away"}.issubset(df_pred.columns):
+                    for r in rows:
+                        hk = _abbr2(r.get("home")); ak = _abbr2(r.get("away"))
+                        try:
+                            mask = df_pred.apply(lambda rw: _abbr2(rw.get("home")) == hk and _abbr2(rw.get("away")) == ak, axis=1)
+                        except Exception:
+                            continue
+                        if mask.any():
+                            idx = df_pred.index[mask][0]
+                            for col in ("winner_actual","result_total","result_ats","final_home_goals","final_away_goals","actual_home_goals","actual_away_goals","actual_total","winner_model","winner_correct","total_diff","totals_pick_correct","ats_pick_correct"):
+                                if col not in df_pred.columns:
+                                    df_pred[col] = pd.NA
+                                val = r.get(col)
+                                if val is not None and (pd.isna(df_pred.at[idx, col]) or df_pred.at[idx, col] in (None, "")):
+                                    df_pred.at[idx, col] = val
+                            # Persist normalized FINAL state if changed
+                            try:
+                                if "game_state" in r and r.get("game_state") and ("game_state" in df_pred.columns):
+                                    cur_gs = df_pred.at[idx, "game_state"] if "game_state" in df_pred.columns else None
+                                    if (cur_gs is None or str(cur_gs).strip() == "" or "FINAL" not in str(cur_gs).upper()) and "FINAL" in str(r.get("game_state")).upper():
+                                        df_pred.at[idx, "game_state"] = r.get("game_state")
+                            except Exception:
+                                pass
+                df_pred.to_csv(pred_csv_path, index=False)
+                try:
+                    print(f"[cards/backfill] date={date} rows_backfilled={backfilled}")
+                except Exception:
+                    pass
             except Exception:
                 pass
     # Build a recommendation (best EV) for all rows; result only for completed games
@@ -777,6 +901,148 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
     if live_now:
         # Informational note: during live games we do not regenerate odds/predictions automatically
         note_msg = note_msg or "Live slate detected. Odds are frozen to previously saved values; no regeneration during live games."
+    # Inline safety derivation: ensure outcome fields exist for ANY row that clearly has final scores (even if viewing a future-day slate that includes prior midnight-crossing games).
+    if rows:
+        try:
+            any_persist_needed = False
+            for r in rows:
+                score_fields = []
+                fh_raw = r.get("final_home_goals")
+                fa_raw = r.get("final_away_goals")
+                if fh_raw is None and r.get("actual_home_goals") is not None:
+                    fh_raw = r.get("actual_home_goals")
+                if fa_raw is None and r.get("actual_away_goals") is not None:
+                    fa_raw = r.get("actual_away_goals")
+                if fh_raw is None or fa_raw is None:
+                    continue
+                try:
+                    fh_i = int(fh_raw); fa_i = int(fa_raw)
+                except Exception:
+                    continue
+                # Force FINAL state if we have concrete scores
+                gs = (r.get("game_state") or "").upper()
+                if "FINAL" not in gs:
+                    r["game_state"] = "FINAL"
+                # Winner actual
+                if not r.get("winner_actual"):
+                    r["winner_actual"] = r.get("home") if fh_i > fa_i else (r.get("away") if fa_i > fh_i else "Draw")
+                # Winner model
+                if not r.get("winner_model"):
+                    try:
+                        ph = float(r.get("p_home_ml")) if r.get("p_home_ml") is not None else None
+                        pa = float(r.get("p_away_ml")) if r.get("p_away_ml") is not None else None
+                        if ph is not None and pa is not None:
+                            r["winner_model"] = r.get("home") if ph >= pa else r.get("away")
+                    except Exception:
+                        pass
+                if r.get("winner_correct") is None and r.get("winner_actual") and r.get("winner_model"):
+                    r["winner_correct"] = (r.get("winner_actual") == r.get("winner_model"))
+                # Totals logic
+                total_line = None
+                for key in ("close_total_line_used","total_line_used"):
+                    v = r.get(key)
+                    if v is None:
+                        continue
+                    try:
+                        total_line = float(v); break
+                    except Exception:
+                        continue
+                actual_total = fh_i + fa_i
+                import math
+                cur_at = r.get("actual_total")
+                if (cur_at is None) or (isinstance(cur_at, float) and math.isnan(cur_at)):
+                    r["actual_total"] = actual_total
+                # Ensure component actual goals too
+                cur_ah = r.get("actual_home_goals")
+                if (cur_ah is None) or (isinstance(cur_ah, float) and math.isnan(cur_ah)):
+                    r["actual_home_goals"] = fh_i
+                cur_aa = r.get("actual_away_goals")
+                if (cur_aa is None) or (isinstance(cur_aa, float) and math.isnan(cur_aa)):
+                    r["actual_away_goals"] = fa_i
+                if total_line is not None and not r.get("result_total"):
+                    if actual_total > total_line:
+                        r["result_total"] = "Over"
+                    elif actual_total < total_line:
+                        r["result_total"] = "Under"
+                    else:
+                        r["result_total"] = "Push"
+                if r.get("totals_pick") and r.get("result_total") and r.get("totals_pick_correct") is None and r.get("result_total") != "Push":
+                    r["totals_pick_correct"] = (r.get("totals_pick") == r.get("result_total"))
+                # ATS puck line
+                if not r.get("result_ats"):
+                    diff = fh_i - fa_i
+                    r["result_ats"] = "home_-1.5" if diff > 1.5 else "away_+1.5"
+                if r.get("ats_pick") and r.get("result_ats") and r.get("ats_pick_correct") is None:
+                    r["ats_pick_correct"] = (r.get("ats_pick") == r.get("result_ats"))
+                # total_diff
+                if r.get("model_total") is not None and (r.get("total_diff") is None or (isinstance(r.get("total_diff"), float) and math.isnan(r.get("total_diff")))):
+                    try:
+                        r["total_diff"] = round(float(r.get("model_total")) - float(actual_total), 2)
+                    except Exception:
+                        pass
+                # Mark debug flag if any expected field still missing
+                missing_keys = []
+                for k in ("winner_actual","winner_model","winner_correct","result_total","result_ats","actual_total"):
+                    val_chk = r.get(k)
+                    missing = False
+                    if val_chk is None or val_chk == "":
+                        missing = True
+                    else:
+                        try:
+                            if isinstance(val_chk, float) and math.isnan(val_chk):
+                                missing = True
+                        except Exception:
+                            pass
+                    if missing:
+                        missing_keys.append(k)
+                derived_any = False
+                # Track if we set fields in this pass (simplistic: check keys we expect)
+                for chk in ("winner_actual","winner_model","winner_correct","result_total","result_ats","totals_pick_correct","ats_pick_correct","actual_total","total_diff"):
+                    if r.get(chk) is not None:
+                        derived_any = True
+                if derived_any:
+                    any_persist_needed = True
+                if missing_keys:
+                    r["debug_missing_outcome"] = ",".join(missing_keys)
+            # Persist back into predictions CSV if we derived anything
+            if any_persist_needed:
+                try:
+                    pred_csv_path2 = PROC_DIR / f"predictions_{date}.csv"
+                    if pred_csv_path2.exists():
+                        df2 = pd.read_csv(pred_csv_path2)
+                        if not df2.empty and {"home","away"}.issubset(df2.columns):
+                            def _abbr3(x: str) -> str:
+                                try:
+                                    return (get_team_assets(str(x)).get("abbr") or "").upper()
+                                except Exception:
+                                    return ""
+                            for r in rows:
+                                hk = _abbr3(r.get("home")); ak = _abbr3(r.get("away"))
+                                if not hk or not ak:
+                                    continue
+                                try:
+                                    mask = df2.apply(lambda rw: _abbr3(rw.get("home")) == hk and _abbr3(rw.get("away")) == ak, axis=1)
+                                except Exception:
+                                    continue
+                                if not mask.any():
+                                    continue
+                                idx = df2.index[mask][0]
+                                for col in ("winner_actual","winner_model","winner_correct","result_total","result_ats","totals_pick_correct","ats_pick_correct","actual_home_goals","actual_away_goals","actual_total","total_diff","final_home_goals","final_away_goals"):
+                                    if col not in df2.columns:
+                                        df2[col] = pd.NA
+                                    val = r.get(col)
+                                    if val is not None:
+                                        try:
+                                            cur = df2.at[idx, col]
+                                            if (isinstance(cur, float) and pd.isna(cur)) or cur in (None, ""):
+                                                df2.at[idx, col] = val
+                                        except Exception:
+                                            pass
+                            df2.to_csv(pred_csv_path2, index=False)
+                except Exception:
+                    pass
+        except Exception:
+            pass
     template = env.get_template("cards.html")
     html = template.render(date=date, original_date=requested_date, rows=rows, note=note_msg, live_now=live_now, settled=settled)
     return HTMLResponse(content=html)

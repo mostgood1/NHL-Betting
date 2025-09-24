@@ -2,13 +2,13 @@
   "summary": {
     "date": "2025-09-23",
     "picks": 24,
-    "decided": 0,
+    "decided": 14,
     "wins": 0,
     "losses": 0,
     "pushes": 0,
-    "staked": 0.0,
+    "staked": 1400.0,
     "pnl": 0.0,
-    "roi": null
+    "roi": 0.0
   },
   "rows": [
     {
@@ -31,9 +31,9 @@
       "bet": "under",
       "ev": 0.3792,
       "price": -105.0,
-      "result": null,
+      "result": "Over",
       "stake": 100.0,
-      "payout": null
+      "payout": 0.0
     },
     {
       "date": "2025-09-23T23:00:00Z",
@@ -43,9 +43,9 @@
       "bet": "home_pl_-1.5",
       "ev": 0.009,
       "price": 155.0,
-      "result": null,
+      "result": "away_+1.5",
       "stake": 100.0,
-      "payout": null
+      "payout": 0.0
     },
     {
       "date": "2025-09-23T23:00:00Z",
@@ -67,9 +67,9 @@
       "bet": "under",
       "ev": 0.2641,
       "price": -130.0,
-      "result": null,
+      "result": "Under",
       "stake": 100.0,
-      "payout": null
+      "payout": 0.0
     },
     {
       "date": "2025-09-23T23:00:00Z",
@@ -91,9 +91,9 @@
       "bet": "under",
       "ev": 0.2603,
       "price": -105.0,
-      "result": null,
+      "result": "Under",
       "stake": 100.0,
-      "payout": null
+      "payout": 0.0
     },
     {
       "date": "2025-09-23T23:00:00Z",
@@ -103,9 +103,9 @@
       "bet": "home_pl_-1.5",
       "ev": 0.0658,
       "price": -105.0,
-      "result": null,
+      "result": "away_+1.5",
       "stake": 100.0,
-      "payout": null
+      "payout": 0.0
     },
     {
       "date": "2025-09-23T23:00:00Z",
@@ -127,9 +127,9 @@
       "bet": "under",
       "ev": 0.2427,
       "price": -145.0,
-      "result": null,
+      "result": "Over",
       "stake": 100.0,
-      "payout": null
+      "payout": 0.0
     },
     {
       "date": "2025-09-23T23:00:00Z",
@@ -139,9 +139,9 @@
       "bet": "away_pl_+1.5",
       "ev": 0.6635,
       "price": 115.0,
-      "result": null,
+      "result": "home_-1.5",
       "stake": 100.0,
-      "payout": null
+      "payout": 0.0
     },
     {
       "date": "2025-09-23T23:00:00Z",
@@ -163,9 +163,9 @@
       "bet": "under",
       "ev": 0.2325,
       "price": -110.0,
-      "result": null,
+      "result": "Under",
       "stake": 100.0,
-      "payout": null
+      "payout": 0.0
     },
     {
       "date": "2025-09-23T23:00:00Z",
@@ -187,9 +187,9 @@
       "bet": "under",
       "ev": 0.6265,
       "price": 115.0,
-      "result": null,
+      "result": "Over",
       "stake": 100.0,
-      "payout": null
+      "payout": 0.0
     },
     {
       "date": "2025-09-23T23:00:00Z",
@@ -199,9 +199,9 @@
       "bet": "home_pl_-1.5",
       "ev": 0.1035,
       "price": 140.0,
-      "result": null,
+      "result": "home_-1.5",
       "stake": 100.0,
-      "payout": null
+      "payout": 0.0
     },
     {
       "date": "2025-09-24T00:00:00Z",
@@ -223,9 +223,9 @@
       "bet": "under",
       "ev": 0.1722,
       "price": -105.0,
-      "result": null,
+      "result": "Under",
       "stake": 100.0,
-      "payout": null
+      "payout": 0.0
     },
     {
       "date": "2025-09-24T00:00:00Z",
@@ -259,9 +259,9 @@
       "bet": "under",
       "ev": 0.3046,
       "price": -140.0,
-      "result": null,
+      "result": "Under",
       "stake": 100.0,
-      "payout": null
+      "payout": 0.0
     },
     {
       "date": "2025-09-24T00:00:00Z",
@@ -271,9 +271,9 @@
       "bet": "away_pl_+1.5",
       "ev": 0.4436,
       "price": 100.0,
-      "result": null,
+      "result": "away_+1.5",
       "stake": 100.0,
-      "payout": null
+      "payout": 0.0
     },
     {
       "date": "2025-09-24T01:00:00Z",
@@ -295,9 +295,9 @@
       "bet": "home_pl_-1.5",
       "ev": 0.6509,
       "price": 165.0,
-      "result": null,
+      "result": "home_-1.5",
       "stake": 100.0,
-      "payout": null
+      "payout": 0.0
     }
   ]
 }

@@ -11,6 +11,11 @@
     .row.head .period-pill.crit, .row.head .time-left.crit { background:#8b0000; color:#fff; }
   /* Removed scoreboard timestamp banner (.sb-last) per user request */
     .row.head .period-pill.int { background:#444; color:#ffecb3; }
+    .hb-wrap { display:flex; align-items:center; gap:8px; font-size:0.70rem; color:#666; }
+    .hb-dot { width:10px; height:10px; border-radius:50%; background:#444; position:relative; overflow:hidden; }
+    .hb-dot.pulse { animation: hb-pulse 0.9s ease-out 1; background:#19c37d; }
+    @keyframes hb-pulse { 0% { box-shadow:0 0 0 0 rgba(25,195,125,0.8); transform:scale(0.6);} 60% { box-shadow:0 0 0 6px rgba(25,195,125,0); } 100% { box-shadow:0 0 0 0 rgba(25,195,125,0); transform:scale(1);} }
+    .last-sb { font-variant-numeric:tabular-nums; }
   </style>
 </head>
 <body>
@@ -27,7 +32,11 @@
         <a class="btn" href="/props">Props</a>
         
       </form>
-      <div id="last-updated" class="last-updated">Last updated: —</div>
+      <div class="hb-wrap">
+        <div class="hb-dot" id="hbDot" title="Heartbeat: pulses on each successful scoreboard fetch"></div>
+        <div id="last-sb" class="last-sb" title="Time of last scoreboard poll (client)">SB: —</div>
+        <div id="last-updated" class="last-updated" title="Server data file last-modified (triggers reload when changed)">Data: —</div>
+      </div>
   <label class="toggle"><input type="checkbox" id="autoUpdateToggle" /> Auto-update</label>
     </div>
   </header>
@@ -473,6 +482,21 @@
       const res = await fetch(`/api/scoreboard?date=${encodeURIComponent(date)}`, { cache: 'no-store' });
       if (!res.ok) return;
       const data = await res.json();
+      // Heartbeat + scoreboard last poll timestamp
+      try {
+        const dot = document.getElementById('hbDot');
+        const sbEl = document.getElementById('last-sb');
+        if (dot) {
+          dot.classList.remove('pulse');
+          // Force reflow so animation retriggers reliably
+          void dot.offsetWidth;
+          dot.classList.add('pulse');
+        }
+        if (sbEl) {
+          const now = new Date();
+          sbEl.textContent = 'SB: ' + now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+        }
+      } catch(_){}
       let fetchedAt = null;
       if (Array.isArray(data) && data.length>0) {
         fetchedAt = data[0].fetched_at || null;

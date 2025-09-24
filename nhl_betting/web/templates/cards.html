@@ -15,7 +15,8 @@
     .hb-dot { width:10px; height:10px; border-radius:50%; background:#444; position:relative; overflow:hidden; }
     .hb-dot.pulse { animation: hb-pulse 0.9s ease-out 1; background:#19c37d; }
     @keyframes hb-pulse { 0% { box-shadow:0 0 0 0 rgba(25,195,125,0.8); transform:scale(0.6);} 60% { box-shadow:0 0 0 6px rgba(25,195,125,0); } 100% { box-shadow:0 0 0 0 rgba(25,195,125,0); transform:scale(1);} }
-    .last-sb { font-variant-numeric:tabular-nums; }
+  .last-sb { font-variant-numeric:tabular-nums; }
+  .pause-btn { margin-left:4px; }
   </style>
 </head>
 <body>
@@ -33,11 +34,12 @@
         
       </form>
       <div class="hb-wrap">
-        <div class="hb-dot" id="hbDot" title="Heartbeat: pulses on each successful scoreboard fetch"></div>
-        <div id="last-sb" class="last-sb" title="Time of last scoreboard poll (client)">SB: —</div>
-        <div id="last-updated" class="last-updated" title="Server data file last-modified (triggers reload when changed)">Data: —</div>
+        <div class="hb-dot" id="hbDot" title="Live polling active"></div>
+        <div id="last-sb" class="last-sb" title="Last scoreboard poll (client clock)">—</div>
+        <div id="last-updated" class="last-updated" title="Underlying predictions file last-modified">Data: —</div>
+  <button type="button" id="pauseBtn" class="btn btn-compact pause-btn">Pause</button>
       </div>
-  <label class="toggle"><input type="checkbox" id="autoUpdateToggle" /> Auto-update</label>
+  <!-- Auto-update checkbox removed: replaced with Pause/Resume button -->
     </div>
   </header>
   <main>
@@ -275,7 +277,7 @@
   const pollIntervalMs = 60000; // 60s last-updated polling
   const liveIntervalMs = 15000; // 15s live scoreboard polling
   const refreshOddsMs = 600000; // 10m background odds refresh during window
-  const toggleEl = document.getElementById('autoUpdateToggle');
+  const pauseBtn = document.getElementById('pauseBtn');
   // injectOdds button removed
   const refetchBtn = document.getElementById('refreshOddsBtn');
 
@@ -301,7 +303,7 @@
 
   // If settled, disable toggle and fully skip any background polling/network calls
   if (isSettled) {
-    if (toggleEl) { try { toggleEl.disabled = true; toggleEl.checked = false; } catch(_){} }
+    if (pauseBtn) { try { pauseBtn.disabled = true; pauseBtn.textContent = 'Settled'; } catch(_){} }
     // Still show last-updated once (already rendered server-side note). No timers.
     return;
   }
@@ -446,40 +448,36 @@
     // Now opt-in: only auto update (poll + live scoreboard + odds refresh interval) if explicitly set to 'on'
     try { return localStorage.getItem('autoUpdate') === 'on'; } catch { return false; }
   }
-  function applyToggleState() {
-    if (!toggleEl) return;
-    toggleEl.checked = shouldAutoUpdate();
+  // Always start loops immediately (unless paused later)
+  startLoops();
+  let paused = false;
+  function updatePauseUI() {
+    if (!pauseBtn) return;
+    pauseBtn.textContent = paused ? 'Resume' : 'Pause';
+    pauseBtn.title = paused ? 'Resume live updates' : 'Pause live updates';
+    pauseBtn.classList.toggle('paused', paused);
   }
-  applyToggleState(); // Will be unchecked unless user previously set 'on'
-  // Disable the toggle visually for settled slates
-  if (isSettled && toggleEl) {
-    toggleEl.disabled = true;
-    toggleEl.checked = false;
-  }
-  if (toggleEl) {
-    toggleEl.addEventListener('change', () => {
-      try { localStorage.setItem('autoUpdate', toggleEl.checked ? 'on' : 'off'); } catch {}
-      if (toggleEl.checked) startLoops(); else stopLoops();
+  if (pauseBtn) {
+    pauseBtn.addEventListener('click', () => {
+      paused = !paused;
+      if (paused) {
+        stopLoops();
+      } else {
+        startLoops();
+        refreshLive(true);
+      }
+      updatePauseUI();
     });
+    updatePauseUI();
   }
-  if (shouldAutoUpdate()) {
-    // Ensure loops start even if outside previously narrow window
-    startLoops();
-  } else {
-    if (!isSettled) {
-      refreshLive(true);
-    }
-  }
-  // Re-check every 5 minutes to honor toggle and adjust other loops if desired
-  setInterval(() => {
-    if (shouldAutoUpdate()) startLoops(); else stopLoops();
-  }, 5*60*1000);
+  // Remove legacy auto-update re-check loop
 
   window.addEventListener('beforeunload', stopLoops);
 
   async function refreshLive(isOneShot=false) {
     try {
-      const res = await fetch(`/api/scoreboard?date=${encodeURIComponent(date)}`, { cache: 'no-store' });
+  if (paused) return; // do not fetch while paused
+  const res = await fetch(`/api/scoreboard?date=${encodeURIComponent(date)}`, { cache: 'no-store' });
       if (!res.ok) return;
       const data = await res.json();
       // Heartbeat + scoreboard last poll timestamp

@@ -1,7 +1,29 @@
 date,home,away,market,ev
-2025-09-25T02:00:00Z,Vancouver Canucks,Calgary Flames,ev_away_ml,0.6471
-2025-09-25T02:00:00Z,Vancouver Canucks,Calgary Flames,ev_away_pl_+1.5,0.4924
-2025-09-25T02:00:00Z,Vancouver Canucks,Calgary Flames,ev_under,0.2386
-2025-09-25T02:00:00Z,Vancouver Canucks,Calgary Flames,ev_over,-0.3033
-2025-09-25T02:00:00Z,Vancouver Canucks,Calgary Flames,ev_home_ml,-0.434
-2025-09-25T02:00:00Z,Vancouver Canucks,Calgary Flames,ev_home_pl_-1.5,-0.7549
+2025-09-24T22:00:00Z,Carolina Hurricanes,Florida Panthers,ev_away_ml,0.9061
+2025-09-24T22:00:00Z,Carolina Hurricanes,Florida Panthers,ev_away_pl_+1.5,0.7302
+2025-09-25T01:00:00Z,Edmonton Oilers,Seattle Kraken,ev_under,0.4068
+2025-09-25T02:00:00Z,Vancouver Canucks,Calgary Flames,ev_away_ml,0.3414
+2025-09-25T02:00:00Z,Vancouver Canucks,Calgary Flames,ev_away_pl_+1.5,0.3135
+2025-09-24T23:00:00Z,Columbus Blue Jackets,Pittsburgh Penguins,ev_under,0.2665
+2025-09-24T23:00:00Z,Columbus Blue Jackets,Pittsburgh Penguins,ev_away_ml,0.1539
+2025-09-25T01:00:00Z,Edmonton Oilers,Seattle Kraken,ev_home_pl_-1.5,0.1533
+2025-09-25T02:00:00Z,Anaheim Ducks,Los Angeles Kings,ev_away_ml,0.1121
+2025-09-25T02:00:00Z,Anaheim Ducks,Los Angeles Kings,ev_under,0.1027
+2025-09-24T22:00:00Z,Carolina Hurricanes,Florida Panthers,ev_under,0.0935
+2025-09-25T02:00:00Z,Vancouver Canucks,Calgary Flames,ev_under,0.0892
+2025-09-24T23:00:00Z,Columbus Blue Jackets,Pittsburgh Penguins,ev_away_pl_+1.5,0.0636
+2025-09-25T01:00:00Z,Edmonton Oilers,Seattle Kraken,ev_home_ml,-0.0247
+2025-09-25T01:00:00Z,Edmonton Oilers,Seattle Kraken,ev_away_ml,-0.0836
+2025-09-24T23:00:00Z,Columbus Blue Jackets,Pittsburgh Penguins,ev_home_ml,-0.1281
+2025-09-24T23:00:00Z,Columbus Blue Jackets,Pittsburgh Penguins,ev_home_pl_-1.5,-0.1545
+2025-09-25T02:00:00Z,Anaheim Ducks,Los Angeles Kings,ev_home_ml,-0.2447
+2025-09-25T01:00:00Z,Edmonton Oilers,Seattle Kraken,ev_away_pl_+1.5,-0.252
+2025-09-25T02:00:00Z,Vancouver Canucks,Calgary Flames,ev_home_ml,-0.3553
+2025-09-24T22:00:00Z,Carolina Hurricanes,Florida Panthers,ev_home_ml,-0.3977
+2025-09-25T02:00:00Z,Vancouver Canucks,Calgary Flames,ev_over,-0.464
+2025-09-24T22:00:00Z,Carolina Hurricanes,Florida Panthers,ev_over,-0.4668
+2025-09-25T02:00:00Z,Anaheim Ducks,Los Angeles Kings,ev_over,-0.4747
+2025-09-25T01:00:00Z,Edmonton Oilers,Seattle Kraken,ev_over,-0.5223
+2025-09-24T23:00:00Z,Columbus Blue Jackets,Pittsburgh Penguins,ev_over,-0.6065
+2025-09-25T02:00:00Z,Vancouver Canucks,Calgary Flames,ev_home_pl_-1.5,-0.7025
+2025-09-24T22:00:00Z,Carolina Hurricanes,Florida Panthers,ev_home_pl_-1.5,-0.7192

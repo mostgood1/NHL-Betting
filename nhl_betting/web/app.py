@@ -856,8 +856,25 @@ async def api_capture_openers(date: Optional[str] = Query(None)):
     return JSONResponse(res, status_code=200 if res.get("status") == "ok" else 400)
 
 
+## Scoreboard Stats API Cache
+# Lightweight per-process cache for Stats API enrichment in scoreboard.
+# Reduces repeated Stats API calls when nothing has changed for a game.
+# Policy:
+#  - Keyed by gamePk (int)
+#  - Stores: last_fetch_ts (epoch seconds), signature tuple, cached stats fields
+#  - Signature: (gameState, homeScore, awayScore, web_period)
+#  - Refresh if > SCOREBOARD_STATS_MIN_REFRESH_SEC seconds since last fetch OR signature changed
+#  - Purge entry when gameState starts with 'FINAL'
+# Debug: pass ?debug_cache=1 to include debug metadata per game.
+
+# Cache config constants
+SCOREBOARD_STATS_MIN_REFRESH_SEC = 60  # user requested 60 second minimum
+
+# Internal cache store
+_SCOREBOARD_STATS_CACHE: dict[int, dict] = {}
+
 @app.get("/api/scoreboard")
-async def api_scoreboard(date: Optional[str] = Query(None)):
+async def api_scoreboard(date: Optional[str] = Query(None), debug_cache: Optional[int] = Query(0)):
     """Lightweight live scoreboard for a date: state, score, period/clock per game.
 
     Matches by gamePk when possible, else by team abbreviations.
@@ -874,51 +891,91 @@ async def api_scoreboard(date: Optional[str] = Query(None)):
             r["away_abbr"] = (a.get("abbr") or "").upper()
         except Exception:
             r["home_abbr"] = ""; r["away_abbr"] = ""
-    # For LIVE games, try to enrich with linescore to get precise period/clock
+    # For LIVE games, try to enrich with linescore (with multi-endpoint fallbacks) to get precise period/clock
     try:
+        now_ts = datetime.utcnow().timestamp()
+        debug_mode = bool(int(debug_cache or 0))
         for r in rows:
             st = str(r.get("gameState") or "").upper()
             if any(k in st for k in ["LIVE", "IN", "PROGRESS", "CRIT"]) and r.get("gamePk"):
                 try:
-                    ls = client.linescore(int(r.get("gamePk")))
+                    ls = client.linescore(int(r.get("gamePk")))  # now may include fallback extraction
                     if ls:
                         if ls.get("period") is not None:
                             r["period"] = ls.get("period")
                         if ls.get("clock"):
                             r["clock"] = ls.get("clock")
-                            r["source_clock"] = "web"
+                            r["source_clock"] = f"web-{ls.get('source') or 'linescore'}"
                 except Exception:
                     pass
-                # Stats API always fetched for deterministic clock & intermission info
+                # Decide whether to call Stats API based on cache
                 try:
-                    stats_client = NHLStatsClient()
-                    glf = stats_client.game_live_feed(int(r.get("gamePk")))
-                    live = (glf or {}).get("liveData", {})
-                    ls2 = live.get("linescore", {})
-                    inter = ls2.get("intermissionInfo", {}) if isinstance(ls2, dict) else {}
-                    in_inter = bool(inter.get("inIntermission"))
-                    # Primary precise clock
-                    clock2 = ls2.get("currentPeriodTimeRemaining")
-                    if isinstance(clock2, str) and clock2:
-                        if clock2.strip().upper() == "END":
-                            clock2 = "0:00"
-                        r["clock"] = clock2
-                        r["source_clock"] = "stats"
-                    # If still no clock, attempt currentPlay
-                    if (not r.get("clock")) or r.get("clock") in ("", None):
-                        cur = live.get("plays", {}).get("currentPlay", {}).get("about", {})
-                        clock3 = cur.get("periodTimeRemaining")
-                        if isinstance(clock3, str) and clock3:
-                            r["clock"] = clock3
-                            if not r.get("source_clock"):
-                                r["source_clock"] = "stats-currentPlay"
-                    # Period enrich from stats
-                    if r.get("period") is None:
-                        per2 = ls2.get("currentPeriod") or ls2.get("period") or cur.get("period")
+                    game_pk = int(r.get("gamePk"))
+                    sig = (
+                        st,
+                        r.get("homeScore"),
+                        r.get("awayScore"),
+                        r.get("period"),
+                    )
+                    entry = _SCOREBOARD_STATS_CACHE.get(game_pk)
+                    should_fetch = False
+                    reason = None
+                    if entry is None:
+                        should_fetch = True; reason = "miss"
+                    else:
+                        age = now_ts - entry.get("last_fetch_ts", 0)
+                        if sig != entry.get("signature"):
+                            should_fetch = True; reason = "signature-change"
+                        elif age > SCOREBOARD_STATS_MIN_REFRESH_SEC:
+                            should_fetch = True; reason = "stale"
+                    if should_fetch:
+                        stats_client = NHLStatsClient()
+                        glf = stats_client.game_live_feed(game_pk)
+                        live = (glf or {}).get("liveData", {})
+                        ls2 = live.get("linescore", {})
+                        inter = ls2.get("intermissionInfo", {}) if isinstance(ls2, dict) else {}
+                        in_inter = bool(inter.get("inIntermission"))
+                        clock2 = ls2.get("currentPeriodTimeRemaining")
+                        clock_val = None
+                        if isinstance(clock2, str) and clock2:
+                            if clock2.strip().upper() == "END":
+                                clock2 = "0:00"
+                            clock_val = clock2
+                        # currentPlay fallback
+                        if not clock_val:
+                            curp = live.get("plays", {}).get("currentPlay", {}).get("about", {})
+                            clock3 = curp.get("periodTimeRemaining")
+                            if isinstance(clock3, str) and clock3:
+                                clock_val = clock3
+                        curp = live.get("plays", {}).get("currentPlay", {}).get("about", {})
+                        per2 = (ls2.get("currentPeriod") if isinstance(ls2, dict) else None) or (ls2.get("period") if isinstance(ls2, dict) else None) or curp.get("period")
+                        cached_stats = {}
+                        if clock_val:
+                            cached_stats["clock"] = clock_val
+                            cached_stats["source_clock"] = "stats"
                         if per2 is not None:
-                            r["period"] = per2
-                    # Mark intermission explicitly
-                    r["intermission"] = in_inter
+                            cached_stats["period"] = per2
+                        cached_stats["intermission"] = in_inter
+                        _SCOREBOARD_STATS_CACHE[game_pk] = {
+                            "last_fetch_ts": now_ts,
+                            "signature": sig,
+                            "cached_stats": cached_stats,
+                        }
+                        if debug_mode:
+                            cached_stats["_debug_fetch_reason"] = reason
+                    else:
+                        # Reuse cached stats
+                        cached_stats = entry.get("cached_stats", {}) if entry else {}
+                        if debug_mode and cached_stats is not None:
+                            # add age and reuse reason
+                            cached_stats = dict(cached_stats)  # shallow copy
+                            cached_stats["_debug_cache_age"] = round(now_ts - entry.get("last_fetch_ts", 0), 2)
+                            cached_stats["_debug_fetch_reason"] = "cache-hit"
+                    # Merge cached stats into row
+                    for k, v in (cached_stats or {}).items():
+                        if k.startswith("_debug_") and not debug_mode:
+                            continue
+                        r[k] = v
                 except Exception:
                     pass
             # Derive display period and intermission flag
@@ -946,6 +1003,13 @@ async def api_scoreboard(date: Optional[str] = Query(None)):
                     r["intermission"] = False
             except Exception:
                 pass
+    except Exception:
+        pass
+    # Purge cache for finished games
+    try:
+        done_keys = [gid for gid, e in _SCOREBOARD_STATS_CACHE.items() if any(str(g.get("gamePk")) == str(gid) and str(g.get("gameState") or "").upper().startswith("FINAL") for g in rows)]
+        for k in done_keys:
+            _SCOREBOARD_STATS_CACHE.pop(k, None)
     except Exception:
         pass
     # Attach a fetched_at timestamp (UTC)
@@ -1374,6 +1438,32 @@ async def api_recommendations(
     kelly_fraction_part: float = Query(0.5, description="Kelly fraction; used only if bankroll>0"),
 ):
     date = date or _today_ymd()
+    # Normalize potential FastAPI Query objects when this function is invoked internally.
+    try:
+        from fastapi import params as _params
+    except Exception:  # pragma: no cover
+        _params = None
+    def _norm(v, default=None):
+        if _params and isinstance(v, _params.Query):
+            return v.default if v.default is not None else default
+        return v if v is not None else default
+    markets = _norm(markets, "all")
+    try:
+        min_ev = float(_norm(min_ev, 0.0))
+    except Exception:
+        min_ev = 0.0
+    try:
+        bankroll = float(_norm(bankroll, 0.0))
+    except Exception:
+        bankroll = 0.0
+    try:
+        kelly_fraction_part = float(_norm(kelly_fraction_part, 0.5))
+    except Exception:
+        kelly_fraction_part = 0.5
+    try:
+        top = int(_norm(top, 20))
+    except Exception:
+        top = 20
     path = PROC_DIR / f"predictions_{date}.csv"
     if not path.exists():
         return JSONResponse({"error": "No predictions for date", "date": date}, status_code=404)
@@ -1383,6 +1473,25 @@ async def api_recommendations(
     recs = []
     def add_rec(row: pd.Series, market_key: str, label: str, prob_key: str, ev_key: str, edge_key: str, odds_key: str, book_key: Optional[str] = None):
         if ev_key in row and pd.notna(row[ev_key]) and float(row[ev_key]) >= min_ev:
+            # Safe numeric extraction for odds price (ignore obvious book string mixups)
+            def _num(v):
+                if v is None:
+                    return None
+                try:
+                    if isinstance(v, (int, float)):
+                        return float(v)
+                    s = str(v).strip()
+                    if s == '':
+                        return None
+                    # Reject pure alpha tokens like bookmaker names
+                    import re
+                    if re.fullmatch(r'[a-zA-Z_\-]+', s):
+                        return None
+                    return float(s)
+                except Exception:
+                    return None
+            raw_price = row.get(odds_key) if odds_key in row else None
+            price_val = _num(raw_price)
             rec = {
                 "date": row.get("date"),
                 "home": row.get("home"),
@@ -1392,9 +1501,10 @@ async def api_recommendations(
                 "model_prob": float(row.get(prob_key)) if prob_key in row and pd.notna(row.get(prob_key)) else None,
                 "ev": float(row.get(ev_key)),
                 "edge": float(row.get(edge_key)) if edge_key in row and pd.notna(row.get(edge_key)) else None,
-                "price": float(row.get(odds_key)) if odds_key in row and pd.notna(row.get(odds_key)) else None,
+                "price": price_val,
                 "book": row.get(book_key) if book_key and (book_key in row) and pd.notna(row.get(book_key)) else None,
                 "total_line_used": float(row.get("total_line_used")) if "total_line_used" in row and pd.notna(row.get("total_line_used")) else None,
+                "stake": None,
             }
             # Result mapping (if actuals exist)
             res = None
@@ -1435,7 +1545,10 @@ async def api_recommendations(
             recs.append(rec)
 
     # Market filters
-    f_markets = set([m.strip().lower() for m in markets.split(",")]) if markets and markets != "all" else {"moneyline", "totals", "puckline"}
+    try:
+        f_markets = set([m.strip().lower() for m in str(markets).split(",")]) if markets and str(markets) != "all" else {"moneyline", "totals", "puckline"}
+    except Exception:
+        f_markets = {"moneyline", "totals", "puckline"}
 
     for _, r in df.iterrows():
         # Moneyline
@@ -1469,6 +1582,29 @@ async def recommendations(
     sort_by: str = Query("ev", description="Sort key within groups: ev, edge, prob, price"),
 ):
     date = date or _today_ymd()
+    # Normalize potential Query objects (when called internally) to raw values
+    try:
+        from fastapi import params as _params
+    except Exception:
+        _params = None
+    def _norm(v, default=None):
+        if _params and isinstance(v, _params.Query):
+            return v.default if v.default is not None else default
+        return v if v is not None else default
+    markets = _norm(markets, "all")
+    try: min_ev = float(_norm(min_ev, 0.0))
+    except Exception: min_ev = 0.0
+    try: top = int(_norm(top, 20))
+    except Exception: top = 20
+    try: bankroll = float(_norm(bankroll, 0.0))
+    except Exception: bankroll = 0.0
+    try: kelly_fraction_part = float(_norm(kelly_fraction_part, 0.5))
+    except Exception: kelly_fraction_part = 0.5
+    try: high_ev = float(_norm(high_ev, 0.05))
+    except Exception: high_ev = 0.05
+    try: med_ev = float(_norm(med_ev, 0.02))
+    except Exception: med_ev = 0.02
+    sort_by = str(_norm(sort_by, "ev") or "ev").lower()
     # Ensure predictions exist
     pred_path = PROC_DIR / f"predictions_{date}.csv"
     if not pred_path.exists():

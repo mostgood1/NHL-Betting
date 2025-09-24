@@ -9,7 +9,7 @@
     .row.head .period-pill { font-weight:600; padding:2px 6px; border-radius:12px; background:#222; color:#fff; font-size:0.75rem; letter-spacing:0.5px; }
     .row.head .time-left { font-size:0.75rem; color:#555; min-width:34px; text-align:center; }
     .row.head .period-pill.crit, .row.head .time-left.crit { background:#8b0000; color:#fff; }
-    .sb-last { font-size:11px; color:#666; margin-left:8px; }
+  /* Removed scoreboard timestamp banner (.sb-last) per user request */
     .row.head .period-pill.int { background:#444; color:#ffecb3; }
   </style>
 </head>
@@ -474,17 +474,7 @@
       if (Array.isArray(data) && data.length>0) {
         fetchedAt = data[0].fetched_at || null;
       }
-      if (fetchedAt) {
-        let el = document.getElementById('scoreboardLast');
-        if (!el) {
-          el = document.createElement('div');
-          el.id = 'scoreboardLast';
-          el.className = 'sb-last';
-          const header = document.querySelector('header .header-inner');
-          if (header) header.appendChild(el);
-        }
-        el.textContent = 'Scoreboard: ' + fetchedAt;
-      }
+      // Removed scoreboard timestamp banner per user request
       // Index by gamePk and by abbr pair
       const byPk = new Map();
       const byAbbr = new Map();

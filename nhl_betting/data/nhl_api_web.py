@@ -170,28 +170,88 @@ class NHLWebClient:
         Uses /gamecenter/{gamePk}/linescore endpoint of the NHL Web API.
         Returns a dict like {"period": <int|str|None>, "clock": <str|None>}.
         """
-        try:
-            data = self._get(f"/gamecenter/{int(gamePk)}/linescore")
-        except Exception:
-            return {"period": None, "clock": None}
         period = None
         clock = None
+        source = None
+        # Primary endpoint
         try:
-            # Try typical fields
-            period = data.get("currentPeriod") or data.get("period")
+            data = self._get(f"/gamecenter/{int(gamePk)}/linescore")
+            try:
+                period = data.get("currentPeriod") or data.get("period")
+            except Exception:
+                period = None
+            try:
+                cl = data.get("clock")
+                if isinstance(cl, dict):
+                    clock = cl.get("timeRemaining") or cl.get("displayValue") or cl.get("timeRemainingInPeriod")
+                elif isinstance(cl, str):
+                    clock = cl
+                if not clock:
+                    pd = data.get("periodDescriptor") or {}
+                    clock = pd.get("timeRemaining") or pd.get("displayValue")
+            except Exception:
+                clock = None
+            if clock or period is not None:
+                source = "linescore"
         except Exception:
-            period = None
-        try:
-            # clock may be nested
-            cl = data.get("clock")
-            if isinstance(cl, dict):
-                clock = cl.get("timeRemaining") or cl.get("displayValue") or cl.get("timeRemainingInPeriod")
-            elif isinstance(cl, str):
-                clock = cl
-            # Fallback: sometimes available in periodDescriptor
-            if not clock:
-                pd = data.get("periodDescriptor") or {}
-                clock = pd.get("timeRemaining") or pd.get("displayValue")
-        except Exception:
-            clock = None
-        return {"period": period, "clock": clock}
+            # swallow; we'll try fallbacks below
+            pass
+
+        def _extract_from(data_obj, src_name: str):
+            nonlocal period, clock, source
+            try:
+                if period is None:
+                    pd = data_obj.get("periodDescriptor") or {}
+                    per = pd.get("number") or pd.get("period") or data_obj.get("currentPeriod") or data_obj.get("period")
+                    if per is not None:
+                        period = per
+                if not clock:
+                    # Various nesting patterns for clock/time
+                    cl = data_obj.get("clock")
+                    if isinstance(cl, dict):
+                        cands = [cl.get("timeRemaining"), cl.get("timeRemainingInPeriod"), cl.get("displayValue")]
+                        for c in cands:
+                            if isinstance(c, str) and c:
+                                clock = c; break
+                    elif isinstance(cl, str) and cl:
+                        clock = cl
+                if (not clock) and "plays" in data_obj:
+                    # play-by-play style: derive remaining from latest play if available
+                    try:
+                        plays = data_obj.get("plays") or []
+                        if isinstance(plays, list) and plays:
+                            last = plays[-1]
+                            tr = last.get("timeRemaining") or last.get("timeInPeriod")
+                            if isinstance(tr, str) and tr:
+                                clock = tr
+                    except Exception:
+                        pass
+                if clock and not source:
+                    source = src_name
+            except Exception:
+                pass
+
+        # Fallback endpoints only if clock missing
+        if not clock:
+            # play-by-play
+            try:
+                pbp = self._get(f"/gamecenter/{int(gamePk)}/play-by-play")
+                _extract_from(pbp, "play-by-play")
+            except Exception:
+                pass
+        if not clock:
+            # boxscore
+            try:
+                box = self._get(f"/gamecenter/{int(gamePk)}/boxscore")
+                _extract_from(box, "boxscore")
+            except Exception:
+                pass
+        if not clock:
+            # landing
+            try:
+                land = self._get(f"/gamecenter/{int(gamePk)}/landing")
+                _extract_from(land, "landing")
+            except Exception:
+                pass
+
+        return {"period": period, "clock": clock, "source": source}

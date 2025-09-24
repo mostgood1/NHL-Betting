@@ -406,8 +406,11 @@
   let oddsTimer = null;
   let liveTimer = null;
   function inWindow() {
-    if (!windowRange) return false;
+    // If we have a computed window with real times use it; else allow full day.
+    if (!windowRange) return true; // fallback: always allow
     const now = new Date();
+    // If window collapsed (e.g., all start times parsed as midnight) widen to entire day
+    if (windowRange.start.getTime() === windowRange.end.getTime()) return true;
     return now >= windowRange.start && now <= windowRange.end;
   }
   function startLoops() {
@@ -447,14 +450,14 @@
   if (toggleEl) {
     toggleEl.addEventListener('change', () => {
       try { localStorage.setItem('autoUpdate', toggleEl.checked ? 'on' : 'off'); } catch {}
-      if (toggleEl.checked && inWindow()) startLoops(); else stopLoops();
+      if (toggleEl.checked) startLoops(); else stopLoops();
     });
   }
   if (shouldAutoUpdate()) {
+    // Ensure loops start even if outside previously narrow window
     startLoops();
   } else {
-    // One-shot scoreboard fetch so period/time-left pill is populated even without auto-update
-    if (!isSettled && inWindow()) {
+    if (!isSettled) {
       refreshLive(true);
     }
   }

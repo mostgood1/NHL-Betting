@@ -1,0 +1,171 @@
+{
+  "summary": {
+    "date": "2025-09-24",
+    "picks": 13,
+    "decided": 8,
+    "wins": 0,
+    "losses": 0,
+    "pushes": 1,
+    "staked": 800.0,
+    "pnl": 0.0,
+    "roi": 0.0
+  },
+  "rows": [
+    {
+      "date": "2025-09-24T22:00:00Z",
+      "home": "Carolina Hurricanes",
+      "away": "Florida Panthers",
+      "market": "moneyline",
+      "bet": "away_ml",
+      "ev": 0.9061,
+      "price": 250.0,
+      "result": null,
+      "stake": 100.0,
+      "payout": null
+    },
+    {
+      "date": "2025-09-24T22:00:00Z",
+      "home": "Carolina Hurricanes",
+      "away": "Florida Panthers",
+      "market": "totals",
+      "bet": "under",
+      "ev": 0.0935,
+      "price": -105.0,
+      "result": "Push",
+      "stake": 100.0,
+      "payout": 0.0
+    },
+    {
+      "date": "2025-09-24T22:00:00Z",
+      "home": "Carolina Hurricanes",
+      "away": "Florida Panthers",
+      "market": "puckline",
+      "bet": "away_pl_+1.5",
+      "ev": 0.7302,
+      "price": 105.0,
+      "result": "away_+1.5",
+      "stake": 100.0,
+      "payout": 0.0
+    },
+    {
+      "date": "2025-09-24T23:00:00Z",
+      "home": "Columbus Blue Jackets",
+      "away": "Pittsburgh Penguins",
+      "market": "moneyline",
+      "bet": "away_ml",
+      "ev": 0.1539,
+      "price": 220.0,
+      "result": null,
+      "stake": 100.0,
+      "payout": null
+    },
+    {
+      "date": "2025-09-24T23:00:00Z",
+      "home": "Columbus Blue Jackets",
+      "away": "Pittsburgh Penguins",
+      "market": "totals",
+      "bet": "under",
+      "ev": 0.2665,
+      "price": -105.0,
+      "result": "Under",
+      "stake": 100.0,
+      "payout": 0.0
+    },
+    {
+      "date": "2025-09-24T23:00:00Z",
+      "home": "Columbus Blue Jackets",
+      "away": "Pittsburgh Penguins",
+      "market": "puckline",
+      "bet": "away_pl_+1.5",
+      "ev": 0.0636,
+      "price": -110.0,
+      "result": "home_-1.5",
+      "stake": 100.0,
+      "payout": 0.0
+    },
+    {
+      "date": "2025-09-25T01:00:00Z",
+      "home": "Edmonton Oilers",
+      "away": "Seattle Kraken",
+      "market": "totals",
+      "bet": "under",
+      "ev": 0.4068,
+      "price": -115.0,
+      "result": "Under",
+      "stake": 100.0,
+      "payout": 0.0
+    },
+    {
+      "date": "2025-09-25T01:00:00Z",
+      "home": "Edmonton Oilers",
+      "away": "Seattle Kraken",
+      "market": "puckline",
+      "bet": "home_pl_-1.5",
+      "ev": 0.1533,
+      "price": -115.0,
+      "result": "away_+1.5",
+      "stake": 100.0,
+      "payout": 0.0
+    },
+    {
+      "date": "2025-09-25T02:00:00Z",
+      "home": "Vancouver Canucks",
+      "away": "Calgary Flames",
+      "market": "moneyline",
+      "bet": "away_ml",
+      "ev": 0.3414,
+      "price": 164.0,
+      "result": null,
+      "stake": 100.0,
+      "payout": null
+    },
+    {
+      "date": "2025-09-25T02:00:00Z",
+      "home": "Vancouver Canucks",
+      "away": "Calgary Flames",
+      "market": "totals",
+      "bet": "under",
+      "ev": 0.0892,
+      "price": 102.0,
+      "result": "Under",
+      "stake": 100.0,
+      "payout": 0.0
+    },
+    {
+      "date": "2025-09-25T02:00:00Z",
+      "home": "Vancouver Canucks",
+      "away": "Calgary Flames",
+      "market": "puckline",
+      "bet": "away_pl_+1.5",
+      "ev": 0.3135,
+      "price": -148.0,
+      "result": "home_-1.5",
+      "stake": 100.0,
+      "payout": 0.0
+    },
+    {
+      "date": "2025-09-25T02:00:00Z",
+      "home": "Anaheim Ducks",
+      "away": "Los Angeles Kings",
+      "market": "moneyline",
+      "bet": "away_ml",
+      "ev": 0.1121,
+      "price": -140.0,
+      "result": null,
+      "stake": 100.0,
+      "payout": null
+    },
+    {
+      "date": "2025-09-25T02:00:00Z",
+      "home": "Anaheim Ducks",
+      "away": "Los Angeles Kings",
+      "market": "totals",
+      "bet": "under",
+      "ev": 0.1027,
+      "price": -105.0,
+      "result": "Under",
+      "stake": 100.0,
+      "payout": 0.0
+    }
+  ]
+}

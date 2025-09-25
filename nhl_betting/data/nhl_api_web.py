@@ -164,6 +164,14 @@ class NHLWebClient:
             cur += timedelta(days=1)
         return all_games
 
+    def boxscore(self, gamePk: int) -> dict:
+        """Return the NHL Web API boxscore payload for a given game.
+
+        Endpoint: /gamecenter/{gamePk}/boxscore
+        Note: Structure differs from Stats API; callers should parse accordingly.
+        """
+        return self._get(f"/gamecenter/{int(gamePk)}/boxscore")
+
     def linescore(self, gamePk: int) -> dict:
         """Fetch live linescore for a game: period and clock when available.
 

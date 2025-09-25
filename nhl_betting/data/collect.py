@@ -11,40 +11,135 @@ from ..utils.io import RAW_DIR, save_df
 
 
 def _parse_boxscore_players(box: Dict, gamePk: int, gameDate: str, home: str, away: str) -> List[Dict]:
+    """Parse players from either Stats API or NHL Web API boxscore payloads.
+
+    Stats API shape:
+      box["teams"]["home"]["players"] -> {"ID": {"person": {..}, "stats": {skaterStats|goalieStats}}}
+
+    NHL Web API shape:
+      box["boxscore"]["teams"]["home"] has skaters and goalies lists with different field names.
+    """
     rows: List[Dict] = []
-    for side_key, team_name in [("home", home), ("away", away)]:
-        players = box.get("teams", {}).get(side_key, {}).get("players", {})
-        for pid, pdata in players.items():
-            info = pdata.get("person", {})
-            stats = pdata.get("stats", {})
-            skater = stats.get("skaterStats")
-            goalie = stats.get("goalieStats")
-            base = {
-                "gamePk": gamePk,
-                "date": gameDate,
-                "team": team_name,
-                "player_id": info.get("id"),
-                "player": info.get("fullName"),
-                "primary_position": pdata.get("position", {}).get("abbreviation"),
-            }
-            if skater:
+    if "teams" in box and isinstance(box.get("teams"), dict):
+        # Stats API format
+        for side_key, team_name in [("home", home), ("away", away)]:
+            players = box.get("teams", {}).get(side_key, {}).get("players", {})
+            for pid, pdata in players.items():
+                info = pdata.get("person", {})
+                stats = pdata.get("stats", {})
+                skater = stats.get("skaterStats")
+                goalie = stats.get("goalieStats")
+                base = {
+                    "gamePk": gamePk,
+                    "date": gameDate,
+                    "team": team_name,
+                    "player_id": info.get("id"),
+                    "player": info.get("fullName"),
+                    "primary_position": pdata.get("position", {}).get("abbreviation"),
+                }
+                if skater:
+                    rows.append({
+                        **base,
+                        "role": "skater",
+                        "shots": _safe_int(skater.get("shots")),
+                        "goals": _safe_int(skater.get("goals")),
+                        "assists": _safe_int(skater.get("assists")),
+                        "timeOnIce": skater.get("timeOnIce"),
+                    })
+                if goalie:
+                    rows.append({
+                        **base,
+                        "role": "goalie",
+                        "saves": _safe_int(goalie.get("saves")),
+                        "shotsAgainst": _safe_int(goalie.get("shots")),
+                        "decision": goalie.get("decision"),
+                        "timeOnIce": goalie.get("timeOnIce"),
+                    })
+        return rows
+
+    # Try NHL Web API format
+    try:
+        # NHL Web API boxscore can be under top-level or nested 'boxscore'
+        root = box.get("boxscore") or box
+        # Preferred: playerByGameStats at root with 'homeTeam'/'awayTeam'
+        pbg_root = root.get("playerByGameStats") if isinstance(root, dict) else None
+        for side_key, team_name in [("home", home), ("away", away)]:
+            skaters = []
+            goalies = []
+            if isinstance(pbg_root, dict):
+                team_block = pbg_root.get("homeTeam" if side_key == "home" else "awayTeam") or {}
+                # Skaters are forwards + defense
+                fwd = team_block.get("forwards") or []
+                dfd = team_block.get("defense") or []
+                skaters = list(fwd) + list(dfd)
+                goalies = team_block.get("goalies") or []
+            else:
+                # Fallbacks: Team containers: sometimes root["teams"]["home"/"away"], sometimes separate keys
+                teams = root.get("teams") or {}
+                if not teams:
+                    teams = {
+                        "home": root.get("homeTeam") or root.get("home") or {},
+                        "away": root.get("awayTeam") or root.get("away") or {},
+                    }
+                t = teams.get(side_key) or {}
+                # Players may be nested under these keys
+                pbg = t.get("playerByGameStats") or {}
+                if isinstance(pbg, dict):
+                    skaters = list(pbg.get("skaters") or [])
+                    goalies = list(pbg.get("goalies") or [])
+                if not skaters:
+                    skaters = t.get("skaters") or t.get("players") or []
+                if not goalies:
+                    goalies = t.get("goalies") or []
+            # Skaters
+            for p in skaters:
+                # player object may be nested or flat depending on API version
+                info = p.get("player") or p.get("playerId") or p
+                # stats keys vary: skaterStats, stats, or flat
+                stats = p.get("skaterStats") or p.get("stats") or p
+                base = {
+                    "gamePk": gamePk,
+                    "date": gameDate,
+                    "team": team_name,
+                    "player_id": (info.get("id") if isinstance(info, dict) else info) or p.get("playerId"),
+                    "player": (info.get("fullName") if isinstance(info, dict) else None) or 
+                               (p.get("name", {}) if isinstance(p.get("name"), dict) else p.get("name")) or 
+                               (p.get("name", {}) or {}).get("default") if isinstance(p.get("name"), dict) else p.get("firstInitialLastName"),
+                    "primary_position": (p.get("position") or {}).get("abbreviation") if isinstance(p.get("position"), dict) else p.get("position"),
+                }
                 rows.append({
                     **base,
                     "role": "skater",
-                    "shots": _safe_int(skater.get("shots")),
-                    "goals": _safe_int(skater.get("goals")),
-                    "assists": _safe_int(skater.get("assists")),
-                    "timeOnIce": skater.get("timeOnIce"),
+                    "shots": _safe_int(stats.get("shots") or stats.get("sog") or p.get("sog") or p.get("shots")),
+                    "goals": _safe_int(stats.get("goals") or p.get("goals")),
+                    "assists": _safe_int(stats.get("assists") or p.get("assists")),
+                    "timeOnIce": stats.get("toi") or stats.get("timeOnIce") or p.get("toi"),
                 })
-            if goalie:
+            # Goalies
+            for p in goalies:
+                info = p.get("player") or p.get("playerId") or p
+                stats = p.get("goalieStats") or p.get("stats") or p
+                base = {
+                    "gamePk": gamePk,
+                    "date": gameDate,
+                    "team": team_name,
+                    "player_id": (info.get("id") if isinstance(info, dict) else info) or p.get("playerId"),
+                    "player": (info.get("fullName") if isinstance(info, dict) else None) or 
+                               (p.get("name", {}) if isinstance(p.get("name"), dict) else p.get("name")) or 
+                               (p.get("name", {}) or {}).get("default") if isinstance(p.get("name"), dict) else p.get("firstInitialLastName"),
+                    "primary_position": (p.get("position") or {}).get("abbreviation") if isinstance(p.get("position"), dict) else p.get("position"),
+                }
                 rows.append({
                     **base,
                     "role": "goalie",
-                    "saves": _safe_int(goalie.get("saves")),
-                    "shotsAgainst": _safe_int(goalie.get("shots")),
-                    "decision": goalie.get("decision"),
-                    "timeOnIce": goalie.get("timeOnIce"),
+                    "saves": _safe_int(stats.get("saves") or p.get("saves")),
+                    "shotsAgainst": _safe_int(stats.get("shotsAgainst") or stats.get("shots") or p.get("shotsAgainst") or p.get("shots")),
+                    "decision": stats.get("decision") or p.get("decision"),
+                    "timeOnIce": stats.get("toi") or stats.get("timeOnIce") or p.get("toi"),
                 })
+    except Exception:
+        # If structure unexpected, return empty and let caller decide
+        return rows
     return rows
 
 
@@ -74,7 +169,7 @@ def collect_player_game_stats(start: str, end: str, source: str = "stats") -> pd
     if source == "web":
         client = NHLWebClient()
         games = client.schedule_range(start, end)
-        boxscore_via = "nhlpy"  # web client lacks boxscore; try nhl-api-py if available
+        boxscore_via = "web"  # use NHL Web API boxscore
     elif source == "stats":
         client = NHLClient()
         games = client.schedule(start, end)
@@ -122,6 +217,8 @@ def collect_player_game_stats(start: str, end: str, source: str = "stats") -> pd
         if g.home_goals is None or g.away_goals is None:
             continue  # skip unfinished
         if boxscore_via == "stats":
+            box = client.boxscore(g.gamePk)
+        elif boxscore_via == "web":
             box = client.boxscore(g.gamePk)
         else:
             box = _nhlpy_boxscore(g.gamePk)

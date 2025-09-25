@@ -75,6 +75,102 @@ class OddsAPIClient:
         }
         return self._get(f"/historical/sports/{sport}/odds", params)
 
+    def list_events(
+        self,
+        sport: str,
+        commence_from_iso: Optional[str] = None,
+        commence_to_iso: Optional[str] = None,
+        date_format: str = "iso",
+    ) -> Tuple[List[Dict], Dict[str, str]]:
+        """List current events for a sport. Does not count against quota."""
+        params = {
+            "apiKey": self.api_key,
+            "dateFormat": date_format,
+        }
+        if commence_from_iso:
+            params["commenceTimeFrom"] = commence_from_iso
+        if commence_to_iso:
+            params["commenceTimeTo"] = commence_to_iso
+        return self._get(f"/sports/{sport}/events", params)
+
+    def historical_list_events(
+        self,
+        sport: str,
+        snapshot_iso: str,
+        date_format: str = "iso",
+    ) -> Tuple[Dict, Dict[str, str]]:
+        """List historical events snapshot for a sport at a timestamp (costs 1 if data returned)."""
+        params = {
+            "apiKey": self.api_key,
+            "date": snapshot_iso,
+            "dateFormat": date_format,
+        }
+        return self._get(f"/historical/sports/{sport}/events", params)
+
+    def event_odds(
+        self,
+        sport: str,
+        event_id: str,
+        markets: str,
+        regions: str = "us",
+        bookmakers: Optional[str] = None,
+        odds_format: str = "american",
+        date_format: str = "iso",
+    ) -> Tuple[Dict, Dict[str, str]]:
+        """Get current event odds for specified markets (supports player_* markets)."""
+        params = {
+            "apiKey": self.api_key,
+            "regions": regions,
+            "markets": markets,
+            "oddsFormat": odds_format,
+            "dateFormat": date_format,
+        }
+        if bookmakers:
+            params["bookmakers"] = bookmakers
+        return self._get(f"/sports/{sport}/events/{event_id}/odds", params)
+
+    def historical_event_odds(
+        self,
+        sport: str,
+        event_id: str,
+        markets: str,
+        snapshot_iso: str,
+        regions: str = "us",
+        bookmakers: Optional[str] = None,
+        odds_format: str = "american",
+        date_format: str = "iso",
+    ) -> Tuple[Dict, Dict[str, str]]:
+        """Get historical event odds snapshot for specified markets (supports player_* markets)."""
+        params = {
+            "apiKey": self.api_key,
+            "regions": regions,
+            "markets": markets,
+            "oddsFormat": odds_format,
+            "dateFormat": date_format,
+            "date": snapshot_iso,
+        }
+        if bookmakers:
+            params["bookmakers"] = bookmakers
+        return self._get(f"/historical/sports/{sport}/events/{event_id}/odds", params)
+
+    def event_markets(
+        self,
+        sport: str,
+        event_id: str,
+        regions: str = "us",
+        bookmakers: Optional[str] = None,
+        date_format: str = "iso",
+    ) -> Tuple[Dict, Dict[str, str]]:
+        """Get available market keys for a single event (returns keys only)."""
+        params = {
+            "apiKey": self.api_key,
+            "regions": regions,
+            "dateFormat": date_format,
+        }
+        if bookmakers:
+            params["bookmakers"] = bookmakers
+        return self._get(f"/sports/{sport}/events/{event_id}/markets", params)
+
 
 def _pick_bookmaker(bookmakers: List[Dict], preferred: Optional[str]) -> Optional[Dict]:
     if not bookmakers:

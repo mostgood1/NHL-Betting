@@ -14,6 +14,9 @@ from nhl_betting.utils.io import RAW_DIR, PROC_DIR, save_df
 from nhl_betting.data.odds_api import OddsAPIClient, normalize_snapshot_to_rows
 from nhl_betting.cli import props_fetch_bovada as _props_fetch_bovada
 from nhl_betting.cli import props_predict as _props_predict
+from nhl_betting.cli import props_build_dataset as _props_build_dataset
+from nhl_betting.data import player_props as props_data
+from nhl_betting.data.rosters import build_all_team_roster_snapshots
 from nhl_betting.data.collect import collect_player_game_stats
 from nhl_betting.utils.odds import american_to_decimal
 from nhl_betting.models.elo import Elo
@@ -244,6 +247,58 @@ def make_predictions(days_ahead: int = 2, verbose: bool = False) -> None:
             _vprint(verbose, f"[predict] {d}: Ensured predictions CSV exists")
         except Exception:
             pass
+
+
+def collect_props_canonical(days_ahead: int = 1, verbose: bool = False) -> dict:
+    """Collect canonical player props Parquet partitions for yesterday and upcoming days.
+
+    For each target date (yesterday ET and the next N-1 days including today when days_ahead>=1):
+      - Try Bovada props collection into data/props/player_props_lines/date=YYYY-MM-DD/bovada.parquet
+      - If zero combined rows, fallback to The Odds API (if ODDS_API_KEY configured)
+    Returns a summary dict with per-date counts.
+    """
+    base_et = _today_et()
+    targets = []
+    # Yesterday ET
+    targets.append((base_et.date() - timedelta(days=1)).strftime("%Y-%m-%d"))
+    # Today + optional future window
+    for i in range(0, max(1, days_ahead)):
+        targets.append((base_et + timedelta(days=i)).strftime("%Y-%m-%d"))
+    # Dedup preserve order
+    seen = set(); ordered = []
+    for d in targets:
+        if d not in seen:
+            seen.add(d); ordered.append(d)
+    out = {"dates": ordered, "counts": {}, "paths": {}}
+    cfg_b = props_data.PropsCollectionConfig(output_root="data/props", book="bovada", source="bovada")
+    cfg_o = props_data.PropsCollectionConfig(output_root="data/props", book="oddsapi", source="oddsapi")
+    # Build roster snapshot once to aid player_id normalization (best-effort)
+    roster_df = None
+    try:
+        roster_df = build_all_team_roster_snapshots()
+    except Exception as e:
+        _vprint(verbose, f"[props] roster snapshot failed: {e}")
+    for d in ordered:
+        try:
+            res = props_data.collect_and_write(d, roster_df=roster_df, cfg=cfg_b)
+            cnt = int(res.get("combined_count") or 0)
+            out["counts"][d] = cnt
+            out["paths"][d] = res.get("output_path")
+            if cnt == 0:
+                # Fallback to Odds API
+                try:
+                    res2 = props_data.collect_and_write(d, roster_df=roster_df, cfg=cfg_o)
+                    out["counts"][d] = int(res2.get("combined_count") or 0)
+                    out["paths"][d] = res2.get("output_path")
+                except Exception as e2:
+                    _vprint(verbose, f"[props] oddsapi fallback failed for {d}: {e2}")
+            if verbose:
+                _vprint(verbose, f"[props] {d}: lines={out['counts'][d]} path={out['paths'][d]}")
+        except Exception as e:
+            _vprint(verbose, f"[props] {d} collection failed: {e}")
+            out["counts"][d] = 0
+            out["paths"][d] = None
+    return out
 
 
 def _team_abbr(name: str) -> str:
@@ -664,6 +719,34 @@ def run(days_ahead: int = 2, years_back: int = 2, reconcile_yesterday: bool = Tr
     t1 = time.perf_counter()
     make_predictions(days_ahead=min(2, days_ahead), verbose=verbose)
     _vprint(verbose, f"[run] Predictions generated in {time.perf_counter() - t1:.1f}s")
+    # 2b) Collect canonical player props (yesterday + today/tomorrow) and refresh modeling dataset (rolling window)
+    if not skip_props:
+        t1b = time.perf_counter()
+        try:
+            coll = collect_props_canonical(days_ahead=min(2, days_ahead), verbose=verbose)
+        except Exception as e:
+            coll = {"error": str(e)}
+        # Rebuild/refresh modeling dataset on a rolling window (Sep 1 of last season to today)
+        try:
+            today_et = _today_et().date()
+            # Choose window starting Sep 1 of (current year - 1)
+            season_start_year = today_et.year - 1
+            start = f"{season_start_year}-09-01"
+            end = today_et.strftime("%Y-%m-%d")
+            # Call the Typer command function robustly
+            def _call_typer_or_func(cmd, **kwargs):
+                if hasattr(cmd, 'callback') and callable(getattr(cmd, 'callback')):
+                    return cmd.callback(**kwargs)
+                elif callable(cmd):
+                    return cmd(**kwargs)
+                else:
+                    raise RuntimeError('Unsupported command object for props build dataset')
+            from nhl_betting.utils.io import RAW_DIR
+            out_csv = str((RAW_DIR.parent / "props" / "props_modeling_dataset.csv").resolve())
+            _call_typer_or_func(_props_build_dataset, start=start, end=end, output_csv=out_csv)
+        except Exception as e:
+            _vprint(verbose, f"[run] props dataset build skipped/failed: {e}")
+        _vprint(verbose, f"[run] Props collection/dataset in {time.perf_counter() - t1b:.1f}s")
     # 3) Capture closings for yesterday's ET slate and reconcile
     recon_games = recon_props = None
     if reconcile_yesterday:

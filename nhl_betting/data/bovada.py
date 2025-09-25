@@ -216,64 +216,95 @@ class BovadaClient:
         # Attempt to fetch more markets; Bovada's props are grouped differently
         events = self.fetch_events(pre_match_only=True, market_filter="all")
         rows: List[Dict] = []
+        def _et_date(iso: Optional[str]) -> Optional[str]:
+            try:
+                if not iso:
+                    return None
+                dt_utc = datetime.fromisoformat(iso.replace("Z", "+00:00"))
+                dt_et = dt_utc.astimezone(ZoneInfo("America/New_York"))
+                return dt_et.strftime("%Y-%m-%d")
+            except Exception:
+                return None
+        def _market_to_code(mdesc: str) -> Optional[str]:
+            md = (mdesc or "").lower()
+            if "shots on goal" in md or "sog" in md:
+                return "SOG"
+            if ("player" in md and "goals" in md) or md.strip() == "goals":
+                return "GOALS"
+            if "saves" in md:
+                return "SAVES"
+            if ("player" in md and "assists" in md) or md.strip() == "assists":
+                return "ASSISTS"
+            if ("player" in md and "points" in md) or md.strip() == "points":
+                return "POINTS"
+            return None
+        def _extract_player_and_side(oc: Dict, market_desc: str) -> Tuple[Optional[str], Optional[str]]:
+            # Try explicit Over/Under in outcome description/name
+            side = None
+            desc = (oc.get("description") or "").strip()
+            name = (oc.get("name") or "").strip()
+            txt = f"{desc} {name}".strip()
+            lower = txt.lower()
+            if "over" in lower and not "under" in lower:
+                side = "OVER"
+            elif "under" in lower and not "over" in lower:
+                side = "UNDER"
+            # Player candidates
+            player = None
+            if side == "OVER":
+                player = txt.replace("Over", "").replace("over", "").strip(" -") or None
+            elif side == "UNDER":
+                player = txt.replace("Under", "").replace("under", "").strip(" -") or None
+            if not player:
+                player = oc.get("participant") or oc.get("competitor") or oc.get("competitorName")
+            if not player:
+                if " - " in (market_desc or ""):
+                    player = market_desc.split(" - ")[0].strip()
+            if player:
+                player = str(player).strip()
+                if player.lower() in ("over", "under"):
+                    player = None
+            return player, side
         for group in events:
             evs = group.get("events") or []
             for ev in evs:
                 start_ms = ev.get("startTime")
                 iso = self._ms_to_iso(start_ms) if start_ms else None
-                date_key = None
-                try:
-                    if iso:
-                        dt = datetime.fromisoformat(iso.replace("Z", "+00:00"))
-                        date_key = dt.strftime("%Y-%m-%d")
-                except Exception:
-                    pass
+                date_key = _et_date(iso)
                 if date_key != date:
                     continue
                 dgs = ev.get("displayGroups") or []
                 for dg in dgs:
                     markets = dg.get("markets") or []
                     for m in markets:
-                        mdesc = (m.get("description") or "").lower()
-                        # Map common player prop markets
-                        market_code = None
-                        if "shots on goal" in mdesc:
-                            market_code = "SOG"
-                        elif "player goals" in mdesc or ("goals" in mdesc and "player" in mdesc):
-                            market_code = "GOALS"
-                        elif "saves" in mdesc:
-                            market_code = "SAVES"
-                        elif "assists" in mdesc and "player" in mdesc:
-                            market_code = "ASSISTS"
-                        elif "points" in mdesc and "player" in mdesc:
-                            market_code = "POINTS"
+                        mdesc = (m.get("description") or "")
+                        market_code = _market_to_code(mdesc)
                         if not market_code:
                             continue
-                        # Player name often appears in market description like "Player Name - Shots on Goal"
-                        # Try extracting text before a hyphen
-                        raw_desc = m.get("description") or ""
-                        player = None
-                        if " - " in raw_desc:
-                            player = raw_desc.split(" - ")[0].strip()
                         outcomes = m.get("outcomes") or []
                         for oc in outcomes:
-                            ocdesc = (oc.get("description") or oc.get("name") or "").strip().lower()
-                            if ocdesc not in ("over", "under"):
-                                continue
                             price = oc.get("price") or {}
                             american = price.get("american")
+                            hcap = oc.get("handicap") if oc.get("handicap") is not None else price.get("handicap")
                             try:
-                                line = float(oc.get("handicap")) if oc.get("handicap") is not None else None
+                                line = float(hcap) if hcap is not None else None
                             except Exception:
                                 line = None
-                            if american is None or line is None:
+                            player, side = _extract_player_and_side(oc, mdesc)
+                            if not side:
+                                od = (oc.get("description") or "").strip().lower()
+                                if od in ("over", "under"):
+                                    side = od.upper()
+                            if not player:
+                                continue
+                            if american is None or line is None or side not in ("OVER","UNDER"):
                                 continue
                             rows.append({
                                 "market": market_code,
-                                "player": player or "",
+                                "player": player,
                                 "line": line,
                                 "odds": american,
-                                "side": ocdesc.upper(),
+                                "side": side,
                                 "book": "bovada",
                             })
         return pd.DataFrame(rows)

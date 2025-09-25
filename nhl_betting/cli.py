@@ -21,6 +21,7 @@ from .models.props import SkaterShotsModel, GoalieSavesModel, SkaterGoalsModel
 from .data.odds_api import OddsAPIClient, normalize_snapshot_to_rows
 from .data.bovada import BovadaClient
 from .data import player_props as props_data
+from .data.rosters import build_all_team_roster_snapshots
 
 app = typer.Typer(help="NHL Betting predictive engine CLI")
 
@@ -866,9 +867,15 @@ def props_fetch_bovada(
 def props_collect(
     date: str = typer.Option(..., help="Slate date YYYY-MM-DD"),
     output_root: str = typer.Option("data/props", help="Output root directory for Parquet files"),
+    source: str = typer.Option("bovada", help="Source: bovada | oddsapi (requires ODDS_API_KEY)"),
 ):
-    """Collect & normalize player props (Bovada) and write canonical Parquet under data/props/player_props_lines/date=YYYY-MM-DD."""
-    cfg = props_data.PropsCollectionConfig(output_root=output_root, book="bovada")
+    """Collect & normalize player props and write canonical Parquet under data/props/player_props_lines/date=YYYY-MM-DD.
+
+    - bovada: scrape Bovada coupon JSON (SOG, GOALS, SAVES, ASSISTS, POINTS when available)
+    - oddsapi: use The Odds API historical snapshot for player markets (requires ODDS_API_KEY)
+    """
+    src = source.lower().strip()
+    cfg = props_data.PropsCollectionConfig(output_root=output_root, book=("bovada" if src=="bovada" else "oddsapi"), source=src)
     # Optional: roster mapping could be passed; for now, None
     res = props_data.collect_and_write(date, roster_df=None, cfg=cfg)
     print(json.dumps(res, indent=2))
@@ -880,20 +887,33 @@ def props_backfill(
     end: str = typer.Option(..., help="End date YYYY-MM-DD"),
     output_root: str = typer.Option("data/props", help="Output root directory for Parquet files"),
 ):
-    """Backfill player props lines (SOG, GOALS, SAVES, ASSISTS, POINTS) by day and store Parquet partitions."""
+    """Backfill player props lines (SOG, GOALS, SAVES, ASSISTS, POINTS) by day and store Parquet partitions.
+
+    Strategy per day:
+    - Try Bovada first. If zero combined rows, fallback to The Odds API (requires ODDS_API_KEY).
+    """
     from datetime import datetime, timedelta
     def to_dt(s: str) -> datetime:
         return datetime.strptime(s, "%Y-%m-%d")
     cur = to_dt(start)
     end_dt = to_dt(end)
-    cfg = props_data.PropsCollectionConfig(output_root=output_root, book="bovada")
+    cfg_b = props_data.PropsCollectionConfig(output_root=output_root, book="bovada", source="bovada")
+    cfg_o = props_data.PropsCollectionConfig(output_root=output_root, book="oddsapi", source="oddsapi")
     total = 0
     days = 0
     while cur <= end_dt:
         d = cur.strftime("%Y-%m-%d")
         try:
-            res = props_data.collect_and_write(d, roster_df=None, cfg=cfg)
-            total += int(res.get("combined_count") or 0)
+            res = props_data.collect_and_write(d, roster_df=None, cfg=cfg_b)
+            cnt = int(res.get("combined_count") or 0)
+            if cnt == 0:
+                # Fallback to Odds API
+                try:
+                    res2 = props_data.collect_and_write(d, roster_df=None, cfg=cfg_o)
+                    cnt = int(res2.get("combined_count") or 0)
+                except Exception as e2:
+                    print(f"[backfill] oddsapi fallback failed for {d}: {e2}")
+            total += cnt
         except Exception as e:
             print(f"[backfill] {d} failed: {e}")
         days += 1
@@ -922,12 +942,13 @@ def props_build_dataset(
     end_dt = to_dt(end)
     while cur <= end_dt:
         d = cur.strftime("%Y-%m-%d")
-        path = Path(f"data/props/player_props_lines/date={d}/bovada.parquet")
-        if path.exists():
-            try:
-                lines.append(pd.read_parquet(path))
-            except Exception:
-                pass
+        for fname in ("bovada.parquet", "oddsapi.parquet"):
+            path = Path(f"data/props/player_props_lines/date={d}/{fname}")
+            if path.exists():
+                try:
+                    lines.append(pd.read_parquet(path))
+                except Exception:
+                    pass
         cur += timedelta(days=1)
     if not lines:
         print("No props lines found in the given range.")
@@ -992,6 +1013,56 @@ def props_build_dataset(
     out_path.parent.mkdir(parents=True, exist_ok=True)
     merged.to_csv(out_path, index=False)
     print(f"Saved modeling dataset to {out_path} with {len(merged)} rows")
+
+
+@app.command()
+def props_watch(
+    date: str = typer.Option(..., help="Slate date YYYY-MM-DD (ET)"),
+    tries: int = typer.Option(30, help="Max polling attempts"),
+    interval: int = typer.Option(300, help="Seconds between attempts"),
+    output_root: str = typer.Option("data/props", help="Output root for Parquet"),
+    source: str = typer.Option("bovada", help="Source: bovada | oddsapi"),
+):
+    """Poll for player props lines and write canonical Parquet when available.
+
+    Strategy per attempt:
+      - Try Bovada (or selected source) collection. If combined rows > 0, stop.
+      - If 0 and source=bovada, try Odds API fallback (if configured).
+      - Sleep between attempts.
+    """
+    import time as _time
+    cfg_b = props_data.PropsCollectionConfig(output_root=output_root, book="bovada", source="bovada")
+    cfg_o = props_data.PropsCollectionConfig(output_root=output_root, book="oddsapi", source="oddsapi")
+    # Build roster snapshot once (best-effort) to aid player_id normalization
+    roster_df = None
+    try:
+        roster_df = build_all_team_roster_snapshots()
+    except Exception as e:
+        print(f"[props_watch] roster snapshot failed: {e}")
+    for i in range(max(1, int(tries))):
+        sel = source.lower().strip()
+        print(f"[props_watch] {date} attempt {i+1}/{tries} via {sel}…")
+        try:
+            cfg = cfg_b if sel == "bovada" else cfg_o
+            res = props_data.collect_and_write(date, roster_df=roster_df, cfg=cfg)
+            cnt = int(res.get("combined_count") or 0)
+            if cnt > 0:
+                print(f"[props_watch] success: rows={cnt}, path={res.get('output_path')}")
+                return
+            if sel == "bovada":
+                try:
+                    res2 = props_data.collect_and_write(date, roster_df=roster_df, cfg=cfg_o)
+                    cnt2 = int(res2.get("combined_count") or 0)
+                    if cnt2 > 0:
+                        print(f"[props_watch] fallback success: rows={cnt2}, path={res2.get('output_path')}")
+                        return
+                except Exception as e2:
+                    print(f"[props_watch] oddsapi fallback failed: {e2}")
+        except Exception as e:
+            print(f"[props_watch] attempt failed: {e}")
+        if i < tries - 1:
+            _time.sleep(max(1, int(interval)))
+    print("[props_watch] no props found; finished attempts")
 
 
 if __name__ == "__main__":

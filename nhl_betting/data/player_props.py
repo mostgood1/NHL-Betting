@@ -56,9 +56,9 @@ def normalize_player_names(raw: pd.DataFrame, roster_df: Optional[pd.DataFrame])
 
 def combine_over_under(df: pd.DataFrame) -> pd.DataFrame:
     if df.empty:
-        return pd.DataFrame(columns=["date","player_id","market","line","over_price","under_price","book","first_seen_at","last_seen_at","is_current"])
+        return pd.DataFrame(columns=["date","player_id","player_name","market","line","over_price","under_price","book","first_seen_at","last_seen_at","is_current"])
     # Filter to known markets
-    df = df[df["market"].isin(["SOG","GOALS","SAVES"])]
+    df = df[df["market"].isin(["SOG","GOALS","SAVES","ASSISTS","POINTS"])]
     # Build key for grouping
     grouped: List[Dict] = []
     now_iso = _utc_now_iso()
@@ -74,9 +74,18 @@ def combine_over_under(df: pd.DataFrame) -> pd.DataFrame:
                 return None
         over_price = parse_price(over_row["odds"].iloc[0]) if not over_row.empty else None
         under_price = parse_price(under_row["odds"].iloc[0]) if not under_row.empty else None
+        # Prefer a non-empty player name from either side
+        player_name = None
+        try:
+            cand_over = over_row["player"].iloc[0] if not over_row.empty else None
+            cand_under = under_row["player"].iloc[0] if not under_row.empty else None
+            player_name = next((x for x in [cand_over, cand_under] if isinstance(x, str) and x.strip() != ""), None)
+        except Exception:
+            player_name = None
         grouped.append({
             "date": date,
             "player_id": player_id,
+            "player_name": player_name,
             "market": market,
             "line": line,
             "over_price": over_price,

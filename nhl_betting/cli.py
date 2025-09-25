@@ -20,6 +20,7 @@ from .data.collect import collect_player_game_stats
 from .models.props import SkaterShotsModel, GoalieSavesModel, SkaterGoalsModel
 from .data.odds_api import OddsAPIClient, normalize_snapshot_to_rows
 from .data.bovada import BovadaClient
+from .data import player_props as props_data
 
 app = typer.Typer(help="NHL Betting predictive engine CLI")
 
@@ -859,6 +860,138 @@ def props_fetch_bovada(
     save_df(df, out_path)
     print(df.head())
     print("Saved Bovada props odds to", out_path)
+
+
+@app.command()
+def props_collect(
+    date: str = typer.Option(..., help="Slate date YYYY-MM-DD"),
+    output_root: str = typer.Option("data/props", help="Output root directory for Parquet files"),
+):
+    """Collect & normalize player props (Bovada) and write canonical Parquet under data/props/player_props_lines/date=YYYY-MM-DD."""
+    cfg = props_data.PropsCollectionConfig(output_root=output_root, book="bovada")
+    # Optional: roster mapping could be passed; for now, None
+    res = props_data.collect_and_write(date, roster_df=None, cfg=cfg)
+    print(json.dumps(res, indent=2))
+
+
+@app.command()
+def props_backfill(
+    start: str = typer.Option(..., help="Start date YYYY-MM-DD"),
+    end: str = typer.Option(..., help="End date YYYY-MM-DD"),
+    output_root: str = typer.Option("data/props", help="Output root directory for Parquet files"),
+):
+    """Backfill player props lines (SOG, GOALS, SAVES, ASSISTS, POINTS) by day and store Parquet partitions."""
+    from datetime import datetime, timedelta
+    def to_dt(s: str) -> datetime:
+        return datetime.strptime(s, "%Y-%m-%d")
+    cur = to_dt(start)
+    end_dt = to_dt(end)
+    cfg = props_data.PropsCollectionConfig(output_root=output_root, book="bovada")
+    total = 0
+    days = 0
+    while cur <= end_dt:
+        d = cur.strftime("%Y-%m-%d")
+        try:
+            res = props_data.collect_and_write(d, roster_df=None, cfg=cfg)
+            total += int(res.get("combined_count") or 0)
+        except Exception as e:
+            print(f"[backfill] {d} failed: {e}")
+        days += 1
+        cur += timedelta(days=1)
+    print(f"Backfill complete: days={days}, rows={total}")
+
+
+@app.command()
+def props_build_dataset(
+    start: str = typer.Option(..., help="Start date YYYY-MM-DD"),
+    end: str = typer.Option(..., help="End date YYYY-MM-DD"),
+    output_csv: str = typer.Option("data/props/props_modeling_dataset.csv", help="Output CSV path for modeling dataset"),
+):
+    """Build a modeling dataset by joining canonical props lines with actual player results.
+
+    Supports markets: SOG, GOALS, SAVES, ASSISTS, POINTS.
+    """
+    import os
+    from glob import glob
+    # Read canonical lines across date partition range
+    lines = []
+    from datetime import datetime, timedelta
+    def to_dt(s: str) -> datetime:
+        return datetime.strptime(s, "%Y-%m-%d")
+    cur = to_dt(start)
+    end_dt = to_dt(end)
+    while cur <= end_dt:
+        d = cur.strftime("%Y-%m-%d")
+        path = Path(f"data/props/player_props_lines/date={d}/bovada.parquet")
+        if path.exists():
+            try:
+                lines.append(pd.read_parquet(path))
+            except Exception:
+                pass
+        cur += timedelta(days=1)
+    if not lines:
+        print("No props lines found in the given range.")
+        raise typer.Exit(code=1)
+    lines_df = pd.concat(lines, ignore_index=True)
+    # Ensure player stats exist over the range
+    try:
+        collect_player_game_stats(start, end, source="stats")
+    except Exception:
+        pass
+    stats_path = RAW_DIR / "player_game_stats.csv"
+    if not stats_path.exists():
+        print("player_game_stats.csv missing; run collect_props first.")
+        raise typer.Exit(code=1)
+    stats = pd.read_csv(stats_path)
+    # Filter stats to date window and build per-player per-date outcome columns
+    stats["date_key"] = pd.to_datetime(stats["date"], errors="coerce").dt.strftime("%Y-%m-%d")
+    stats = stats[(stats["date_key"] >= start) & (stats["date_key"] <= end)]
+    # Keep relevant columns
+    keep = ["date_key","player","shots","goals","assists","saves"]
+    stats_small = stats[keep].copy()
+    # Join lines to stats on player name + date
+    df = lines_df.copy()
+    df.rename(columns={"date": "date_key", "player_name": "player"}, inplace=True)
+    merged = df.merge(stats_small, on=["date_key","player"], how="left")
+    # Compute actual value per market
+    def actual_for_market(row):
+        m = str(row.get("market")).upper()
+        if m == "SOG":
+            return row.get("shots")
+        if m == "GOALS":
+            return row.get("goals")
+        if m == "SAVES":
+            return row.get("saves")
+        if m == "ASSISTS":
+            return row.get("assists")
+        if m == "POINTS":
+            try:
+                g = float(row.get("goals") or 0)
+                a = float(row.get("assists") or 0)
+                return g + a
+            except Exception:
+                return None
+        return None
+    merged["actual"] = merged.apply(actual_for_market, axis=1)
+    # Classify result for OVER/UNDER if actual is present
+    def classify(row):
+        try:
+            if pd.isna(row.get("actual")) or pd.isna(row.get("line")):
+                return None
+            av = float(row.get("actual")); ln = float(row.get("line"))
+            if av > ln:
+                return "win"
+            if av < ln:
+                return "loss"
+            return "push"
+        except Exception:
+            return None
+    merged["result"] = merged.apply(classify, axis=1)
+    # Save dataset
+    out_path = Path(output_csv)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    merged.to_csv(out_path, index=False)
+    print(f"Saved modeling dataset to {out_path} with {len(merged)} rows")
 
 
 if __name__ == "__main__":

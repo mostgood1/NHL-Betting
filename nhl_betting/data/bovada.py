@@ -243,6 +243,10 @@ class BovadaClient:
                             market_code = "GOALS"
                         elif "saves" in mdesc:
                             market_code = "SAVES"
+                        elif "assists" in mdesc and "player" in mdesc:
+                            market_code = "ASSISTS"
+                        elif "points" in mdesc and "player" in mdesc:
+                            market_code = "POINTS"
                         if not market_code:
                             continue
                         # Player name often appears in market description like "Player Name - Shots on Goal"

@@ -1,7 +1,7 @@
 date,home,away,market,ev
-2025-09-27T23:00:00Z,Toronto Maple Leafs,Montréal Canadiens,ev_over,0.2866
-2025-09-27T23:00:00Z,Toronto Maple Leafs,Montréal Canadiens,ev_away_ml,0.2768
-2025-09-27T23:00:00Z,Toronto Maple Leafs,Montréal Canadiens,ev_away_pl_+1.5,0.1058
-2025-09-27T23:00:00Z,Toronto Maple Leafs,Montréal Canadiens,ev_home_ml,-0.2577
-2025-09-27T23:00:00Z,Toronto Maple Leafs,Montréal Canadiens,ev_home_pl_-1.5,-0.2772
-2025-09-27T23:00:00Z,Toronto Maple Leafs,Montréal Canadiens,ev_under,-0.4254
+2025-09-27,Toronto Maple Leafs,Montréal Canadiens,ev_over,0.243
+2025-09-27,Toronto Maple Leafs,Montréal Canadiens,ev_away_pl_+1.5,0.0199
+2025-09-27,Toronto Maple Leafs,Montréal Canadiens,ev_away_ml,0.0077
+2025-09-27,Toronto Maple Leafs,Montréal Canadiens,ev_home_ml,-0.0769
+2025-09-27,Toronto Maple Leafs,Montréal Canadiens,ev_home_pl_-1.5,-0.1392
+2025-09-27,Toronto Maple Leafs,Montréal Canadiens,ev_under,-0.3746

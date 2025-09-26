@@ -1,5 +1,5 @@
 date,home,away,market,ev
-2025-09-27,San Jose Sharks,Vegas Golden Knights,ev_home_ml,0.8214
-2025-09-27,San Jose Sharks,Vegas Golden Knights,ev_under,0.271
-2025-09-27,San Jose Sharks,Vegas Golden Knights,ev_over,-0.3033
-2025-09-27,San Jose Sharks,Vegas Golden Knights,ev_away_ml,-0.5649
+2025-09-27T02:00:00Z,San Jose Sharks,Vegas Golden Knights,ev_home_ml,0.757
+2025-09-27T02:00:00Z,San Jose Sharks,Vegas Golden Knights,ev_under,0.2311
+2025-09-27T02:00:00Z,San Jose Sharks,Vegas Golden Knights,ev_over,-0.2696
+2025-09-27T02:00:00Z,San Jose Sharks,Vegas Golden Knights,ev_away_ml,-0.5258

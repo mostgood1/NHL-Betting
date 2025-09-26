@@ -13,7 +13,7 @@
     .filters input, .filters select { background:#0f1530; color:#e8eaf6; border:1px solid #25316a; border-radius:6px; padding:6px 8px; }
     .summary-cards { display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap:10px; margin: 10px 0 16px; }
     .sum-card { background:#0f1530; border:1px solid #25316a; border-radius:10px; padding:10px; color:#cfe0ff; font-size:14px; }
-    .sum-card h3 { margin: 0 0 6px; font-size:14px; color:#dbe6ff; }
+  .sum-card h3 { margin: 0 0 6px; font-size:14px; color:#dbe6ff; text-transform: uppercase; }
     h2 { margin: 16px 0 8px; font-size: 18px; color:#c9d3ff; }
     table { width:100%; border-collapse: collapse; }
     th, td { padding:8px 10px; border-bottom:1px solid #25316a; text-align:left; }
@@ -35,6 +35,7 @@
     /* Buttons/links */
     .link-reset { display:inline-block; margin-left:6px; text-decoration:none; }
     .btn-chip { display:inline-block; background:#243056; border:1px solid #384a7a; padding:6px 8px; border-radius:6px; font-size:13px; color:#cfe0ff; }
+    .filters a { color:#9fb0ff; text-decoration: underline; }
   </style>
   </head>
 <body>
@@ -51,35 +52,25 @@
 
     <form method="get" class="filters">
       <label>Date <input type="date" name="date" value="{{ date or '' }}" /></label>
-      <div class="date-nav">
-        {% if prev_date %}<a href="/recommendations?date={{ prev_date }}&min_ev={{ min_ev }}&top={{ top }}&markets={{ markets }}&sort_by={{ sort_by }}&high_ev={{ high_ev }}&med_ev={{ med_ev }}">← Prev</a>{% endif %}
-        {% if next_date %}<a href="/recommendations?date={{ next_date }}&min_ev={{ min_ev }}&top={{ top }}&markets={{ markets }}&sort_by={{ sort_by }}&high_ev={{ high_ev }}&med_ev={{ med_ev }}">Next →</a>{% endif %}
-      </div>
-      <label>Min EV <input type="number" step="0.01" name="min_ev" value="{{ min_ev }}" /></label>
-      <label>Top N <input type="number" name="top" value="{{ top }}" /></label>
-      <label>Markets
-        <select name="markets">
-          <option value="all" {% if markets=='all' %}selected{% endif %}>All</option>
-          <option value="moneyline" {% if markets=='moneyline' %}selected{% endif %}>Moneyline</option>
-          <option value="totals" {% if markets=='totals' %}selected{% endif %}>Totals</option>
-          <option value="puckline" {% if markets=='puckline' %}selected{% endif %}>Puck Line</option>
-        </select>
-      </label>
-      <label>Sort By
+      <label>Sort by
         <select name="sort_by">
-          <option value="ev" {% if sort_by=='ev' %}selected{% endif %}>EV</option>
+          <option value="ev" {% if sort_by=='ev' %}selected{% endif %}>Confidence (default)</option>
           <option value="edge" {% if sort_by=='edge' %}selected{% endif %}>Edge</option>
           <option value="prob" {% if sort_by=='prob' %}selected{% endif %}>Model %</option>
           <option value="price" {% if sort_by=='price' %}selected{% endif %}>Price</option>
         </select>
       </label>
-      <label>High EV ≥ <input type="number" step="0.01" name="high_ev" value="{{ high_ev }}" /></label>
-      <label>Med EV ≥ <input type="number" step="0.01" name="med_ev" value="{{ med_ev }}" /></label>
       <button type="submit">Apply</button>
-      <a href="/recommendations?date={{ date }}" class="link-reset">
-        <span class="btn-chip">Reset</span>
-      </a>
+      <a href="/recommendations?date={{ date }}">Reset</a>
     </form>
+
+    {# Money formatting helpers for summary cards #}
+    {% macro money(val) -%}
+      {% if val is none %}—{% else %}${{ ('%.0f' % (val)) }}{% endif %}
+    {%- endmacro %}
+    {% macro money_signed(val) -%}
+      {% if val is none %}—{% else %}{% set v = val %}{% if v < 0 %}-${{ ('%.0f' % (-v)) }}{% else %}${{ ('%.0f' % v) }}{% endif %}{% endif %}
+    {%- endmacro %}
 
     <div class="summary-cards">
       <div class="sum-card">
@@ -87,14 +78,14 @@
         <div>{% if summary_overall.accuracy is not none %}{{ (summary_overall.accuracy*100)|round(1) }}%{% else %}—{% endif %} Accuracy</div>
         <div>{{ summary_overall.wins }}W-{{ summary_overall.losses }}L / {{ summary_overall.wins + summary_overall.losses }} settled</div>
         <div>ROI: {% if summary_overall.roi is not none %}{{ (summary_overall.roi*100)|round(1) }}%{% else %}—{% endif %}</div>
-        <div>Stake: ${{ summary_overall.stake|round(2) }} | P/L: ${{ summary_overall.pnl|round(2) }}</div>
+        <div>Stake: {{ money(summary_overall.stake) }} | P/L: {{ money_signed(summary_overall.pnl) }}</div>
         <div>Total picks: {{ total_picks }}</div>
       </div>
       <div class="sum-card">
         <h3>High</h3>
         <div>{% if summary_high.accuracy is not none %}{{ (summary_high.accuracy*100)|round(1) }}%{% else %}—{% endif %} Acc</div>
         <div>{{ summary_high.wins }}W-{{ summary_high.losses }}L / {{ summary_high.wins + summary_high.losses }}</div>
-        <div>Stake: ${{ summary_high.stake|round(2) }} | P/L: ${{ summary_high.pnl|round(2) }}</div>
+        <div>Stake: {{ money(summary_high.stake) }} | P/L: {{ money_signed(summary_high.pnl) }}</div>
         <div>ROI: {% if summary_high.roi is not none %}{{ (summary_high.roi*100)|round(1) }}%{% else %}—{% endif %}</div>
         <div>Picks: {{ rows_high|length }}</div>
       </div>
@@ -102,7 +93,7 @@
         <h3>Medium</h3>
         <div>{% if summary_medium.accuracy is not none %}{{ (summary_medium.accuracy*100)|round(1) }}%{% else %}—{% endif %} Acc</div>
         <div>{{ summary_medium.wins }}W-{{ summary_medium.losses }}L / {{ summary_medium.wins + summary_medium.losses }}</div>
-        <div>Stake: ${{ summary_medium.stake|round(2) }} | P/L: ${{ summary_medium.pnl|round(2) }}</div>
+        <div>Stake: {{ money(summary_medium.stake) }} | P/L: {{ money_signed(summary_medium.pnl) }}</div>
         <div>ROI: {% if summary_medium.roi is not none %}{{ (summary_medium.roi*100)|round(1) }}%{% else %}—{% endif %}</div>
         <div>Picks: {{ rows_medium|length }}</div>
       </div>
@@ -110,7 +101,7 @@
         <h3>Low</h3>
         <div>{% if summary_low.accuracy is not none %}{{ (summary_low.accuracy*100)|round(1) }}%{% else %}—{% endif %} Acc</div>
         <div>{{ summary_low.wins }}W-{{ summary_low.losses }}L / {{ summary_low.wins + summary_low.losses }}</div>
-        <div>Stake: ${{ summary_low.stake|round(2) }} | P/L: ${{ summary_low.pnl|round(2) }}</div>
+        <div>Stake: {{ money(summary_low.stake) }} | P/L: {{ money_signed(summary_low.pnl) }}</div>
         <div>ROI: {% if summary_low.roi is not none %}{{ (summary_low.roi*100)|round(1) }}%{% else %}—{% endif %}</div>
         <div>Picks: {{ rows_low|length }}</div>
       </div>
@@ -118,23 +109,24 @@
         <h3>Other</h3>
         <div>{% if summary_other.accuracy is not none %}{{ (summary_other.accuracy*100)|round(1) }}%{% else %}—{% endif %} Acc</div>
         <div>{{ summary_other.wins }}W-{{ summary_other.losses }}L / {{ summary_other.wins + summary_other.losses }}</div>
-        <div>Stake: ${{ summary_other.stake|round(2) }} | P/L: ${{ summary_other.pnl|round(2) }}</div>
+        <div>Stake: {{ money(summary_other.stake) }} | P/L: {{ money_signed(summary_other.pnl) }}</div>
         <div>ROI: {% if summary_other.roi is not none %}{{ (summary_other.roi*100)|round(1) }}%{% else %}—{% endif %}</div>
         <div>Picks: {{ rows_other|length }}</div>
       </div>
     </div>
-  <div class="meta-note">Sorted by confidence then EV. Odds assumed -110 for spread/total when book odds are not present.</div>
+  <div class="meta-note">Sorted by confidence then E.V. Odds assumed -110 for spread/total when book odds are not present.</div>
 
   {% macro rec_table(rows, tier) %}
     <table>
       <thead>
         <tr>
-          <th>Matchup</th>
-          <th>Market</th>
-          <th>Pick</th>
-          <th>Price</th>
-          <th>Model %</th>
+          <th>Game</th>
+          <th>Type</th>
+          <th>Selection</th>
+          <th>Odds</th>
+          <th>EV</th>
           <th>Result</th>
+          <th>Date</th>
         </tr>
       </thead>
       <tbody>
@@ -148,16 +140,16 @@
             <td class="pick-{{ tier }}">{{ team }} ML <span class="badge badge-{{ tier }}">{{ tier|capitalize }}</span></td>
           {% elif r.market == 'totals' %}
             {% set line = r.total_line_used %}
-            <td class="pick-{{ tier }}">{{ r.bet|capitalize }}{% if line is not none %} {{ '%.1f' % line }}{% endif %}{% if price is not none %} ({{ price }}){% endif %} <span class="badge badge-{{ tier }}">{{ tier|capitalize }}</span></td>
+            <td class="pick-{{ tier }}">{{ r.bet|capitalize }}{% if line is not none %} {{ '%.1f' % line }}{% endif %} <span class="badge badge-{{ tier }}">{{ tier|capitalize }}</span></td>
           {% elif r.market == 'puckline' %}
             {% set team = (r.home if r.bet=='home_pl_-1.5' else r.away) %}
             {% set sign = ('-1.5' if r.bet=='home_pl_-1.5' else '+1.5') %}
-            <td class="pick-{{ tier }}">{{ team }} {{ sign }}{% if price is not none %} ({{ price }}){% endif %} <span class="badge badge-{{ tier }}">{{ tier|capitalize }}</span></td>
+            <td class="pick-{{ tier }}">{{ team }} {{ sign }} <span class="badge badge-{{ tier }}">{{ tier|capitalize }}</span></td>
           {% else %}
             <td class="pick-{{ tier }}">{{ r.bet|upper }} <span class="badge badge-{{ tier }}">{{ tier|capitalize }}</span></td>
           {% endif %}
           <td>{{ price }}</td>
-          <td>{% if r.model_prob is not none %}{{ (r.model_prob*100)|round(1) }}%{% else %}—{% endif %}</td>
+          <td>{% if r.ev is not none %}{{ (r.ev*100)|round(1) }}%{% else %}—{% endif %}</td>
           <td>
             {% if r.result %}
               {% set rlow = r.result|lower %}
@@ -166,6 +158,7 @@
               —
             {% endif %}
           </td>
+          <td>{% if r.date %}{{ r.date }}{% else %}{{ date }}{% endif %}</td>
         </tr>
         {% endfor %}
       </tbody>

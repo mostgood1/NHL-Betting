@@ -50,20 +50,6 @@
       <a href="/health">Health</a>
     </div>
 
-    <form method="get" class="filters">
-      <label>Date <input type="date" name="date" value="{{ date or '' }}" /></label>
-      <label>Sort by
-        <select name="sort_by">
-          <option value="ev" {% if sort_by=='ev' %}selected{% endif %}>Confidence (default)</option>
-          <option value="edge" {% if sort_by=='edge' %}selected{% endif %}>Edge</option>
-          <option value="prob" {% if sort_by=='prob' %}selected{% endif %}>Model %</option>
-          <option value="price" {% if sort_by=='price' %}selected{% endif %}>Price</option>
-        </select>
-      </label>
-      <button type="submit">Apply</button>
-      <a href="/recommendations?date={{ date }}">Reset</a>
-    </form>
-
     {# Money formatting helpers for summary cards #}
     {% macro money(val) -%}
       {% if val is none %}—{% else %}${{ ('%.0f' % (val)) }}{% endif %}
@@ -116,6 +102,20 @@
     </div>
   <div class="meta-note">Sorted by confidence then E.V. Odds assumed -110 for spread/total when book odds are not present.</div>
 
+    <form method="get" class="filters">
+      <label>Date <input type="date" name="date" value="{{ date or '' }}" /></label>
+      <label>Sort by
+        <select name="sort_by">
+          <option value="ev" {% if sort_by=='ev' %}selected{% endif %}>Confidence (default)</option>
+          <option value="edge" {% if sort_by=='edge' %}selected{% endif %}>Edge</option>
+          <option value="prob" {% if sort_by=='prob' %}selected{% endif %}>Model %</option>
+          <option value="price" {% if sort_by=='price' %}selected{% endif %}>Price</option>
+        </select>
+      </label>
+      <button type="submit">Apply</button>
+      <a href="/recommendations?date={{ date }}">Reset</a>
+    </form>
+
   {% macro rec_table(rows, tier) %}
     <table>
       <thead>
@@ -134,7 +134,7 @@
         {% set price = r.price if r.price is not none else (-110 if r.market!='moneyline' else -110) %}
         <tr>
           <td>{{ r.away }} @ {{ r.home }}</td>
-          <td><span class="market-pill">{{ r.market|upper }}</span></td>
+          <td>{{ r.market|upper }}</td>
           {% if r.market == 'moneyline' %}
             {% set team = (r.home if r.bet=='home_ml' else r.away) %}
             <td class="pick-{{ tier }}">{{ team }} ML <span class="badge badge-{{ tier }}">{{ tier|capitalize }}</span></td>

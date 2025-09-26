@@ -1,13 +1,25 @@
 date,home,away,market,ev
-2025-09-26,Pittsburgh Penguins,Detroit Red Wings,ev_away_ml,0.4467
-2025-09-27,San Jose Sharks,Vegas Golden Knights,ev_home_ml,0.3495
+2025-09-27,San Jose Sharks,Vegas Golden Knights,ev_home_ml,0.3264
+2025-09-26,Pittsburgh Penguins,Detroit Red Wings,ev_away_ml,0.2928
 2025-09-27,Vancouver Canucks,Seattle Kraken,ev_home_ml,0.2877
-2025-09-26,New York Islanders,New Jersey Devils,ev_home_ml,0.022
-2025-09-26,Tampa Bay Lightning,Carolina Hurricanes,ev_home_ml,0.0056
-2025-09-27,Edmonton Oilers,Winnipeg Jets,ev_home_ml,-0.004
-2025-09-27,Edmonton Oilers,Winnipeg Jets,ev_away_ml,-0.0972
-2025-09-26,Tampa Bay Lightning,Carolina Hurricanes,ev_away_ml,-0.1244
-2025-09-26,New York Islanders,New Jersey Devils,ev_away_ml,-0.135
-2025-09-26,Pittsburgh Penguins,Detroit Red Wings,ev_home_ml,-0.386
+2025-09-26,Pittsburgh Penguins,Detroit Red Wings,ev_away_pl_+1.5,0.1786
+2025-09-26,Tampa Bay Lightning,Carolina Hurricanes,ev_away_pl_+1.5,0.0213
+2025-09-26,New York Islanders,New Jersey Devils,ev_away_pl_+1.5,-0.0055
+2025-09-26,New York Islanders,New Jersey Devils,ev_over,-0.0093
+2025-09-27,Edmonton Oilers,Winnipeg Jets,ev_home_ml,-0.0302
+2025-09-26,Tampa Bay Lightning,Carolina Hurricanes,ev_home_ml,-0.0354
+2025-09-26,New York Islanders,New Jersey Devils,ev_away_ml,-0.0368
+2025-09-26,New York Islanders,New Jersey Devils,ev_home_ml,-0.0495
+2025-09-26,Tampa Bay Lightning,Carolina Hurricanes,ev_away_ml,-0.0499
+2025-09-26,Pittsburgh Penguins,Detroit Red Wings,ev_over,-0.0503
+2025-09-27,Edmonton Oilers,Winnipeg Jets,ev_away_ml,-0.0562
+2025-09-26,New York Islanders,New Jersey Devils,ev_home_pl_-1.5,-0.1028
+2025-09-26,Tampa Bay Lightning,Carolina Hurricanes,ev_home_pl_-1.5,-0.1287
+2025-09-26,Tampa Bay Lightning,Carolina Hurricanes,ev_over,-0.1792
+2025-09-26,Tampa Bay Lightning,Carolina Hurricanes,ev_under,-0.2208
+2025-09-26,Pittsburgh Penguins,Detroit Red Wings,ev_home_ml,-0.3236
+2025-09-26,Pittsburgh Penguins,Detroit Red Wings,ev_under,-0.3474
+2025-09-26,New York Islanders,New Jersey Devils,ev_under,-0.3739
 2025-09-27,Vancouver Canucks,Seattle Kraken,ev_away_ml,-0.4312
-2025-09-27,San Jose Sharks,Vegas Golden Knights,ev_away_ml,-0.4886
+2025-09-26,Pittsburgh Penguins,Detroit Red Wings,ev_home_pl_-1.5,-0.4754
+2025-09-27,San Jose Sharks,Vegas Golden Knights,ev_away_ml,-0.4761

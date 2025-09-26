@@ -1,5 +1,13 @@
 date,home,away,market,ev
-2025-09-27T02:00:00Z,San Jose Sharks,Vegas Golden Knights,ev_home_ml,0.6551
-2025-09-27T02:00:00Z,San Jose Sharks,Vegas Golden Knights,ev_under,0.3318
-2025-09-27T02:00:00Z,San Jose Sharks,Vegas Golden Knights,ev_over,-0.3544
-2025-09-27T02:00:00Z,San Jose Sharks,Vegas Golden Knights,ev_away_ml,-0.4633
+2025-09-26,Pittsburgh Penguins,Detroit Red Wings,ev_away_ml,0.4467
+2025-09-27,San Jose Sharks,Vegas Golden Knights,ev_home_ml,0.3495
+2025-09-27,Vancouver Canucks,Seattle Kraken,ev_home_ml,0.2877
+2025-09-26,New York Islanders,New Jersey Devils,ev_home_ml,0.022
+2025-09-26,Tampa Bay Lightning,Carolina Hurricanes,ev_home_ml,0.0056
+2025-09-27,Edmonton Oilers,Winnipeg Jets,ev_home_ml,-0.004
+2025-09-27,Edmonton Oilers,Winnipeg Jets,ev_away_ml,-0.0972
+2025-09-26,Tampa Bay Lightning,Carolina Hurricanes,ev_away_ml,-0.1244
+2025-09-26,New York Islanders,New Jersey Devils,ev_away_ml,-0.135
+2025-09-26,Pittsburgh Penguins,Detroit Red Wings,ev_home_ml,-0.386
+2025-09-27,Vancouver Canucks,Seattle Kraken,ev_away_ml,-0.4312
+2025-09-27,San Jose Sharks,Vegas Golden Knights,ev_away_ml,-0.4886

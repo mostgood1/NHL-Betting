@@ -1,0 +1,12 @@
+date,home,away,market,bet,price,model_prob,ev,edge,book,result
+2025-09-25T02:00:00Z,Anaheim Ducks,Los Angeles Kings,puckline,away_pl_+1.5,-110.0,0.966,0.8441818181818183,,,Loss
+2025-09-24T22:00:00Z,Carolina Hurricanes,Florida Panthers,puckline,away_pl_+1.5,-110.0,0.9069,0.7313545454545456,,,Loss
+2025-09-25T02:00:00Z,Vancouver Canucks,Calgary Flames,moneyline,away_ml,164.0,0.5255,0.3873199999999998,,,Loss
+2025-09-24T23:00:00Z,Columbus Blue Jackets,Pittsburgh Penguins,totals,under,-110.0,0.701,0.3382727272727273,,,Win
+2025-09-25T01:00:00Z,Edmonton Oilers,Seattle Kraken,totals,under,-110.0,0.6709,0.280809090909091,,,Win
+2025-09-24T23:00:00Z,Columbus Blue Jackets,Pittsburgh Penguins,puckline,home_pl_-1.5,-110.0,0.6679,0.2750818181818183,,,Loss
+2025-09-25T02:00:00Z,Anaheim Ducks,Los Angeles Kings,totals,under,-110.0,0.6672,0.2737454545454546,,,Win
+2025-09-25T02:00:00Z,Vancouver Canucks,Calgary Flames,puckline,away_pl_+1.5,-148.0,0.7534,0.262454054054054,,,Loss
+2025-09-25T02:00:00Z,Vancouver Canucks,Calgary Flames,totals,under,-110.0,0.6426,0.22678181818181808,,,Win
+2025-09-25T01:00:00Z,Edmonton Oilers,Seattle Kraken,puckline,away_pl_+1.5,-110.0,0.5971,0.13991818181818183,,,Loss
+2025-09-24T22:00:00Z,Carolina Hurricanes,Florida Panthers,totals,under,-110.0,0.5713,0.0906636363636365,,,Push

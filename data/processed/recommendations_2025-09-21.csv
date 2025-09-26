@@ -1,0 +1,11 @@
+date,home,away,market,bet,price,model_prob,ev,edge,book,total_line_used
+2025-09-22T00:00:00Z,San Jose Sharks,Vegas Golden Knights,puckline,away_pl_+1.5,-110.0,0.9388,0.7922545454545454,,,6.0
+2025-09-21T17:00:00Z,New Jersey Devils,New York Rangers,puckline,away_pl_+1.5,-110.0,0.8776,0.675418181818182,,,6.0
+2025-09-22T00:00:00Z,Calgary Flames,Edmonton Oilers,puckline,away_pl_+1.5,-110.0,0.8618,0.6452545454545455,,,6.0
+2025-09-22T00:00:00Z,Seattle Kraken,Vancouver Canucks,puckline,away_pl_+1.5,-110.0,0.823,0.5711818181818181,,,6.0
+2025-09-21T21:00:00Z,Columbus Blue Jackets,St. Louis Blues,puckline,away_pl_+1.5,-110.0,0.8202,0.5658363636363638,,,6.0
+2025-09-21T19:00:00Z,Nashville Predators,Florida Panthers,puckline,away_pl_+1.5,-110.0,0.8156,0.5570545454545455,,,6.0
+2025-09-21T23:00:00Z,Nashville Predators,Florida Panthers,puckline,away_pl_+1.5,-110.0,0.8156,0.5570545454545455,,,6.0
+2025-09-21T19:00:00Z,Ottawa Senators,Toronto Maple Leafs,puckline,away_pl_+1.5,-110.0,0.7159,0.36671818181818183,,,6.0
+2025-09-22T00:00:00Z,Edmonton Oilers,Calgary Flames,puckline,home_pl_-1.5,-110.0,0.6176,0.17905454545454558,,,6.0
+2025-09-21T22:00:00Z,Los Angeles Kings,Anaheim Ducks,puckline,home_pl_-1.5,-110.0,0.6171,0.17810000000000004,,,6.0

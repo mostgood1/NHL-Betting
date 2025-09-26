@@ -1,5 +1,6 @@
 import json
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from pathlib import Path
 from typing import Optional
 
@@ -65,10 +66,23 @@ def fetch(
     else:
         games = client.schedule(start, end)
     rows = []
+    # Helper for ET calendar day
+    def _to_et_date(iso_utc: str) -> str:
+        try:
+            s = str(iso_utc).replace("Z", "+00:00")
+            dt = datetime.fromisoformat(s)
+            return dt.astimezone(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
+        except Exception:
+            try:
+                dt = datetime.fromisoformat(str(iso_utc)[:19]).replace(tzinfo=timezone.utc)
+                return dt.astimezone(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
+            except Exception:
+                return None
     for g in games:
         rows.append({
             "gamePk": g.gamePk,
-            "date": g.gameDate,
+            "date": g.gameDate,  # ISO UTC
+            "date_et": _to_et_date(g.gameDate),  # US/Eastern calendar day
             "season": g.season,
             "type": g.gameType,
             "home": g.home,
@@ -139,6 +153,24 @@ def predict_core(
     bankroll: float = 0.0,
     kelly_fraction_part: float = 0.5,
 ) -> Path:
+    # Helper: convert ISO UTC (e.g., 2025-09-22T23:00:00Z) to ET calendar day YYYY-MM-DD
+    def iso_to_et_date(iso_utc: str) -> str:
+        if not iso_utc:
+            return ""
+        try:
+            s = str(iso_utc).replace("Z", "+00:00")
+            dt_utc = datetime.fromisoformat(s)
+            et = ZoneInfo("America/New_York")
+            dt_et = dt_utc.astimezone(et)
+            return dt_et.strftime("%Y-%m-%d")
+        except Exception:
+            try:
+                dt_utc = datetime.fromisoformat(str(iso_utc)[:19]).replace(tzinfo=timezone.utc)
+                et = ZoneInfo("America/New_York")
+                dt_et = dt_utc.astimezone(et)
+                return dt_et.strftime("%Y-%m-%d")
+            except Exception:
+                return ""
     # Helper: normalize team names for robust matching
     import re, unicodedata
     def norm_team(s: str) -> str:
@@ -352,7 +384,9 @@ def predict_core(
 
         # Build base row with model probabilities
         row = {
-            "date": pd.to_datetime(getattr(g, "gameDate")).strftime("%Y-%m-%d"),
+            # Keep UTC ISO in 'date' for precision; add ET calendar day for grouping/UI
+            "date": getattr(g, "gameDate"),
+            "date_et": iso_to_et_date(getattr(g, "gameDate")),
             "home": getattr(g, "home"),
             "away": getattr(g, "away"),
             "total_line_used": float(per_game_total),
@@ -682,7 +716,21 @@ def build_range_core(
         games = [g for g in games if (_assets(getattr(g, 'home', '')).get('abbr') and _assets(getattr(g, 'away', '')).get('abbr'))]
     except Exception:
         pass
-    dates = sorted({pd.to_datetime(getattr(g, 'gameDate')).strftime('%Y-%m-%d') for g in games})
+    # Group build days by US/Eastern calendar date to avoid cross-midnight UTC duplications
+    def _et_day(iso_utc: str) -> str:
+        try:
+            s = str(iso_utc).replace("Z", "+00:00")
+            dt_utc = datetime.fromisoformat(s)
+            et = ZoneInfo("America/New_York")
+            return dt_utc.astimezone(et).strftime('%Y-%m-%d')
+        except Exception:
+            try:
+                dt_utc = datetime.fromisoformat(str(iso_utc)[:19]).replace(tzinfo=timezone.utc)
+                et = ZoneInfo("America/New_York")
+                return dt_utc.astimezone(et).strftime('%Y-%m-%d')
+            except Exception:
+                return pd.to_datetime(iso_utc, errors='coerce').strftime('%Y-%m-%d')
+    dates = sorted({_et_day(getattr(g, 'gameDate')) for g in games})
     print(f"Found {len(dates)} dates with NHL games between {start} and {end}.")
     for d in dates:
         snapshot = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")

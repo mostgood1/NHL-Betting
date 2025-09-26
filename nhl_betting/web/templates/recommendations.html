@@ -91,25 +91,19 @@
         <div>ROI: {% if summary_low.roi is not none %}{{ (summary_low.roi*100)|round(1) }}%{% else %}—{% endif %}</div>
         <div>Picks: {{ rows_low|length }}</div>
       </div>
-      <div class="sum-card">
-        <h3>Other</h3>
-        <div>{% if summary_other.accuracy is not none %}{{ (summary_other.accuracy*100)|round(1) }}%{% else %}—{% endif %} Acc</div>
-        <div>{{ summary_other.wins }}W-{{ summary_other.losses }}L / {{ summary_other.wins + summary_other.losses }}</div>
-        <div>Stake: {{ money(summary_other.stake) }} | P/L: {{ money_signed(summary_other.pnl) }}</div>
-        <div>ROI: {% if summary_other.roi is not none %}{{ (summary_other.roi*100)|round(1) }}%{% else %}—{% endif %}</div>
-        <div>Picks: {{ rows_other|length }}</div>
-      </div>
+      
     </div>
   <div class="meta-note">Sorted by confidence then E.V. Odds assumed -110 for spread/total when book odds are not present.</div>
 
     <form method="get" class="filters">
-      <label>Date <input type="date" name="date" value="{{ date or '' }}" /></label>
+      <label>Date <input id="dateInput" type="date" name="date" value="{{ date or '' }}" /></label>
       <label>Sort by
         <select name="sort_by">
           <option value="ev" {% if sort_by=='ev' %}selected{% endif %}>Confidence (default)</option>
           <option value="edge" {% if sort_by=='edge' %}selected{% endif %}>Edge</option>
           <option value="prob" {% if sort_by=='prob' %}selected{% endif %}>Model %</option>
           <option value="price" {% if sort_by=='price' %}selected{% endif %}>Price</option>
+          <option value="bet" {% if sort_by=='bet' %}selected{% endif %}>Bet type</option>
         </select>
       </label>
       <button type="submit">Apply</button>
@@ -180,10 +174,19 @@
       {{ rec_table(rows_low, 'low') }}
     {% endif %}
 
-    {% if rows_other|length > 0 %}
-      <h2>Other</h2>
-      {{ rec_table(rows_other, 'other') }}
-    {% endif %}
+    
+
+  <script>
+    // Default the date input to today's date if empty
+    (function(){
+      const inp = document.getElementById('dateInput');
+      if (inp && !inp.value) {
+        const tzoffset = (new Date()).getTimezoneOffset() * 60000; // offset in ms
+        const localISODate = (new Date(Date.now() - tzoffset)).toISOString().slice(0,10);
+        inp.value = localISODate;
+      }
+    })();
+  </script>
 
   </div>
 </body>

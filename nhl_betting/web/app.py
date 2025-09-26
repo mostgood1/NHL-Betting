@@ -1938,7 +1938,7 @@ async def recommendations(
     kelly_fraction_part: float = Query(0.5, description="Kelly fraction; used only if bankroll>0"),
     high_ev: float = Query(0.08, description="EV threshold for High confidence grouping (e.g., 0.08 for 8%)"),
     med_ev: float = Query(0.04, description="EV threshold for Medium confidence grouping (e.g., 0.04 for 4%)"),
-    sort_by: str = Query("ev", description="Sort key within groups: ev, edge, prob, price"),
+    sort_by: str = Query("ev", description="Sort key within groups: ev, edge, prob, price, bet"),
 ):
     date = date or _today_ymd()
     # Normalize potential Query objects (when called internally) to raw values
@@ -2015,13 +2015,21 @@ async def recommendations(
             return lambda x: x.get("model_prob", -999)
         if sb == "price":
             return lambda x: x.get("price", -999)
+        if sb == "bet":
+            order = {"moneyline": 0, "totals": 1, "puckline": 2}
+            return lambda x: (
+                order.get((x.get("market") or "").lower(), 99),
+                str(x.get("bet") or "")
+            )
         # default ev
         return lambda x: x.get("ev", -999)
     _sk = sort_key_func(sort_by)
-    rows_high.sort(key=_sk, reverse=True)
-    rows_medium.sort(key=_sk, reverse=True)
-    rows_low.sort(key=_sk, reverse=True)
-    rows_other.sort(key=_sk, reverse=True)
+    # For alphabetical/typed sort, use ascending; for numeric metrics keep descending
+    _reverse = False if sort_by == "bet" else True
+    rows_high.sort(key=_sk, reverse=_reverse)
+    rows_medium.sort(key=_sk, reverse=_reverse)
+    rows_low.sort(key=_sk, reverse=_reverse)
+    rows_other.sort(key=_sk, reverse=_reverse)
     # Summary metrics (overall and per-group)
     def american_to_decimal_local(american):
         try:

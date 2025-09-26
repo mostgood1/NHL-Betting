@@ -32,6 +32,9 @@
   .result-push { background:#3a2e06; color:#ffeaa7; border-color:#6a530a; }
     .date-nav { display:flex; gap:8px; align-items:center; }
     .meta-note { color:#9fb0ff; font-size:12px; }
+    /* Buttons/links */
+    .link-reset { display:inline-block; margin-left:6px; text-decoration:none; }
+    .btn-chip { display:inline-block; background:#243056; border:1px solid #384a7a; padding:6px 8px; border-radius:6px; font-size:13px; color:#cfe0ff; }
   </style>
   </head>
 <body>
@@ -73,51 +76,54 @@
       <label>High EV ≥ <input type="number" step="0.01" name="high_ev" value="{{ high_ev }}" /></label>
       <label>Med EV ≥ <input type="number" step="0.01" name="med_ev" value="{{ med_ev }}" /></label>
       <button type="submit">Apply</button>
+      <a href="/recommendations?date={{ date }}" class="link-reset">
+        <span class="btn-chip">Reset</span>
+      </a>
     </form>
 
     <div class="summary-cards">
       <div class="sum-card">
         <h3>Overall</h3>
-        <div>Accuracy: {% if summary_overall.accuracy is not none %}{{ (summary_overall.accuracy*100)|round(1) }}%{% else %}—{% endif %}</div>
-        <div>W-L-P: {{ summary_overall.wins }}-{{ summary_overall.losses }}-{{ summary_overall.pushes }}</div>
-        <div>Stake: ${{ summary_overall.stake|round(2) }} | P/L: ${{ summary_overall.pnl|round(2) }}</div>
+        <div>{% if summary_overall.accuracy is not none %}{{ (summary_overall.accuracy*100)|round(1) }}%{% else %}—{% endif %} Accuracy</div>
+        <div>{{ summary_overall.wins }}W-{{ summary_overall.losses }}L / {{ summary_overall.wins + summary_overall.losses }} settled</div>
         <div>ROI: {% if summary_overall.roi is not none %}{{ (summary_overall.roi*100)|round(1) }}%{% else %}—{% endif %}</div>
+        <div>Stake: ${{ summary_overall.stake|round(2) }} | P/L: ${{ summary_overall.pnl|round(2) }}</div>
         <div>Total picks: {{ total_picks }}</div>
       </div>
       <div class="sum-card">
         <h3>High</h3>
-        <div>Accuracy: {% if summary_high.accuracy is not none %}{{ (summary_high.accuracy*100)|round(1) }}%{% else %}—{% endif %}</div>
-        <div>W-L-P: {{ summary_high.wins }}-{{ summary_high.losses }}-{{ summary_high.pushes }}</div>
+        <div>{% if summary_high.accuracy is not none %}{{ (summary_high.accuracy*100)|round(1) }}%{% else %}—{% endif %} Acc</div>
+        <div>{{ summary_high.wins }}W-{{ summary_high.losses }}L / {{ summary_high.wins + summary_high.losses }}</div>
         <div>Stake: ${{ summary_high.stake|round(2) }} | P/L: ${{ summary_high.pnl|round(2) }}</div>
         <div>ROI: {% if summary_high.roi is not none %}{{ (summary_high.roi*100)|round(1) }}%{% else %}—{% endif %}</div>
         <div>Picks: {{ rows_high|length }}</div>
       </div>
       <div class="sum-card">
         <h3>Medium</h3>
-        <div>Accuracy: {% if summary_medium.accuracy is not none %}{{ (summary_medium.accuracy*100)|round(1) }}%{% else %}—{% endif %}</div>
-        <div>W-L-P: {{ summary_medium.wins }}-{{ summary_medium.losses }}-{{ summary_medium.pushes }}</div>
+        <div>{% if summary_medium.accuracy is not none %}{{ (summary_medium.accuracy*100)|round(1) }}%{% else %}—{% endif %} Acc</div>
+        <div>{{ summary_medium.wins }}W-{{ summary_medium.losses }}L / {{ summary_medium.wins + summary_medium.losses }}</div>
         <div>Stake: ${{ summary_medium.stake|round(2) }} | P/L: ${{ summary_medium.pnl|round(2) }}</div>
         <div>ROI: {% if summary_medium.roi is not none %}{{ (summary_medium.roi*100)|round(1) }}%{% else %}—{% endif %}</div>
         <div>Picks: {{ rows_medium|length }}</div>
       </div>
       <div class="sum-card">
         <h3>Low</h3>
-        <div>Accuracy: {% if summary_low.accuracy is not none %}{{ (summary_low.accuracy*100)|round(1) }}%{% else %}—{% endif %}</div>
-        <div>W-L-P: {{ summary_low.wins }}-{{ summary_low.losses }}-{{ summary_low.pushes }}</div>
+        <div>{% if summary_low.accuracy is not none %}{{ (summary_low.accuracy*100)|round(1) }}%{% else %}—{% endif %} Acc</div>
+        <div>{{ summary_low.wins }}W-{{ summary_low.losses }}L / {{ summary_low.wins + summary_low.losses }}</div>
         <div>Stake: ${{ summary_low.stake|round(2) }} | P/L: ${{ summary_low.pnl|round(2) }}</div>
         <div>ROI: {% if summary_low.roi is not none %}{{ (summary_low.roi*100)|round(1) }}%{% else %}—{% endif %}</div>
         <div>Picks: {{ rows_low|length }}</div>
       </div>
       <div class="sum-card">
         <h3>Other</h3>
-        <div>Accuracy: {% if summary_other.accuracy is not none %}{{ (summary_other.accuracy*100)|round(1) }}%{% else %}—{% endif %}</div>
-        <div>W-L-P: {{ summary_other.wins }}-{{ summary_other.losses }}-{{ summary_other.pushes }}</div>
+        <div>{% if summary_other.accuracy is not none %}{{ (summary_other.accuracy*100)|round(1) }}%{% else %}—{% endif %} Acc</div>
+        <div>{{ summary_other.wins }}W-{{ summary_other.losses }}L / {{ summary_other.wins + summary_other.losses }}</div>
         <div>Stake: ${{ summary_other.stake|round(2) }} | P/L: ${{ summary_other.pnl|round(2) }}</div>
         <div>ROI: {% if summary_other.roi is not none %}{{ (summary_other.roi*100)|round(1) }}%{% else %}—{% endif %}</div>
         <div>Picks: {{ rows_other|length }}</div>
       </div>
     </div>
-  <div class="meta-note">Sorted by confidence then {{ sort_by|upper }}. Odds assumed -110 for totals/puck line when not present.</div>
+  <div class="meta-note">Sorted by confidence then EV. Odds assumed -110 for spread/total when book odds are not present.</div>
 
   {% macro rec_table(rows, tier) %}
     <table>

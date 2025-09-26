@@ -1742,77 +1742,140 @@ async def api_recommendations(
     # Helper to add a rec if EV present and above threshold
     recs = []
     def add_rec(row: pd.Series, market_key: str, label: str, prob_key: str, ev_key: str, edge_key: str, odds_key: str, book_key: Optional[str] = None):
-        if ev_key in row and pd.notna(row[ev_key]) and float(row[ev_key]) >= min_ev:
-            # Safe numeric extraction for odds price (ignore obvious book string mixups)
-            def _num(v):
-                if v is None:
-                    return None
-                try:
-                    if isinstance(v, (int, float)):
-                        return float(v)
-                    s = str(v).strip()
-                    if s == '':
-                        return None
-                    # Reject pure alpha tokens like bookmaker names
-                    import re
-                    if re.fullmatch(r'[a-zA-Z_\-]+', s):
-                        return None
-                    return float(s)
-                except Exception:
-                    return None
-            raw_price = row.get(odds_key) if odds_key in row else None
-            price_val = _num(raw_price)
-            rec = {
-                "date": row.get("date"),
-                "home": row.get("home"),
-                "away": row.get("away"),
-                "market": market_key,
-                "bet": label,
-                "model_prob": float(row.get(prob_key)) if prob_key in row and pd.notna(row.get(prob_key)) else None,
-                "ev": float(row.get(ev_key)),
-                "edge": float(row.get(edge_key)) if edge_key in row and pd.notna(row.get(edge_key)) else None,
-                "price": price_val,
-                "book": row.get(book_key) if book_key and (book_key in row) and pd.notna(row.get(book_key)) else None,
-                "total_line_used": float(row.get("total_line_used")) if "total_line_used" in row and pd.notna(row.get("total_line_used")) else None,
-                "stake": None,
-            }
-            # Result mapping (if actuals exist)
-            res = None
+        # Safe numeric extraction for odds price
+        def _num(v):
+            if v is None:
+                return None
             try:
-                if market_key == "moneyline" and isinstance(rec.get("bet"), str):
-                    winner_actual = row.get("winner_actual")
-                    if winner_actual:
-                        if rec["bet"] == "home_ml":
-                            res = "Win" if winner_actual == row.get("home") else "Loss"
-                        elif rec["bet"] == "away_ml":
-                            res = "Win" if winner_actual == row.get("away") else "Loss"
-                elif market_key == "totals" and isinstance(rec.get("bet"), str):
-                    rt = row.get("result_total")
-                    if rt:
-                        want = "Over" if rec["bet"].lower() == "over" else "Under"
-                        if rt == "Push":
-                            res = "Push"
-                        else:
-                            res = "Win" if rt == want else "Loss"
-                elif market_key == "puckline" and isinstance(rec.get("bet"), str):
-                    ra = row.get("result_ats")
-                    if ra:
-                        want = rec["bet"]  # matches 'home_pl_-1.5' or 'away_pl_+1.5'
-                        res = "Win" if ra == want else "Loss"
+                if isinstance(v, (int, float)):
+                    import math as _math
+                    _fv = float(v)
+                    return _fv if _math.isfinite(_fv) else None
+                s = str(v).strip()
+                if s == '':
+                    return None
+                import re
+                if re.fullmatch(r'[a-zA-Z_\-]+', s):
+                    return None
+                import math as _math
+                _fv2 = float(s)
+                return _fv2 if _math.isfinite(_fv2) else None
             except Exception:
-                res = None
-            if res:
-                rec["result"] = res
-            # Compute stake if bankroll provided and we have prob+odds
-            if bankroll > 0 and rec["model_prob"] is not None and rec["price"] is not None:
-                # Kelly uses decimal odds; our price stored is American. Convert from American to decimal.
-                from ..utils.odds import american_to_decimal, kelly_stake
-                try:
-                    dec = american_to_decimal(rec["price"])
-                    rec["stake"] = round(kelly_stake(rec["model_prob"], dec, bankroll, kelly_fraction_part), 2)
-                except Exception:
-                    rec["stake"] = None
-            recs.append(rec)
+                return None
+        # Determine price with fallbacks (use close_* when current odds missing, and -110 for totals/puckline)
+        raw_price = row.get(odds_key) if odds_key in row else None
+        price_val = _num(raw_price)
+        if price_val is None:
+            close_map = {
+                "home_ml_odds": "close_home_ml_odds",
+                "away_ml_odds": "close_away_ml_odds",
+                "over_odds": "close_over_odds",
+                "under_odds": "close_under_odds",
+                "home_pl_-1.5_odds": "close_home_pl_-1.5_odds",
+                "away_pl_+1.5_odds": "close_away_pl_+1.5_odds",
+            }
+            ck = close_map.get(odds_key)
+            if ck and ck in row:
+                price_val = _num(row.get(ck))
+        if price_val is None and market_key in ("totals", "puckline"):
+            price_val = -110.0
+        # Pull probability
+        prob_val = None
+        try:
+            if prob_key in row and pd.notna(row.get(prob_key)):
+                import math as _math
+                _pv = float(row.get(prob_key))
+                if _math.isfinite(_pv) and 0.0 <= _pv <= 1.0:
+                    prob_val = _pv
+                else:
+                    prob_val = None
+        except Exception:
+            prob_val = None
+        # Determine EV: use precomputed if present; else compute from prob and price
+        ev_val = None
+        try:
+            if ev_key in row and pd.notna(row[ev_key]):
+                import math as _math
+                _ev = float(row[ev_key])
+                ev_val = _ev if _math.isfinite(_ev) else None
+        except Exception:
+            ev_val = None
+        if ev_val is None and (prob_val is not None) and (price_val is not None):
+            try:
+                from ..utils.odds import american_to_decimal
+                dec = american_to_decimal(price_val)
+                # Expected ROI per $1 stake
+                import math as _math
+                _ev2 = prob_val * (dec - 1.0) - (1.0 - prob_val)
+                ev_val = _ev2 if _math.isfinite(_ev2) else None
+            except Exception:
+                ev_val = None
+        # If still no EV or below threshold, skip
+        try:
+            _ok = (ev_val is not None) and (float(ev_val) >= float(min_ev))
+        except Exception:
+            _ok = False
+        if not _ok:
+            return
+        # Sanitize optional numeric fields
+        import math as _math
+        edge_val = None
+        try:
+            if edge_key in row and pd.notna(row.get(edge_key)):
+                _edge = float(row.get(edge_key))
+                edge_val = _edge if _math.isfinite(_edge) else None
+        except Exception:
+            edge_val = None
+        total_line_used_val = None
+        try:
+            if "total_line_used" in row and pd.notna(row.get("total_line_used")):
+                _tlu = float(row.get("total_line_used"))
+                total_line_used_val = _tlu if _math.isfinite(_tlu) else None
+        except Exception:
+            total_line_used_val = None
+        rec = {
+            "date": row.get("date"),
+            "home": row.get("home"),
+            "away": row.get("away"),
+            "market": market_key,
+            "bet": label,
+            "model_prob": prob_val,
+            "ev": ev_val,
+            "edge": edge_val,
+            "price": price_val,
+            "book": row.get(book_key) if book_key and (book_key in row) and pd.notna(row.get(book_key)) else None,
+            "total_line_used": total_line_used_val,
+            "stake": None,
+        }
+        # Result mapping (if actuals exist)
+        res = None
+        try:
+            if market_key == "moneyline" and isinstance(rec.get("bet"), str):
+                winner_actual = row.get("winner_actual")
+                if winner_actual:
+                    if rec["bet"] == "home_ml":
+                        res = "Win" if winner_actual == row.get("home") else "Loss"
+                    elif rec["bet"] == "away_ml":
+                        res = "Win" if winner_actual == row.get("away") else "Loss"
+            elif market_key == "totals" and isinstance(rec.get("bet"), str):
+                rt = row.get("result_total")
+                if rt:
+                    want = "Over" if rec["bet"].lower() == "over" else "Under"
+                    if rt == "Push":
+                        res = "Push"
+                    else:
+                        res = "Win" if rt == want else "Loss"
+            elif market_key == "puckline" and isinstance(rec.get("bet"), str):
+                ra = row.get("result_ats")
+                if ra:
+                    want = rec["bet"]  # matches 'home_pl_-1.5' or 'away_pl_+1.5'
+                    res = "Win" if ra == want else "Loss"
+        except Exception:
+            res = None
+        if res:
+            rec["result"] = res
+        # Stake (UI no bankroll, keep None)
+        recs.append(rec)
 
     # Market filters
     try:
@@ -1836,7 +1899,33 @@ async def api_recommendations(
 
     # Sort by EV and take top N
     recs_sorted = sorted(recs, key=lambda x: x["ev"], reverse=True)[: top if top and top > 0 else len(recs)]
-    return JSONResponse(recs_sorted)
+    # Persist snapshot for historical tracking
+    try:
+        cols = [
+            "date","home","away","market","bet","price","model_prob","ev","edge","book","result"
+        ]
+        import pandas as _pd
+        _df_out = _pd.DataFrame([{k: r.get(k) for k in cols} for r in recs_sorted])
+        out_path = PROC_DIR / f"recommendations_{date}.csv"
+        _df_out.to_csv(out_path, index=False)
+    except Exception:
+        pass
+    # Ensure JSON-safe output (convert NaN/Inf to None)
+    try:
+        from fastapi.encoders import jsonable_encoder as _jsonable_encoder
+        _safe = _jsonable_encoder(recs_sorted, exclude_none=False)
+    except Exception:
+        # Fallback manual cleaning
+        import math as _math
+        def _clean_val(v):
+            try:
+                if isinstance(v, float) and not _math.isfinite(v):
+                    return None
+            except Exception:
+                pass
+            return v
+        _safe = [{k: _clean_val(v) for k, v in r.items()} for r in recs_sorted]
+    return JSONResponse(_safe)
 
 
 @app.get("/recommendations")
@@ -1847,8 +1936,8 @@ async def recommendations(
     markets: str = Query("all", description="Comma-separated filters: moneyline,totals,puckline"),
     bankroll: float = Query(0.0, description="If > 0, show Kelly stake using provided bankroll"),
     kelly_fraction_part: float = Query(0.5, description="Kelly fraction; used only if bankroll>0"),
-    high_ev: float = Query(0.05, description="EV threshold for High confidence grouping (e.g., 0.05 for 5%)"),
-    med_ev: float = Query(0.02, description="EV threshold for Medium confidence grouping (e.g., 0.02 for 2%)"),
+    high_ev: float = Query(0.08, description="EV threshold for High confidence grouping (e.g., 0.08 for 8%)"),
+    med_ev: float = Query(0.04, description="EV threshold for Medium confidence grouping (e.g., 0.04 for 4%)"),
     sort_by: str = Query("ev", description="Sort key within groups: ev, edge, prob, price"),
 ):
     date = date or _today_ymd()
@@ -2002,8 +2091,19 @@ async def recommendations(
         if m in counts:
             counts[m] += 1
     template = env.get_template("recommendations.html")
+    # prev/next date for quick navigation
+    prev_date = None
+    next_date = None
+    try:
+        base_dt = datetime.fromisoformat(date)
+        prev_date = (base_dt - timedelta(days=1)).strftime("%Y-%m-%d")
+        next_date = (base_dt + timedelta(days=1)).strftime("%Y-%m-%d")
+    except Exception:
+        pass
     html = template.render(
         date=date,
+        prev_date=prev_date,
+        next_date=next_date,
         rows=rows,
         rows_high=rows_high,
         rows_medium=rows_medium,

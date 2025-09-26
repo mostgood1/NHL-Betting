@@ -301,6 +301,7 @@ def predict_core(
             p_away = 1.0 - p_home
         # Per-game total line: use odds total_line if available, else provided total_line
         per_game_total = total_line
+        match_info = None  # store the matched odds row for later EV/edge calc
         if odds_df is not None:
             key_date = pd.to_datetime(g.gameDate).strftime("%Y-%m-%d")
             g_home_n = norm_team(g.home)
@@ -331,13 +332,15 @@ def predict_core(
                     m = odds_df[(odds_df["home_abbr"] == g_away_abbr) & (odds_df["away_abbr"] == g_home_abbr)]
                 if m.empty:
                     m = odds_df[(odds_df["home_norm"] == g_away_n) & (odds_df["away_norm"] == g_home_n)]
-            if not m.empty and "total_line" in m.columns:
-                val = m.iloc[0].get("total_line")
-                try:
-                    if pd.notna(val):
-                        per_game_total = float(val)
-                except Exception:
-                    per_game_total = total_line
+            if not m.empty:
+                match_info = m.iloc[0].to_dict()
+                if "total_line" in match_info:
+                    val = match_info.get("total_line")
+                    try:
+                        if pd.notna(val):
+                            per_game_total = float(val)
+                    except Exception:
+                        per_game_total = total_line
         # Derive matchup-specific lambdas and probabilities
         lam_h, lam_a = pois.lambdas_from_total_split(per_game_total, p_home)
         # Apply goals adjustments separately for home and away based on each team subgroup
@@ -346,131 +349,38 @@ def predict_core(
         lam_h = max(0.1, lam_h + gh_delta)
         lam_a = max(0.1, lam_a + ga_delta)
         p = pois.probs(total_line=per_game_total, lam_h=lam_h, lam_a=lam_a)
-        # Derivative model metrics: totals/ATS picks and edges
-        pl_line_used = 1.5
-        model_total = lam_h + lam_a
-        model_spread = lam_h - lam_a  # home minus away
-        # Edges in points (positive favors that side/total)
-        edge_over_pts = model_total - per_game_total
-        edge_under_pts = -edge_over_pts
-        edge_home_pl_pts = model_spread - pl_line_used
-        edge_away_pl_pts = pl_line_used - model_spread
-        # Model picks by raw probability when odds are absent
-        totals_pick = "Over" if p["over"] >= p["under"] else "Under"
-        ats_pick = "home_-1.5" if p["home_puckline_-1.5"] >= p["away_puckline_+1.5"] else "away_+1.5"
-        totals_edge_pts = float(edge_over_pts if totals_pick == "Over" else edge_under_pts)
-        ats_edge_pts = float(edge_home_pl_pts if ats_pick == "home_-1.5" else edge_away_pl_pts)
-        # Determine actuals if available (final games only in web schedule have goals)
-        actual_total = None
-        actual_home = None
-        actual_away = None
-        try:
-            if g.home_goals is not None and g.away_goals is not None:
-                actual_home = int(g.home_goals)
-                actual_away = int(g.away_goals)
-                actual_total = actual_home + actual_away
-        except Exception:
-            pass
+
+        # Build base row with model probabilities
         row = {
-            "date": g.gameDate,
-            "home": g.home,
-            "away": g.away,
-            # Transparency: applied subgroup adjustments
-            "adj_home_ml_delta": round(float(ml_delta), 4) if ml_delta is not None else 0.0,
-            "adj_home_goals_delta": round(float(gh_delta), 3) if gh_delta is not None else 0.0,
-            "adj_away_goals_delta": round(float(ga_delta), 3) if ga_delta is not None else 0.0,
-            "p_home_ml": round(p_home, 4),
-            "p_away_ml": round(p_away, 4),
-            "p_over": round(p["over"], 4),
-            "p_under": round(p["under"], 4),
-            "p_home_pl_-1.5": round(p["home_puckline_-1.5"], 4),
-            "p_away_pl_+1.5": round(p["away_puckline_+1.5"], 4),
-            "total_line_used": per_game_total,
-            "proj_home_goals": round(lam_h, 2),
-            "proj_away_goals": round(lam_a, 2),
-            "model_total": round(model_total, 2),
-            "model_spread": round(model_spread, 2),
-            "pl_line_used": pl_line_used,
-            "totals_pick": totals_pick,
-            "totals_edge_pts": round(totals_edge_pts, 2),
-            "ats_pick": ats_pick,
-            "ats_edge_pts": round(ats_edge_pts, 2),
-            "edge_over_pts": round(edge_over_pts, 2),
-            "edge_under_pts": round(edge_under_pts, 2),
-            "edge_home_pl_pts": round(edge_home_pl_pts, 2),
-            "edge_away_pl_pts": round(edge_away_pl_pts, 2),
-            "actual_home_goals": actual_home,
-            "actual_away_goals": actual_away,
-            "actual_total": actual_total,
-            "venue": getattr(g, "venue", None),
-            "game_state": getattr(g, "gameState", None),
+            "date": pd.to_datetime(getattr(g, "gameDate")).strftime("%Y-%m-%d"),
+            "home": getattr(g, "home"),
+            "away": getattr(g, "away"),
+            "total_line_used": float(per_game_total),
+            "p_home_ml": float(p.get("home_ml")),
+            "p_away_ml": float(p.get("away_ml")),
+            "p_over": float(p.get("over")),
+            "p_under": float(p.get("under")),
+            "p_home_pl_-1.5": float(p.get("home_puckline_-1.5")),
+            "p_away_pl_+1.5": float(p.get("away_puckline_+1.5")),
         }
-        # Winner predictions/accuracy if actuals present
-        if actual_home is not None and actual_away is not None:
-            row["winner_actual"] = g.home if actual_home > actual_away else (g.away if actual_away > actual_home else "Draw")
-            row["winner_model"] = g.home if p_home >= p_away else g.away
-            row["winner_correct"] = (row["winner_actual"] == row["winner_model"])
-            # Model vs actual totals diff
-            if actual_total is not None:
-                row["total_diff"] = round(row["model_total"] - float(actual_total), 2)
-                # Totals result/correctness
-                if per_game_total is not None:
-                    if float(actual_total) > float(per_game_total):
-                        row["result_total"] = "Over"
-                    elif float(actual_total) < float(per_game_total):
-                        row["result_total"] = "Under"
-                    else:
-                        row["result_total"] = "Push"
-                    row["totals_pick_correct"] = (row.get("result_total") != "Push" and row.get("result_total") == row.get("totals_pick"))
-                # ATS result/correctness (half-line 1.5)
-                diff = float(actual_home - actual_away)
-                row["result_ats"] = "home_-1.5" if diff > pl_line_used else "away_+1.5"
-                row["ats_pick_correct"] = (row.get("result_ats") == row.get("ats_pick"))
-        # If odds provided, compute EVs
-        if odds_df is not None:
-            key_date = pd.to_datetime(g.gameDate).strftime("%Y-%m-%d")
-            g_home_n = norm_team(g.home)
-            g_away_n = norm_team(g.away)
-            # Also derive team abbreviations for robust matching
+
+        # Helper to coerce odds to float
+        def _f(v):
             try:
-                from .web.teams import get_team_assets as _assets
-                g_home_abbr = (_assets(g.home).get("abbr") or "").upper()
-                g_away_abbr = (_assets(g.away).get("abbr") or "").upper()
+                return float(v)
             except Exception:
-                g_home_abbr = ""
-                g_away_abbr = ""
-            match = pd.DataFrame()
-            if {"home_abbr","away_abbr"}.issubset(set(odds_df.columns)) and g_home_abbr and g_away_abbr:
-                match = odds_df[(odds_df["date"] == key_date) & (odds_df["home_abbr"] == g_home_abbr) & (odds_df["away_abbr"] == g_away_abbr)]
-            if match.empty:
-                match = odds_df[(odds_df["date"] == key_date) & (odds_df["home_norm"] == g_home_n) & (odds_df["away_norm"] == g_away_n)]
-            if match.empty:
-                # Fallback: match by teams only (handles date boundary differences)
-                if {"home_abbr","away_abbr"}.issubset(set(odds_df.columns)) and g_home_abbr and g_away_abbr:
-                    match = odds_df[(odds_df["home_abbr"] == g_home_abbr) & (odds_df["away_abbr"] == g_away_abbr)]
-                if match.empty:
-                    match = odds_df[(odds_df["home_norm"] == g_home_n) & (odds_df["away_norm"] == g_away_n)]
-            if match.empty:
-                # Fallback: reversed sides
-                if {"home_abbr","away_abbr"}.issubset(set(odds_df.columns)) and g_home_abbr and g_away_abbr:
-                    match = odds_df[(odds_df["home_abbr"] == g_away_abbr) & (odds_df["away_abbr"] == g_home_abbr)]
-                if match.empty:
-                    match = odds_df[(odds_df["home_norm"] == g_away_n) & (odds_df["away_norm"] == g_home_n)]
-            if not match.empty:
-                m = match.iloc[0]
-                # Moneyline EVs (two-way)
-                def _to_float_odds(x):
-                    if x is None or (isinstance(x, float) and pd.isna(x)):
-                        return None
-                    s = str(x).strip().upper()
-                    if s in ("EVEN", "EV", "E"):
-                        return 100.0
-                    try:
-                        return float(s)
-                    except Exception:
-                        return None
-                dec_home = american_to_decimal(_to_float_odds(m["home_ml"])) if pd.notna(m.get("home_ml")) else None
-                dec_away = american_to_decimal(_to_float_odds(m["away_ml"])) if pd.notna(m.get("away_ml")) else None
+                try:
+                    s = str(v).strip().replace(",", "")
+                    return float(s)
+                except Exception:
+                    return None
+
+        # If we matched odds for this game, compute EV/edge and record odds
+        if match_info is not None:
+            # Moneyline
+            if "home_ml" in match_info or "away_ml" in match_info:
+                dec_home = american_to_decimal(_f(match_info.get("home_ml"))) if match_info.get("home_ml") is not None else None
+                dec_away = american_to_decimal(_f(match_info.get("away_ml"))) if match_info.get("away_ml") is not None else None
                 if dec_home is not None and dec_away is not None:
                     imp_h = decimal_to_implied_prob(dec_home)
                     imp_a = decimal_to_implied_prob(dec_away)
@@ -479,76 +389,60 @@ def predict_core(
                     row["ev_away_ml"] = round(ev_unit(row["p_away_ml"], dec_away), 4)
                     row["edge_home_ml"] = round(row["p_home_ml"] - nv_h, 4)
                     row["edge_away_ml"] = round(row["p_away_ml"] - nv_a, 4)
-                # Save odds and bookmaker metadata if present
-                try:
-                    row["home_ml_odds"] = _to_float_odds(m.get("home_ml")) if pd.notna(m.get("home_ml")) else None
-                except Exception:
-                    row["home_ml_odds"] = None
-                try:
-                    row["away_ml_odds"] = _to_float_odds(m.get("away_ml")) if pd.notna(m.get("away_ml")) else None
-                except Exception:
-                    row["away_ml_odds"] = None
-                if "home_ml_book" in m and pd.notna(m.get("home_ml_book")):
-                    row["home_ml_book"] = m.get("home_ml_book")
-                if "away_ml_book" in m and pd.notna(m.get("away_ml_book")):
-                    row["away_ml_book"] = m.get("away_ml_book")
-                if bankroll > 0:
+                row["home_ml_odds"] = _f(match_info.get("home_ml")) if match_info.get("home_ml") is not None else None
+                row["away_ml_odds"] = _f(match_info.get("away_ml")) if match_info.get("away_ml") is not None else None
+                if match_info.get("home_ml_book") is not None:
+                    row["home_ml_book"] = match_info.get("home_ml_book")
+                if match_info.get("away_ml_book") is not None:
+                    row["away_ml_book"] = match_info.get("away_ml_book")
+                if bankroll > 0 and dec_home is not None and dec_away is not None:
                     row["stake_home_ml"] = round(kelly_stake(row["p_home_ml"], dec_home, bankroll, kelly_fraction_part), 2)
                     row["stake_away_ml"] = round(kelly_stake(row["p_away_ml"], dec_away, bankroll, kelly_fraction_part), 2)
-                # Totals EVs (two-way at half-line)
-                if all(k in m for k in ["over", "under"]):
-                    dec_over = american_to_decimal(_to_float_odds(m["over"])) if pd.notna(m.get("over")) else None
-                    dec_under = american_to_decimal(_to_float_odds(m["under"])) if pd.notna(m.get("under")) else None
-                    if dec_over is not None and dec_under is not None:
-                        imp_o = decimal_to_implied_prob(dec_over)
-                        imp_u = decimal_to_implied_prob(dec_under)
-                        nv_o, nv_u = remove_vig_two_way(imp_o, imp_u)
-                        row["ev_over"] = round(ev_unit(row["p_over"], dec_over), 4)
-                        row["ev_under"] = round(ev_unit(row["p_under"], dec_under), 4)
-                        row["edge_over"] = round(row["p_over"] - nv_o, 4)
-                        row["edge_under"] = round(row["p_under"] - nv_u, 4)
-                    try:
-                        row["over_odds"] = _to_float_odds(m.get("over")) if pd.notna(m.get("over")) else None
-                    except Exception:
-                        row["over_odds"] = None
-                    try:
-                        row["under_odds"] = _to_float_odds(m.get("under")) if pd.notna(m.get("under")) else None
-                    except Exception:
-                        row["under_odds"] = None
-                    if "over_book" in m and pd.notna(m.get("over_book")):
-                        row["over_book"] = m.get("over_book")
-                    if "under_book" in m and pd.notna(m.get("under_book")):
-                        row["under_book"] = m.get("under_book")
-                    if bankroll > 0:
-                        row["stake_over"] = round(kelly_stake(row["p_over"], dec_over, bankroll, kelly_fraction_part), 2)
-                        row["stake_under"] = round(kelly_stake(row["p_under"], dec_under, bankroll, kelly_fraction_part), 2)
-                # Puck line EVs (assume home -1.5 / away +1.5 two-way)
-                if all(k in m for k in ["home_pl_-1.5", "away_pl_+1.5"]):
-                    dec_hpl = american_to_decimal(_to_float_odds(m["home_pl_-1.5"])) if pd.notna(m.get("home_pl_-1.5")) else None
-                    dec_apl = american_to_decimal(_to_float_odds(m["away_pl_+1.5"])) if pd.notna(m.get("away_pl_+1.5")) else None
-                    if dec_hpl is not None and dec_apl is not None:
-                        imp_hpl = decimal_to_implied_prob(dec_hpl)
-                        imp_apl = decimal_to_implied_prob(dec_apl)
-                        nv_hpl, nv_apl = remove_vig_two_way(imp_hpl, imp_apl)
-                        row["ev_home_pl_-1.5"] = round(ev_unit(row["p_home_pl_-1.5"], dec_hpl), 4)
-                        row["ev_away_pl_+1.5"] = round(ev_unit(row["p_away_pl_+1.5"], dec_apl), 4)
-                        row["edge_home_pl_-1.5"] = round(row["p_home_pl_-1.5"] - nv_hpl, 4)
-                        row["edge_away_pl_+1.5"] = round(row["p_away_pl_+1.5"] - nv_apl, 4)
-                    try:
-                        row["home_pl_-1.5_odds"] = _to_float_odds(m.get("home_pl_-1.5")) if pd.notna(m.get("home_pl_-1.5")) else None
-                    except Exception:
-                        row["home_pl_-1.5_odds"] = None
-                    try:
-                        row["away_pl_+1.5_odds"] = _to_float_odds(m.get("away_pl_+1.5")) if pd.notna(m.get("away_pl_+1.5")) else None
-                    except Exception:
-                        row["away_pl_+1.5_odds"] = None
-                    if "home_pl_-1.5_book" in m and pd.notna(m.get("home_pl_-1.5_book")):
-                        row["home_pl_-1.5_book"] = m.get("home_pl_-1.5_book")
-                    if "away_pl_+1.5_book" in m and pd.notna(m.get("away_pl_+1.5_book")):
-                        row["away_pl_+1.5_book"] = m.get("away_pl_+1.5_book")
-                    if bankroll > 0:
-                        row["stake_home_pl_-1.5"] = round(kelly_stake(row["p_home_pl_-1.5"], dec_hpl, bankroll, kelly_fraction_part), 2)
-                        row["stake_away_pl_+1.5"] = round(kelly_stake(row["p_away_pl_+1.5"], dec_apl, bankroll, kelly_fraction_part), 2)
+
+            # Totals
+            if (match_info.get("over") is not None) and (match_info.get("under") is not None):
+                dec_over = american_to_decimal(_f(match_info.get("over")))
+                dec_under = american_to_decimal(_f(match_info.get("under")))
+                if dec_over is not None and dec_under is not None:
+                    imp_o = decimal_to_implied_prob(dec_over)
+                    imp_u = decimal_to_implied_prob(dec_under)
+                    nv_o, nv_u = remove_vig_two_way(imp_o, imp_u)
+                    row["ev_over"] = round(ev_unit(row["p_over"], dec_over), 4)
+                    row["ev_under"] = round(ev_unit(row["p_under"], dec_under), 4)
+                    row["edge_over"] = round(row["p_over"] - nv_o, 4)
+                    row["edge_under"] = round(row["p_under"] - nv_u, 4)
+                row["over_odds"] = _f(match_info.get("over"))
+                row["under_odds"] = _f(match_info.get("under"))
+                if match_info.get("over_book") is not None:
+                    row["over_book"] = match_info.get("over_book")
+                if match_info.get("under_book") is not None:
+                    row["under_book"] = match_info.get("under_book")
+                if bankroll > 0 and dec_over is not None and dec_under is not None:
+                    row["stake_over"] = round(kelly_stake(row["p_over"], dec_over, bankroll, kelly_fraction_part), 2)
+                    row["stake_under"] = round(kelly_stake(row["p_under"], dec_under, bankroll, kelly_fraction_part), 2)
+
+            # Puck line (home -1.5 / away +1.5)
+            if (match_info.get("home_pl_-1.5") is not None) and (match_info.get("away_pl_+1.5") is not None):
+                dec_hpl = american_to_decimal(_f(match_info.get("home_pl_-1.5")))
+                dec_apl = american_to_decimal(_f(match_info.get("away_pl_+1.5")))
+                if dec_hpl is not None and dec_apl is not None:
+                    imp_hpl = decimal_to_implied_prob(dec_hpl)
+                    imp_apl = decimal_to_implied_prob(dec_apl)
+                    nv_hpl, nv_apl = remove_vig_two_way(imp_hpl, imp_apl)
+                    row["ev_home_pl_-1.5"] = round(ev_unit(row["p_home_pl_-1.5"], dec_hpl), 4)
+                    row["ev_away_pl_+1.5"] = round(ev_unit(row["p_away_pl_+1.5"], dec_apl), 4)
+                    row["edge_home_pl_-1.5"] = round(row["p_home_pl_-1.5"] - nv_hpl, 4)
+                    row["edge_away_pl_+1.5"] = round(row["p_away_pl_+1.5"] - nv_apl, 4)
+                row["home_pl_-1.5_odds"] = _f(match_info.get("home_pl_-1.5"))
+                row["away_pl_+1.5_odds"] = _f(match_info.get("away_pl_+1.5"))
+                if match_info.get("home_pl_-1.5_book") is not None:
+                    row["home_pl_-1.5_book"] = match_info.get("home_pl_-1.5_book")
+                if match_info.get("away_pl_+1.5_book") is not None:
+                    row["away_pl_+1.5_book"] = match_info.get("away_pl_+1.5_book")
+                if bankroll > 0 and dec_hpl is not None and dec_apl is not None:
+                    row["stake_home_pl_-1.5"] = round(kelly_stake(row["p_home_pl_-1.5"], dec_hpl, bankroll, kelly_fraction_part), 2)
+                    row["stake_away_pl_+1.5"] = round(kelly_stake(row["p_away_pl_+1.5"], dec_apl, bankroll, kelly_fraction_part), 2)
+
         rows.append(row)
     out = pd.DataFrame(rows)
     if out.empty:
@@ -655,9 +549,9 @@ def props_predict(odds_csv: str = typer.Option(..., help="CSV with columns: mark
     out_rows = []
     for _, r in req.iterrows():
         market = str(r["market"]).upper()
-        player = str(r["player"]) 
-        line = float(r["line"]) 
-        odds = float(r["odds"]) 
+        player = str(r["player"])
+        line = float(r["line"])
+        odds = float(r["odds"])
         dec = american_to_decimal(odds)
         if market == "SOG":
             lam = shots.player_lambda(hist, player, r.get("team"))
@@ -1066,4 +960,180 @@ def props_watch(
 
 
 if __name__ == "__main__":
+    def _backfill_recommendations_for_date(date: str, min_ev: float = 0.0, top: int = 100, markets: str = "all") -> Optional[Path]:
+        """Generate recommendations_{date}.csv by reusing predictions and on-the-fly EV calc (similar to web api)."""
+        from .web.app import PROC_DIR as _PROC_DIR  # reuse same directory
+        path = _PROC_DIR / f"predictions_{date}.csv"
+        if not path.exists():
+            print(f"[skip] predictions missing for {date} -> {path}")
+            return None
+        import pandas as _pd
+        df = _pd.read_csv(path)
+        # Local helpers copied from API for EV/odds parsing
+        def _num(v):
+            if v is None:
+                return None
+            try:
+                # Unwrap simple containers like list/tuple/numpy array
+                import numpy as _np
+                if isinstance(v, (list, tuple, _np.ndarray)):
+                    if len(v) == 0:
+                        return None
+                    v = v[0]
+                if isinstance(v, (int, float)):
+                    import math as _math
+                    _fv = float(v)
+                    return _fv if _math.isfinite(_fv) else None
+                s = str(v).strip()
+                if s == "":
+                    return None
+                import re, math as _math
+                if re.fullmatch(r"[a-zA-Z_\-]+", s):
+                    return None
+                _fv2 = float(s)
+                return _fv2 if _math.isfinite(_fv2) else None
+            except Exception:
+                return None
+        def _american_to_decimal(american):
+            try:
+                a = float(american)
+                if a > 0:
+                    return 1.0 + (a / 100.0)
+                else:
+                    return 1.0 + (100.0 / abs(a))
+            except Exception:
+                return None
+        def _add_rec(row, market_key, label, prob_key, ev_key, edge_key, odds_key, book_key=None, out_list=None):
+            raw_price = row.get(odds_key) if odds_key in row else None
+            price_val = _num(raw_price)
+            if price_val is None:
+                close_map = {
+                    "home_ml_odds": "close_home_ml_odds",
+                    "away_ml_odds": "close_away_ml_odds",
+                    "over_odds": "close_over_odds",
+                    "under_odds": "close_under_odds",
+                    "home_pl_-1.5_odds": "close_home_pl_-1.5_odds",
+                    "away_pl_+1.5_odds": "close_away_pl_+1.5_odds",
+                }
+                ck = close_map.get(odds_key)
+                if ck and ck in row:
+                    price_val = _num(row.get(ck))
+            if price_val is None and market_key in ("totals", "puckline"):
+                price_val = -110.0
+            prob_val = None
+            try:
+                if prob_key in row and _pd.notna(row.get(prob_key)):
+                    import math as _math
+                    _pv = float(row.get(prob_key))
+                    if _math.isfinite(_pv) and 0.0 <= _pv <= 1.0:
+                        prob_val = _pv
+            except Exception:
+                prob_val = None
+            ev_val = None
+            try:
+                if ev_key in row and _pd.notna(row[ev_key]):
+                    import math as _math
+                    _ev = float(row[ev_key])
+                    ev_val = _ev if _math.isfinite(_ev) else None
+            except Exception:
+                ev_val = None
+            if ev_val is None and (prob_val is not None) and (price_val is not None):
+                dec = _american_to_decimal(price_val)
+                if dec is not None:
+                    import math as _math
+                    _ev2 = prob_val * (dec - 1.0) - (1.0 - prob_val)
+                    ev_val = _ev2 if _math.isfinite(_ev2) else None
+            try:
+                if (ev_val is None) or not (float(ev_val) >= float(min_ev)):
+                    return
+            except Exception:
+                return
+            edge_val = None
+            try:
+                if edge_key in row and _pd.notna(row.get(edge_key)):
+                    import math as _math
+                    _edge = float(row.get(edge_key))
+                    edge_val = _edge if _math.isfinite(_edge) else None
+            except Exception:
+                edge_val = None
+            total_line_used_val = None
+            try:
+                if "total_line_used" in row and _pd.notna(row.get("total_line_used")):
+                    import math as _math
+                    _tlu = float(row.get("total_line_used"))
+                    total_line_used_val = _tlu if _math.isfinite(_tlu) else None
+            except Exception:
+                total_line_used_val = None
+            rec = {
+                "date": row.get("date"),
+                "home": row.get("home"),
+                "away": row.get("away"),
+                "market": market_key,
+                "bet": label,
+                "model_prob": prob_val,
+                "ev": ev_val,
+                "edge": edge_val,
+                "price": price_val,
+                "book": row.get(book_key) if book_key and (book_key in row) and _pd.notna(row.get(book_key)) else None,
+                "total_line_used": total_line_used_val,
+                "stake": None,
+            }
+            out_list.append(rec)
+
+        recs = []
+        # Markets filter
+        try:
+            f_markets = set([m.strip().lower() for m in str(markets).split(",")]) if markets and str(markets) != "all" else {"moneyline", "totals", "puckline"}
+        except Exception:
+            f_markets = {"moneyline", "totals", "puckline"}
+        for _, r in df.iterrows():
+            if "moneyline" in f_markets:
+                _add_rec(r, "moneyline", "home_ml", "p_home_ml", "ev_home_ml", "edge_home_ml", "home_ml_odds", book_key="home_ml_book", out_list=recs)
+                _add_rec(r, "moneyline", "away_ml", "p_away_ml", "ev_away_ml", "edge_away_ml", "away_ml_odds", book_key="away_ml_book", out_list=recs)
+            if "totals" in f_markets:
+                _add_rec(r, "totals", "over", "p_over", "ev_over", "edge_over", "over_odds", book_key="over_book", out_list=recs)
+                _add_rec(r, "totals", "under", "p_under", "ev_under", "edge_under", "under_odds", book_key="under_book", out_list=recs)
+            if "puckline" in f_markets:
+                _add_rec(r, "puckline", "home_pl_-1.5", "p_home_pl_-1.5", "ev_home_pl_-1.5", "edge_home_pl_-1.5", "home_pl_-1.5_odds", book_key="home_pl_-1.5_book", out_list=recs)
+                _add_rec(r, "puckline", "away_pl_+1.5", "p_away_pl_+1.5", "ev_away_pl_+1.5", "edge_away_pl_+1.5", "away_pl_+1.5_odds", book_key="away_pl_+1.5_book", out_list=recs)
+        recs_sorted = sorted(recs, key=lambda x: x["ev"], reverse=True)[: top if top and top > 0 else len(recs)]
+        out_cols = ["date","home","away","market","bet","price","model_prob","ev","edge","book","total_line_used"]
+        out_df = _pd.DataFrame([{k: r.get(k) for k in out_cols} for r in recs_sorted])
+        out_path = _PROC_DIR / f"recommendations_{date}.csv"
+        out_df.to_csv(out_path, index=False)
+        print(f"wrote {len(out_df)} recs -> {out_path}")
+        return out_path
+
+
+    @app.command()
+    def backfill_recommendations(
+        start: str = typer.Argument(..., help="Start date YYYY-MM-DD"),
+        end: str = typer.Argument(..., help="End date YYYY-MM-DD"),
+        min_ev: float = typer.Option(0.0, help="Minimum EV threshold"),
+        top: int = typer.Option(100, help="Top N per day"),
+        markets: str = typer.Option("all", help="moneyline,totals,puckline or 'all'"),
+    ):
+        """Backfill recommendations_{date}.csv across a date range using saved predictions."""
+        from datetime import datetime as _dt, timedelta as _td
+        try:
+            start_dt = _dt.strptime(start, "%Y-%m-%d")
+            end_dt = _dt.strptime(end, "%Y-%m-%d")
+        except Exception:
+            print("Invalid date format; use YYYY-MM-DD")
+            raise typer.Exit(code=1)
+        if end_dt < start_dt:
+            start_dt, end_dt = end_dt, start_dt
+        d = start_dt
+        count = 0
+        while d <= end_dt:
+            day = d.strftime("%Y-%m-%d")
+            try:
+                _backfill_recommendations_for_date(day, min_ev=min_ev, top=top, markets=markets)
+                count += 1
+            except Exception as e:
+                print(f"[error] {day}: {e}")
+            d += _td(days=1)
+        print(f"Backfill complete for {count} days.")
+
+
     app()

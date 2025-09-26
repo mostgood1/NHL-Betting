@@ -3,250 +3,189 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>NHL Betting - Recommendations</title>
+  <title>NHL Betting – Recommendations</title>
   <link rel="stylesheet" href="/static/style.css" />
   <style>
-    .rec-wrap { padding: 18px 0; }
-    .header { display: flex; align-items: center; justify-content: space-between; }
-    .controls { display: flex; gap: 8px; align-items: center; }
-    .controls input, .controls select { background: #1e1e1e; color: #f0f0f0; border: 1px solid #333; border-radius: 4px; padding: 6px 8px; }
-    .controls label { font-size: 12px; color: #bbb; }
-    .section { margin-top: 18px; }
-    .section h2 { margin: 10px 0; font-size: 16px; color: #c9d3ff; }
-    table.rec { width: 100%; border-collapse: collapse; }
-    table.rec th, table.rec td { padding: 8px 10px; border-bottom: 1px solid #25316a; text-align: left; }
-    .pill { display: inline-block; padding: 2px 6px; border-radius: 999px; background: #0f1530; border: 1px solid #25316a; font-size: 12px; color: #d5dbff; }
-    .conf-badge { font-size:11px; font-weight:600; padding:2px 6px; border-radius:6px; display:inline-block; }
-    .conf-high { background:#145025; color:#c9ffd8; border:1px solid #2e8a49; }
-    .conf-medium { background:#253c6e; color:#d5e2ff; border:1px solid #3d5c9e; }
-    .conf-low { background:#5a3a00; color:#ffe7c2; border:1px solid #a56b00; }
-    .conf-other { background:#3d3d3d; color:#d0d0d0; border:1px solid #5a5a5a; }
-    .export-btn { background:#243056; color:#dbe6ff; border:1px solid #384a7a; padding:6px 10px; border-radius:4px; cursor:pointer; }
-    .export-btn:hover { background:#2d3d70; }
-    .auto-refresh-label { font-size:12px; display:flex; align-items:center; gap:4px; }
-    .book-badge { background: #243056; color: #cfe0ff; padding: 2px 6px; border-radius: 6px; font-size: 11px; font-weight: 700; opacity: 0.9; }
-    .meta { color: #9fb0ff; font-size: 12px; margin-top: 6px; }
+    .page { padding: 18px 0; }
+    .nav { display:flex; gap:10px; align-items:center; margin-bottom:10px; }
+    .nav a { color:#cfe0ff; text-decoration:none; background:#243056; border:1px solid #384a7a; padding:6px 8px; border-radius:6px; font-size:13px; }
+    .filters { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin: 8px 0 12px; }
+    .filters input, .filters select { background:#0f1530; color:#e8eaf6; border:1px solid #25316a; border-radius:6px; padding:6px 8px; }
+    .summary-cards { display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap:10px; margin: 10px 0 16px; }
+    .sum-card { background:#0f1530; border:1px solid #25316a; border-radius:10px; padding:10px; color:#cfe0ff; font-size:14px; }
+    .sum-card h3 { margin: 0 0 6px; font-size:14px; color:#dbe6ff; }
+    h2 { margin: 16px 0 8px; font-size: 18px; color:#c9d3ff; }
+    table { width:100%; border-collapse: collapse; }
+    th, td { padding:8px 10px; border-bottom:1px solid #25316a; text-align:left; }
+    .market-pill { display:inline-block; padding:2px 6px; border-radius:10px; background:#0f1530; border:1px solid #25316a; color:#d5dbff; font-size:12px; }
+    /* Pick text stays white; keep tiered badge pills as-is */
+    .pick-high, .pick-medium, .pick-low, .pick-other { font-weight:700; color:#ffffff; }
+  .badge { display:inline-block; padding:2px 6px; border-radius:10px; font-size:11px; margin-left:6px; border:1px solid transparent; }
+  .badge-high { background:#063a2a; color:#a7f3c6; border-color:#0a5a40; }
+  .badge-medium { background:#3a2e06; color:#ffeaa7; border-color:#6a530a; }
+  .badge-low { background:#1e244a; color:#dfe6ff; border-color:#2a356b; }
+  .badge-other { background:#222a3a; color:#b0bec5; border-color:#314155; }
+  /* Result pills: green=win, red=loss, yellow=push */
+  .result-pill { display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px; border:1px solid transparent; }
+  .result-win { background:#063a2a; color:#a7f3c6; border-color:#0a5a40; }
+  .result-loss { background:#3a0a0a; color:#fca5a5; border-color:#7a2e2e; }
+  .result-push { background:#3a2e06; color:#ffeaa7; border-color:#6a530a; }
+    .date-nav { display:flex; gap:8px; align-items:center; }
+    .meta-note { color:#9fb0ff; font-size:12px; }
   </style>
-</head>
+  </head>
 <body>
-  <div class="container rec-wrap">
-    <div class="header">
-      <h1>NHL Betting – Recommendations</h1>
-      <div class="controls">
-        <label>Min EV
-          <input id="min_ev" type="number" step="0.01" value="{{ min_ev }}" />
-        </label>
-        <div class="container">
-          <h1>NHL Betting Recommendations</h1>
-          <form method="get" class="filters">
-            <label>Date <input type="date" name="date" value="{{ date or '' }}" /></label>
-            <label>Min EV <input type="number" step="0.01" name="min_ev" value="{{ min_ev }}" /></label>
-            <label>Top N <input type="number" name="top" value="{{ top }}" /></label>
-            <label>Markets
-              <select name="markets">
-                <option value="all" {% if markets=='all' %}selected{% endif %}>All</option>
-                <option value="moneyline" {% if markets=='moneyline' %}selected{% endif %}>Moneyline</option>
-                <option value="totals" {% if markets=='totals' %}selected{% endif %}>Totals</option>
-                <option value="puckline" {% if markets=='puckline' %}selected{% endif %}>Puck Line</option>
-              </select>
-            </label>
-            <label>Bankroll <input type="number" step="1" name="bankroll" value="{{ bankroll }}" /></label>
-            <label>Kelly Part <input type="number" step="0.05" name="kelly_fraction_part" value="{{ kelly_fraction_part }}" /></label>
-            <label>High EV ≥ <input type="number" step="0.01" name="high_ev" value="{{ high_ev }}" /></label>
-            <label>Med EV ≥ <input type="number" step="0.01" name="med_ev" value="{{ med_ev }}" /></label>
-            <label>Sort By
-              <select name="sort_by">
-                <option value="ev" {% if sort_by=='ev' %}selected{% endif %}>EV</option>
-                <option value="edge" {% if sort_by=='edge' %}selected{% endif %}>Edge</option>
-                <option value="prob" {% if sort_by=='prob' %}selected{% endif %}>Model %</option>
-                <option value="price" {% if sort_by=='price' %}selected{% endif %}>Price</option>
-              </select>
-            </label>
-            <label class="auto-refresh-label"><input type="checkbox" id="autoRefreshBox" /> Auto-refresh</label>
-            <button type="button" id="exportCsv" class="export-btn" title="Download current recommendations as CSV">Export CSV</button>
-            <button type="submit">Apply</button>
-          </form>
-
-          <div class="top-bar">
-            <div>Total Picks: {{ total_picks }}</div>
-            <div>Markets: ML {{ counts.moneyline }}, Totals {{ counts.totals }}, PL {{ counts.puckline }}</div>
-            <div>High ≥ {{ (high_ev*100)|round(1) }}% | Med ≥ {{ (med_ev*100)|round(1) }}%</div>
-          </div>
-
-          <div class="summary">
-            <div class="summary-section">
-              <h3>Overall</h3>
-              <div>Wins/Losses/Pushes: {{ summary_overall.wins }}/{{ summary_overall.losses }}/{{ summary_overall.pushes }}</div>
-              <div>Accuracy: {% if summary_overall.accuracy is not none %}{{ (summary_overall.accuracy*100)|round(1) }}%{% else %}-{% endif %}</div>
-              <div>Total Stake: ${{ summary_overall.stake|round(2) }}</div>
-              <div>P/L: ${{ summary_overall.pnl|round(2) }}</div>
-              <div>ROI: {% if summary_overall.roi is not none %}{{ (summary_overall.roi*100)|round(1) }}%{% else %}-{% endif %}</div>
-            </div>
-            <div class="summary-section">
-              <h3>High Confidence</h3>
-              <div>Wins/Losses/Pushes: {{ summary_high.wins }}/{{ summary_high.losses }}/{{ summary_high.pushes }}</div>
-              <div>Accuracy: {% if summary_high.accuracy is not none %}{{ (summary_high.accuracy*100)|round(1) }}%{% else %}-{% endif %}</div>
-              <div>Total Stake: ${{ summary_high.stake|round(2) }}</div>
-              <div>P/L: ${{ summary_high.pnl|round(2) }}</div>
-              <div>ROI: {% if summary_high.roi is not none %}{{ (summary_high.roi*100)|round(1) }}%{% else %}-{% endif %}</div>
-            </div>
-            <div class="summary-section">
-              <h3>Medium Confidence</h3>
-              <div>Wins/Losses/Pushes: {{ summary_medium.wins }}/{{ summary_medium.losses }}/{{ summary_medium.pushes }}</div>
-              <div>Accuracy: {% if summary_medium.accuracy is not none %}{{ (summary_medium.accuracy*100)|round(1) }}%{% else %}-{% endif %}</div>
-              <div>Total Stake: ${{ summary_medium.stake|round(2) }}</div>
-              <div>P/L: ${{ summary_medium.pnl|round(2) }}</div>
-              <div>ROI: {% if summary_medium.roi is not none %}{{ (summary_medium.roi*100)|round(1) }}%{% else %}-{% endif %}</div>
-            </div>
-            <div class="summary-section">
-              <h3>Low Confidence</h3>
-              <div>Wins/Losses/Pushes: {{ summary_low.wins }}/{{ summary_low.losses }}/{{ summary_low.pushes }}</div>
-              <div>Accuracy: {% if summary_low.accuracy is not none %}{{ (summary_low.accuracy*100)|round(1) }}%{% else %}-{% endif %}</div>
-              <div>Total Stake: ${{ summary_low.stake|round(2) }}</div>
-              <div>P/L: ${{ summary_low.pnl|round(2) }}</div>
-              <div>ROI: {% if summary_low.roi is not none %}{{ (summary_low.roi*100)|round(1) }}%{% else %}-{% endif %}</div>
-            </div>
-          </div>
-
-          {% macro table_for(rows) %}
-          <table class="recs-table">
-            <thead>
-              <tr>
-                <th>Conf</th>
-                <th>Matchup</th>
-                <th>Market</th>
-                <th>Bet</th>
-                <th>Price</th>
-                <th>Model %</th>
-                <th>EV</th>
-                <th>Edge</th>
-                <th>Book</th>
-                <th>Stake</th>
-                <th>Result</th>
-                <th>Date</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for r in rows %}
-              <tr>
-                <td>
-                  {% set c = r.confidence or '' %}
-                  {% if c=='high' %}<span class="conf-badge conf-high">High</span>{% elif c=='medium' %}<span class="conf-badge conf-medium">Med</span>{% elif c=='low' %}<span class="conf-badge conf-low">Low</span>{% else %}<span class="conf-badge conf-other">—</span>{% endif %}
-                </td>
-                <td>{{ r.away }} @ {{ r.home }}</td>
-                <td><span class="pill">{{ r.market|capitalize }}</span></td>
-                <td>{{ r.bet }}</td>
-                <td>{% if r.price is not none %}{{ r.price }}{% else %}-{% endif %}</td>
-                <td>{% if r.model_prob is not none %}{{ (r.model_prob*100)|round(1) }}%{% else %}-{% endif %}</td>
-                <td>{% if r.ev is not none %}{% set evp=(r.ev*100) %}{% if evp>0 %}+{% endif %}{{ evp|round(1) }}%{% else %}-{% endif %}</td>
-                {% set edge_val = r.edge if r.edge is not none else r.edge_pts %}
-                <td>{% if edge_val is not none %}{% if edge_val>0 %}+{% endif %}{{ edge_val|round(2) }}{% if r.market!='moneyline' and edge_val is not none %}g{% endif %}{% else %}-{% endif %}</td>
-                <td>
-                  {% if r.book %}<span class="book-badge">{{ r.book }}</span>{% else %}<span class="book-badge">DK</span>{% endif %}
-                </td>
-                <td>{% if r.stake is not none %}${{ r.stake|round(2) }}{% elif bankroll and bankroll>0 %}--{% else %}$100{% endif %}</td>
-                <td>{% if r.result %}{{ r.result|capitalize }}{% else %}-{% endif %}</td>
-                <td>{{ r.date or '' }}</td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-          {% endmacro %}
-
-          {% if rows_high|length > 0 %}
-            <h2>High Confidence</h2>
-            {{ table_for(rows_high) }}
-          {% endif %}
-
-          {% if rows_medium|length > 0 %}
-            <h2>Medium Confidence</h2>
-            {{ table_for(rows_medium) }}
-          {% endif %}
-
-          {% if rows_low|length > 0 %}
-            <h2>Low Confidence</h2>
-            {{ table_for(rows_low) }}
-          {% endif %}
-
-          {% if rows_other|length > 0 %}
-            <h2>Other</h2>
-            {{ table_for(rows_other) }}
-          {% endif %}
-
-          <p class="meta">Note: Stake uses Kelly fraction when bankroll is provided; otherwise a flat $100 is assumed for display. Book badge defaults to DK when source unknown. Confidence tiers: High ≥ {{ (high_ev*100)|round(1) }}%, Medium ≥ {{ (med_ev*100)|round(1) }}%, Low ≥ 0%.</p>
-        </div>
-      <div class="meta">Sorted by EV by default. Use filters above to refine.</div>
+  <div class="container page">
+    <h1>NHL Betting – Recommendations</h1>
+    <div class="nav">
+      <a href="/">Cards</a>
+      <a href="/recommendations">Recommendations</a>
+      <a href="/props">Props</a>
+      <a href="/reconciliation">Reconciliation</a>
+      <a href="/api/predictions">API</a>
+      <a href="/health">Health</a>
     </div>
-  </div>
 
-  <script>
-    (function(){
-      const bankEl = document.querySelector('input[name="bankroll"]');
-      const kellyEl = document.querySelector('input[name="kelly_fraction_part"]');
-      const autoBox = document.getElementById('autoRefreshBox');
-      const exportBtn = document.getElementById('exportCsv');
-      // Persist bankroll & kelly
-      try {
-        if (bankEl) {
-          const v = localStorage.getItem('rec_bankroll');
-          if (v && !bankEl.value) bankEl.value = v;
-          bankEl.addEventListener('change', ()=> localStorage.setItem('rec_bankroll', bankEl.value||''));
-        }
-        if (kellyEl) {
-          const v2 = localStorage.getItem('rec_kelly');
-          if (v2 && !kellyEl.value) kellyEl.value = v2;
-          kellyEl.addEventListener('change', ()=> localStorage.setItem('rec_kelly', kellyEl.value||''));
-        }
-      } catch(e){}
-      // Auto-refresh
-      function applyAutoState(){
-        try { autoBox.checked = localStorage.getItem('recs_auto')==='on'; } catch {}
-      }
-      applyAutoState();
-      if (autoBox) {
-        autoBox.addEventListener('change', ()=>{
-          try { localStorage.setItem('recs_auto', autoBox.checked?'on':'off'); } catch {}
-        });
-      }
-      setInterval(()=>{
-        if (autoBox && autoBox.checked) {
-          const url = new URL(window.location.href);
-          window.location.href = url.toString();
-        }
-      }, 120000);
-      // CSV export
-      if (exportBtn) {
-        exportBtn.addEventListener('click', async ()=>{
-          try {
-            const qs = window.location.search || '?';
-            const apiUrl = '/api/recommendations'+qs;
-            const r = await fetch(apiUrl, {cache:'no-store'});
-            if (!r.ok) return alert('Failed to fetch recommendations JSON');
-            const rows = await r.json();
-            if (!Array.isArray(rows)) return alert('No data');
-            const cols = ['date','away','home','market','bet','price','model_prob','ev','edge','edge_pts','book','stake','result','confidence'];
-            const header = cols.join(',');
-            const lines = [header];
-            for (const row of rows) {
-              const out = cols.map(c=>{
-                let v = row[c];
-                if (v === null || v === undefined) return '';
-                if (typeof v === 'number') return String(v);
-                const s = String(v).replace(/"/g,'""');
-                if (s.search(/[",\n]/)>=0) return '"'+s+'"';
-                return s;
-              }).join(',');
-              lines.push(out);
-            }
-            const blob = new Blob([lines.join('\n')], {type:'text/csv'});
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = 'recommendations_'+(new Date().toISOString().slice(0,10))+'.csv';
-            document.body.appendChild(a); a.click(); a.remove();
-          } catch(e){ alert('Export failed'); }
-        });
-      }
-    })();
-  </script>
+    <form method="get" class="filters">
+      <label>Date <input type="date" name="date" value="{{ date or '' }}" /></label>
+      <div class="date-nav">
+        {% if prev_date %}<a href="/recommendations?date={{ prev_date }}&min_ev={{ min_ev }}&top={{ top }}&markets={{ markets }}&sort_by={{ sort_by }}&high_ev={{ high_ev }}&med_ev={{ med_ev }}">← Prev</a>{% endif %}
+        {% if next_date %}<a href="/recommendations?date={{ next_date }}&min_ev={{ min_ev }}&top={{ top }}&markets={{ markets }}&sort_by={{ sort_by }}&high_ev={{ high_ev }}&med_ev={{ med_ev }}">Next →</a>{% endif %}
+      </div>
+      <label>Min EV <input type="number" step="0.01" name="min_ev" value="{{ min_ev }}" /></label>
+      <label>Top N <input type="number" name="top" value="{{ top }}" /></label>
+      <label>Markets
+        <select name="markets">
+          <option value="all" {% if markets=='all' %}selected{% endif %}>All</option>
+          <option value="moneyline" {% if markets=='moneyline' %}selected{% endif %}>Moneyline</option>
+          <option value="totals" {% if markets=='totals' %}selected{% endif %}>Totals</option>
+          <option value="puckline" {% if markets=='puckline' %}selected{% endif %}>Puck Line</option>
+        </select>
+      </label>
+      <label>Sort By
+        <select name="sort_by">
+          <option value="ev" {% if sort_by=='ev' %}selected{% endif %}>EV</option>
+          <option value="edge" {% if sort_by=='edge' %}selected{% endif %}>Edge</option>
+          <option value="prob" {% if sort_by=='prob' %}selected{% endif %}>Model %</option>
+          <option value="price" {% if sort_by=='price' %}selected{% endif %}>Price</option>
+        </select>
+      </label>
+      <label>High EV ≥ <input type="number" step="0.01" name="high_ev" value="{{ high_ev }}" /></label>
+      <label>Med EV ≥ <input type="number" step="0.01" name="med_ev" value="{{ med_ev }}" /></label>
+      <button type="submit">Apply</button>
+    </form>
+
+    <div class="summary-cards">
+      <div class="sum-card">
+        <h3>Overall</h3>
+        <div>Accuracy: {% if summary_overall.accuracy is not none %}{{ (summary_overall.accuracy*100)|round(1) }}%{% else %}—{% endif %}</div>
+        <div>W-L-P: {{ summary_overall.wins }}-{{ summary_overall.losses }}-{{ summary_overall.pushes }}</div>
+        <div>Stake: ${{ summary_overall.stake|round(2) }} | P/L: ${{ summary_overall.pnl|round(2) }}</div>
+        <div>ROI: {% if summary_overall.roi is not none %}{{ (summary_overall.roi*100)|round(1) }}%{% else %}—{% endif %}</div>
+        <div>Total picks: {{ total_picks }}</div>
+      </div>
+      <div class="sum-card">
+        <h3>High</h3>
+        <div>Accuracy: {% if summary_high.accuracy is not none %}{{ (summary_high.accuracy*100)|round(1) }}%{% else %}—{% endif %}</div>
+        <div>W-L-P: {{ summary_high.wins }}-{{ summary_high.losses }}-{{ summary_high.pushes }}</div>
+        <div>Stake: ${{ summary_high.stake|round(2) }} | P/L: ${{ summary_high.pnl|round(2) }}</div>
+        <div>ROI: {% if summary_high.roi is not none %}{{ (summary_high.roi*100)|round(1) }}%{% else %}—{% endif %}</div>
+        <div>Picks: {{ rows_high|length }}</div>
+      </div>
+      <div class="sum-card">
+        <h3>Medium</h3>
+        <div>Accuracy: {% if summary_medium.accuracy is not none %}{{ (summary_medium.accuracy*100)|round(1) }}%{% else %}—{% endif %}</div>
+        <div>W-L-P: {{ summary_medium.wins }}-{{ summary_medium.losses }}-{{ summary_medium.pushes }}</div>
+        <div>Stake: ${{ summary_medium.stake|round(2) }} | P/L: ${{ summary_medium.pnl|round(2) }}</div>
+        <div>ROI: {% if summary_medium.roi is not none %}{{ (summary_medium.roi*100)|round(1) }}%{% else %}—{% endif %}</div>
+        <div>Picks: {{ rows_medium|length }}</div>
+      </div>
+      <div class="sum-card">
+        <h3>Low</h3>
+        <div>Accuracy: {% if summary_low.accuracy is not none %}{{ (summary_low.accuracy*100)|round(1) }}%{% else %}—{% endif %}</div>
+        <div>W-L-P: {{ summary_low.wins }}-{{ summary_low.losses }}-{{ summary_low.pushes }}</div>
+        <div>Stake: ${{ summary_low.stake|round(2) }} | P/L: ${{ summary_low.pnl|round(2) }}</div>
+        <div>ROI: {% if summary_low.roi is not none %}{{ (summary_low.roi*100)|round(1) }}%{% else %}—{% endif %}</div>
+        <div>Picks: {{ rows_low|length }}</div>
+      </div>
+      <div class="sum-card">
+        <h3>Other</h3>
+        <div>Accuracy: {% if summary_other.accuracy is not none %}{{ (summary_other.accuracy*100)|round(1) }}%{% else %}—{% endif %}</div>
+        <div>W-L-P: {{ summary_other.wins }}-{{ summary_other.losses }}-{{ summary_other.pushes }}</div>
+        <div>Stake: ${{ summary_other.stake|round(2) }} | P/L: ${{ summary_other.pnl|round(2) }}</div>
+        <div>ROI: {% if summary_other.roi is not none %}{{ (summary_other.roi*100)|round(1) }}%{% else %}—{% endif %}</div>
+        <div>Picks: {{ rows_other|length }}</div>
+      </div>
+    </div>
+  <div class="meta-note">Sorted by confidence then {{ sort_by|upper }}. Odds assumed -110 for totals/puck line when not present.</div>
+
+  {% macro rec_table(rows, tier) %}
+    <table>
+      <thead>
+        <tr>
+          <th>Matchup</th>
+          <th>Market</th>
+          <th>Pick</th>
+          <th>Price</th>
+          <th>Model %</th>
+          <th>Result</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        {% set price = r.price if r.price is not none else (-110 if r.market!='moneyline' else -110) %}
+        <tr>
+          <td>{{ r.away }} @ {{ r.home }}</td>
+          <td><span class="market-pill">{{ r.market|upper }}</span></td>
+          {% if r.market == 'moneyline' %}
+            {% set team = (r.home if r.bet=='home_ml' else r.away) %}
+            <td class="pick-{{ tier }}">{{ team }} ML <span class="badge badge-{{ tier }}">{{ tier|capitalize }}</span></td>
+          {% elif r.market == 'totals' %}
+            {% set line = r.total_line_used %}
+            <td class="pick-{{ tier }}">{{ r.bet|capitalize }}{% if line is not none %} {{ '%.1f' % line }}{% endif %}{% if price is not none %} ({{ price }}){% endif %} <span class="badge badge-{{ tier }}">{{ tier|capitalize }}</span></td>
+          {% elif r.market == 'puckline' %}
+            {% set team = (r.home if r.bet=='home_pl_-1.5' else r.away) %}
+            {% set sign = ('-1.5' if r.bet=='home_pl_-1.5' else '+1.5') %}
+            <td class="pick-{{ tier }}">{{ team }} {{ sign }}{% if price is not none %} ({{ price }}){% endif %} <span class="badge badge-{{ tier }}">{{ tier|capitalize }}</span></td>
+          {% else %}
+            <td class="pick-{{ tier }}">{{ r.bet|upper }} <span class="badge badge-{{ tier }}">{{ tier|capitalize }}</span></td>
+          {% endif %}
+          <td>{{ price }}</td>
+          <td>{% if r.model_prob is not none %}{{ (r.model_prob*100)|round(1) }}%{% else %}—{% endif %}</td>
+          <td>
+            {% if r.result %}
+              {% set rlow = r.result|lower %}
+              <span class="result-pill result-{{ 'win' if rlow=='win' else ('loss' if rlow=='loss' else ('push' if rlow=='push' else 'other')) }}">{{ r.result|title }}</span>
+            {% else %}
+              —
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endmacro %}
+
+    {% if rows_high|length > 0 %}
+      <h2>High confidence</h2>
+      {{ rec_table(rows_high, 'high') }}
+    {% endif %}
+
+    {% if rows_medium|length > 0 %}
+      <h2>Medium confidence</h2>
+      {{ rec_table(rows_medium, 'medium') }}
+    {% endif %}
+
+    {% if rows_low|length > 0 %}
+      <h2>Low confidence</h2>
+      {{ rec_table(rows_low, 'low') }}
+    {% endif %}
+
+    {% if rows_other|length > 0 %}
+      <h2>Other</h2>
+      {{ rec_table(rows_other, 'other') }}
+    {% endif %}
+
+  </div>
 </body>
 </html>

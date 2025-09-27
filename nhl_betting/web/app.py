@@ -42,6 +42,18 @@ def _today_ymd() -> str:
         return datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
 
+def _read_only(date: Optional[str] = None) -> bool:
+    """Whether to avoid fetching odds or writing predictions.
+
+    Controlled by env vars WEB_READ_ONLY_PREDICTIONS or WEB_DISABLE_ODDS_FETCH.
+    Any truthy value (1/true/yes) enables read-only behavior.
+    """
+    flag1 = os.getenv("WEB_READ_ONLY_PREDICTIONS", "")
+    flag2 = os.getenv("WEB_DISABLE_ODDS_FETCH", "")
+    val = (flag1 or flag2 or "").strip().lower()
+    return val in ("1", "true", "yes")
+
+
 def _read_csv_fallback(path: Path) -> pd.DataFrame:
     """Read a CSV trying multiple encodings to handle BOM/UTF-16/Windows-1252.
 
@@ -459,12 +471,13 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
             await _ensure_models(quick=True)
         except Exception:
             pass
-    # Ensure we have predictions for the date; run inline if missing
+    # Ensure we have predictions for the date; run inline if missing (unless read-only)
     pred_path = PROC_DIR / f"predictions_{date}.csv"
+    read_only = _read_only(date)
     if not pred_path.exists():
-        # Attempt Bovada first
+        # Attempt Bovada first (skipped in read-only mode)
         snapshot = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-        if not settled:
+        if (not settled) and (not read_only):
             try:
                 predict_core(date=date, source="web", odds_source="bovada", snapshot=snapshot, odds_best=True)
             except Exception:
@@ -476,20 +489,20 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
                 except Exception:
                     tmp = pd.DataFrame()
                 if not _has_any_odds_df(tmp):
-                    if not settled:
+                    if (not settled) and (not read_only):
                         try:
                             predict_core(date=date, source="web", odds_source="oddsapi", snapshot=snapshot, odds_best=False, odds_bookmaker="draftkings")
                         except Exception:
                             pass
         # If file still doesn't exist, at least generate predictions without odds (allowed during live to show something)
-        if not pred_path.exists():
+        if (not pred_path.exists()) and (not read_only):
             try:
                 predict_core(date=date, source="web", odds_source="csv")
             except Exception:
                 pass
     df = _read_csv_fallback(pred_path) if pred_path.exists() else pd.DataFrame()
     # Also ensure neighbor-day predictions exist so late ET games (crossing UTC midnight) can be surfaced
-    if not settled:
+    if (not settled) and (not read_only):
         try:
             nd = (datetime.fromisoformat(date) + timedelta(days=1)).strftime("%Y-%m-%d")
             next_path = PROC_DIR / f"predictions_{nd}.csv"
@@ -503,7 +516,7 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
             pass
     # If predictions exist but odds are missing, try Bovada then Odds API to populate
     # If odds are missing, attempt to populate even during live slates (safe: only adds odds fields)
-    if pred_path.exists() and not _has_any_odds_df(df) and (not settled):
+    if pred_path.exists() and not _has_any_odds_df(df) and (not settled) and (not read_only):
         snapshot = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         # Preserve any existing odds if present in old df
         try:
@@ -598,7 +611,7 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
         except Exception:
             pass
     # Final odds preservation pass: if we had older data, fill missing odds/book fields
-    if not settled:
+    if (not settled) and (not read_only):
         try:
             if not df.empty and not df_old_global.empty:
                 df = _merge_preserve_odds(df_old_global, df)
@@ -816,7 +829,7 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
             except Exception:
                 pass
         # Persist backfill into CSV (match by home/away abbreviations for robustness)
-        if backfilled and not df_pred.empty:
+        if backfilled and (not df_pred.empty) and (not read_only):
             def _abbr2(x: str) -> str:
                 try:
                     return (get_team_assets(str(x)).get("abbr") or "").upper()
@@ -1252,7 +1265,8 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
                                                 df2.at[idx, col] = val
                                         except Exception:
                                             pass
-                            df2.to_csv(pred_csv_path2, index=False)
+                            if not read_only:
+                                df2.to_csv(pred_csv_path2, index=False)
                 except Exception:
                     pass
         except Exception:

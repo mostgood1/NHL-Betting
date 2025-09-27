@@ -11,6 +11,10 @@ services:
     envVars:
       - key: ODDS_API_KEY
         sync: false
+      - key: WEB_READ_ONLY_PREDICTIONS
+        value: "true"
+      - key: WEB_DISABLE_ODDS_FETCH
+        value: "true"
       - key: PYTHON_VERSION
         value: 3.11.9
       - key: NIXPACKS_PYTHON_VERSION

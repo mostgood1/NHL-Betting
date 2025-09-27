@@ -953,28 +953,31 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
         except Exception:
             pass
     # Load inferred odds as a tertiary display fallback (not persisted): inferred_odds_{date}.csv
+    # In read-only mode, do not show inferred odds by default
+    allow_inferred = os.getenv("WEB_ALLOW_INFERRED_ODDS", "").strip().lower() in ("1", "true", "yes")
     inferred_map = {}
-    try:
-        inf_path = PROC_DIR / f"inferred_odds_{date}.csv"
-        if inf_path.exists():
-            dfi = pd.read_csv(inf_path)
-            def norm_team(s: str) -> str:
-                import re, unicodedata
-                if s is None:
-                    return ""
-                s = str(s)
-                s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode()
-                s = s.lower()
-                s = re.sub(r"[^a-z0-9]+", "", s)
-                return s
-            for _, ir in dfi.iterrows():
-                key = (norm_team(ir.get("home")), norm_team(ir.get("away")), str(ir.get("market")))
-                try:
-                    inferred_map[key] = float(ir.get("american_inferred")) if pd.notna(ir.get("american_inferred")) else None
-                except Exception:
-                    inferred_map[key] = None
-    except Exception:
-        inferred_map = {}
+    if allow_inferred:
+        try:
+            inf_path = PROC_DIR / f"inferred_odds_{date}.csv"
+            if inf_path.exists():
+                dfi = pd.read_csv(inf_path)
+                def norm_team(s: str) -> str:
+                    import re, unicodedata
+                    if s is None:
+                        return ""
+                    s = str(s)
+                    s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode()
+                    s = s.lower()
+                    s = re.sub(r"[^a-z0-9]+", "", s)
+                    return s
+                for _, ir in dfi.iterrows():
+                    key = (norm_team(ir.get("home")), norm_team(ir.get("away")), str(ir.get("market")))
+                    try:
+                        inferred_map[key] = float(ir.get("american_inferred")) if pd.notna(ir.get("american_inferred")) else None
+                    except Exception:
+                        inferred_map[key] = None
+        except Exception:
+            inferred_map = {}
     # Keep UTC ISO in rows; client formats to user local time
     def to_local(iso_utc: str) -> str:
         return iso_utc
@@ -1008,18 +1011,18 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
             r["disp_away_ml_book"] = _fb(r.get("away_ml_book"), r.get("close_away_ml_book"))
             # Inferred fallback for ML
             hn = _norm(r.get("home")); an = _norm(r.get("away"))
-            if not _has(r.get("disp_home_ml_odds")):
+            if allow_inferred and not _has(r.get("disp_home_ml_odds")):
                 v = inferred_map.get((hn, an, "home_ml"))
                 if _has(v):
                     r["disp_home_ml_odds"] = v
                     r["disp_home_ml_book"] = "Inferred"
-            if not _has(r.get("disp_away_ml_odds")):
+            if allow_inferred and not _has(r.get("disp_away_ml_odds")):
                 v = inferred_map.get((hn, an, "away_ml"))
                 if _has(v):
                     r["disp_away_ml_odds"] = v
                     r["disp_away_ml_book"] = "Inferred"
-            # Final fallback: infer ML odds directly from model probabilities
-            if not _has(r.get("disp_home_ml_odds")):
+            # Final fallback: infer ML odds directly from model probabilities (disabled unless allow_inferred)
+            if allow_inferred and not _has(r.get("disp_home_ml_odds")):
                 try:
                     ph = float(r.get("p_home_ml")) if r.get("p_home_ml") is not None else None
                 except Exception:
@@ -1029,7 +1032,7 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
                     if am is not None:
                         r["disp_home_ml_odds"] = am
                         r["disp_home_ml_book"] = "Inferred"
-            if not _has(r.get("disp_away_ml_odds")):
+            if allow_inferred and not _has(r.get("disp_away_ml_odds")):
                 try:
                     pa = float(r.get("p_away_ml")) if r.get("p_away_ml") is not None else None
                 except Exception:
@@ -1046,21 +1049,21 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
             r["disp_under_book"] = _fb(r.get("under_book"), r.get("close_under_book"))
             r["disp_total_line_used"] = _fb(r.get("total_line_used"), r.get("close_total_line_used"))
             # Inferred fallback for totals (line may remain unknown)
-            if not _has(r.get("disp_over_odds")):
+            if allow_inferred and not _has(r.get("disp_over_odds")):
                 v = inferred_map.get((hn, an, "over"))
                 if _has(v):
                     r["disp_over_odds"] = v
                     r["disp_over_book"] = "Inferred"
-            if not _has(r.get("disp_under_odds")):
+            if allow_inferred and not _has(r.get("disp_under_odds")):
                 v = inferred_map.get((hn, an, "under"))
                 if _has(v):
                     r["disp_under_odds"] = v
                     r["disp_under_book"] = "Inferred"
-            # If still missing, show a conservative default -110 for display clarity
-            if not _has(r.get("disp_over_odds")) and (r.get("model_total") is not None or r.get("disp_total_line_used") is not None):
+            # If still missing, avoid synthetic defaults in read-only mode
+            if allow_inferred and not _has(r.get("disp_over_odds")) and (r.get("model_total") is not None or r.get("disp_total_line_used") is not None):
                 r["disp_over_odds"] = -110
                 r["disp_over_book"] = "Inferred"
-            if not _has(r.get("disp_under_odds")) and (r.get("model_total") is not None or r.get("disp_total_line_used") is not None):
+            if allow_inferred and not _has(r.get("disp_under_odds")) and (r.get("model_total") is not None or r.get("disp_total_line_used") is not None):
                 r["disp_under_odds"] = -110
                 r["disp_under_book"] = "Inferred"
             # Puck line
@@ -1069,21 +1072,21 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
             r["disp_home_pl_-1.5_book"] = _fb(r.get("home_pl_-1.5_book"), r.get("close_home_pl_-1.5_book"))
             r["disp_away_pl_+1.5_book"] = _fb(r.get("away_pl_+1.5_book"), r.get("close_away_pl_+1.5_book"))
             # Inferred fallback for puck line
-            if not _has(r.get("disp_home_pl_-1.5_odds")):
+            if allow_inferred and not _has(r.get("disp_home_pl_-1.5_odds")):
                 v = inferred_map.get((hn, an, "home_pl_-1.5"))
                 if _has(v):
                     r["disp_home_pl_-1.5_odds"] = v
                     r["disp_home_pl_-1.5_book"] = "Inferred"
-            if not _has(r.get("disp_away_pl_+1.5_odds")):
+            if allow_inferred and not _has(r.get("disp_away_pl_+1.5_odds")):
                 v = inferred_map.get((hn, an, "away_pl_+1.5"))
                 if _has(v):
                     r["disp_away_pl_+1.5_odds"] = v
                     r["disp_away_pl_+1.5_book"] = "Inferred"
-            # Default display odds for puck line if still missing
-            if not _has(r.get("disp_home_pl_-1.5_odds")):
+            # Avoid synthetic defaults in read-only mode unless allowed
+            if allow_inferred and not _has(r.get("disp_home_pl_-1.5_odds")):
                 r["disp_home_pl_-1.5_odds"] = -110
                 r["disp_home_pl_-1.5_book"] = "Inferred"
-            if not _has(r.get("disp_away_pl_+1.5_odds")):
+            if allow_inferred and not _has(r.get("disp_away_pl_+1.5_odds")):
                 r["disp_away_pl_+1.5_odds"] = -110
                 r["disp_away_pl_+1.5_book"] = "Inferred"
             # Presence: consider display odds (may include inferred) as well

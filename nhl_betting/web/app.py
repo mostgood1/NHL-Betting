@@ -73,7 +73,16 @@ def _is_live_day(date: str) -> bool:
         rows = client.scoreboard_day(date)
         for r in rows:
             st = str(r.get("gameState") or "").upper()
-            if any(k in st for k in ["LIVE", "IN", "PROGRESS", "CRIT"]):
+            # Avoid overly broad substring matches (e.g., "IN" matches "FINAL").
+            # Consider only clear live indicators.
+            live_tokens = [
+                "LIVE",
+                "IN PROGRESS",
+                "IN-PROGRESS",
+                "IN_PROGRESS",
+                "CRIT",  # critical live state
+            ]
+            if any(tok in st for tok in live_tokens):
                 return True
     except Exception:
         pass

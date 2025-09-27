@@ -42,6 +42,35 @@ def _today_ymd() -> str:
         return datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
 
+def _read_csv_fallback(path: Path) -> pd.DataFrame:
+    """Read a CSV trying multiple encodings to handle BOM/UTF-16/Windows-1252.
+
+    Returns an empty DataFrame if the file doesn't exist.
+    Raises the last decode error if all attempts fail.
+    """
+    if not path or not Path(path).exists():
+        return pd.DataFrame()
+    encodings = ("utf-8", "utf-8-sig", "cp1252", "latin1", "utf-16", "utf-16le", "utf-16be")
+    last_err = None
+    for enc in encodings:
+        try:
+            return pd.read_csv(path, encoding=enc)
+        except UnicodeDecodeError as e:
+            last_err = e
+            continue
+        except Exception as e:
+            # Non-decode issues: break and surface
+            last_err = e
+            break
+    # Last resort: python engine
+    try:
+        return pd.read_csv(path, engine="python")
+    except Exception:
+        if last_err:
+            raise last_err
+        raise
+
+
 @app.get("/health")
 def health():
     """Simple health probe that avoids heavy work.
@@ -94,7 +123,7 @@ def api_status(date: Optional[str] = Query(None)):
         if p.exists():
             info["predictions_exists"] = True
             try:
-                df = pd.read_csv(p)
+                df = _read_csv_fallback(p)
                 info["rows"] = 0 if df is None or df.empty else int(len(df))
                 info["has_any_odds"] = _has_any_odds_df(df)
                 # Include a tiny sample of columns to confirm shape
@@ -295,8 +324,19 @@ def _capture_closing_for_game(date: str, home_abbr: str, away_abbr: str, snapsho
 
 
 @app.get("/health")
-async def health():
-    return {"status": "ok", "time": datetime.now(timezone.utc).isoformat()}
+async def health_async():
+    # Keep compatibility for async route; delegate to sync implementation above
+    try:
+        et_today = _today_ymd()
+    except Exception:
+        et_today = None
+    pred_exists = False
+    try:
+        pred_path = PROC_DIR / f"predictions_{et_today}.csv" if et_today else None
+        pred_exists = bool(pred_path and pred_path.exists())
+    except Exception:
+        pred_exists = False
+    return {"status": "ok", "date_et": et_today, "predictions_today": pred_exists}
 
 
 @app.on_event("startup")
@@ -425,7 +465,7 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
                 predict_core(date=date, source="web", odds_source="csv")
             except Exception:
                 pass
-    df = pd.read_csv(pred_path) if pred_path.exists() else pd.DataFrame()
+    df = _read_csv_fallback(pred_path) if pred_path.exists() else pd.DataFrame()
     # Also ensure neighbor-day predictions exist so late ET games (crossing UTC midnight) can be surfaced
     if not settled:
         try:

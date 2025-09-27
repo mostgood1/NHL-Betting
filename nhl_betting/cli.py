@@ -381,6 +381,11 @@ def predict_core(
         lam_h = max(0.1, lam_h + gh_delta)
         lam_a = max(0.1, lam_a + ga_delta)
         p = pois.probs(total_line=per_game_total, lam_h=lam_h, lam_a=lam_a)
+        # Derived projections (used by UI): per-team goals, total and spread
+        proj_home_goals = float(lam_h)
+        proj_away_goals = float(lam_a)
+        model_total = float(lam_h + lam_a)
+        model_spread = float(lam_h - lam_a)
 
         # Build base row with model probabilities
         row = {
@@ -390,6 +395,10 @@ def predict_core(
             "home": getattr(g, "home"),
             "away": getattr(g, "away"),
             "total_line_used": float(per_game_total),
+            "proj_home_goals": round(proj_home_goals, 2),
+            "proj_away_goals": round(proj_away_goals, 2),
+            "model_total": round(model_total, 2),
+            "model_spread": round(model_spread, 2),
             "p_home_ml": float(p.get("home_ml")),
             "p_away_ml": float(p.get("away_ml")),
             "p_over": float(p.get("over")),

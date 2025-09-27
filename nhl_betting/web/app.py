@@ -18,6 +18,7 @@ from ..data.nhl_api_web import NHLWebClient
 from ..data.nhl_api import NHLClient as NHLStatsClient
 from .teams import get_team_assets
 from ..cli import predict_core, fetch as cli_fetch, train as cli_train
+from ..models.poisson import PoissonGoals
 import asyncio
 from ..data.bovada import BovadaClient
 
@@ -506,6 +507,46 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
     except Exception:
         pass
     rows = df.to_dict(orient="records") if not df.empty else []
+    # Fallback/sanitization: if predictions CSV lacks projection fields (older files) or they are NaN, derive them now
+    if rows:
+        try:
+            _pois_fb = PoissonGoals()
+        except Exception:
+            _pois_fb = None
+        import math as _math
+        for r in rows:
+            # Helper to check NaN
+            def _isnan(x):
+                try:
+                    return isinstance(x, float) and _math.isnan(x)
+                except Exception:
+                    return False
+            # Clean up NaN text fields so Jinja doesn't render 'nan'
+            for k in ("totals_pick", "ats_pick", "winner_actual", "result_total", "result_ats"):
+                v = r.get(k)
+                if _isnan(v):
+                    r[k] = None
+            # Compute projections if missing/NaN and we have probabilities
+            mt = r.get("model_total")
+            ph = r.get("p_home_ml")
+            if (mt is None or _isnan(mt)) and ph is not None and not _isnan(ph) and _pois_fb is not None:
+                try:
+                    tl = r.get("total_line_used")
+                    if tl is None or _isnan(tl):
+                        tl = r.get("close_total_line_used")
+                    tl_val = float(tl) if tl is not None and not _isnan(tl) else 6.0
+                    ph_val = float(ph)
+                    lam_h, lam_a = _pois_fb.lambdas_from_total_split(tl_val, ph_val)
+                    r["proj_home_goals"] = round(float(lam_h), 2)
+                    r["proj_away_goals"] = round(float(lam_a), 2)
+                    r["model_total"] = round(float(lam_h + lam_a), 2)
+                    r["model_spread"] = round(float(lam_h - lam_a), 2)
+                except Exception:
+                    # As a last resort, null fields if they are NaN
+                    for k in ("proj_home_goals", "proj_away_goals", "model_total", "model_spread"):
+                        v = r.get(k)
+                        if _isnan(v):
+                            r[k] = None
     # For settled slates, mark rows as FINAL to avoid relying on live scoreboard
     if settled:
         try:

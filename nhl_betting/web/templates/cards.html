@@ -104,7 +104,8 @@
                 </div>
                 <div class="score-block">
                   <div class="live-score js-live-away" title="Score">{% if settled and r.get('final_away_goals') is not none %}{{ r.get('final_away_goals') }}{% else %}—{% endif %}</div>
-                  <div class="sub proj-score" title="Projected goals">{{ '%.2f' % r.proj_away_goals }}</div>
+                  {% set pag = r.get('proj_away_goals') %}
+                  <div class="sub proj-score" title="Projected goals">{{ ('%.2f' % pag) if (pag is not none) else '—' }}</div>
                   <div class="sub ml-line"><span class="ml-label">ML {{ '%.1f' % (100*r.p_away_ml) }}%</span>{% if r.disp_away_ml_odds is defined and r.disp_away_ml_odds is not none %} · {{ r.disp_away_ml_odds }}{% if r.disp_away_ml_book is defined and r.disp_away_ml_book %} @ {{ r.disp_away_ml_book }}{% endif %}{% endif %}</div>
                 </div>
               </div>
@@ -116,7 +117,8 @@
                 </div>
                 <div class="score-block">
                   <div class="live-score js-live-home" title="Score">{% if settled and r.get('final_home_goals') is not none %}{{ r.get('final_home_goals') }}{% else %}—{% endif %}</div>
-                  <div class="sub proj-score" title="Projected goals">{{ '%.2f' % r.proj_home_goals }}</div>
+                  {% set phg = r.get('proj_home_goals') %}
+                  <div class="sub proj-score" title="Projected goals">{{ ('%.2f' % phg) if (phg is not none) else '—' }}</div>
                   <div class="sub ml-line"><span class="ml-label">ML {{ '%.1f' % (100*r.p_home_ml) }}%</span>{% if r.disp_home_ml_odds is defined and r.disp_home_ml_odds is not none %} · {{ r.disp_home_ml_odds }}{% if r.disp_home_ml_book is defined and r.disp_home_ml_book %} @ {{ r.disp_home_ml_book }}{% endif %}{% endif %}</div>
                 </div>
               </div>

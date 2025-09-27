@@ -336,7 +336,7 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
     if not pred_path.exists():
         # Attempt Bovada first
         snapshot = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-        if (not live_now) and (not settled):
+        if not settled:
             try:
                 predict_core(date=date, source="web", odds_source="bovada", snapshot=snapshot, odds_best=True)
             except Exception:
@@ -374,7 +374,8 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
         except Exception:
             pass
     # If predictions exist but odds are missing, try Bovada then Odds API to populate
-    if pred_path.exists() and not _has_any_odds_df(df) and (not live_now) and (not settled):
+    # If odds are missing, attempt to populate even during live slates (safe: only adds odds fields)
+    if pred_path.exists() and not _has_any_odds_df(df) and (not settled):
         snapshot = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         # Preserve any existing odds if present in old df
         try:

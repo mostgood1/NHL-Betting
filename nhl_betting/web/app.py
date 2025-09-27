@@ -42,6 +42,72 @@ def _today_ymd() -> str:
         return datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
 
+@app.get("/health")
+def health():
+    """Simple health probe that avoids heavy work.
+
+    Returns service status and whether today's predictions file exists.
+    """
+    try:
+        et_today = _today_ymd()
+    except Exception:
+        et_today = None
+    pred_path = None; pred_exists = False
+    try:
+        if et_today:
+            pred_path = PROC_DIR / f"predictions_{et_today}.csv"
+            pred_exists = pred_path.exists()
+    except Exception:
+        pred_exists = False
+    return JSONResponse({
+        "status": "ok",
+        "date_et": et_today,
+        "predictions_today": bool(pred_exists),
+    })
+
+
+@app.get("/health/render")
+def health_render():
+    """Render cards template with an empty slate to validate template compiles."""
+    try:
+        et_today = _today_ymd()
+    except Exception:
+        et_today = ""
+    try:
+        template = env.get_template("cards.html")
+        html = template.render(date=et_today, original_date=None, rows=[], note=None, live_now=False, settled=False)
+        return HTMLResponse(content=html)
+    except Exception as e:
+        return JSONResponse({"status": "error", "error": str(e)}, status_code=500)
+
+
+@app.get("/api/status")
+def api_status(date: Optional[str] = Query(None)):
+    """Return basic diagnostics for a given date (defaults to ET today)."""
+    try:
+        d = date or _today_ymd()
+    except Exception:
+        d = date
+    info = {"date": d, "predictions_exists": False, "rows": 0, "has_any_odds": False}
+    try:
+        p = PROC_DIR / f"predictions_{d}.csv"
+        if p.exists():
+            info["predictions_exists"] = True
+            try:
+                df = pd.read_csv(p)
+                info["rows"] = 0 if df is None or df.empty else int(len(df))
+                info["has_any_odds"] = _has_any_odds_df(df)
+                # Include a tiny sample of columns to confirm shape
+                info["columns"] = list(df.columns)[:12]
+            except Exception as e:
+                info["read_error"] = str(e)
+        else:
+            info["predictions_exists"] = False
+    except Exception as e:
+        info["error"] = str(e)
+    return JSONResponse(info)
+
+
 def _iso_to_et_date(iso_utc: str) -> str:
     """Convert an ISO UTC timestamp (e.g., 2025-09-22T23:00:00Z) to an ET YYYY-MM-DD date string."""
     if not iso_utc:

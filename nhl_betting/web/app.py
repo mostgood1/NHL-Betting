@@ -323,6 +323,28 @@ def _capture_closing_for_game(date: str, home_abbr: str, away_abbr: str, snapsho
     return {"status": "ok", "date": date, "home_abbr": home_abbr, "away_abbr": away_abbr}
 
 
+def _american_from_prob(prob: float) -> Optional[int]:
+    """Convert a fair probability into an American odds price (rounded to nearest 5).
+
+    Example: p=0.6 -> decimal=1/0.6=1.666.. -> American -150
+             p=0.4 -> decimal=2.5 -> American +150
+    """
+    try:
+        import math
+        p = float(prob)
+        if not math.isfinite(p) or p <= 0 or p >= 1:
+            return None
+        dec = 1.0 / p
+        if dec >= 2.0:
+            val = int(round((dec - 1.0) * 100 / 5.0) * 5)
+            return max(+100, val)
+        else:
+            val = int(round(100.0 / (dec - 1.0) / 5.0) * 5)
+            return -max(100, val)
+    except Exception:
+        return None
+
+
 @app.get("/health")
 async def health_async():
     # Keep compatibility for async route; delegate to sync implementation above
@@ -983,6 +1005,27 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
                 if _has(v):
                     r["disp_away_ml_odds"] = v
                     r["disp_away_ml_book"] = "Inferred"
+            # Final fallback: infer ML odds directly from model probabilities
+            if not _has(r.get("disp_home_ml_odds")):
+                try:
+                    ph = float(r.get("p_home_ml")) if r.get("p_home_ml") is not None else None
+                except Exception:
+                    ph = None
+                if ph is not None:
+                    am = _american_from_prob(ph)
+                    if am is not None:
+                        r["disp_home_ml_odds"] = am
+                        r["disp_home_ml_book"] = "Inferred"
+            if not _has(r.get("disp_away_ml_odds")):
+                try:
+                    pa = float(r.get("p_away_ml")) if r.get("p_away_ml") is not None else None
+                except Exception:
+                    pa = None
+                if pa is not None:
+                    am = _american_from_prob(pa)
+                    if am is not None:
+                        r["disp_away_ml_odds"] = am
+                        r["disp_away_ml_book"] = "Inferred"
             # Totals
             r["disp_over_odds"] = _fb(r.get("over_odds"), r.get("close_over_odds"))
             r["disp_under_odds"] = _fb(r.get("under_odds"), r.get("close_under_odds"))
@@ -1000,6 +1043,13 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
                 if _has(v):
                     r["disp_under_odds"] = v
                     r["disp_under_book"] = "Inferred"
+            # If still missing, show a conservative default -110 for display clarity
+            if not _has(r.get("disp_over_odds")) and (r.get("model_total") is not None or r.get("disp_total_line_used") is not None):
+                r["disp_over_odds"] = -110
+                r["disp_over_book"] = "Inferred"
+            if not _has(r.get("disp_under_odds")) and (r.get("model_total") is not None or r.get("disp_total_line_used") is not None):
+                r["disp_under_odds"] = -110
+                r["disp_under_book"] = "Inferred"
             # Puck line
             r["disp_home_pl_-1.5_odds"] = _fb(r.get("home_pl_-1.5_odds"), r.get("close_home_pl_-1.5_odds"))
             r["disp_away_pl_+1.5_odds"] = _fb(r.get("away_pl_+1.5_odds"), r.get("close_away_pl_+1.5_odds"))
@@ -1016,6 +1066,13 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
                 if _has(v):
                     r["disp_away_pl_+1.5_odds"] = v
                     r["disp_away_pl_+1.5_book"] = "Inferred"
+            # Default display odds for puck line if still missing
+            if not _has(r.get("disp_home_pl_-1.5_odds")):
+                r["disp_home_pl_-1.5_odds"] = -110
+                r["disp_home_pl_-1.5_book"] = "Inferred"
+            if not _has(r.get("disp_away_pl_+1.5_odds")):
+                r["disp_away_pl_+1.5_odds"] = -110
+                r["disp_away_pl_+1.5_book"] = "Inferred"
             # Presence: consider display odds (may include inferred) as well
             r["has_any_odds"] = any(_has(r.get(k)) for k in [
                 "disp_home_ml_odds","disp_away_ml_odds","disp_over_odds","disp_under_odds",

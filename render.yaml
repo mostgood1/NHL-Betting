@@ -15,6 +15,8 @@ services:
         value: "true"
       - key: WEB_DISABLE_ODDS_FETCH
         value: "true"
+      - key: REFRESH_CRON_TOKEN
+        sync: false
       - key: PYTHON_VERSION
         value: 3.11.9
       - key: NIXPACKS_PYTHON_VERSION

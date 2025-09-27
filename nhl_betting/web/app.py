@@ -42,6 +42,16 @@ def _today_ymd() -> str:
         return datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
 
+def _const_time_eq(a: str, b: str) -> bool:
+    try:
+        if a is None or b is None:
+            return False
+        import hmac
+        return hmac.compare_digest(str(a), str(b))
+    except Exception:
+        return False
+
+
 def _read_only(date: Optional[str] = None) -> bool:
     """Whether to avoid fetching odds or writing predictions.
 
@@ -1892,6 +1902,42 @@ async def api_refresh_odds(
         except Exception:
             exist = {"elo": False, "config": False}
         return JSONResponse({"status": "partial", "message": "Failed to create predictions file.", "date": date, "models_present": exist}, status_code=200)
+
+
+@app.post("/api/cron/refresh-bovada")
+async def api_cron_refresh_bovada(
+    token: Optional[str] = Query(None, description="Bearer token; must match REFRESH_CRON_TOKEN env var"),
+    date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD; defaults to ET today"),
+):
+    """Cron-friendly endpoint to backfill Bovada odds for the slate.
+
+    - Requires REFRESH_CRON_TOKEN env var (token must match).
+    - Defaults to today's ET date.
+    - Runs in backfill mode: fills missing odds without overwriting existing numbers.
+    """
+    secret = os.getenv("REFRESH_CRON_TOKEN", "")
+    if not (secret and token and _const_time_eq(token, secret)):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    d = date or _today_ymd()
+    # Ensure models exist quickly; safe even if already present
+    try:
+        await _ensure_models(quick=True)
+    except Exception:
+        pass
+    # Reuse existing refresh logic in backfill mode
+    try:
+        res = await api_refresh_odds(date=d, snapshot=None, bankroll=0.0, kelly_fraction_part=0.5, backfill=True)
+        # Normalize response in case it's a JSONResponse
+        if isinstance(res, JSONResponse):
+            try:
+                import json as _json
+                body = _json.loads(res.body)
+            except Exception:
+                body = {"status": "ok"}
+            return JSONResponse({"ok": True, "date": d, "result": body})
+        return JSONResponse({"ok": True, "date": d, "result": res})
+    except Exception as e:
+        return JSONResponse({"ok": False, "date": d, "error": str(e)}, status_code=500)
 
 
 @app.get("/api/debug/status")

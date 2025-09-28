@@ -1,0 +1,13 @@
+date,home,away,market,bet,price,model_prob,ev,edge,book,result
+2025-09-27T23:00:00Z,Colorado Avalanche,Dallas Stars,puckline,away_pl_+1.5,-110.0,0.8548627414693706,0.6320106882597075,,,
+2025-09-27T21:00:00Z,Philadelphia Flyers,Boston Bruins,puckline,away_pl_+1.5,-110.0,0.8307547894301095,0.5859864161847546,,,
+2025-09-28T00:00:00Z,Winnipeg Jets,Calgary Flames,puckline,away_pl_+1.5,-110.0,0.8227476678441124,0.5707000931569418,,,
+2025-09-27T23:00:00Z,Pittsburgh Penguins,Columbus Blue Jackets,puckline,away_pl_+1.5,-110.0,0.8100339896909787,0.5464285257736867,,,
+2025-09-27T23:00:00Z,St. Louis Blues,Chicago Blackhawks,puckline,away_pl_+1.5,-110.0,0.750901171039859,0.4335385992579127,,,
+2025-09-28T00:00:00Z,Winnipeg Jets,Calgary Flames,totals,under,-110.0,0.7496652451325373,0.4311791043439349,,,
+2025-09-27T19:00:00Z,Buffalo Sabres,Detroit Red Wings,puckline,away_pl_+1.5,-110.0,0.7180860714329231,0.37089159091739876,,,
+2025-09-27T22:00:00Z,Los Angeles Kings,Anaheim Ducks,totals,under,-110.0,0.7005497096294614,0.33741308201988085,,,
+2025-09-27T23:00:00Z,St. Louis Blues,Chicago Blackhawks,totals,under,-110.0,0.6947260595345703,0.32629520456599803,,,
+2025-09-27T22:00:00Z,Los Angeles Kings,Anaheim Ducks,puckline,away_pl_+1.5,-110.0,0.629239224322417,0.20127488279734151,,,
+2025-09-27T23:00:00Z,Tampa Bay Lightning,Nashville Predators,puckline,home_pl_-1.5,-110.0,0.6270217292770464,0.19704148316527037,,,
+2025-09-27T23:00:00Z,Colorado Avalanche,Dallas Stars,totals,under,-110.0,0.5996910998702127,0.14486482702495163,,,

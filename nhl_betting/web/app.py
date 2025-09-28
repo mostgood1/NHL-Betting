@@ -93,6 +93,143 @@ def _read_csv_fallback(path: Path) -> pd.DataFrame:
         raise
 
 
+async def _recompute_edges_and_recommendations(date: str) -> None:
+    """Recompute EVs/edges and persist edges/recommendations CSVs for a date.
+
+    - Reads predictions_{date}.csv
+    - Ensures EV columns exist (if odds present). If missing, recompute from p_* and *_odds
+    - Writes edges_{date}.csv (long format) and recommendations_{date}.csv (top-N style via API)
+    """
+    try:
+        pred_path = PROC_DIR / f"predictions_{date}.csv"
+        if not pred_path.exists():
+            return
+        df = pd.read_csv(pred_path)
+        if df is None or df.empty:
+            return
+        import math as _math
+        from ..utils.odds import american_to_decimal, decimal_to_implied_prob, remove_vig_two_way, ev_unit
+        # Helper to parse numeric odds
+        def _num(v):
+            if v is None:
+                return None
+            try:
+                if isinstance(v, (int, float)):
+                    fv = float(v)
+                    return fv if _math.isfinite(fv) else None
+                s = str(v).strip().replace(",", "")
+                if s == "":
+                    return None
+                return float(s)
+            except Exception:
+                return None
+        # Compute EVs if missing and odds present
+        def _ensure_ev(row: pd.Series, prob_key: str, odds_key: str, ev_key: str, edge_key: Optional[str] = None):
+            try:
+                ev_present = (ev_key in row) and (row.get(ev_key) is not None) and not (isinstance(row.get(ev_key), float) and pd.isna(row.get(ev_key)))
+                if ev_present and (edge_key is None or (edge_key in row and pd.notna(row.get(edge_key)))):
+                    return row
+                p = None
+                if prob_key in row and pd.notna(row.get(prob_key)):
+                    p = float(row.get(prob_key))
+                    if not (0.0 <= p <= 1.0) or not _math.isfinite(p):
+                        p = None
+                price = _num(row.get(odds_key)) if odds_key in row else None
+                # fallback to close_* price
+                if price is None:
+                    close_map = {
+                        "home_ml_odds": "close_home_ml_odds",
+                        "away_ml_odds": "close_away_ml_odds",
+                        "over_odds": "close_over_odds",
+                        "under_odds": "close_under_odds",
+                        "home_pl_-1.5_odds": "close_home_pl_-1.5_odds",
+                        "away_pl_+1.5_odds": "close_away_pl_+1.5_odds",
+                    }
+                    ck = close_map.get(odds_key)
+                    if ck and (ck in row):
+                        price = _num(row.get(ck))
+                if (p is not None) and (price is not None):
+                    dec = american_to_decimal(price)
+                    if dec is not None and _math.isfinite(dec):
+                        row[ev_key] = round(ev_unit(p, dec), 4)
+                        if edge_key:
+                            # edge uses no-vig implied prob from two-way if counterpart present
+                            # Infer counterpart odds/prob based on market key pattern
+                            counterpart_map = {
+                                ("p_home_ml", "home_ml_odds"): ("p_away_ml", "away_ml_odds"),
+                                ("p_away_ml", "away_ml_odds"): ("p_home_ml", "home_ml_odds"),
+                                ("p_over", "over_odds"): ("p_under", "under_odds"),
+                                ("p_under", "under_odds"): ("p_over", "over_odds"),
+                                ("p_home_pl_-1.5", "home_pl_-1.5_odds"): ("p_away_pl_+1.5", "away_pl_+1.5_odds"),
+                                ("p_away_pl_+1.5", "away_pl_+1.5_odds"): ("p_home_pl_-1.5", "home_pl_-1.5_odds"),
+                            }
+                            other = counterpart_map.get((prob_key, odds_key))
+                            if other:
+                                p2 = None
+                                if other[0] in row and pd.notna(row.get(other[0])):
+                                    try:
+                                        p2 = float(row.get(other[0]))
+                                        if not (0.0 <= p2 <= 1.0) or not _math.isfinite(p2):
+                                            p2 = None
+                                    except Exception:
+                                        p2 = None
+                                price2 = _num(row.get(other[1])) if other[1] in row else None
+                                if price2 is None:
+                                    close_map2 = {
+                                        "home_ml_odds": "close_home_ml_odds",
+                                        "away_ml_odds": "close_away_ml_odds",
+                                        "over_odds": "close_over_odds",
+                                        "under_odds": "close_under_odds",
+                                        "home_pl_-1.5_odds": "close_home_pl_-1.5_odds",
+                                        "away_pl_+1.5_odds": "close_away_pl_+1.5_odds",
+                                    }
+                                    ck2 = close_map2.get(other[1])
+                                    if ck2 and (ck2 in row):
+                                        price2 = _num(row.get(ck2))
+                                if (p2 is not None) and (price2 is not None):
+                                    dec1 = american_to_decimal(price)
+                                    dec2 = american_to_decimal(price2)
+                                    if dec1 is not None and dec2 is not None:
+                                        imp1 = decimal_to_implied_prob(dec1)
+                                        imp2 = decimal_to_implied_prob(dec2)
+                                        nv1, nv2 = remove_vig_two_way(imp1, imp2)
+                                        # choose appropriate no-vig for this side
+                                        nv = nv1 if prob_key in ("p_home_ml", "p_over", "p_home_pl_-1.5") else nv2
+                                        row[edge_key] = round(p - nv, 4)
+            except Exception:
+                return row
+            return row
+        # Apply to rows
+        if not df.empty:
+            for i, r in df.iterrows():
+                r = _ensure_ev(r, "p_home_ml", "home_ml_odds", "ev_home_ml", "edge_home_ml")
+                r = _ensure_ev(r, "p_away_ml", "away_ml_odds", "ev_away_ml", "edge_away_ml")
+                r = _ensure_ev(r, "p_over", "over_odds", "ev_over", "edge_over")
+                r = _ensure_ev(r, "p_under", "under_odds", "ev_under", "edge_under")
+                r = _ensure_ev(r, "p_home_pl_-1.5", "home_pl_-1.5_odds", "ev_home_pl_-1.5", "edge_home_pl_-1.5")
+                r = _ensure_ev(r, "p_away_pl_+1.5", "away_pl_+1.5_odds", "ev_away_pl_+1.5", "edge_away_pl_+1.5")
+                df.iloc[i] = r
+        # Persist predictions with updated EV/edge fields
+        df.to_csv(pred_path, index=False)
+        # Write edges long-form
+        ev_cols = [c for c in df.columns if c.startswith("ev_")]
+        if ev_cols:
+            try:
+                edges = df.melt(id_vars=["date", "home", "away"], value_vars=ev_cols, var_name="market", value_name="ev").dropna()
+                edges = edges.sort_values("ev", ascending=False)
+                edges_path = PROC_DIR / f"edges_{date}.csv"
+                edges.to_csv(edges_path, index=False)
+            except Exception:
+                pass
+        # Regenerate recommendations via API to reuse logic and write recommendations_{date}.csv
+        try:
+            await api_recommendations(date=date, min_ev=0.0, top=1000, markets="all", bankroll=0.0, kelly_fraction_part=0.5)
+        except Exception:
+            pass
+    except Exception:
+        pass
+
+
 @app.get("/health")
 def health():
     """Simple health probe that avoids heavy work.
@@ -343,6 +480,53 @@ def _capture_closing_for_game(date: str, home_abbr: str, away_abbr: str, snapsho
     # Persist
     df.to_csv(path, index=False)
     return {"status": "ok", "date": date, "home_abbr": home_abbr, "away_abbr": away_abbr}
+
+
+def _capture_closing_for_day(date: str) -> dict:
+    """Persist first-seen closing odds for all FINAL games on the given date.
+
+    Iterates the scoreboard for the ET date, finds games in a FINAL state, and captures
+    closing odds/books/lines into predictions_{date}.csv using team abbreviations.
+    Idempotent: only fills close_* columns if they are currently empty.
+    """
+    try:
+        client = NHLWebClient()
+        games = client.scoreboard_day(date)
+    except Exception:
+        games = []
+    from .teams import get_team_assets as _assets
+    def _abbr(x: str) -> str:
+        try:
+            return (_assets(str(x)).get("abbr") or "").upper()
+        except Exception:
+            return ""
+    updated = 0
+    skipped = 0
+    errors = 0
+    snap = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    for g in games:
+        try:
+            st = str(g.get("gameState") or "").upper()
+        except Exception:
+            st = ""
+        # Only capture closing for FINAL games
+        if not st.startswith("FINAL"):
+            skipped += 1
+            continue
+        try:
+            h_ab = _abbr(g.get("home"))
+            a_ab = _abbr(g.get("away"))
+            if not h_ab or not a_ab:
+                skipped += 1
+                continue
+            res = _capture_closing_for_game(date, h_ab, a_ab, snapshot=snap)
+            if res.get("status") == "ok":
+                updated += 1
+            else:
+                skipped += 1
+        except Exception:
+            errors += 1
+    return {"status": "ok", "date": date, "updated": int(updated), "skipped": int(skipped), "errors": int(errors)}
 
 
 def _american_from_prob(prob: float) -> Optional[int]:
@@ -1891,6 +2075,11 @@ async def api_refresh_odds(
                     _capture_openers_for_day(date)
             except Exception:
                 pass
+            # Recompute EVs/edges and persist recommendations for reconciliation after odds update
+            try:
+                await _recompute_edges_and_recommendations(date)
+            except Exception:
+                pass
             return {"status": "ok", "date": date, "snapshot": snapshot, "bankroll": bankroll, "kelly_fraction_part": kelly_fraction_part, "backfill": backfill}
     except Exception:
         # Improve diagnostics: indicate whether model files exist
@@ -1934,7 +2123,41 @@ async def api_cron_refresh_bovada(
                 body = _json.loads(res.body)
             except Exception:
                 body = {"status": "ok"}
+            # After refresh, attempt to capture closing for any FINAL games (idempotent)
+            try:
+                clo = _capture_closing_for_day(d)
+                body["closing"] = clo
+            except Exception:
+                pass
             return JSONResponse({"ok": True, "date": d, "result": body})
+        # If non-JSONResponse path, still try closing capture
+        out = {"ok": True, "date": d, "result": res}
+        try:
+            clo = _capture_closing_for_day(d)
+            out["closing"] = clo
+        except Exception:
+            pass
+        return JSONResponse(out)
+    except Exception as e:
+        return JSONResponse({"ok": False, "date": d, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/cron/capture-closing")
+async def api_cron_capture_closing(
+    token: Optional[str] = Query(None, description="Bearer token; must match REFRESH_CRON_TOKEN env var"),
+    date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD; defaults to ET today"),
+):
+    """Cron-friendly endpoint to capture closing odds for all FINAL games on a date.
+
+    - Requires REFRESH_CRON_TOKEN env var (token must match).
+    - Safe and idempotent: fills close_* only if empty.
+    """
+    secret = os.getenv("REFRESH_CRON_TOKEN", "")
+    if not (secret and token and _const_time_eq(token, secret)):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    d = date or _today_ymd()
+    try:
+        res = _capture_closing_for_day(d)
         return JSONResponse({"ok": True, "date": d, "result": res})
     except Exception as e:
         return JSONResponse({"ok": False, "date": d, "error": str(e)}, status_code=500)

@@ -13,6 +13,7 @@ This invokes the FastAPI app helper to:
 import asyncio
 import sys
 from datetime import datetime
+from pathlib import Path
 
 
 def _today_et() -> str:
@@ -25,6 +26,10 @@ def _today_et() -> str:
 
 async def _main(date: str) -> None:
     # Import inside to avoid heavy imports if just asking for help
+    # Ensure repo root is on sys.path for package imports
+    root = Path(__file__).resolve().parents[1]
+    if str(root) not in sys.path:
+        sys.path.insert(0, str(root))
     import nhl_betting.web.app as app
     await app._recompute_edges_and_recommendations(date)
 

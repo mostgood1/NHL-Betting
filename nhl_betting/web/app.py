@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Optional
 
 import pandas as pd
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, Header
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from jinja2 import Environment, FileSystemLoader, select_autoescape
@@ -2163,6 +2163,7 @@ async def api_refresh_odds(
 async def api_cron_refresh_bovada(
     token: Optional[str] = Query(None, description="Bearer token; must match REFRESH_CRON_TOKEN env var"),
     date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD; defaults to ET today"),
+    authorization: Optional[str] = Header(None, description="Authorization: Bearer <token> header (optional alternative to token query param)"),
 ):
     """Cron-friendly endpoint to backfill Bovada odds for the slate.
 
@@ -2171,7 +2172,16 @@ async def api_cron_refresh_bovada(
     - Runs in backfill mode: fills missing odds without overwriting existing numbers.
     """
     secret = os.getenv("REFRESH_CRON_TOKEN", "")
-    if not (secret and token and _const_time_eq(token, secret)):
+    # Prefer explicit token param; else, parse Bearer token from header if present
+    supplied = (token or "").strip()
+    if (not supplied) and authorization:
+        try:
+            auth = str(authorization)
+            if auth.lower().startswith("bearer "):
+                supplied = auth.split(" ", 1)[1].strip()
+        except Exception:
+            supplied = supplied
+    if not (secret and supplied and _const_time_eq(supplied, secret)):
         return JSONResponse({"error": "unauthorized"}, status_code=401)
     d = date or _today_ymd()
     # Ensure models exist quickly; safe even if already present
@@ -2212,6 +2222,7 @@ async def api_cron_refresh_bovada(
 async def api_cron_capture_closing(
     token: Optional[str] = Query(None, description="Bearer token; must match REFRESH_CRON_TOKEN env var"),
     date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD; defaults to ET today"),
+    authorization: Optional[str] = Header(None, description="Authorization: Bearer <token> header (optional alternative to token query param)"),
 ):
     """Cron-friendly endpoint to capture closing odds for all FINAL games on a date.
 
@@ -2219,7 +2230,15 @@ async def api_cron_capture_closing(
     - Safe and idempotent: fills close_* only if empty.
     """
     secret = os.getenv("REFRESH_CRON_TOKEN", "")
-    if not (secret and token and _const_time_eq(token, secret)):
+    supplied = (token or "").strip()
+    if (not supplied) and authorization:
+        try:
+            auth = str(authorization)
+            if auth.lower().startswith("bearer "):
+                supplied = auth.split(" ", 1)[1].strip()
+        except Exception:
+            supplied = supplied
+    if not (secret and supplied and _const_time_eq(supplied, secret)):
         return JSONResponse({"error": "unauthorized"}, status_code=401)
     d = date or _today_ymd()
     try:

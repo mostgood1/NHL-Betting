@@ -21,6 +21,8 @@ from ..cli import predict_core, fetch as cli_fetch, train as cli_train
 from ..models.poisson import PoissonGoals
 import asyncio
 from ..data.bovada import BovadaClient
+import base64
+import requests
 
 BASE_DIR = Path(__file__).resolve().parent
 TEMPLATES_DIR = BASE_DIR / "templates"
@@ -211,6 +213,7 @@ async def _recompute_edges_and_recommendations(date: str) -> None:
                 df.iloc[i] = r
         # Persist predictions with updated EV/edge fields
         df.to_csv(pred_path, index=False)
+        _gh_upsert_file_if_configured(pred_path, f"web: update predictions with odds/EV for {date}")
         # Write edges long-form
         ev_cols = [c for c in df.columns if c.startswith("ev_")]
         if ev_cols:
@@ -219,15 +222,74 @@ async def _recompute_edges_and_recommendations(date: str) -> None:
                 edges = edges.sort_values("ev", ascending=False)
                 edges_path = PROC_DIR / f"edges_{date}.csv"
                 edges.to_csv(edges_path, index=False)
+                _gh_upsert_file_if_configured(edges_path, f"web: update edges for {date}")
             except Exception:
                 pass
         # Regenerate recommendations via API to reuse logic and write recommendations_{date}.csv
         try:
             await api_recommendations(date=date, min_ev=0.0, top=1000, markets="all", bankroll=0.0, kelly_fraction_part=0.5)
+            # Push recommendations file if created
+            rec_path = PROC_DIR / f"recommendations_{date}.csv"
+            if rec_path.exists():
+                _gh_upsert_file_if_configured(rec_path, f"web: update recommendations for {date}")
         except Exception:
             pass
     except Exception:
         pass
+
+
+def _gh_upsert_file_if_configured(path: Path, message: str) -> dict:
+    """Push a file to GitHub if GITHUB_TOKEN and GITHUB_REPO are configured. Best-effort, non-fatal."""
+    try:
+        token = os.getenv("GITHUB_TOKEN", "").strip()
+        repo = os.getenv("GITHUB_REPO", "").strip()
+        branch = os.getenv("GITHUB_BRANCH", "master").strip()
+        if not token or not repo:
+            return {"skipped": True, "reason": "missing_token_or_repo"}
+        # Build relative path from repo root; assume working dir at repo root
+        rel_path = str(path).replace("\\", "/")
+        try:
+            # Attempt to strip absolute root up to repo folder if present
+            # Find last occurrence of '/NHL-Betting/' or repo name
+            parts = rel_path.split("/")
+            if "data" in parts:
+                idx = parts.index("data")
+                rel_path = "/".join(parts[idx-0:])  # from 'data/...'
+        except Exception:
+            pass
+        api = f"https://api.github.com/repos/{repo}/contents/{rel_path}"
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/vnd.github+json",
+        }
+        # Read content
+        with open(path, "rb") as f:
+            content_b64 = base64.b64encode(f.read()).decode("ascii")
+        # Get existing SHA if file exists
+        sha = None
+        try:
+            r = requests.get(api, params={"ref": branch}, headers=headers, timeout=20)
+            if r.status_code == 200:
+                sha = r.json().get("sha")
+        except Exception:
+            sha = None
+        data = {
+            "message": message,
+            "content": content_b64,
+            "branch": branch,
+        }
+        author = os.getenv("GITHUB_COMMIT_AUTHOR", "").strip()
+        email = os.getenv("GITHUB_COMMIT_EMAIL", "").strip()
+        if author and email:
+            data["committer"] = {"name": author, "email": email}
+        if sha:
+            data["sha"] = sha
+        pr = requests.put(api, headers=headers, json=data, timeout=30)
+        if pr.status_code not in (200, 201):
+            return {"skipped": True, "reason": f"push_failed_{pr.status_code}", "body": pr.text[:300]}
+        return {"ok": True, "path": rel_path}
+    except Exception as e:
+        return {"skipped": True, "reason": f"exception_{type(e).__name__}", "msg": str(e)}
 
 
 @app.get("/health")
@@ -479,6 +541,10 @@ def _capture_closing_for_game(date: str, home_abbr: str, away_abbr: str, snapsho
         pass
     # Persist
     df.to_csv(path, index=False)
+    try:
+        _gh_upsert_file_if_configured(path, f"web: capture closing odds for {date} {home_abbr}-{away_abbr}")
+    except Exception:
+        pass
     return {"status": "ok", "date": date, "home_abbr": home_abbr, "away_abbr": away_abbr}
 
 

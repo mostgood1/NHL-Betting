@@ -11,6 +11,16 @@ services:
     envVars:
       - key: ODDS_API_KEY
         sync: false
+      - key: GITHUB_TOKEN
+        sync: false
+      - key: GITHUB_REPO
+        value: mostgood1/NHL-Betting
+      - key: GITHUB_BRANCH
+        value: master
+      - key: GITHUB_COMMIT_AUTHOR
+        value: Render Bot
+      - key: GITHUB_COMMIT_EMAIL
+        value: render-bot@example.com
       - key: WEB_READ_ONLY_PREDICTIONS
         value: "true"
       - key: WEB_DISABLE_ODDS_FETCH

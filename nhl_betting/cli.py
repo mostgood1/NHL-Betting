@@ -179,6 +179,14 @@ def predict_core(
         s = str(s)
         s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode()
         s = s.lower()
+        # Strip common Bovada/ preseason qualifiers that break exact matching
+        # e.g., "New Jersey Devils Split Squad" -> "New Jersey Devils"
+        s = re.sub(r"\bsplit\s*squad\b", " ", s)
+        s = re.sub(r"\bprospects?\b", " ", s)
+        s = re.sub(r"\brookie\b", " ", s)
+        s = re.sub(r"\bpreseason\b", " ", s)
+        s = re.sub(r"\bexhibition\b", " ", s)
+        s = re.sub(r"\bteam\s*[ab]\b", " ", s)  # Team A / Team B if ever present
         s = re.sub(r"[^a-z0-9]+", "", s)
         return s
     # Load schedule for date and ratings (non-CLI core)

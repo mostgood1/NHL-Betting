@@ -335,7 +335,8 @@ def predict_core(
         per_game_total = total_line
         match_info = None  # store the matched odds row for later EV/edge calc
         if odds_df is not None:
-            key_date = pd.to_datetime(g.gameDate).strftime("%Y-%m-%d")
+            # Use ET calendar day for matching (Bovada odds are keyed to ET date)
+            key_date = iso_to_et_date(getattr(g, "gameDate")) or pd.to_datetime(g.gameDate).strftime("%Y-%m-%d")
             g_home_n = norm_team(g.home)
             g_away_n = norm_team(g.away)
             # Also derive team abbreviations for robust matching
@@ -346,7 +347,7 @@ def predict_core(
             except Exception:
                 g_home_abbr = ""
                 g_away_abbr = ""
-            # Try exact date+team match
+            # Try exact date+team match (abbr preferred)
             m = pd.DataFrame()
             if {"home_abbr","away_abbr"}.issubset(set(odds_df.columns)) and g_home_abbr and g_away_abbr:
                 m = odds_df[(odds_df["date"] == key_date) & (odds_df["home_abbr"] == g_home_abbr) & (odds_df["away_abbr"] == g_away_abbr)]

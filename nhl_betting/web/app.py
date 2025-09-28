@@ -473,7 +473,15 @@ def _merge_preserve_odds(df_old: pd.DataFrame, df_new: pd.DataFrame) -> pd.DataF
                 if (not new_has) and old_has:
                     r[c] = ro.get(c)
         rows.append(r)
-    return pd.DataFrame(rows, columns=df_new.columns)
+    # Preserve union of columns so newly filled odds columns aren't dropped
+    try:
+        out_cols = list(dict.fromkeys(list(df_new.columns) + [c for c in cand_cols if (c in df_new.columns) or (c in df_old.columns)]))
+        df_out = pd.DataFrame(rows)
+        # Only select columns that exist in df_out
+        out_cols = [c for c in out_cols if c in df_out.columns]
+        return df_out[out_cols]
+    except Exception:
+        return pd.DataFrame(rows)
 
 
 def _capture_closing_for_game(date: str, home_abbr: str, away_abbr: str, snapshot: Optional[str] = None) -> dict:
@@ -2066,7 +2074,14 @@ async def api_refresh_odds(
                                     if (not tgt_has) and src_has:
                                         r[c] = rs.get(c)
                             rows.append(r)
-                        return pd.DataFrame(rows, columns=df_target.columns)
+                        # Preserve union of columns so newly backfilled odds columns aren't dropped
+                        try:
+                            df_out = pd.DataFrame(rows)
+                            out_cols = list(dict.fromkeys(list(df_target.columns) + [c for c in cols if c in df_out.columns]))
+                            out_cols = [c for c in out_cols if c in df_out.columns]
+                            return df_out[out_cols]
+                        except Exception:
+                            return pd.DataFrame(rows)
                     df_keep = _backfill_missing(df_old, df_new)
                     df_keep.to_csv(PROC_DIR / f"predictions_{date}.csv", index=False)
                 else:

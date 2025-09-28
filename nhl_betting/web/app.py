@@ -2283,6 +2283,23 @@ async def api_debug_status(date: Optional[str] = Query(None)):
     return JSONResponse(items)
 
 
+@app.get("/api/cron/config")
+def api_cron_config():
+    """Tiny diagnostics: tell if cron and GitHub tokens are configured (booleans only)."""
+    try:
+        cron_ok = bool(os.getenv("REFRESH_CRON_TOKEN", "").strip())
+    except Exception:
+        cron_ok = False
+    try:
+        gh_ok = bool(os.getenv("GITHUB_TOKEN", "").strip())
+    except Exception:
+        gh_ok = False
+    return JSONResponse({
+        "cron_token_configured": cron_ok,
+        "github_token_configured": gh_ok,
+    })
+
+
 @app.get("/api/recommendations")
 async def api_recommendations(
     date: Optional[str] = Query(None),

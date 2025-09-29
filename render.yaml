@@ -31,7 +31,7 @@ services:
         value: 3.11.9
       - key: NIXPACKS_PYTHON_VERSION
         value: 3.11.9
-    autoDeploy: true
+  autoDeploy: false
 
   - type: cron
     name: nhl-betting-nightly

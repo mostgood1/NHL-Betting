@@ -8,7 +8,7 @@ date,home,away,market,bet,price,model_prob,ev,edge,book,result
 2025-09-30T02:00:00Z,Seattle Kraken,Calgary Flames,puckline,home_pl_-1.5,160.0,0.4980680975483991,0.295,0.1302,bovada,
 2025-09-29T23:00:00Z,Boston Bruins,Philadelphia Flyers,moneyline,home_ml,-215.0,0.8628278554632607,0.2641,0.2104,bovada,
 2025-09-29T23:00:00Z,Detroit Red Wings,Pittsburgh Penguins,moneyline,home_ml,-195.0,0.8104212977134289,0.226,0.1783,bovada,
-2025-09-30T02:00:00Z,Anaheim Ducks,San Jose Sharks,puckline,away_pl_+1.5,-120.0,0.6388338264752561,0.1712,0.1171,bovada,
+2025-09-30T02:00:00Z,Anaheim Ducks,San Jose Sharks,puckline,away_pl_+1.5,-110.0,0.6388338264752561,0.2196,0.1388,bovada,
 2025-09-30T02:00:00Z,Anaheim Ducks,San Jose Sharks,moneyline,away_ml,200.0,0.3874620957506087,0.1624,0.0693,bovada,
 2025-09-29T22:00:00Z,Florida Panthers,Carolina Hurricanes,totals,over,-120.0,0.6290124784486103,0.1532,0.1073,bovada,
 2025-09-30T02:00:00Z,Anaheim Ducks,San Jose Sharks,totals,under,-110.0,0.6509699786544526,0.1159,0.0946,,

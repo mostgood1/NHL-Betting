@@ -1,6 +1,6 @@
 date,home,away,market,bet,price,model_prob,ev,edge,book,result
-2025-09-29T22:00:00Z,Florida Panthers,Carolina Hurricanes,puckline,home_pl_-1.5,195.0,0.6561755854210987,0.9357,0.3317,bovada,
-2025-09-29T22:00:00Z,Florida Panthers,Carolina Hurricanes,moneyline,home_ml,-125.0,0.8386718724901709,0.5096,0.3062,bovada,
+2025-09-29T22:00:00Z,Florida Panthers,Carolina Hurricanes,puckline,home_pl_-1.5,210.0,0.6561755854210987,1.0341,0.3474,bovada,
+2025-09-29T22:00:00Z,Florida Panthers,Carolina Hurricanes,moneyline,home_ml,-120.0,0.8386718724901709,0.5376,0.3169,bovada,
 2025-09-29T23:00:00Z,Boston Bruins,Philadelphia Flyers,puckline,home_pl_-1.5,115.0,0.7002773470326435,0.5056,0.2567,bovada,
 2025-09-29T23:00:00Z,Detroit Red Wings,Pittsburgh Penguins,puckline,home_pl_-1.5,145.0,0.5980394471814463,0.4652,0.2073,bovada,
 2025-09-29T23:00:00Z,Boston Bruins,Philadelphia Flyers,moneyline,home_ml,-200.0,0.8664358228279957,0.2997,0.2279,bovada,

@@ -1077,6 +1077,66 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
             df = dfall
     except Exception:
         pass
+    # Ensure EV fields exist for display/recommendations: compute from probabilities and odds if missing
+    if not df.empty:
+        try:
+            import math as _math
+            from ..utils.odds import american_to_decimal, ev_unit
+            def _num(v):
+                if v is None:
+                    return None
+                try:
+                    if isinstance(v, (int, float)):
+                        f = float(v)
+                        return f if _math.isfinite(f) else None
+                    s = str(v).strip().replace(",", "")
+                    if s == "":
+                        return None
+                    return float(s)
+                except Exception:
+                    return None
+            def _ensure_ev_row(row: pd.Series, p_key: str, odds_key: str, ev_key: str):
+                try:
+                    ev_present = (ev_key in row) and (row.get(ev_key) is not None) and not (isinstance(row.get(ev_key), float) and pd.isna(row.get(ev_key)))
+                    if ev_present:
+                        return row
+                    p = None
+                    if p_key in row and pd.notna(row.get(p_key)):
+                        p = float(row.get(p_key))
+                        if not (0.0 <= p <= 1.0) or not _math.isfinite(p):
+                            p = None
+                    price = _num(row.get(odds_key)) if odds_key in row else None
+                    if price is None:
+                        # fallback to closing odds
+                        close_map = {
+                            "home_ml_odds": "close_home_ml_odds",
+                            "away_ml_odds": "close_away_ml_odds",
+                            "over_odds": "close_over_odds",
+                            "under_odds": "close_under_odds",
+                            "home_pl_-1.5_odds": "close_home_pl_-1.5_odds",
+                            "away_pl_+1.5_odds": "close_away_pl_+1.5_odds",
+                        }
+                        ck = close_map.get(odds_key)
+                        if ck and (ck in row):
+                            price = _num(row.get(ck))
+                    if (p is not None) and (price is not None):
+                        dec = american_to_decimal(price)
+                        if dec is not None and _math.isfinite(dec):
+                            row[ev_key] = round(ev_unit(p, dec), 4)
+                except Exception:
+                    return row
+                return row
+            # Apply to DataFrame
+            for i, r in df.iterrows():
+                r = _ensure_ev_row(r, "p_home_ml", "home_ml_odds", "ev_home_ml")
+                r = _ensure_ev_row(r, "p_away_ml", "away_ml_odds", "ev_away_ml")
+                r = _ensure_ev_row(r, "p_over", "over_odds", "ev_over")
+                r = _ensure_ev_row(r, "p_under", "under_odds", "ev_under")
+                r = _ensure_ev_row(r, "p_home_pl_-1.5", "home_pl_-1.5_odds", "ev_home_pl_-1.5")
+                r = _ensure_ev_row(r, "p_away_pl_+1.5", "away_pl_+1.5_odds", "ev_away_pl_+1.5")
+                df.iloc[i] = r
+        except Exception:
+            pass
     rows = df.to_dict(orient="records") if not df.empty else []
     # Fallback/sanitization: if predictions CSV lacks projection fields (older files) or they are NaN, derive them now
     if rows:

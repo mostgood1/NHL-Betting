@@ -400,15 +400,31 @@ def _gh_upsert_file_if_configured(path: Path, message: str) -> dict:
         }
         # Read content
         with open(path, "rb") as f:
-            content_b64 = base64.b64encode(f.read()).decode("ascii")
+            local_bytes = f.read()
+            content_b64 = base64.b64encode(local_bytes).decode("ascii")
         # Get existing SHA if file exists
         sha = None
+        remote_same = False
         try:
             r = requests.get(api, params={"ref": branch}, headers=headers, timeout=20)
             if r.status_code == 200:
-                sha = r.json().get("sha")
+                body = r.json()
+                sha = body.get("sha")
+                # If API returns content, compare to avoid no-op commits
+                try:
+                    enc = body.get("encoding")
+                    remote_content = body.get("content")
+                    if enc == "base64" and isinstance(remote_content, str):
+                        import base64 as _b64
+                        rb = _b64.b64decode(remote_content.encode("ascii"))
+                        if rb == local_bytes:
+                            remote_same = True
+                except Exception:
+                    remote_same = False
         except Exception:
             sha = None
+        if remote_same:
+            return {"skipped": True, "reason": "no_change", "path": rel_path}
         data = {
             "message": message,
             "content": content_b64,

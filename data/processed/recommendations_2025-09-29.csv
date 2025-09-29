@@ -1,0 +1,7 @@
+date,home,away,market,bet,price,model_prob,ev,edge,book,result
+2025-09-29T23:00:00Z,Boston Bruins,Philadelphia Flyers,puckline,home_pl_-1.5,-110.0,0.7002773470326435,0.3368931170623196,,,
+2025-09-29T22:00:00Z,Florida Panthers,Carolina Hurricanes,puckline,home_pl_-1.5,-110.0,0.6739755040638241,0.28668050775820975,,,
+2025-09-30T02:00:00Z,Anaheim Ducks,San Jose Sharks,puckline,away_pl_+1.5,-110.0,0.6449524401396233,0.2312728402665536,,,
+2025-09-29T23:00:00Z,Detroit Red Wings,Pittsburgh Penguins,puckline,home_pl_-1.5,-110.0,0.5980394471814463,0.14171167189185208,,,
+2025-09-30T02:00:00Z,Seattle Kraken,Calgary Flames,totals,under,-110.0,0.5803001074370919,0.10784565965263004,,,
+2025-09-30T02:00:00Z,Anaheim Ducks,San Jose Sharks,totals,under,-110.0,0.5513084727908503,0.05249799350980511,,,

@@ -2442,6 +2442,38 @@ async def api_cron_refresh_bovada(
         return JSONResponse({"ok": False, "date": d, "error": str(e)}, status_code=500)
 
 
+@app.post("/api/cron/retune")
+async def api_cron_retune(
+    token: Optional[str] = Query(None, description="Bearer token; must match REFRESH_CRON_TOKEN env var"),
+    authorization: Optional[str] = Header(None, description="Authorization: Bearer <token> header (optional alternative to token query param)"),
+):
+    """Cron-friendly endpoint to run a quick model retune using yesterday's completed games (ET).
+
+    - Requires REFRESH_CRON_TOKEN env var (token must match).
+    - Updates Elo ratings, trends, and lightly blends base_mu.
+    """
+    secret = os.getenv("REFRESH_CRON_TOKEN", "")
+    supplied = (token or "").strip()
+    if (not supplied) and authorization:
+        try:
+            auth = str(authorization)
+            if auth.lower().startswith("bearer "):
+                supplied = auth.split(" ", 1)[1].strip()
+        except Exception:
+            supplied = supplied
+    if not (secret and supplied and _const_time_eq(supplied, secret)):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    # Import here to avoid circular imports
+    try:
+        from nhl_betting.scripts.daily_update import quick_retune_from_yesterday as _retune
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": f"import-failed: {e}"}, status_code=500)
+    try:
+        res = _retune(verbose=False)
+        return JSONResponse({"ok": True, "result": res})
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
 @app.post("/api/cron/capture-closing")
 async def api_cron_capture_closing(
     token: Optional[str] = Query(None, description="Bearer token; must match REFRESH_CRON_TOKEN env var"),

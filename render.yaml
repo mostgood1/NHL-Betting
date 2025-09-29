@@ -43,7 +43,8 @@ services:
       /bin/sh -lc "\
       apk add --no-cache curl && \
       curl -sSf -X POST \"https://nhl-betting.onrender.com/api/cron/refresh-bovada?date=yesterday\" -H \"Authorization: Bearer $REFRESH_CRON_TOKEN\" && \
-      curl -sSf -X POST \"https://nhl-betting.onrender.com/api/cron/capture-closing?date=yesterday\" -H \"Authorization: Bearer $REFRESH_CRON_TOKEN\" || true"
+      curl -sSf -X POST \"https://nhl-betting.onrender.com/api/cron/capture-closing?date=yesterday\" -H \"Authorization: Bearer $REFRESH_CRON_TOKEN\" && \
+      curl -sSf -X POST \"https://nhl-betting.onrender.com/api/cron/retune\" -H \"Authorization: Bearer $REFRESH_CRON_TOKEN\" || true"
     envVars:
       - key: REFRESH_CRON_TOKEN
         sync: false

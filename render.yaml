@@ -52,8 +52,8 @@ services:
   - type: cron
     name: nhl-betting-daytime
     env: docker
-    # Every 15 minutes to refresh today's slate; idempotent and only overwrites pre-start games
-    schedule: "*/15 * * * *"
+    # Every 60 minutes to refresh today's slate; idempotent and only overwrites pre-start games
+    schedule: "0 * * * *"
     command: |
       /bin/sh -lc "\
       apk add --no-cache curl && \

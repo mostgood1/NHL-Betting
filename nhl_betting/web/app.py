@@ -44,6 +44,23 @@ def _today_ymd() -> str:
         return datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
 
+def _normalize_date_param(d: Optional[str]) -> str:
+    """Normalize 'today'/'yesterday' to ET YYYY-MM-DD; pass-through other values."""
+    if not d:
+        return _today_ymd()
+    s = str(d).strip().lower()
+    try:
+        et = ZoneInfo("America/New_York")
+    except Exception:
+        et = timezone.utc
+    now_et = datetime.now(et)
+    if s == "today":
+        return now_et.strftime("%Y-%m-%d")
+    if s == "yesterday":
+        return (now_et - timedelta(days=1)).strftime("%Y-%m-%d")
+    return d
+
+
 def _const_time_eq(a: str, b: str) -> bool:
     try:
         if a is None or b is None:
@@ -236,6 +253,125 @@ async def _recompute_edges_and_recommendations(date: str) -> None:
             pass
     except Exception:
         pass
+
+
+def _backfill_settlement_for_date(date: str) -> dict:
+    """Compute final scores and result fields for a settled slate and persist them.
+
+    Writes back into predictions_{date}.csv and upserts to GitHub regardless of read-only UI flags.
+    Returns a brief summary dict with counts.
+    """
+    pred_csv_path = PROC_DIR / f"predictions_{date}.csv"
+    if not pred_csv_path.exists():
+        return {"skipped": True, "reason": "no_predictions"}
+    try:
+        df = pd.read_csv(pred_csv_path)
+    except Exception as e:
+        return {"skipped": True, "reason": f"read_error_{type(e).__name__}"}
+    if df.empty:
+        return {"skipped": True, "reason": "empty_predictions"}
+    # Scoreboard lookup
+    try:
+        client = NHLWebClient()
+        sb = client.scoreboard_day(date)
+    except Exception:
+        sb = []
+    def _abbr(x: str) -> str:
+        try:
+            return (get_team_assets(str(x)).get("abbr") or "").upper()
+        except Exception:
+            return ""
+    sb_idx = {}
+    try:
+        for g in sb:
+            hk = _abbr(g.get("home")); ak = _abbr(g.get("away"))
+            if hk and ak:
+                sb_idx[(hk, ak)] = g
+    except Exception:
+        pass
+    backfilled = 0
+    import math as _math
+    def _num(x):
+        try:
+            if x is None: return None
+            if isinstance(x, (int,float)):
+                return float(x)
+            s = str(x).strip();
+            if s == "": return None
+            return float(s)
+        except Exception:
+            return None
+    for i, r in df.iterrows():
+        try:
+            hk = _abbr(r.get("home")); ak = _abbr(r.get("away"))
+            g = sb_idx.get((hk, ak))
+            fh = fa = None
+            if g:
+                if g.get("home_goals") is not None:
+                    fh = int(g.get("home_goals"))
+                if g.get("away_goals") is not None:
+                    fa = int(g.get("away_goals"))
+            if fh is None or fa is None:
+                continue
+            actual_total = fh + fa
+            df.at[i, "final_home_goals"] = fh
+            df.at[i, "final_away_goals"] = fa
+            df.at[i, "actual_home_goals"] = fh
+            df.at[i, "actual_away_goals"] = fa
+            df.at[i, "actual_total"] = actual_total
+            # winner_actual
+            if pd.isna(r.get("winner_actual")) or not r.get("winner_actual"):
+                df.at[i, "winner_actual"] = r.get("home") if fh > fa else (r.get("away") if fa > fh else "Draw")
+            # result_total: prefer close_total_line_used then total_line_used
+            total_line = None
+            for key in ("close_total_line_used", "total_line_used", "pl_line_used"):
+                v = r.get(key)
+                nv = _num(v)
+                if nv is not None:
+                    total_line = nv; break
+            if (pd.isna(r.get("result_total")) or not r.get("result_total")) and (total_line is not None):
+                if actual_total > total_line:
+                    df.at[i, "result_total"] = "Over"
+                elif actual_total < total_line:
+                    df.at[i, "result_total"] = "Under"
+                else:
+                    df.at[i, "result_total"] = "Push"
+            # result_ats at +/-1.5
+            if pd.isna(r.get("result_ats")) or not r.get("result_ats"):
+                diff = fh - fa
+                df.at[i, "result_ats"] = "home_-1.5" if diff > 1.5 else "away_+1.5"
+            # winner_model and correctness
+            if pd.isna(r.get("winner_model")) or not r.get("winner_model"):
+                try:
+                    ph = _num(r.get("p_home_ml")); pa = _num(r.get("p_away_ml"))
+                    if ph is not None and pa is not None:
+                        df.at[i, "winner_model"] = r.get("home") if ph >= pa else r.get("away")
+                except Exception:
+                    pass
+            if (r.get("winner_actual") or df.at[i, "winner_actual"]) and (r.get("winner_model") or df.at[i, "winner_model"]) and pd.isna(r.get("winner_correct")):
+                df.at[i, "winner_correct"] = ( (r.get("winner_actual") or df.at[i, "winner_actual"]) == (r.get("winner_model") or df.at[i, "winner_model"]) )
+            # total_diff
+            mt = _num(r.get("model_total"))
+            if mt is not None and pd.isna(r.get("total_diff")):
+                df.at[i, "total_diff"] = round(mt - actual_total, 2)
+            # pick correctness
+            if r.get("totals_pick") and (r.get("result_total") or df.at[i, "result_total"]) and pd.isna(r.get("totals_pick_correct")):
+                rt = r.get("result_total") or df.at[i, "result_total"]
+                if rt != "Push":
+                    df.at[i, "totals_pick_correct"] = (r.get("totals_pick") == rt)
+            if r.get("ats_pick") and (r.get("result_ats") or df.at[i, "result_ats"]) and pd.isna(r.get("ats_pick_correct")):
+                ra = r.get("result_ats") or df.at[i, "result_ats"]
+                df.at[i, "ats_pick_correct"] = (r.get("ats_pick") == ra)
+            backfilled += 1
+        except Exception:
+            continue
+    # Persist and push
+    try:
+        df.to_csv(pred_csv_path, index=False)
+        _gh_upsert_file_if_configured(pred_csv_path, f"web: settlement backfill for {date}")
+    except Exception:
+        pass
+    return {"ok": True, "date": date, "rows_backfilled": backfilled}
 
 
 def _gh_upsert_file_if_configured(path: Path, message: str) -> dict:
@@ -2198,7 +2334,7 @@ async def api_cron_refresh_bovada(
             supplied = supplied
     if not (secret and supplied and _const_time_eq(supplied, secret)):
         return JSONResponse({"error": "unauthorized"}, status_code=401)
-    d = date or _today_ymd()
+    d = _normalize_date_param(date)
     # Ensure models exist quickly; safe even if already present
     try:
         await _ensure_models(quick=True)
@@ -2220,12 +2356,20 @@ async def api_cron_refresh_bovada(
                 body["closing"] = clo
             except Exception:
                 pass
+            try:
+                body["settlement"] = _backfill_settlement_for_date(d)
+            except Exception:
+                pass
             return JSONResponse({"ok": True, "date": d, "result": body})
         # If non-JSONResponse path, still try closing capture
         out = {"ok": True, "date": d, "result": res}
         try:
             clo = _capture_closing_for_day(d)
             out["closing"] = clo
+        except Exception:
+            pass
+        try:
+            out["settlement"] = _backfill_settlement_for_date(d)
         except Exception:
             pass
         return JSONResponse(out)
@@ -2255,10 +2399,15 @@ async def api_cron_capture_closing(
             supplied = supplied
     if not (secret and supplied and _const_time_eq(supplied, secret)):
         return JSONResponse({"error": "unauthorized"}, status_code=401)
-    d = date or _today_ymd()
+    d = _normalize_date_param(date)
     try:
         res = _capture_closing_for_day(d)
-        return JSONResponse({"ok": True, "date": d, "result": res})
+        out = {"ok": True, "date": d, "result": res}
+        try:
+            out["settlement"] = _backfill_settlement_for_date(d)
+        except Exception:
+            pass
+        return JSONResponse(out)
     except Exception as e:
         return JSONResponse({"ok": False, "date": d, "error": str(e)}, status_code=500)
 

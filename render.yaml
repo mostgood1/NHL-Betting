@@ -32,3 +32,16 @@ services:
       - key: NIXPACKS_PYTHON_VERSION
         value: 3.11.9
     autoDeploy: true
+
+  - type: cron
+    name: nhl-betting-nightly
+    env: docker
+    schedule: "0 8 * * *" # 8:00 UTC daily (~3:00am ET standard, ~4:00am ET DST)
+    command: |
+      /bin/sh -lc "\
+      apk add --no-cache curl && \
+      curl -sSf -X POST \"https://nhl-betting.onrender.com/api/cron/refresh-bovada?date=yesterday\" -H \"Authorization: Bearer $REFRESH_CRON_TOKEN\" && \
+      curl -sSf -X POST \"https://nhl-betting.onrender.com/api/cron/capture-closing?date=yesterday\" -H \"Authorization: Bearer $REFRESH_CRON_TOKEN\" || true"
+    envVars:
+      - key: REFRESH_CRON_TOKEN
+        sync: false

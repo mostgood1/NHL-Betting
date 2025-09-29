@@ -3,6 +3,7 @@ services:
     name: nhl-betting
     env: python
     plan: free
+    autoDeploy: false
     buildCommand: |
       python -m pip install --upgrade pip setuptools wheel
       python -m pip install --prefer-binary -r requirements.txt
@@ -33,7 +34,6 @@ services:
         value: 3.11.9
       - key: PIP_DISABLE_PIP_VERSION_CHECK
         value: "1"
-  autoDeploy: false
 
   - type: cron
     name: nhl-betting-nightly

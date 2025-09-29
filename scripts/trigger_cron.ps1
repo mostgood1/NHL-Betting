@@ -33,7 +33,14 @@ if ($StartDate -and $EndDate) {
   if ($Yesterday) {
     $Date = (Get-Date).AddDays(-1).ToString('yyyy-MM-dd')
   }
-  if (-not $Date) { $Date = 'today' }
+  if (-not $Date) {
+    # If running closers without an explicit date, default to yesterday to avoid 'today' partials
+    if ($Closers) {
+      $Date = (Get-Date).AddDays(-1).ToString('yyyy-MM-dd')
+    } else {
+      $Date = 'today'
+    }
+  }
   $dates = @($Date)
 }
 

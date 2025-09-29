@@ -2138,10 +2138,12 @@ async def api_refresh_odds(
     bankroll: float = Query(0.0, description="Bankroll for Kelly sizing; 0 disables"),
     kelly_fraction_part: float = Query(0.5, description="Kelly fraction, e.g., 0.5 for half-Kelly"),
     backfill: bool = Query(False, description="If true, during live slates only fill missing odds without overwriting existing prices"),
+    overwrite_prestart: bool = Query(False, description="If true, allow refresh even during live days and overwrite odds for games that have not started yet"),
 ):
     date = date or _today_ymd()
-    # Do not refresh odds during live games to avoid clobbering saved lines, unless backfill mode is requested
-    if _is_live_day(date) and not backfill:
+    # Do not refresh odds during live games to avoid clobbering saved lines,
+    # unless backfill or overwrite_prestart is requested (the latter overwrites only pre-start games)
+    if _is_live_day(date) and not (backfill or overwrite_prestart):
         return JSONResponse({"status": "skipped-live", "date": date, "message": "Live games in progress; odds refresh skipped."}, status_code=200)
     if not snapshot:
         snapshot = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -2220,6 +2222,68 @@ async def api_refresh_odds(
                             return pd.DataFrame(rows)
                     df_keep = _backfill_missing(df_old, df_new)
                     df_keep.to_csv(PROC_DIR / f"predictions_{date}.csv", index=False)
+                elif overwrite_prestart:
+                    # Overwrite odds for games that haven't started yet; preserve for started/live/final
+                    def _merge_overwrite_prestart(df_old_l: pd.DataFrame, df_new_l: pd.DataFrame) -> pd.DataFrame:
+                        if df_new_l is None or df_new_l.empty:
+                            return df_old_l
+                        def norm_team(s: str) -> str:
+                            import re, unicodedata
+                            if s is None:
+                                return ""
+                            s = str(s)
+                            s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode()
+                            s = s.lower()
+                            s = re.sub(r"[^a-z0-9]+", "", s)
+                            return s
+                        def parse_dt(v):
+                            try:
+                                return pd.to_datetime(v, utc=True)
+                            except Exception:
+                                return None
+                        try:
+                            et = ZoneInfo("America/New_York")
+                        except Exception:
+                            et = timezone.utc
+                        now_et = datetime.now(et)
+                        now_utc = now_et.astimezone(timezone.utc)
+                        # Index new rows by key
+                        idx_new = {}
+                        for _, r in df_new_l.iterrows():
+                            k = (str(pd.to_datetime(r.get("date")).date()) if r.get("date") is not None else date,
+                                 norm_team(r.get("home")), norm_team(r.get("away")))
+                            idx_new[k] = r
+                        odds_cols = [
+                            "home_ml_odds","away_ml_odds","over_odds","under_odds","home_pl_-1.5_odds","away_pl_+1.5_odds",
+                            "home_ml_book","away_ml_book","over_book","under_book","home_pl_-1.5_book","away_pl_+1.5_book",
+                            "total_line_used","total_line"
+                        ]
+                        rows = []
+                        for _, r in df_old_l.iterrows():
+                            k = (str(pd.to_datetime(r.get("date")).date()) if r.get("date") is not None else date,
+                                 norm_team(r.get("home")), norm_team(r.get("away")))
+                            rn = idx_new.get(k)
+                            if rn is not None:
+                                # Decide if game has started
+                                dt_new = parse_dt(rn.get("date")) or parse_dt(r.get("date"))
+                                has_started = False
+                                if dt_new is not None:
+                                    try:
+                                        has_started = dt_new <= now_utc
+                                    except Exception:
+                                        has_started = False
+                                # Only overwrite if NOT started
+                                if not has_started:
+                                    for c in odds_cols:
+                                        if c in rn and pd.notna(rn.get(c)):
+                                            r[c] = rn.get(c)
+                            rows.append(r)
+                        try:
+                            return pd.DataFrame(rows)
+                        except Exception:
+                            return df_old_l
+                    df_updated = _merge_overwrite_prestart(df_old, df_new)
+                    df_updated.to_csv(PROC_DIR / f"predictions_{date}.csv", index=False)
                 else:
                     # Normal: fill missing odds in new from old (preserve existing values)
                     df_m = _merge_preserve_odds(df_old, df_new)
@@ -2342,7 +2406,8 @@ async def api_cron_refresh_bovada(
         pass
     # Reuse existing refresh logic in backfill mode
     try:
-        res = await api_refresh_odds(date=d, snapshot=None, bankroll=0.0, kelly_fraction_part=0.5, backfill=True)
+        # Use backfill to avoid clobbering existing values and overwrite_prestart to update pre-start games during the day
+        res = await api_refresh_odds(date=d, snapshot=None, bankroll=0.0, kelly_fraction_part=0.5, backfill=True, overwrite_prestart=True)
         # Normalize response in case it's a JSONResponse
         if isinstance(res, JSONResponse):
             try:

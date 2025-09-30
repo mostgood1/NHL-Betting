@@ -163,7 +163,13 @@
               —
             {% endif %}
           </td>
-          <td>{% if r.date %}{{ r.date }}{% else %}{{ date }}{% endif %}</td>
+          <td>
+            {% if r.date %}
+              <span class="js-local-dt" data-iso="{{ r.date }}" title="{{ r.date }}">{{ r.date }}</span>
+            {% else %}
+              <span class="js-local-dt" data-iso="{{ date }}" title="{{ date }}">{{ date }}</span>
+            {% endif %}
+          </td>
         </tr>
         {% endfor %}
       </tbody>
@@ -196,6 +202,22 @@
         const localISODate = (new Date(Date.now() - tzoffset)).toISOString().slice(0,10);
         inp.value = localISODate;
       }
+    })();
+    // Localize Date column to user's timezone
+    (function(){
+      function fmtLocal(iso){
+        try {
+          if (!iso) return '—';
+          const d = new Date(iso);
+          if (isNaN(d)) return iso;
+          return d.toLocaleString([], { year:'numeric', month:'short', day:'2-digit', hour:'2-digit', minute:'2-digit' });
+        } catch(e){ return iso || '—'; }
+      }
+      const nodes = Array.from(document.querySelectorAll('.js-local-dt'));
+      nodes.forEach(n => {
+        const iso = n.getAttribute('data-iso');
+        n.textContent = fmtLocal(iso);
+      });
     })();
   </script>
 

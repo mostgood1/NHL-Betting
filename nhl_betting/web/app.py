@@ -2964,6 +2964,13 @@ async def recommendations(
             predict_core(date=date, source="web", odds_source="oddsapi", snapshot=snapshot, odds_best=True, bankroll=bankroll, kelly_fraction_part=kelly_fraction_part)
         except Exception:
             pass
+    # For settled slates (prior to today's ET), perform a one-shot settlement backfill to populate results
+    try:
+        et_today = _today_ymd()
+        if str(date) < str(et_today):
+            _backfill_settlement_for_date(date)
+    except Exception:
+        pass
     # Build recommendations via API to share logic
     recs = await api_recommendations(date=date, min_ev=min_ev, top=top, markets=markets, bankroll=bankroll, kelly_fraction_part=kelly_fraction_part)
     data = recs.body  # JSONResponse

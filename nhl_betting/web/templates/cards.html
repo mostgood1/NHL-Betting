@@ -275,6 +275,15 @@
     {% endif %}
     </div>
   </main>
+  <footer>
+    <div class="container">
+      <div class="footer-note">
+        <span>Last odds update: <strong><span id="luOdds">{{ last_updates.predictions_iso if last_updates and last_updates.predictions_iso else '' }}</span></strong></span>
+        <span class="sep">|</span>
+        <span>Last recommendations update: <strong><span id="luRecs">{{ last_updates.recommendations_iso if last_updates and last_updates.recommendations_iso else '' }}</span></strong></span>
+      </div>
+    </div>
+  </footer>
 </body>
 <script>
 (function() {
@@ -600,6 +609,21 @@
     } catch (e) { /* ignore */ }
   }
   // When auto-update is off, only the one-shot refreshLive above will have run (if within window).
+})();
+// Footer time localization
+(function(){
+  function fmtLocal(iso){
+    if(!iso) return '—';
+    try{
+      const d = new Date(iso);
+      if (isNaN(d)) return '—';
+      return d.toLocaleString([], { year:'numeric', month:'short', day:'2-digit', hour:'2-digit', minute:'2-digit' });
+    }catch(e){ return '—'; }
+  }
+  const o = document.getElementById('luOdds');
+  const r = document.getElementById('luRecs');
+  if (o) o.textContent = fmtLocal(o.textContent.trim());
+  if (r) r.textContent = fmtLocal(r.textContent.trim());
 })();
 </script>
 </html>

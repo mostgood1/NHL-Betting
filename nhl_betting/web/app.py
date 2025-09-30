@@ -112,6 +112,49 @@ def _read_csv_fallback(path: Path) -> pd.DataFrame:
         raise
 
 
+def _file_mtime_iso(path: Path) -> Optional[str]:
+    """Return file modified time as ISO UTC string (Z) if exists, else None."""
+    try:
+        if path and Path(path).exists():
+            import datetime as _dt
+            ts = _dt.datetime.fromtimestamp(Path(path).stat().st_mtime, tz=timezone.utc)
+            return ts.strftime("%Y-%m-%dT%H:%M:%SZ")
+    except Exception:
+        return None
+    return None
+
+
+def _fmt_et(iso_utc: Optional[str]) -> Optional[str]:
+    """Format an ISO UTC timestamp into ET human string, e.g., 'Sep 30, 2025 06:32 PM ET'."""
+    if not iso_utc:
+        return None
+    try:
+        s = str(iso_utc).replace("Z", "+00:00")
+        dt_utc = datetime.fromisoformat(s)
+        et = ZoneInfo("America/New_York")
+        dt_et = dt_utc.astimezone(et)
+        return dt_et.strftime("%b %d, %Y %I:%M %p ET")
+    except Exception:
+        return None
+
+
+def _last_update_info(date: str) -> dict:
+    """Collect last update timestamps for predictions (odds) and recommendations for a date."""
+    try:
+        pred_p = PROC_DIR / f"predictions_{date}.csv"
+        rec_p = PROC_DIR / f"recommendations_{date}.csv"
+        pred_iso = _file_mtime_iso(pred_p)
+        rec_iso = _file_mtime_iso(rec_p)
+        return {
+            "predictions_iso": pred_iso,
+            "predictions_et": _fmt_et(pred_iso),
+            "recommendations_iso": rec_iso,
+            "recommendations_et": _fmt_et(rec_iso),
+        }
+    except Exception:
+        return {"predictions_iso": None, "predictions_et": None, "recommendations_iso": None, "recommendations_et": None}
+
+
 async def _recompute_edges_and_recommendations(date: str) -> None:
     """Recompute EVs/edges and persist edges/recommendations CSVs for a date.
 
@@ -1755,7 +1798,17 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
         except Exception:
             pass
     template = env.get_template("cards.html")
-    html = template.render(date=date, original_date=requested_date, rows=rows, note=note_msg, live_now=live_now, settled=settled)
+    # Last update info for footer note
+    lu = _last_update_info(date)
+    html = template.render(
+        date=date,
+        original_date=requested_date,
+        rows=rows,
+        note=note_msg,
+        live_now=live_now,
+        settled=settled,
+        last_updates=lu,
+    )
     return HTMLResponse(content=html)
 
 
@@ -2969,6 +3022,16 @@ async def recommendations(
     rows_medium.sort(key=_sk, reverse=_reverse)
     rows_low.sort(key=_sk, reverse=_reverse)
     rows_other.sort(key=_sk, reverse=_reverse)
+    # Reconciliation summary (closing-based) for the same date
+    recon_summary = {}
+    try:
+        _recon_resp = await api_reconciliation(date=date)
+        if isinstance(_recon_resp, JSONResponse):
+            import json as _json
+            _payload = _json.loads(_recon_resp.body)
+            recon_summary = _payload.get("summary", {}) or {}
+    except Exception:
+        recon_summary = {}
     # Summary metrics (overall and per-group)
     def american_to_decimal_local(american):
         try:
@@ -3071,6 +3134,8 @@ async def recommendations(
         high_ev=high_ev,
         med_ev=med_ev,
         sort_by=sort_by,
+        recon_summary=recon_summary,
+        last_updates=_last_update_info(date),
     )
     return HTMLResponse(content=html)
 

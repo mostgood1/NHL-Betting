@@ -68,6 +68,14 @@ header .last-updated { margin-left: auto; color: #9fb0ff; font-size: 12px; opaci
 .team-logo { height: 36px; vertical-align: middle; margin-right: 8px; }
 .book-badge { background: #243056; color: #cfe0ff; padding: 0 4px; border-radius: 6px; font-size: 9px; font-weight: 700; opacity: 0.9; }
 
+/* Recommendations reconciliation block */
+.recon-block { margin-top: 8px; }
+
+/* Footer */
+footer { background: #0d142b; border-top: 1px solid #1f2a5a; margin-top: 10px; }
+footer .footer-note { padding: 10px 0 14px; color: #9fb0ff; font-size: 12px; opacity: 0.9; }
+footer .footer-note .sep { margin: 0 8px; opacity: 0.6; }
+
 /* Responsive tweaks */
 @media (max-width: 1000px) {
 	.cards { grid-template-columns: 1fr; padding: 14px; gap: 12px; }

@@ -95,6 +95,17 @@
     </div>
   <div class="meta-note">Sorted by confidence then E.V. Odds assumed -110 for spread/total when book odds are not present.</div>
 
+  {% if recon_summary %}
+    <div class="summary-cards recon-block">
+      <div class="sum-card">
+        <h3>Reconciliation</h3>
+        <div>Settled: {{ recon_summary.wins + recon_summary.losses }} ({{ recon_summary.wins }}W-{{ recon_summary.losses }}L{% if recon_summary.pushes %}-{{ recon_summary.pushes }}P{% endif %})</div>
+        <div>ROI: {% if recon_summary.roi is not none %}{{ (recon_summary.roi*100)|round(1) }}%{% else %}—{% endif %}</div>
+        <div>Stake: {% if recon_summary.stake is not none %}${{ ('%.0f' % recon_summary.stake) }}{% else %}—{% endif %} | P/L: {% if recon_summary.pnl is not none %}{% set _p = recon_summary.pnl %}{% if _p < 0 %}-${{ ('%.0f' % (-_p)) }}{% else %}${{ ('%.0f' % _p) }}{% endif %}{% else %}—{% endif %}</div>
+      </div>
+    </div>
+  {% endif %}
+
     <form method="get" class="filters">
       <label>Date <input id="dateInput" type="date" name="date" value="{{ date or '' }}" /></label>
       <label>Sort by
@@ -189,5 +200,30 @@
   </script>
 
   </div>
+  <footer>
+    <div class="container">
+      <div class="footer-note">
+        <span>Last odds update: <strong><span id="luOdds">{{ last_updates.predictions_iso if last_updates and last_updates.predictions_iso else '' }}</span></strong></span>
+        <span class="sep">|</span>
+        <span>Last recommendations update: <strong><span id="luRecs">{{ last_updates.recommendations_iso if last_updates and last_updates.recommendations_iso else '' }}</span></strong></span>
+      </div>
+    </div>
+  </footer>
 </body>
+<script>
+(function(){
+  function fmtLocal(iso){
+    if(!iso) return '—';
+    try{
+      const d = new Date(iso);
+      if (isNaN(d)) return '—';
+      return d.toLocaleString([], { year:'numeric', month:'short', day:'2-digit', hour:'2-digit', minute:'2-digit' });
+    }catch(e){ return '—'; }
+  }
+  const o = document.getElementById('luOdds');
+  const r = document.getElementById('luRecs');
+  if (o) o.textContent = fmtLocal(o.textContent.trim());
+  if (r) r.textContent = fmtLocal(r.textContent.trim());
+})();
+</script>
 </html>

@@ -1,0 +1,13 @@
+date,home,away,market,bet,price,model_prob,ev,edge,book,result
+2025-10-01T00:00:00Z,Minnesota Wild,Winnipeg Jets,puckline,away_pl_+1.5,-110.0,0.6780293463792993,0.29441966126957153,,,
+2025-10-01T00:00:00Z,St. Louis Blues,Dallas Stars,puckline,away_pl_+1.5,-110.0,0.6520868241272666,0.2448930278793272,,,
+2025-10-01T01:00:00Z,Utah Mammoth,Los Angeles Kings,puckline,away_pl_+1.5,-110.0,0.6433032611982867,0.2281244077421838,,,
+2025-09-30T23:00:00Z,Tampa Bay Lightning,Florida Panthers,totals,over,-110.0,0.6101531088797119,0.16483775331581363,,,
+2025-10-01T00:00:00Z,St. Louis Blues,Dallas Stars,totals,under,-110.0,0.6000247225616943,0.14550174307232544,,,
+2025-10-01T00:00:00Z,Colorado Avalanche,Vegas Golden Knights,puckline,home_pl_-1.5,-110.0,0.5961660714271265,0.13813522726996885,,,
+2025-10-01T00:00:00Z,Minnesota Wild,Winnipeg Jets,totals,under,-110.0,0.5920702702124024,0.13031597040549558,,,
+2025-10-01T01:00:00Z,Utah Mammoth,Los Angeles Kings,totals,under,-110.0,0.5850821880422026,0.11697508626238684,,,
+2025-10-01T00:00:00Z,Chicago Blackhawks,Detroit Red Wings,puckline,away_pl_+1.5,-110.0,0.5814255824902,0.10999429384492743,,,
+2025-10-01T00:00:00Z,Colorado Avalanche,Vegas Golden Knights,totals,under,-110.0,0.5488533171300365,0.04781087815734242,,,
+2025-09-30T23:00:00Z,Columbus Blue Jackets,Washington Capitals,puckline,away_pl_+1.5,-110.0,0.5457014716737445,0.04179371864987591,,,
+2025-09-30T23:00:00Z,Ottawa Senators,Montréal Canadiens,totals,over,-110.0,0.5265006734802422,0.005137649371371511,,,

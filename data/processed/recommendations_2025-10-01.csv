@@ -1,0 +1,11 @@
+date,home,away,market,bet,price,model_prob,ev,edge,book,result
+2025-10-02T02:00:00Z,San Jose Sharks,Anaheim Ducks,puckline,away_pl_+1.5,-110.0,0.761331460047029,0.45345096918069183,,,
+2025-10-02T01:00:00Z,Calgary Flames,Vancouver Canucks,moneyline,away_ml,164.0,0.5454211737011098,0.4399,0.1823,draftkings,
+2025-10-02T01:00:00Z,Calgary Flames,Vancouver Canucks,puckline,away_pl_+1.5,-148.0,0.7908479738154293,0.3252,0.2188,draftkings,
+2025-10-02T01:00:00Z,Calgary Flames,Vancouver Canucks,totals,under,-110.0,0.6116143223920323,0.2232,0.1334,,
+2025-10-01T23:00:00Z,Buffalo Sabres,Pittsburgh Penguins,puckline,home_pl_-1.5,-110.0,0.6130817444723993,0.1704287849018532,,,
+2025-10-02T01:00:00Z,Vegas Golden Knights,Colorado Avalanche,puckline,away_pl_+1.5,-110.0,0.6086871571589182,0.16203911821248018,,,
+2025-10-02T02:00:00Z,San Jose Sharks,Anaheim Ducks,totals,under,-110.0,0.551374466356165,0.052623981225406014,,,
+2025-10-02T01:00:00Z,Vegas Golden Knights,Colorado Avalanche,totals,under,-110.0,0.549566956544738,0.04917328067631799,,,
+2025-10-02T02:00:00Z,Seattle Kraken,Edmonton Oilers,puckline,away_pl_+1.5,-110.0,0.5486540780498201,0.04743051264056575,,,
+2025-10-02T02:00:00Z,Seattle Kraken,Edmonton Oilers,totals,under,-110.0,0.5318951376262064,0.0154361718318487,,,

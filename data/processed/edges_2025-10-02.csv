@@ -1,41 +1,41 @@
 date,home,away,market,ev
 2025-10-02T23:00:00Z,Tampa Bay Lightning,Florida Panthers,ev_home_pl_-1.5,0.5379
-2025-10-02T23:00:00Z,Tampa Bay Lightning,Florida Panthers,ev_home_ml,0.4753
-2025-10-03T01:00:00Z,Utah Mammoth,Los Angeles Kings,ev_home_ml,0.3028
+2025-10-02T23:00:00Z,Tampa Bay Lightning,Florida Panthers,ev_home_ml,0.4393
 2025-10-03T00:00:00Z,St. Louis Blues,Ottawa Senators,ev_away_ml,0.3019
+2025-10-03T00:00:00Z,St. Louis Blues,Ottawa Senators,ev_away_pl_+1.5,0.2495
 2025-10-02T23:00:00Z,New York Rangers,New Jersey Devils,ev_home_ml,0.2451
-2025-10-03T00:00:00Z,St. Louis Blues,Ottawa Senators,ev_away_pl_+1.5,0.2315
-2025-10-02T23:00:00Z,Tampa Bay Lightning,Florida Panthers,ev_over,0.1913
-2025-10-02T23:00:00Z,Washington Capitals,Boston Bruins,ev_over,0.1318
-2025-10-02T23:00:00Z,Washington Capitals,Boston Bruins,ev_home_pl_-1.5,0.1237
+2025-10-03T01:00:00Z,Utah Mammoth,Los Angeles Kings,ev_home_ml,0.2408
+2025-10-02T23:00:00Z,Washington Capitals,Boston Bruins,ev_home_pl_-1.5,0.1486
+2025-10-02T23:00:00Z,Tampa Bay Lightning,Florida Panthers,ev_over,0.1407
 2025-10-02T23:00:00Z,Toronto Maple Leafs,Detroit Red Wings,ev_home_pl_-1.5,0.1078
 2025-10-02T23:00:00Z,Toronto Maple Leafs,Detroit Red Wings,ev_home_ml,0.104
 2025-10-03T01:00:00Z,Utah Mammoth,Los Angeles Kings,ev_under,0.0938
-2025-10-02T23:00:00Z,Philadelphia Flyers,New York Islanders,ev_under,0.0667
-2025-10-02T23:00:00Z,Washington Capitals,Boston Bruins,ev_home_ml,0.0554
-2025-10-02T23:00:00Z,Toronto Maple Leafs,Detroit Red Wings,ev_over,0.0544
+2025-10-02T23:00:00Z,Washington Capitals,Boston Bruins,ev_over,0.0779
+2025-10-02T23:00:00Z,Washington Capitals,Boston Bruins,ev_home_ml,0.0724
 2025-10-02T23:00:00Z,New York Rangers,New Jersey Devils,ev_home_pl_-1.5,0.0389
-2025-10-02T23:00:00Z,Philadelphia Flyers,New York Islanders,ev_away_pl_+1.5,0.0236
-2025-10-02T23:00:00Z,New York Rangers,New Jersey Devils,ev_over,-0.0261
-2025-10-02T23:00:00Z,Philadelphia Flyers,New York Islanders,ev_home_ml,-0.0332
-2025-10-02T23:00:00Z,Philadelphia Flyers,New York Islanders,ev_away_ml,-0.0578
+2025-10-02T23:00:00Z,Philadelphia Flyers,New York Islanders,ev_away_pl_+1.5,0.0096
+2025-10-02T23:00:00Z,Toronto Maple Leafs,Detroit Red Wings,ev_over,0.0042
+2025-10-02T23:00:00Z,Philadelphia Flyers,New York Islanders,ev_home_ml,-0.0267
+2025-10-02T23:00:00Z,New York Rangers,New Jersey Devils,ev_over,-0.0492
+2025-10-02T23:00:00Z,Philadelphia Flyers,New York Islanders,ev_away_ml,-0.065
 2025-10-02T23:00:00Z,New York Rangers,New Jersey Devils,ev_away_pl_+1.5,-0.0848
-2025-10-02T23:00:00Z,Philadelphia Flyers,New York Islanders,ev_over,-0.1454
+2025-10-02T23:00:00Z,Philadelphia Flyers,New York Islanders,ev_under,-0.1306
 2025-10-02T23:00:00Z,Toronto Maple Leafs,Detroit Red Wings,ev_away_pl_+1.5,-0.151
-2025-10-02T23:00:00Z,Washington Capitals,Boston Bruins,ev_away_pl_+1.5,-0.1657
-2025-10-03T00:00:00Z,St. Louis Blues,Ottawa Senators,ev_under,-0.1777
-2025-10-02T23:00:00Z,Philadelphia Flyers,New York Islanders,ev_home_pl_-1.5,-0.1934
-2025-10-03T00:00:00Z,St. Louis Blues,Ottawa Senators,ev_over,-0.2204
+2025-10-03T00:00:00Z,St. Louis Blues,Ottawa Senators,ev_under,-0.1615
+2025-10-02T23:00:00Z,Philadelphia Flyers,New York Islanders,ev_home_pl_-1.5,-0.1634
+2025-10-02T23:00:00Z,Washington Capitals,Boston Bruins,ev_away_pl_+1.5,-0.1764
 2025-10-03T00:00:00Z,St. Louis Blues,Ottawa Senators,ev_home_ml,-0.2378
-2025-10-02T23:00:00Z,Washington Capitals,Boston Bruins,ev_away_ml,-0.2441
+2025-10-03T00:00:00Z,St. Louis Blues,Ottawa Senators,ev_over,-0.2389
+2025-10-02T23:00:00Z,Washington Capitals,Boston Bruins,ev_away_ml,-0.2581
+2025-10-02T23:00:00Z,Philadelphia Flyers,New York Islanders,ev_over,-0.2705
 2025-10-02T23:00:00Z,Toronto Maple Leafs,Detroit Red Wings,ev_away_ml,-0.2765
 2025-10-02T23:00:00Z,New York Rangers,New Jersey Devils,ev_away_ml,-0.2811
+2025-10-03T01:00:00Z,Utah Mammoth,Los Angeles Kings,ev_away_ml,-0.3046
 2025-10-02T23:00:00Z,Tampa Bay Lightning,Florida Panthers,ev_away_pl_+1.5,-0.3177
-2025-10-03T01:00:00Z,Utah Mammoth,Los Angeles Kings,ev_away_ml,-0.3289
-2025-10-02T23:00:00Z,New York Rangers,New Jersey Devils,ev_under,-0.3508
-2025-10-03T00:00:00Z,St. Louis Blues,Ottawa Senators,ev_home_pl_-1.5,-0.4035
-2025-10-02T23:00:00Z,Toronto Maple Leafs,Detroit Red Wings,ev_under,-0.4127
-2025-10-02T23:00:00Z,Washington Capitals,Boston Bruins,ev_under,-0.4763
+2025-10-02T23:00:00Z,New York Rangers,New Jersey Devils,ev_under,-0.338
+2025-10-02T23:00:00Z,Toronto Maple Leafs,Detroit Red Wings,ev_under,-0.39
+2025-10-03T00:00:00Z,St. Louis Blues,Ottawa Senators,ev_home_pl_-1.5,-0.4171
+2025-10-02T23:00:00Z,Washington Capitals,Boston Bruins,ev_under,-0.4561
 2025-10-03T01:00:00Z,Utah Mammoth,Los Angeles Kings,ev_over,-0.4855
-2025-10-02T23:00:00Z,Tampa Bay Lightning,Florida Panthers,ev_away_ml,-0.5096
-2025-10-02T23:00:00Z,Tampa Bay Lightning,Florida Panthers,ev_under,-0.5538
+2025-10-02T23:00:00Z,Tampa Bay Lightning,Florida Panthers,ev_away_ml,-0.5006
+2025-10-02T23:00:00Z,Tampa Bay Lightning,Florida Panthers,ev_under,-0.534

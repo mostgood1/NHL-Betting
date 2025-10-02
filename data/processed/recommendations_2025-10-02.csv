@@ -1,6 +1,6 @@
 date,home,away,market,bet,price,model_prob,ev,edge,book,result
 2025-10-02T23:00:00Z,Tampa Bay Lightning,Florida Panthers,puckline,home_pl_-1.5,200.0,0.5126388746235027,0.5379,0.1945,bovada,
-2025-10-02T23:00:00Z,Tampa Bay Lightning,Florida Panthers,moneyline,home_ml,100.0,0.719667030907963,0.4393,0.2414,bovada,
+2025-10-02T23:00:00Z,Tampa Bay Lightning,Florida Panthers,moneyline,home_ml,105.0,0.719667030907963,0.4753,0.2521,bovada,
 2025-10-03T01:00:00Z,Utah Mammoth,Los Angeles Kings,moneyline,home_ml,110.0,0.6203953225270523,0.3028,0.1631,bovada,
 2025-10-03T00:00:00Z,St. Louis Blues,Ottawa Senators,moneyline,away_ml,165.0,0.4912660822967442,0.3019,0.1298,bovada,
 2025-10-02T23:00:00Z,New York Rangers,New Jersey Devils,moneyline,home_ml,115.0,0.5791141266298446,0.2451,0.1355,bovada,

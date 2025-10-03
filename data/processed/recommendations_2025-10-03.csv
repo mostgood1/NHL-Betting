@@ -1,0 +1,8 @@
+date,home,away,market,bet,price,model_prob,ev,edge,book,result
+2025-10-04T02:00:00Z,Vegas Golden Knights,San Jose Sharks,moneyline,home_ml,154.0,0.7550123137393459,0.9177,0.3775,draftkings,
+2025-10-04T02:00:00Z,Vegas Golden Knights,San Jose Sharks,totals,under,-110.0,0.6950950906534723,0.4597,0.2378,,
+2025-10-04T01:00:00Z,Calgary Flames,Winnipeg Jets,puckline,away_pl_+1.5,-110.0,0.6929960200756444,0.32299240196259393,,,
+2025-10-04T00:00:00Z,Chicago Blackhawks,Minnesota Wild,puckline,home_pl_-1.5,-110.0,0.6323721130201153,0.20725585212931108,,,
+2025-10-04T01:00:00Z,Calgary Flames,Winnipeg Jets,totals,under,-110.0,0.5923223823672389,0.13079727542836517,,,
+2025-10-04T00:00:00Z,Chicago Blackhawks,Minnesota Wild,totals,under,-110.0,0.5843218548218563,0.1155235410235439,,,
+2025-10-04T02:00:00Z,Vancouver Canucks,Edmonton Oilers,puckline,home_pl_-1.5,-110.0,0.5666063764535041,0.08170308232032608,,,

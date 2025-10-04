@@ -1,23 +1,23 @@
 date,home,away,market,ev
-2025-10-04T00:00:00Z,Chicago Blackhawks,Minnesota Wild,ev_home_ml,0.9657
-2025-10-04T02:00:00Z,Vancouver Canucks,Edmonton Oilers,ev_home_ml,0.603
+2025-10-04T00:00:00Z,Chicago Blackhawks,Minnesota Wild,ev_home_ml,1.0493
+2025-10-04T02:00:00Z,Vancouver Canucks,Edmonton Oilers,ev_home_ml,0.6421
 2025-10-04T00:00:00Z,Chicago Blackhawks,Minnesota Wild,ev_under,0.3567
-2025-10-04T01:00:00Z,Calgary Flames,Winnipeg Jets,ev_under,0.3401
 2025-10-03T23:00:00Z,Pittsburgh Penguins,Buffalo Sabres,ev_home_ml,0.3392
+2025-10-04T01:00:00Z,Calgary Flames,Winnipeg Jets,ev_under,0.3074
 2025-10-04T02:00:00Z,Vegas Golden Knights,San Jose Sharks,ev_under,0.2427
-2025-10-04T02:00:00Z,Vancouver Canucks,Edmonton Oilers,ev_under,0.2086
-2025-10-04T01:00:00Z,Calgary Flames,Winnipeg Jets,ev_home_ml,0.1266
-2025-10-04T02:00:00Z,Vegas Golden Knights,San Jose Sharks,ev_home_ml,0.0723
+2025-10-04T01:00:00Z,Calgary Flames,Winnipeg Jets,ev_home_ml,0.1829
+2025-10-04T02:00:00Z,Vancouver Canucks,Edmonton Oilers,ev_under,0.1524
 2025-10-03T23:00:00Z,Pittsburgh Penguins,Buffalo Sabres,ev_over,0.0649
-2025-10-04T02:00:00Z,Vegas Golden Knights,San Jose Sharks,ev_home_pl_-1.5,-0.0023
-2025-10-04T02:00:00Z,Vegas Golden Knights,San Jose Sharks,ev_away_pl_+1.5,-0.0896
+2025-10-04T02:00:00Z,Vegas Golden Knights,San Jose Sharks,ev_home_ml,0.0461
+2025-10-04T02:00:00Z,Vegas Golden Knights,San Jose Sharks,ev_away_pl_+1.5,-0.0207
+2025-10-04T02:00:00Z,Vegas Golden Knights,San Jose Sharks,ev_home_pl_-1.5,-0.0558
 2025-10-03T23:00:00Z,Pittsburgh Penguins,Buffalo Sabres,ev_under,-0.1722
-2025-10-04T01:00:00Z,Calgary Flames,Winnipeg Jets,ev_away_ml,-0.1995
-2025-10-04T02:00:00Z,Vancouver Canucks,Edmonton Oilers,ev_over,-0.2534
-2025-10-04T02:00:00Z,Vegas Golden Knights,San Jose Sharks,ev_away_ml,-0.3039
-2025-10-04T01:00:00Z,Calgary Flames,Winnipeg Jets,ev_over,-0.377
+2025-10-04T02:00:00Z,Vancouver Canucks,Edmonton Oilers,ev_over,-0.2161
+2025-10-04T01:00:00Z,Calgary Flames,Winnipeg Jets,ev_away_ml,-0.2275
+2025-10-04T02:00:00Z,Vegas Golden Knights,San Jose Sharks,ev_away_ml,-0.2702
+2025-10-04T01:00:00Z,Calgary Flames,Winnipeg Jets,ev_over,-0.3655
 2025-10-04T00:00:00Z,Chicago Blackhawks,Minnesota Wild,ev_over,-0.3773
 2025-10-04T02:00:00Z,Vegas Golden Knights,San Jose Sharks,ev_over,-0.4129
 2025-10-03T23:00:00Z,Pittsburgh Penguins,Buffalo Sabres,ev_away_ml,-0.4165
-2025-10-04T02:00:00Z,Vancouver Canucks,Edmonton Oilers,ev_away_ml,-0.6096
-2025-10-04T00:00:00Z,Chicago Blackhawks,Minnesota Wild,ev_away_ml,-0.739
+2025-10-04T02:00:00Z,Vancouver Canucks,Edmonton Oilers,ev_away_ml,-0.6163
+2025-10-04T00:00:00Z,Chicago Blackhawks,Minnesota Wild,ev_away_ml,-0.7446

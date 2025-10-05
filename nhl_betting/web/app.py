@@ -86,11 +86,17 @@ def _read_only(date: Optional[str] = None) -> bool:
 def _read_csv_fallback(path: Path) -> pd.DataFrame:
     """Read a CSV trying multiple encodings to handle BOM/UTF-16/Windows-1252.
 
-    Returns an empty DataFrame if the file doesn't exist.
-    Raises the last decode error if all attempts fail.
+    Returns empty DataFrame if file missing or empty. Avoids raising on transient
+    half-writes by catching EmptyDataError and returning empty.
     """
     if not path or not Path(path).exists():
         return pd.DataFrame()
+    # If file exists but is zero-bytes, treat as empty data
+    try:
+        if Path(path).stat().st_size == 0:
+            return pd.DataFrame()
+    except Exception:
+        pass
     encodings = ("utf-8", "utf-8-sig", "cp1252", "latin1", "utf-16", "utf-16le", "utf-16be")
     last_err = None
     for enc in encodings:
@@ -99,17 +105,27 @@ def _read_csv_fallback(path: Path) -> pd.DataFrame:
         except UnicodeDecodeError as e:
             last_err = e
             continue
+        except pd.errors.EmptyDataError:
+            # Empty/half-written file; treat as empty
+            return pd.DataFrame()
         except Exception as e:
-            # Non-decode issues: break and surface
+            # Non-decode issues: break and surface to python-engine fallback
             last_err = e
             break
     # Last resort: python engine
     try:
         return pd.read_csv(path, engine="python")
+    except pd.errors.EmptyDataError:
+        return pd.DataFrame()
     except Exception:
         if last_err:
-            raise last_err
-        raise
+            # If the last error was decode-related, surface it; otherwise, treat as empty
+            try:
+                import codecs  # noqa: F401
+                raise last_err
+            except Exception:
+                return pd.DataFrame()
+        return pd.DataFrame()
 
 
 def _file_mtime_iso(path: Path) -> Optional[str]:

@@ -241,10 +241,13 @@ def make_predictions(days_ahead: int = 2, verbose: bool = False) -> None:
             _vprint(verbose, f"[predict] {d}: OddsAPI OK")
         except Exception as e:
             _vprint(verbose, f"[predict] {d}: OddsAPI failed: {e}")
-        # Ensure file exists even without odds
+        # Ensure file exists only if missing; don't overwrite an existing file that may contain odds
         try:
-            predict_core(date=d, source="web", odds_source="csv")
-            _vprint(verbose, f"[predict] {d}: Ensured predictions CSV exists")
+            from nhl_betting.utils.io import PROC_DIR as _PROC
+            path = _PROC / f"predictions_{d}.csv"
+            if not path.exists():
+                predict_core(date=d, source="web", odds_source="csv")
+                _vprint(verbose, f"[predict] {d}: Ensured predictions CSV exists")
         except Exception:
             pass
 

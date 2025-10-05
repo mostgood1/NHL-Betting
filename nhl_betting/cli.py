@@ -238,7 +238,22 @@ def predict_core(
     if odds_source == "csv":
         if odds_csv and Path(odds_csv).exists():
             odds_df = pd.read_csv(odds_csv)
-            odds_df["date"] = pd.to_datetime(odds_df["date"]).dt.strftime("%Y-%m-%d")
+            odds_df["date"] = pd.to_datetime(odds_df["date"], errors="coerce").dt.strftime("%Y-%m-%d")
+            # Normalize team names and add abbreviations for robust matching
+            odds_df["home_norm"] = odds_df["home"].apply(norm_team)
+            odds_df["away_norm"] = odds_df["away"].apply(norm_team)
+            try:
+                from .web.teams import get_team_assets as _assets
+                def to_abbr(x):
+                    try:
+                        return (_assets(str(x)).get("abbr") or "").upper()
+                    except Exception:
+                        return ""
+                odds_df["home_abbr"] = odds_df["home"].apply(to_abbr)
+                odds_df["away_abbr"] = odds_df["away"].apply(to_abbr)
+            except Exception:
+                odds_df["home_abbr"] = ""
+                odds_df["away_abbr"] = ""
     elif odds_source == "oddsapi":
         if not snapshot:
             print("snapshot is required when odds_source='oddsapi' (e.g., 2024-03-01T12:00:00Z)")
@@ -503,6 +518,80 @@ def predict_core(
         save_df(out, out_path)
         return out_path
     out_path = PROC_DIR / f"predictions_{date}.csv"
+    # If we didn't attach any odds this run, but an older file exists with odds, merge them and recompute EVs
+    try:
+        has_new_odds = any(col in out.columns for col in [
+            "home_ml_odds","away_ml_odds","over_odds","under_odds","home_pl_-1.5_odds","away_pl_+1.5_odds"
+        ]) and any(out.get(c).notna().any() for c in out.columns if c.endswith("_odds"))
+    except Exception:
+        has_new_odds = False
+    if not has_new_odds and out_path.exists():
+        try:
+            prev = pd.read_csv(out_path)
+            # Identify odds/book columns to carry over
+            carry_cols = [
+                "home_ml_odds","away_ml_odds","over_odds","under_odds","home_pl_-1.5_odds","away_pl_+1.5_odds",
+                "home_ml_book","away_ml_book","over_book","under_book","home_pl_-1.5_book","away_pl_+1.5_book",
+                "total_line_used"
+            ]
+            keys = ["date","home","away"]
+            if set(keys).issubset(set(prev.columns)):
+                # Merge carry-over columns
+                prev_carry = prev[keys + [c for c in carry_cols if c in prev.columns]].copy()
+                out = out.merge(prev_carry, on=keys, how="left", suffixes=("", "_prev"))
+                # Prefer current total_line_used but backfill from previous if missing
+                if "total_line_used_prev" in out.columns:
+                    out["total_line_used"] = out["total_line_used"].fillna(out["total_line_used_prev"]) 
+                    out = out.drop(columns=[c for c in out.columns if c.endswith("_prev")])
+                # Recompute EV/Edge where both prices exist and probs are present
+                def _recalc_row(r):
+                    # Moneyline
+                    try:
+                        if pd.notna(r.get("home_ml_odds")) and pd.notna(r.get("away_ml_odds")):
+                            dec_h = american_to_decimal(float(r.get("home_ml_odds")))
+                            dec_a = american_to_decimal(float(r.get("away_ml_odds")))
+                            imp_h = decimal_to_implied_prob(dec_h)
+                            imp_a = decimal_to_implied_prob(dec_a)
+                            nv_h, nv_a = remove_vig_two_way(imp_h, imp_a)
+                            r["ev_home_ml"] = round(ev_unit(float(r.get("p_home_ml")), dec_h), 4)
+                            r["ev_away_ml"] = round(ev_unit(float(r.get("p_away_ml")), dec_a), 4)
+                            r["edge_home_ml"] = round(float(r.get("p_home_ml")) - nv_h, 4)
+                            r["edge_away_ml"] = round(float(r.get("p_away_ml")) - nv_a, 4)
+                    except Exception:
+                        pass
+                    # Totals
+                    try:
+                        if pd.notna(r.get("over_odds")) and pd.notna(r.get("under_odds")):
+                            dec_o = american_to_decimal(float(r.get("over_odds")))
+                            dec_u = american_to_decimal(float(r.get("under_odds")))
+                            imp_o = decimal_to_implied_prob(dec_o)
+                            imp_u = decimal_to_implied_prob(dec_u)
+                            nv_o, nv_u = remove_vig_two_way(imp_o, imp_u)
+                            r["ev_over"] = round(ev_unit(float(r.get("p_over")), dec_o), 4)
+                            r["ev_under"] = round(ev_unit(float(r.get("p_under")), dec_u), 4)
+                            r["edge_over"] = round(float(r.get("p_over")) - nv_o, 4)
+                            r["edge_under"] = round(float(r.get("p_under")) - nv_u, 4)
+                    except Exception:
+                        pass
+                    # Puckline
+                    try:
+                        if pd.notna(r.get("home_pl_-1.5_odds")) and pd.notna(r.get("away_pl_+1.5_odds")):
+                            dec_hpl = american_to_decimal(float(r.get("home_pl_-1.5_odds")))
+                            dec_apl = american_to_decimal(float(r.get("away_pl_+1.5_odds")))
+                            imp_hpl = decimal_to_implied_prob(dec_hpl)
+                            imp_apl = decimal_to_implied_prob(dec_apl)
+                            nv_hpl, nv_apl = remove_vig_two_way(imp_hpl, imp_apl)
+                            r["ev_home_pl_-1.5"] = round(ev_unit(float(r.get("p_home_pl_-1.5")), dec_hpl), 4)
+                            r["ev_away_pl_+1.5"] = round(ev_unit(float(r.get("p_away_pl_+1.5")), dec_apl), 4)
+                            r["edge_home_pl_-1.5"] = round(float(r.get("p_home_pl_-1.5")) - nv_hpl, 4)
+                            r["edge_away_pl_+1.5"] = round(float(r.get("p_away_pl_+1.5")) - nv_apl, 4)
+                    except Exception:
+                        pass
+                    return r
+                out = out.apply(_recalc_row, axis=1)
+        except Exception:
+            # best-effort merge; ignore errors
+            pass
     save_df(out, out_path)
     print(out)
     print(f"Saved predictions to {out_path}")
@@ -693,8 +782,11 @@ def daily_update(days_ahead: int = typer.Option(2, help="How many days ahead to 
             predict_core(date=d, source="web", odds_source="oddsapi", snapshot=snapshot, odds_best=False, odds_bookmaker="draftkings")
         except Exception:
             pass
+        # Only do the CSV ensure step if the predictions file doesn't exist yet
         try:
-            predict_core(date=d, source="web", odds_source="csv")
+            path = PROC_DIR / f"predictions_{d}.csv"
+            if not path.exists():
+                predict_core(date=d, source="web", odds_source="csv")
         except Exception:
             pass
 
@@ -770,7 +862,9 @@ def build_range_core(
                 print("Odds API step failed:", e)
         # Ensure file exists even without odds
         try:
-            predict_core(date=d, source="web", odds_source="csv")
+            path = PROC_DIR / f"predictions_{d}.csv"
+            if not path.exists():
+                predict_core(date=d, source="web", odds_source="csv")
         except Exception:
             pass
 
@@ -788,6 +882,111 @@ def build_range(
     Strategy per date: Bovada → The Odds API → ensure predictions exist without odds.
     """
     build_range_core(start=start, end=end, source=source, bankroll=bankroll, kelly_fraction_part=kelly_fraction_part)
+
+@app.command()
+def closings(
+    date: str = typer.Option(..., help="Slate date YYYY-MM-DD (ET)"),
+    prefer_book: Optional[str] = typer.Option(None, help="Prefer a bookmaker key (e.g., draftkings)"),
+    best_of_all: bool = typer.Option(True, help="Use best price across all bookmakers"),
+    verbose: bool = typer.Option(False, help="Verbose output")
+):
+    """Capture closing odds into predictions_{date}.csv (close_* columns)."""
+    from .scripts.daily_update import capture_closing_for_date
+    res = capture_closing_for_date(date, prefer_book=prefer_book, best_of_all=best_of_all, verbose=verbose)
+    print(res)
+
+@app.command()
+def recompute_ev(
+    date: str = typer.Option(..., help="Date YYYY-MM-DD to recompute EVs for"),
+    prefer_closing: bool = typer.Option(True, help="If regular odds are missing, use close_* odds to compute EVs and write them back to main columns"),
+):
+    """Recompute EV and edge columns for predictions_{date}.csv using available odds or closings.
+
+    If prefer_closing=True and *_odds columns are missing, copy close_* odds into main odds columns first.
+    """
+    from .utils.io import PROC_DIR
+    path = PROC_DIR / f"predictions_{date}.csv"
+    df = pd.read_csv(path) if path.exists() else pd.DataFrame()
+    if df.empty:
+        print("No predictions to recompute.")
+        return
+    # Helper to pick price source
+    def pick(col_main: str, col_close: str):
+        if col_main in df.columns and df[col_main].notna().any():
+            return col_main
+        if prefer_closing and col_close in df.columns and df[col_close].notna().any():
+            # also copy into main for UI consistency
+            if col_main not in df.columns:
+                df[col_main] = pd.NA
+            df[col_main] = df[col_main].fillna(df[col_close])
+            return col_main
+        return None
+    from .utils.odds import american_to_decimal, decimal_to_implied_prob, remove_vig_two_way, ev_unit
+    # Moneyline
+    ml_h_src = pick("home_ml_odds", "close_home_ml_odds")
+    ml_a_src = pick("away_ml_odds", "close_away_ml_odds")
+    # Totals
+    tot_o_src = pick("over_odds", "close_over_odds")
+    tot_u_src = pick("under_odds", "close_under_odds")
+    # Puckline
+    hpl_src = pick("home_pl_-1.5_odds", "close_home_pl_-1.5_odds")
+    apl_src = pick("away_pl_+1.5_odds", "close_away_pl_+1.5_odds")
+    # Recompute
+    def _safe_float(x):
+        try:
+            return float(x)
+        except Exception:
+            return None
+    for idx, r in df.iterrows():
+        # Moneyline EV
+        if ml_h_src and ml_a_src and pd.notna(r.get(ml_h_src)) and pd.notna(r.get(ml_a_src)):
+            try:
+                dec_h = american_to_decimal(_safe_float(r.get(ml_h_src)))
+                dec_a = american_to_decimal(_safe_float(r.get(ml_a_src)))
+                imp_h = decimal_to_implied_prob(dec_h); imp_a = decimal_to_implied_prob(dec_a)
+                nv_h, nv_a = remove_vig_two_way(imp_h, imp_a)
+                df.at[idx, "ev_home_ml"] = round(ev_unit(float(r.get("p_home_ml")), dec_h), 4)
+                df.at[idx, "ev_away_ml"] = round(ev_unit(float(r.get("p_away_ml")), dec_a), 4)
+                df.at[idx, "edge_home_ml"] = round(float(r.get("p_home_ml")) - nv_h, 4)
+                df.at[idx, "edge_away_ml"] = round(float(r.get("p_away_ml")) - nv_a, 4)
+            except Exception:
+                pass
+        # Totals EV
+        if tot_o_src and tot_u_src and pd.notna(r.get(tot_o_src)) and pd.notna(r.get(tot_u_src)):
+            try:
+                dec_o = american_to_decimal(_safe_float(r.get(tot_o_src)))
+                dec_u = american_to_decimal(_safe_float(r.get(tot_u_src)))
+                imp_o = decimal_to_implied_prob(dec_o); imp_u = decimal_to_implied_prob(dec_u)
+                nv_o, nv_u = remove_vig_two_way(imp_o, imp_u)
+                df.at[idx, "ev_over"] = round(ev_unit(float(r.get("p_over")), dec_o), 4)
+                df.at[idx, "ev_under"] = round(ev_unit(float(r.get("p_under")), dec_u), 4)
+                df.at[idx, "edge_over"] = round(float(r.get("p_over")) - nv_o, 4)
+                df.at[idx, "edge_under"] = round(float(r.get("p_under")) - nv_u, 4)
+            except Exception:
+                pass
+        # Puckline EV
+        if hpl_src and apl_src and pd.notna(r.get(hpl_src)) and pd.notna(r.get(apl_src)):
+            try:
+                dec_hpl = american_to_decimal(_safe_float(r.get(hpl_src)))
+                dec_apl = american_to_decimal(_safe_float(r.get(apl_src)))
+                imp_hpl = decimal_to_implied_prob(dec_hpl); imp_apl = decimal_to_implied_prob(dec_apl)
+                nv_hpl, nv_apl = remove_vig_two_way(imp_hpl, imp_apl)
+                df.at[idx, "ev_home_pl_-1.5"] = round(ev_unit(float(r.get("p_home_pl_-1.5")), dec_hpl), 4)
+                df.at[idx, "ev_away_pl_+1.5"] = round(ev_unit(float(r.get("p_away_pl_+1.5")), dec_apl), 4)
+                df.at[idx, "edge_home_pl_-1.5"] = round(float(r.get("p_home_pl_-1.5")) - nv_hpl, 4)
+                df.at[idx, "edge_away_pl_+1.5"] = round(float(r.get("p_away_pl_+1.5")) - nv_apl, 4)
+            except Exception:
+                pass
+    # Save + edges file
+    df.to_csv(path, index=False)
+    ev_cols = [c for c in df.columns if c.startswith("ev_")]
+    if ev_cols:
+        edges_long = df.melt(id_vars=["date", "home", "away"], value_vars=ev_cols, var_name="market", value_name="ev").dropna()
+        edges_long = edges_long.sort_values("ev", ascending=False)
+        from .utils.io import save_df
+        from .utils.io import PROC_DIR as _P
+        save_df(edges_long, _P / f"edges_{date}.csv")
+    print({"status": "ok", "ev_cols": len([c for c in df.columns if c.startswith('ev_')])})
 
 @app.command()
 def build_season(

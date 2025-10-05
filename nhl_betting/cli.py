@@ -307,6 +307,19 @@ def predict_core(
                 df["date"] = pd.to_datetime(df["date"], errors="coerce").dt.strftime("%Y-%m-%d")
                 df["home_norm"] = df["home"].apply(norm_team)
                 df["away_norm"] = df["away"].apply(norm_team)
+                # Add NHL team abbreviations for robust matching (handles LA vs Los Angeles, Utah rebrand, etc.)
+                try:
+                    from .web.teams import get_team_assets as _assets
+                    def to_abbr(x):
+                        try:
+                            return (_assets(str(x)).get("abbr") or "").upper()
+                        except Exception:
+                            return ""
+                    df["home_abbr"] = df["home"].apply(to_abbr)
+                    df["away_abbr"] = df["away"].apply(to_abbr)
+                except Exception:
+                    df["home_abbr"] = ""
+                    df["away_abbr"] = ""
                 odds_df = df.copy()
             except Exception as e:
                 print("Failed to fetch odds from The Odds API:", e)
@@ -532,7 +545,16 @@ def predict_core(
             carry_cols = [
                 "home_ml_odds","away_ml_odds","over_odds","under_odds","home_pl_-1.5_odds","away_pl_+1.5_odds",
                 "home_ml_book","away_ml_book","over_book","under_book","home_pl_-1.5_book","away_pl_+1.5_book",
-                "total_line_used"
+                "total_line_used",
+                # Preserve captured openers and closings to avoid losing them on odds-miss runs
+                "open_home_ml_odds","open_away_ml_odds","open_over_odds","open_under_odds",
+                "open_home_pl_-1.5_odds","open_away_pl_+1.5_odds","open_total_line_used",
+                "open_home_ml_book","open_away_ml_book","open_over_book","open_under_book",
+                "open_home_pl_-1.5_book","open_away_pl_+1.5_book","open_snapshot",
+                "close_home_ml_odds","close_away_ml_odds","close_over_odds","close_under_odds",
+                "close_home_pl_-1.5_odds","close_away_pl_+1.5_odds","close_total_line_used",
+                "close_home_ml_book","close_away_ml_book","close_over_book","close_under_book",
+                "close_home_pl_-1.5_book","close_away_pl_+1.5_book","close_snapshot",
             ]
             keys = ["date","home","away"]
             if set(keys).issubset(set(prev.columns)):
@@ -557,6 +579,16 @@ def predict_core(
                             r["ev_away_ml"] = round(ev_unit(float(r.get("p_away_ml")), dec_a), 4)
                             r["edge_home_ml"] = round(float(r.get("p_home_ml")) - nv_h, 4)
                             r["edge_away_ml"] = round(float(r.get("p_away_ml")) - nv_a, 4)
+                        elif pd.notna(r.get("open_home_ml_odds")) and pd.notna(r.get("open_away_ml_odds")):
+                            dec_h = american_to_decimal(float(r.get("open_home_ml_odds")))
+                            dec_a = american_to_decimal(float(r.get("open_away_ml_odds")))
+                            imp_h = decimal_to_implied_prob(dec_h)
+                            imp_a = decimal_to_implied_prob(dec_a)
+                            nv_h, nv_a = remove_vig_two_way(imp_h, imp_a)
+                            r["ev_home_ml"] = round(ev_unit(float(r.get("p_home_ml")), dec_h), 4)
+                            r["ev_away_ml"] = round(ev_unit(float(r.get("p_away_ml")), dec_a), 4)
+                            r["edge_home_ml"] = round(float(r.get("p_home_ml")) - nv_h, 4)
+                            r["edge_away_ml"] = round(float(r.get("p_away_ml")) - nv_a, 4)
                     except Exception:
                         pass
                     # Totals
@@ -571,6 +603,16 @@ def predict_core(
                             r["ev_under"] = round(ev_unit(float(r.get("p_under")), dec_u), 4)
                             r["edge_over"] = round(float(r.get("p_over")) - nv_o, 4)
                             r["edge_under"] = round(float(r.get("p_under")) - nv_u, 4)
+                        elif pd.notna(r.get("open_over_odds")) and pd.notna(r.get("open_under_odds")):
+                            dec_o = american_to_decimal(float(r.get("open_over_odds")))
+                            dec_u = american_to_decimal(float(r.get("open_under_odds")))
+                            imp_o = decimal_to_implied_prob(dec_o)
+                            imp_u = decimal_to_implied_prob(dec_u)
+                            nv_o, nv_u = remove_vig_two_way(imp_o, imp_u)
+                            r["ev_over"] = round(ev_unit(float(r.get("p_over")), dec_o), 4)
+                            r["ev_under"] = round(ev_unit(float(r.get("p_under")), dec_u), 4)
+                            r["edge_over"] = round(float(r.get("p_over")) - nv_o, 4)
+                            r["edge_under"] = round(float(r.get("p_under")) - nv_u, 4)
                     except Exception:
                         pass
                     # Puckline
@@ -578,6 +620,16 @@ def predict_core(
                         if pd.notna(r.get("home_pl_-1.5_odds")) and pd.notna(r.get("away_pl_+1.5_odds")):
                             dec_hpl = american_to_decimal(float(r.get("home_pl_-1.5_odds")))
                             dec_apl = american_to_decimal(float(r.get("away_pl_+1.5_odds")))
+                            imp_hpl = decimal_to_implied_prob(dec_hpl)
+                            imp_apl = decimal_to_implied_prob(dec_apl)
+                            nv_hpl, nv_apl = remove_vig_two_way(imp_hpl, imp_apl)
+                            r["ev_home_pl_-1.5"] = round(ev_unit(float(r.get("p_home_pl_-1.5")), dec_hpl), 4)
+                            r["ev_away_pl_+1.5"] = round(ev_unit(float(r.get("p_away_pl_+1.5")), dec_apl), 4)
+                            r["edge_home_pl_-1.5"] = round(float(r.get("p_home_pl_-1.5")) - nv_hpl, 4)
+                            r["edge_away_pl_+1.5"] = round(float(r.get("p_away_pl_+1.5")) - nv_apl, 4)
+                        elif pd.notna(r.get("open_home_pl_-1.5_odds")) and pd.notna(r.get("open_away_pl_+1.5_odds")):
+                            dec_hpl = american_to_decimal(float(r.get("open_home_pl_-1.5_odds")))
+                            dec_apl = american_to_decimal(float(r.get("open_away_pl_+1.5_odds")))
                             imp_hpl = decimal_to_implied_prob(dec_hpl)
                             imp_apl = decimal_to_implied_prob(dec_apl)
                             nv_hpl, nv_apl = remove_vig_two_way(imp_hpl, imp_apl)

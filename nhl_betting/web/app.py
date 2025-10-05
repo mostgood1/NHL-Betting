@@ -19,6 +19,7 @@ from ..data.nhl_api import NHLClient as NHLStatsClient
 from .teams import get_team_assets
 from ..cli import predict_core, fetch as cli_fetch, train as cli_train
 from ..models.poisson import PoissonGoals
+from ..utils.io import save_df
 import asyncio
 from ..data.bovada import BovadaClient
 import base64
@@ -2216,7 +2217,7 @@ async def api_debug_odds_match(date: Optional[str] = Query(None)):
 
 @app.get("/api/props")
 async def api_props(
-    market: Optional[str] = Query(None, description="Filter by market: SOG, SAVES, GOALS"),
+    market: Optional[str] = Query(None, description="Filter by market: SOG, SAVES, GOALS, ASSISTS, POINTS"),
     min_ev: float = Query(0.0, description="Minimum EV threshold for ev_over"),
     top: int = Query(50, description="Top N to return after filtering/sorting by EV desc"),
 ):
@@ -2232,6 +2233,236 @@ async def api_props(
     if top and top > 0:
         df = df.head(top)
     return JSONResponse(df.to_dict(orient="records"))
+
+
+@app.get("/api/player-props")
+async def api_player_props(
+    date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD (ET)"),
+    market: Optional[str] = Query(None, description="SOG,SAVES,GOALS,ASSISTS,POINTS"),
+):
+    """Return canonical player props lines for a date from data/props/player_props_lines/date=YYYY-MM-DD/*.parquet."""
+    date = date or _today_ymd()
+    try:
+        import pandas as _pd
+        base = PROC_DIR.parent / "props" / f"player_props_lines/date={date}"
+        parts = []
+        for name in ("bovada.parquet", "oddsapi.parquet"):
+            p = base / name
+            if p.exists():
+                try:
+                    parts.append(_pd.read_parquet(p))
+                except Exception:
+                    pass
+        if not parts:
+            return JSONResponse({"date": date, "data": []})
+        df = _pd.concat(parts, ignore_index=True)
+        if market:
+            df = df[df["market"].astype(str).str.upper() == market.upper()]
+        # Lightweight response
+        keep = [c for c in ["date","player_name","player_id","team","market","line","over_price","under_price","book","is_current"] if c in df.columns]
+        out = df[keep].rename(columns={"player_name":"player"}).to_dict(orient="records")
+        return JSONResponse({"date": date, "data": out})
+    except Exception as e:
+        return JSONResponse({"date": date, "error": str(e), "data": []}, status_code=200)
+
+
+@app.get("/api/props/recommendations")
+async def api_props_recommendations(
+    date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD (ET)"),
+    market: Optional[str] = Query(None, description="SOG,SAVES,GOALS,ASSISTS,POINTS"),
+    min_ev: float = Query(0.0),
+    top: int = Query(200),
+):
+    """Serve props recommendations for a given date. If cached CSV exists, read; else compute on the fly via CLI logic."""
+    date = date or _today_ymd()
+    rec_path = PROC_DIR / f"props_recommendations_{date}.csv"
+    df = None
+    if rec_path.exists():
+        try:
+            df = pd.read_csv(rec_path)
+        except Exception:
+            df = None
+    if df is None or df.empty:
+        # Compute on the fly by invoking the same logic inline (avoid spawning a subprocess)
+        try:
+            from ..models.props import SkaterShotsModel, GoalieSavesModel, SkaterGoalsModel
+            from ..models.props import SkaterAssistsModel, SkaterPointsModel
+            from ..data.collect import collect_player_game_stats
+            from ..utils.io import RAW_DIR
+            # Load canonical lines
+            base = PROC_DIR.parent / "props" / f"player_props_lines/date={date}"
+            parts = []
+            for name in ("bovada.parquet", "oddsapi.parquet"):
+                p = base / name
+                if p.exists():
+                    try:
+                        parts.append(pd.read_parquet(p))
+                    except Exception:
+                        pass
+            if not parts:
+                return JSONResponse({"date": date, "data": []})
+            lines = pd.concat(parts, ignore_index=True)
+            # Ensure history exists
+            stats_path = RAW_DIR / "player_game_stats.csv"
+            if not stats_path.exists():
+                try:
+                    from datetime import datetime as _dt, timedelta as _td
+                    start = (_dt.strptime(date, "%Y-%m-%d") - _td(days=365)).strftime("%Y-%m-%d")
+                    collect_player_game_stats(start, date, source="stats")
+                except Exception:
+                    pass
+            hist = pd.read_csv(stats_path) if stats_path.exists() else pd.DataFrame()
+            shots = SkaterShotsModel(); saves = GoalieSavesModel(); goals = SkaterGoalsModel(); assists = SkaterAssistsModel(); points = SkaterPointsModel()
+            def proj_prob(m, player, ln):
+                m = (m or '').upper()
+                if m == 'SOG':
+                    lam = shots.player_lambda(hist, player); return lam, shots.prob_over(lam, ln)
+                if m == 'SAVES':
+                    lam = saves.player_lambda(hist, player); return lam, saves.prob_over(lam, ln)
+                if m == 'GOALS':
+                    lam = goals.player_lambda(hist, player); return lam, goals.prob_over(lam, ln)
+                if m == 'ASSISTS':
+                    lam = assists.player_lambda(hist, player); return lam, assists.prob_over(lam, ln)
+                if m == 'POINTS':
+                    lam = points.player_lambda(hist, player); return lam, points.prob_over(lam, ln)
+                return None, None
+            recs = []
+            for _, r in lines.iterrows():
+                m = str(r.get('market') or '').upper()
+                if market and m != market.upper():
+                    continue
+                player = r.get('player_name') or r.get('player')
+                if not player:
+                    continue
+                try:
+                    ln = float(r.get('line'))
+                except Exception:
+                    continue
+                op = r.get('over_price'); up = r.get('under_price')
+                if pd.isna(op) and pd.isna(up):
+                    continue
+                lam, p_over = proj_prob(m, str(player), ln)
+                if lam is None or p_over is None:
+                    continue
+                # EV calc
+                def _dec(a):
+                    try:
+                        a = float(a); return 1.0 + (a/100.0) if a > 0 else 1.0 + (100.0/abs(a))
+                    except Exception:
+                        return None
+                ev_o = (p_over * (_dec(op)-1.0) - (1.0 - p_over)) if (op is not None and _dec(op) is not None) else None
+                p_under = max(0.0, 1.0 - float(p_over))
+                ev_u = (p_under * (_dec(up)-1.0) - (1.0 - p_under)) if (up is not None and _dec(up) is not None) else None
+                side = None; price = None; ev = None
+                if ev_o is not None or ev_u is not None:
+                    if (ev_u is None) or (ev_o is not None and ev_o >= ev_u):
+                        side = 'Over'; price = op; ev = ev_o
+                    else:
+                        side = 'Under'; price = up; ev = ev_u
+                if ev is None or not (float(ev) >= float(min_ev)):
+                    continue
+                recs.append({
+                    'date': date,
+                    'player': player,
+                    'team': r.get('team') or None,
+                    'market': m,
+                    'line': ln,
+                    'proj': float(lam),
+                    'p_over': float(p_over),
+                    'over_price': op if pd.notna(op) else None,
+                    'under_price': up if pd.notna(up) else None,
+                    'book': r.get('book'),
+                    'side': side,
+                    'ev': float(ev) if ev is not None else None,
+                })
+            df = pd.DataFrame(recs)
+            if not df.empty:
+                df = df.sort_values('ev', ascending=False)
+                if top and top > 0:
+                    df = df.head(top)
+            try:
+                save_df(df, rec_path)
+            except Exception:
+                pass
+        except Exception as e:
+            return JSONResponse({"date": date, "error": str(e), "data": []}, status_code=200)
+    # Apply API filters on cached df
+    if df is None:
+        df = pd.read_csv(rec_path) if rec_path.exists() else pd.DataFrame()
+    if market and not df.empty and 'market' in df.columns:
+        df = df[df['market'].astype(str).str.upper() == market.upper()]
+    try:
+        if not df.empty and 'ev' in df.columns:
+            df = df[df['ev'].astype(float) >= float(min_ev)].sort_values('ev', ascending=False)
+        if not df.empty and top and top > 0:
+            df = df.head(top)
+    except Exception:
+        pass
+    return JSONResponse({"date": date, "data": ([] if df is None else df.to_dict(orient='records'))})
+
+
+@app.get("/api/player-props-reconciliation")
+async def api_player_props_reconciliation(
+    date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD (ET)"),
+    refresh: int = Query(0, description="If 1, recompute instead of reading cache"),
+):
+    """Join canonical props lines with realized stats for the date to compare projections vs actuals."""
+    date = date or _today_ymd()
+    cache = PROC_DIR / f"player_props_vs_actuals_{date}.csv"
+    if refresh == 0 and cache.exists():
+        try:
+            df = pd.read_csv(cache)
+            return JSONResponse({"date": date, "data": df.to_dict(orient="records")})
+        except Exception:
+            pass
+    # Build on the fly using existing CLI utilities
+    try:
+        from ..utils.io import RAW_DIR
+        # Load canonical lines
+        base = PROC_DIR.parent / "props" / f"player_props_lines/date={date}"
+        parts = []
+        for name in ("bovada.parquet", "oddsapi.parquet"):
+            p = base / name
+            if p.exists():
+                try:
+                    parts.append(pd.read_parquet(p))
+                except Exception:
+                    pass
+        lines = pd.concat(parts, ignore_index=True) if parts else pd.DataFrame()
+        # Ensure stats exist for the date
+        stats_path = RAW_DIR / "player_game_stats.csv"
+        stats = pd.read_csv(stats_path) if stats_path.exists() else pd.DataFrame()
+        stats['date_key'] = pd.to_datetime(stats['date'], errors='coerce').dt.strftime('%Y-%m-%d') if not stats.empty else pd.Series(dtype=str)
+        stats_day = stats[stats['date_key'] == date].copy() if not stats.empty else pd.DataFrame()
+        # Assemble reconciliation rows
+        if lines.empty or stats_day.empty:
+            save_df(pd.DataFrame(), cache)
+            return JSONResponse({"date": date, "data": []})
+        left = lines.rename(columns={"date":"date_key","player_name":"player"}).copy()
+        keep_stats = [c for c in ['player','shots','goals','assists','saves'] if c in stats_day.columns]
+        right = stats_day[['date_key'] + keep_stats]
+        merged = left.merge(right, on=['date_key','player'], how='left', suffixes=('', '_act'))
+        # Compute actual numeric per market
+        def _act(row):
+            m = str(row.get('market') or '').upper()
+            if m == 'SOG': return row.get('shots')
+            if m == 'GOALS': return row.get('goals')
+            if m == 'SAVES': return row.get('saves')
+            if m == 'ASSISTS': return row.get('assists')
+            if m == 'POINTS':
+                try:
+                    g = float(row.get('goals') or 0); a = float(row.get('assists') or 0); return g+a
+                except Exception:
+                    return None
+            return None
+        merged['actual'] = merged.apply(_act, axis=1)
+        try:
+            save_df(merged, cache)
+        except Exception:
+            pass
+        return JSONResponse({"date": date, "data": merged.to_dict(orient='records')})
+    except Exception as e:
+        return JSONResponse({"date": date, "error": str(e), "data": []}, status_code=200)
 
 @app.get("/api/last-updated")
 async def api_last_updated(date: Optional[str] = Query(None)):

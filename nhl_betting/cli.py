@@ -18,7 +18,7 @@ from .models.poisson import PoissonGoals
 from .models.trends import TrendAdjustments, team_keys, get_adjustment
 from .utils.odds import american_to_decimal, decimal_to_implied_prob, remove_vig_two_way, ev_unit, kelly_stake
 from .data.collect import collect_player_game_stats
-from .models.props import SkaterShotsModel, GoalieSavesModel, SkaterGoalsModel
+from .models.props import SkaterShotsModel, GoalieSavesModel, SkaterGoalsModel, SkaterAssistsModel, SkaterPointsModel
 from .data.odds_api import OddsAPIClient, normalize_snapshot_to_rows
 from .data.bovada import BovadaClient
 from .data import player_props as props_data
@@ -739,6 +739,8 @@ def props_predict(odds_csv: str = typer.Option(..., help="CSV with columns: mark
     shots = SkaterShotsModel()
     saves = GoalieSavesModel()
     goals = SkaterGoalsModel()
+    assists = SkaterAssistsModel()
+    points = SkaterPointsModel()
     out_rows = []
     for _, r in req.iterrows():
         market = str(r["market"]).upper()
@@ -755,6 +757,12 @@ def props_predict(odds_csv: str = typer.Option(..., help="CSV with columns: mark
         elif market == "GOALS":
             lam = goals.player_lambda(hist, player)
             p_over = goals.prob_over(lam, line)
+        elif market == "ASSISTS":
+            lam = assists.player_lambda(hist, player)
+            p_over = assists.prob_over(lam, line)
+        elif market == "POINTS":
+            lam = points.player_lambda(hist, player)
+            p_over = points.prob_over(lam, line)
         else:
             continue
         out_rows.append({
@@ -771,6 +779,123 @@ def props_predict(odds_csv: str = typer.Option(..., help="CSV with columns: mark
     save_df(out, out_path)
     print(out)
     print(f"Saved props predictions to {out_path}")
+
+
+@app.command()
+def props_recommendations(
+    date: str = typer.Option(..., help="Slate date YYYY-MM-DD (ET)"),
+    min_ev: float = typer.Option(0.0, help="Minimum EV threshold for ev_over"),
+    top: int = typer.Option(200, help="Top N to keep after sorting by EV desc"),
+    market: str = typer.Option("", help="Optional filter: SOG,SAVES,GOALS,ASSISTS,POINTS"),
+):
+    """Build props recommendations_{date}.csv from canonical Parquet lines and simple Poisson projections.
+
+    Reads data/props/player_props_lines/date=YYYY-MM-DD/*.parquet, computes p_over and EV for each OVER/UNDER pair
+    using rolling-mean lambdas, and writes a denormalized recommendation list similar to NFL.
+    """
+    import os
+    from glob import glob
+    # Read canonical lines for date
+    parts = []
+    base = Path("data/props") / f"player_props_lines/date={date}"
+    for f in (base / "bovada.parquet", base / "oddsapi.parquet"):
+        if f.exists():
+            try:
+                parts.append(pd.read_parquet(f))
+            except Exception:
+                pass
+    if not parts:
+        print("No props lines found for", date)
+        raise typer.Exit(code=1)
+    lines = pd.concat(parts, ignore_index=True)
+    # Ensure player stats history
+    stats_path = RAW_DIR / "player_game_stats.csv"
+    if not stats_path.exists():
+        # Try to backfill last 2 seasons quickly
+        try:
+            from datetime import datetime as _dt, timedelta as _td
+            end = date
+            start = (_dt.strptime(date, "%Y-%m-%d") - _td(days=365*2)).strftime("%Y-%m-%d")
+            collect_player_game_stats(start, end, source="stats")
+        except Exception:
+            pass
+    hist = load_df(stats_path)
+    # Instantiate models
+    shots = SkaterShotsModel(); saves = GoalieSavesModel(); goals = SkaterGoalsModel(); assists = SkaterAssistsModel(); points = SkaterPointsModel()
+    def proj_and_prob(mkt: str, player: str, line: float) -> tuple[float, float]:
+        m = mkt.upper()
+        if m == "SOG":
+            lam = shots.player_lambda(hist, player)
+            return lam, shots.prob_over(lam, line)
+        if m == "SAVES":
+            lam = saves.player_lambda(hist, player)
+            return lam, saves.prob_over(lam, line)
+        if m == "GOALS":
+            lam = goals.player_lambda(hist, player)
+            return lam, goals.prob_over(lam, line)
+        if m == "ASSISTS":
+            lam = assists.player_lambda(hist, player)
+            return lam, assists.prob_over(lam, line)
+        if m == "POINTS":
+            lam = points.player_lambda(hist, player)
+            return lam, points.prob_over(lam, line)
+        return None, None
+    # Combine rows: lines contain over_price and under_price per (market,player,line,book)
+    rows = []
+    for _, r in lines.iterrows():
+        m = str(r.get("market") or "").upper()
+        if market and m != market.upper():
+            continue
+        player = r.get("player_name") or r.get("player")
+        if not player:
+            continue
+        try:
+            ln = float(r.get("line"))
+        except Exception:
+            continue
+        over_price = r.get("over_price")
+        under_price = r.get("under_price")
+        if pd.isna(over_price) and pd.isna(under_price):
+            continue
+        lam, p_over = proj_and_prob(m, str(player), ln)
+        if lam is None or p_over is None:
+            continue
+        # EVs
+        ev_o = None; ev_u = None
+        if pd.notna(over_price):
+            ev_o = ev_unit(float(p_over), american_to_decimal(float(over_price)))
+        if pd.notna(under_price):
+            p_under = max(0.0, 1.0 - float(p_over))
+            ev_u = ev_unit(float(p_under), american_to_decimal(float(under_price)))
+        # Choose side recommendation by higher EV
+        side = None; price = None; ev = None
+        if ev_o is not None or ev_u is not None:
+            if (ev_u is None) or (ev_o is not None and ev_o >= ev_u):
+                side = "Over"; price = over_price; ev = ev_o
+            else:
+                side = "Under"; price = under_price; ev = ev_u
+        if ev is None or float(ev) < float(min_ev):
+            continue
+        rows.append({
+            "date": date,
+            "player": player,
+            "team": r.get("team") or None,
+            "market": m,
+            "line": ln,
+            "proj": round(float(lam), 3),
+            "p_over": round(float(p_over), 4),
+            "over_price": over_price if pd.notna(over_price) else None,
+            "under_price": under_price if pd.notna(under_price) else None,
+            "book": r.get("book"),
+            "side": side,
+            "ev": round(float(ev), 4) if ev is not None else None,
+        })
+    out = pd.DataFrame(rows)
+    if not out.empty:
+        out = out.sort_values("ev", ascending=False).head(top)
+    out_path = PROC_DIR / f"props_recommendations_{date}.csv"
+    save_df(out, out_path)
+    print(f"Wrote {out_path} with {len(out)} rows")
 
 
 @app.command()

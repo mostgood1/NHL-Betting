@@ -65,3 +65,41 @@ class SkaterGoalsModel:
         xs = np.arange(0, max_x + 1)
         pmf = np.exp(-lam) * np.power(lam, xs) / np.vectorize(np.math.factorial)(xs)
         return float(pmf[xs > threshold].sum())
+
+
+class SkaterAssistsModel:
+    def __init__(self, cfg: PropsConfig | None = None):
+        self.cfg = cfg or PropsConfig()
+
+    def player_lambda(self, df: pd.DataFrame, player: str) -> float:
+        pdf = df[(df["player"] == player) & (df["role"] == "skater")].dropna(subset=["assists"]).copy()
+        pdf = pdf.sort_values("date").tail(self.cfg.window)
+        if pdf.empty:
+            return 0.4
+        return float(pdf["assists"].mean())
+
+    def prob_over(self, lam: float, line: float, max_x: int = 5) -> float:
+        threshold = int(np.floor(line + 1e-9))
+        xs = np.arange(0, max_x + 1)
+        pmf = np.exp(-lam) * np.power(lam, xs) / np.vectorize(np.math.factorial)(xs)
+        return float(pmf[xs > threshold].sum())
+
+
+class SkaterPointsModel:
+    def __init__(self, cfg: PropsConfig | None = None):
+        self.cfg = cfg or PropsConfig()
+
+    def player_lambda(self, df: pd.DataFrame, player: str) -> float:
+        # Points = goals + assists
+        pdf = df[(df["player"] == player) & (df["role"] == "skater")].dropna(subset=["goals", "assists"]).copy()
+        pdf = pdf.sort_values("date").tail(self.cfg.window)
+        if pdf.empty:
+            return 0.7
+        pts = (pdf["goals"].astype(float) + pdf["assists"].astype(float))
+        return float(pts.mean())
+
+    def prob_over(self, lam: float, line: float, max_x: int = 8) -> float:
+        threshold = int(np.floor(line + 1e-9))
+        xs = np.arange(0, max_x + 1)
+        pmf = np.exp(-lam) * np.power(lam, xs) / np.vectorize(np.math.factorial)(xs)
+        return float(pmf[xs > threshold].sum())

@@ -2498,6 +2498,202 @@ async def api_player_props_reconciliation(
     except Exception as e:
         return JSONResponse({"date": date, "error": str(e), "data": []}, status_code=200)
 
+
+@app.post("/api/cron/props-collect")
+async def api_cron_props_collect(
+    token: Optional[str] = Query(None, description="Bearer token; must match REFRESH_CRON_TOKEN env var"),
+    date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD; defaults to ET today"),
+    authorization: Optional[str] = Header(None, description="Authorization: Bearer <token> header (optional alternative to token query param)"),
+):
+    """Secure endpoint to collect canonical player props lines (Parquet) for a date.
+
+    - Writes data/props/player_props_lines/date=YYYY-MM-DD/{bovada,oddsapi}.parquet
+    - Best-effort upserts resulting Parquet files to GitHub
+    """
+    secret = os.getenv("REFRESH_CRON_TOKEN", "")
+    supplied = (token or "").strip()
+    if (not supplied) and authorization:
+        try:
+            auth = str(authorization)
+            if auth.lower().startswith("bearer "):
+                supplied = auth.split(" ", 1)[1].strip()
+        except Exception:
+            supplied = supplied
+    if not (secret and supplied and _const_time_eq(supplied, secret)):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    d = _normalize_date_param(date)
+    try:
+        from ..data import player_props as props_data
+        base = PROC_DIR.parent / "props" / f"player_props_lines/date={d}"
+        base.mkdir(parents=True, exist_ok=True)
+        out = {"date": d, "written": [], "errors": []}
+        # Collect from Bovada and Odds API
+        for which, src in (("bovada", "bovada"), ("oddsapi", "oddsapi")):
+            try:
+                cfg = props_data.PropsCollectionConfig(output_root=str(PROC_DIR.parent / "props"), book=which, source=src)
+                res = props_data.collect_and_write(d, roster_df=None, cfg=cfg)
+                path = res.get("output_path")
+                if path:
+                    out["written"].append(str(path))
+                    try:
+                        _gh_upsert_file_if_configured(Path(path), f"web: update props lines {which} for {d}")
+                    except Exception:
+                        pass
+            except Exception as e:
+                out["errors"].append({"book": which, "error": str(e)})
+        return JSONResponse({"ok": True, **out})
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e), "date": d}, status_code=500)
+
+
+@app.post("/api/cron/props-recommendations")
+async def api_cron_props_recommendations(
+    token: Optional[str] = Query(None, description="Bearer token; must match REFRESH_CRON_TOKEN env var"),
+    date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD; defaults to ET today"),
+    market: Optional[str] = Query(None, description="SOG,SAVES,GOALS,ASSISTS,POINTS,BLOCKS"),
+    min_ev: float = Query(0.0),
+    top: int = Query(200),
+    authorization: Optional[str] = Header(None, description="Authorization: Bearer <token> header (optional alternative to token query param)"),
+):
+    """Secure endpoint to compute props recommendations for a date and push CSV to GitHub.
+
+    - If Parquet lines are missing, attempts to collect them first via props-collect
+    - Writes data/processed/props_recommendations_{date}.csv and upserts to GitHub
+    """
+    secret = os.getenv("REFRESH_CRON_TOKEN", "")
+    supplied = (token or "").strip()
+    if (not supplied) and authorization:
+        try:
+            auth = str(authorization)
+            if auth.lower().startswith("bearer "):
+                supplied = auth.split(" ", 1)[1].strip()
+        except Exception:
+            supplied = supplied
+    if not (secret and supplied and _const_time_eq(supplied, secret)):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    d = _normalize_date_param(date)
+    # Ensure lines exist; if not, collect
+    try:
+        base = PROC_DIR.parent / "props" / f"player_props_lines/date={d}"
+        need_collect = not ((base / "bovada.parquet").exists() or (base / "oddsapi.parquet").exists())
+        if need_collect:
+            # Best-effort
+            try:
+                await api_cron_props_collect(token=token, date=d)
+            except Exception:
+                pass
+    except Exception:
+        pass
+    # Compute recommendations using the same logic as api_props_recommendations (compute branch)
+    try:
+        from ..models.props import SkaterShotsModel, GoalieSavesModel, SkaterGoalsModel
+        from ..models.props import SkaterAssistsModel, SkaterPointsModel, SkaterBlocksModel
+        from ..data.collect import collect_player_game_stats
+        # Load lines
+        parts = []
+        for name in ("bovada.parquet", "oddsapi.parquet"):
+            p = base / name
+            if p.exists():
+                try:
+                    parts.append(pd.read_parquet(p))
+                except Exception:
+                    pass
+        if not parts:
+            return JSONResponse({"ok": True, "date": d, "rows": 0, "message": "no-lines"})
+        lines = pd.concat(parts, ignore_index=True)
+        # Ensure stats exist for projection
+        stats_path = RAW_DIR / "player_game_stats.csv"
+        if not stats_path.exists():
+            try:
+                from datetime import datetime as _dt, timedelta as _td
+                start = (_dt.strptime(d, "%Y-%m-%d") - _td(days=365)).strftime("%Y-%m-%d")
+                collect_player_game_stats(start, d, source="stats")
+            except Exception:
+                pass
+        hist = pd.read_csv(stats_path) if stats_path.exists() else pd.DataFrame()
+        shots = SkaterShotsModel(); saves = GoalieSavesModel(); goals = SkaterGoalsModel(); assists = SkaterAssistsModel(); points = SkaterPointsModel(); blocks = SkaterBlocksModel()
+        def proj_prob(m, player, ln):
+            m = (m or '').upper()
+            if m == 'SOG':
+                lam = shots.player_lambda(hist, player); return lam, shots.prob_over(lam, ln)
+            if m == 'SAVES':
+                lam = saves.player_lambda(hist, player); return lam, saves.prob_over(lam, ln)
+            if m == 'GOALS':
+                lam = goals.player_lambda(hist, player); return lam, goals.prob_over(lam, ln)
+            if m == 'ASSISTS':
+                lam = assists.player_lambda(hist, player); return lam, assists.prob_over(lam, ln)
+            if m == 'POINTS':
+                lam = points.player_lambda(hist, player); return lam, points.prob_over(lam, ln)
+            if m == 'BLOCKS':
+                lam = blocks.player_lambda(hist, player); return lam, blocks.prob_over(lam, ln)
+            return None, None
+        recs = []
+        for _, r in lines.iterrows():
+            m = str(r.get('market') or '').upper()
+            if market and m != market.upper():
+                continue
+            player = r.get('player_name') or r.get('player')
+            if not player:
+                continue
+            try:
+                ln = float(r.get('line'))
+            except Exception:
+                continue
+            op = r.get('over_price'); up = r.get('under_price')
+            if pd.isna(op) and pd.isna(up):
+                continue
+            lam, p_over = proj_prob(m, str(player), ln)
+            if lam is None or p_over is None:
+                continue
+            # EV calc
+            def _dec(a):
+                try:
+                    a = float(a); return 1.0 + (a/100.0) if a > 0 else 1.0 + (100.0/abs(a))
+                except Exception:
+                    return None
+            ev_o = (p_over * (_dec(op)-1.0) - (1.0 - p_over)) if (op is not None and _dec(op) is not None) else None
+            p_under = max(0.0, 1.0 - float(p_over))
+            ev_u = (p_under * (_dec(up)-1.0) - (1.0 - p_under)) if (up is not None and _dec(up) is not None) else None
+            side = None; price = None; ev = None
+            if ev_o is not None or ev_u is not None:
+                if (ev_u is None) or (ev_o is not None and ev_o >= ev_u):
+                    side = 'Over'; price = op; ev = ev_o
+                else:
+                    side = 'Under'; price = up; ev = ev_u
+            if ev is None or not (float(ev) >= float(min_ev)):
+                continue
+            recs.append({
+                'date': d,
+                'player': player,
+                'team': r.get('team') or None,
+                'market': m,
+                'line': ln,
+                'proj': float(lam),
+                'p_over': float(p_over),
+                'over_price': op if pd.notna(op) else None,
+                'under_price': up if pd.notna(up) else None,
+                'book': r.get('book'),
+                'side': side,
+                'ev': float(ev) if ev is not None else None,
+            })
+        df = pd.DataFrame(recs)
+        if not df.empty:
+            df = df.sort_values('ev', ascending=False)
+            if top and top > 0:
+                df = df.head(int(top))
+        rec_path = PROC_DIR / f"props_recommendations_{d}.csv"
+        try:
+            save_df(df, rec_path)
+            try:
+                _gh_upsert_file_if_configured(rec_path, f"web: update props recommendations for {d}")
+            except Exception:
+                pass
+        except Exception:
+            pass
+        return JSONResponse({"ok": True, "date": d, "rows": 0 if df is None or df.empty else int(len(df)), "path": str(rec_path)})
+    except Exception as e:
+        return JSONResponse({"ok": False, "date": d, "error": str(e)}, status_code=500)
+
 @app.get("/api/last-updated")
 async def api_last_updated(date: Optional[str] = Query(None)):
     date = date or _today_ymd()

@@ -1,4 +1,5 @@
 import json
+import numpy as np
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from pathlib import Path
@@ -1398,6 +1399,521 @@ def props_watch(
             print(f"[props_watch] attempt failed: {e}")
         if i < tries - 1:
             _time.sleep(max(1, int(interval)))
+
+
+@app.command()
+def props_backtest(
+    start: str = typer.Option(..., help="Start date YYYY-MM-DD (ET)"),
+    end: str = typer.Option(..., help="End date YYYY-MM-DD (ET)"),
+    window: int = typer.Option(10, help="Rolling window (games) for lambda"),
+    stake: float = typer.Option(100.0, help="Flat stake per play for ROI calc"),
+    markets: str = typer.Option("SOG,SAVES,GOALS,ASSISTS,POINTS", help="Comma list of markets to include"),
+    min_ev: float = typer.Option(-1.0, help="Filter to plays with EV >= min_ev; set -1 to include all"),
+    out_prefix: str = typer.Option("", help="Optional output filename prefix under data/processed/"),
+):
+    """Backtest props models on canonical lines without lookahead and compute ROI + calibration.
+
+    For each day in [start, end]:
+      - Load canonical props lines for that date.
+      - Compute rolling lambda using player history strictly BEFORE the date.
+      - Compute p_over and EV for Over/Under.
+      - Choose side by higher EV (at that day's lines) and evaluate result using actuals.
+      - Aggregate ROI and calibration stats by market and overall.
+    Writes rows and summary to data/processed.
+    """
+    from datetime import datetime, timedelta
+    from .utils.io import RAW_DIR, PROC_DIR
+    from .models.props import (
+        PropsConfig,
+        SkaterShotsModel, GoalieSavesModel,
+        SkaterGoalsModel, SkaterAssistsModel, SkaterPointsModel,
+    )
+    # Ensure player stats exist over the full window before end
+    try:
+        collect_player_game_stats(start, end, source="stats")
+    except Exception:
+        pass
+    stats_path = RAW_DIR / "player_game_stats.csv"
+    if not stats_path.exists():
+        print("player_game_stats.csv missing; cannot backtest.")
+        raise typer.Exit(code=1)
+    stats_all = pd.read_csv(stats_path)
+    # Normalize dates to strings YYYY-MM-DD for comparisons
+    stats_all["date_key"] = pd.to_datetime(stats_all["date"], errors="coerce").dt.strftime("%Y-%m-%d")
+    # Models with configured window
+    cfg = PropsConfig(window=window)
+    shots = SkaterShotsModel(cfg); saves = GoalieSavesModel(cfg); goals = SkaterGoalsModel(cfg); assists = SkaterAssistsModel(cfg); points = SkaterPointsModel(cfg)
+    allowed_markets = [m.strip().upper() for m in (markets or "").split(",") if m.strip()]
+    # Iterate dates
+    def to_dt(s: str) -> datetime:
+        return datetime.strptime(s, "%Y-%m-%d")
+    cur = to_dt(start); end_dt = to_dt(end)
+    rows = []
+    calib = []  # over-probability calibration
+    total_lines = 0
+    while cur <= end_dt:
+        d = cur.strftime("%Y-%m-%d")
+        # Load lines for date d
+        base = Path("data/props") / f"player_props_lines/date={d}"
+        parts = []
+        for fname in ("bovada.parquet", "oddsapi.parquet"):
+            p = base / fname
+            if p.exists():
+                try:
+                    parts.append(pd.read_parquet(p))
+                except Exception:
+                    pass
+        if parts:
+            lines_df = pd.concat(parts, ignore_index=True)
+            total_lines += len(lines_df)
+        else:
+            lines_df = pd.DataFrame()
+        if lines_df.empty:
+            cur += timedelta(days=1)
+            continue
+        # History strictly before date d
+        hist = stats_all[stats_all["date_key"] < d].copy()
+        # Helper for price to decimal
+        def _dec(a):
+            try:
+                a = float(a)
+                return american_to_decimal(a)
+            except Exception:
+                return None
+        # Compute projections and outcomes
+        for _, r in lines_df.iterrows():
+            m = str(r.get("market") or "").upper()
+            if allowed_markets and m not in allowed_markets:
+                continue
+            player = r.get("player_name") or r.get("player")
+            if not player:
+                continue
+            try:
+                ln = float(r.get("line"))
+            except Exception:
+                continue
+            op = r.get("over_price"); up = r.get("under_price")
+            if pd.isna(op) and pd.isna(up):
+                continue
+            # Lambda & prob using only history BEFORE date
+            lam = None; p_over = None
+            if m == "SOG":
+                lam = shots.player_lambda(hist, str(player)); p_over = shots.prob_over(lam, ln)
+            elif m == "SAVES":
+                lam = saves.player_lambda(hist, str(player)); p_over = saves.prob_over(lam, ln)
+            elif m == "GOALS":
+                lam = goals.player_lambda(hist, str(player)); p_over = goals.prob_over(lam, ln)
+            elif m == "ASSISTS":
+                lam = assists.player_lambda(hist, str(player)); p_over = assists.prob_over(lam, ln)
+            elif m == "POINTS":
+                lam = points.player_lambda(hist, str(player)); p_over = points.prob_over(lam, ln)
+            else:
+                continue
+            if lam is None or p_over is None:
+                continue
+            # EVs
+            ev_o = None; ev_u = None
+            dec_o = _dec(op); dec_u = _dec(up)
+            if dec_o is not None:
+                ev_o = ev_unit(float(p_over), dec_o)
+            p_under = max(0.0, 1.0 - float(p_over))
+            if dec_u is not None:
+                ev_u = ev_unit(float(p_under), dec_u)
+            # Choose side by higher EV
+            side = None; price = None; ev = None
+            if ev_o is not None or ev_u is not None:
+                if (ev_u is None) or (ev_o is not None and ev_o >= ev_u):
+                    side = "Over"; price = op; ev = ev_o
+                else:
+                    side = "Under"; price = up; ev = ev_u
+            if ev is None:
+                continue
+            if min_ev is not None and float(min_ev) > -1.0 and float(ev) < float(min_ev):
+                continue
+            # Actual outcome
+            # Use stats for date d and player
+            ps = stats_all[(stats_all["date_key"] == d) & (stats_all["player"] == str(player))]
+            actual = None
+            if not ps.empty:
+                row = ps.iloc[0]
+                if m == "SOG":
+                    actual = row.get("shots")
+                elif m == "SAVES":
+                    actual = row.get("saves")
+                elif m == "GOALS":
+                    actual = row.get("goals")
+                elif m == "ASSISTS":
+                    actual = row.get("assists")
+                elif m == "POINTS":
+                    try:
+                        actual = float((row.get("goals") or 0)) + float((row.get("assists") or 0))
+                    except Exception:
+                        actual = None
+            result = None
+            if actual is not None and pd.notna(actual):
+                try:
+                    av = float(actual)
+                    if av > ln:
+                        over_res = "win"
+                    elif av < ln:
+                        over_res = "loss"
+                    else:
+                        over_res = "push"
+                    # Map to chosen side
+                    if side == "Over":
+                        result = over_res
+                    elif side == "Under":
+                        if over_res == "win":
+                            result = "loss"
+                        elif over_res == "loss":
+                            result = "win"
+                        else:
+                            result = "push"
+                except Exception:
+                    result = None
+            # Payout calc
+            payout = None
+            if result is not None:
+                dec = _dec(price)
+                if result == "win" and dec is not None:
+                    payout = stake * (dec - 1.0)
+                elif result == "loss":
+                    payout = -stake
+                elif result == "push":
+                    payout = 0.0
+            # Record row
+            rows.append({
+                "date": d,
+                "market": m,
+                "player": player,
+                "line": ln,
+                "book": r.get("book"),
+                "over_price": op if pd.notna(op) else None,
+                "under_price": up if pd.notna(up) else None,
+                "proj": float(lam),
+                "p_over": float(p_over),
+                "side": side,
+                "ev": float(ev) if ev is not None else None,
+                "actual": actual,
+                "result": result,
+                "stake": stake,
+                "payout": payout,
+            })
+            # Calibration for over-side outcome regardless of chosen bet
+            if actual is not None and pd.notna(actual):
+                calib.append({
+                    "date": d,
+                    "market": m,
+                    "p_over": float(p_over),
+                    "over_won": bool(float(actual) > ln),
+                })
+        cur += timedelta(days=1)
+    # Summaries
+    rows_df = pd.DataFrame(rows)
+    if rows_df.empty:
+        print("No backtest rows generated. Ensure props lines exist under data/props/player_props_lines/date=YYYY-MM-DD.")
+        raise typer.Exit(code=0)
+    # Overall and by-market performance
+    def summarize(df: pd.DataFrame) -> dict:
+        d = {
+            "picks": int(len(df)),
+            "decided": int(df["result"].isin(["win","loss"]).sum()),
+            "wins": int((df["result"] == "win").sum()),
+            "losses": int((df["result"] == "loss").sum()),
+            "pushes": int((df["result"] == "push").sum()),
+            "staked": float(df["stake"].fillna(0).sum()),
+            "pnl": float(df["payout"].fillna(0).sum()),
+        }
+        d["roi"] = (d["pnl"] / d["staked"]) if d["staked"] > 0 else None
+        return d
+    overall = summarize(rows_df)
+    by_market = {}
+    for mkt, g in rows_df.groupby("market"):
+        by_market[mkt] = summarize(g)
+    # Calibration bins
+    calib_df = pd.DataFrame(calib)
+    calib_bins = []
+    if not calib_df.empty:
+        bins = np.linspace(0.0, 1.0, 11)
+        calib_df["bin"] = pd.cut(calib_df["p_over"], bins=bins, include_lowest=True)
+        for b, g in calib_df.groupby("bin"):
+            try:
+                exp = float(g["p_over"].mean())
+                obs = float(g["over_won"].mean())
+                cnt = int(len(g))
+                calib_bins.append({"bin": str(b), "expected": exp, "observed": obs, "count": cnt})
+            except Exception:
+                continue
+    # Outputs
+    pref = (out_prefix.strip() + "_") if out_prefix.strip() else ""
+    rows_path = PROC_DIR / f"{pref}props_backtest_rows_{start}_to_{end}.csv"
+    summ_path = PROC_DIR / f"{pref}props_backtest_summary_{start}_to_{end}.json"
+    rows_df.to_csv(rows_path, index=False)
+    with open(summ_path, "w", encoding="utf-8") as f:
+        json.dump({"overall": overall, "by_market": by_market, "calibration": calib_bins}, f, indent=2)
+    print(json.dumps({"overall": overall, "by_market": by_market}, indent=2))
+    print(f"Saved rows to {rows_path} and summary to {summ_path}")
+
+
+@app.command()
+def props_stats_backfill(
+    start: str = typer.Option(..., help="Start date YYYY-MM-DD (ET)"),
+    end: str = typer.Option(..., help="End date YYYY-MM-DD (ET)"),
+    source: str = typer.Option("stats", help="Data source: stats | web"),
+):
+    """Backfill player game stats (skaters + goalies) into data/raw/player_game_stats.csv.
+
+    This pulls NHL boxscore stats for each day in [start, end] via the selected API and persists a single CSV.
+    """
+    try:
+        collect_player_game_stats(start, end, source=source)
+        print({"status": "ok", "start": start, "end": end, "path": str(RAW_DIR / 'player_game_stats.csv')})
+    except Exception as e:
+        print({"status": "error", "error": str(e)})
+
+
+@app.command()
+def props_stats_features(
+    windows: str = typer.Option("5,10,20", help="Comma-separated rolling windows (games), e.g., 5,10,20"),
+    output_csv: str = typer.Option("data/props/props_stats_features.csv", help="Output CSV path for features"),
+):
+    """Compute rolling per-player features from player_game_stats.csv without using odds.
+
+    Outputs features like shots_mean_{w}, goals_mean_{w}, assists_mean_{w}, points_mean_{w} for skaters,
+    and saves_mean_{w} for goalies, using strictly prior games (shifted rolling mean).
+    """
+    stats_path = RAW_DIR / "player_game_stats.csv"
+    if not stats_path.exists():
+        print("player_game_stats.csv missing; run props_stats_backfill first.")
+        raise typer.Exit(code=1)
+    df = pd.read_csv(stats_path)
+    if df.empty:
+        print("player_game_stats.csv is empty.")
+        raise typer.Exit(code=1)
+    df["date_key"] = pd.to_datetime(df["date"], errors="coerce").dt.strftime("%Y-%m-%d")
+    # Normalize role strings
+    df["role"] = df["role"].apply(lambda x: str(x).lower() if pd.notna(x) else "")
+    # Sort within each player
+    df = df.sort_values(["player", "date_key"])  # stable order per player
+    # Compute rolling means using shifted values to avoid lookahead
+    w_list = [int(w.strip()) for w in windows.split(",") if w.strip()]
+    feature_rows = []
+    # Build per-player sequences
+    for player, g in df.groupby("player"):
+        g = g.copy().sort_values("date_key")
+        # Prepare base columns
+        skater_mask = (g["role"] == "skater")
+        goalie_mask = (g["role"] == "goalie")
+        # Derived points
+        try:
+            pts_series = (g.get("goals").astype(float).fillna(0) + g.get("assists").astype(float).fillna(0))
+        except Exception:
+            pts_series = pd.Series([None]*len(g), index=g.index)
+        for w in w_list:
+            # Skater features
+            if skater_mask.any():
+                g.loc[skater_mask, f"shots_mean_{w}"] = g.loc[skater_mask, "shots"].astype(float).shift(1).rolling(w, min_periods=1).mean()
+                g.loc[skater_mask, f"goals_mean_{w}"] = g.loc[skater_mask, "goals"].astype(float).shift(1).rolling(w, min_periods=1).mean()
+                g.loc[skater_mask, f"assists_mean_{w}"] = g.loc[skater_mask, "assists"].astype(float).shift(1).rolling(w, min_periods=1).mean()
+                g.loc[skater_mask, f"points_mean_{w}"] = pts_series.shift(1).rolling(w, min_periods=1).mean()
+            # Goalie features
+            if goalie_mask.any():
+                g.loc[goalie_mask, f"saves_mean_{w}"] = g.loc[goalie_mask, "saves"].astype(float).shift(1).rolling(w, min_periods=1).mean()
+        # Append rows with features for this player's games
+        feature_rows.append(g)
+    out = pd.concat(feature_rows, ignore_index=True)
+    # Keep a concise set of columns
+    keep_cols = [c for c in out.columns if (
+        c in ("date_key","date","player","team","role","shots","goals","assists","saves")
+        or c.startswith("shots_mean_") or c.startswith("goals_mean_") or c.startswith("assists_mean_") or c.startswith("points_mean_") or c.startswith("saves_mean_")
+    )]
+    out_small = out[keep_cols]
+    out_path = Path(output_csv)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_small.to_csv(out_path, index=False)
+    print(f"Saved features to {out_path} with {len(out_small)} rows and {len(out_small.columns)} columns")
+
+
+@app.command()
+def props_stats_calibration(
+    start: str = typer.Option(..., help="Start date YYYY-MM-DD (ET)"),
+    end: str = typer.Option(..., help="End date YYYY-MM-DD (ET)"),
+    windows: str = typer.Option("5,10,20", help="Comma-separated rolling windows (games)"),
+    bins: int = typer.Option(10, help="Calibration bins (equal-width) for probability buckets"),
+    output_json: str = typer.Option("data/processed/props_stats_calibration.json", help="Output JSON summary path"),
+):
+    """Calibrate stats-only Poisson probabilities using rolling means vs actual outcomes.
+
+    For each game in [start, end], for each player and market, compute lambda as a rolling mean of the last W games (per window).
+    Evaluate typical thresholds:
+      - SOG: 2.5, 3.5
+      - GOALS: 0.5
+      - ASSISTS: 0.5
+      - POINTS: 0.5, 1.5
+      - SAVES: 24.5, 26.5
+    For each (market, threshold, window), compute calibration bins of predicted P(Over) vs observed Over, plus accuracy and Brier score.
+    """
+    from datetime import datetime
+    from .models.props import (
+        PropsConfig,
+        SkaterShotsModel, GoalieSavesModel,
+        SkaterGoalsModel, SkaterAssistsModel, SkaterPointsModel,
+    )
+    stats_path = RAW_DIR / "player_game_stats.csv"
+    if not stats_path.exists():
+        print("player_game_stats.csv missing; run props_stats_backfill first.")
+        raise typer.Exit(code=1)
+    df = pd.read_csv(stats_path)
+    if df.empty:
+        print("player_game_stats.csv is empty.")
+        raise typer.Exit(code=1)
+    df["date_key"] = pd.to_datetime(df["date"], errors="coerce").dt.strftime("%Y-%m-%d")
+    # Filter to date range
+    df = df[(df["date_key"] >= start) & (df["date_key"] <= end)].copy()
+    if df.empty:
+        print("No stats in the given date range.")
+        raise typer.Exit(code=0)
+    df["role"] = df["role"].apply(lambda x: str(x).lower() if pd.notna(x) else "")
+    windows_list = [int(w.strip()) for w in windows.split(",") if w.strip()]
+    # models per window
+    models_by_w = {}
+    for w in windows_list:
+        cfg = PropsConfig(window=w)
+        models_by_w[w] = {
+            "SOG": SkaterShotsModel(cfg),
+            "SAVES": GoalieSavesModel(cfg),
+            "GOALS": SkaterGoalsModel(cfg),
+            "ASSISTS": SkaterAssistsModel(cfg),
+            "POINTS": SkaterPointsModel(cfg),
+        }
+    # thresholds per market
+    thresholds = {
+        "SOG": [2.5, 3.5],
+        "GOALS": [0.5],
+        "ASSISTS": [0.5],
+        "POINTS": [0.5, 1.5],
+        "SAVES": [24.5, 26.5],
+    }
+    # Helper: build per-player rolling history incrementally to avoid lookahead
+    df = df.sort_values(["player", "date_key"])  # ensure chronological per player
+    results = []  # rows of {date, player, market, window, line, p_over, over_actual}
+    for player, g in df.groupby("player"):
+        g = g.copy().sort_values("date_key")
+        # Precompute points series
+        try:
+            pts_series = (g.get("goals").astype(float).fillna(0) + g.get("assists").astype(float).fillna(0))
+        except Exception:
+            pts_series = pd.Series([None]*len(g), index=g.index)
+        # Iterate games for this player
+        for idx, row in g.iterrows():
+            # Build history strictly before this game
+            hist = g[g["date_key"] < row["date_key"]]
+            if hist.empty:
+                continue
+            is_skater = (str(row.get("role")).lower() == "skater")
+            is_goalie = (str(row.get("role")).lower() == "goalie")
+            # Actual values
+            shots = row.get("shots"); goals = row.get("goals"); assists = row.get("assists"); saves = row.get("saves")
+            try:
+                points_val = float((goals or 0)) + float((assists or 0))
+            except Exception:
+                points_val = None
+            for w in windows_list:
+                ms = models_by_w[w]
+                if is_skater:
+                    # SOG
+                    try:
+                        lam = ms["SOG"].player_lambda(hist, player)
+                        for ln in thresholds["SOG"]:
+                            p = ms["SOG"].prob_over(lam, ln)
+                            ov = (float(shots) > ln) if pd.notna(shots) else None
+                            results.append({"date": row["date_key"], "player": player, "market": "SOG", "window": w, "line": ln, "p_over": float(p), "over_actual": (1 if ov else (0 if ov is not None else None))})
+                    except Exception:
+                        pass
+                    # GOALS
+                    try:
+                        lam = ms["GOALS"].player_lambda(hist, player)
+                        for ln in thresholds["GOALS"]:
+                            p = ms["GOALS"].prob_over(lam, ln)
+                            ov = (float(goals) > ln) if pd.notna(goals) else None
+                            results.append({"date": row["date_key"], "player": player, "market": "GOALS", "window": w, "line": ln, "p_over": float(p), "over_actual": (1 if ov else (0 if ov is not None else None))})
+                    except Exception:
+                        pass
+                    # ASSISTS
+                    try:
+                        lam = ms["ASSISTS"].player_lambda(hist, player)
+                        for ln in thresholds["ASSISTS"]:
+                            p = ms["ASSISTS"].prob_over(lam, ln)
+                            ov = (float(assists) > ln) if pd.notna(assists) else None
+                            results.append({"date": row["date_key"], "player": player, "market": "ASSISTS", "window": w, "line": ln, "p_over": float(p), "over_actual": (1 if ov else (0 if ov is not None else None))})
+                    except Exception:
+                        pass
+                    # POINTS
+                    try:
+                        lam = ms["POINTS"].player_lambda(hist, player)
+                        for ln in thresholds["POINTS"]:
+                            p = ms["POINTS"].prob_over(lam, ln)
+                            ov = (float(points_val) > ln) if (points_val is not None) else None
+                            results.append({"date": row["date_key"], "player": player, "market": "POINTS", "window": w, "line": ln, "p_over": float(p), "over_actual": (1 if ov else (0 if ov is not None else None))})
+                    except Exception:
+                        pass
+                if is_goalie:
+                    # SAVES
+                    try:
+                        lam = ms["SAVES"].player_lambda(hist, player)
+                        for ln in thresholds["SAVES"]:
+                            p = ms["SAVES"].prob_over(lam, ln)
+                            ov = (float(saves) > ln) if pd.notna(saves) else None
+                            results.append({"date": row["date_key"], "player": player, "market": "SAVES", "window": w, "line": ln, "p_over": float(p), "over_actual": (1 if ov else (0 if ov is not None else None))})
+                    except Exception:
+                        pass
+    res_df = pd.DataFrame(results)
+    if res_df.empty:
+        print("No calibration rows produced.")
+        raise typer.Exit(code=0)
+    # Drop rows without actual outcome
+    res_df = res_df[pd.notna(res_df["over_actual"])].copy()
+    # Calibration stats by (market, line, window)
+    out = {"start": start, "end": end, "groups": []}
+    # Binning function
+    def make_bins(n):
+        edges = np.linspace(0.0, 1.0, n+1)
+        return edges
+    for (mkt, ln, w), g in res_df.groupby(["market","line","window"]):
+        try:
+            # Accuracy and Brier score
+            y = g["over_actual"].astype(int).values
+            p = g["p_over"].astype(float).values
+            acc = float((y == (p >= 0.5)).mean())
+            brier = float(np.mean((p - y) ** 2))
+            # Calibration bins
+            edges = make_bins(bins)
+            inds = np.digitize(p, edges, right=True)
+            cal = []
+            for b in range(1, len(edges)+1):
+                mask = (inds == b)
+                if not np.any(mask):
+                    continue
+                p_mean = float(np.mean(p[mask]))
+                y_mean = float(np.mean(y[mask]))
+                cnt = int(np.sum(mask))
+                cal.append({"bin": b, "expected": p_mean, "observed": y_mean, "count": cnt})
+            out["groups"].append({
+                "market": mkt,
+                "line": float(ln),
+                "window": int(w),
+                "count": int(len(g)),
+                "accuracy": acc,
+                "brier": brier,
+                "calibration": cal,
+            })
+        except Exception:
+            continue
+    out_path = Path(output_json)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(out, f, indent=2)
+    print(f"Saved calibration summary to {out_path} with {len(out['groups'])} groups")
     print("[props_watch] no props found; finished attempts")
 
 

@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NHL – Props Stats Calibration</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  <style>
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:8px 10px;border-bottom:1px solid #2a2a2a;text-align:left}
+    .filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0 12px}
+    .muted{opacity:.85}
+    .badge{font-size:11px;border:1px solid #2a2a2a;border-radius:999px;padding:2px 6px;margin-left:6px}
+  </style>
+  <script>
+    function applyFilters(){
+      const p = new URLSearchParams(window.location.search);
+      const file = document.getElementById('file').value;
+      const market = document.getElementById('market').value;
+      const windowN = document.getElementById('window').value;
+      if(file) p.set('file', file); else p.delete('file');
+      if(market) p.set('market', market); else p.delete('market');
+      if(windowN) p.set('window', windowN); else p.delete('window');
+      window.location.search = p.toString();
+    }
+    function downloadCsv(){
+      const p = new URLSearchParams(window.location.search);
+      p.set('fmt','csv');
+      window.location.href = '/api/props/stats-calibration?' + p.toString();
+    }
+  </script>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="data:," />
+</head>
+<body>
+  <div class="container">
+    <div class="nav"><a href="/">Cards</a> | <a href="/recommendations">Recs</a> | <a href="/props">Props</a> | <a href="/props/recommendations">Props Recs</a> | <a href="/props/reconciliation">Props Recon</a> | <a href="/props/stats-calibration">Props Cal</a></div>
+    <h1>Props Stats Calibration</h1>
+    <div class="muted">Stats-only Poisson calibration summary for assisted markets. Use CLI to regenerate.</div>
+    <form class="filters" onsubmit="applyFilters(); return false;">
+      <label>File
+        <select id="file">
+          <option value="">Latest</option>
+          {% for f in files %}
+            <option value="{{ f }}" {{ 'selected' if file==f else '' }}>{{ f }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Market
+        <select id="market">
+          <option value="" {{ 'selected' if (market or '')=='' else '' }}>All</option>
+          <option value="SOG" {{ 'selected' if market=='SOG' else '' }}>SOG</option>
+          <option value="GOALS" {{ 'selected' if market=='GOALS' else '' }}>Goals</option>
+          <option value="ASSISTS" {{ 'selected' if market=='ASSISTS' else '' }}>Assists</option>
+          <option value="POINTS" {{ 'selected' if market=='POINTS' else '' }}>Points</option>
+          <option value="SAVES" {{ 'selected' if market=='SAVES' else '' }}>Saves</option>
+        </select>
+      </label>
+      <label>Window
+        <select id="window">
+          <option value="">All</option>
+          <option value="5" {{ 'selected' if window==5 else '' }}>5</option>
+          <option value="10" {{ 'selected' if window==10 else '' }}>10</option>
+          <option value="20" {{ 'selected' if window==20 else '' }}>20</option>
+        </select>
+      </label>
+      <button type="submit">Apply</button>
+      <button type="button" class="btn" onclick="downloadCsv()">Download CSV</button>
+    </form>
+    <div class="muted">
+      {% if start and end %}Window: {{ start }} → {{ end }}{% endif %}
+      {% if market %}<span class="badge">{{ market }}</span>{% endif %}
+      {% if window %}<span class="badge">{{ window }}-game</span>{% endif %}
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Market</th>
+          <th>Line</th>
+          <th>Window</th>
+          <th>Count</th>
+          <th>Accuracy</th>
+          <th>Brier</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+          <tr>
+            <td>{{ r.market }}</td>
+            <td>{{ r.line }}</td>
+            <td>{{ r.window }}</td>
+            <td>{{ r.count }}</td>
+            <td>{{ '%.3f' % r.accuracy if r.accuracy is not none else '—' }}</td>
+            <td>{{ '%.3f' % r.brier if r.brier is not none else '—' }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</body>
+</html>

@@ -33,8 +33,11 @@
   {% if not settled %}
   <button type="button" id="refreshOddsBtn" class="btn" title="Refresh odds and recommendations in the background">Refresh Odds</button>
   {% endif %}
-        <a class="btn" href="/recommendations?date={{ date }}">Recommendations</a>
-        <a class="btn" href="/props">Props</a>
+  <a class="btn" href="/recommendations?date={{ date }}">Recommendations</a>
+  <a class="btn" href="/props">Props</a>
+  <a class="btn" href="/props/recommendations?date={{ date }}">Props Recs</a>
+  <a class="btn" href="/props/reconciliation?date={{ date }}">Props Recon</a>
+  <a class="btn" href="/props/stats-calibration">Props Cal</a>
         
       </form>
       <div class="hb-wrap">

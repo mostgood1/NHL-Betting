@@ -749,6 +749,30 @@ def run(days_ahead: int = 2, years_back: int = 2, reconcile_yesterday: bool = Tr
             _call_typer_or_func(_props_build_dataset, start=start, end=end, output_csv=out_csv)
         except Exception as e:
             _vprint(verbose, f"[run] props dataset build skipped/failed: {e}")
+        # Precompute props recommendations for ET today (+1 day) to speed up web UI
+        try:
+            from nhl_betting.cli import props_recommendations as _props_recs
+            # Helper that tolerates both Typer command and plain function
+            def _call_typer_or_func_recs(cmd, **kwargs):
+                if hasattr(cmd, 'callback') and callable(getattr(cmd, 'callback')):
+                    return cmd.callback(**kwargs)
+                elif callable(cmd):
+                    return cmd(**kwargs)
+                else:
+                    raise RuntimeError('Unsupported command object for props recommendations')
+            base = _today_et().date()
+            targets = [base.strftime('%Y-%m-%d')]
+            if days_ahead and int(days_ahead) > 1:
+                from datetime import timedelta as _td
+                targets.append((base + _td(days=1)).strftime('%Y-%m-%d'))
+            for d in targets:
+                try:
+                    _vprint(verbose, f"[run] Building props recommendations for {d}…")
+                    _call_typer_or_func_recs(_props_recs, date=d, min_ev=0.0, top=200, market="")
+                except Exception as e2:
+                    _vprint(verbose, f"[run] props recommendations failed for {d}: {e2}")
+        except Exception as e:
+            _vprint(verbose, f"[run] precompute props recommendations skipped: {e}")
         _vprint(verbose, f"[run] Props collection/dataset in {time.perf_counter() - t1b:.1f}s")
     # 3) Capture closings for yesterday's ET slate and reconcile
     recon_games = recon_props = None

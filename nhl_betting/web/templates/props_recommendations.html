@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NHL – Props Recommendations</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  <style>
+    .filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0 12px}
+    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+    .card{border:1px solid #2a2a2a;border-radius:10px;padding:10px}
+    .badge{font-size:11px;border:1px solid #2a2a2a;border-radius:999px;padding:2px 6px;margin-left:6px}
+    .ev{display:inline-block;background:#113a34;color:#a7f3d0;border:1px solid rgba(12, 148, 106, .35);border-radius:999px;padding:2px 6px;font-weight:600}
+    .muted{opacity:.8}
+    .title-line{font-weight:600}
+    .spaced{margin-top:6px}
+    @media (max-width:760px){ .grid{grid-template-columns:1fr} }
+  </style>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="data:," />
+  <script>
+    function applyFilters(){
+      const params = new URLSearchParams(window.location.search);
+      const date = document.getElementById('date').value;
+      const market = document.getElementById('market').value;
+      const min_ev = document.getElementById('min_ev').value || '0';
+      const top = document.getElementById('top').value || '200';
+      if(date) params.set('date', date); else params.delete('date');
+      if(market) params.set('market', market); else params.delete('market');
+      params.set('min_ev', min_ev); params.set('top', top);
+      window.location.search = params.toString();
+    }
+  </script>
+  </head>
+<body>
+  <div class="container">
+  <div class="nav"><a href="/">Cards</a> | <a href="/recommendations">Recs</a> | <a href="/props">Props</a> | <a href="/props/recommendations">Props Recs</a> | <a href="/props/reconciliation">Props Recon</a> | <a href="/props/stats-calibration">Props Cal</a></div>
+    <h1>Props Recommendations</h1>
+    <form class="filters" onsubmit="applyFilters(); return false;">
+      <label>Date <input id="date" type="date" value="{{ date }}" /></label>
+      <label>Market
+        <select id="market">
+          <option value="" {{ 'selected' if (market or '')=='' else '' }}>All</option>
+          <option value="SOG" {{ 'selected' if market=='SOG' else '' }}>SOG</option>
+          <option value="GOALS" {{ 'selected' if market=='GOALS' else '' }}>Goals</option>
+          <option value="ASSISTS" {{ 'selected' if market=='ASSISTS' else '' }}>Assists</option>
+          <option value="POINTS" {{ 'selected' if market=='POINTS' else '' }}>Points</option>
+          <option value="SAVES" {{ 'selected' if market=='SAVES' else '' }}>Saves</option>
+        </select>
+      </label>
+      <label>Min EV <input id="min_ev" type="number" step="0.01" value="{{ min_ev }}" /></label>
+      <label>Top <input id="top" type="number" step="1" value="{{ top }}" /></label>
+      <button type="submit">Apply</button>
+    </form>
+    <div class="muted">{{ rows|length }} plays</div>
+    <div class="grid">
+      {% for r in rows %}
+        <div class="card">
+          <div class="title-line">{{ r.player }} <span class="badge">{{ r.market }}</span></div>
+          <div class="muted">Line {{ r.line }} · Book {{ r.book if r.book else '—' }}</div>
+          <div class="spaced">Proj {{ '%.2f' % r.proj }} · P(Over) {{ '%.1f' % (r.p_over*100) }}% <span class="ev">EV {{ '%.3f' % r.ev }}</span></div>
+          <div class="muted spaced">Over {{ r.over_price if r.over_price is not none else '—' }} · Under {{ r.under_price if r.under_price is not none else '—' }}</div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</body>
+</html>

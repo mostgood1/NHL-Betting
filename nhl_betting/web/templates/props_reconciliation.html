@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NHL – Props Reconciliation</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  <style>
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:8px 10px;border-bottom:1px solid #2a2a2a;text-align:left}
+    .filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0 12px}
+  </style>
+  <script>
+    function applyFilters(){
+      const params = new URLSearchParams(window.location.search);
+      const date = document.getElementById('date').value;
+      const refresh = document.getElementById('refresh').checked;
+      if(date) params.set('date', date); else params.delete('date');
+      if(refresh) params.set('refresh','1'); else params.delete('refresh');
+      window.location.search = params.toString();
+    }
+  </script>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="data:," />
+</head>
+<body>
+  <div class="container">
+  <div class="nav"><a href="/">Cards</a> | <a href="/recommendations">Recs</a> | <a href="/props">Props</a> | <a href="/props/recommendations">Props Recs</a> | <a href="/props/reconciliation">Props Recon</a> | <a href="/props/stats-calibration">Props Cal</a></div>
+    <h1>Props Reconciliation</h1>
+    <form class="filters" onsubmit="applyFilters(); return false;">
+      <label>Date <input id="date" type="date" value="{{ date }}" /></label>
+      <label><input id="refresh" type="checkbox" {{ 'checked' if refresh else '' }}/> Force recompute</label>
+      <button type="submit">Apply</button>
+      <a class="btn" href="#" onclick="(function(){ const p=new URLSearchParams(window.location.search); p.set('download','1'); window.location.href='/api/player-props-reconciliation?'+p.toString(); return false; })(); return false;">Download JSON</a>
+    </form>
+    <div class="muted">{{ rows|length }} rows</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Player</th><th>Market</th><th>Line</th><th>Over</th><th>Under</th><th>Actual</th><th>Book</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+          <tr>
+            <td>{{ r.player }}</td>
+            <td>{{ r.market }}</td>
+            <td>{{ r.line }}</td>
+            <td>{{ r.over_price }}</td>
+            <td>{{ r.under_price }}</td>
+            <td>{{ r.actual if r.actual is not none else '—' }}</td>
+            <td>{{ r.book if r.book else '—' }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</body>
+</html>

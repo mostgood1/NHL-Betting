@@ -44,6 +44,7 @@ def _parse_boxscore_players(box: Dict, gamePk: int, gameDate: str, home: str, aw
                         "shots": _safe_int(skater.get("shots")),
                         "goals": _safe_int(skater.get("goals")),
                         "assists": _safe_int(skater.get("assists")),
+                        "blocked": _safe_int(skater.get("blocked")),
                         "timeOnIce": skater.get("timeOnIce"),
                     })
                 if goalie:
@@ -113,6 +114,7 @@ def _parse_boxscore_players(box: Dict, gamePk: int, gameDate: str, home: str, aw
                     "shots": _safe_int(stats.get("shots") or stats.get("sog") or p.get("sog") or p.get("shots")),
                     "goals": _safe_int(stats.get("goals") or p.get("goals")),
                     "assists": _safe_int(stats.get("assists") or p.get("assists")),
+                    "blocked": _safe_int(stats.get("blocked") or stats.get("blockedShots") or p.get("blocked") or p.get("blockedShots")),
                     "timeOnIce": stats.get("toi") or stats.get("timeOnIce") or p.get("toi"),
                 })
             # Goalies
@@ -223,7 +225,47 @@ def collect_player_game_stats(start: str, end: str, source: str = "stats") -> pd
         else:
             box = _nhlpy_boxscore(g.gamePk)
         rows.extend(_parse_boxscore_players(box, g.gamePk, g.gameDate, g.home, g.away))
+    # Build DataFrame and merge with existing history; avoid wiping file when no rows
+    cols = [
+        "gamePk","date","team","player_id","player","primary_position","role",
+        "shots","goals","assists","blocked","timeOnIce","saves","shotsAgainst","decision",
+    ]
     df = pd.DataFrame(rows)
     out = RAW_DIR / "player_game_stats.csv"
-    save_df(df, out)
-    return df
+    if df.empty:
+        # If file exists, ensure it has a readable header; if not, repair by writing columns
+        if out.exists():
+            try:
+                _ = pd.read_csv(out)
+                return df  # readable; keep existing
+            except Exception:
+                empty_df = pd.DataFrame(columns=cols)
+                save_df(empty_df, out)
+                return empty_df
+        # Otherwise, initialize an empty file with stable columns
+        empty_df = pd.DataFrame(columns=cols)
+        save_df(empty_df, out)
+        return empty_df
+    # Ensure expected columns exist
+    for c in cols:
+        if c not in df.columns:
+            df[c] = pd.NA
+    df = df[cols]
+    # Merge with existing (dedupe by gamePk + player_id + role)
+    if out.exists():
+        try:
+            existing = pd.read_csv(out)
+            # Ensure same columns
+            for c in cols:
+                if c not in existing.columns:
+                    existing[c] = pd.NA
+            existing = existing[cols]
+        except Exception:
+            existing = pd.DataFrame(columns=cols)
+        merged = pd.concat([existing, df], ignore_index=True)
+        merged = merged.drop_duplicates(subset=["gamePk","player_id","role"], keep="last")
+        save_df(merged, out)
+        return merged
+    else:
+        save_df(df[cols], out)
+        return df[cols]

@@ -237,7 +237,17 @@ class BovadaClient:
                 return "ASSISTS"
             if ("player" in md and "points" in md) or md.strip() == "points":
                 return "POINTS"
+            if "blocked shots" in md:
+                return "BLOCKS"
             return None
+        
+        def _norm_american(v: Optional[str]) -> Optional[str]:
+            if v is None:
+                return None
+            s = str(v).strip().upper()
+            if s in ("EVEN", "EV", "E"):
+                return "+100"
+            return s
         def _extract_player_and_side(oc: Dict, market_desc: str) -> Tuple[Optional[str], Optional[str]]:
             # Try explicit Over/Under in outcome description/name
             side = None
@@ -284,7 +294,7 @@ class BovadaClient:
                         outcomes = m.get("outcomes") or []
                         for oc in outcomes:
                             price = oc.get("price") or {}
-                            american = price.get("american")
+                            american = _norm_american(price.get("american"))
                             hcap = oc.get("handicap") if oc.get("handicap") is not None else price.get("handicap")
                             try:
                                 line = float(hcap) if hcap is not None else None
@@ -297,6 +307,16 @@ class BovadaClient:
                                     side = od.upper()
                             if not player:
                                 continue
+                            # For Blocked Shots, Bovada often omits handicap on the price. Parse from outcome text.
+                            if market_code == "BLOCKS" and line is None:
+                                txt = (oc.get("description") or oc.get("name") or "").strip()
+                                import re
+                                mnum = re.search(r"([0-9]+(?:\.[0-9]+)?)", txt)
+                                if mnum:
+                                    try:
+                                        line = float(mnum.group(1))
+                                    except Exception:
+                                        line = None
                             if american is None or line is None or side not in ("OVER","UNDER"):
                                 continue
                             rows.append({

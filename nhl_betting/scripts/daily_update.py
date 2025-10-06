@@ -588,7 +588,13 @@ def reconcile_date(date: str, bankroll: float = 1000.0, flat_stake: float = 100.
     path = PROC_DIR / f"predictions_{date}.csv"
     if not path.exists():
         return {"status": "no-predictions", "date": date}
-    df = pd.read_csv(path)
+    # Short-circuit on empty files to avoid EmptyDataError
+    try:
+        if path.exists() and path.stat().st_size < 10:
+            return {"status": "empty", "date": date}
+        df = pd.read_csv(path)
+    except pd.errors.EmptyDataError:
+        return {"status": "empty", "date": date}
     if df.empty:
         return {"status": "empty", "date": date}
     picks = []
@@ -822,57 +828,46 @@ def run(days_ahead: int = 2, years_back: int = 2, reconcile_yesterday: bool = Tr
 
 
 def reconcile_props_date(date: str, flat_stake: float = 100.0, verbose: bool = False) -> dict:
-    """Reconcile previous day's props (SOG/GOALS/SAVES) OVER bets with positive EV.
+    """Reconcile previous day's props recommendations (ALL markets) with actual outcomes.
+
+    Uses canonical recommendations_{date}.csv (generated from Parquet) across markets:
+    SOG, GOALS, ASSISTS, POINTS, SAVES, BLOCKS. If recommendations are missing, attempts
+    to build them on the fly for that date.
 
     Steps:
-      - Fetch Bovada props odds for the date and run props predictions
+      - Ensure props recommendations file exists for the date
       - Ensure player boxscore stats for that date are collected
-      - Compare outcomes vs lines, compute PnL summary
-      - Persist reconciliation_{date}.json (props) and append to props_reconciliations_log.csv
+      - For each pick, compute actual vs line and settle based on chosen side
+      - Compute PnL summary and persist reconciliation_{date}.json; append to props log CSV
     """
-    # 1) Fetch props odds and run predictions (writes PROC_DIR/props_predictions.csv)
-    odds_csv = str(RAW_DIR / f"bovada_props_{date}.csv")
-    def _call_typer_or_func(cmd, **kwargs):
-        """Call either a Typer command (with .callback) or a plain function."""
-        if hasattr(cmd, 'callback') and callable(getattr(cmd, 'callback')):
-            return cmd.callback(**kwargs)
-        elif callable(cmd):
-            return cmd(**kwargs)
-        else:
-            raise RuntimeError('Unsupported command object for props fetch/predict')
-    try:
-        _call_typer_or_func(_props_fetch_bovada, date=date, out_csv=odds_csv)
-        _vprint(verbose, f"[props] Fetched Bovada props odds for {date}")
-    except Exception as e:
-        _vprint(verbose, f"[props] Fetch props failed: {e}")
-    preds_tmp = PROC_DIR / "props_predictions.csv"
-    if not preds_tmp.exists():
+    # 1) Ensure recommendations exist for the date (build if missing)
+    recs_path = PROC_DIR / f"props_recommendations_{date}.csv"
+    if not recs_path.exists():
         try:
-            _call_typer_or_func(_props_predict, odds_csv=odds_csv)
-            _vprint(verbose, f"[props] Ran props predictions for {date}")
-        except Exception:
-            return {"status": "no-props-predictions", "date": date}
-    else:
-        # Rebuild predictions using fresh odds file when possible
-        try:
-            _call_typer_or_func(_props_predict, odds_csv=odds_csv)
-            _vprint(verbose, f"[props] Refreshed props predictions for {date}")
-        except Exception:
-            pass
-    if not preds_tmp.exists():
-        return {"status": "no-props-predictions", "date": date}
-    # Move/copy to date-stamped file for persistence
-    preds_out = PROC_DIR / f"props_predictions_{date}.csv"
+            from nhl_betting.cli import props_recommendations as _props_recs
+            def _call_typer_or_func_recs(cmd, **kwargs):
+                if hasattr(cmd, 'callback') and callable(getattr(cmd, 'callback')):
+                    return cmd.callback(**kwargs)
+                elif callable(cmd):
+                    return cmd(**kwargs)
+                else:
+                    raise RuntimeError('Unsupported command object for props recommendations')
+            _vprint(verbose, f"[props] Building recommendations for {date}…")
+            _call_typer_or_func_recs(_props_recs, date=date, min_ev=0.0, top=500, market="")
+        except Exception as e:
+            return {"status": "no-recommendations", "date": date, "error": str(e)}
     try:
-        pd.read_csv(preds_tmp).to_csv(preds_out, index=False)
+        recs = pd.read_csv(recs_path)
     except Exception:
-        return {"status": "props-read-failed", "date": date}
-    preds = pd.read_csv(preds_out)
-    if preds.empty:
-        return {"status": "empty-props", "date": date}
-    # Only consider positive EV OVER bets
-    preds = preds[preds["ev_over"].astype(float) > 0]
-    if preds.empty:
+        return {"status": "recs-read-failed", "date": date}
+    if recs.empty:
+        return {"status": "empty-recommendations", "date": date}
+    # Only consider positive EV picks (either Over or Under)
+    try:
+        recs = recs[recs["ev"].astype(float) > 0]
+    except Exception:
+        pass
+    if recs.empty:
         return {"status": "no-positive-ev", "date": date}
     # 2) Ensure player stats exist for the date
     try:
@@ -883,47 +878,115 @@ def reconcile_props_date(date: str, flat_stake: float = 100.0, verbose: bool = F
     stats_path = RAW_DIR / "player_game_stats.csv"
     if not stats_path.exists():
         return {"status": "no-player-stats", "date": date}
-    stats = pd.read_csv(stats_path)
-    # Filter to date only and relevant fields
-    def fmt_date(x):
+    try:
+        stats = pd.read_csv(stats_path)
+    except Exception as e:
+        return {"status": "stats-read-failed", "date": date, "error": str(e)}
+    # Normalize to ET calendar day for robust matching
+    def _to_et(s):
         try:
-            return pd.to_datetime(x).strftime("%Y-%m-%d")
+            dt = pd.to_datetime(s, utc=True)
+            return dt.tz_convert("America/New_York").strftime("%Y-%m-%d")
         except Exception:
-            return None
-    stats = stats[stats["date"].apply(fmt_date) == date]
+            try:
+                # Fallback parse
+                return pd.to_datetime(str(s)[:19]).tz_localize('UTC').tz_convert('America/New_York').strftime('%Y-%m-%d')
+            except Exception:
+                return None
+    stats["date_et"] = stats["date"].apply(_to_et)
+    stats = stats[stats["date_et"] == date]
+    # Extract/normalize player names in stats for matching
+    import ast, re, unicodedata
+    def _extract_player_text(v):
+        if v is None:
+            return ""
+        try:
+            if isinstance(v, str) and v.strip().startswith("{") and v.strip().endswith("}"):
+                d = ast.literal_eval(v)
+                if isinstance(d, dict):
+                    for k in ("default","en","name","fullName","full_name"):
+                        if d.get(k):
+                            return str(d.get(k))
+            if isinstance(v, dict):
+                for k in ("default","en","name","fullName","full_name"):
+                    if v.get(k):
+                        return str(v.get(k))
+            return str(v)
+        except Exception:
+            return str(v)
+    def _norm_name(s: str) -> str:
+        s = (s or "").strip()
+        s = unicodedata.normalize("NFKD", s).encode("ascii","ignore").decode()
+        s = re.sub(r"\s+"," ", s)
+        return s.lower()
+    stats["player_text_raw"] = stats["player"].apply(_extract_player_text)
+    stats["player_norm"] = stats["player_text_raw"].apply(_norm_name)
+    stats["player_nodot"] = stats["player_norm"].str.replace(".", "", regex=False)
     # Build picks and compute outcomes
     rows = []
     pnl = 0.0
     staked = 0.0
     wins = losses = pushes = 0
     decided = 0
-    for _, r in preds.iterrows():
-        market = str(r.get("market")).upper()
-        player = str(r.get("player"))
+    for _, r in recs.iterrows():
+        market = str(r.get("market") or "").upper()
+        player = str(r.get("player") or "")
         line = float(r.get("line")) if pd.notna(r.get("line")) else None
-        odds = float(r.get("odds")) if pd.notna(r.get("odds")) else None
-        if line is None or odds is None:
+        side = str(r.get("side") or "")
+        # Choose corresponding odds
+        odds = None
+        if side.lower() == "over":
+            odds = float(r.get("over_price")) if pd.notna(r.get("over_price")) else None
+        elif side.lower() == "under":
+            odds = float(r.get("under_price")) if pd.notna(r.get("under_price")) else None
+        if line is None or odds is None or not player:
             continue
-        # Find player stat row(s)
-        ps = stats[stats["player"] == player]
+        # Flexible player match
+        def _variants(full: str):
+            full = (full or "").strip()
+            parts = [p for p in full.split(" ") if p]
+            vs = set()
+            if full:
+                n = _norm_name(full)
+                vs.add(n)
+                vs.add(n.replace(".", ""))
+            if len(parts) >= 2:
+                first, last = parts[0], parts[-1]
+                init_last = f"{first[0]}. {last}"
+                n2 = _norm_name(init_last)
+                vs.add(n2)
+                vs.add(n2.replace(".", ""))
+            return vs
+        vs = _variants(player)
+        ps = stats[(stats["player_norm"].isin(vs)) | (stats["player_nodot"].isin(vs))]
         actual = None
         if not ps.empty:
+            row = ps.iloc[0]
             if market == "SOG":
-                actual = ps.iloc[0].get("shots")
+                actual = row.get("shots")
             elif market == "GOALS":
-                actual = ps.iloc[0].get("goals")
+                actual = row.get("goals")
+            elif market == "ASSISTS":
+                actual = row.get("assists")
+            elif market == "POINTS":
+                try:
+                    actual = float((row.get("goals") or 0)) + float((row.get("assists") or 0))
+                except Exception:
+                    actual = None
             elif market == "SAVES":
-                actual = ps.iloc[0].get("saves")
+                actual = row.get("saves")
+            elif market == "BLOCKS":
+                actual = row.get("blocked")
         result = None
         if actual is not None and pd.notna(actual):
             try:
                 av = float(actual)
-                if av > float(line):
-                    result = "win"
-                elif av < float(line):
-                    result = "loss"
-                else:
+                # Determine outcome relative to chosen side
+                if av == float(line):
                     result = "push"
+                else:
+                    over_res = (av > float(line))
+                    result = "win" if ((side.lower()=="over" and over_res) or (side.lower()=="under" and not over_res)) else "loss"
             except Exception:
                 result = None
         # Compute payout if decided
@@ -950,8 +1013,9 @@ def reconcile_props_date(date: str, flat_stake: float = 100.0, verbose: bool = F
             "market": market,
             "player": player,
             "line": line,
+            "side": side,
             "odds": odds,
-            "ev_over": float(r.get("ev_over")) if pd.notna(r.get("ev_over")) else None,
+            "ev": float(r.get("ev")) if pd.notna(r.get("ev")) else None,
             "actual": actual,
             "result": result,
             "stake": stake,

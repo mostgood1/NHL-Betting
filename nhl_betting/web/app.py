@@ -7,8 +7,9 @@ from pathlib import Path
 from typing import Optional
 
 import pandas as pd
+import numpy as np
 from fastapi import FastAPI, Query, Header
-from fastapi.responses import HTMLResponse, JSONResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, Response, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
@@ -2286,7 +2287,7 @@ async def api_props_recommendations(
         # Compute on the fly by invoking the same logic inline (avoid spawning a subprocess)
         try:
             from ..models.props import SkaterShotsModel, GoalieSavesModel, SkaterGoalsModel
-            from ..models.props import SkaterAssistsModel, SkaterPointsModel
+            from ..models.props import SkaterAssistsModel, SkaterPointsModel, SkaterBlocksModel
             from ..data.collect import collect_player_game_stats
             from ..utils.io import RAW_DIR
             # Load canonical lines
@@ -2312,7 +2313,7 @@ async def api_props_recommendations(
                 except Exception:
                     pass
             hist = pd.read_csv(stats_path) if stats_path.exists() else pd.DataFrame()
-            shots = SkaterShotsModel(); saves = GoalieSavesModel(); goals = SkaterGoalsModel(); assists = SkaterAssistsModel(); points = SkaterPointsModel()
+            shots = SkaterShotsModel(); saves = GoalieSavesModel(); goals = SkaterGoalsModel(); assists = SkaterAssistsModel(); points = SkaterPointsModel(); blocks = SkaterBlocksModel()
             def proj_prob(m, player, ln):
                 m = (m or '').upper()
                 if m == 'SOG':
@@ -2325,6 +2326,8 @@ async def api_props_recommendations(
                     lam = assists.player_lambda(hist, player); return lam, assists.prob_over(lam, ln)
                 if m == 'POINTS':
                     lam = points.player_lambda(hist, player); return lam, points.prob_over(lam, ln)
+                if m == 'BLOCKS':
+                    lam = blocks.player_lambda(hist, player); return lam, blocks.prob_over(lam, ln)
                 return None, None
             recs = []
             for _, r in lines.iterrows():
@@ -2398,7 +2401,19 @@ async def api_props_recommendations(
             df = df.head(top)
     except Exception:
         pass
-    return JSONResponse({"date": date, "data": ([] if df is None else df.to_dict(orient='records'))})
+    # Serialize with DataFrame.to_json to reliably map NaN->null, then return as raw JSON
+    import json as _json
+    if df is None or df.empty:
+        data_json = "[]"
+    else:
+        _df = df.replace([np.inf, -np.inf], np.nan)
+        try:
+            data_json = _df.to_json(orient='records')
+        except Exception:
+            _df2 = _df.replace([np.inf, -np.inf], np.nan).dropna(how='any')
+            data_json = _df2.to_json(orient='records') if not _df2.empty else "[]"
+    content = '{"date":' + _json.dumps(str(date)) + ',"data":' + data_json + '}'
+    return PlainTextResponse(content=content, media_type="application/json")
 
 
 @app.get("/api/player-props-reconciliation")
@@ -2439,7 +2454,7 @@ async def api_player_props_reconciliation(
             save_df(pd.DataFrame(), cache)
             return JSONResponse({"date": date, "data": []})
         left = lines.rename(columns={"date":"date_key","player_name":"player"}).copy()
-        keep_stats = [c for c in ['player','shots','goals','assists','saves'] if c in stats_day.columns]
+        keep_stats = [c for c in ['player','shots','goals','assists','saves','blocked'] if c in stats_day.columns]
         right = stats_day[['date_key'] + keep_stats]
         merged = left.merge(right, on=['date_key','player'], how='left', suffixes=('', '_act'))
         # Compute actual numeric per market
@@ -2454,6 +2469,7 @@ async def api_player_props_reconciliation(
                     g = float(row.get('goals') or 0); a = float(row.get('assists') or 0); return g+a
                 except Exception:
                     return None
+            if m == 'BLOCKS': return row.get('blocked')
             return None
         merged['actual'] = merged.apply(_act, axis=1)
         try:
@@ -2572,13 +2588,24 @@ async def props_recommendations_page(
     top: int = Query(200),
 ):
     date = date or _today_ymd()
-    # Reuse API to get data
-    resp = await api_props_recommendations(date=date, market=market, min_ev=min_ev, top=top)
+    # Read directly from processed CSV to avoid JSON roundtrip issues
     rows = []
     try:
-        import json as _json
-        js = _json.loads(resp.body)
-        rows = js.get("data") or []
+        path = PROC_DIR / f"props_recommendations_{date}.csv"
+        if path.exists():
+            _df = pd.read_csv(path)
+            if market and 'market' in _df.columns:
+                _df = _df[_df['market'].astype(str).str.upper() == market.upper()]
+            if 'ev' in _df.columns:
+                _df = _df[_df['ev'].astype(float) >= float(min_ev)].sort_values('ev', ascending=False)
+            if top and top > 0:
+                _df = _df.head(top)
+            # Sanitize for template
+            _df = _df.replace([np.inf, -np.inf], np.nan)
+            rows = _df.where(pd.notnull(_df), None).to_dict(orient='records')
+        else:
+            # No cache yet; show empty and let CLI or background job populate later
+            rows = []
     except Exception:
         rows = []
     template = env.get_template("props_recommendations.html")

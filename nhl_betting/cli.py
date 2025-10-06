@@ -19,7 +19,7 @@ from .models.poisson import PoissonGoals
 from .models.trends import TrendAdjustments, team_keys, get_adjustment
 from .utils.odds import american_to_decimal, decimal_to_implied_prob, remove_vig_two_way, ev_unit, kelly_stake
 from .data.collect import collect_player_game_stats
-from .models.props import SkaterShotsModel, GoalieSavesModel, SkaterGoalsModel, SkaterAssistsModel, SkaterPointsModel
+from .models.props import SkaterShotsModel, GoalieSavesModel, SkaterGoalsModel, SkaterAssistsModel, SkaterPointsModel, SkaterBlocksModel
 from .data.odds_api import OddsAPIClient, normalize_snapshot_to_rows
 from .data.bovada import BovadaClient
 from .data import player_props as props_data
@@ -735,7 +735,10 @@ def props_predict(odds_csv: str = typer.Option(..., help="CSV with columns: mark
     if not stats_path.exists():
         print("Run collect_props first to build player stats history.")
         raise typer.Exit(code=1)
-    hist = load_df(stats_path)
+    try:
+        hist = load_df(stats_path)
+    except Exception:
+        hist = pd.read_csv(stats_path) if stats_path.exists() else pd.DataFrame()
     req = pd.read_csv(odds_csv)
     shots = SkaterShotsModel()
     saves = GoalieSavesModel()
@@ -822,7 +825,7 @@ def props_recommendations(
             pass
     hist = load_df(stats_path)
     # Instantiate models
-    shots = SkaterShotsModel(); saves = GoalieSavesModel(); goals = SkaterGoalsModel(); assists = SkaterAssistsModel(); points = SkaterPointsModel()
+    shots = SkaterShotsModel(); saves = GoalieSavesModel(); goals = SkaterGoalsModel(); assists = SkaterAssistsModel(); points = SkaterPointsModel(); blocks = SkaterBlocksModel()
     def proj_and_prob(mkt: str, player: str, line: float) -> tuple[float, float]:
         m = mkt.upper()
         if m == "SOG":
@@ -840,6 +843,9 @@ def props_recommendations(
         if m == "POINTS":
             lam = points.player_lambda(hist, player)
             return lam, points.prob_over(lam, line)
+        if m == "BLOCKS":
+            lam = blocks.player_lambda(hist, player)
+            return lam, blocks.prob_over(lam, line)
         return None, None
     # Combine rows: lines contain over_price and under_price per (market,player,line,book)
     rows = []
@@ -977,7 +983,7 @@ def build_range_core(
 ):
     """Core implementation to build predictions with odds for all dates with NHL games in [start, end].
 
-    Strategy per date: Bovada → The Odds API → ensure predictions exist without odds.
+    Strategy per date: Bovada -> The Odds API -> ensure predictions exist without odds.
     This function is safe to call from non-CLI contexts and expects plain Python types.
     """
     # Collect schedule once, then iterate unique dates with NHL vs NHL games
@@ -1057,7 +1063,7 @@ def build_range(
 ):
     """Build predictions with odds for all dates with NHL games in [start, end].
 
-    Strategy per date: Bovada → The Odds API → ensure predictions exist without odds.
+    Strategy per date: Bovada -> The Odds API -> ensure predictions exist without odds.
     """
     build_range_core(start=start, end=end, source=source, bankroll=bankroll, kelly_fraction_part=kelly_fraction_part)
 
@@ -1266,7 +1272,7 @@ def props_build_dataset(
 ):
     """Build a modeling dataset by joining canonical props lines with actual player results.
 
-    Supports markets: SOG, GOALS, SAVES, ASSISTS, POINTS.
+    Supports markets: SOG, GOALS, SAVES, ASSISTS, POINTS, BLOCKS.
     """
     import os
     from glob import glob
@@ -1305,7 +1311,7 @@ def props_build_dataset(
     stats["date_key"] = pd.to_datetime(stats["date"], errors="coerce").dt.strftime("%Y-%m-%d")
     stats = stats[(stats["date_key"] >= start) & (stats["date_key"] <= end)]
     # Keep relevant columns
-    keep = ["date_key","player","shots","goals","assists","saves"]
+    keep = ["date_key","player","shots","goals","assists","saves","blocked"]
     stats_small = stats[keep].copy()
     # Join lines to stats on player name + date
     df = lines_df.copy()
@@ -1329,6 +1335,8 @@ def props_build_dataset(
                 return g + a
             except Exception:
                 return None
+        if m == "BLOCKS":
+            return row.get("blocked")
         return None
     merged["actual"] = merged.apply(actual_for_market, axis=1)
     # Classify result for OVER/UNDER if actual is present
@@ -1407,7 +1415,7 @@ def props_backtest(
     end: str = typer.Option(..., help="End date YYYY-MM-DD (ET)"),
     window: int = typer.Option(10, help="Rolling window (games) for lambda"),
     stake: float = typer.Option(100.0, help="Flat stake per play for ROI calc"),
-    markets: str = typer.Option("SOG,SAVES,GOALS,ASSISTS,POINTS", help="Comma list of markets to include"),
+    markets: str = typer.Option("SOG,SAVES,GOALS,ASSISTS,POINTS,BLOCKS", help="Comma list of markets to include"),
     min_ev: float = typer.Option(-1.0, help="Filter to plays with EV >= min_ev; set -1 to include all"),
     out_prefix: str = typer.Option("", help="Optional output filename prefix under data/processed/"),
 ):
@@ -1426,7 +1434,7 @@ def props_backtest(
     from .models.props import (
         PropsConfig,
         SkaterShotsModel, GoalieSavesModel,
-        SkaterGoalsModel, SkaterAssistsModel, SkaterPointsModel,
+        SkaterGoalsModel, SkaterAssistsModel, SkaterPointsModel, SkaterBlocksModel,
     )
     # Ensure player stats exist over the full window before end
     try:
@@ -1437,12 +1445,71 @@ def props_backtest(
     if not stats_path.exists():
         print("player_game_stats.csv missing; cannot backtest.")
         raise typer.Exit(code=1)
-    stats_all = pd.read_csv(stats_path)
-    # Normalize dates to strings YYYY-MM-DD for comparisons
+    try:
+        stats_all = pd.read_csv(stats_path)
+    except Exception:
+        print("Failed to read player_game_stats.csv; is the file empty or malformed?")
+        raise typer.Exit(code=1)
+    # Normalize dates to strings YYYY-MM-DD for comparisons (UTC and ET)
     stats_all["date_key"] = pd.to_datetime(stats_all["date"], errors="coerce").dt.strftime("%Y-%m-%d")
+    # Build ET calendar day to align with props line partitions
+    from zoneinfo import ZoneInfo as _Z
+    def _iso_to_et(iso_utc: str) -> str:
+        if not isinstance(iso_utc, str):
+            try:
+                iso_utc = str(iso_utc)
+            except Exception:
+                return None
+        if not iso_utc:
+            return None
+        try:
+            s = iso_utc.replace("Z", "+00:00")
+            dt = datetime.fromisoformat(s)
+        except Exception:
+            try:
+                dt = datetime.fromisoformat(str(iso_utc)[:19]).replace(tzinfo=timezone.utc)
+            except Exception:
+                return None
+        try:
+            return dt.astimezone(_Z("America/New_York")).strftime("%Y-%m-%d")
+        except Exception:
+            return None
+    stats_all["date_et"] = stats_all["date"].apply(_iso_to_et)
+    # Extract a plain-text player name from possible dict-like entries, then normalize
+    import ast, re, unicodedata
+    def _extract_player_text(v) -> str:
+        if v is None:
+            return ""
+        try:
+            # Some rows serialize dicts like "{'default': 'N. Schmaltz'}"
+            if isinstance(v, str) and v.strip().startswith("{") and v.strip().endswith("}"):
+                d = ast.literal_eval(v)
+                if isinstance(d, dict):
+                    for k in ("default", "en", "name", "fullName", "full_name"):
+                        if d.get(k):
+                            return str(d.get(k))
+                return str(v)
+            if isinstance(v, dict):
+                for k in ("default", "en", "name", "fullName", "full_name"):
+                    if v.get(k):
+                        return str(v.get(k))
+                return str(v)
+            return str(v)
+        except Exception:
+            return str(v)
+    def _norm_name(s: str) -> str:
+        s = (s or "").strip()
+        s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode()
+        s = re.sub(r"\s+", " ", s)
+        return s.lower()
+    stats_all["player_text_raw"] = stats_all["player"].apply(_extract_player_text)
+    # Normalized forms
+    stats_all["player_text_norm"] = stats_all["player_text_raw"].apply(_norm_name)
+    # Also provide a no-dot variant for initial matching (e.g., "N. Schmaltz" -> "n schmaltz")
+    stats_all["player_text_nodot"] = stats_all["player_text_norm"].str.replace(".", "", regex=False)
     # Models with configured window
     cfg = PropsConfig(window=window)
-    shots = SkaterShotsModel(cfg); saves = GoalieSavesModel(cfg); goals = SkaterGoalsModel(cfg); assists = SkaterAssistsModel(cfg); points = SkaterPointsModel(cfg)
+    shots = SkaterShotsModel(cfg); saves = GoalieSavesModel(cfg); goals = SkaterGoalsModel(cfg); assists = SkaterAssistsModel(cfg); points = SkaterPointsModel(cfg); blocks = SkaterBlocksModel(cfg)
     allowed_markets = [m.strip().upper() for m in (markets or "").split(",") if m.strip()]
     # Iterate dates
     def to_dt(s: str) -> datetime:
@@ -1507,6 +1574,8 @@ def props_backtest(
                 lam = assists.player_lambda(hist, str(player)); p_over = assists.prob_over(lam, ln)
             elif m == "POINTS":
                 lam = points.player_lambda(hist, str(player)); p_over = points.prob_over(lam, ln)
+            elif m == "BLOCKS":
+                lam = blocks.player_lambda(hist, str(player)); p_over = blocks.prob_over(lam, ln)
             else:
                 continue
             if lam is None or p_over is None:
@@ -1532,7 +1601,24 @@ def props_backtest(
                 continue
             # Actual outcome
             # Use stats for date d and player
-            ps = stats_all[(stats_all["date_key"] == d) & (stats_all["player"] == str(player))]
+            # Flexible name matching: try full name, initial+lastname, and no-dot version
+            def _name_variants(full: str):
+                full = (full or "").strip()
+                parts = [p for p in full.split(" ") if p]
+                vars = set()
+                if full:
+                    vars.add(_norm_name(full))
+                    vars.add(_norm_name(full).replace(".", ""))
+                if len(parts) >= 2:
+                    first, last = parts[0], parts[-1]
+                    init_last = f"{first[0]}. {last}"
+                    vars.add(_norm_name(init_last))
+                    vars.add(_norm_name(init_last).replace(".", ""))
+                return vars
+            variants = _name_variants(str(player))
+            # Use ET calendar date to align with props partition date
+            day_stats = stats_all[stats_all["date_et"] == d]
+            ps = day_stats[day_stats["player_text_norm"].isin(variants) | day_stats["player_text_nodot"].isin(variants)]
             actual = None
             if not ps.empty:
                 row = ps.iloc[0]
@@ -1549,6 +1635,8 @@ def props_backtest(
                         actual = float((row.get("goals") or 0)) + float((row.get("assists") or 0))
                     except Exception:
                         actual = None
+                elif m == "BLOCKS":
+                    actual = row.get("blocked")
             result = None
             if actual is not None and pd.notna(actual):
                 try:
@@ -1686,7 +1774,11 @@ def props_stats_features(
     if not stats_path.exists():
         print("player_game_stats.csv missing; run props_stats_backfill first.")
         raise typer.Exit(code=1)
-    df = pd.read_csv(stats_path)
+    try:
+        df = pd.read_csv(stats_path)
+    except Exception:
+        print("player_game_stats.csv exists but could not be parsed; aborting features build.")
+        raise typer.Exit(code=1)
     if df.empty:
         print("player_game_stats.csv is empty.")
         raise typer.Exit(code=1)
@@ -1763,7 +1855,11 @@ def props_stats_calibration(
     if not stats_path.exists():
         print("player_game_stats.csv missing; run props_stats_backfill first.")
         raise typer.Exit(code=1)
-    df = pd.read_csv(stats_path)
+    try:
+        df = pd.read_csv(stats_path)
+    except Exception:
+        print("player_game_stats.csv exists but could not be parsed; aborting calibration.")
+        raise typer.Exit(code=1)
     if df.empty:
         print("player_game_stats.csv is empty.")
         raise typer.Exit(code=1)
@@ -2092,6 +2188,56 @@ if __name__ == "__main__":
                 print(f"[error] {day}: {e}")
             d += _td(days=1)
         print(f"Backfill complete for {count} days.")
+
+    @app.command()
+    def props_postgame(
+        date: str = typer.Option("yesterday", help="Target ET date YYYY-MM-DD or 'today'/'yesterday'"),
+        stats_source: str = typer.Option("stats", help="Data source for player stats: stats | web"),
+        window: int = typer.Option(10, help="Backtest rolling window (games)"),
+        stake: float = typer.Option(100.0, help="Flat stake for backtest/recon PnL"),
+    ):
+        """Run postgame pipeline for most recent slate: stats backfill -> props reconciliation -> backtest (ALL props)."""
+        # Resolve ET date tokens
+        from zoneinfo import ZoneInfo
+        d_in = (date or "").strip().lower()
+        if d_in in ("today", "yesterday"):
+            now_et = datetime.now(ZoneInfo("America/New_York")).date()
+            if d_in == "yesterday":
+                from datetime import timedelta as _td
+                d = (now_et - _td(days=1)).strftime("%Y-%m-%d")
+            else:
+                d = now_et.strftime("%Y-%m-%d")
+        else:
+            d = date
+        print({"step": "props_postgame", "date": d})
+        # 1) Ensure player game stats for date
+        try:
+            collect_player_game_stats(d, d, source=stats_source)
+            print({"stats": "ok", "date": d})
+        except Exception as e:
+            print({"stats": "error", "date": d, "error": str(e)})
+        # 2) Ensure recommendations exist (ALL markets)
+        try:
+            rec_path = PROC_DIR / f"props_recommendations_{d}.csv"
+            if not rec_path.exists():
+                print({"recs": "building", "date": d})
+                props_recommendations(date=d, min_ev=0.0, top=500, market="")
+        except Exception as e:
+            print({"recs": "error", "date": d, "error": str(e)})
+        # 3) Reconcile props for date (ALL markets)
+        try:
+            from .scripts.daily_update import reconcile_props_date as _recon_props
+            res = _recon_props(d, flat_stake=stake, verbose=False)
+            print({"reconcile_props": res})
+        except Exception as e:
+            print({"reconcile_props": "error", "date": d, "error": str(e)})
+        # 4) Backtest for date across all markets including BLOCKS
+        try:
+            # Directly call the Typer command function with kwargs
+            props_backtest(start=d, end=d, window=window, stake=stake, markets="SOG,SAVES,GOALS,ASSISTS,POINTS,BLOCKS", min_ev=-1.0, out_prefix="postgame")
+            print({"backtest": "done", "date": d})
+        except Exception as e:
+            print({"backtest": "error", "date": d, "error": str(e)})
 
 
     app()

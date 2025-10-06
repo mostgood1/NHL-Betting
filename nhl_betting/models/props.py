@@ -5,6 +5,7 @@ from typing import Dict, Optional
 
 import numpy as np
 import pandas as pd
+from scipy.stats import poisson
 
 
 @dataclass
@@ -24,11 +25,9 @@ class SkaterShotsModel:
         return float(pdf["shots"].mean())
 
     def prob_over(self, lam: float, line: float, max_x: int = 15) -> float:
-        # Use Poisson CDF complement at half-lines
+        # Use stable survival function to avoid factorial overflow
         threshold = int(np.floor(line + 1e-9))
-        xs = np.arange(0, max_x + 1)
-        pmf = np.exp(-lam) * np.power(lam, xs) / np.vectorize(np.math.factorial)(xs)
-        return float(pmf[xs > threshold].sum())
+        return float(poisson.sf(threshold, mu=lam))
 
 
 class GoalieSavesModel:
@@ -44,9 +43,7 @@ class GoalieSavesModel:
 
     def prob_over(self, lam: float, line: float, max_x: int = 60) -> float:
         threshold = int(np.floor(line + 1e-9))
-        xs = np.arange(0, max_x + 1)
-        pmf = np.exp(-lam) * np.power(lam, xs) / np.vectorize(np.math.factorial)(xs)
-        return float(pmf[xs > threshold].sum())
+        return float(poisson.sf(threshold, mu=lam))
 
 
 class SkaterGoalsModel:
@@ -62,9 +59,7 @@ class SkaterGoalsModel:
 
     def prob_over(self, lam: float, line: float, max_x: int = 5) -> float:
         threshold = int(np.floor(line + 1e-9))
-        xs = np.arange(0, max_x + 1)
-        pmf = np.exp(-lam) * np.power(lam, xs) / np.vectorize(np.math.factorial)(xs)
-        return float(pmf[xs > threshold].sum())
+        return float(poisson.sf(threshold, mu=lam))
 
 
 class SkaterAssistsModel:
@@ -80,9 +75,7 @@ class SkaterAssistsModel:
 
     def prob_over(self, lam: float, line: float, max_x: int = 5) -> float:
         threshold = int(np.floor(line + 1e-9))
-        xs = np.arange(0, max_x + 1)
-        pmf = np.exp(-lam) * np.power(lam, xs) / np.vectorize(np.math.factorial)(xs)
-        return float(pmf[xs > threshold].sum())
+        return float(poisson.sf(threshold, mu=lam))
 
 
 class SkaterPointsModel:
@@ -100,6 +93,20 @@ class SkaterPointsModel:
 
     def prob_over(self, lam: float, line: float, max_x: int = 8) -> float:
         threshold = int(np.floor(line + 1e-9))
-        xs = np.arange(0, max_x + 1)
-        pmf = np.exp(-lam) * np.power(lam, xs) / np.vectorize(np.math.factorial)(xs)
-        return float(pmf[xs > threshold].sum())
+        return float(poisson.sf(threshold, mu=lam))
+
+
+class SkaterBlocksModel:
+    def __init__(self, cfg: PropsConfig | None = None):
+        self.cfg = cfg or PropsConfig()
+
+    def player_lambda(self, df: pd.DataFrame, player: str) -> float:
+        pdf = df[(df["player"] == player) & (df["role"] == "skater")].dropna(subset=["blocked"]).copy()
+        pdf = pdf.sort_values("date").tail(self.cfg.window)
+        if pdf.empty:
+            return 1.5
+        return float(pdf["blocked"].mean())
+
+    def prob_over(self, lam: float, line: float, max_x: int = 15) -> float:
+        threshold = int(np.floor(line + 1e-9))
+        return float(poisson.sf(threshold, mu=lam))

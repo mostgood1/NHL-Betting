@@ -200,7 +200,7 @@ def combine_over_under(df: pd.DataFrame) -> pd.DataFrame:
     if df.empty:
         return pd.DataFrame(columns=["date","player_id","player_name","market","line","over_price","under_price","book","first_seen_at","last_seen_at","is_current"])
     # Filter to known markets
-    df = df[df["market"].isin(["SOG","GOALS","SAVES","ASSISTS","POINTS"])]
+    df = df[df["market"].isin(["SOG","GOALS","SAVES","ASSISTS","POINTS","BLOCKS"]) ]
     # Build a player grouping key: prefer player_id; fallback to normalized player name
     player_key_col = "player_key_temp"
     def _mk_key(row):

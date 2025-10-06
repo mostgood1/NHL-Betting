@@ -46,6 +46,7 @@
           <option value="ASSISTS" {{ 'selected' if market=='ASSISTS' else '' }}>Assists</option>
           <option value="POINTS" {{ 'selected' if market=='POINTS' else '' }}>Points</option>
           <option value="SAVES" {{ 'selected' if market=='SAVES' else '' }}>Saves</option>
+          <option value="BLOCKS" {{ 'selected' if market=='BLOCKS' else '' }}>Blocked Shots</option>
         </select>
       </label>
       <label>Min EV <input id="min_ev" type="number" step="0.01" value="{{ min_ev }}" /></label>

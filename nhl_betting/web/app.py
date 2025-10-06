@@ -2278,6 +2278,8 @@ async def api_props_recommendations(
 ):
     """Serve props recommendations for a given date. If cached CSV exists, read; else compute on the fly via CLI logic."""
     date = date or _today_ymd()
+    # Respect read-only mode: if cache missing, do not compute on-demand
+    read_only_ui = _read_only(date)
     rec_path = PROC_DIR / f"props_recommendations_{date}.csv"
     df = None
     if rec_path.exists():
@@ -2285,7 +2287,7 @@ async def api_props_recommendations(
             df = pd.read_csv(rec_path)
         except Exception:
             df = None
-    if df is None or df.empty:
+    if (df is None or df.empty) and (not read_only_ui):
         # Compute on the fly by invoking the same logic inline (avoid spawning a subprocess)
         try:
             from ..models.props import SkaterShotsModel, GoalieSavesModel, SkaterGoalsModel
@@ -2387,12 +2389,17 @@ async def api_props_recommendations(
                     df = df.head(top)
             try:
                 save_df(df, rec_path)
+                try:
+                    _gh_upsert_file_if_configured(rec_path, f"web: update props recommendations for {date}")
+                except Exception:
+                    pass
             except Exception:
                 pass
         except Exception as e:
             return JSONResponse({"date": date, "error": str(e), "data": []}, status_code=200)
     # Apply API filters on cached df
     if df is None:
+        # In read-only mode, serve empty if cache missing
         df = pd.read_csv(rec_path) if rec_path.exists() else pd.DataFrame()
     if market and not df.empty and 'market' in df.columns:
         df = df[df['market'].astype(str).str.upper() == market.upper()]
@@ -2476,6 +2483,10 @@ async def api_player_props_reconciliation(
         merged['actual'] = merged.apply(_act, axis=1)
         try:
             save_df(merged, cache)
+            try:
+                _gh_upsert_file_if_configured(cache, f"web: update props reconciliation for {date}")
+            except Exception:
+                pass
         except Exception:
             pass
         return JSONResponse({"date": date, "data": merged.to_dict(orient='records')})
@@ -2592,6 +2603,7 @@ async def props_recommendations_page(
     top: int = Query(200),
 ):
     date = date or _today_ymd()
+    read_only_ui = _read_only(date)
     # Read directly from processed CSV to avoid JSON roundtrip issues
     rows = []
     try:
@@ -2608,7 +2620,7 @@ async def props_recommendations_page(
             _df = _df.replace([np.inf, -np.inf], np.nan)
             rows = _df.where(pd.notnull(_df), None).to_dict(orient='records')
         else:
-            # No cache yet; show empty and let CLI or background job populate later
+            # No cache yet; show empty and let cron/CLI populate later (avoid inline compute in read-only)
             rows = []
     except Exception:
         rows = []
@@ -2769,6 +2781,37 @@ async def api_cron_capture_closing(
         return JSONResponse(out)
     except Exception as e:
         return JSONResponse({"ok": False, "date": d, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/debug/push-test")
+async def api_debug_push_test(
+    token: Optional[str] = Query(None, description="Bearer token; must match REFRESH_CRON_TOKEN env var"),
+    authorization: Optional[str] = Header(None, description="Authorization: Bearer <token> header (optional alternative to token query param)"),
+):
+    """Write a tiny file under data/processed and attempt to upsert it to GitHub to validate settings.
+
+    Protected by REFRESH_CRON_TOKEN to avoid abuse.
+    """
+    secret = os.getenv("REFRESH_CRON_TOKEN", "")
+    supplied = (token or "").strip()
+    if (not supplied) and authorization:
+        try:
+            auth = str(authorization)
+            if auth.lower().startswith("bearer "):
+                supplied = auth.split(" ", 1)[1].strip()
+        except Exception:
+            supplied = supplied
+    if not (secret and supplied and _const_time_eq(supplied, secret)):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    try:
+        now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        p = PROC_DIR / "_gh_push_test.txt"
+        with open(p, "w", encoding="utf-8") as f:
+            f.write(f"push-test {now}\n")
+        res = _gh_upsert_file_if_configured(p, f"web: push-test {now}")
+        return JSONResponse({"ok": True, "path": str(p), "result": res})
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
 
 
 @app.get("/api/debug/status")
@@ -2962,6 +3005,7 @@ async def api_recommendations(
     kelly_fraction_part: float = Query(0.5, description="Kelly fraction; used only if bankroll>0"),
 ):
     date = date or _today_ymd()
+    read_only_ui = _read_only(date)
     # Normalize potential FastAPI Query objects when this function is invoked internally.
     try:
         from fastapi import params as _params
@@ -3195,6 +3239,7 @@ async def recommendations(
     sort_by: str = Query("ev", description="Sort key within groups: ev, edge, prob, price, bet"),
 ):
     date = date or _today_ymd()
+    read_only_ui = _read_only(date)
     # Normalize potential Query objects (when called internally) to raw values
     try:
         from fastapi import params as _params
@@ -3218,9 +3263,9 @@ async def recommendations(
     try: med_ev = float(_norm(med_ev, 0.02))
     except Exception: med_ev = 0.02
     sort_by = str(_norm(sort_by, "ev") or "ev").lower()
-    # Ensure predictions exist
+    # Ensure predictions exist (skip in read-only mode)
     pred_path = PROC_DIR / f"predictions_{date}.csv"
-    if not pred_path.exists():
+    if (not pred_path.exists()) and (not read_only_ui):
         snapshot = datetime.now(timezone.utc).replace(hour=18, minute=0, second=0, microsecond=0).strftime("%Y-%m-%dT%H:%M:%SZ")
         try:
             predict_core(date=date, source="web", odds_source="oddsapi", snapshot=snapshot, odds_best=True, bankroll=bankroll, kelly_fraction_part=kelly_fraction_part)
@@ -3230,6 +3275,7 @@ async def recommendations(
     try:
         et_today = _today_ymd()
         if str(date) < str(et_today):
+            # Settlement backfill updates predictions file; allowed even in read-only UI
             _backfill_settlement_for_date(date)
     except Exception:
         pass
@@ -3414,6 +3460,7 @@ async def api_odds_coverage(date: Optional[str] = Query(None)):
     date = date or _today_ymd()
     path = PROC_DIR / f"predictions_{date}.csv"
     if not path.exists():
+        # In read-only mode, do not attempt to generate; return 404 so UI can handle gracefully
         return JSONResponse({"error": "No predictions for date", "date": date}, status_code=404)
     df = _read_csv_fallback(path)
     rows = []

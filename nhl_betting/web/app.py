@@ -184,7 +184,7 @@ async def _recompute_edges_and_recommendations(date: str) -> None:
         pred_path = PROC_DIR / f"predictions_{date}.csv"
         if not pred_path.exists():
             return
-        df = pd.read_csv(pred_path)
+        df = _read_csv_fallback(pred_path)
         if df is None or df.empty:
             return
         import math as _math
@@ -326,7 +326,7 @@ def _backfill_settlement_for_date(date: str) -> dict:
     if not pred_csv_path.exists():
         return {"skipped": True, "reason": "no_predictions"}
     try:
-        df = pd.read_csv(pred_csv_path)
+        df = _read_csv_fallback(pred_csv_path)
     except Exception as e:
         return {"skipped": True, "reason": f"read_error_{type(e).__name__}"}
     if df.empty:
@@ -706,7 +706,7 @@ def _capture_closing_for_game(date: str, home_abbr: str, away_abbr: str, snapsho
     path = PROC_DIR / f"predictions_{date}.csv"
     if not path.exists():
         return {"status": "no-file", "date": date}
-    df = pd.read_csv(path)
+    df = _read_csv_fallback(path)
     if df.empty:
         return {"status": "empty", "date": date}
     from .teams import get_team_assets as _assets
@@ -943,7 +943,7 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
         note_msg = note_msg or "Finalized slate (prior day). Background updates are disabled; showing saved closing numbers."
     # Capture any existing predictions to preserve odds if updates fail/are partial
     try:
-        df_old_global = pd.read_csv(PROC_DIR / f"predictions_{date}.csv")
+        df_old_global = _read_csv_fallback(PROC_DIR / f"predictions_{date}.csv")
     except Exception:
         df_old_global = pd.DataFrame()
     # Ensure models exist (Elo/config); if missing, do a quick bootstrap inline (only needed for non-settled views)
@@ -966,7 +966,7 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
             # Fallback to Odds API if no odds captured
             if pred_path.exists():
                 try:
-                    tmp = pd.read_csv(pred_path)
+                    tmp = _read_csv_fallback(pred_path)
                 except Exception:
                     tmp = pd.DataFrame()
                 if not _has_any_odds_df(tmp):
@@ -1001,12 +1001,12 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
         snapshot = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         # Preserve any existing odds if present in old df
         try:
-            df_old = pd.read_csv(pred_path)
+            df_old = _read_csv_fallback(pred_path)
         except Exception:
             df_old = pd.DataFrame()
         try:
             predict_core(date=date, source="web", odds_source="bovada", snapshot=snapshot, odds_best=True)
-            df = pd.read_csv(pred_path)
+            df = _read_csv_fallback(pred_path)
             if not df_old.empty:
                 df = _merge_preserve_odds(df_old, df)
                 df.to_csv(pred_path, index=False)
@@ -1015,7 +1015,7 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
         if not _has_any_odds_df(df):
             try:
                 predict_core(date=date, source="web", odds_source="oddsapi", snapshot=snapshot, odds_best=False, odds_bookmaker="draftkings")
-                df = pd.read_csv(pred_path)
+                df = _read_csv_fallback(pred_path)
                 if not df_old.empty:
                     df = _merge_preserve_odds(df_old, df)
                     df.to_csv(pred_path, index=False)
@@ -1032,7 +1032,7 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
                 snapshot = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
                 try:
                     predict_core(date=date, source="stats", odds_source="oddsapi", snapshot=snapshot, odds_best=False, odds_bookmaker="draftkings")
-                    df_alt = pd.read_csv(PROC_DIR / f"predictions_{date}.csv")
+                    df_alt = _read_csv_fallback(PROC_DIR / f"predictions_{date}.csv")
                     if not df_alt.empty:
                         df = df_alt
                 except Exception:
@@ -1066,7 +1066,7 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
                     alt_path = PROC_DIR / f"predictions_{d2}.csv"
                     if alt_path.exists():
                         try:
-                            df2 = pd.read_csv(alt_path)
+                            df2 = _read_csv_fallback(alt_path)
                         except Exception:
                             df2 = pd.DataFrame()
                         if not df2.empty:
@@ -1081,7 +1081,7 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
                             pass
                         if alt_path.exists():
                             try:
-                                df2 = pd.read_csv(alt_path)
+                                df2 = _read_csv_fallback(alt_path)
                             except Exception:
                                 df2 = pd.DataFrame()
                             if not df2.empty:
@@ -1112,7 +1112,7 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
             p = PROC_DIR / f"predictions_{d_nei}.csv"
             if p.exists():
                 try:
-                    dfn = pd.read_csv(p)
+                    dfn = _read_csv_fallback(p)
                     if not dfn.empty:
                         frames.append(dfn)
                 except Exception:
@@ -1291,7 +1291,7 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
         # Persist updates to the original predictions CSV only if we successfully compute at least one field.
         try:
             pred_csv_path = PROC_DIR / f"predictions_{date}.csv"
-            df_pred = pd.read_csv(pred_csv_path) if pred_csv_path.exists() else pd.DataFrame()
+            df_pred = _read_csv_fallback(pred_csv_path) if pred_csv_path.exists() else pd.DataFrame()
         except Exception:
             df_pred = pd.DataFrame()
         backfilled = 0
@@ -1501,7 +1501,7 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
         try:
             inf_path = PROC_DIR / f"inferred_odds_{date}.csv"
             if inf_path.exists():
-                dfi = pd.read_csv(inf_path)
+                dfi = _read_csv_fallback(inf_path)
                 def norm_team(s: str) -> str:
                     import re, unicodedata
                     if s is None:
@@ -1780,7 +1780,7 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
                 try:
                     pred_csv_path2 = PROC_DIR / f"predictions_{date}.csv"
                     if pred_csv_path2.exists():
-                        df2 = pd.read_csv(pred_csv_path2)
+                        df2 = _read_csv_fallback(pred_csv_path2)
                         if not df2.empty and {"home","away"}.issubset(df2.columns):
                             def _abbr3(x: str) -> str:
                                 try:
@@ -1842,7 +1842,7 @@ def _capture_openers_for_day(date: str) -> dict:
     path = PROC_DIR / f"predictions_{date}.csv"
     if not path.exists():
         return {"status": "no-file", "date": date}
-    df = pd.read_csv(path)
+    df = _read_csv_fallback(path)
     if df.empty:
         return {"status": "empty", "date": date}
     def ensure(col: str):
@@ -2092,7 +2092,8 @@ async def api_predictions(date: Optional[str] = Query(None)):
     path = PROC_DIR / f"predictions_{date}.csv"
     if not path.exists():
         return JSONResponse({"error": "No predictions for date", "date": date}, status_code=404)
-    df = pd.read_csv(path)
+    # Robust read to avoid decode/empty errors across environments
+    df = _read_csv_fallback(path)
     return JSONResponse(df.to_dict(orient="records"))
 
 
@@ -2224,8 +2225,9 @@ async def api_props(
 ):
     path = PROC_DIR / "props_predictions.csv"
     if not path.exists():
-        return JSONResponse({"error": "No props predictions found. Generate props_predictions.csv with the CLI."}, status_code=404)
-    df = pd.read_csv(path)
+        # Return an empty list instead of 404 so the UI can render gracefully
+        return JSONResponse([], status_code=200)
+    df = _read_csv_fallback(path)
     if market:
         df = df[df["market"].str.upper() == market.upper()]
     if "ev_over" in df.columns:
@@ -2426,7 +2428,7 @@ async def api_player_props_reconciliation(
     cache = PROC_DIR / f"player_props_vs_actuals_{date}.csv"
     if refresh == 0 and cache.exists():
         try:
-            df = pd.read_csv(cache)
+            df = _read_csv_fallback(cache)
             return JSONResponse({"date": date, "data": df.to_dict(orient="records")})
         except Exception:
             pass
@@ -2446,7 +2448,7 @@ async def api_player_props_reconciliation(
         lines = pd.concat(parts, ignore_index=True) if parts else pd.DataFrame()
         # Ensure stats exist for the date
         stats_path = RAW_DIR / "player_game_stats.csv"
-        stats = pd.read_csv(stats_path) if stats_path.exists() else pd.DataFrame()
+        stats = _read_csv_fallback(stats_path) if stats_path.exists() else pd.DataFrame()
         stats['date_key'] = pd.to_datetime(stats['date'], errors='coerce').dt.strftime('%Y-%m-%d') if not stats.empty else pd.Series(dtype=str)
         stats_day = stats[stats['date_key'] == date].copy() if not stats.empty else pd.DataFrame()
         # Assemble reconciliation rows
@@ -2505,7 +2507,9 @@ async def props_page(
     if isinstance(resp, JSONResponse):
         try:
             import json as _json
-            rows = _json.loads(resp.body)
+            data = _json.loads(resp.body)
+            # Ensure list payload; if dict (e.g., error), render as empty
+            rows = data if isinstance(data, list) else []
         except Exception:
             rows = []
     template = env.get_template("props.html")
@@ -3411,7 +3415,7 @@ async def api_odds_coverage(date: Optional[str] = Query(None)):
     path = PROC_DIR / f"predictions_{date}.csv"
     if not path.exists():
         return JSONResponse({"error": "No predictions for date", "date": date}, status_code=404)
-    df = pd.read_csv(path)
+    df = _read_csv_fallback(path)
     rows = []
     ml_count = 0
     totals_count = 0
@@ -3470,7 +3474,7 @@ async def api_reconciliation(
     path = PROC_DIR / f"predictions_{date}.csv"
     if not path.exists():
         return JSONResponse({"error": "No predictions for date", "date": date}, status_code=404)
-    df = pd.read_csv(path)
+    df = _read_csv_fallback(path)
     if df.empty:
         return JSONResponse({"error": "Empty predictions"}, status_code=400)
     # Build picks (moneyline + totals + puckline) with EV>0

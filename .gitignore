@@ -34,14 +34,20 @@ env/
 .vscode/
 
 # Data
-# Ignore all by default
+# Ignore everything under data by default
 data/**
 !data/.gitkeep
-# But include trained models and processed outputs so Render has the same data
+
+# Keep trained models (tracked artifacts)
 !data/models/
 !data/models/**
-!data/processed/
-!data/processed/**
+
+# Do NOT track processed/raw daily outputs (they churn and cause conflicts)
+# Provide a minimal whitelist for empty dirs and optional stable summaries
+!data/processed/.gitkeep
+!data/raw/.gitkeep
+# Example whitelist: keep calibration summary if desired
+!data/processed/props_stats_calibration.json
 
 # OS files
 Thumbs.db

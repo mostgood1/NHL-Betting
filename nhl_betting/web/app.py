@@ -1892,6 +1892,11 @@ def _capture_openers_for_day(date: str) -> dict:
                 pass
     if updated > 0:
         df.to_csv(path, index=False)
+        # Best-effort GitHub write-back for openers snapshot
+        try:
+            _gh_upsert_file_if_configured(path, f"web: capture openers for {date}")
+        except Exception:
+            pass
     return {"status": "ok", "updated": int(updated), "date": date}
 
 
@@ -3206,6 +3211,11 @@ async def api_recommendations(
         _df_out = _pd.DataFrame([{k: r.get(k) for k in cols} for r in recs_sorted])
         out_path = PROC_DIR / f"recommendations_{date}.csv"
         _df_out.to_csv(out_path, index=False)
+        # Best-effort GitHub write-back for recommendations snapshot
+        try:
+            _gh_upsert_file_if_configured(out_path, f"web: update recommendations for {date}")
+        except Exception:
+            pass
     except Exception:
         pass
     # Ensure JSON-safe output (convert NaN/Inf to None)

@@ -2335,6 +2335,48 @@ async def api_scoreboard(date: Optional[str] = Query(None), debug_cache: Optiona
         r["fetched_at"] = fetched_at
     return JSONResponse(rows)
 
+@app.get("/api/props/health")
+async def api_props_health(date: Optional[str] = Query(None)):
+    """Diagnostics for props data availability for a given date.
+
+    Reports existence and row counts for projections/recommendations CSVs and presence of raw props lines parquet files.
+    """
+    d = date or _today_ymd()
+    proj_path = PROC_DIR / f"props_projections_{d}.csv"
+    rec_path = PROC_DIR / f"props_recommendations_{d}.csv"
+    lines_dir = PROC_DIR.parent / "props" / f"player_props_lines/date={d}"
+    out = {
+        "date": d,
+        "projections_csv": {"exists": proj_path.exists(), "rows": None},
+        "recommendations_csv": {"exists": rec_path.exists(), "rows": None},
+        "lines": {
+            "path": str(lines_dir),
+            "exists": lines_dir.exists(),
+            "files": [],
+        },
+    }
+    try:
+        if proj_path.exists():
+            dfp = _read_csv_fallback(proj_path)
+            out["projections_csv"]["rows"] = 0 if dfp is None or dfp.empty else int(len(dfp))
+    except Exception:
+        pass
+    try:
+        if rec_path.exists():
+            dfr = _read_csv_fallback(rec_path)
+            out["recommendations_csv"]["rows"] = 0 if dfr is None or dfr.empty else int(len(dfr))
+    except Exception:
+        pass
+    try:
+        if lines_dir.exists():
+            files = []
+            for p in sorted(lines_dir.glob("*.parquet")):
+                files.append(p.name)
+            out["lines"]["files"] = files
+    except Exception:
+        pass
+    return JSONResponse(out)
+
 
 @app.post("/api/capture-closing")
 async def api_capture_closing(
@@ -3087,6 +3129,8 @@ async def props_page(
     rows: list[dict] = []
     teams_options: list[str] = []
     sel_team = (team or "").strip()
+    notice: Optional[str] = None
+    used_date: str = date
     try:
         cache = PROC_DIR / f"props_projections_{date}.csv"
         df = None
@@ -3158,7 +3202,84 @@ async def props_page(
                 df = df.head(int(top))
             rows = _df_jsonsafe_records(df)
         else:
-            rows = []
+            # Fallback: try latest available projections CSV in processed if today's is missing/empty
+            import re
+            latest_csv = None
+            latest_date = None
+            try:
+                for p in sorted(PROC_DIR.glob("props_projections_*.csv")):
+                    m = re.match(r"props_projections_(\d{4}-\d{2}-\d{2})\\.csv$", p.name)
+                    if not m:
+                        continue
+                    dstr = m.group(1)
+                    if latest_date is None or dstr > latest_date:
+                        latest_date = dstr
+                        latest_csv = p
+            except Exception:
+                latest_csv = None
+            if latest_csv is not None and latest_date and latest_date != date:
+                try:
+                    df = _read_csv_fallback(latest_csv)
+                    used_date = latest_date
+                    notice = f"No data for {date}. Showing latest available projections from {latest_date}."
+                    # Re-run filters/sort/trim
+                    if df is not None and not df.empty:
+                        try:
+                            if 'team' in df.columns:
+                                teams_options = sorted({str(x).upper() for x in df['team'].dropna().unique().tolist() if str(x).strip()})
+                        except Exception:
+                            pass
+                        if market and 'market' in df.columns:
+                            df = df[df['market'].astype(str).str.upper() == market.upper()]
+                        if sel_team and 'team' in df.columns:
+                            su = sel_team.upper()
+                            df = df[df['team'].astype(str).str.upper() == su]
+                        if 'ev_over' in df.columns and min_ev is not None:
+                            try:
+                                df['ev_over'] = pd.to_numeric(df['ev_over'], errors='coerce')
+                                df = df[df['ev_over'] >= float(min_ev)]
+                            except Exception:
+                                pass
+                        key = (sort or 'ev_desc').lower()
+                        ascending = False
+                        col = None
+                        if key in ('ev_desc','ev_asc'):
+                            col = 'ev_over'; ascending = (key == 'ev_asc')
+                        elif key in ('p_over_desc','p_over_asc'):
+                            col = 'p_over'; ascending = (key == 'p_over_asc')
+                        elif key in ('lambda_desc','lambda_asc'):
+                            col = 'proj_lambda'; ascending = (key == 'lambda_asc')
+                        elif key == 'name':
+                            col = 'player'; ascending = True
+                        elif key == 'team':
+                            col = 'team'; ascending = True
+                        elif key == 'market':
+                            col = 'market'; ascending = True
+                        elif key == 'line':
+                            try:
+                                df['line'] = pd.to_numeric(df['line'], errors='coerce')
+                            except Exception:
+                                pass
+                            col = 'line'; ascending = True
+                        elif key == 'book':
+                            col = 'book'; ascending = True
+                        if col and col in df.columns:
+                            try:
+                                df = df.sort_values(by=[col], ascending=ascending, na_position='last')
+                            except Exception:
+                                pass
+                        else:
+                            try:
+                                df = df.sort_values(by=['ev_over','p_over'], ascending=[False, False], na_position='last')
+                            except Exception:
+                                pass
+                        if top and top > 0:
+                            df = df.head(int(top))
+                        rows = _df_jsonsafe_records(df)
+                except Exception:
+                    rows = []
+            else:
+                rows = []
     except Exception:
         rows = []
         teams_options = []
@@ -3168,10 +3289,11 @@ async def props_page(
         market=market or "",
         min_ev=min_ev,
         top=top,
-        date=date,
+        date=used_date,
         team=sel_team,
         teams=teams_options,
         sort=sort or 'ev_desc',
+        notice=notice,
     )
     return HTMLResponse(content=html)
 

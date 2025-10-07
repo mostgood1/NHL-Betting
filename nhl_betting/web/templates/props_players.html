@@ -13,14 +13,18 @@
     .controls { display: flex; gap: 8px; align-items: center; }
     .controls input, .controls select { background: #1e1e1e; color: #f0f0f0; border: 1px solid #333; border-radius: 4px; padding: 6px 8px; }
     .controls label { font-size: 12px; color: #bbb; }
-    .controls .spacer { flex: 1 1 auto; }
+  .controls .spacer { flex: 1 1 auto; }
   .th-sort { cursor: pointer; -webkit-user-select: none; user-select: none; }
+  .notice { margin:10px 0; padding:8px 12px; border:1px solid #2a3a7a; border-radius:8px; background:#0f1530; color:#cfe0ff; }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
       <h1>Player Props</h1>
+      {% if notice %}
+      <div class="notice">{{ notice }}</div>
+      {% endif %}
       <div class="nav">
         <a href="/">Cards</a>
         <span> | </span>

@@ -505,6 +505,20 @@ def _gh_upsert_file_if_configured(path: Path, message: str) -> dict:
         return {"skipped": True, "reason": f"exception_{type(e).__name__}", "msg": str(e)}
 
 
+def _df_jsonsafe_records(df: pd.DataFrame) -> list[dict]:
+    """Convert a DataFrame to JSON-safe list of dicts by replacing Inf with NaN and NaN with None."""
+    try:
+        if df is None or df.empty:
+            return []
+        _df = df.replace([np.inf, -np.inf], np.nan)
+        return _df.where(pd.notnull(_df), None).to_dict(orient="records")
+    except Exception:
+        try:
+            return df.fillna(value=None).to_dict(orient="records")
+        except Exception:
+            return []
+
+
 @app.get("/health")
 def health():
     """Simple health probe that avoids heavy work.
@@ -2099,7 +2113,7 @@ async def api_predictions(date: Optional[str] = Query(None)):
         return JSONResponse({"error": "No predictions for date", "date": date}, status_code=404)
     # Robust read to avoid decode/empty errors across environments
     df = _read_csv_fallback(path)
-    return JSONResponse(df.to_dict(orient="records"))
+    return JSONResponse(_df_jsonsafe_records(df))
 
 
 @app.get("/api/debug/odds-match")
@@ -2240,7 +2254,7 @@ async def api_props(
         df = df.sort_values("ev_over", ascending=False)
     if top and top > 0:
         df = df.head(top)
-    return JSONResponse(df.to_dict(orient="records"))
+    return JSONResponse(_df_jsonsafe_records(df))
 
 
 @app.get("/api/player-props")
@@ -2251,24 +2265,23 @@ async def api_player_props(
     """Return canonical player props lines for a date from data/props/player_props_lines/date=YYYY-MM-DD/*.parquet."""
     date = date or _today_ymd()
     try:
-        import pandas as _pd
         base = PROC_DIR.parent / "props" / f"player_props_lines/date={date}"
         parts = []
         for name in ("bovada.parquet", "oddsapi.parquet"):
             p = base / name
             if p.exists():
                 try:
-                    parts.append(_pd.read_parquet(p))
+                    parts.append(pd.read_parquet(p))
                 except Exception:
                     pass
         if not parts:
             return JSONResponse({"date": date, "data": []})
-        df = _pd.concat(parts, ignore_index=True)
+        df = pd.concat(parts, ignore_index=True)
         if market:
             df = df[df["market"].astype(str).str.upper() == market.upper()]
         # Lightweight response
         keep = [c for c in ["date","player_name","player_id","team","market","line","over_price","under_price","book","is_current"] if c in df.columns]
-        out = df[keep].rename(columns={"player_name":"player"}).to_dict(orient="records")
+        out = _df_jsonsafe_records(df[keep].rename(columns={"player_name":"player"}))
         return JSONResponse({"date": date, "data": out})
     except Exception as e:
         return JSONResponse({"date": date, "error": str(e), "data": []}, status_code=200)
@@ -2436,7 +2449,7 @@ async def api_player_props_reconciliation(
     if refresh == 0 and cache.exists():
         try:
             df = _read_csv_fallback(cache)
-            return JSONResponse({"date": date, "data": df.to_dict(orient="records")})
+            return JSONResponse({"date": date, "data": _df_jsonsafe_records(df)})
         except Exception:
             pass
     # Build on the fly using existing CLI utilities
@@ -2489,7 +2502,7 @@ async def api_player_props_reconciliation(
                 pass
         except Exception:
             pass
-        return JSONResponse({"date": date, "data": merged.to_dict(orient='records')})
+        return JSONResponse({"date": date, "data": _df_jsonsafe_records(merged)})
     except Exception as e:
         return JSONResponse({"date": date, "error": str(e), "data": []}, status_code=200)
 
@@ -2731,7 +2744,7 @@ async def api_edges(date: Optional[str] = Query(None)):
     if not path.exists():
         return JSONResponse([], status_code=200)
     df = pd.read_csv(path)
-    return JSONResponse(df.to_dict(orient="records"))
+    return JSONResponse(_df_jsonsafe_records(df))
 
 
 @app.get("/api/refresh-odds")

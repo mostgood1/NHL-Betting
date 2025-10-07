@@ -91,21 +91,37 @@
               <img class="avatar" src="{{ c.photo }}" alt="{{ c.player }}" />
             {% endif %}
             <div>
-              <div class="title">{{ c.player }} <span class="badge">{{ c.market }}</span></div>
+              <div class="title">{{ c.player }}</div>
               <div class="muted">{{ c.team_abbr or c.team or '—' }} · Best EV <span class="ev">{{ '%.3f' % c.best_ev if c.best_ev is not none else '—' }}</span></div>
             </div>
           </div>
-          <div class="ladders">
-            {% for l in c.ladders %}
-              <div class="lad">
-                <div>{{ l.line }}</div>
-                <div class="side">{{ l.side or 'Over' }}</div>
-                <div>O {{ l.over_price if l.over_price is not none else '—' }} · U {{ l.under_price if l.under_price is not none else '—' }}</div>
-                <div>{{ l.book or '—' }}</div>
-                <div><span class="ev">{{ '%.3f' % l.ev if l.ev is not none else '—' }}</span></div>
+          {% if c.markets %}
+            {% for m in c.markets %}
+              <div class="row" style="margin-top:10px; gap:8px; align-items:flex-start;">
+                <div class="badge">{{ m.market }}</div>
+                <div class="muted">λ {{ '%.2f' % m.proj if m.proj is not none else '—' }}</div>
+                <div class="muted">P(Over) {{ '%.1f' % (m.p_over*100) }}%{% if m.p_over is none %}—{% endif %}</div>
+                {% if m.primary_line is not none %}
+                  <div class="muted">Line {{ m.primary_line }}</div>
+                {% endif %}
+                {% if m.best_side %}
+                  <div class="muted">Best {{ m.best_side }} @ {{ m.best_book or '—' }} {{ m.best_price if m.best_price is not none else '—' }}</div>
+                {% endif %}
+                <div class="muted">Best EV <span class="ev">{{ '%.3f' % m.best_ev if m.best_ev is not none else '—' }}</span></div>
+              </div>
+              <div class="ladders">
+                {% for l in m.ladders %}
+                  <div class="lad">
+                    <div>{{ l.line }}</div>
+                    <div class="side">{{ l.side or 'Over' }}</div>
+                    <div>O {{ l.over_price if l.over_price is not none else '—' }} · U {{ l.under_price if l.under_price is not none else '—' }}</div>
+                    <div>{{ l.book or '—' }}</div>
+                    <div><span class="ev">{{ '%.3f' % l.ev if l.ev is not none else '—' }}</span></div>
+                  </div>
+                {% endfor %}
               </div>
             {% endfor %}
-          </div>
+          {% endif %}
         </div>
       {% endfor %}
     </div>

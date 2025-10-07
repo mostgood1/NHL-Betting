@@ -3596,100 +3596,114 @@ async def props_recommendations_page(
                 pass
     except Exception:
         df = pd.DataFrame()
-    # Build cards: group by (player, team, market)
+    # Build cards: group by player (and team), with per-market sections including projections
     cards = []
     try:
         if df is not None and not df.empty:
             # Ensure numeric types
-            for c in ('line','ev','over_price','under_price'):
+            for c in ('line','ev','over_price','under_price','proj','p_over'):
                 if c in df.columns:
                     try:
                         df[c] = pd.to_numeric(df[c], errors='coerce')
                     except Exception:
                         pass
-            grp_cols = [c for c in ['player','team','market'] if c in df.columns]
-            if grp_cols:
-                grouped = df.groupby(grp_cols, dropna=False)
-                for keys, g in grouped:
-                    if isinstance(keys, tuple):
-                        player = keys[0] if len(keys) > 0 else None
-                        team = keys[1] if len(keys) > 1 else None
-                        market_val = keys[2] if len(keys) > 2 else None
-                    else:
-                        player = keys; team = None; market_val = None
-                    # Ladders from group rows
-                    g = g.sort_values(['ev','line'], ascending=[False, True]) if {'ev','line'}.issubset(g.columns) else g
-                    ladders = []
-                    best_ev = None
-                    best_row = None
-                    for _, r in g.iterrows():
-                        ev = r.get('ev');
-                        try:
-                            ev_f = float(ev) if pd.notna(ev) else None
-                        except Exception:
-                            ev_f = None
-                        if ev_f is not None:
-                            if (best_ev is None) or (ev_f > best_ev):
+            # Preferred market order
+            MARKET_ORDER = ['SOG','GOALS','ASSISTS','POINTS','SAVES','BLOCKS']
+            def market_sort_key(m):
+                m = (m or '').upper()
+                return (MARKET_ORDER.index(m) if m in MARKET_ORDER else len(MARKET_ORDER), m)
+            grp_cols = [c for c in ['player','team'] if c in df.columns]
+            grouped = df.groupby(grp_cols, dropna=False) if grp_cols else []
+            for keys, g_all in grouped:
+                if isinstance(keys, tuple):
+                    player = keys[0] if len(keys) > 0 else None
+                    team = keys[1] if len(keys) > 1 else None
+                else:
+                    player = keys; team = None
+                assets = get_team_assets(str(team)) if team else {}
+                markets = []
+                best_ev_overall = None
+                # Group per market within player
+                if 'market' in g_all.columns:
+                    for mkt, g in g_all.groupby('market', dropna=False):
+                        mkt_u = (str(mkt) if mkt is not None else '').upper()
+                        # Sort group rows so we can pick best row and present ladders nicely
+                        g = g.sort_values(['ev','line'], ascending=[False, True]) if {'ev','line'}.issubset(g.columns) else g
+                        ladders = []
+                        best_ev = None
+                        best_row = None
+                        for _, r in g.iterrows():
+                            ev_val = r.get('ev')
+                            try:
+                                ev_f = float(ev_val) if pd.notna(ev_val) else None
+                            except Exception:
+                                ev_f = None
+                            if ev_f is not None and (best_ev is None or ev_f > best_ev):
                                 best_ev = ev_f
                                 best_row = r
-                        ladders.append({
-                            'line': float(r.get('line')) if pd.notna(r.get('line')) else None,
-                            'side': r.get('side') or 'Over',
-                            'over_price': int(r.get('over_price')) if pd.notna(r.get('over_price')) else None,
-                            'under_price': int(r.get('under_price')) if pd.notna(r.get('under_price')) else None,
-                            'book': r.get('book'),
-                            'ev': ev_f,
-                        })
-                    assets = get_team_assets(str(team)) if team else {}
-                    # Model stats: use group-level projection (lambda) and p_over at best-ev line if available
-                    proj_lambda = None
-                    p_over_primary = None
-                    primary_line = None
-                    best_side = None
-                    best_book = None
-                    best_price = None
-                    try:
-                        if 'proj' in g.columns and g['proj'].notna().any():
-                            # proj is lambda; should be constant within player+market group
-                            proj_lambda = float(g['proj'].dropna().iloc[0])
-                    except Exception:
+                            ladders.append({
+                                'line': float(r.get('line')) if pd.notna(r.get('line')) else None,
+                                'side': r.get('side') or 'Over',
+                                'over_price': int(r.get('over_price')) if pd.notna(r.get('over_price')) else None,
+                                'under_price': int(r.get('under_price')) if pd.notna(r.get('under_price')) else None,
+                                'book': r.get('book'),
+                                'ev': ev_f,
+                            })
                         proj_lambda = None
-                    try:
-                        if best_row is not None:
-                            primary_line = float(best_row.get('line')) if pd.notna(best_row.get('line')) else None
-                            pov = best_row.get('p_over')
-                            if pov is not None and pd.notna(pov):
-                                p_over_primary = float(pov)
-                            # best row side/book/price
-                            bs = best_row.get('side')
-                            bb = best_row.get('book')
-                            op = best_row.get('over_price'); up = best_row.get('under_price')
-                            if bs and isinstance(bs, str):
-                                best_side = bs
-                                best_book = bb
-                                if bs.lower() == 'over':
-                                    best_price = int(op) if (op is not None and pd.notna(op)) else None
-                                else:
-                                    best_price = int(up) if (up is not None and pd.notna(up)) else None
-                    except Exception:
-                        pass
-                    cards.append({
-                        'player': player,
-                        'team': team,
-                        'team_abbr': (assets.get('abbr') or '').upper() if isinstance(assets, dict) else None,
-                        'team_logo': assets.get('logo') if isinstance(assets, dict) else None,
-                        'market': str(market_val).upper() if market_val else None,
-                        'best_ev': best_ev,
-                        'proj': proj_lambda,
-                        'p_over': p_over_primary,
-                        'primary_line': primary_line,
-                        'best_side': best_side,
-                        'best_book': best_book,
-                        'best_price': best_price,
-                        'ladders': ladders,
-                        'photo': None,
-                    })
-            # Sort cards by best_ev desc by default when ev sorting selected
+                        p_over_primary = None
+                        primary_line = None
+                        best_side = None
+                        best_book = None
+                        best_price = None
+                        try:
+                            if 'proj' in g.columns and g['proj'].notna().any():
+                                proj_lambda = float(g['proj'].dropna().iloc[0])
+                        except Exception:
+                            proj_lambda = None
+                        try:
+                            if best_row is not None:
+                                primary_line = float(best_row.get('line')) if pd.notna(best_row.get('line')) else None
+                                pov = best_row.get('p_over')
+                                if pov is not None and pd.notna(pov):
+                                    p_over_primary = float(pov)
+                                bs = best_row.get('side')
+                                bb = best_row.get('book')
+                                op = best_row.get('over_price'); up = best_row.get('under_price')
+                                if bs and isinstance(bs, str):
+                                    best_side = bs
+                                    best_book = bb
+                                    if bs.lower() == 'over':
+                                        best_price = int(op) if (op is not None and pd.notna(op)) else None
+                                    else:
+                                        best_price = int(up) if (up is not None and pd.notna(up)) else None
+                        except Exception:
+                            pass
+                        if best_ev is not None and (best_ev_overall is None or best_ev > best_ev_overall):
+                            best_ev_overall = best_ev
+                        markets.append({
+                            'market': mkt_u,
+                            'best_ev': best_ev,
+                            'proj': proj_lambda,
+                            'p_over': p_over_primary,
+                            'primary_line': primary_line,
+                            'best_side': best_side,
+                            'best_book': best_book,
+                            'best_price': best_price,
+                            'ladders': ladders,
+                        })
+                # Sort markets by preferred order
+                if markets:
+                    markets.sort(key=lambda x: market_sort_key(x.get('market')))
+                cards.append({
+                    'player': player,
+                    'team': team,
+                    'team_abbr': (assets.get('abbr') or '').upper() if isinstance(assets, dict) else None,
+                    'team_logo': assets.get('logo') if isinstance(assets, dict) else None,
+                    'best_ev': best_ev_overall,
+                    'markets': markets,
+                    'photo': None,
+                })
+            # Sort and top-N (now by player card)
             if cards:
                 if (sortBy or 'ev_desc').lower() in ('ev_desc','ev_asc'):
                     rev = ((sortBy or 'ev_desc').lower() == 'ev_desc')
@@ -3697,10 +3711,10 @@ async def props_recommendations_page(
                 elif (sortBy or '').lower() == 'name':
                     cards.sort(key=lambda x: (str(x.get('player') or '').lower()))
                 elif (sortBy or '').lower() == 'market':
-                    cards.sort(key=lambda x: (str(x.get('market') or '')))
+                    # Keep existing order; optional: sort by first market name
+                    cards.sort(key=lambda x: (x.get('markets')[0]['market'] if (x.get('markets') and x.get('markets')[0].get('market')) else ''))
                 elif (sortBy or '').lower() == 'team':
                     cards.sort(key=lambda x: (str(x.get('team_abbr') or str(x.get('team') or '')).upper()))
-                # Apply top after grouping
                 if top and top > 0:
                     cards = cards[: int(top)]
     except Exception:

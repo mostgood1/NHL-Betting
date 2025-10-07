@@ -573,6 +573,43 @@ def _df_jsonsafe_records(df: pd.DataFrame) -> list[dict]:
         except Exception:
             return []
 
+def _json_sanitize(obj):
+    """Recursively sanitize Python objects for strict JSON: remove NaN/Inf, coerce numpy/pandas scalars, and isoformat datetimes."""
+    try:
+        import numpy as _np, math as _math, datetime as _dt
+        if obj is None:
+            return None
+        # Scalars
+        if isinstance(obj, (int, str, bool)):
+            return obj
+        if isinstance(obj, float):
+            return obj if _math.isfinite(obj) else None
+        if isinstance(obj, (_np.integer,)):
+            return int(obj)
+        if isinstance(obj, (_np.floating,)):
+            f = float(obj)
+            return f if _math.isfinite(f) else None
+        if isinstance(obj, (pd.Timestamp, _dt.datetime, _dt.date)):
+            try:
+                return obj.date().isoformat() if isinstance(obj, pd.Timestamp) else obj.isoformat()
+            except Exception:
+                return str(obj)
+        # Containers
+        if isinstance(obj, dict):
+            return {k: _json_sanitize(v) for k, v in obj.items()}
+        if isinstance(obj, (list, tuple, set)):
+            return [ _json_sanitize(v) for v in list(obj) ]
+        # Pandas NA
+        try:
+            if isinstance(obj, float) and pd.isna(obj):
+                return None
+        except Exception:
+            pass
+        # Fallback to string for any exotic types
+        return obj
+    except Exception:
+        return obj
+
 
 @app.get("/health")
 def health():
@@ -2337,7 +2374,9 @@ async def api_player_props(
         # Lightweight response
         keep = [c for c in ["date","player_name","player_id","team","market","line","over_price","under_price","book","is_current"] if c in df.columns]
         out = _df_jsonsafe_records(df[keep].rename(columns={"player_name":"player"}))
-        return JSONResponse({"date": date, "data": out})
+        # Extra belt-and-suspenders: sanitize the output recursively
+        safe_payload = _json_sanitize({"date": date, "data": out})
+        return JSONResponse(safe_payload)
     except Exception as e:
         return JSONResponse({"date": date, "error": str(e), "data": []}, status_code=200)
 

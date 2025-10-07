@@ -2421,7 +2421,20 @@ async def api_player_props(
         out = _df_jsonsafe_records(df_out)
         # Extra belt-and-suspenders: sanitize the output recursively
         safe_payload = _json_sanitize({"date": date, "data": out})
-        return JSONResponse(safe_payload)
+        # Pre-encode JSON to guarantee compliance and avoid internal dumps errors
+        try:
+            import json as _json
+            body = _json.dumps(safe_payload, allow_nan=False)
+        except Exception:
+            # As a last resort, stringify everything
+            def _stringify(o):
+                try:
+                    return str(o)
+                except Exception:
+                    return None
+            safe_str = _json_sanitize({"date": str(date), "data": [{k: _stringify(v) for k, v in row.items()} for row in (out or [])]})
+            body = _json.dumps(safe_str, allow_nan=False)
+        return Response(content=body, media_type="application/json")
     except Exception as e:
         return JSONResponse({"date": date, "error": str(e), "data": []}, status_code=200)
 

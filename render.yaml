@@ -77,3 +77,18 @@ services:
     envVars:
       - key: REFRESH_CRON_TOKEN
         sync: false
+
+  - type: cron
+    name: nhl-betting-props-recommendations
+    env: docker
+    # Daily precompute of player props recommendations; writes props_recommendations_YYYY-MM-DD.csv and pushes to GitHub
+    # Scheduled a few minutes after projections to ensure inputs are ready
+    schedule: "10 12 * * *" # 12:10 UTC daily
+    command: |
+      /bin/sh -lc "\
+      apk add --no-cache curl && \
+      # Ensure props lines exist (best-effort) then compute and persist recommendations CSV for today\
+      curl -sSf -X POST \"https://nhl-betting.onrender.com/api/cron/props-recommendations\" -H \"Authorization: Bearer $REFRESH_CRON_TOKEN\" || true"
+    envVars:
+      - key: REFRESH_CRON_TOKEN
+        sync: false

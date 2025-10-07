@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NHL Betting - Team Projections</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  <style>
+    .games { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+    .card { background: #121212; border: 1px solid #2a2a2a; border-radius: 8px; padding: 12px; }
+    .hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .teams { display: grid; grid-template-columns: 1fr 24px 1fr; align-items: center; gap: 8px; }
+    .team { display: flex; align-items: center; gap: 8px; }
+    .logo { width: 24px; height: 24px; object-fit: contain; }
+    .meta { font-size: 12px; color: #bbb; margin-top: 6px; display: flex; gap: 12px; }
+    .metrics { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 8px; }
+    .metric { background: #1b1b1b; border: 1px solid #2a2a2a; border-radius: 6px; padding: 8px; }
+    .metric b { color: #e0e0e0; }
+    .nav { margin: 12px 0; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Team Projections</h1>
+      <div class="nav">
+        <a href="/">Cards</a>
+        <span> | </span>
+        <a href="/recommendations">Recs</a>
+        <span> | </span>
+        <a href="/props">Teams</a>
+        <span> | </span>
+        <a href="/props/players">Player Props</a>
+        <span> | </span>
+        <a href="/props/recommendations">Props Recs</a>
+      </div>
+    </div>
+
+    <div class="meta">Date (ET): <span>{{ date }}</span></div>
+
+    {% if games|length == 0 %}
+      <p>No predictions found for this date.</p>
+    {% endif %}
+
+    <div class="games">
+      {% for g in games %}
+        <div class="card">
+          <div class="hdr">
+            <div class="teams">
+              <div class="team">
+                {% if g.home_logo %}<img class="logo" src="{{ g.home_logo }}" alt="{{ g.home }}" />{% endif %}
+                <span>{{ g.home }}</span>
+              </div>
+              <div style="text-align:center; color:#bbb;">vs</div>
+              <div class="team" style="justify-content: flex-end;">
+                <span>{{ g.away }}</span>
+                {% if g.away_logo %}<img class="logo" src="{{ g.away_logo }}" alt="{{ g.away }}" />{% endif %}
+              </div>
+            </div>
+          </div>
+
+          <div class="metrics">
+            <div class="metric">
+              <div><b>Proj Goals (H)</b></div>
+              <div>{{ '%.2f' % g.proj_home_goals if g.proj_home_goals is not none else '-' }}</div>
+            </div>
+            <div class="metric">
+              <div><b>Proj Goals (A)</b></div>
+              <div>{{ '%.2f' % g.proj_away_goals if g.proj_away_goals is not none else '-' }}</div>
+            </div>
+            <div class="metric">
+              <div><b>P(Home ML)</b></div>
+              <div>{{ '%.1f' % (g.p_home_ml * 100) if g.p_home_ml is not none else '-' }}%</div>
+            </div>
+            <div class="metric">
+              <div><b>P(Away ML)</b></div>
+              <div>{{ '%.1f' % (g.p_away_ml * 100) if g.p_away_ml is not none else '-' }}%</div>
+            </div>
+            <div class="metric">
+              <div><b>Total Line</b></div>
+              <div>{{ '%.1f' % g.total_line if g.total_line is not none else '-' }}</div>
+            </div>
+            <div class="metric">
+              <div><b>Model Total</b></div>
+              <div>{{ '%.2f' % g.model_total if g.model_total is not none else '-' }}</div>
+            </div>
+            <div class="metric">
+              <div><b>P(Over)</b></div>
+              <div>{{ '%.1f' % (g.p_over * 100) if g.p_over is not none else '-' }}%</div>
+            </div>
+            <div class="metric">
+              <div><b>P(Under)</b></div>
+              <div>{{ '%.1f' % (g.p_under * 100) if g.p_under is not none else '-' }}%</div>
+            </div>
+            {% if g.ev_home_ml is not none %}
+            <div class="metric">
+              <div><b>EV Home ML</b></div>
+              <div>{{ '%.3f' % g.ev_home_ml }}</div>
+            </div>
+            {% endif %}
+            {% if g.ev_away_ml is not none %}
+            <div class="metric">
+              <div><b>EV Away ML</b></div>
+              <div>{{ '%.3f' % g.ev_away_ml }}</div>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</body>
+</html>

@@ -2889,22 +2889,80 @@ async def api_last_updated(date: Optional[str] = Query(None)):
 
 @app.get("/props")
 async def props_page(
-    market: Optional[str] = Query(None, description="Filter by market: SOG, SAVES, GOALS"),
+    date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD (ET)"),
+):
+    """Team-level projections for the slate: shows projected goals and win probabilities per team.
+
+    Mirrors the NFL site's /props, presenting per-game team projections instead of player props.
+    """
+    date = date or _today_ymd()
+    # Load predictions for date
+    path = PROC_DIR / f"predictions_{date}.csv"
+    games = []
+    try:
+        if path.exists():
+            df = _read_csv_fallback(path)
+        else:
+            df = pd.DataFrame()
+    except Exception:
+        df = pd.DataFrame()
+    if not df.empty:
+        # Build per-game cards
+        for _, r in df.iterrows():
+            home = str(r.get("home") or "")
+            away = str(r.get("away") or "")
+            total_line = r.get("total_line_used")
+            model_total = r.get("model_total")
+            p_home_ml = r.get("p_home_ml")
+            p_away_ml = r.get("p_away_ml")
+            p_over = r.get("p_over")
+            p_under = r.get("p_under")
+            proj_home = r.get("proj_home_goals")
+            proj_away = r.get("proj_away_goals")
+            # EVs if present
+            ev_home_ml = r.get("ev_home_ml") if "ev_home_ml" in df.columns else None
+            ev_away_ml = r.get("ev_away_ml") if "ev_away_ml" in df.columns else None
+            # Team assets
+            assets_home = get_team_assets(home)
+            assets_away = get_team_assets(away)
+            games.append({
+                "date": str(r.get("date_et") or date),
+                "home": home,
+                "away": away,
+                "home_logo": assets_home.get("logo") if isinstance(assets_home, dict) else None,
+                "away_logo": assets_away.get("logo") if isinstance(assets_away, dict) else None,
+                "proj_home_goals": float(proj_home) if pd.notna(proj_home) else None,
+                "proj_away_goals": float(proj_away) if pd.notna(proj_away) else None,
+                "p_home_ml": float(p_home_ml) if pd.notna(p_home_ml) else None,
+                "p_away_ml": float(p_away_ml) if pd.notna(p_away_ml) else None,
+                "total_line": float(total_line) if pd.notna(total_line) else None,
+                "model_total": float(model_total) if pd.notna(model_total) else None,
+                "p_over": float(p_over) if pd.notna(p_over) else None,
+                "p_under": float(p_under) if pd.notna(p_under) else None,
+                "ev_home_ml": float(ev_home_ml) if (ev_home_ml is not None and pd.notna(ev_home_ml)) else None,
+                "ev_away_ml": float(ev_away_ml) if (ev_away_ml is not None and pd.notna(ev_away_ml)) else None,
+            })
+    template = env.get_template("props_teams.html")
+    html = template.render(date=date, games=games)
+    return HTMLResponse(content=html)
+
+@app.get("/props/players")
+async def props_players_page(
+    market: Optional[str] = Query(None, description="Filter by market: SOG, SAVES, GOALS, ASSISTS, POINTS"),
     min_ev: float = Query(0.0, description="Minimum EV threshold for ev_over"),
     top: int = Query(50, description="Top N to display"),
 ):
-    # Reuse API logic
+    """Player props table (moved from /props)."""
     resp = await api_props(market=market, min_ev=min_ev, top=top)
     rows = []
     if isinstance(resp, JSONResponse):
         try:
             import json as _json
             data = _json.loads(resp.body)
-            # Ensure list payload; if dict (e.g., error), render as empty
             rows = data if isinstance(data, list) else []
         except Exception:
             rows = []
-    template = env.get_template("props.html")
+    template = env.get_template("props_players.html")
     html = template.render(rows=rows, market=market or "All", min_ev=min_ev, top=top)
     return HTMLResponse(content=html)
 

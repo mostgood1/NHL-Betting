@@ -1,25 +1,25 @@
-date,home,away,market,ev
-2025-10-08T23:00:00Z,Toronto Maple Leafs,Montréal Canadiens,ev_home_pl_-1.5,0.5868
-2025-10-08T23:30:00Z,Washington Capitals,Boston Bruins,ev_away_ml,0.4373
-2025-10-09T02:00:00Z,Edmonton Oilers,Calgary Flames,ev_home_pl_-1.5,0.3766
-2025-10-08T23:00:00Z,Toronto Maple Leafs,Montréal Canadiens,ev_home_ml,0.2822
-2025-10-08T23:30:00Z,Washington Capitals,Boston Bruins,ev_away_pl_+1.5,0.259
-2025-10-09T02:00:00Z,Edmonton Oilers,Calgary Flames,ev_home_ml,0.1103
-2025-10-08T23:00:00Z,Toronto Maple Leafs,Montréal Canadiens,ev_under,0.0047
-2025-10-09T02:00:00Z,Vegas Golden Knights,Los Angeles Kings,ev_away_ml,0.001
-2025-10-09T02:00:00Z,Vegas Golden Knights,Los Angeles Kings,ev_under,-0.0182
-2025-10-08T23:30:00Z,Washington Capitals,Boston Bruins,ev_over,-0.03
-2025-10-09T02:00:00Z,Vegas Golden Knights,Los Angeles Kings,ev_home_pl_-1.5,-0.0342
-2025-10-09T02:00:00Z,Vegas Golden Knights,Los Angeles Kings,ev_away_pl_+1.5,-0.0429
-2025-10-09T02:00:00Z,Edmonton Oilers,Calgary Flames,ev_over,-0.0506
-2025-10-09T02:00:00Z,Edmonton Oilers,Calgary Flames,ev_under,-0.0526
-2025-10-09T02:00:00Z,Vegas Golden Knights,Los Angeles Kings,ev_home_ml,-0.0546
-2025-10-08T23:30:00Z,Washington Capitals,Boston Bruins,ev_under,-0.0624
-2025-10-09T02:00:00Z,Vegas Golden Knights,Los Angeles Kings,ev_over,-0.0694
-2025-10-08T23:00:00Z,Toronto Maple Leafs,Montréal Canadiens,ev_over,-0.091
-2025-10-08T23:30:00Z,Washington Capitals,Boston Bruins,ev_home_ml,-0.3021
-2025-10-09T02:00:00Z,Edmonton Oilers,Calgary Flames,ev_away_ml,-0.3372
-2025-10-09T02:00:00Z,Edmonton Oilers,Calgary Flames,ev_away_pl_+1.5,-0.3739
-2025-10-08T23:00:00Z,Toronto Maple Leafs,Montréal Canadiens,ev_away_pl_+1.5,-0.3861
-2025-10-08T23:30:00Z,Washington Capitals,Boston Bruins,ev_home_pl_-1.5,-0.4531
-2025-10-08T23:00:00Z,Toronto Maple Leafs,Montréal Canadiens,ev_away_ml,-0.4622
+date,home,away,market,ev
+2025-10-08T23:00:00Z,Toronto Maple Leafs,Montréal Canadiens,ev_home_pl_-1.5,0.4012
+2025-10-08T23:00:00Z,Toronto Maple Leafs,Montréal Canadiens,ev_home_ml,0.2376
+2025-10-09T02:00:00Z,Vegas Golden Knights,Los Angeles Kings,ev_over,0.1879
+2025-10-08T23:00:00Z,Toronto Maple Leafs,Montréal Canadiens,ev_over,0.1579
+2025-10-08T23:30:00Z,Washington Capitals,Boston Bruins,ev_over,0.1405
+2025-10-08T23:30:00Z,Washington Capitals,Boston Bruins,ev_away_ml,0.1016
+2025-10-09T02:00:00Z,Edmonton Oilers,Calgary Flames,ev_over,0.0963
+2025-10-09T02:00:00Z,Vegas Golden Knights,Los Angeles Kings,ev_away_ml,0.0755
+2025-10-09T02:00:00Z,Edmonton Oilers,Calgary Flames,ev_home_pl_-1.5,0.0745
+2025-10-09T02:00:00Z,Vegas Golden Knights,Los Angeles Kings,ev_away_pl_+1.5,0.0728
+2025-10-08T23:30:00Z,Washington Capitals,Boston Bruins,ev_away_pl_+1.5,0.0633
+2025-10-09T02:00:00Z,Edmonton Oilers,Calgary Flames,ev_home_ml,0.048
+2025-10-09T02:00:00Z,Vegas Golden Knights,Los Angeles Kings,ev_home_ml,-0.1108
+2025-10-08T23:30:00Z,Washington Capitals,Boston Bruins,ev_home_ml,-0.125
+2025-10-09T02:00:00Z,Edmonton Oilers,Calgary Flames,ev_away_pl_+1.5,-0.1333
+2025-10-08T23:30:00Z,Washington Capitals,Boston Bruins,ev_home_pl_-1.5,-0.1926
+2025-10-09T02:00:00Z,Vegas Golden Knights,Los Angeles Kings,ev_home_pl_-1.5,-0.1941
+2025-10-09T02:00:00Z,Edmonton Oilers,Calgary Flames,ev_under,-0.2213
+2025-10-09T02:00:00Z,Edmonton Oilers,Calgary Flames,ev_away_ml,-0.2269
+2025-10-08T23:30:00Z,Washington Capitals,Boston Bruins,ev_under,-0.2317
+2025-10-08T23:00:00Z,Toronto Maple Leafs,Montréal Canadiens,ev_under,-0.2938
+2025-10-08T23:00:00Z,Toronto Maple Leafs,Montréal Canadiens,ev_away_pl_+1.5,-0.2988
+2025-10-09T02:00:00Z,Vegas Golden Knights,Los Angeles Kings,ev_under,-0.3104
+2025-10-08T23:00:00Z,Toronto Maple Leafs,Montréal Canadiens,ev_away_ml,-0.441

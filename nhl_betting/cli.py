@@ -1297,19 +1297,40 @@ def props_build_dataset(
         print("No props lines found in the given range.")
         raise typer.Exit(code=1)
     lines_df = pd.concat(lines, ignore_index=True)
-    # Ensure player stats exist over the range
-    try:
-        collect_player_game_stats(start, end, source="stats")
-    except Exception:
-        pass
+    # Ensure player stats exist for only the dates present in lines (avoid scanning whole season)
     stats_path = RAW_DIR / "player_game_stats.csv"
-    if not stats_path.exists():
-        print("player_game_stats.csv missing; run collect_props first.")
-        raise typer.Exit(code=1)
-    stats = pd.read_csv(stats_path)
+    needed_dates = sorted(list(set(pd.to_datetime(lines_df["date"], errors="coerce").dt.strftime("%Y-%m-%d").dropna().tolist())))
+    have_dates: set[str] = set()
+    if stats_path.exists():
+        try:
+            _cur = pd.read_csv(stats_path)
+            if not _cur.empty:
+                have_dates = set(pd.to_datetime(_cur.get("date"), errors="coerce").dt.strftime("%Y-%m-%d").dropna().tolist())
+        except Exception:
+            have_dates = set()
+    missing_dates = [d for d in needed_dates if d not in have_dates]
+    if missing_dates:
+        # Collect only missing span using faster NHL Web API first, fallback to Stats API
+        try:
+            d0, d1 = missing_dates[0], missing_dates[-1]
+            collect_player_game_stats(d0, d1, source="web")
+        except Exception:
+            try:
+                collect_player_game_stats(missing_dates[0], missing_dates[-1], source="stats")
+            except Exception as e:
+                print(f"player_game_stats collection failed for {missing_dates[0]}..{missing_dates[-1]}: {e}")
+    # Load what we have; proceed even if partial to avoid blocking daily run
+    if stats_path.exists():
+        try:
+            stats = pd.read_csv(stats_path)
+        except Exception:
+            stats = pd.DataFrame()
+    else:
+        stats = pd.DataFrame()
     # Filter stats to date window and build per-player per-date outcome columns
     stats["date_key"] = pd.to_datetime(stats["date"], errors="coerce").dt.strftime("%Y-%m-%d")
-    stats = stats[(stats["date_key"] >= start) & (stats["date_key"] <= end)]
+    if not stats.empty:
+        stats = stats[(stats["date_key"] >= start) & (stats["date_key"] <= end)]
     # Keep relevant columns
     keep = ["date_key","player","shots","goals","assists","saves","blocked"]
     stats_small = stats[keep].copy()

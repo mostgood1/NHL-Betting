@@ -738,7 +738,6 @@ def run(days_ahead: int = 2, years_back: int = 2, reconcile_yesterday: bool = Tr
         # Rebuild/refresh modeling dataset on a rolling window (Sep 1 of last season to today)
         try:
             today_et = _today_et().date()
-            # Choose window starting Sep 1 of (current year - 1)
             season_start_year = today_et.year - 1
             start = f"{season_start_year}-09-01"
             end = today_et.strftime("%Y-%m-%d")
@@ -752,9 +751,10 @@ def run(days_ahead: int = 2, years_back: int = 2, reconcile_yesterday: bool = Tr
                     raise RuntimeError('Unsupported command object for props build dataset')
             from nhl_betting.utils.io import RAW_DIR
             out_csv = str((RAW_DIR.parent / "props" / "props_modeling_dataset.csv").resolve())
+            _vprint(verbose, f"[run] Building props modeling dataset {start}..{end}…")
             _call_typer_or_func(_props_build_dataset, start=start, end=end, output_csv=out_csv)
         except Exception as e:
-            _vprint(verbose, f"[run] props dataset build skipped/failed: {e}")
+            _vprint(verbose, f"[run] props dataset build skipped quickly due to error: {e}")
         # Precompute props recommendations for ET today (+1 day) to speed up web UI
         try:
             from nhl_betting.cli import props_recommendations as _props_recs

@@ -2454,7 +2454,8 @@ async def api_props_recommendations(
     df = None
     if rec_path.exists():
         try:
-            df = pd.read_csv(rec_path)
+            # Robust read to handle encoding/empty quirks consistently
+            df = _read_csv_fallback(rec_path)
         except Exception:
             df = None
     if (df is None or df.empty) and (not read_only_ui):
@@ -2580,13 +2581,8 @@ async def api_props_recommendations(
             df = df.head(top)
     except Exception:
         pass
-    # Serialize safely: replace Inf/NaN and return a proper JSONResponse with standard-compliant values
-    if df is None or df.empty:
-        rows = []
-    else:
-        _df = df.replace([np.inf, -np.inf], np.nan)
-        # Convert NaN -> None for JSON compliance
-        rows = _df.where(pd.notnull(_df), None).to_dict(orient='records')
+    # Serialize safely using shared helper to avoid numpy/NaN/Inf issues
+    rows = [] if (df is None or df.empty) else _df_jsonsafe_records(df)
     return JSONResponse({"date": str(date), "data": rows})
 
 

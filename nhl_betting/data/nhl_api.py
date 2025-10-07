@@ -37,7 +37,8 @@ class NHLClient:
             for base in BASES:
                 try:
                     time.sleep(self.sleep)
-                    r = requests.get(f"{base}{path}", params=params, timeout=30)
+                    # Use shorter per-request timeout to avoid long stalls
+                    r = requests.get(f"{base}{path}", params=params, timeout=10)
                     r.raise_for_status()
                     return r.json()
                 except Exception as e:
@@ -45,7 +46,7 @@ class NHLClient:
                     # try next base or backoff then retry
                     continue
             # simple backoff after cycling bases
-            time.sleep(self.sleep * (2 ** attempt))
+            time.sleep(min(5.0, self.sleep * (2 ** attempt)))
         if last_exc:
             raise last_exc
         raise RuntimeError("Unknown request error")

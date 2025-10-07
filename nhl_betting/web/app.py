@@ -25,6 +25,7 @@ import asyncio
 from ..data.bovada import BovadaClient
 import base64
 import requests
+from io import StringIO
 
 # App and templating setup
 BASE_DIR = Path(__file__).resolve().parent
@@ -42,6 +43,29 @@ try:
 except Exception:
     # Mounting static is best-effort (e.g., path may not exist in some deploys)
     pass
+
+
+def _github_raw_read_csv(rel_path: str) -> pd.DataFrame:
+    """Fetch a CSV from the GitHub repo's raw content and return as DataFrame.
+
+    rel_path should be a posix-style path like 'data/processed/props_projections_YYYY-MM-DD.csv'.
+    Uses env GITHUB_REPO and GITHUB_BRANCH (defaults to mostgood1/NHL-Betting@master).
+    """
+    try:
+        repo = os.getenv("GITHUB_REPO", "mostgood1/NHL-Betting").strip() or "mostgood1/NHL-Betting"
+        branch = os.getenv("GITHUB_BRANCH", "master").strip() or "master"
+        # Normalize leading slashes
+        rel = rel_path.lstrip("/")
+        url = f"https://raw.githubusercontent.com/{repo}/{branch}/{rel}"
+        resp = requests.get(url, timeout=10)
+        if resp.status_code == 200 and resp.text:
+            try:
+                return pd.read_csv(StringIO(resp.text))
+            except Exception:
+                return pd.DataFrame()
+        return pd.DataFrame()
+    except Exception:
+        return pd.DataFrame()
 
 
 def _compute_props_projections(date: str, market: Optional[str] = None) -> pd.DataFrame:
@@ -2936,6 +2960,12 @@ async def api_props_projections(
             df = _read_csv_fallback(cache)
         except Exception:
             df = None
+    if (df is None) or (df is not None and df.empty):
+        # Try GitHub raw fallback (read-only env)
+        try:
+            df = _github_raw_read_csv(f"data/processed/props_projections_{d}.csv")
+        except Exception:
+            df = df
     if df is None:
         # Compute quickly and do not write (UI may be in read-only mode)
         try:
@@ -3140,7 +3170,12 @@ async def props_page(
             except Exception:
                 df = None
         if df is None or df.empty:
-            df = _compute_props_projections(date, market=None)  # compute all, filter below
+            # Try GitHub raw first
+            gh_df = _github_raw_read_csv(f"data/processed/props_projections_{date}.csv")
+            if gh_df is not None and not gh_df.empty:
+                df = gh_df
+            else:
+                df = _compute_props_projections(date, market=None)  # compute all, filter below
         if df is not None and not df.empty:
             # Team options before filters
             try:
@@ -3202,7 +3237,7 @@ async def props_page(
                 df = df.head(int(top))
             rows = _df_jsonsafe_records(df)
         else:
-            # Fallback: try latest available projections CSV in processed if today's is missing/empty
+            # Fallback: try latest available projections CSV in processed or via GitHub if today's is missing/empty
             import re
             latest_csv = None
             latest_date = None
@@ -3217,6 +3252,7 @@ async def props_page(
                         latest_csv = p
             except Exception:
                 latest_csv = None
+            # If none locally, try GitHub to discover the latest by name heuristic (simple pass for now: try today's only)
             if latest_csv is not None and latest_date and latest_date != date:
                 try:
                     df = _read_csv_fallback(latest_csv)
@@ -3279,7 +3315,69 @@ async def props_page(
                 except Exception:
                     rows = []
             else:
-                rows = []
+                # As a last resort, try GitHub for today's again (in case local glob had no files)
+                try:
+                    gh_df2 = _github_raw_read_csv(f"data/processed/props_projections_{date}.csv")
+                    if gh_df2 is not None and not gh_df2.empty:
+                        df = gh_df2
+                        used_date = date
+                        notice = f"Loaded projections from GitHub cache for {date}."
+                        # Re-run filters/sort/trim
+                        if df is not None and not df.empty:
+                            try:
+                                if 'team' in df.columns:
+                                    teams_options = sorted({str(x).upper() for x in df['team'].dropna().unique().tolist() if str(x).strip()})
+                            except Exception:
+                                pass
+                            if market and 'market' in df.columns:
+                                df = df[df['market'].astype(str).str.upper() == market.upper()]
+                            if sel_team and 'team' in df.columns:
+                                su = sel_team.upper()
+                                df = df[df['team'].astype(str).str.upper() == su]
+                            if 'ev_over' in df.columns and min_ev is not None:
+                                try:
+                                    df['ev_over'] = pd.to_numeric(df['ev_over'], errors='coerce')
+                                    df = df[df['ev_over'] >= float(min_ev)]
+                                except Exception:
+                                    pass
+                            key = (sort or 'ev_desc').lower()
+                            ascending = False
+                            col = None
+                            if key in ('ev_desc','ev_asc'):
+                                col = 'ev_over'; ascending = (key == 'ev_asc')
+                            elif key in ('p_over_desc','p_over_asc'):
+                                col = 'p_over'; ascending = (key == 'p_over_asc')
+                            elif key in ('lambda_desc','lambda_asc'):
+                                col = 'proj_lambda'; ascending = (key == 'lambda_asc')
+                            elif key == 'name':
+                                col = 'player'; ascending = True
+                            elif key == 'team':
+                                col = 'team'; ascending = True
+                            elif key == 'market':
+                                col = 'market'; ascending = True
+                            elif key == 'line':
+                                try:
+                                    df['line'] = pd.to_numeric(df['line'], errors='coerce')
+                                except Exception:
+                                    pass
+                                col = 'line'; ascending = True
+                            elif key == 'book':
+                                col = 'book'; ascending = True
+                            if col and col in df.columns:
+                                try:
+                                    df = df.sort_values(by=[col], ascending=ascending, na_position='last')
+                                except Exception:
+                                    pass
+                            else:
+                                try:
+                                    df = df.sort_values(by=['ev_over','p_over'], ascending=[False, False], na_position='last')
+                                except Exception:
+                                    pass
+                            if top and top > 0:
+                                df = df.head(int(top))
+                            rows = _df_jsonsafe_records(df)
+                except Exception:
+                    rows = []
     except Exception:
         rows = []
         teams_options = []

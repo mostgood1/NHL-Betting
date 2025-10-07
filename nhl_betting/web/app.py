@@ -2582,8 +2582,14 @@ async def api_props_recommendations(
     except Exception:
         pass
     # Serialize safely using shared helper to avoid numpy/NaN/Inf issues
-    rows = [] if (df is None or df.empty) else _df_jsonsafe_records(df)
-    return JSONResponse({"date": str(date), "data": rows})
+    try:
+        rows = [] if (df is None or df.empty) else _df_jsonsafe_records(df)
+        import json as _json
+        body = _json.dumps({"date": str(date), "data": rows}, allow_nan=False)
+        return Response(content=body, media_type="application/json")
+    except Exception as e:
+        # As a last resort, return a structured error without raising 500
+        return JSONResponse({"date": str(date), "error": str(e), "data": []}, status_code=200)
 
 
 @app.get("/api/player-props-reconciliation")

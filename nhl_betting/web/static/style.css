@@ -68,6 +68,10 @@ header .last-updated { margin-left: auto; color: #9fb0ff; font-size: 12px; opaci
 .team-logo { height: 36px; vertical-align: middle; margin-right: 8px; }
 .book-badge { background: #243056; color: #cfe0ff; padding: 0 4px; border-radius: 6px; font-size: 9px; font-weight: 700; opacity: 0.9; }
 
+/* Utilities */
+.push-right { margin-left: auto; }
+.avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
+
 /* Recommendations reconciliation block */
 .recon-block { margin-top: 8px; }
 

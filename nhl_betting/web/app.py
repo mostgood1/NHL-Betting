@@ -610,6 +610,49 @@ def _json_sanitize(obj):
     except Exception:
         return obj
 
+def _df_hard_json_clean(df: pd.DataFrame) -> pd.DataFrame:
+    """Elementwise clean a DataFrame: replace NaN/Inf with None and coerce numpy scalars.
+
+    This is defensive for sources like Parquet that may carry exotic dtypes.
+    """
+    import math as _math
+    import numpy as _np
+    import datetime as _dt
+    def _c(v):
+        try:
+            if v is None:
+                return None
+            if isinstance(v, float):
+                return v if _math.isfinite(v) else None
+            if isinstance(v, (_np.floating,)):
+                fv = float(v); return fv if _math.isfinite(fv) else None
+            if isinstance(v, (_np.integer,)):
+                return int(v)
+            if isinstance(v, (pd.Timestamp, _dt.datetime, _dt.date)):
+                try:
+                    return v.date().isoformat() if isinstance(v, pd.Timestamp) else v.isoformat()
+                except Exception:
+                    return str(v)
+            # Pandas NA
+            try:
+                if pd.isna(v):
+                    return None
+            except Exception:
+                pass
+            return v
+        except Exception:
+            return v
+    try:
+        return df.applymap(_c)
+    except Exception:
+        # Fallback per-column map
+        for c in df.columns:
+            try:
+                df[c] = df[c].map(_c)
+            except Exception:
+                pass
+        return df
+
 
 @app.get("/health")
 def health():
@@ -2373,7 +2416,9 @@ async def api_player_props(
             df = df[df["market"].astype(str).str.upper() == market.upper()]
         # Lightweight response
         keep = [c for c in ["date","player_name","player_id","team","market","line","over_price","under_price","book","is_current"] if c in df.columns]
-        out = _df_jsonsafe_records(df[keep].rename(columns={"player_name":"player"}))
+        df_out = df[keep].rename(columns={"player_name":"player"})
+        df_out = _df_hard_json_clean(df_out)
+        out = _df_jsonsafe_records(df_out)
         # Extra belt-and-suspenders: sanitize the output recursively
         safe_payload = _json_sanitize({"date": date, "data": out})
         return JSONResponse(safe_payload)

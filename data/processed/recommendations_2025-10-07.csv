@@ -1,5 +1,5 @@
 date,home,away,market,bet,price,model_prob,ev,edge,book,result
-2025-10-08T02:30:00Z,Los Angeles Kings,Colorado Avalanche,moneyline,home_ml,100.0,0.8206923362994041,0.6414,0.3424,bovada,
+2025-10-08T02:30:00Z,Los Angeles Kings,Colorado Avalanche,moneyline,home_ml,-103.0,0.8206923362994041,0.6175,0.3359,bovada,
 2025-10-08T00:00:00Z,New York Rangers,Pittsburgh Penguins,moneyline,away_ml,185.0,0.5362469698745999,0.5283,0.1999,bovada,
 2025-10-07T21:00:00Z,Florida Panthers,Chicago Blackhawks,puckline,home_pl_-1.5,-105.0,0.6846337563961684,0.3367,0.1955,bovada,
 2025-10-08T00:00:00Z,New York Rangers,Pittsburgh Penguins,puckline,away_pl_+1.5,-138.0,0.7656601823381635,0.3205,0.2085,bovada,

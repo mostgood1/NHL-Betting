@@ -506,12 +506,63 @@ def _gh_upsert_file_if_configured(path: Path, message: str) -> dict:
 
 
 def _df_jsonsafe_records(df: pd.DataFrame) -> list[dict]:
-    """Convert a DataFrame to JSON-safe list of dicts by replacing Inf with NaN and NaN with None."""
+    """Convert a DataFrame to JSON-safe list of dicts.
+
+    - Replace +/-Inf with NaN
+    - Convert NaN to None
+    - Coerce datetime-like values to ISO date strings (YYYY-MM-DD)
+    - Coerce pandas/NumPy scalars to native Python types
+    """
     try:
         if df is None or df.empty:
             return []
-        _df = df.replace([np.inf, -np.inf], np.nan)
-        return _df.where(pd.notnull(_df), None).to_dict(orient="records")
+        _df = df.replace([np.inf, -np.inf], np.nan).copy()
+        # Normalize datetime-like columns to YYYY-MM-DD strings
+        try:
+            dt_cols = list(_df.select_dtypes(include=["datetime64[ns]", "datetime64[ns, tz]"]).columns)
+        except Exception:
+            dt_cols = []
+        for c in dt_cols:
+            try:
+                _df[c] = pd.to_datetime(_df[c], errors="coerce").dt.strftime("%Y-%m-%d")
+            except Exception:
+                # Fallback: cast to string
+                try:
+                    _df[c] = _df[c].astype(str)
+                except Exception:
+                    pass
+        # Handle object dtype cells that may contain Timestamp
+        try:
+            import datetime as _dt
+            def _coerce(v):
+                if v is None or (isinstance(v, float) and pd.isna(v)):
+                    return None
+                try:
+                    if isinstance(v, (pd.Timestamp, _dt.datetime, _dt.date)):
+                        # Format dates as YYYY-MM-DD
+                        return (v.date().isoformat() if isinstance(v, pd.Timestamp) else v.isoformat())
+                except Exception:
+                    pass
+                # Convert NumPy scalars to Python types
+                try:
+                    import numpy as _np
+                    if isinstance(v, (_np.integer,)):
+                        return int(v)
+                    if isinstance(v, (_np.floating,)):
+                        return float(v)
+                except Exception:
+                    pass
+                return v
+            for c in _df.columns:
+                if _df[c].dtype == object:
+                    try:
+                        _df[c] = _df[c].map(_coerce)
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+        _df = _df.where(pd.notnull(_df), None)
+        return _df.to_dict(orient="records")
     except Exception:
         try:
             return df.fillna(value=None).to_dict(orient="records")

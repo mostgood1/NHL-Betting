@@ -26,14 +26,125 @@ from ..data.bovada import BovadaClient
 import base64
 import requests
 
+# App and templating setup
 BASE_DIR = Path(__file__).resolve().parent
-TEMPLATES_DIR = BASE_DIR / "templates"
+TEMPLATE_DIR = BASE_DIR / "templates"
 STATIC_DIR = BASE_DIR / "static"
 
-app = FastAPI(title="NHL Betting")
-app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+env = Environment(
+    loader=FileSystemLoader(str(TEMPLATE_DIR)),
+    autoescape=select_autoescape(["html", "xml"]),
+)
 
-env = Environment(loader=FileSystemLoader(str(TEMPLATES_DIR)), autoescape=select_autoescape(["html"]))
+app = FastAPI()
+try:
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+except Exception:
+    # Mounting static is best-effort (e.g., path may not exist in some deploys)
+    pass
+
+
+def _compute_props_projections(date: str, market: Optional[str] = None) -> pd.DataFrame:
+    """Build player props projections using canonical lines and simple Poisson-based models.
+
+    Returns DataFrame with columns:
+    [market, player, team, line, over_price, under_price, proj_lambda, p_over, ev_over, book]
+    Sorted by ev_over desc then p_over desc.
+    """
+    try:
+        base = PROC_DIR.parent / "props" / f"player_props_lines/date={date}"
+        parts = []
+        for name in ("bovada.parquet", "oddsapi.parquet"):
+            p = base / name
+            if p.exists():
+                try:
+                    parts.append(pd.read_parquet(p))
+                except Exception:
+                    pass
+        lines = pd.concat(parts, ignore_index=True) if parts else pd.DataFrame()
+    except Exception:
+        lines = pd.DataFrame()
+    if lines is None or lines.empty:
+        return pd.DataFrame()
+    if market:
+        try:
+            lines = lines[lines["market"].astype(str).str.upper() == str(market).upper()]
+        except Exception:
+            pass
+    # Historical per-player stats for lambda estimation
+    try:
+        stats_path = RAW_DIR / "player_game_stats.csv"
+        hist = pd.read_csv(stats_path) if stats_path.exists() else pd.DataFrame()
+    except Exception:
+        hist = pd.DataFrame()
+    from ..models.props import (
+        SkaterShotsModel, GoalieSavesModel, SkaterGoalsModel,
+        SkaterAssistsModel, SkaterPointsModel, SkaterBlocksModel,
+    )
+    shots = SkaterShotsModel(); saves = GoalieSavesModel(); goals = SkaterGoalsModel()
+    assists = SkaterAssistsModel(); points = SkaterPointsModel(); blocks = SkaterBlocksModel()
+    def proj_prob(m, player, ln):
+        m = (m or '').upper()
+        if m == 'SOG':
+            lam = shots.player_lambda(hist, player); return lam, shots.prob_over(lam, ln)
+        if m == 'SAVES':
+            lam = saves.player_lambda(hist, player); return lam, saves.prob_over(lam, ln)
+        if m == 'GOALS':
+            lam = goals.player_lambda(hist, player); return lam, goals.prob_over(lam, ln)
+        if m == 'ASSISTS':
+            lam = assists.player_lambda(hist, player); return lam, assists.prob_over(lam, ln)
+        if m == 'POINTS':
+            lam = points.player_lambda(hist, player); return lam, points.prob_over(lam, ln)
+        if m == 'BLOCKS':
+            lam = blocks.player_lambda(hist, player); return lam, blocks.prob_over(lam, ln)
+        return None, None
+    def _dec(a):
+        try:
+            a = float(a); return 1.0 + (a/100.0) if a > 0 else 1.0 + (100.0/abs(a))
+        except Exception:
+            return None
+    out = []
+    for _, r in lines.iterrows():
+        player = r.get('player_name') or r.get('player')
+        if not player:
+            continue
+        m = str(r.get('market') or '').upper()
+        try:
+            ln = float(r.get('line'))
+        except Exception:
+            ln = None
+        lam, p_over = (None, None)
+        if (ln is not None):
+            lam, p_over = proj_prob(m, str(player), ln)
+        over_price = r.get('over_price') if pd.notna(r.get('over_price')) else None
+        ev_over = None
+        if (p_over is not None) and (over_price is not None):
+            dec = _dec(over_price)
+            if dec is not None:
+                ev_over = float(p_over) * (dec - 1.0) - (1.0 - float(p_over))
+        out.append({
+            'market': m,
+            'player': player,
+            'team': r.get('team') or None,
+            'line': ln,
+            'over_price': over_price,
+            'under_price': r.get('under_price') if pd.notna(r.get('under_price')) else None,
+            'proj_lambda': float(lam) if lam is not None else None,
+            'p_over': float(p_over) if p_over is not None else None,
+            'ev_over': float(ev_over) if ev_over is not None else None,
+            'book': r.get('book'),
+        })
+    df = pd.DataFrame(out)
+    if not df.empty:
+        try:
+            if 'ev_over' in df.columns and df['ev_over'].notna().any():
+                df = df.sort_values('ev_over', ascending=False)
+            elif 'p_over' in df.columns and df['p_over'].notna().any():
+                df = df.sort_values('p_over', ascending=False)
+        except Exception:
+            pass
+    return df
+    
 
 
 def _today_ymd() -> str:
@@ -2726,6 +2837,78 @@ async def api_cron_props_collect(
         return JSONResponse({"ok": False, "error": str(e), "date": d}, status_code=500)
 
 
+@app.post("/api/cron/props-projections")
+async def api_cron_props_projections(
+    token: Optional[str] = Query(None, description="Bearer token; must match REFRESH_CRON_TOKEN env var"),
+    date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD; defaults to ET today"),
+    market: Optional[str] = Query(None, description="Optional market filter: SOG,SAVES,GOALS,ASSISTS,POINTS,BLOCKS"),
+    top: int = Query(0, description="If >0 keep top N rows by EV/P(Over) before writing"),
+    authorization: Optional[str] = Header(None, description="Authorization: Bearer <token> header (optional alternative")
+):
+    """Secure endpoint to compute and persist props projections CSV for a date.
+
+    Writes data/processed/props_projections_{date}.csv and upserts to GitHub.
+    """
+    secret = os.getenv("REFRESH_CRON_TOKEN", "")
+    supplied = (token or "").strip()
+    if (not supplied) and authorization:
+        try:
+            auth = str(authorization)
+            if auth.lower().startswith("bearer "):
+                supplied = auth.split(" ", 1)[1].strip()
+        except Exception:
+            supplied = supplied
+    if not (secret and supplied and _const_time_eq(supplied, secret)):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    d = _normalize_date_param(date)
+    try:
+        df = _compute_props_projections(d, market=market)
+        if not df.empty and top and top > 0:
+            df = df.head(int(top))
+        out_path = PROC_DIR / f"props_projections_{d}.csv"
+        save_df(df, out_path)
+        try:
+            _gh_upsert_file_if_configured(out_path, f"web: update props projections for {d}")
+        except Exception:
+            pass
+        return JSONResponse({"ok": True, "date": d, "rows": 0 if df is None or df.empty else int(len(df)), "path": str(out_path)})
+    except Exception as e:
+        return JSONResponse({"ok": False, "date": d, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/props/projections")
+async def api_props_projections(
+    date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD (ET)"),
+    market: Optional[str] = Query(None, description="SOG,SAVES,GOALS,ASSISTS,POINTS,BLOCKS"),
+    top: int = Query(0, description="If >0, return top N rows"),
+):
+    """Serve props projections for a given date from cached CSV if present; compute on-the-fly otherwise.
+
+    The cached file is props_projections_{date}.csv under data/processed.
+    """
+    d = _normalize_date_param(date)
+    cache = PROC_DIR / f"props_projections_{d}.csv"
+    df = None
+    if cache.exists():
+        try:
+            df = _read_csv_fallback(cache)
+        except Exception:
+            df = None
+    if df is None:
+        # Compute quickly and do not write (UI may be in read-only mode)
+        try:
+            df = _compute_props_projections(d, market=market)
+        except Exception:
+            df = pd.DataFrame()
+    if df is None or df.empty:
+        return JSONResponse({"date": d, "data": []})
+    if market and 'market' in df.columns:
+        df = df[df['market'].astype(str).str.upper() == market.upper()]
+    if top and top > 0:
+        df = df.head(int(top))
+    return JSONResponse({"date": d, "data": _df_jsonsafe_records(df)})
+
+
 @app.post("/api/cron/props-recommendations")
 async def api_cron_props_recommendations(
     token: Optional[str] = Query(None, description="Bearer token; must match REFRESH_CRON_TOKEN env var"),
@@ -2890,60 +3073,35 @@ async def api_last_updated(date: Optional[str] = Query(None)):
 @app.get("/props")
 async def props_page(
     date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD (ET)"),
+    market: Optional[str] = Query(None, description="SOG,SAVES,GOALS,ASSISTS,POINTS,BLOCKS"),
+    top: int = Query(500, description="Max rows to display"),
 ):
-    """Team-level projections for the slate: shows projected goals and win probabilities per team.
-
-    Mirrors the NFL site's /props, presenting per-game team projections instead of player props.
-    """
+    """Player props grid for the slate, computed from canonical lines and internal models."""
     date = date or _today_ymd()
-    # Load predictions for date
-    path = PROC_DIR / f"predictions_{date}.csv"
-    games = []
+    rows: list[dict] = []
     try:
-        if path.exists():
-            df = _read_csv_fallback(path)
+        cache = PROC_DIR / f"props_projections_{date}.csv"
+        df = None
+        if cache.exists():
+            try:
+                df = _read_csv_fallback(cache)
+            except Exception:
+                df = None
+        if df is None or df.empty:
+            df = _compute_props_projections(date, market=market)
+        if df is not None and not df.empty:
+            if market and 'market' in df.columns:
+                df = df[df['market'].astype(str).str.upper() == market.upper()]
+            # Already sorted by ev_over/p_over in the helper, just trim if needed
+            if top and top > 0:
+                df = df.head(top)
+            rows = _df_jsonsafe_records(df)
         else:
-            df = pd.DataFrame()
+            rows = []
     except Exception:
-        df = pd.DataFrame()
-    if not df.empty:
-        # Build per-game cards
-        for _, r in df.iterrows():
-            home = str(r.get("home") or "")
-            away = str(r.get("away") or "")
-            total_line = r.get("total_line_used")
-            model_total = r.get("model_total")
-            p_home_ml = r.get("p_home_ml")
-            p_away_ml = r.get("p_away_ml")
-            p_over = r.get("p_over")
-            p_under = r.get("p_under")
-            proj_home = r.get("proj_home_goals")
-            proj_away = r.get("proj_away_goals")
-            # EVs if present
-            ev_home_ml = r.get("ev_home_ml") if "ev_home_ml" in df.columns else None
-            ev_away_ml = r.get("ev_away_ml") if "ev_away_ml" in df.columns else None
-            # Team assets
-            assets_home = get_team_assets(home)
-            assets_away = get_team_assets(away)
-            games.append({
-                "date": str(r.get("date_et") or date),
-                "home": home,
-                "away": away,
-                "home_logo": assets_home.get("logo") if isinstance(assets_home, dict) else None,
-                "away_logo": assets_away.get("logo") if isinstance(assets_away, dict) else None,
-                "proj_home_goals": float(proj_home) if pd.notna(proj_home) else None,
-                "proj_away_goals": float(proj_away) if pd.notna(proj_away) else None,
-                "p_home_ml": float(p_home_ml) if pd.notna(p_home_ml) else None,
-                "p_away_ml": float(p_away_ml) if pd.notna(p_away_ml) else None,
-                "total_line": float(total_line) if pd.notna(total_line) else None,
-                "model_total": float(model_total) if pd.notna(model_total) else None,
-                "p_over": float(p_over) if pd.notna(p_over) else None,
-                "p_under": float(p_under) if pd.notna(p_under) else None,
-                "ev_home_ml": float(ev_home_ml) if (ev_home_ml is not None and pd.notna(ev_home_ml)) else None,
-                "ev_away_ml": float(ev_away_ml) if (ev_away_ml is not None and pd.notna(ev_away_ml)) else None,
-            })
-    template = env.get_template("props_teams.html")
-    html = template.render(date=date, games=games)
+        rows = []
+    template = env.get_template("props_players.html")
+    html = template.render(rows=rows, market=market or "All", min_ev=0.0, top=top, date=date)
     return HTMLResponse(content=html)
 
 @app.get("/props/players")
@@ -2963,7 +3121,52 @@ async def props_players_page(
         except Exception:
             rows = []
     template = env.get_template("props_players.html")
-    html = template.render(rows=rows, market=market or "All", min_ev=min_ev, top=top)
+    html = template.render(rows=rows, market=market or "All", min_ev=min_ev, top=top, date=_today_ymd())
+    return HTMLResponse(content=html)
+
+@app.get("/props/teams")
+async def props_teams_page(
+    date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD (ET)"),
+):
+    """Team-level projections grid for the slate (moved under /props/teams)."""
+    date = date or _today_ymd()
+    path = PROC_DIR / f"predictions_{date}.csv"
+    games = []
+    try:
+        if path.exists():
+            df = _read_csv_fallback(path)
+        else:
+            df = pd.DataFrame()
+    except Exception:
+        df = pd.DataFrame()
+    if not df.empty:
+        for _, r in df.iterrows():
+            home = str(r.get("home") or ""); away = str(r.get("away") or "")
+            total_line = r.get("total_line_used"); model_total = r.get("model_total")
+            p_home_ml = r.get("p_home_ml"); p_away_ml = r.get("p_away_ml")
+            p_over = r.get("p_over"); p_under = r.get("p_under")
+            proj_home = r.get("proj_home_goals"); proj_away = r.get("proj_away_goals")
+            ev_home_ml = r.get("ev_home_ml") if "ev_home_ml" in df.columns else None
+            ev_away_ml = r.get("ev_away_ml") if "ev_away_ml" in df.columns else None
+            assets_home = get_team_assets(home); assets_away = get_team_assets(away)
+            games.append({
+                "date": str(r.get("date_et") or date),
+                "home": home, "away": away,
+                "home_logo": assets_home.get("logo") if isinstance(assets_home, dict) else None,
+                "away_logo": assets_away.get("logo") if isinstance(assets_away, dict) else None,
+                "proj_home_goals": float(proj_home) if pd.notna(proj_home) else None,
+                "proj_away_goals": float(proj_away) if pd.notna(proj_away) else None,
+                "p_home_ml": float(p_home_ml) if pd.notna(p_home_ml) else None,
+                "p_away_ml": float(p_away_ml) if pd.notna(p_away_ml) else None,
+                "total_line": float(total_line) if pd.notna(total_line) else None,
+                "model_total": float(model_total) if pd.notna(model_total) else None,
+                "p_over": float(p_over) if pd.notna(p_over) else None,
+                "p_under": float(p_under) if pd.notna(p_under) else None,
+                "ev_home_ml": float(ev_home_ml) if (ev_home_ml is not None and pd.notna(ev_home_ml)) else None,
+                "ev_away_ml": float(ev_away_ml) if (ev_away_ml is not None and pd.notna(ev_away_ml)) else None,
+            })
+    template = env.get_template("props_teams.html")
+    html = template.render(date=date, games=games)
     return HTMLResponse(content=html)
 
 
@@ -3956,31 +4159,33 @@ async def api_reconciliation(
     date: Optional[str] = Query(None),
     bankroll: float = Query(1000.0, description="Bankroll used for stake calc fallback"),
     flat_stake: float = Query(100.0, description="Fallback flat stake when stake not present"),
+    top: int = Query(200),
 ):
-    """Compare model recommendations vs closing lines and compute simple PnL summary.
+    """Compare model predictions vs recorded results to compute a simple PnL summary.
 
-    Uses predictions_{date}.csv and close_* fields captured earlier. Assumes one bet per market per game if EV>0.
+    Uses predictions_{date}.csv. Totals/puckline results are read from result_total/result_ats when present.
+    Moneyline results are included only if price/result fields exist.
     """
-    date = date or _today_ymd()
-    path = PROC_DIR / f"predictions_{date}.csv"
+    d = date or _today_ymd()
+    path = PROC_DIR / f"predictions_{d}.csv"
     if not path.exists():
-        return JSONResponse({"error": "No predictions for date", "date": date}, status_code=404)
-    df = _read_csv_fallback(path)
-    if df.empty:
-        return JSONResponse({"error": "Empty predictions"}, status_code=400)
-    # Build picks (moneyline + totals + puckline) with EV>0
-    picks = []
-    def add_pick(r: pd.Series, market: str, bet: str, ev_key: str, price_key: str, result_field: Optional[str] = None):
+        return JSONResponse({"summary": {"date": d, "picks": 0, "decided": 0, "wins": 0, "losses": 0, "pushes": 0, "staked": 0.0, "pnl": 0.0, "roi": None}, "rows": []})
+
+    try:
+        df = pd.read_csv(path)
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+    picks: list[dict] = []
+
+    def add_pick(r, market: str, bet: str, ev_key: str, price_key: str, result_field: Optional[str]):
         ev = r.get(ev_key)
-        if ev is None or (isinstance(ev, float) and pd.isna(ev)):
-            return
         try:
-            evf = float(ev)
+            evf = float(ev) if ev is not None and not (isinstance(ev, float) and pd.isna(ev)) else None
         except Exception:
+            evf = None
+        if evf is None:
             return
-        if evf <= 0:
-            return
-        # Closing price fallback to open/current
         close_map = {
             "home_ml_odds": "close_home_ml_odds",
             "away_ml_odds": "close_away_ml_odds",
@@ -3990,13 +4195,10 @@ async def api_reconciliation(
             "away_pl_+1.5_odds": "close_away_pl_+1.5_odds",
         }
         close_key = close_map.get(price_key)
-        price = r.get(close_key)
+        price = r.get(close_key) if close_key else None
         if price is None or (isinstance(price, float) and pd.isna(price)):
             price = r.get(price_key)
-        # Determine result if available
-        res = None
-        if result_field and r.get(result_field) is not None:
-            res = r.get(result_field)
+        res = r.get(result_field) if result_field else None
         picks.append({
             "date": r.get("date"),
             "home": r.get("home"),
@@ -4005,9 +4207,9 @@ async def api_reconciliation(
             "bet": bet,
             "ev": evf,
             "price": price,
-            "result_field": result_field,
             "result": res,
         })
+
     for _, r in df.iterrows():
         add_pick(r, "moneyline", "home_ml", "ev_home_ml", "home_ml_odds", None)
         add_pick(r, "moneyline", "away_ml", "ev_away_ml", "away_ml_odds", None)
@@ -4015,7 +4217,7 @@ async def api_reconciliation(
         add_pick(r, "totals", "under", "ev_under", "under_odds", "result_total")
         add_pick(r, "puckline", "home_pl_-1.5", "ev_home_pl_-1.5", "home_pl_-1.5_odds", "result_ats")
         add_pick(r, "puckline", "away_pl_+1.5", "ev_away_pl_+1.5", "away_pl_+1.5_odds", "result_ats")
-    # Compute PnL assuming flat_stake when stake not recorded
+
     def american_to_decimal_local(american):
         if american is None or (isinstance(american, float) and pd.isna(american)):
             return None
@@ -4027,16 +4229,16 @@ async def api_reconciliation(
             return 1.0 + (a / 100.0)
         else:
             return 1.0 + (100.0 / abs(a))
+
     pnl = 0.0
     staked = 0.0
     wins = losses = pushes = 0
     decided = 0
     rows = []
-    for p in picks:
+    for p in picks[: max(top, 0) if top else len(picks)]:
         stake = flat_stake
-        dec = american_to_decimal_local(p["price"]) if p.get("price") is not None else None
+        dec = american_to_decimal_local(p.get("price")) if p.get("price") is not None else None
         res = p.get("result")
-        # Interpret results for totals/puckline; moneyline requires winner mapping not included here, so skip unless present later
         if isinstance(res, str):
             rl = res.lower()
             if rl == "push":
@@ -4054,8 +4256,33 @@ async def api_reconciliation(
             staked += stake
             rows.append({**p, "stake": stake, "payout": (stake * (dec - 1.0)) if (dec and rl == 'win') else (-stake if rl == 'loss' else 0.0)})
         else:
-            # undecided or moneyline without explicit result mapping
             rows.append({**p, "stake": stake, "payout": None})
+
+    summary = {
+        "date": d,
+        "picks": len(picks),
+        "decided": decided,
+        "wins": wins,
+        "losses": losses,
+        "pushes": pushes,
+        "staked": staked,
+        "pnl": pnl,
+        "roi": (pnl / staked) if staked > 0 else None,
+    }
+    return JSONResponse({"summary": summary, "rows": rows})
+
+@app.get("/props/recommendations.csv")
+def props_recommendations_csv(date: Optional[str] = Query(None)):
+    d = date or _today_ymd()
+    path = PROC_DIR / f"props_recommendations_{d}.csv"
+    if not path.exists():
+        return PlainTextResponse("", status_code=404)
+    try:
+        data = Path(path).read_bytes()
+        headers = {"Content-Disposition": f"attachment; filename=props_recommendations_{d}.csv"}
+        return Response(content=data, media_type="text/csv", headers=headers)
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
     summary = {
         "date": date,
         "picks": len(picks),

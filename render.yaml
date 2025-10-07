@@ -61,3 +61,19 @@ services:
     envVars:
       - key: REFRESH_CRON_TOKEN
         sync: false
+
+  - type: cron
+    name: nhl-betting-props-projections
+    env: docker
+    # Daily precompute of player props projections; writes props_projections_YYYY-MM-DD.csv and pushes to GitHub
+    schedule: "5 12 * * *" # 12:05 UTC daily
+    command: |
+      /bin/sh -lc "\
+      apk add --no-cache curl && \
+      # Collect player props lines for today from both sources (best-effort)\
+      curl -sSf -X POST \"https://nhl-betting.onrender.com/api/cron/props-collect\" -H \"Authorization: Bearer $REFRESH_CRON_TOKEN\" || true && \
+      # Compute and persist projections CSV for today (top 1000 rows)\
+      curl -sSf -X POST \"https://nhl-betting.onrender.com/api/cron/props-projections?top=1000\" -H \"Authorization: Bearer $REFRESH_CRON_TOKEN\" || true"
+    envVars:
+      - key: REFRESH_CRON_TOKEN
+        sync: false

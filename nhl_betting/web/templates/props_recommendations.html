@@ -7,14 +7,21 @@
   <link rel="stylesheet" href="/static/style.css" />
   <style>
     .filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0 12px}
-    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-    .card{border:1px solid #2a2a2a;border-radius:10px;padding:10px}
+    .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+    .card{border:1px solid #2a2a2a;border-radius:12px;padding:12px;background:#0f1115}
+    .row{display:flex;align-items:center;gap:10px}
+  .logo{width:36px;height:36px;object-fit:contain}
+  .avatar{width:36px;height:36px;border-radius:50%;object-fit:cover}
+    .title{font-weight:700}
+  .push-right{margin-left:auto}
     .badge{font-size:11px;border:1px solid #2a2a2a;border-radius:999px;padding:2px 6px;margin-left:6px}
     .ev{display:inline-block;background:#113a34;color:#a7f3d0;border:1px solid rgba(12, 148, 106, .35);border-radius:999px;padding:2px 6px;font-weight:600}
     .muted{opacity:.8}
-    .title-line{font-weight:600}
-    .spaced{margin-top:6px}
-    @media (max-width:760px){ .grid{grid-template-columns:1fr} }
+    .ladders{margin-top:8px}
+    .lad{display:flex;justify-content:space-between;border:1px dashed #2a2a2a;border-radius:8px;padding:6px 8px;margin-top:6px}
+    .lad .side{font-weight:600}
+    @media (max-width:960px){ .grid{grid-template-columns:repeat(2,minmax(0,1fr))} }
+    @media (max-width:680px){ .grid{grid-template-columns:1fr} }
   </style>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="data:," />
@@ -25,9 +32,13 @@
       const market = document.getElementById('market').value;
       const min_ev = document.getElementById('min_ev').value || '0';
       const top = document.getElementById('top').value || '200';
+      const sortBy = document.getElementById('sortBy').value || 'ev_desc';
+      const all = document.getElementById('all').checked ? '1' : '';
       if(date) params.set('date', date); else params.delete('date');
       if(market) params.set('market', market); else params.delete('market');
       params.set('min_ev', min_ev); params.set('top', top);
+      if(sortBy) params.set('sortBy', sortBy); else params.delete('sortBy');
+      if(all) params.set('all', all); else params.delete('all');
       window.location.search = params.toString();
     }
   </script>
@@ -51,16 +62,52 @@
       </label>
       <label>Min EV <input id="min_ev" type="number" step="0.01" value="{{ min_ev }}" /></label>
       <label>Top <input id="top" type="number" step="1" value="{{ top }}" /></label>
+      <label>Sort
+        <select id="sortBy">
+          <option value="ev_desc" {{ 'selected' if (sortBy or '')=='ev_desc' else '' }}>EV desc</option>
+          <option value="ev_asc" {{ 'selected' if (sortBy or '')=='ev_asc' else '' }}>EV asc</option>
+          <option value="name" {{ 'selected' if (sortBy or '')=='name' else '' }}>Name</option>
+          <option value="market" {{ 'selected' if (sortBy or '')=='market' else '' }}>Market</option>
+        </select>
+      </label>
+      <label>Side
+        <select id="side">
+          <option value="both" {{ 'selected' if (side or '')=='both' else '' }}>Both</option>
+          <option value="over" {{ 'selected' if (side or '')=='over' else '' }}>Over</option>
+          <option value="under" {{ 'selected' if (side or '')=='under' else '' }}>Under</option>
+        </select>
+      </label>
+      <label><input id="all" type="checkbox" {{ 'checked' if all else '' }} /> All</label>
       <button type="submit">Apply</button>
+  <a class="button push-right" href="/props/recommendations.csv?date={{ date }}">Download CSV</a>
     </form>
-    <div class="muted">{{ rows|length }} plays</div>
+    <div class="muted">{{ cards|length }} players</div>
     <div class="grid">
-      {% for r in rows %}
+      {% for c in cards %}
         <div class="card">
-          <div class="title-line">{{ r.player }} <span class="badge">{{ r.market }}</span></div>
-          <div class="muted">Line {{ r.line }} · Book {{ r.book if r.book else '—' }}</div>
-          <div class="spaced">Proj {{ '%.2f' % r.proj }} · P(Over) {{ '%.1f' % (r.p_over*100) }}% <span class="ev">EV {{ '%.3f' % r.ev }}</span></div>
-          <div class="muted spaced">Over {{ r.over_price if r.over_price is not none else '—' }} · Under {{ r.under_price if r.under_price is not none else '—' }}</div>
+          <div class="row">
+            {% if c.team_logo %}
+              <img class="logo" src="{{ c.team_logo }}" alt="{{ c.team_abbr }}" />
+            {% endif %}
+            {% if c.photo %}
+              <img class="avatar" src="{{ c.photo }}" alt="{{ c.player }}" />
+            {% endif %}
+            <div>
+              <div class="title">{{ c.player }} <span class="badge">{{ c.market }}</span></div>
+              <div class="muted">{{ c.team_abbr or c.team or '—' }} · Best EV <span class="ev">{{ '%.3f' % c.best_ev if c.best_ev is not none else '—' }}</span></div>
+            </div>
+          </div>
+          <div class="ladders">
+            {% for l in c.ladders %}
+              <div class="lad">
+                <div>{{ l.line }}</div>
+                <div class="side">{{ l.side or 'Over' }}</div>
+                <div>O {{ l.over_price if l.over_price is not none else '—' }} · U {{ l.under_price if l.under_price is not none else '—' }}</div>
+                <div>{{ l.book or '—' }}</div>
+                <div><span class="ev">{{ '%.3f' % l.ev if l.ev is not none else '—' }}</span></div>
+              </div>
+            {% endfor %}
+          </div>
         </div>
       {% endfor %}
     </div>

@@ -24,13 +24,16 @@
         <span> | </span>
         <a href="/recommendations">Recs</a>
         <span> | </span>
-        <a href="/props">Teams</a>
+        <a href="/props">Props</a>
         <span> | </span>
-        <a href="/props/players">Player Props</a>
+        <a href="/props/teams">Teams</a>
         <span> | </span>
         <a href="/props/recommendations">Props Recs</a>
       </div>
       <div class="controls">
+        <label>Date (ET)
+          <input id="date" type="date" value="{{ date }}" />
+        </label>
         <label>Market
           <select id="market">
             <option value="">All</option>
@@ -59,6 +62,7 @@
           <th>Team</th>
           <th>Line</h>
           <th>Odds (Over)</th>
+          <th>Odds (Under)</th>
           <th>Proj λ</th>
           <th>P(Over)</th>
           <th>EV (Over)</th>
@@ -71,7 +75,8 @@
             <td>{{ r.player }}</td>
             <td>{{ r.team if r.team is defined else '' }}</td>
             <td>{{ r.line }}</td>
-            <td>{{ r.odds }}</td>
+            <td>{{ r.over_price }}</td>
+            <td>{{ r.under_price }}</td>
             <td>{{ '%.2f' % r.proj_lambda }}</td>
             <td>{{ '%.1f' % (r.p_over * 100) }}%</td>
             <td class="{{ 'ev-pos' if r.ev_over >= 0 else 'ev-neg' }}">{{ '%.3f' % r.ev_over }}</td>
@@ -83,9 +88,11 @@
   <script>
     function reloadPage() {
       const params = new URLSearchParams(window.location.search);
+      const date = document.getElementById('date').value;
       const market = document.getElementById('market').value;
       const min_ev = document.getElementById('min_ev').value || '0';
       const top = document.getElementById('top').value || '50';
+      if (date) params.set('date', date); else params.delete('date');
       if (market) params.set('market', market); else params.delete('market');
       params.set('min_ev', min_ev);
       params.set('top', top);

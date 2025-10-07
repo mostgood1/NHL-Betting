@@ -2445,6 +2445,7 @@ async def api_props_recommendations(
     market: Optional[str] = Query(None, description="SOG,SAVES,GOALS,ASSISTS,POINTS"),
     min_ev: float = Query(0.0),
     top: int = Query(200),
+    fmt: Optional[str] = Query(None, description="Optional: 'text' to return plain text for debugging"),
 ):
     """Serve props recommendations for a given date. If cached CSV exists, read; else compute on the fly via CLI logic."""
     try:
@@ -2582,6 +2583,16 @@ async def api_props_recommendations(
                 df = df.head(top)
         except Exception:
             pass
+        # Optionally return plain text for debugging serialization issues
+        if fmt and str(fmt).lower() == 'text':
+            if df is None or df.empty:
+                return PlainTextResponse(f"date={date}\nrows=0\n")
+            # Show a few top rows as tab-separated plaintext
+            try:
+                head = df.head(min(10, len(df)))
+                return PlainTextResponse("date=" + str(date) + "\n" + head.to_csv(index=False))
+            except Exception as e:
+                return PlainTextResponse(f"date={date}\nerror={e}")
         # Serialize safely using shared helper to avoid numpy/NaN/Inf issues
         try:
             rows = [] if (df is None or df.empty) else _df_jsonsafe_records(df)
@@ -2592,7 +2603,11 @@ async def api_props_recommendations(
             # As a last resort, return a structured error without raising 500
             return JSONResponse({"date": str(date), "error": str(e), "data": []}, status_code=200)
     except Exception as e:
-        return JSONResponse({"date": str(date) if date else None, "error": str(e), "data": []}, status_code=200)
+        # Avoid 500s: include error string in a plain JSON payload
+        try:
+            return JSONResponse({"date": str(date) if date else None, "error": str(e), "data": []}, status_code=200)
+        except Exception:
+            return PlainTextResponse(f"date={date}\nerror={e}")
 
 
 @app.get("/api/player-props-reconciliation")

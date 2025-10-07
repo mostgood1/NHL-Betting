@@ -3596,6 +3596,36 @@ async def props_recommendations_page(
                 pass
     except Exception:
         df = pd.DataFrame()
+    # Build an optional player_id map from canonical lines to attach headshots
+    player_photo: dict[str, str] = {}
+    try:
+        d_for_lines = date or _today_ymd()
+        base = PROC_DIR.parent / "props" / f"player_props_lines/date={d_for_lines}"
+        parts = []
+        for name in ("bovada.parquet", "oddsapi.parquet"):
+            p = base / name
+            if p.exists():
+                try:
+                    parts.append(pd.read_parquet(p))
+                except Exception:
+                    pass
+        if parts:
+            lp = pd.concat(parts, ignore_index=True)
+            # Build mapping by player_name -> player_id (prefer most frequent id if duplicates)
+            if not lp.empty and 'player_name' in lp.columns and 'player_id' in lp.columns:
+                try:
+                    grp = lp.groupby('player_name')['player_id'].agg(lambda s: s.dropna().astype(str).value_counts().idxmax())
+                    for name_key, pid in grp.items():
+                        try:
+                            pid_s = str(pid)
+                            player_photo[str(name_key)] = f"https://cms.nhl.bamgrid.com/images/headshots/current/168x168/{pid_s}.jpg"
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+    except Exception:
+        player_photo = {}
+
     # Build cards: group by player (and team), with per-market sections including projections
     cards = []
     try:
@@ -3698,10 +3728,10 @@ async def props_recommendations_page(
                     'player': player,
                     'team': team,
                     'team_abbr': (assets.get('abbr') or '').upper() if isinstance(assets, dict) else None,
-                    'team_logo': assets.get('logo') if isinstance(assets, dict) else None,
+                    'team_logo': (assets.get('logo_light') or assets.get('logo_dark')) if isinstance(assets, dict) else None,
                     'best_ev': best_ev_overall,
                     'markets': markets,
-                    'photo': None,
+                    'photo': player_photo.get(str(player)),
                 })
             # Sort and top-N (now by player card)
             if cards:

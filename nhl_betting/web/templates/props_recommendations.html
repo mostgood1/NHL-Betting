@@ -6,20 +6,23 @@
   <title>NHL – Props Recommendations</title>
   <link rel="stylesheet" href="/static/style.css" />
   <style>
+    :root{--card-bg:#0f1115;--border:#262a33;--muted:#b9c2d0;--ev-bg:#113a34;--ev-fg:#a7f3d0;--ev-bd:rgba(12,148,106,.35)}
     .filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0 12px}
     .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
-    .card{border:1px solid #2a2a2a;border-radius:12px;padding:12px;background:#0f1115}
+    .card{border:1px solid var(--border);border-radius:12px;padding:12px;background:var(--card-bg)}
     .row{display:flex;align-items:center;gap:10px}
-  .logo{width:36px;height:36px;object-fit:contain}
+    .logo{width:36px;height:36px;object-fit:contain}
+    .avatar{width:36px;height:36px;border-radius:50%;object-fit:cover;border:1px solid var(--border)}
     .title{font-weight:700}
-    .badge{font-size:11px;border:1px solid #2a2a2a;border-radius:999px;padding:2px 6px;margin-left:6px}
-    .ev{display:inline-block;background:#113a34;color:#a7f3d0;border:1px solid rgba(12, 148, 106, .35);border-radius:999px;padding:2px 6px;font-weight:600}
-    .muted{opacity:.8}
+    .badge{font-size:11px;border:1px solid var(--border);border-radius:999px;padding:2px 6px;margin-left:6px}
+    .ev{display:inline-block;background:var(--ev-bg);color:var(--ev-fg);border:1px solid var(--ev-bd);border-radius:999px;padding:2px 6px;font-weight:600}
+    .muted{opacity:.85;color:var(--muted)}
     .ladders{margin-top:8px}
-    .lad{display:flex;justify-content:space-between;border:1px dashed #2a2a2a;border-radius:8px;padding:6px 8px;margin-top:6px}
+    .lad{display:flex;justify-content:space-between;border:1px dashed var(--border);border-radius:8px;padding:6px 8px;margin-top:6px}
     .lad .side{font-weight:600}
-    @media (max-width:960px){ .grid{grid-template-columns:repeat(2,minmax(0,1fr))} }
-    @media (max-width:680px){ .grid{grid-template-columns:1fr} }
+  .row-market{margin-top:10px;gap:8px;align-items:flex-start}
+    @media (max-width:1200px){ .grid{grid-template-columns:repeat(2,minmax(0,1fr))} }
+    @media (max-width:760px){ .grid{grid-template-columns:1fr} }
   </style>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="data:," />
@@ -97,7 +100,7 @@
           </div>
           {% if c.markets %}
             {% for m in c.markets %}
-              <div class="row" style="margin-top:10px; gap:8px; align-items:flex-start;">
+              <div class="row row-market">
                 <div class="badge">{{ m.market }}</div>
                 <div class="muted">λ {{ '%.2f' % m.proj if m.proj is not none else '—' }}</div>
                 <div class="muted">P(Over) {{ '%.1f' % (m.p_over*100) }}%{% if m.p_over is none %}—{% endif %}</div>

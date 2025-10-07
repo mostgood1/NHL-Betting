@@ -2415,19 +2415,14 @@ async def api_props_recommendations(
             df = df.head(top)
     except Exception:
         pass
-    # Serialize with DataFrame.to_json to reliably map NaN->null, then return as raw JSON
-    import json as _json
+    # Serialize safely: replace Inf/NaN and return a proper JSONResponse with standard-compliant values
     if df is None or df.empty:
-        data_json = "[]"
+        rows = []
     else:
         _df = df.replace([np.inf, -np.inf], np.nan)
-        try:
-            data_json = _df.to_json(orient='records')
-        except Exception:
-            _df2 = _df.replace([np.inf, -np.inf], np.nan).dropna(how='any')
-            data_json = _df2.to_json(orient='records') if not _df2.empty else "[]"
-    content = '{"date":' + _json.dumps(str(date)) + ',"data":' + data_json + '}'
-    return PlainTextResponse(content=content, media_type="application/json")
+        # Convert NaN -> None for JSON compliance
+        rows = _df.where(pd.notnull(_df), None).to_dict(orient='records')
+    return JSONResponse({"date": str(date), "data": rows})
 
 
 @app.get("/api/player-props-reconciliation")

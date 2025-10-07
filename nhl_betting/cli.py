@@ -906,6 +906,194 @@ def props_recommendations(
 
 
 @app.command()
+def props_full(
+    date: str = typer.Option(..., help="Slate date YYYY-MM-DD (ET)"),
+    min_ev: float = typer.Option(0.0, help="Minimum EV threshold for recommendations"),
+    top: int = typer.Option(200, help="Top N recommendations to keep"),
+    sources: str = typer.Option("bovada,oddsapi", help="Comma list of sources to collect: bovada,oddsapi"),
+    ensure_history_days: int = typer.Option(365, help="Days of player history to ensure before date"),
+    market: str = typer.Option("", help="Optional market filter for recs: SOG,SAVES,GOALS,ASSISTS,POINTS,BLOCKS"),
+):
+    """Run full props modeling for a date: collect lines, ensure stats, compute projections and recommendations.
+
+    Outputs:
+      - data/processed/props_projections_{date}.csv
+      - data/processed/props_recommendations_{date}.csv
+    """
+    from datetime import datetime as _dt, timedelta as _td
+    from .models.props import (
+        SkaterShotsModel, GoalieSavesModel, SkaterGoalsModel,
+        SkaterAssistsModel, SkaterPointsModel, SkaterBlocksModel,
+    )
+    from .data import player_props as props_data
+
+    # 1) Collect canonical lines for date from requested sources
+    srcs = [s.strip().lower() for s in str(sources).split(',') if s.strip()]
+    base = Path("data/props") / f"player_props_lines/date={date}"
+    base.mkdir(parents=True, exist_ok=True)
+    wrote_any = False
+    for sel in srcs:
+        try:
+            cfg = props_data.PropsCollectionConfig(output_root="data/props", book=("bovada" if sel=="bovada" else "oddsapi"), source=sel)
+            res = props_data.collect_and_write(date, roster_df=None, cfg=cfg)
+            cnt = int(res.get("combined_count") or 0)
+            path = res.get("output_path")
+            print(f"[collect] {sel}: rows={cnt} path={path}")
+            wrote_any = wrote_any or (cnt > 0)
+        except Exception as e:
+            print(f"[collect] {sel} failed: {e}")
+    # Validate we have at least one parquet
+    parts = []
+    for fname in ("bovada.parquet","oddsapi.parquet"):
+        p = base / fname
+        if p.exists():
+            try:
+                parts.append(pd.read_parquet(p))
+            except Exception:
+                pass
+    if not parts:
+        print("No props lines found; aborting.")
+        raise typer.Exit(code=1)
+    lines = pd.concat(parts, ignore_index=True)
+
+    # 2) Ensure player stats history exists
+    stats_path = RAW_DIR / "player_game_stats.csv"
+    if not stats_path.exists():
+        try:
+            start = (_dt.strptime(date, "%Y-%m-%d") - _td(days=int(ensure_history_days))).strftime("%Y-%m-%d")
+            # Try web first (faster), fallback to stats
+            try:
+                collect_player_game_stats(start, date, source="web")
+            except Exception:
+                collect_player_game_stats(start, date, source="stats")
+        except Exception as e:
+            print(f"[history] failed to ensure: {e}")
+    try:
+        hist = load_df(stats_path) if stats_path.exists() else pd.DataFrame()
+    except Exception:
+        hist = pd.read_csv(stats_path) if stats_path.exists() else pd.DataFrame()
+
+    # 3) Compute projections CSV (ev_over and p_over per line)
+    shots = SkaterShotsModel(); saves = GoalieSavesModel(); goals = SkaterGoalsModel(); assists = SkaterAssistsModel(); points = SkaterPointsModel(); blocks = SkaterBlocksModel()
+    def proj_prob(m, player, ln):
+        m = (m or '').upper()
+        if m == 'SOG':
+            lam = shots.player_lambda(hist, player); return lam, shots.prob_over(lam, ln)
+        if m == 'SAVES':
+            lam = saves.player_lambda(hist, player); return lam, saves.prob_over(lam, ln)
+        if m == 'GOALS':
+            lam = goals.player_lambda(hist, player); return lam, goals.prob_over(lam, ln)
+        if m == 'ASSISTS':
+            lam = assists.player_lambda(hist, player); return lam, assists.prob_over(lam, ln)
+        if m == 'POINTS':
+            lam = points.player_lambda(hist, player); return lam, points.prob_over(lam, ln)
+        if m == 'BLOCKS':
+            lam = blocks.player_lambda(hist, player); return lam, blocks.prob_over(lam, ln)
+        return None, None
+    def _dec(a):
+        try:
+            a = float(a); return 1.0 + (a/100.0) if a > 0 else 1.0 + (100.0/abs(a))
+        except Exception:
+            return None
+    proj_rows = []
+    for _, r in lines.iterrows():
+        player = r.get('player_name') or r.get('player')
+        if not player:
+            continue
+        m = str(r.get('market') or '').upper()
+        try:
+            ln = float(r.get('line'))
+        except Exception:
+            ln = None
+        lam, p_over = (None, None)
+        if ln is not None:
+            lam, p_over = proj_prob(m, str(player), ln)
+        op = r.get('over_price'); up = r.get('under_price')
+        ev_over = None
+        if (p_over is not None) and (op is not None):
+            dec = _dec(op)
+            if dec is not None:
+                ev_over = float(p_over) * (dec - 1.0) - (1.0 - float(p_over))
+        proj_rows.append({
+            'market': m,
+            'player': player,
+            'team': r.get('team') or None,
+            'line': ln,
+            'over_price': op if pd.notna(op) else None,
+            'under_price': up if pd.notna(up) else None,
+            'proj_lambda': float(lam) if lam is not None else None,
+            'p_over': float(p_over) if p_over is not None else None,
+            'ev_over': float(ev_over) if ev_over is not None else None,
+            'book': r.get('book'),
+        })
+    df_proj = pd.DataFrame(proj_rows)
+    if not df_proj.empty:
+        try:
+            if df_proj['ev_over'].notna().any():
+                df_proj = df_proj.sort_values(['ev_over','p_over'], ascending=[False, False])
+            elif df_proj['p_over'].notna().any():
+                df_proj = df_proj.sort_values('p_over', ascending=False)
+        except Exception:
+            pass
+    out_proj = PROC_DIR / f"props_projections_{date}.csv"
+    save_df(df_proj, out_proj)
+    print(f"Wrote {out_proj} with {0 if df_proj is None or df_proj.empty else len(df_proj)} rows")
+
+    # 4) Compute recommendations CSV using same logic as props_recommendations
+    rec_rows = []
+    for _, r in lines.iterrows():
+        m = str(r.get('market') or '').upper()
+        if market and m != market.upper():
+            continue
+        player = r.get('player_name') or r.get('player')
+        if not player:
+            continue
+        try:
+            ln = float(r.get('line'))
+        except Exception:
+            continue
+        op = r.get('over_price'); up = r.get('under_price')
+        if pd.isna(op) and pd.isna(up):
+            continue
+        lam, p_over = proj_prob(m, str(player), ln)
+        if lam is None or p_over is None:
+            continue
+        ev_o = (p_over * (_dec(op)-1.0) - (1.0 - p_over)) if (op is not None and _dec(op) is not None) else None
+        p_under = max(0.0, 1.0 - float(p_over))
+        ev_u = (p_under * (_dec(up)-1.0) - (1.0 - p_under)) if (up is not None and _dec(up) is not None) else None
+        side = None; ev = None; price = None
+        if ev_o is not None or ev_u is not None:
+            if (ev_u is None) or (ev_o is not None and ev_o >= ev_u):
+                side = 'Over'; price = op; ev = ev_o
+            else:
+                side = 'Under'; price = up; ev = ev_u
+        if ev is None or not (float(ev) >= float(min_ev)):
+            continue
+        rec_rows.append({
+            'date': date,
+            'player': player,
+            'team': r.get('team') or None,
+            'market': m,
+            'line': ln,
+            'proj': float(lam),
+            'p_over': float(p_over),
+            'over_price': op if pd.notna(op) else None,
+            'under_price': up if pd.notna(up) else None,
+            'book': r.get('book'),
+            'side': side,
+            'ev': float(ev) if ev is not None else None,
+        })
+    df_rec = pd.DataFrame(rec_rows)
+    if not df_rec.empty:
+        df_rec = df_rec.sort_values('ev', ascending=False)
+        if top and top > 0:
+            df_rec = df_rec.head(top)
+    out_rec = PROC_DIR / f"props_recommendations_{date}.csv"
+    save_df(df_rec, out_rec)
+    print(f"Wrote {out_rec} with {0 if df_rec is None or df_rec.empty else len(df_rec)} rows")
+
+
+@app.command()
 def odds_fetch_historical(
     snapshot: str = typer.Option(..., help="ISO timestamp for snapshot, e.g., 2024-03-01T12:00:00Z"),
     sport: str = typer.Option("icehockey_nhl", help="The Odds API sport key, e.g., icehockey_nhl"),

@@ -3534,31 +3534,188 @@ async def props_recommendations_page(
     market: Optional[str] = Query(None),
     min_ev: float = Query(0.0),
     top: int = Query(200),
+    sortBy: Optional[str] = Query("ev_desc"),
+    side: Optional[str] = Query("both"),
+    all: Optional[int] = Query(0),
 ):
+    """Card-style props recommendations page.
+
+    Reads cached CSV for the date; if missing, falls back to GitHub raw CSV. Groups rows by player+market
+    into cards with ladders and attaches team assets. Supports basic filtering/sorting.
+    """
     date = date or _today_ymd()
     read_only_ui = _read_only(date)
-    # Read directly from processed CSV to avoid JSON roundtrip issues
-    rows = []
+    df = pd.DataFrame()
+    # Prefer local cache; otherwise try GitHub raw for today's file
     try:
         path = PROC_DIR / f"props_recommendations_{date}.csv"
         if path.exists():
-            _df = pd.read_csv(path)
-            if market and 'market' in _df.columns:
-                _df = _df[_df['market'].astype(str).str.upper() == market.upper()]
-            if 'ev' in _df.columns:
-                _df = _df[_df['ev'].astype(float) >= float(min_ev)].sort_values('ev', ascending=False)
-            if top and top > 0:
-                _df = _df.head(top)
-            # Sanitize for template
-            _df = _df.replace([np.inf, -np.inf], np.nan)
-            rows = _df.where(pd.notnull(_df), None).to_dict(orient='records')
-        else:
-            # No cache yet; show empty and let cron/CLI populate later (avoid inline compute in read-only)
-            rows = []
+            df = _read_csv_fallback(path)
+        if (df is None or df.empty):
+            gh_df = _github_raw_read_csv(f"data/processed/props_recommendations_{date}.csv")
+            if gh_df is not None and not gh_df.empty:
+                df = gh_df
     except Exception:
-        rows = []
+        df = pd.DataFrame()
+    # Apply filters
+    try:
+        if df is None or df.empty:
+            df = pd.DataFrame()
+        else:
+            if market and 'market' in df.columns:
+                df = df[df['market'].astype(str).str.upper() == str(market).upper()]
+            if 'ev' in df.columns:
+                try:
+                    df['ev'] = pd.to_numeric(df['ev'], errors='coerce')
+                except Exception:
+                    pass
+                df = df[df['ev'] >= float(min_ev)]
+            if side and side.lower() in ("over","under") and 'side' in df.columns:
+                df = df[df['side'].astype(str).str.lower() == side.lower()]
+            # Sorting
+            key = (sortBy or 'ev_desc').lower()
+            asc = False
+            col = None
+            if key == 'ev_desc':
+                col = 'ev'; asc = False
+            elif key == 'ev_asc':
+                col = 'ev'; asc = True
+            elif key == 'name':
+                col = 'player'; asc = True
+            elif key == 'market':
+                col = 'market'; asc = True
+            elif key == 'team':
+                col = 'team'; asc = True
+            if col and col in df.columns:
+                try:
+                    df = df.sort_values(col, ascending=asc)
+                except Exception:
+                    pass
+            if top and top > 0:
+                # Top applied post-group via best_ev; keep more rows to form ladders
+                pass
+    except Exception:
+        df = pd.DataFrame()
+    # Build cards: group by (player, team, market)
+    cards = []
+    try:
+        if df is not None and not df.empty:
+            # Ensure numeric types
+            for c in ('line','ev','over_price','under_price'):
+                if c in df.columns:
+                    try:
+                        df[c] = pd.to_numeric(df[c], errors='coerce')
+                    except Exception:
+                        pass
+            grp_cols = [c for c in ['player','team','market'] if c in df.columns]
+            if grp_cols:
+                grouped = df.groupby(grp_cols, dropna=False)
+                for keys, g in grouped:
+                    if isinstance(keys, tuple):
+                        player = keys[0] if len(keys) > 0 else None
+                        team = keys[1] if len(keys) > 1 else None
+                        market_val = keys[2] if len(keys) > 2 else None
+                    else:
+                        player = keys; team = None; market_val = None
+                    # Ladders from group rows
+                    g = g.sort_values(['ev','line'], ascending=[False, True]) if {'ev','line'}.issubset(g.columns) else g
+                    ladders = []
+                    best_ev = None
+                    best_row = None
+                    for _, r in g.iterrows():
+                        ev = r.get('ev');
+                        try:
+                            ev_f = float(ev) if pd.notna(ev) else None
+                        except Exception:
+                            ev_f = None
+                        if ev_f is not None:
+                            if (best_ev is None) or (ev_f > best_ev):
+                                best_ev = ev_f
+                                best_row = r
+                        ladders.append({
+                            'line': float(r.get('line')) if pd.notna(r.get('line')) else None,
+                            'side': r.get('side') or 'Over',
+                            'over_price': int(r.get('over_price')) if pd.notna(r.get('over_price')) else None,
+                            'under_price': int(r.get('under_price')) if pd.notna(r.get('under_price')) else None,
+                            'book': r.get('book'),
+                            'ev': ev_f,
+                        })
+                    assets = get_team_assets(str(team)) if team else {}
+                    # Model stats: use group-level projection (lambda) and p_over at best-ev line if available
+                    proj_lambda = None
+                    p_over_primary = None
+                    primary_line = None
+                    best_side = None
+                    best_book = None
+                    best_price = None
+                    try:
+                        if 'proj' in g.columns and g['proj'].notna().any():
+                            # proj is lambda; should be constant within player+market group
+                            proj_lambda = float(g['proj'].dropna().iloc[0])
+                    except Exception:
+                        proj_lambda = None
+                    try:
+                        if best_row is not None:
+                            primary_line = float(best_row.get('line')) if pd.notna(best_row.get('line')) else None
+                            pov = best_row.get('p_over')
+                            if pov is not None and pd.notna(pov):
+                                p_over_primary = float(pov)
+                            # best row side/book/price
+                            bs = best_row.get('side')
+                            bb = best_row.get('book')
+                            op = best_row.get('over_price'); up = best_row.get('under_price')
+                            if bs and isinstance(bs, str):
+                                best_side = bs
+                                best_book = bb
+                                if bs.lower() == 'over':
+                                    best_price = int(op) if (op is not None and pd.notna(op)) else None
+                                else:
+                                    best_price = int(up) if (up is not None and pd.notna(up)) else None
+                    except Exception:
+                        pass
+                    cards.append({
+                        'player': player,
+                        'team': team,
+                        'team_abbr': (assets.get('abbr') or '').upper() if isinstance(assets, dict) else None,
+                        'team_logo': assets.get('logo') if isinstance(assets, dict) else None,
+                        'market': str(market_val).upper() if market_val else None,
+                        'best_ev': best_ev,
+                        'proj': proj_lambda,
+                        'p_over': p_over_primary,
+                        'primary_line': primary_line,
+                        'best_side': best_side,
+                        'best_book': best_book,
+                        'best_price': best_price,
+                        'ladders': ladders,
+                        'photo': None,
+                    })
+            # Sort cards by best_ev desc by default when ev sorting selected
+            if cards:
+                if (sortBy or 'ev_desc').lower() in ('ev_desc','ev_asc'):
+                    rev = ((sortBy or 'ev_desc').lower() == 'ev_desc')
+                    cards.sort(key=lambda x: (x.get('best_ev') is None, x.get('best_ev')), reverse=rev)
+                elif (sortBy or '').lower() == 'name':
+                    cards.sort(key=lambda x: (str(x.get('player') or '').lower()))
+                elif (sortBy or '').lower() == 'market':
+                    cards.sort(key=lambda x: (str(x.get('market') or '')))
+                elif (sortBy or '').lower() == 'team':
+                    cards.sort(key=lambda x: (str(x.get('team_abbr') or str(x.get('team') or '')).upper()))
+                # Apply top after grouping
+                if top and top > 0:
+                    cards = cards[: int(top)]
+    except Exception:
+        cards = []
     template = env.get_template("props_recommendations.html")
-    html = template.render(date=date, market=market or "", min_ev=min_ev, top=top, rows=rows)
+    html = template.render(
+        date=date,
+        market=market or "",
+        min_ev=min_ev,
+        top=top,
+        sortBy=sortBy or 'ev_desc',
+        side=side or 'both',
+        all=bool(all),
+        cards=cards,
+    )
     return HTMLResponse(content=html)
 
 @app.get("/props/reconciliation")
@@ -4566,8 +4723,20 @@ async def api_reconciliation(
 def props_recommendations_csv(date: Optional[str] = Query(None)):
     d = date or _today_ymd()
     path = PROC_DIR / f"props_recommendations_{d}.csv"
+    # Prefer local; if missing, try GitHub raw cache
     if not path.exists():
-        return PlainTextResponse("", status_code=404)
+        try:
+            df = _github_raw_read_csv(f"data/processed/props_recommendations_{d}.csv")
+            if df is not None and not df.empty:
+                try:
+                    csv_bytes = df.to_csv(index=False).encode('utf-8')
+                    headers = {"Content-Disposition": f"attachment; filename=props_recommendations_{d}.csv"}
+                    return Response(content=csv_bytes, media_type="text/csv", headers=headers)
+                except Exception:
+                    pass
+            return PlainTextResponse("", status_code=404)
+        except Exception as e:
+            return JSONResponse({"error": str(e)}, status_code=500)
     try:
         data = Path(path).read_bytes()
         headers = {"Content-Disposition": f"attachment; filename=props_recommendations_{d}.csv"}

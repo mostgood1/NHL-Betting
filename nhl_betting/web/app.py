@@ -2447,149 +2447,152 @@ async def api_props_recommendations(
     top: int = Query(200),
 ):
     """Serve props recommendations for a given date. If cached CSV exists, read; else compute on the fly via CLI logic."""
-    date = date or _today_ymd()
-    # Respect read-only mode: if cache missing, do not compute on-demand
-    read_only_ui = _read_only(date)
-    rec_path = PROC_DIR / f"props_recommendations_{date}.csv"
-    df = None
-    if rec_path.exists():
-        try:
-            # Robust read to handle encoding/empty quirks consistently
-            df = _read_csv_fallback(rec_path)
-        except Exception:
-            df = None
-    if (df is None or df.empty) and (not read_only_ui):
-        # Compute on the fly by invoking the same logic inline (avoid spawning a subprocess)
-        try:
-            from ..models.props import SkaterShotsModel, GoalieSavesModel, SkaterGoalsModel
-            from ..models.props import SkaterAssistsModel, SkaterPointsModel, SkaterBlocksModel
-            from ..data.collect import collect_player_game_stats
-            from ..utils.io import RAW_DIR
-            # Load canonical lines
-            base = PROC_DIR.parent / "props" / f"player_props_lines/date={date}"
-            parts = []
-            for name in ("bovada.parquet", "oddsapi.parquet"):
-                p = base / name
-                if p.exists():
+    try:
+        date = date or _today_ymd()
+        # Respect read-only mode: if cache missing, do not compute on-demand
+        read_only_ui = _read_only(date)
+        rec_path = PROC_DIR / f"props_recommendations_{date}.csv"
+        df = None
+        if rec_path.exists():
+            try:
+                # Robust read to handle encoding/empty quirks consistently
+                df = _read_csv_fallback(rec_path)
+            except Exception:
+                df = None
+        if (df is None or df.empty) and (not read_only_ui):
+            # Compute on the fly by invoking the same logic inline (avoid spawning a subprocess)
+            try:
+                from ..models.props import SkaterShotsModel, GoalieSavesModel, SkaterGoalsModel
+                from ..models.props import SkaterAssistsModel, SkaterPointsModel, SkaterBlocksModel
+                from ..data.collect import collect_player_game_stats
+                from ..utils.io import RAW_DIR
+                # Load canonical lines
+                base = PROC_DIR.parent / "props" / f"player_props_lines/date={date}"
+                parts = []
+                for name in ("bovada.parquet", "oddsapi.parquet"):
+                    p = base / name
+                    if p.exists():
+                        try:
+                            parts.append(pd.read_parquet(p))
+                        except Exception:
+                            pass
+                if not parts:
+                    return JSONResponse({"date": date, "data": []})
+                lines = pd.concat(parts, ignore_index=True)
+                # Ensure history exists
+                stats_path = RAW_DIR / "player_game_stats.csv"
+                if not stats_path.exists():
                     try:
-                        parts.append(pd.read_parquet(p))
+                        from datetime import datetime as _dt, timedelta as _td
+                        start = (_dt.strptime(date, "%Y-%m-%d") - _td(days=365)).strftime("%Y-%m-%d")
+                        collect_player_game_stats(start, date, source="stats")
                     except Exception:
                         pass
-            if not parts:
-                return JSONResponse({"date": date, "data": []})
-            lines = pd.concat(parts, ignore_index=True)
-            # Ensure history exists
-            stats_path = RAW_DIR / "player_game_stats.csv"
-            if not stats_path.exists():
-                try:
-                    from datetime import datetime as _dt, timedelta as _td
-                    start = (_dt.strptime(date, "%Y-%m-%d") - _td(days=365)).strftime("%Y-%m-%d")
-                    collect_player_game_stats(start, date, source="stats")
-                except Exception:
-                    pass
-            hist = pd.read_csv(stats_path) if stats_path.exists() else pd.DataFrame()
-            shots = SkaterShotsModel(); saves = GoalieSavesModel(); goals = SkaterGoalsModel(); assists = SkaterAssistsModel(); points = SkaterPointsModel(); blocks = SkaterBlocksModel()
-            def proj_prob(m, player, ln):
-                m = (m or '').upper()
-                if m == 'SOG':
-                    lam = shots.player_lambda(hist, player); return lam, shots.prob_over(lam, ln)
-                if m == 'SAVES':
-                    lam = saves.player_lambda(hist, player); return lam, saves.prob_over(lam, ln)
-                if m == 'GOALS':
-                    lam = goals.player_lambda(hist, player); return lam, goals.prob_over(lam, ln)
-                if m == 'ASSISTS':
-                    lam = assists.player_lambda(hist, player); return lam, assists.prob_over(lam, ln)
-                if m == 'POINTS':
-                    lam = points.player_lambda(hist, player); return lam, points.prob_over(lam, ln)
-                if m == 'BLOCKS':
-                    lam = blocks.player_lambda(hist, player); return lam, blocks.prob_over(lam, ln)
-                return None, None
-            recs = []
-            for _, r in lines.iterrows():
-                m = str(r.get('market') or '').upper()
-                if market and m != market.upper():
-                    continue
-                player = r.get('player_name') or r.get('player')
-                if not player:
-                    continue
-                try:
-                    ln = float(r.get('line'))
-                except Exception:
-                    continue
-                op = r.get('over_price'); up = r.get('under_price')
-                if pd.isna(op) and pd.isna(up):
-                    continue
-                lam, p_over = proj_prob(m, str(player), ln)
-                if lam is None or p_over is None:
-                    continue
-                # EV calc
-                def _dec(a):
+                hist = pd.read_csv(stats_path) if stats_path.exists() else pd.DataFrame()
+                shots = SkaterShotsModel(); saves = GoalieSavesModel(); goals = SkaterGoalsModel(); assists = SkaterAssistsModel(); points = SkaterPointsModel(); blocks = SkaterBlocksModel()
+                def proj_prob(m, player, ln):
+                    m = (m or '').upper()
+                    if m == 'SOG':
+                        lam = shots.player_lambda(hist, player); return lam, shots.prob_over(lam, ln)
+                    if m == 'SAVES':
+                        lam = saves.player_lambda(hist, player); return lam, saves.prob_over(lam, ln)
+                    if m == 'GOALS':
+                        lam = goals.player_lambda(hist, player); return lam, goals.prob_over(lam, ln)
+                    if m == 'ASSISTS':
+                        lam = assists.player_lambda(hist, player); return lam, assists.prob_over(lam, ln)
+                    if m == 'POINTS':
+                        lam = points.player_lambda(hist, player); return lam, points.prob_over(lam, ln)
+                    if m == 'BLOCKS':
+                        lam = blocks.player_lambda(hist, player); return lam, blocks.prob_over(lam, ln)
+                    return None, None
+                recs = []
+                for _, r in lines.iterrows():
+                    m = str(r.get('market') or '').upper()
+                    if market and m != market.upper():
+                        continue
+                    player = r.get('player_name') or r.get('player')
+                    if not player:
+                        continue
                     try:
-                        a = float(a); return 1.0 + (a/100.0) if a > 0 else 1.0 + (100.0/abs(a))
+                        ln = float(r.get('line'))
                     except Exception:
-                        return None
-                ev_o = (p_over * (_dec(op)-1.0) - (1.0 - p_over)) if (op is not None and _dec(op) is not None) else None
-                p_under = max(0.0, 1.0 - float(p_over))
-                ev_u = (p_under * (_dec(up)-1.0) - (1.0 - p_under)) if (up is not None and _dec(up) is not None) else None
-                side = None; price = None; ev = None
-                if ev_o is not None or ev_u is not None:
-                    if (ev_u is None) or (ev_o is not None and ev_o >= ev_u):
-                        side = 'Over'; price = op; ev = ev_o
-                    else:
-                        side = 'Under'; price = up; ev = ev_u
-                if ev is None or not (float(ev) >= float(min_ev)):
-                    continue
-                recs.append({
-                    'date': date,
-                    'player': player,
-                    'team': r.get('team') or None,
-                    'market': m,
-                    'line': ln,
-                    'proj': float(lam),
-                    'p_over': float(p_over),
-                    'over_price': op if pd.notna(op) else None,
-                    'under_price': up if pd.notna(up) else None,
-                    'book': r.get('book'),
-                    'side': side,
-                    'ev': float(ev) if ev is not None else None,
-                })
-            df = pd.DataFrame(recs)
-            if not df.empty:
-                df = df.sort_values('ev', ascending=False)
-                if top and top > 0:
-                    df = df.head(top)
-            try:
-                save_df(df, rec_path)
+                        continue
+                    op = r.get('over_price'); up = r.get('under_price')
+                    if pd.isna(op) and pd.isna(up):
+                        continue
+                    lam, p_over = proj_prob(m, str(player), ln)
+                    if lam is None or p_over is None:
+                        continue
+                    # EV calc
+                    def _dec(a):
+                        try:
+                            a = float(a); return 1.0 + (a/100.0) if a > 0 else 1.0 + (100.0/abs(a))
+                        except Exception:
+                            return None
+                    ev_o = (p_over * (_dec(op)-1.0) - (1.0 - p_over)) if (op is not None and _dec(op) is not None) else None
+                    p_under = max(0.0, 1.0 - float(p_over))
+                    ev_u = (p_under * (_dec(up)-1.0) - (1.0 - p_under)) if (up is not None and _dec(up) is not None) else None
+                    side = None; price = None; ev = None
+                    if ev_o is not None or ev_u is not None:
+                        if (ev_u is None) or (ev_o is not None and ev_o >= ev_u):
+                            side = 'Over'; price = op; ev = ev_o
+                        else:
+                            side = 'Under'; price = up; ev = ev_u
+                    if ev is None or not (float(ev) >= float(min_ev)):
+                        continue
+                    recs.append({
+                        'date': date,
+                        'player': player,
+                        'team': r.get('team') or None,
+                        'market': m,
+                        'line': ln,
+                        'proj': float(lam),
+                        'p_over': float(p_over),
+                        'over_price': op if pd.notna(op) else None,
+                        'under_price': up if pd.notna(up) else None,
+                        'book': r.get('book'),
+                        'side': side,
+                        'ev': float(ev) if ev is not None else None,
+                    })
+                df = pd.DataFrame(recs)
+                if not df.empty:
+                    df = df.sort_values('ev', ascending=False)
+                    if top and top > 0:
+                        df = df.head(top)
                 try:
-                    _gh_upsert_file_if_configured(rec_path, f"web: update props recommendations for {date}")
+                    save_df(df, rec_path)
+                    try:
+                        _gh_upsert_file_if_configured(rec_path, f"web: update props recommendations for {date}")
+                    except Exception:
+                        pass
                 except Exception:
                     pass
-            except Exception:
-                pass
+            except Exception as e:
+                return JSONResponse({"date": date, "error": str(e), "data": []}, status_code=200)
+        # Apply API filters on cached df
+        if df is None:
+            # In read-only mode, serve empty if cache missing
+            df = pd.read_csv(rec_path) if rec_path.exists() else pd.DataFrame()
+        if market and not df.empty and 'market' in df.columns:
+            df = df[df['market'].astype(str).str.upper() == market.upper()]
+        try:
+            if not df.empty and 'ev' in df.columns:
+                df = df[df['ev'].astype(float) >= float(min_ev)].sort_values('ev', ascending=False)
+            if not df.empty and top and top > 0:
+                df = df.head(top)
+        except Exception:
+            pass
+        # Serialize safely using shared helper to avoid numpy/NaN/Inf issues
+        try:
+            rows = [] if (df is None or df.empty) else _df_jsonsafe_records(df)
+            import json as _json
+            body = _json.dumps({"date": str(date), "data": rows}, allow_nan=False)
+            return Response(content=body, media_type="application/json")
         except Exception as e:
-            return JSONResponse({"date": date, "error": str(e), "data": []}, status_code=200)
-    # Apply API filters on cached df
-    if df is None:
-        # In read-only mode, serve empty if cache missing
-        df = pd.read_csv(rec_path) if rec_path.exists() else pd.DataFrame()
-    if market and not df.empty and 'market' in df.columns:
-        df = df[df['market'].astype(str).str.upper() == market.upper()]
-    try:
-        if not df.empty and 'ev' in df.columns:
-            df = df[df['ev'].astype(float) >= float(min_ev)].sort_values('ev', ascending=False)
-        if not df.empty and top and top > 0:
-            df = df.head(top)
-    except Exception:
-        pass
-    # Serialize safely using shared helper to avoid numpy/NaN/Inf issues
-    try:
-        rows = [] if (df is None or df.empty) else _df_jsonsafe_records(df)
-        import json as _json
-        body = _json.dumps({"date": str(date), "data": rows}, allow_nan=False)
-        return Response(content=body, media_type="application/json")
+            # As a last resort, return a structured error without raising 500
+            return JSONResponse({"date": str(date), "error": str(e), "data": []}, status_code=200)
     except Exception as e:
-        # As a last resort, return a structured error without raising 500
-        return JSONResponse({"date": str(date), "error": str(e), "data": []}, status_code=200)
+        return JSONResponse({"date": str(date) if date else None, "error": str(e), "data": []}, status_code=200)
 
 
 @app.get("/api/player-props-reconciliation")

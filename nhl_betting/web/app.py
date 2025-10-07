@@ -3074,11 +3074,19 @@ async def api_last_updated(date: Optional[str] = Query(None)):
 async def props_page(
     date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD (ET)"),
     market: Optional[str] = Query(None, description="SOG,SAVES,GOALS,ASSISTS,POINTS,BLOCKS"),
+    team: Optional[str] = Query(None, description="Filter by team abbreviation or name"),
+    min_ev: float = Query(0.0, description="Minimum EV threshold (applies to ev_over)"),
+    sort: Optional[str] = Query("ev_desc", description="Sort: ev_desc,ev_asc,p_over_desc,p_over_asc,lambda_desc,lambda_asc,name,team,market,line,book"),
     top: int = Query(500, description="Max rows to display"),
 ):
-    """Player props grid for the slate, computed from canonical lines and internal models."""
+    """Player props grid for the slate, computed from canonical lines and internal models.
+
+    Adds filters for team and market, min EV, and server-side sorting.
+    """
     date = date or _today_ymd()
     rows: list[dict] = []
+    teams_options: list[str] = []
+    sel_team = (team or "").strip()
     try:
         cache = PROC_DIR / f"props_projections_{date}.csv"
         df = None
@@ -3088,20 +3096,83 @@ async def props_page(
             except Exception:
                 df = None
         if df is None or df.empty:
-            df = _compute_props_projections(date, market=market)
+            df = _compute_props_projections(date, market=None)  # compute all, filter below
         if df is not None and not df.empty:
+            # Team options before filters
+            try:
+                if 'team' in df.columns:
+                    teams_options = sorted({str(x).upper() for x in df['team'].dropna().unique().tolist() if str(x).strip()})
+            except Exception:
+                teams_options = []
+            # Market filter
             if market and 'market' in df.columns:
                 df = df[df['market'].astype(str).str.upper() == market.upper()]
-            # Already sorted by ev_over/p_over in the helper, just trim if needed
+            # Team filter (match either exact or abbr uppercase)
+            if sel_team and 'team' in df.columns:
+                su = sel_team.upper()
+                df = df[df['team'].astype(str).str.upper() == su]
+            # Min EV filter
+            if 'ev_over' in df.columns and min_ev is not None:
+                try:
+                    df['ev_over'] = pd.to_numeric(df['ev_over'], errors='coerce')
+                    df = df[df['ev_over'] >= float(min_ev)]
+                except Exception:
+                    pass
+            # Sorting
+            key = (sort or 'ev_desc').lower()
+            ascending = False
+            col = None
+            if key in ('ev_desc','ev_asc'):
+                col = 'ev_over'; ascending = (key == 'ev_asc')
+            elif key in ('p_over_desc','p_over_asc'):
+                col = 'p_over'; ascending = (key == 'p_over_asc')
+            elif key in ('lambda_desc','lambda_asc'):
+                col = 'proj_lambda'; ascending = (key == 'lambda_asc')
+            elif key == 'name':
+                col = 'player'; ascending = True
+            elif key == 'team':
+                col = 'team'; ascending = True
+            elif key == 'market':
+                col = 'market'; ascending = True
+            elif key == 'line':
+                try:
+                    df['line'] = pd.to_numeric(df['line'], errors='coerce')
+                except Exception:
+                    pass
+                col = 'line'; ascending = True
+            elif key == 'book':
+                col = 'book'; ascending = True
+            if col and col in df.columns:
+                try:
+                    df = df.sort_values(by=[col], ascending=ascending, na_position='last')
+                except Exception:
+                    pass
+            else:
+                # default: EV desc then P(Over) desc
+                try:
+                    df = df.sort_values(by=['ev_over','p_over'], ascending=[False, False], na_position='last')
+                except Exception:
+                    pass
+            # Trim
             if top and top > 0:
-                df = df.head(top)
+                df = df.head(int(top))
             rows = _df_jsonsafe_records(df)
         else:
             rows = []
     except Exception:
         rows = []
+        teams_options = []
     template = env.get_template("props_players.html")
-    html = template.render(rows=rows, market=market or "All", min_ev=0.0, top=top, date=date)
+    html = template.render(
+        rows=rows,
+        market=market or "",
+        min_ev=min_ev,
+        top=top,
+        date=date,
+        team=sel_team,
+        teams=teams_options,
+        sort=sort or 'ev_desc',
+    )
     return HTMLResponse(content=html)
 
 @app.get("/props/players")

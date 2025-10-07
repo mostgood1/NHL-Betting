@@ -13,6 +13,8 @@
     .controls { display: flex; gap: 8px; align-items: center; }
     .controls input, .controls select { background: #1e1e1e; color: #f0f0f0; border: 1px solid #333; border-radius: 4px; padding: 6px 8px; }
     .controls label { font-size: 12px; color: #bbb; }
+    .controls .spacer { flex: 1 1 auto; }
+  .th-sort { cursor: pointer; -webkit-user-select: none; user-select: none; }
   </style>
 </head>
 <body>
@@ -36,19 +38,42 @@
         </label>
         <label>Market
           <select id="market">
-            <option value="">All</option>
-            <option value="SOG">SOG</option>
-            <option value="SAVES">Saves</option>
-            <option value="GOALS">Goals</option>
-            <option value="ASSISTS">Assists</option>
-            <option value="POINTS">Points</option>
+            <option value="" {{ 'selected' if (market or '')=='' else '' }}>All</option>
+            <option value="SOG" {{ 'selected' if (market or '')=='SOG' else '' }}>SOG</option>
+            <option value="SAVES" {{ 'selected' if (market or '')=='SAVES' else '' }}>Saves</option>
+            <option value="GOALS" {{ 'selected' if (market or '')=='GOALS' else '' }}>Goals</option>
+            <option value="ASSISTS" {{ 'selected' if (market or '')=='ASSISTS' else '' }}>Assists</option>
+            <option value="POINTS" {{ 'selected' if (market or '')=='POINTS' else '' }}>Points</option>
+          </select>
+        </label>
+        <label>Team
+          <select id="team">
+            <option value="" {{ 'selected' if (team or '')=='' else '' }}>All</option>
+            {% for t in teams or [] %}
+              <option value="{{ t }}" {{ 'selected' if (team or '')==t else '' }}>{{ t }}</option>
+            {% endfor %}
           </select>
         </label>
         <label>Min EV
-          <input id="min_ev" type="number" step="0.01" value="0.0" />
+          <input id="min_ev" type="number" step="0.01" value="{{ '%.2f' % (min_ev or 0.0) }}" />
         </label>
         <label>Top N
-          <input id="top" type="number" step="1" value="50" />
+          <input id="top" type="number" step="1" value="{{ top or 50 }}" />
+        </label>
+        <label>Sort
+          <select id="sort">
+            <option value="ev_desc" {{ 'selected' if (sort or '')=='ev_desc' else '' }}>EV desc</option>
+            <option value="ev_asc" {{ 'selected' if (sort or '')=='ev_asc' else '' }}>EV asc</option>
+            <option value="p_over_desc" {{ 'selected' if (sort or '')=='p_over_desc' else '' }}>P(Over) desc</option>
+            <option value="p_over_asc" {{ 'selected' if (sort or '')=='p_over_asc' else '' }}>P(Over) asc</option>
+            <option value="lambda_desc" {{ 'selected' if (sort or '')=='lambda_desc' else '' }}>Proj λ desc</option>
+            <option value="lambda_asc" {{ 'selected' if (sort or '')=='lambda_asc' else '' }}>Proj λ asc</option>
+            <option value="name" {{ 'selected' if (sort or '')=='name' else '' }}>Player</option>
+            <option value="team" {{ 'selected' if (sort or '')=='team' else '' }}>Team</option>
+            <option value="market" {{ 'selected' if (sort or '')=='market' else '' }}>Market</option>
+            <option value="line" {{ 'selected' if (sort or '')=='line' else '' }}>Line</option>
+            <option value="book" {{ 'selected' if (sort or '')=='book' else '' }}>Book</option>
+          </select>
         </label>
         <button onclick="reloadPage()">Apply</button>
       </div>
@@ -57,15 +82,15 @@
     <table class="table">
       <thead>
         <tr>
-          <th>Market</th>
-          <th>Player</th>
-          <th>Team</th>
-          <th>Line</h>
+          <th class="th-sort" onclick="setSort('market')">Market</th>
+          <th class="th-sort" onclick="setSort('name')">Player</th>
+          <th class="th-sort" onclick="setSort('team')">Team</th>
+          <th class="th-sort" onclick="setSort('line')">Line</th>
           <th>Odds (Over)</th>
           <th>Odds (Under)</th>
-          <th>Proj λ</th>
-          <th>P(Over)</th>
-          <th>EV (Over)</th>
+          <th class="th-sort" onclick="toggleSort('lambda')">Proj λ</th>
+          <th class="th-sort" onclick="toggleSort('p_over')">P(Over)</th>
+          <th class="th-sort" onclick="toggleSort('ev')">EV (Over)</th>
         </tr>
       </thead>
       <tbody>
@@ -90,13 +115,31 @@
       const params = new URLSearchParams(window.location.search);
       const date = document.getElementById('date').value;
       const market = document.getElementById('market').value;
+      const team = document.getElementById('team').value;
       const min_ev = document.getElementById('min_ev').value || '0';
       const top = document.getElementById('top').value || '50';
+      const sort = document.getElementById('sort').value || 'ev_desc';
       if (date) params.set('date', date); else params.delete('date');
       if (market) params.set('market', market); else params.delete('market');
+      if (team) params.set('team', team); else params.delete('team');
       params.set('min_ev', min_ev);
       params.set('top', top);
+      if (sort) params.set('sort', sort); else params.delete('sort');
       window.location.search = params.toString();
+    }
+    function setSort(key){
+      const map = { market: 'market', name: 'name', team: 'team', line: 'line', book: 'book' };
+      const val = map[key] || 'ev_desc';
+      document.getElementById('sort').value = val;
+      reloadPage();
+    }
+    function toggleSort(metric){
+      const sel = document.getElementById('sort');
+      const cur = sel.value;
+      if(metric==='ev') sel.value = (cur==='ev_desc') ? 'ev_asc' : 'ev_desc';
+      else if(metric==='p_over') sel.value = (cur==='p_over_desc') ? 'p_over_asc' : 'p_over_desc';
+      else if(metric==='lambda') sel.value = (cur==='lambda_desc') ? 'lambda_asc' : 'lambda_desc';
+      reloadPage();
     }
   </script>
 </body>

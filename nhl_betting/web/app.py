@@ -533,7 +533,7 @@ def _df_jsonsafe_records(df: pd.DataFrame) -> list[dict]:
                     pass
         # Handle object dtype cells that may contain Timestamp
         try:
-            import datetime as _dt
+            import datetime as _dt, math as _math
             def _coerce(v):
                 if v is None or (isinstance(v, float) and pd.isna(v)):
                     return None
@@ -549,9 +549,13 @@ def _df_jsonsafe_records(df: pd.DataFrame) -> list[dict]:
                     if isinstance(v, (_np.integer,)):
                         return int(v)
                     if isinstance(v, (_np.floating,)):
-                        return float(v)
+                        fv = float(v)
+                        return fv if _math.isfinite(fv) else None
                 except Exception:
                     pass
+                # Handle native float infinities/NaN
+                if isinstance(v, float):
+                    return v if _math.isfinite(v) else None
                 return v
             for c in _df.columns:
                 if _df[c].dtype == object:

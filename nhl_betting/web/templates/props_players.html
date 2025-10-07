@@ -35,6 +35,8 @@
         <a href="/props/teams">Teams</a>
         <span> | </span>
         <a href="/props/recommendations">Props Recs</a>
+        <span> | </span>
+        <a id="dlcsv" href="/props/projections.csv">Download CSV</a>
       </div>
       <div class="controls">
         <label>Date (ET)
@@ -115,6 +117,18 @@
     </table>
   </div>
   <script>
+    // Update the download link with the selected date
+    (function(){
+      try {
+        const a = document.getElementById('dlcsv');
+        const d = document.getElementById('date');
+        if (a && d && d.value) {
+          const u = new URL(a.getAttribute('href'), window.location.origin);
+          u.searchParams.set('date', d.value);
+          a.setAttribute('href', u.pathname + '?' + u.searchParams.toString());
+        }
+      } catch(e) {}
+    })();
     function reloadPage() {
       const params = new URLSearchParams(window.location.search);
       const date = document.getElementById('date').value;

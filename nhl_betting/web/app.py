@@ -3147,7 +3147,7 @@ async def props_page(
     date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD (ET)"),
     market: Optional[str] = Query(None, description="SOG,SAVES,GOALS,ASSISTS,POINTS,BLOCKS"),
     team: Optional[str] = Query(None, description="Filter by team abbreviation or name"),
-    min_ev: float = Query(0.0, description="Minimum EV threshold (applies to ev_over)"),
+    min_ev: float = Query(-1.0, description="Minimum EV threshold (applies to ev_over)"),
     sort: Optional[str] = Query("ev_desc", description="Sort: ev_desc,ev_asc,p_over_desc,p_over_asc,lambda_desc,lambda_asc,name,team,market,line,book"),
     top: int = Query(500, description="Max rows to display"),
 ):
@@ -4743,18 +4743,32 @@ def props_recommendations_csv(date: Optional[str] = Query(None)):
         return Response(content=data, media_type="text/csv", headers=headers)
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
-    summary = {
-        "date": date,
-        "picks": len(picks),
-        "decided": decided,
-        "wins": wins,
-        "losses": losses,
-        "pushes": pushes,
-        "staked": staked,
-        "pnl": pnl,
-        "roi": (pnl / staked) if staked > 0 else None,
-    }
-    return JSONResponse({"summary": summary, "rows": rows})
+
+
+@app.get("/props/projections.csv")
+def props_projections_csv(date: Optional[str] = Query(None)):
+    d = date or _today_ymd()
+    path = PROC_DIR / f"props_projections_{d}.csv"
+    # Prefer local; if missing, try GitHub raw cache
+    if not path.exists():
+        try:
+            df = _github_raw_read_csv(f"data/processed/props_projections_{d}.csv")
+            if df is not None and not df.empty:
+                try:
+                    csv_bytes = df.to_csv(index=False).encode('utf-8')
+                    headers = {"Content-Disposition": f"attachment; filename=props_projections_{d}.csv"}
+                    return Response(content=csv_bytes, media_type="text/csv", headers=headers)
+                except Exception:
+                    pass
+            return PlainTextResponse("", status_code=404)
+        except Exception as e:
+            return JSONResponse({"error": str(e)}, status_code=500)
+    try:
+        data = Path(path).read_bytes()
+        headers = {"Content-Disposition": f"attachment; filename=props_projections_{d}.csv"}
+        return Response(content=data, media_type="text/csv", headers=headers)
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 
 @app.get("/odds-coverage")

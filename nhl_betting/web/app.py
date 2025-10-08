@@ -3499,18 +3499,40 @@ async def props_all_players_page(
     sort: Optional[str] = Query("name", description="Sort by: name, team, market, lambda_desc, lambda_asc"),
     top: int = Query(2000, description="Max rows to display"),
 ):
-    d = _normalize_date_param(date)
-    df = _read_all_players_projections(d)
+    d_requested = _normalize_date_param(date)
+    used_date = d_requested
+    df = _read_all_players_projections(d_requested)
+    notice = None
     if df is None or df.empty:
-        # Compute fresh and persist
-        try:
-            df = _compute_all_players_projections(d)
-            if df is not None and not df.empty:
-                out_path = PROC_DIR / f"props_projections_all_{d}.csv"
-                save_df(df, out_path)
-                _gh_upsert_file_if_better_or_same(out_path, f"web: update props projections ALL for {d}")
-        except Exception:
-            df = pd.DataFrame()
+        # In read-only environments, avoid computing on-the-fly; try recent GitHub cache instead
+        if _read_only(d_requested):
+            try:
+                from datetime import datetime as _dt2, timedelta as _td2
+                base = _dt2.strptime(d_requested, "%Y-%m-%d")
+                df_found = None; d_found = None
+                for i in range(0, 7):
+                    d_try = (base - _td2(days=i)).strftime("%Y-%m-%d")
+                    gh_df = _github_raw_read_csv(f"data/processed/props_projections_all_{d_try}.csv")
+                    if gh_df is not None and not gh_df.empty:
+                        df_found = gh_df; d_found = d_try; break
+                if df_found is not None:
+                    df = df_found; used_date = d_found
+                    if used_date != d_requested:
+                        notice = f"No data for {d_requested}. Showing latest available model-only projections from {used_date}."
+                else:
+                    df = pd.DataFrame(); notice = f"No model-only projections available for {d_requested}."
+            except Exception:
+                df = pd.DataFrame(); notice = f"No model-only projections available for {d_requested}."
+        else:
+            # Compute fresh and persist when writes are allowed
+            try:
+                df = _compute_all_players_projections(d_requested)
+                if df is not None and not df.empty:
+                    out_path = PROC_DIR / f"props_projections_all_{d_requested}.csv"
+                    save_df(df, out_path)
+                    _gh_upsert_file_if_better_or_same(out_path, f"web: update props projections ALL for {d_requested}")
+            except Exception:
+                df = pd.DataFrame()
     teams = []
     try:
         if df is not None and not df.empty and 'team' in df.columns:
@@ -3560,11 +3582,12 @@ async def props_all_players_page(
         market=market or "",
         min_ev=None,
         top=top,
-        date=d,
+        date=used_date,
         team=team or "",
         teams=teams,
         sort=sort or 'name',
-        notice=None,
+        notice=notice,
+        download_href=f"/props/all.csv?date={used_date}",
     )
     return HTMLResponse(content=html)
 

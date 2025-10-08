@@ -28,6 +28,15 @@ import requests
 from io import StringIO
 from ..data import player_props as _props_data
 from ..data import rosters as _rosters
+from ..models.props import (
+    SkaterShotsModel as _SkaterShotsModel,
+    GoalieSavesModel as _GoalieSavesModel,
+    SkaterGoalsModel as _SkaterGoalsModel,
+    SkaterAssistsModel as _SkaterAssistsModel,
+    SkaterPointsModel as _SkaterPointsModel,
+    SkaterBlocksModel as _SkaterBlocksModel,
+)
+from ..web.teams import get_team_assets as _team_assets
 
 # App and templating setup
 BASE_DIR = Path(__file__).resolve().parent
@@ -63,6 +72,29 @@ def _github_raw_read_csv(rel_path: str) -> pd.DataFrame:
         if resp.status_code == 200 and resp.text:
             try:
                 return pd.read_csv(StringIO(resp.text))
+            except Exception:
+                return pd.DataFrame()
+        return pd.DataFrame()
+    except Exception:
+        return pd.DataFrame()
+
+
+def _github_raw_read_parquet(rel_path: str) -> pd.DataFrame:
+    """Fetch a Parquet file from the GitHub repo's raw content and return as DataFrame.
+
+    rel_path should be a posix-style path like 'data/props/player_props_lines/date=YYYY-MM-DD/oddsapi.parquet'.
+    Uses env GITHUB_REPO and GITHUB_BRANCH (defaults to mostgood1/NHL-Betting@master).
+    """
+    try:
+        repo = os.getenv("GITHUB_REPO", "mostgood1/NHL-Betting").strip() or "mostgood1/NHL-Betting"
+        branch = os.getenv("GITHUB_BRANCH", "master").strip() or "master"
+        rel = rel_path.lstrip("/")
+        url = f"https://raw.githubusercontent.com/{repo}/{branch}/{rel}"
+        resp = requests.get(url, timeout=15)
+        if resp.status_code == 200 and resp.content:
+            try:
+                import io as _io
+                return pd.read_parquet(_io.BytesIO(resp.content))
             except Exception:
                 return pd.DataFrame()
         return pd.DataFrame()
@@ -317,6 +349,183 @@ def _file_mtime_iso(path: Path) -> Optional[str]:
     except Exception:
         return None
     return None
+
+
+def _clean_player_display_name(name: str) -> str:
+    """Normalize player name strings that may be dict-like (e.g., "{'default': 'A. Last'}").
+
+    Additionally attempts to expand initials to full names using roster snapshots when available.
+    """
+    try:
+        import ast, re
+        s = name
+        if isinstance(s, str) and s.strip().startswith('{'):
+            try:
+                d = ast.literal_eval(s)
+                if isinstance(d, dict):
+                    v = d.get('default') or d.get('name') or s
+                    if isinstance(v, str):
+                        s = v
+            except Exception:
+                pass
+        # Expand formats like "A. Last" when roster can disambiguate
+        m = re.match(r"^([A-Za-z])[\.]?\s+([A-Za-z\-']+)$", str(s).strip())
+        if m:
+            ini = m.group(1).lower(); last = m.group(2).lower()
+            try:
+                roster = _rosters.build_all_team_roster_snapshots()
+            except Exception:
+                roster = None
+            if roster is not None and not roster.empty and 'full_name' in roster.columns:
+                cands = [fn for fn in roster['full_name'].dropna().astype(str).unique().tolist() if fn.lower().endswith(' ' + last)]
+                if len(cands) == 1:
+                    return cands[0]
+                for c in cands:
+                    first = c.split(' ')[0]
+                    if first and first[0].lower() == ini:
+                        return c
+        return str(s)
+    except Exception:
+        return str(name)
+
+
+def _read_all_players_projections(date: str) -> pd.DataFrame:
+    """Read data/processed/props_projections_all_{date}.csv locally or via GitHub raw."""
+    p = PROC_DIR / f"props_projections_all_{date}.csv"
+    if p.exists():
+        try:
+            return _read_csv_fallback(p)
+        except Exception:
+            pass
+    # GitHub fallback
+    return _github_raw_read_csv(f"data/processed/props_projections_all_{date}.csv")
+
+
+def _compute_all_players_projections(date: str) -> pd.DataFrame:
+    """Compute model-only projections for all rostered players on the slate for the date.
+
+    Mirrors CLI behavior; avoids external NHL Stats API when unavailable by using historical enrichment.
+    """
+    # Ensure stats history exists (best effort)
+    try:
+        from ..data.collect import collect_player_game_stats as _collect_stats
+        start = (datetime.strptime(date, "%Y-%m-%d") - timedelta(days=365)).strftime("%Y-%m-%d")
+        stats_path = RAW_DIR / "player_game_stats.csv"
+        need = (not stats_path.exists()) or (stats_path.stat().st_size == 0)
+        if need:
+            try:
+                _collect_stats(start, date, source="web")
+            except Exception:
+                _collect_stats(start, date, source="stats")
+        try:
+            hist = _read_csv_fallback(stats_path)
+        except Exception:
+            hist = pd.DataFrame()
+    except Exception:
+        hist = pd.DataFrame()
+    # Slate teams via Web API
+    try:
+        web = NHLWebClient()
+        games = web.schedule_day(date)
+    except Exception:
+        games = []
+    slate_names = set()
+    for g in games or []:
+        slate_names.add(str(g.home))
+        slate_names.add(str(g.away))
+    slate_abbrs = set()
+    for nm in slate_names:
+        ab = (_team_assets(str(nm)).get('abbr') or '').upper()
+        if ab:
+            slate_abbrs.add(ab)
+    # Try live roster; fallback to historical enrichment
+    roster_df = pd.DataFrame()
+    try:
+        from ..data.rosters import list_teams as _list_teams, fetch_current_roster as _fetch
+        teams = _list_teams()
+        name_to_id = { str(t.get('name') or '').strip().lower(): int(t.get('id')) for t in teams }
+        id_to_abbr = { int(t.get('id')): str(t.get('abbreviation') or '').upper() for t in teams }
+        rows = []
+        for nm in sorted(slate_names):
+            tid = name_to_id.get(str(nm).strip().lower())
+            if not tid:
+                continue
+            try:
+                players = _fetch(tid)
+            except Exception:
+                players = []
+            for p in players:
+                rows.append({ 'player_id': p.player_id, 'player': p.full_name, 'position': p.position, 'team': id_to_abbr.get(tid) })
+        roster_df = pd.DataFrame(rows)
+    except Exception:
+        roster_df = pd.DataFrame()
+    if roster_df is None or roster_df.empty:
+        # Historical enrichment
+        try:
+            from ..data import player_props as _pp
+            enrich = _pp._build_roster_enrichment()
+        except Exception:
+            enrich = pd.DataFrame()
+        if enrich is None or enrich.empty:
+            return pd.DataFrame(columns=["date","player","team","position","market","proj_lambda"])
+        def _to_abbr(x):
+            try:
+                a = _team_assets(str(x)).get('abbr')
+                return str(a).upper() if a else None
+            except Exception:
+                return None
+        enrich = enrich.copy()
+        enrich['team_abbr'] = enrich['team'].map(_to_abbr)
+        # Infer position from historical if available
+        pos_map = {}
+        try:
+            if hist is not None and not hist.empty and {'player','primary_position'}.issubset(hist.columns):
+                tmp = hist.dropna(subset=['player']).copy()
+                tmp['player'] = tmp['player'].astype(str)
+                last_pos = tmp.dropna(subset=['primary_position']).groupby('player')['primary_position'].last()
+                pos_map = {k: v for k, v in last_pos.items() if isinstance(k, str)}
+        except Exception:
+            pos_map = {}
+        rows = []
+        for _, rr in enrich.iterrows():
+            ab = rr.get('team_abbr')
+            if slate_abbrs and (not ab or ab not in slate_abbrs):
+                continue
+            nm = rr.get('full_name')
+            pos_raw = pos_map.get(str(nm), '')
+            pos = 'G' if str(pos_raw).upper().startswith('G') else ('D' if str(pos_raw).upper().startswith('D') else 'F')
+            rows.append({'player_id': rr.get('player_id'), 'player': nm, 'position': pos, 'team': ab})
+        roster_df = pd.DataFrame(rows)
+    if roster_df is None or roster_df.empty:
+        return pd.DataFrame(columns=["date","player","team","position","market","proj_lambda"])
+    # Models
+    shots = _SkaterShotsModel(); saves = _GoalieSavesModel(); goals = _SkaterGoalsModel(); assists = _SkaterAssistsModel(); points = _SkaterPointsModel(); blocks = _SkaterBlocksModel()
+    out_rows = []
+    for _, r in roster_df.iterrows():
+        player = _clean_player_display_name(str(r.get('player') or ''))
+        pos = str(r.get('position') or '').upper()
+        team = r.get('team')
+        if not player:
+            continue
+        try:
+            if pos == 'G':
+                lam = saves.player_lambda(hist, player)
+                out_rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'SAVES', 'proj_lambda': float(lam) if lam is not None else None})
+            else:
+                lam = shots.player_lambda(hist, player); out_rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'SOG', 'proj_lambda': float(lam) if lam is not None else None})
+                lam = goals.player_lambda(hist, player); out_rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'GOALS', 'proj_lambda': float(lam) if lam is not None else None})
+                lam = assists.player_lambda(hist, player); out_rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'ASSISTS', 'proj_lambda': float(lam) if lam is not None else None})
+                lam = points.player_lambda(hist, player); out_rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'POINTS', 'proj_lambda': float(lam) if lam is not None else None})
+                lam = blocks.player_lambda(hist, player); out_rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'BLOCKS', 'proj_lambda': float(lam) if lam is not None else None})
+        except Exception:
+            continue
+    df = pd.DataFrame(out_rows)
+    if not df.empty:
+        try:
+            df = df.sort_values(['team','position','player','market'])
+        except Exception:
+            pass
+    return df
 
 
 def _fmt_et(iso_utc: Optional[str]) -> Optional[str]:
@@ -678,6 +887,77 @@ def _gh_upsert_file_if_configured(path: Path, message: str) -> dict:
         if pr.status_code not in (200, 201):
             return {"skipped": True, "reason": f"push_failed_{pr.status_code}", "body": pr.text[:300]}
         return {"ok": True, "path": rel_path}
+    except Exception as e:
+        return {"skipped": True, "reason": f"exception_{type(e).__name__}", "msg": str(e)}
+
+
+def _safe_rows_count_csv(path: Path) -> int:
+    try:
+        df = _read_csv_fallback(path)
+        return 0 if df is None or df.empty else int(len(df))
+    except Exception:
+        return 0
+
+
+def _safe_rows_count_parquet(path: Path) -> int:
+    try:
+        if path.exists():
+            df = pd.read_parquet(path)
+            return 0 if df is None or df.empty else int(len(df))
+    except Exception:
+        return 0
+    return 0
+
+
+def _gh_upsert_file_if_better_or_same(path: Path, message: str, rel_hint: Optional[str] = None) -> dict:
+    """Upsert to GitHub only if content changed AND does not regress materially.
+
+    For CSVs, regression = fewer rows than existing remote (or local cache as fallback).
+    For Parquet lines, regression = fewer rows as well.
+    """
+    try:
+        token = os.getenv("GITHUB_TOKEN", "").strip()
+        repo = os.getenv("GITHUB_REPO", "").strip()
+        branch = os.getenv("GITHUB_BRANCH", "master").strip() or "master"
+        if not token or not repo:
+            return {"skipped": True, "reason": "missing_token_or_repo"}
+        # Determine rel path
+        rel_path = rel_hint
+        if not rel_path:
+            rel_path = str(path).replace("\\", "/")
+            try:
+                parts = rel_path.split("/")
+                if "data" in parts:
+                    idx = parts.index("data")
+                    rel_path = "/".join(parts[idx-0:])
+            except Exception:
+                pass
+        # Compute local new rows
+        new_rows = 0
+        is_csv = rel_path.lower().endswith(".csv")
+        is_parquet = rel_path.lower().endswith(".parquet")
+        if is_csv:
+            new_rows = _safe_rows_count_csv(path)
+        elif is_parquet:
+            new_rows = _safe_rows_count_parquet(path)
+        # Read remote for comparison
+        old_rows = 0
+        try:
+            if is_csv:
+                df_remote = _github_raw_read_csv(rel_path)
+                if df_remote is not None and not df_remote.empty:
+                    old_rows = int(len(df_remote))
+            elif is_parquet:
+                df_remote = _github_raw_read_parquet(rel_path)
+                if df_remote is not None and not df_remote.empty:
+                    old_rows = int(len(df_remote))
+        except Exception:
+            old_rows = 0
+        # If we would regress in row count, skip to preserve earlier, richer data
+        if (old_rows > 0) and (new_rows > 0) and (new_rows < old_rows):
+            return {"skipped": True, "reason": "regression_rows", "old": old_rows, "new": new_rows, "path": rel_path}
+        # Otherwise, perform standard upsert
+        return _gh_upsert_file_if_configured(path, message)
     except Exception as e:
         return {"skipped": True, "reason": f"exception_{type(e).__name__}", "msg": str(e)}
 
@@ -2940,7 +3220,17 @@ async def api_cron_props_collect(
                 if path:
                     out["written"].append(str(path))
                     try:
-                        _gh_upsert_file_if_configured(Path(path), f"web: update props lines {which} for {d}")
+                        # Provide a rel hint in posix style
+                        rel = str(Path(path)).replace("\\", "/")
+                        try:
+                            # ensure rel starts at data/
+                            parts = rel.split("/")
+                            if "data" in parts:
+                                idx = parts.index("data")
+                                rel = "/".join(parts[idx:])
+                        except Exception:
+                            pass
+                        _gh_upsert_file_if_better_or_same(Path(path), f"web: update props lines {which} for {d}", rel_hint=rel)
                     except Exception:
                         pass
             except Exception as e:
@@ -2981,7 +3271,7 @@ async def api_cron_props_projections(
         out_path = PROC_DIR / f"props_projections_{d}.csv"
         save_df(df, out_path)
         try:
-            _gh_upsert_file_if_configured(out_path, f"web: update props projections for {d}")
+            _gh_upsert_file_if_better_or_same(out_path, f"web: update props projections for {d}")
         except Exception:
             pass
         return JSONResponse({"ok": True, "date": d, "rows": 0 if df is None or df.empty else int(len(df)), "path": str(out_path)})
@@ -3167,7 +3457,7 @@ async def api_cron_props_recommendations(
         try:
             save_df(df, rec_path)
             try:
-                _gh_upsert_file_if_configured(rec_path, f"web: update props recommendations for {d}")
+                _gh_upsert_file_if_better_or_same(rec_path, f"web: update props recommendations for {d}")
             except Exception:
                 pass
         except Exception:
@@ -3192,255 +3482,138 @@ async def api_last_updated(date: Optional[str] = Query(None)):
 @app.get("/props")
 async def props_page(
     date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD (ET)"),
-    market: Optional[str] = Query(None, description="SOG,SAVES,GOALS,ASSISTS,POINTS,BLOCKS"),
-    team: Optional[str] = Query(None, description="Filter by team abbreviation or name"),
-    min_ev: float = Query(-1.0, description="Minimum EV threshold (applies to ev_over)"),
-    sort: Optional[str] = Query("ev_desc", description="Sort: ev_desc,ev_asc,p_over_desc,p_over_asc,lambda_desc,lambda_asc,name,team,market,line,book"),
-    top: int = Query(500, description="Max rows to display"),
+    team: Optional[str] = Query(None, description="Filter by team abbreviation"),
+    market: Optional[str] = Query(None, description="Filter by market"),
+    sort: Optional[str] = Query("name", description="Sort by: name, team, market, lambda_desc, lambda_asc"),
+    top: int = Query(2000, description="Max rows to display"),
 ):
-    """Player props grid for the slate, computed from canonical lines and internal models.
+    # Delegate to the all-players view but keep the route canonical as /props
+    return await props_all_players_page(date=date, team=team, market=market, sort=sort, top=top)
 
-    Adds filters for team and market, min EV, and server-side sorting.
-    """
-    date = date or _today_ymd()
-    rows: list[dict] = []
-    teams_options: list[str] = []
-    sel_team = (team or "").strip()
-    notice: Optional[str] = None
-    used_date: str = date
+
+@app.get("/props/all")
+async def props_all_players_page(
+    date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD (ET)"),
+    team: Optional[str] = Query(None, description="Filter by team abbreviation"),
+    market: Optional[str] = Query(None, description="Filter by market"),
+    sort: Optional[str] = Query("name", description="Sort by: name, team, market, lambda_desc, lambda_asc"),
+    top: int = Query(2000, description="Max rows to display"),
+):
+    d = _normalize_date_param(date)
+    df = _read_all_players_projections(d)
+    if df is None or df.empty:
+        # Compute fresh and persist
+        try:
+            df = _compute_all_players_projections(d)
+            if df is not None and not df.empty:
+                out_path = PROC_DIR / f"props_projections_all_{d}.csv"
+                save_df(df, out_path)
+                _gh_upsert_file_if_better_or_same(out_path, f"web: update props projections ALL for {d}")
+        except Exception:
+            df = pd.DataFrame()
+    teams = []
     try:
-        cache = PROC_DIR / f"props_projections_{date}.csv"
-        df = None
-        if cache.exists():
-            try:
-                df = _read_csv_fallback(cache)
-            except Exception:
-                df = None
-        if df is None or df.empty:
-            # Try GitHub raw first
-            gh_df = _github_raw_read_csv(f"data/processed/props_projections_{date}.csv")
-            if gh_df is not None and not gh_df.empty:
-                df = gh_df
-            else:
-                df = _compute_props_projections(date, market=None)  # compute all, filter below
-        if df is not None and not df.empty:
-            # Team options before filters
-            try:
-                if 'team' in df.columns:
-                    teams_options = sorted({str(x).upper() for x in df['team'].dropna().unique().tolist() if str(x).strip()})
-            except Exception:
-                teams_options = []
-            # Market filter
-            if market and 'market' in df.columns:
-                df = df[df['market'].astype(str).str.upper() == market.upper()]
-            # Team filter (match either exact or abbr uppercase)
-            if sel_team and 'team' in df.columns:
-                su = sel_team.upper()
-                df = df[df['team'].astype(str).str.upper() == su]
-            # Min EV filter
-            if 'ev_over' in df.columns and min_ev is not None:
-                try:
-                    df['ev_over'] = pd.to_numeric(df['ev_over'], errors='coerce')
-                    df = df[df['ev_over'] >= float(min_ev)]
-                except Exception:
-                    pass
-            # Sorting
-            key = (sort or 'ev_desc').lower()
-            ascending = False
-            col = None
-            if key in ('ev_desc','ev_asc'):
-                col = 'ev_over'; ascending = (key == 'ev_asc')
-            elif key in ('p_over_desc','p_over_asc'):
-                col = 'p_over'; ascending = (key == 'p_over_asc')
-            elif key in ('lambda_desc','lambda_asc'):
-                col = 'proj_lambda'; ascending = (key == 'lambda_asc')
-            elif key == 'name':
-                col = 'player'; ascending = True
-            elif key == 'team':
-                col = 'team'; ascending = True
-            elif key == 'market':
-                col = 'market'; ascending = True
-            elif key == 'line':
-                try:
-                    df['line'] = pd.to_numeric(df['line'], errors='coerce')
-                except Exception:
-                    pass
-                col = 'line'; ascending = True
-            elif key == 'book':
-                col = 'book'; ascending = True
-            if col and col in df.columns:
-                try:
-                    df = df.sort_values(by=[col], ascending=ascending, na_position='last')
-                except Exception:
-                    pass
-            else:
-                # default: EV desc then P(Over) desc
-                try:
-                    df = df.sort_values(by=['ev_over','p_over'], ascending=[False, False], na_position='last')
-                except Exception:
-                    pass
-            # Trim
-            if top and top > 0:
-                df = df.head(int(top))
-            rows = _df_jsonsafe_records(df)
-        else:
-            # Fallback: try latest available projections CSV in processed or via GitHub if today's is missing/empty
-            import re
-            latest_csv = None
-            latest_date = None
-            try:
-                for p in sorted(PROC_DIR.glob("props_projections_*.csv")):
-                    m = re.match(r"props_projections_(\d{4}-\d{2}-\d{2})\\.csv$", p.name)
-                    if not m:
-                        continue
-                    dstr = m.group(1)
-                    if latest_date is None or dstr > latest_date:
-                        latest_date = dstr
-                        latest_csv = p
-            except Exception:
-                latest_csv = None
-            # If none locally, try GitHub to discover the latest by name heuristic (simple pass for now: try today's only)
-            if latest_csv is not None and latest_date and latest_date != date:
-                try:
-                    df = _read_csv_fallback(latest_csv)
-                    used_date = latest_date
-                    notice = f"No data for {date}. Showing latest available projections from {latest_date}."
-                    # Re-run filters/sort/trim
-                    if df is not None and not df.empty:
-                        try:
-                            if 'team' in df.columns:
-                                teams_options = sorted({str(x).upper() for x in df['team'].dropna().unique().tolist() if str(x).strip()})
-                        except Exception:
-                            pass
-                        if market and 'market' in df.columns:
-                            df = df[df['market'].astype(str).str.upper() == market.upper()]
-                        if sel_team and 'team' in df.columns:
-                            su = sel_team.upper()
-                            df = df[df['team'].astype(str).str.upper() == su]
-                        if 'ev_over' in df.columns and min_ev is not None:
-                            try:
-                                df['ev_over'] = pd.to_numeric(df['ev_over'], errors='coerce')
-                                df = df[df['ev_over'] >= float(min_ev)]
-                            except Exception:
-                                pass
-                        key = (sort or 'ev_desc').lower()
-                        ascending = False
-                        col = None
-                        if key in ('ev_desc','ev_asc'):
-                            col = 'ev_over'; ascending = (key == 'ev_asc')
-                        elif key in ('p_over_desc','p_over_asc'):
-                            col = 'p_over'; ascending = (key == 'p_over_asc')
-                        elif key in ('lambda_desc','lambda_asc'):
-                            col = 'proj_lambda'; ascending = (key == 'lambda_asc')
-                        elif key == 'name':
-                            col = 'player'; ascending = True
-                        elif key == 'team':
-                            col = 'team'; ascending = True
-                        elif key == 'market':
-                            col = 'market'; ascending = True
-                        elif key == 'line':
-                            try:
-                                df['line'] = pd.to_numeric(df['line'], errors='coerce')
-                            except Exception:
-                                pass
-                            col = 'line'; ascending = True
-                        elif key == 'book':
-                            col = 'book'; ascending = True
-                        if col and col in df.columns:
-                            try:
-                                df = df.sort_values(by=[col], ascending=ascending, na_position='last')
-                            except Exception:
-                                pass
-                        else:
-                            try:
-                                df = df.sort_values(by=['ev_over','p_over'], ascending=[False, False], na_position='last')
-                            except Exception:
-                                pass
-                        if top and top > 0:
-                            df = df.head(int(top))
-                        rows = _df_jsonsafe_records(df)
-                except Exception:
-                    rows = []
-            else:
-                # As a last resort, try GitHub for today's again (in case local glob had no files)
-                try:
-                    gh_df2 = _github_raw_read_csv(f"data/processed/props_projections_{date}.csv")
-                    if gh_df2 is not None and not gh_df2.empty:
-                        df = gh_df2
-                        used_date = date
-                        notice = f"Loaded projections from GitHub cache for {date}."
-                        # Re-run filters/sort/trim
-                        if df is not None and not df.empty:
-                            try:
-                                if 'team' in df.columns:
-                                    teams_options = sorted({str(x).upper() for x in df['team'].dropna().unique().tolist() if str(x).strip()})
-                            except Exception:
-                                pass
-                            if market and 'market' in df.columns:
-                                df = df[df['market'].astype(str).str.upper() == market.upper()]
-                            if sel_team and 'team' in df.columns:
-                                su = sel_team.upper()
-                                df = df[df['team'].astype(str).str.upper() == su]
-                            if 'ev_over' in df.columns and min_ev is not None:
-                                try:
-                                    df['ev_over'] = pd.to_numeric(df['ev_over'], errors='coerce')
-                                    df = df[df['ev_over'] >= float(min_ev)]
-                                except Exception:
-                                    pass
-                            key = (sort or 'ev_desc').lower()
-                            ascending = False
-                            col = None
-                            if key in ('ev_desc','ev_asc'):
-                                col = 'ev_over'; ascending = (key == 'ev_asc')
-                            elif key in ('p_over_desc','p_over_asc'):
-                                col = 'p_over'; ascending = (key == 'p_over_asc')
-                            elif key in ('lambda_desc','lambda_asc'):
-                                col = 'proj_lambda'; ascending = (key == 'lambda_asc')
-                            elif key == 'name':
-                                col = 'player'; ascending = True
-                            elif key == 'team':
-                                col = 'team'; ascending = True
-                            elif key == 'market':
-                                col = 'market'; ascending = True
-                            elif key == 'line':
-                                try:
-                                    df['line'] = pd.to_numeric(df['line'], errors='coerce')
-                                except Exception:
-                                    pass
-                                col = 'line'; ascending = True
-                            elif key == 'book':
-                                col = 'book'; ascending = True
-                            if col and col in df.columns:
-                                try:
-                                    df = df.sort_values(by=[col], ascending=ascending, na_position='last')
-                                except Exception:
-                                    pass
-                            else:
-                                try:
-                                    df = df.sort_values(by=['ev_over','p_over'], ascending=[False, False], na_position='last')
-                                except Exception:
-                                    pass
-                            if top and top > 0:
-                                df = df.head(int(top))
-                            rows = _df_jsonsafe_records(df)
-                except Exception:
-                    rows = []
+        if df is not None and not df.empty and 'team' in df.columns:
+            teams = sorted({str(x).upper() for x in df['team'].dropna().unique().tolist() if str(x).strip()})
     except Exception:
+        teams = []
+    if df is not None and not df.empty:
+        try:
+            df['player'] = df['player'].astype(str).map(_clean_player_display_name)
+        except Exception:
+            pass
+        if team:
+            su = str(team).upper()
+            try:
+                df = df[df['team'].astype(str).str.upper() == su]
+            except Exception:
+                pass
+        if market:
+            try:
+                df = df[df['market'].astype(str).str.upper() == str(market).upper()]
+            except Exception:
+                pass
+        key = (sort or 'name').lower()
+        ascending = True
+        col = None
+        if key in ('lambda_desc','lambda_asc'):
+            col = 'proj_lambda'; ascending = (key == 'lambda_asc')
+        elif key == 'market':
+            col = 'market'
+        elif key == 'team':
+            col = 'team'
+        else:
+            col = 'player'
+        if col in df.columns:
+            try:
+                df = df.sort_values(by=[col], ascending=ascending, na_position='last')
+            except Exception:
+                pass
+        if top and top > 0:
+            df = df.head(int(top))
+        rows = _df_jsonsafe_records(df)
+    else:
         rows = []
-        teams_options = []
     template = env.get_template("props_players.html")
     html = template.render(
         rows=rows,
         market=market or "",
-        min_ev=min_ev,
+        min_ev=None,
         top=top,
-        date=used_date,
-        team=sel_team,
-        teams=teams_options,
-        sort=sort or 'ev_desc',
-        notice=notice,
+        date=d,
+        team=team or "",
+        teams=teams,
+        sort=sort or 'name',
+        notice=None,
     )
     return HTMLResponse(content=html)
+
+
+@app.get("/props/all.csv")
+async def props_all_players_csv(
+    date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD (ET)"),
+):
+    d = _normalize_date_param(date)
+    df = _read_all_players_projections(d)
+    try:
+        if df is None or df.empty:
+            df = _compute_all_players_projections(d)
+    except Exception:
+        df = pd.DataFrame()
+    import io
+    out = io.StringIO()
+    (df if df is not None else pd.DataFrame()).to_csv(out, index=False)
+    return Response(content=out.getvalue(), media_type="text/csv")
+
+
+@app.post("/api/cron/props-all")
+async def cron_props_all(
+    date: Optional[str] = Query(None),
+    authorization: Optional[str] = Header(default=None),
+):
+    d = _normalize_date_param(date)
+    # Auth: align with other cron endpoints using REFRESH_CRON_TOKEN
+    secret = os.getenv("REFRESH_CRON_TOKEN", "")
+    supplied = ""
+    if authorization:
+        try:
+            auth = str(authorization)
+            if auth.lower().startswith("bearer "):
+                supplied = auth.split(" ", 1)[1].strip()
+        except Exception:
+            supplied = supplied
+    if not (secret and supplied and _const_time_eq(supplied, secret)):
+        return PlainTextResponse("Unauthorized", status_code=401)
+    try:
+        df = _compute_all_players_projections(d)
+        if df is None or df.empty:
+            return JSONResponse({"ok": True, "date": d, "rows": 0})
+        out_path = PROC_DIR / f"props_projections_all_{d}.csv"
+        save_df(df, out_path)
+        res = _gh_upsert_file_if_better_or_same(out_path, f"web: update props projections ALL for {d}")
+        return JSONResponse({"ok": True, "date": d, "rows": int(len(df)), "github": res})
+    except Exception as e:
+        return JSONResponse({"ok": False, "date": d, "error": str(e)}, status_code=500)
 
 @app.get("/props/players")
 async def props_players_page(
@@ -3695,7 +3868,21 @@ async def props_recommendations_page(
                     else:
                         cur = lp.copy()
                     cur = cur.dropna(subset=['player_name','team'])
-                    last_team = cur.groupby('player_name')['team'].agg(lambda s: s.dropna().astype(str).iloc[-1] if len(s.dropna()) else None)
+                    def _norm_team_series(s):
+                        try:
+                            val = s.dropna().astype(str).iloc[-1] if len(s.dropna()) else None
+                        except Exception:
+                            val = None
+                        if val:
+                            try:
+                                assets = get_team_assets(val) or {}
+                                ab = assets.get('abbr')
+                                if ab:
+                                    return str(ab).upper()
+                            except Exception:
+                                pass
+                        return val
+                    last_team = cur.groupby('player_name')['team'].agg(_norm_team_series)
                     for name_key, tm in last_team.items():
                         if tm:
                             player_team_map[str(name_key).strip()] = str(tm).strip()
@@ -3726,7 +3913,21 @@ async def props_recommendations_page(
                                 pass
                     # Also build a last known team per player as a fallback
                     if 'team' in pstats.columns:
-                        last_teams = pstats.dropna(subset=['team']).groupby('player')['team'].last()
+                        def _last_team_norm(g):
+                            try:
+                                t = g.dropna().astype(str).iloc[-1]
+                            except Exception:
+                                t = None
+                            if t:
+                                try:
+                                    a = get_team_assets(t) or {}
+                                    ab = a.get('abbr')
+                                    if ab:
+                                        return str(ab).upper()
+                                except Exception:
+                                    pass
+                            return t
+                        last_teams = pstats.dropna(subset=['team']).groupby('player')['team'].agg(_last_team_norm)
                         for nm, tm in last_teams.items():
                             if nm and (nm not in player_team_map or not player_team_map.get(nm)):
                                 player_team_map[nm] = str(tm).strip()

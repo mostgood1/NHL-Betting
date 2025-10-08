@@ -812,6 +812,62 @@ def props_recommendations(
         print("No props lines found for", date)
         raise typer.Exit(code=1)
     lines = pd.concat(parts, ignore_index=True)
+
+    # Build a player->team mapping to ensure team alignment in outputs
+    from .web.teams import get_team_assets as _get_team_assets
+    def _norm_name(x: str) -> str:
+        try:
+            s = str(x or "").strip()
+            return " ".join(s.split())
+        except Exception:
+            return str(x)
+    def _abbr_team(t: str | None) -> str | None:
+        if not t:
+            return None
+        try:
+            a = _get_team_assets(str(t)) or {}
+            ab = a.get("abbr")
+            return str(ab).upper() if ab else (str(t).strip().upper() if str(t).strip() else None)
+        except Exception:
+            return str(t).strip().upper() if isinstance(t, str) and t.strip() else None
+    player_team_map: dict[str, str] = {}
+    try:
+        if not lines.empty and {"player_name","team"}.issubset(lines.columns):
+            cur = lines
+            try:
+                if "is_current" in cur.columns:
+                    cur = cur[cur["is_current"] == True]
+            except Exception:
+                pass
+            cur = cur.dropna(subset=["player_name","team"]).copy()
+            cur["_team_abbr"] = cur["team"].map(_abbr_team)
+            last_team = cur.groupby("player_name")["_team_abbr"].agg(lambda s: s.dropna().astype(str).iloc[-1] if len(s.dropna()) else None)
+            for nm, tm in last_team.items():
+                if tm:
+                    player_team_map[_norm_name(nm)] = str(tm)
+        # Fallback: use historical player_game_stats.csv for last known team
+        if True:
+            from .utils.io import RAW_DIR as _RAW
+            try:
+                pstats = pd.read_csv(_RAW / "player_game_stats.csv")
+            except Exception:
+                pstats = pd.DataFrame()
+            if pstats is not None and not pstats.empty and "player" in pstats.columns:
+                try:
+                    pstats = pstats.dropna(subset=["player"]).copy()
+                    pstats["player"] = pstats["player"].astype(str).map(_norm_name)
+                    if "team" in pstats.columns:
+                        last_teams = pstats.dropna(subset=["team"]).groupby("player")["team"].last()
+                        for nm, tm in last_teams.items():
+                            key = _norm_name(nm)
+                            if key and key not in player_team_map:
+                                ab = _abbr_team(tm)
+                                if ab:
+                                    player_team_map[key] = ab
+                except Exception:
+                    pass
+    except Exception:
+        player_team_map = player_team_map
     # Ensure player stats history
     stats_path = RAW_DIR / "player_game_stats.csv"
     if not stats_path.exists():
@@ -956,6 +1012,91 @@ def props_full(
         raise typer.Exit(code=1)
     lines = pd.concat(parts, ignore_index=True)
 
+    # Build a player->team mapping to ensure aligned team abbreviations in outputs
+    from .web.teams import get_team_assets as _get_team_assets
+    def _norm_name(x):
+        try:
+            s = str(x or "").strip()
+            return " ".join(s.split())
+        except Exception:
+            return str(x)
+    def _abbr_team(t):
+        if not t:
+            return None
+        try:
+            a = _get_team_assets(str(t)) or {}
+            ab = a.get("abbr")
+            return str(ab).upper() if ab else (str(t).strip().upper() if str(t).strip() else None)
+        except Exception:
+            return str(t).strip().upper() if isinstance(t, str) and t.strip() else None
+    player_team_map = {}
+    try:
+        # 1) Roster enrichment: full_name -> team abbr, with name-variant keys (First Last, F Last, F. Last)
+        try:
+            from .data import player_props as _pp
+            roster_df = _pp._build_roster_enrichment()
+        except Exception:
+            roster_df = None
+        if roster_df is not None and not roster_df.empty and {"full_name","team"}.issubset(roster_df.columns):
+            def _name_keys(full_name: str):
+                try:
+                    nm = str(full_name or "").strip()
+                    parts = nm.split()
+                    if len(parts) >= 2:
+                        first = parts[0]; last = parts[-1]
+                        keys = { _norm_name(nm).lower() }
+                        fi = first[0]
+                        keys.add(_norm_name(f"{fi} {last}").lower())
+                        keys.add(_norm_name(f"{fi}. {last}").lower())
+                        return keys
+                    return { _norm_name(nm).lower() } if nm else set()
+                except Exception:
+                    return set()
+            for _, row in roster_df.iterrows():
+                full = row.get("full_name"); tm = row.get("team")
+                ab = _abbr_team(tm)
+                if not ab:
+                    continue
+                for k in _name_keys(full):
+                    if k and k not in player_team_map:
+                        player_team_map[k] = ab
+        # 2) From lines parquet themselves (latest team seen)
+        if not lines.empty and {"player_name","team"}.issubset(lines.columns):
+            cur = lines
+            try:
+                if "is_current" in cur.columns:
+                    cur = cur[cur["is_current"] == True]
+            except Exception:
+                pass
+            cur = cur.dropna(subset=["player_name","team"]).copy()
+            cur["_team_abbr"] = cur["team"].map(_abbr_team)
+            last_team = cur.groupby("player_name")["_team_abbr"].agg(lambda s: s.dropna().astype(str).iloc[-1] if len(s.dropna()) else None)
+            for nm, tm in last_team.items():
+                if tm:
+                    player_team_map[_norm_name(nm).lower()] = str(tm)
+        # Fallback: historical last known team per player
+        from .utils.io import RAW_DIR as _RAW
+        try:
+            pstats = pd.read_csv(_RAW / "player_game_stats.csv")
+        except Exception:
+            pstats = pd.DataFrame()
+        if pstats is not None and not pstats.empty and "player" in pstats.columns:
+            try:
+                pstats = pstats.dropna(subset=["player"]).copy()
+                pstats["player"] = pstats["player"].astype(str).map(_norm_name)
+                if "team" in pstats.columns:
+                    last_teams = pstats.dropna(subset=["team"]).groupby("player")["team"].last()
+                    for nm, tm in last_teams.items():
+                        key = _norm_name(nm).lower()
+                        if key and key not in player_team_map:
+                            ab = _abbr_team(tm)
+                            if ab:
+                                player_team_map[key] = ab
+            except Exception:
+                pass
+    except Exception:
+        player_team_map = player_team_map
+
     # 2) Ensure player stats history exists (file present and non-empty)
     stats_path = RAW_DIR / "player_game_stats.csv"
     def _needs_history(p):
@@ -1065,10 +1206,11 @@ def props_full(
             dec = _dec(op)
             if dec is not None:
                 ev_over = float(p_over) * (dec - 1.0) - (1.0 - float(p_over))
+        team_val = r.get('team') or player_team_map.get(_norm_name(player).lower())
         proj_rows.append({
             'market': m,
             'player': player,
-            'team': r.get('team') or None,
+            'team': _abbr_team(team_val) if team_val else None,
             'line': ln,
             'over_price': op if pd.notna(op) else None,
             'under_price': up if pd.notna(up) else None,
@@ -1120,10 +1262,11 @@ def props_full(
                 side = 'Under'; price = up; ev = ev_u
         if ev is None or not (float(ev) >= float(min_ev)):
             continue
+        team_val = r.get('team') or player_team_map.get(_norm_name(player).lower())
         rec_rows.append({
             'date': date,
             'player': player,
-            'team': r.get('team') or None,
+            'team': _abbr_team(team_val) if team_val else None,
             'market': m,
             'line': ln,
             'proj': float(lam),
@@ -1167,6 +1310,194 @@ def odds_fetch_historical(
     save_df(df, out_path)
     print(df.head())
     print("Saved historical odds to", out_path)
+
+
+@app.command()
+def props_project_all(
+    date: str = typer.Option(..., help="Slate date YYYY-MM-DD (ET)"),
+    ensure_history_days: int = typer.Option(365, help="Days of player history to ensure before date"),
+    include_goalies: bool = typer.Option(True, help="Include goalie SAVES projections"),
+):
+    """Compute model-only props projections (lambdas) for all rostered players on teams with a game.
+
+    Writes data/processed/props_projections_all_{date}.csv with columns:
+      [date, player, team, position, market, proj_lambda]
+    """
+    from datetime import datetime as _dt, timedelta as _td
+    # Ensure history
+    stats_path = RAW_DIR / "player_game_stats.csv"
+    def _needs_history(p: Path) -> bool:
+        try:
+            if not p.exists() or p.stat().st_size == 0:
+                return True
+            tmp = pd.read_csv(p)
+            return tmp.empty
+        except Exception:
+            return True
+    if _needs_history(stats_path):
+        try:
+            start = (_dt.strptime(date, "%Y-%m-%d") - _td(days=int(ensure_history_days))).strftime("%Y-%m-%d")
+            try:
+                collect_player_game_stats(start, date, source="web")
+            except Exception:
+                collect_player_game_stats(start, date, source="stats")
+        except Exception as e:
+            print(f"[history] ensure failed: {e}")
+    try:
+        hist = load_df(stats_path) if stats_path.exists() else pd.read_csv(stats_path)
+    except Exception:
+        hist = pd.DataFrame()
+    # Harmonize initials to full names using roster
+    try:
+        if hist is not None and not hist.empty and 'player' in hist.columns:
+            import re, ast
+            roster = build_all_team_roster_snapshots()
+            last_to_full = {}
+            if roster is not None and not roster.empty and 'full_name' in roster.columns:
+                for nm in roster['full_name'].dropna().astype(str).unique().tolist():
+                    parts = nm.strip().split(' ')
+                    if len(parts) >= 2:
+                        last = parts[-1].lower()
+                        last_to_full.setdefault(last, set()).add(nm)
+            def _extract_default(s: str):
+                if isinstance(s, str) and s.strip().startswith('{'):
+                    try:
+                        d = ast.literal_eval(s)
+                        if isinstance(d, dict):
+                            v = d.get('default') or d.get('name') or ''
+                            if isinstance(v, str):
+                                return v
+                    except Exception:
+                        return s
+                return s
+            def _fix(n: str) -> str:
+                n = _extract_default(n)
+                m = re.match(r"^([A-Za-z])[\.]?\s+([A-Za-z\-']+)$", str(n).strip())
+                if m:
+                    ini = m.group(1).lower(); last = m.group(2).lower()
+                    cands = list(last_to_full.get(last, []))
+                    if len(cands) == 1:
+                        return cands[0]
+                    for c in cands:
+                        first = c.split(' ')[0]
+                        if first and first[0].lower() == ini:
+                            return c
+                return str(n)
+            hist['player'] = hist['player'].astype(str).map(_fix)
+    except Exception:
+        pass
+    # Get slate teams (Web API)
+    web = NHLWebClient()
+    games = web.schedule_day(date)
+    slate_team_names = set()
+    for g in games:
+        slate_team_names.add(str(g.home))
+        slate_team_names.add(str(g.away))
+    # Normalize slate teams to abbreviations
+    from .web.teams import get_team_assets as _assets
+    slate_abbrs = set()
+    for nm in slate_team_names:
+        ab = (_assets(str(nm)).get('abbr') or '').upper()
+        if ab:
+            slate_abbrs.add(ab)
+    # Try live roster via Stats API; on failure, fallback to historical roster enrichment
+    roster_df = pd.DataFrame()
+    try:
+        from .data.rosters import list_teams as _list_teams, fetch_current_roster as _fetch_current_roster
+        teams = _list_teams()
+        name_to_id = { str(t.get('name') or '').strip().lower(): int(t.get('id')) for t in teams }
+        id_to_abbr = { int(t.get('id')): str(t.get('abbreviation') or '').upper() for t in teams }
+        rows_live = []
+        for nm in sorted(slate_team_names):
+            tid = name_to_id.get(str(nm).strip().lower())
+            if not tid:
+                continue
+            try:
+                players = _fetch_current_roster(tid)
+            except Exception:
+                players = []
+            for p in players:
+                rows_live.append({
+                    'player_id': p.player_id,
+                    'player': p.full_name,
+                    'position': p.position,
+                    'team': id_to_abbr.get(tid),
+                })
+        roster_df = pd.DataFrame(rows_live)
+    except Exception as e:
+        print(f"[roster] live roster unavailable, using historical fallback: {e}")
+        try:
+            from .data import player_props as _pp
+            enrich = _pp._build_roster_enrichment()
+        except Exception:
+            enrich = pd.DataFrame()
+        if enrich is None or enrich.empty:
+            roster_df = pd.DataFrame()
+        else:
+            # Map team to abbreviation and filter to slate teams
+            def _to_abbr(x):
+                try:
+                    a = _assets(str(x)).get('abbr')
+                    return str(a).upper() if a else None
+                except Exception:
+                    return None
+            enrich = enrich.copy()
+            enrich['team_abbr'] = enrich['team'].map(_to_abbr)
+            # Infer position from historical stats if available
+            pos_map = {}
+            try:
+                if hist is not None and not hist.empty and {'player','primary_position'}.issubset(hist.columns):
+                    tmp = hist.dropna(subset=['player']).copy()
+                    tmp['player'] = tmp['player'].astype(str)
+                    # take last known non-null position
+                    last_pos = tmp.dropna(subset=['primary_position']).groupby('player')['primary_position'].last()
+                    pos_map = {k: v for k, v in last_pos.items() if isinstance(k, str)}
+            except Exception:
+                pos_map = {}
+            rows_fb = []
+            for _, rr in enrich.iterrows():
+                ab = rr.get('team_abbr')
+                if not ab or ab not in slate_abbrs:
+                    continue
+                nm = rr.get('full_name')
+                pos_raw = pos_map.get(str(nm), '')
+                pos = 'G' if str(pos_raw).upper().startswith('G') else ('D' if str(pos_raw).upper().startswith('D') else 'F')
+                rows_fb.append({'player_id': rr.get('player_id'), 'player': nm, 'position': pos, 'team': ab})
+            roster_df = pd.DataFrame(rows_fb)
+    if roster_df.empty:
+        print("No roster players found for slate.")
+        raise typer.Exit(code=1)
+    # Models
+    shots = SkaterShotsModel(); saves = GoalieSavesModel(); goals = SkaterGoalsModel(); assists = SkaterAssistsModel(); points = SkaterPointsModel(); blocks = SkaterBlocksModel()
+    rows = []
+    for _, r in roster_df.iterrows():
+        player = str(r.get('player') or '').strip()
+        pos = str(r.get('position') or '').upper()
+        team = r.get('team')
+        if not player:
+            continue
+        try:
+            if pos == 'G':
+                if include_goalies:
+                    lam = saves.player_lambda(hist, player)
+                    rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'SAVES', 'proj_lambda': float(lam) if lam is not None else None})
+            else:
+                lam = shots.player_lambda(hist, player); rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'SOG', 'proj_lambda': float(lam) if lam is not None else None})
+                lam = goals.player_lambda(hist, player); rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'GOALS', 'proj_lambda': float(lam) if lam is not None else None})
+                lam = assists.player_lambda(hist, player); rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'ASSISTS', 'proj_lambda': float(lam) if lam is not None else None})
+                lam = points.player_lambda(hist, player); rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'POINTS', 'proj_lambda': float(lam) if lam is not None else None})
+                lam = blocks.player_lambda(hist, player); rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'BLOCKS', 'proj_lambda': float(lam) if lam is not None else None})
+        except Exception:
+            continue
+    out = pd.DataFrame(rows)
+    if not out.empty:
+        try:
+            out = out.sort_values(['team','position','player','market'])
+        except Exception:
+            pass
+    out_path = PROC_DIR / f"props_projections_all_{date}.csv"
+    save_df(out, out_path)
+    print(f"Wrote {out_path} with {0 if out is None or out.empty else len(out)} rows")
 
 
 @app.command()

@@ -18,6 +18,7 @@ from .bovada import BovadaClient
 from .odds_api import OddsAPIClient
 from . import rosters as _rosters
 from ..utils.io import RAW_DIR as _RAW_DIR
+from ..web.teams import get_team_assets
 
 
 @dataclass
@@ -197,6 +198,26 @@ def normalize_player_names(raw: pd.DataFrame, roster_df: Optional[pd.DataFrame])
         df["player_id"] = df["player_clean"].map(id_mapper)
         # Attach team from roster snapshot where available
         df["team"] = df["player_clean"].map(team_mapper)
+        # Normalize team to abbreviation when possible
+        def _team_abbr(x):
+            try:
+                if x is None or (isinstance(x, float) and pd.isna(x)):
+                    return None
+                a = get_team_assets(str(x)) or {}
+                ab = a.get("abbr")
+                if ab:
+                    return str(ab).upper()
+                # if 'name' resolves to abbr string
+                n = a.get("name")
+                if n:
+                    b = get_team_assets(str(n)) or {}
+                    if b.get("abbr"):
+                        return str(b.get("abbr")).upper()
+                s = str(x).strip().upper()
+                return s if s else None
+            except Exception:
+                return str(x).strip().upper() if isinstance(x, str) and x.strip() else None
+        df["team"] = df["team"].map(_team_abbr)
     else:
         df["player_id"] = None
         df["team"] = None
@@ -237,6 +258,14 @@ def combine_over_under(df: pd.DataFrame) -> pd.DataFrame:
         try:
             if "team" in g.columns and g["team"].notna().any():
                 team_val = g["team"].dropna().astype(str).iloc[-1]
+                # normalize to abbreviation
+                try:
+                    a = get_team_assets(team_val) or {}
+                    ab = a.get("abbr")
+                    if ab:
+                        team_val = str(ab).upper()
+                except Exception:
+                    pass
         except Exception:
             team_val = None
         over_row = g[g["side"] == "OVER"].sort_values("collected_at").tail(1)

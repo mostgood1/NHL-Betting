@@ -105,12 +105,24 @@
             <td>{{ r.market }}</td>
             <td>{{ r.player }}</td>
             <td>{{ r.team if r.team is defined else '' }}</td>
-            <td>{{ r.line }}</td>
-            <td>{{ r.over_price }}</td>
-            <td>{{ r.under_price }}</td>
-            <td>{{ '%.2f' % r.proj_lambda }}</td>
-            <td>{{ '%.1f' % (r.p_over * 100) }}%</td>
-            <td class="{{ 'ev-pos' if r.ev_over >= 0 else 'ev-neg' }}">{{ '%.3f' % r.ev_over }}</td>
+            <td>{{ r.line if r.line is defined else '' }}</td>
+            <td>{{ r.over_price if r.over_price is defined else '' }}</td>
+            <td>{{ r.under_price if r.under_price is defined else '' }}</td>
+            <td>
+              {% if r.proj_lambda is defined and r.proj_lambda is not none %}
+                {{ '%.2f' % r.proj_lambda }}
+              {% else %}-{% endif %}
+            </td>
+            <td>
+              {% if r.p_over is defined and r.p_over is not none %}
+                {{ '%.1f' % (r.p_over * 100) }}%
+              {% else %}-{% endif %}
+            </td>
+            <td class="{% if r.ev_over is defined and r.ev_over is not none and r.ev_over >= 0 %}ev-pos{% else %}ev-neg{% endif %}">
+              {% if r.ev_over is defined and r.ev_over is not none %}
+                {{ '%.3f' % r.ev_over }}
+              {% else %}-{% endif %}
+            </td>
           </tr>
         {% endfor %}
       </tbody>

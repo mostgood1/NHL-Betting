@@ -1,4 +1,0 @@
-date,home,away,p_home_ml,p_away_ml,p_over,p_under,p_home_pl_-1.5,p_away_pl_+1.5,total_line_used,proj_home_goals,proj_away_goals,model_total,model_spread,pl_line_used,totals_pick,totals_edge_pts,ats_pick,ats_edge_pts,edge_over_pts,edge_under_pts,edge_home_pl_pts,edge_away_pl_pts,actual_home_goals,actual_away_goals,actual_total,venue,game_state
-2025-10-17T23:00:00Z,Detroit Red Wings,Tampa Bay Lightning,0.5239,0.4761,0.4043,0.4339,0.306,0.694,6.0,3.18,2.89,6.07,0.29,1.5,Under,-0.07,away_+1.5,1.21,0.07,-0.07,-1.21,1.21,,,,Little Caesars Arena,FUT
-2025-10-17T23:00:00Z,Washington Capitals,Minnesota Wild,0.5582,0.4418,0.4041,0.4338,0.3479,0.6521,6.0,3.33,2.74,6.07,0.58,1.5,Under,-0.07,away_+1.5,0.92,0.07,-0.07,-0.92,0.92,,,,Capital One Arena,FUT
-2025-10-18T00:30:00Z,Chicago Blackhawks,Vancouver Canucks,0.2686,0.7314,0.4016,0.433,0.0806,0.9194,6.0,2.11,3.96,6.07,-1.85,1.5,Under,-0.07,away_+1.5,3.35,0.07,-0.07,-3.35,3.35,,,,United Center,FUT

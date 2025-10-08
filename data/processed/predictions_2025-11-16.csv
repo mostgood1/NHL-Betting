@@ -1,6 +1,0 @@
-date,home,away,p_home_ml,p_away_ml,p_over,p_under,p_home_pl_-1.5,p_away_pl_+1.5,total_line_used,proj_home_goals,proj_away_goals,model_total,model_spread,pl_line_used,totals_pick,totals_edge_pts,ats_pick,ats_edge_pts,edge_over_pts,edge_under_pts,edge_home_pl_pts,edge_away_pl_pts,actual_home_goals,actual_away_goals,actual_total,venue,game_state
-2025-11-16T14:00:00Z,Pittsburgh Penguins,Nashville Predators,0.496,0.504,0.4044,0.4339,0.2737,0.7263,6.0,3.07,3.01,6.07,0.06,1.5,Under,-0.07,away_+1.5,1.44,0.07,-0.07,-1.44,1.44,,,,Avicii Arena,FUT
-2025-11-16T22:00:00Z,Tampa Bay Lightning,Vancouver Canucks,0.5364,0.4636,0.4043,0.4338,0.3211,0.6789,6.0,3.24,2.84,6.07,0.4,1.5,Under,-0.07,away_+1.5,1.1,0.07,-0.07,-1.1,1.1,,,,Benchmark International Arena,FUT
-2025-11-16T23:00:00Z,Minnesota Wild,Vegas Golden Knights,0.5042,0.4958,0.4044,0.4339,0.283,0.717,6.0,3.1,2.97,6.07,0.13,1.5,Under,-0.07,away_+1.5,1.37,0.07,-0.07,-1.37,1.37,,,,Grand Casino Arena,FUT
-2025-11-17T00:00:00Z,New York Rangers,Detroit Red Wings,0.7454,0.2546,0.4004,0.4326,0.5944,0.4056,6.0,4.11,1.96,6.07,2.15,1.5,Under,-0.07,home_-1.5,0.65,0.07,-0.07,0.65,-0.65,,,,Madison Square Garden,FUT
-2025-11-17T02:00:00Z,Colorado Avalanche,New York Islanders,0.6719,0.3281,0.4025,0.4333,0.4968,0.5032,6.0,3.81,2.27,6.07,1.54,1.5,Under,-0.07,away_+1.5,-0.04,0.07,-0.07,0.04,-0.04,,,,Ball Arena,FUT

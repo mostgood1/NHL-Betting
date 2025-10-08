@@ -52,11 +52,29 @@ def _norm(s: str) -> str:
 
 
 def get_team_assets(name: str) -> dict:
-    """Return dict with name, abbr, and logo URLs for the given team name.
+    """Return dict with name, abbr, and logo URLs for the given team name or abbreviation.
 
-    Uses NHL assets CDN with abbreviation-based SVGs.
+    Accepts either a full team name (e.g., "Florida Panthers") or a 2-3 letter
+    abbreviation (e.g., "FLA"). Uses NHL assets CDN with abbreviation-based SVGs.
     """
-    abbr = _NAME_TO_ABBR.get(_norm(name))
+    if name is None:
+        return {
+            "name": None,
+            "abbr": None,
+            "logo_light": None,
+            "logo_dark": None,
+            "division": None,
+            "conference": None,
+        }
+    # First try full-name mapping
+    abbr = _NAME_TO_ABBR.get(_norm(str(name)))
+    # If not found, try direct abbreviation pass-through
+    if not abbr:
+        raw = str(name).strip().upper()
+        # Some feeds provide 2- or 3-letter abbreviations; accept if known
+        _ALL_ABBRS = set(_NAME_TO_ABBR.values())
+        if raw in _ALL_ABBRS or (len(raw) in (2, 3) and raw.isalpha()):
+            abbr = raw
     if not abbr:
         return {
             "name": name,

@@ -1,5 +1,0 @@
-date,home,away,p_home_ml,p_away_ml,p_over,p_under,p_home_pl_-1.5,p_away_pl_+1.5,total_line_used,proj_home_goals,proj_away_goals,model_total,model_spread,pl_line_used,totals_pick,totals_edge_pts,ats_pick,ats_edge_pts,edge_over_pts,edge_under_pts,edge_home_pl_pts,edge_away_pl_pts,actual_home_goals,actual_away_goals,actual_total,venue,game_state
-2025-11-11T00:00:00Z,New Jersey Devils,New York Islanders,0.5019,0.4981,0.4044,0.4339,0.2803,0.7197,6.0,3.09,2.98,6.07,0.11,1.5,Under,-0.07,away_+1.5,1.39,0.07,-0.07,-1.39,1.39,,,,Prudential Center,FUT
-2025-11-11T00:00:00Z,New York Rangers,Nashville Predators,0.6983,0.3017,0.4019,0.4331,0.5321,0.4679,6.0,3.92,2.16,6.07,1.76,1.5,Under,-0.07,home_-1.5,0.26,0.07,-0.07,0.26,-0.26,,,,Madison Square Garden,FUT
-2025-11-11T01:30:00Z,Edmonton Oilers,Columbus Blue Jackets,0.8334,0.1666,0.3962,0.4313,0.7039,0.2961,6.0,4.48,1.59,6.07,2.89,1.5,Under,-0.07,home_-1.5,1.39,0.07,-0.07,1.39,-1.39,,,,Rogers Place,FUT
-2025-11-11T03:00:00Z,Vegas Golden Knights,Florida Panthers,0.4067,0.5933,0.404,0.4338,0.1817,0.8183,6.0,2.69,3.38,6.07,-0.69,1.5,Under,-0.07,away_+1.5,2.19,0.07,-0.07,-2.19,2.19,,,,T-Mobile Arena,FUT

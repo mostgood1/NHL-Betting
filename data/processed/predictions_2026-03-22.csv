@@ -1,9 +1,0 @@
-date,home,away,p_home_ml,p_away_ml,p_over,p_under,p_home_pl_-1.5,p_away_pl_+1.5,total_line_used,proj_home_goals,proj_away_goals,model_total,model_spread,pl_line_used,totals_pick,totals_edge_pts,ats_pick,ats_edge_pts,edge_over_pts,edge_under_pts,edge_home_pl_pts,edge_away_pl_pts,actual_home_goals,actual_away_goals,actual_total,venue,game_state
-2026-03-22T16:00:00Z,New York Rangers,Winnipeg Jets,0.665,0.335,0.4027,0.4333,0.4875,0.5125,6.0,3.78,2.3,6.07,1.48,1.5,Under,-0.07,away_+1.5,0.02,0.07,-0.07,-0.02,0.02,,,,Madison Square Garden,FUT
-2026-03-22T16:30:00Z,Washington Capitals,Colorado Avalanche,0.4173,0.5827,0.4041,0.4338,0.1916,0.8084,6.0,2.74,3.34,6.07,-0.6,1.5,Under,-0.07,away_+1.5,2.1,0.07,-0.07,-2.1,2.1,,,,Capital One Arena,FUT
-2026-03-22T19:00:00Z,Pittsburgh Penguins,Carolina Hurricanes,0.3782,0.6218,0.4038,0.4337,0.1567,0.8433,6.0,2.57,3.5,6.07,-0.93,1.5,Under,-0.07,away_+1.5,2.43,0.07,-0.07,-2.43,2.43,,,,PPG Paints Arena,FUT
-2026-03-22T19:00:00Z,Chicago Blackhawks,Nashville Predators,0.2886,0.7114,0.4021,0.4332,0.0921,0.9079,6.0,2.19,3.88,6.07,-1.68,1.5,Under,-0.07,away_+1.5,3.18,0.07,-0.07,-3.18,3.18,,,,United Center,FUT
-2026-03-22T23:00:00Z,New York Islanders,Columbus Blue Jackets,0.7295,0.2705,0.4009,0.4328,0.5736,0.4264,6.0,4.05,2.03,6.07,2.02,1.5,Under,-0.07,home_-1.5,0.52,0.07,-0.07,0.52,-0.52,,,,UBS Arena,FUT
-2026-03-22T23:00:00Z,Dallas Stars,Vegas Golden Knights,0.6604,0.3396,0.4028,0.4334,0.4813,0.5187,6.0,3.76,2.32,6.07,1.44,1.5,Under,-0.07,away_+1.5,0.06,0.07,-0.07,-0.06,0.06,,,,American Airlines Center,FUT
-2026-03-23T00:00:00Z,Calgary Flames,Tampa Bay Lightning,0.4802,0.5198,0.4044,0.4339,0.256,0.744,6.0,3.0,3.07,6.07,-0.07,1.5,Under,-0.07,away_+1.5,1.57,0.07,-0.07,-1.57,1.57,,,,Scotiabank Saddledome,FUT
-2026-03-23T00:00:00Z,Anaheim Ducks,Buffalo Sabres,0.3399,0.6601,0.4032,0.4335,0.1264,0.8736,6.0,2.41,3.66,6.07,-1.25,1.5,Under,-0.07,away_+1.5,2.75,0.07,-0.07,-2.75,2.75,,,,Honda Center,FUT

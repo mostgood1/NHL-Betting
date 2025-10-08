@@ -1,4 +1,0 @@
-date,home,away,p_home_ml,p_away_ml,p_over,p_under,p_home_pl_-1.5,p_away_pl_+1.5,total_line_used,proj_home_goals,proj_away_goals,model_total,model_spread,pl_line_used,totals_pick,totals_edge_pts,ats_pick,ats_edge_pts,edge_over_pts,edge_under_pts,edge_home_pl_pts,edge_away_pl_pts,actual_home_goals,actual_away_goals,actual_total,venue,game_state
-2026-04-08T23:00:00Z,New York Rangers,Buffalo Sabres,0.7271,0.2729,0.401,0.4328,0.5704,0.4296,6.0,4.04,2.04,6.07,2.0,1.5,Under,-0.07,home_-1.5,0.5,0.07,-0.07,0.5,-0.5,,,,Madison Square Garden,FUT
-2026-04-08T23:30:00Z,Toronto Maple Leafs,Washington Capitals,0.6605,0.3395,0.4028,0.4334,0.4814,0.5186,6.0,3.76,2.32,6.07,1.44,1.5,Under,-0.07,away_+1.5,0.06,0.07,-0.07,-0.06,0.06,,,,Scotiabank Arena,FUT
-2026-04-09T02:00:00Z,San Jose Sharks,Edmonton Oilers,0.1552,0.8448,0.3968,0.4315,0.0333,0.9667,6.0,1.63,4.44,6.07,-2.8,1.5,Under,-0.07,away_+1.5,4.3,0.07,-0.07,-4.3,4.3,,,,SAP Center at San Jose,FUT

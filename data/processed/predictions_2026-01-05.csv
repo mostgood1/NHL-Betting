@@ -1,5 +1,0 @@
-date,home,away,p_home_ml,p_away_ml,p_over,p_under,p_home_pl_-1.5,p_away_pl_+1.5,total_line_used,proj_home_goals,proj_away_goals,model_total,model_spread,pl_line_used,totals_pick,totals_edge_pts,ats_pick,ats_edge_pts,edge_over_pts,edge_under_pts,edge_home_pl_pts,edge_away_pl_pts,actual_home_goals,actual_away_goals,actual_total,venue,game_state
-2026-01-06T00:00:00Z,Washington Capitals,Anaheim Ducks,0.7395,0.2605,0.4006,0.4327,0.5867,0.4133,6.0,4.09,1.98,6.07,2.11,1.5,Under,-0.07,home_-1.5,0.61,0.07,-0.07,0.61,-0.61,,,,Capital One Arena,FUT
-2026-01-06T00:30:00Z,Ottawa Senators,Detroit Red Wings,0.5735,0.4265,0.404,0.4338,0.3671,0.6329,6.0,3.39,2.68,6.07,0.71,1.5,Under,-0.07,away_+1.5,0.79,0.07,-0.07,-0.79,0.79,,,,Canadian Tire Centre,FUT
-2026-01-06T02:30:00Z,Calgary Flames,Seattle Kraken,0.6144,0.3856,0.4036,0.4336,0.42,0.58,6.0,3.56,2.51,6.07,1.05,1.5,Under,-0.07,away_+1.5,0.45,0.07,-0.07,-0.45,0.45,,,,Scotiabank Saddledome,FUT
-2026-01-06T03:30:00Z,Los Angeles Kings,Minnesota Wild,0.5889,0.4111,0.4039,0.4337,0.3869,0.6131,6.0,3.46,2.62,6.07,0.84,1.5,Under,-0.07,away_+1.5,0.66,0.07,-0.07,-0.66,0.66,,,,Crypto.com Arena,FUT

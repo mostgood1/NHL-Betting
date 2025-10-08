@@ -1,6 +1,0 @@
-date,home,away,p_home_ml,p_away_ml,p_over,p_under,p_home_pl_-1.5,p_away_pl_+1.5,total_line_used,proj_home_goals,proj_away_goals,model_total,model_spread,pl_line_used,totals_pick,totals_edge_pts,ats_pick,ats_edge_pts,edge_over_pts,edge_under_pts,edge_home_pl_pts,edge_away_pl_pts,actual_home_goals,actual_away_goals,actual_total,venue,game_state
-2026-04-17T00:00:00Z,Nashville Predators,Anaheim Ducks,0.799,0.201,0.3981,0.4319,0.6626,0.3374,6.0,4.34,1.73,6.07,2.61,1.5,Under,-0.07,home_-1.5,1.11,0.07,-0.07,1.11,-1.11,,,,Bridgestone Arena,FUT
-2026-04-17T00:00:00Z,Winnipeg Jets,San Jose Sharks,0.8755,0.1245,0.3934,0.4305,0.7509,0.2491,6.0,4.66,1.41,6.07,3.25,1.5,Under,-0.07,home_-1.5,1.75,0.07,-0.07,1.75,-1.75,,,,Canada Life Centre,FUT
-2026-04-17T01:00:00Z,Calgary Flames,Los Angeles Kings,0.5224,0.4776,0.4043,0.4339,0.3042,0.6958,6.0,3.18,2.9,6.07,0.28,1.5,Under,-0.07,away_+1.5,1.22,0.07,-0.07,-1.22,1.22,,,,Scotiabank Saddledome,FUT
-2026-04-17T01:00:00Z,Edmonton Oilers,Vancouver Canucks,0.6597,0.3403,0.4028,0.4334,0.4803,0.5197,6.0,3.75,2.32,6.07,1.43,1.5,Under,-0.07,away_+1.5,0.07,0.07,-0.07,-0.07,0.07,,,,Rogers Place,FUT
-2026-04-17T02:30:00Z,Colorado Avalanche,Seattle Kraken,0.7613,0.2387,0.3998,0.4324,0.6151,0.3849,6.0,4.18,1.89,6.07,2.29,1.5,Under,-0.07,home_-1.5,0.79,0.07,-0.07,0.79,-0.79,,,,Ball Arena,FUT

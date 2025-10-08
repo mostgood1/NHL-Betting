@@ -956,9 +956,20 @@ def props_full(
         raise typer.Exit(code=1)
     lines = pd.concat(parts, ignore_index=True)
 
-    # 2) Ensure player stats history exists
+    # 2) Ensure player stats history exists (file present and non-empty)
     stats_path = RAW_DIR / "player_game_stats.csv"
-    if not stats_path.exists():
+    def _needs_history(p):
+        try:
+            if not p.exists() or p.stat().st_size == 0:
+                return True
+            try:
+                tmp = pd.read_csv(p)
+                return tmp.empty
+            except Exception:
+                return True
+        except Exception:
+            return True
+    if _needs_history(stats_path):
         try:
             start = (_dt.strptime(date, "%Y-%m-%d") - _td(days=int(ensure_history_days))).strftime("%Y-%m-%d")
             # Try web first (faster), fallback to stats
@@ -972,6 +983,46 @@ def props_full(
         hist = load_df(stats_path) if stats_path.exists() else pd.DataFrame()
     except Exception:
         hist = pd.read_csv(stats_path) if stats_path.exists() else pd.DataFrame()
+    # Harmonize names like "T. Liljegren" to full names when possible using roster snapshots
+    try:
+        if hist is not None and not hist.empty and 'player' in hist.columns:
+            import re, ast
+            from .data import rosters as _rosters_mod  # type: ignore
+            roster = _rosters_mod.build_all_team_roster_snapshots()
+            last_to_full = {}
+            if roster is not None and not roster.empty and 'full_name' in roster.columns:
+                for nm in roster['full_name'].dropna().astype(str).unique().tolist():
+                    parts = nm.strip().split(' ')
+                    if len(parts) >= 2:
+                        last = parts[-1].lower()
+                        last_to_full.setdefault(last, set()).add(nm)
+            def _extract_default(s: str):
+                if isinstance(s, str) and s.strip().startswith('{'):
+                    try:
+                        d = ast.literal_eval(s)
+                        if isinstance(d, dict):
+                            v = d.get('default') or d.get('name') or ''
+                            if isinstance(v, str):
+                                return v
+                    except Exception:
+                        return s
+                return s
+            def _fix(n: str) -> str:
+                n = _extract_default(n)
+                m = re.match(r"^([A-Za-z])[\.]?\s+([A-Za-z\-']+)$", str(n).strip())
+                if m:
+                    ini = m.group(1).lower(); last = m.group(2).lower()
+                    cands = list(last_to_full.get(last, []))
+                    if len(cands) == 1:
+                        return cands[0]
+                    for c in cands:
+                        first = c.split(' ')[0]
+                        if first and first[0].lower() == ini:
+                            return c
+                return str(n)
+            hist['player'] = hist['player'].astype(str).map(_fix)
+    except Exception:
+        pass
 
     # 3) Compute projections CSV (ev_over and p_over per line)
     shots = SkaterShotsModel(); saves = GoalieSavesModel(); goals = SkaterGoalsModel(); assists = SkaterAssistsModel(); points = SkaterPointsModel(); blocks = SkaterBlocksModel()

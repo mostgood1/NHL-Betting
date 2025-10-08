@@ -1,7 +1,0 @@
-date,home,away,p_home_ml,p_away_ml,p_over,p_under,p_home_pl_-1.5,p_away_pl_+1.5,total_line_used,proj_home_goals,proj_away_goals,model_total,model_spread,pl_line_used,totals_pick,totals_edge_pts,ats_pick,ats_edge_pts,edge_over_pts,edge_under_pts,edge_home_pl_pts,edge_away_pl_pts,actual_home_goals,actual_away_goals,actual_total,venue,game_state
-2026-03-15T19:00:00Z,Winnipeg Jets,St. Louis Blues,0.6493,0.3507,0.403,0.4334,0.4664,0.5336,6.0,3.71,2.36,6.07,1.35,1.5,Under,-0.07,away_+1.5,0.15,0.07,-0.07,-0.15,0.15,,,,Canada Life Centre,FUT
-2026-03-15T21:00:00Z,Ottawa Senators,San Jose Sharks,0.8278,0.1722,0.3965,0.4314,0.6973,0.3027,6.0,4.46,1.61,6.07,2.85,1.5,Under,-0.07,home_-1.5,1.35,0.07,-0.07,1.35,-1.35,,,,Canadian Tire Centre,FUT
-2026-03-15T23:00:00Z,Montréal Canadiens,Anaheim Ducks,0.6315,0.3685,0.4033,0.4335,0.4427,0.5573,6.0,3.64,2.44,6.07,1.2,1.5,Under,-0.07,away_+1.5,0.3,0.07,-0.07,-0.3,0.3,,,,Centre Bell,FUT
-2026-03-15T23:30:00Z,Minnesota Wild,Toronto Maple Leafs,0.4911,0.5089,0.4044,0.4339,0.268,0.732,6.0,3.05,3.03,6.07,0.02,1.5,Under,-0.07,away_+1.5,1.48,0.07,-0.07,-1.48,1.48,,,,Grand Casino Arena,FUT
-2026-03-16T00:00:00Z,Edmonton Oilers,Nashville Predators,0.6816,0.3184,0.4023,0.4332,0.5097,0.4903,6.0,3.85,2.23,6.07,1.62,1.5,Under,-0.07,home_-1.5,0.12,0.07,-0.07,0.12,-0.12,,,,Rogers Place,FUT
-2026-03-16T00:00:00Z,Seattle Kraken,Florida Panthers,0.2782,0.7218,0.4018,0.4331,0.086,0.914,6.0,2.15,3.92,6.07,-1.77,1.5,Under,-0.07,away_+1.5,3.27,0.07,-0.07,-3.27,3.27,,,,Climate Pledge Arena,FUT

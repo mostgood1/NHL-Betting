@@ -8,7 +8,7 @@ Responsibilities:
 - Persist Parquet outputs for downstream modeling.
 """
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 from datetime import datetime
 import os
 
@@ -16,6 +16,8 @@ import pandas as pd
 
 from .bovada import BovadaClient
 from .odds_api import OddsAPIClient
+from . import rosters as _rosters
+from ..utils.io import RAW_DIR as _RAW_DIR
 
 
 @dataclass
@@ -182,23 +184,28 @@ def collect_oddsapi_props(date: str) -> pd.DataFrame:
 def normalize_player_names(raw: pd.DataFrame, roster_df: Optional[pd.DataFrame]) -> pd.DataFrame:
     if raw.empty:
         raw["player_id"] = []
+        raw["team"] = []
         return raw
     df = raw.copy()
     df["player_clean"] = df["player"].str.strip().str.lower()
     if roster_df is not None and not roster_df.empty:
         r = roster_df.copy()
-        # Expect roster_df has columns: player_id, full_name
-        r["full_name_clean"] = r["full_name"].str.strip().str.lower()
-        mapper = dict(zip(r["full_name_clean"], r["player_id"]))
-        df["player_id"] = df["player_clean"].map(mapper)
+        # Expect roster_df has columns: player_id, full_name, team (abbr or name)
+        r["full_name_clean"] = r["full_name"].astype(str).str.strip().str.lower()
+        id_mapper = dict(zip(r["full_name_clean"], r["player_id"]))
+        team_mapper = dict(zip(r["full_name_clean"], r.get("team", pd.Series([None]*len(r)))))
+        df["player_id"] = df["player_clean"].map(id_mapper)
+        # Attach team from roster snapshot where available
+        df["team"] = df["player_clean"].map(team_mapper)
     else:
         df["player_id"] = None
+        df["team"] = None
     return df
 
 
 def combine_over_under(df: pd.DataFrame) -> pd.DataFrame:
     if df.empty:
-        return pd.DataFrame(columns=["date","player_id","player_name","market","line","over_price","under_price","book","first_seen_at","last_seen_at","is_current"])
+        return pd.DataFrame(columns=["date","player_id","player_name","team","market","line","over_price","under_price","book","first_seen_at","last_seen_at","is_current"])
     # Filter to known markets
     df = df[df["market"].isin(["SOG","GOALS","SAVES","ASSISTS","POINTS","BLOCKS"]) ]
     # Build a player grouping key: prefer player_id; fallback to normalized player name
@@ -225,6 +232,13 @@ def combine_over_under(df: pd.DataFrame) -> pd.DataFrame:
                 player_id = ids.iloc[0]
         except Exception:
             player_id = None
+        # Representative team from group (prefer a non-null recent value)
+        team_val = None
+        try:
+            if "team" in g.columns and g["team"].notna().any():
+                team_val = g["team"].dropna().astype(str).iloc[-1]
+        except Exception:
+            team_val = None
         over_row = g[g["side"] == "OVER"].sort_values("collected_at").tail(1)
         under_row = g[g["side"] == "UNDER"].sort_values("collected_at").tail(1)
         def parse_price(p):
@@ -248,6 +262,7 @@ def combine_over_under(df: pd.DataFrame) -> pd.DataFrame:
             "date": date,
             "player_id": player_id,
             "player_name": player_name,
+            "team": team_val,
             "market": market,
             "line": line,
             "over_price": over_price,
@@ -281,6 +296,9 @@ def collect_and_write(date: str, roster_df: Optional[pd.DataFrame] = None, cfg: 
         raw = collect_oddsapi_props(date)
     else:
         raise ValueError(f"Unknown props source: {cfg.source}")
+    # If no roster_df provided, attempt to build one for reliable player_id/team mapping
+    if roster_df is None:
+        roster_df = _build_roster_enrichment()
     norm = normalize_player_names(raw, roster_df)
     combined = combine_over_under(norm)
     written_path = write_props(combined, cfg, date)
@@ -289,6 +307,64 @@ def collect_and_write(date: str, roster_df: Optional[pd.DataFrame] = None, cfg: 
         "combined_count": len(combined),
         "output_path": written_path,
     }
+
+
+def _build_roster_enrichment() -> pd.DataFrame:
+    """Best-effort build of a roster DataFrame with columns [full_name, player_id, team].
+
+    Strategy:
+    1) Try live roster snapshots (team_id -> abbreviation) via rosters.build_all_team_roster_snapshots.
+    2) Fallback to historical RAW player_game_stats.csv using last known player_id and team per name.
+    """
+    # Attempt live roster snapshots
+    try:
+        snap = _rosters.build_all_team_roster_snapshots()
+        if snap is not None and not snap.empty:
+            # Map team_id -> abbreviation using list_teams
+            try:
+                teams = _rosters.list_teams()
+                id_to_abbr: Dict[int, str] = {}
+                id_to_name: Dict[int, str] = {}
+                for t in teams:
+                    try:
+                        id_to_abbr[int(t.get("id"))] = str(t.get("abbreviation") or "").upper()
+                        id_to_name[int(t.get("id"))] = str(t.get("name") or "")
+                    except Exception:
+                        continue
+                snap = snap.copy()
+                snap["team"] = snap["team_id"].map(id_to_abbr).fillna(snap["team_id"].map(id_to_name))
+            except Exception:
+                # If team lookup fails, keep team_id as team string
+                snap = snap.copy()
+                snap["team"] = snap.get("team_id")
+            out = snap.rename(columns={"full_name": "full_name", "player_id": "player_id"})
+            return out[["full_name", "player_id", "team"]]
+    except Exception:
+        pass
+    # Fallback to historical stats
+    try:
+        stats_p = _RAW_DIR / "player_game_stats.csv"
+        if stats_p.exists():
+            stats = pd.read_csv(stats_p)
+            if not stats.empty and {"player","player_id"}.issubset(stats.columns):
+                stats = stats.dropna(subset=["player"])  # require a name
+                # Order by date to take last known mapping
+                try:
+                    stats["_date"] = pd.to_datetime(stats["date"], errors="coerce")
+                    stats = stats.sort_values("_date")
+                except Exception:
+                    pass
+                last = stats.groupby("player").agg({
+                    "player_id": "last",
+                    "team": "last",
+                }).reset_index().rename(columns={"player": "full_name"})
+                # Ensure clean strings
+                last["full_name"] = last["full_name"].astype(str)
+                return last[["full_name","player_id","team"]]
+    except Exception:
+        pass
+    # As a final fallback, return empty
+    return pd.DataFrame(columns=["full_name","player_id","team"])
 
 
 __all__ = [

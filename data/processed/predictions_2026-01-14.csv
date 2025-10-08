@@ -1,5 +1,0 @@
-date,home,away,p_home_ml,p_away_ml,p_over,p_under,p_home_pl_-1.5,p_away_pl_+1.5,total_line_used,proj_home_goals,proj_away_goals,model_total,model_spread,pl_line_used,totals_pick,totals_edge_pts,ats_pick,ats_edge_pts,edge_over_pts,edge_under_pts,edge_home_pl_pts,edge_away_pl_pts,actual_home_goals,actual_away_goals,actual_total,venue,game_state
-2026-01-15T00:00:00Z,New Jersey Devils,Seattle Kraken,0.6108,0.3892,0.4036,0.4336,0.4153,0.5847,6.0,3.55,2.52,6.07,1.02,1.5,Under,-0.07,away_+1.5,0.48,0.07,-0.07,-0.48,0.48,,,,Prudential Center,FUT
-2026-01-15T00:30:00Z,Buffalo Sabres,Philadelphia Flyers,0.6727,0.3273,0.4025,0.4333,0.4978,0.5022,6.0,3.81,2.26,6.07,1.54,1.5,Under,-0.07,away_+1.5,-0.04,0.07,-0.07,0.04,-0.04,,,,KeyBank Center,FUT
-2026-01-15T00:30:00Z,New York Rangers,Ottawa Senators,0.7438,0.2562,0.4004,0.4326,0.5923,0.4077,6.0,4.11,1.97,6.07,2.14,1.5,Under,-0.07,home_-1.5,0.64,0.07,-0.07,0.64,-0.64,,,,Madison Square Garden,FUT
-2026-01-15T03:00:00Z,Los Angeles Kings,Vegas Golden Knights,0.5221,0.4779,0.4043,0.4339,0.3039,0.6961,6.0,3.18,2.9,6.07,0.28,1.5,Under,-0.07,away_+1.5,1.22,0.07,-0.07,-1.22,1.22,,,,Crypto.com Arena,FUT

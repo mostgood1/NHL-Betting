@@ -1,5 +1,0 @@
-date,home,away,p_home_ml,p_away_ml,p_over,p_under,p_home_pl_-1.5,p_away_pl_+1.5,total_line_used,proj_home_goals,proj_away_goals,model_total,model_spread,pl_line_used,totals_pick,totals_edge_pts,ats_pick,ats_edge_pts,edge_over_pts,edge_under_pts,edge_home_pl_pts,edge_away_pl_pts,actual_home_goals,actual_away_goals,actual_total,venue,game_state
-2025-11-20T00:00:00Z,Washington Capitals,Edmonton Oilers,0.3723,0.6277,0.4037,0.4337,0.1518,0.8482,6.0,2.55,3.53,6.07,-0.98,1.5,Under,-0.07,away_+1.5,2.48,0.07,-0.07,-2.48,2.48,,,,Capital One Arena,FUT
-2025-11-20T00:30:00Z,Buffalo Sabres,Calgary Flames,0.6357,0.3643,0.4032,0.4335,0.4483,0.5517,6.0,3.65,2.42,6.07,1.23,1.5,Under,-0.07,away_+1.5,0.27,0.07,-0.07,-0.27,0.27,,,,KeyBank Center,FUT
-2025-11-20T02:30:00Z,Minnesota Wild,Carolina Hurricanes,0.3831,0.6169,0.4038,0.4337,0.1608,0.8392,6.0,2.59,3.48,6.07,-0.89,1.5,Under,-0.07,away_+1.5,2.39,0.07,-0.07,-2.39,2.39,,,,Grand Casino Arena,FUT
-2025-11-20T03:00:00Z,Anaheim Ducks,Boston Bruins,0.2889,0.7111,0.4021,0.4332,0.0923,0.9077,6.0,2.2,3.88,6.07,-1.68,1.5,Under,-0.07,away_+1.5,3.18,0.07,-0.07,-3.18,3.18,,,,Honda Center,FUT

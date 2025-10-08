@@ -26,6 +26,8 @@ from ..data.bovada import BovadaClient
 import base64
 import requests
 from io import StringIO
+from ..data import player_props as _props_data
+from ..data import rosters as _rosters
 
 # App and templating setup
 BASE_DIR = Path(__file__).resolve().parent
@@ -101,6 +103,46 @@ def _compute_props_projections(date: str, market: Optional[str] = None) -> pd.Da
         hist = pd.read_csv(stats_path) if stats_path.exists() else pd.DataFrame()
     except Exception:
         hist = pd.DataFrame()
+    # Harmonize historical names to full names using roster snapshots to improve matching
+    try:
+        if hist is not None and not hist.empty and 'player' in hist.columns:
+            import re, ast
+            # Build last-name -> list of full names from roster snapshots
+            roster = _rosters.build_all_team_roster_snapshots()
+            last_to_full = {}
+            if roster is not None and not roster.empty and 'full_name' in roster.columns:
+                for nm in roster['full_name'].dropna().astype(str).unique().tolist():
+                    parts = nm.strip().split(' ')
+                    if len(parts) >= 2:
+                        last = parts[-1].lower()
+                        last_to_full.setdefault(last, set()).add(nm)
+            def _extract_default(s: str):
+                if isinstance(s, str) and s.strip().startswith('{'):
+                    try:
+                        d = ast.literal_eval(s)
+                        if isinstance(d, dict):
+                            v = d.get('default') or d.get('name') or ''
+                            if isinstance(v, str):
+                                return v
+                    except Exception:
+                        return s
+                return s
+            def _fix(n: str) -> str:
+                n = _extract_default(n)
+                m = re.match(r"^([A-Za-z])[\.]?\s+([A-Za-z\-']+)$", str(n).strip())
+                if m:
+                    ini = m.group(1).lower(); last = m.group(2).lower()
+                    cands = list(last_to_full.get(last, []))
+                    if len(cands) == 1:
+                        return cands[0]
+                    for c in cands:
+                        first = c.split(' ')[0]
+                        if first and first[0].lower() == ini:
+                            return c
+                return str(n)
+            hist['player'] = hist['player'].astype(str).map(_fix)
+    except Exception:
+        pass
     from ..models.props import (
         SkaterShotsModel, GoalieSavesModel, SkaterGoalsModel,
         SkaterAssistsModel, SkaterPointsModel, SkaterBlocksModel,
@@ -2888,7 +2930,12 @@ async def api_cron_props_collect(
         for which, src in (("bovada", "bovada"), ("oddsapi", "oddsapi")):
             try:
                 cfg = props_data.PropsCollectionConfig(output_root=str(PROC_DIR.parent / "props"), book=which, source=src)
-                res = props_data.collect_and_write(d, roster_df=None, cfg=cfg)
+                # Use roster enrichment for better player_id/team mapping
+                try:
+                    roster_df = _props_data._build_roster_enrichment()
+                except Exception:
+                    roster_df = None
+                res = props_data.collect_and_write(d, roster_df=roster_df, cfg=cfg)
                 path = res.get("output_path")
                 if path:
                     out["written"].append(str(path))
@@ -3598,6 +3645,15 @@ async def props_recommendations_page(
         df = pd.DataFrame()
     # Build an optional player_id map from canonical lines to attach headshots
     player_photo: dict[str, str] = {}
+    player_team_map: dict[str, str] = {}
+    valid_player_names: set[str] = set()
+    # Helper: normalize player display names consistently
+    def _norm_name(x: str) -> str:
+        try:
+            s = str(x or "").strip()
+            return " ".join(s.split())
+        except Exception:
+            return str(x)
     try:
         d_for_lines = date or _today_ymd()
         base = PROC_DIR.parent / "props" / f"player_props_lines/date={d_for_lines}"
@@ -3614,22 +3670,114 @@ async def props_recommendations_page(
             # Build mapping by player_name -> player_id (prefer most frequent id if duplicates)
             if not lp.empty and 'player_name' in lp.columns and 'player_id' in lp.columns:
                 try:
+                    # Normalize player_name keys to avoid subtle whitespace/case issues
                     grp = lp.groupby('player_name')['player_id'].agg(lambda s: s.dropna().astype(str).value_counts().idxmax())
                     for name_key, pid in grp.items():
                         try:
                             pid_s = str(pid)
-                            player_photo[str(name_key)] = f"https://cms.nhl.bamgrid.com/images/headshots/current/168x168/{pid_s}.jpg"
+                            player_photo[_norm_name(name_key)] = f"https://cms.nhl.bamgrid.com/images/headshots/current/168x168/{pid_s}.jpg"
                         except Exception:
                             pass
                 except Exception:
                     pass
+            # Valid player set filtered from lines
+            try:
+                if 'player_name' in lp.columns:
+                    valid_player_names = {str(x).strip() for x in lp['player_name'].dropna().tolist() if str(x).strip()}
+            except Exception:
+                valid_player_names = set()
+            # Also build a player -> latest team map to fill missing teams
+            if not lp.empty and {'player_name','team'}.issubset(lp.columns):
+                try:
+                    # Prefer rows marked current; else last non-null team seen
+                    if 'is_current' in lp.columns:
+                        cur = lp[lp['is_current'] == True]
+                    else:
+                        cur = lp.copy()
+                    cur = cur.dropna(subset=['player_name','team'])
+                    last_team = cur.groupby('player_name')['team'].agg(lambda s: s.dropna().astype(str).iloc[-1] if len(s.dropna()) else None)
+                    for name_key, tm in last_team.items():
+                        if tm:
+                            player_team_map[str(name_key).strip()] = str(tm).strip()
+                except Exception:
+                    player_team_map = player_team_map
+            # Secondary photo and team mapping from historical player_game_stats.csv (fills gaps)
+            try:
+                from ..utils.io import RAW_DIR as _RAW
+                pstats = _read_csv_fallback(_RAW / 'player_game_stats.csv')
+                if pstats is not None and not pstats.empty and {'player','player_id'}.issubset(pstats.columns):
+                    # Use the most recent non-null player_id per player name
+                    pstats = pstats.dropna(subset=['player'])
+                    pstats['player'] = pstats['player'].astype(str).map(_norm_name)
+                    pstats = pstats[pstats['player'] != '']
+                    # Order by date so last valid id is preferred
+                    try:
+                        pstats['_date'] = pd.to_datetime(pstats['date'], errors='coerce')
+                        pstats = pstats.sort_values('_date')
+                    except Exception:
+                        pass
+                    last_ids = pstats.dropna(subset=['player_id']).groupby('player')['player_id'].last()
+                    for nm, pid in last_ids.items():
+                        key = nm.strip()
+                        if key and key not in player_photo:
+                            try:
+                                player_photo[key] = f"https://cms.nhl.bamgrid.com/images/headshots/current/168x168/{int(pid)}.jpg"
+                            except Exception:
+                                pass
+                    # Also build a last known team per player as a fallback
+                    if 'team' in pstats.columns:
+                        last_teams = pstats.dropna(subset=['team']).groupby('player')['team'].last()
+                        for nm, tm in last_teams.items():
+                            if nm and (nm not in player_team_map or not player_team_map.get(nm)):
+                                player_team_map[nm] = str(tm).strip()
+            except Exception:
+                pass
     except Exception:
         player_photo = {}
+        player_team_map = {}
 
     # Build cards: group by player (and team), with per-market sections including projections
     cards = []
     try:
         if df is not None and not df.empty:
+            # Drop rows with missing/blank player names to avoid 'nan' cards
+            try:
+                df['player'] = df['player'].astype(str).map(_norm_name)
+                df = df[df['player'].str.strip() != '']
+            except Exception:
+                pass
+            # Filter out obvious non-player strings (e.g., 'Total Shots On Goal')
+            try:
+                BAD_TOKENS = ['TOTAL', 'SHOTS ON GOAL', 'TOTAL SHOTS', 'GOALS', 'ASSISTS', 'POINTS', 'SAVES', 'BLOCKS']
+                def _is_probably_player(n: str) -> bool:
+                    if not n: return False
+                    u = str(n).upper()
+                    if any(tok in u for tok in BAD_TOKENS):
+                        return False
+                    # Heuristic: require at least a space (first + last name)
+                    return (' ' in str(n).strip())
+                df = df[df['player'].apply(_is_probably_player)]
+            except Exception:
+                pass
+            # If we have a canonical set of players for the date, keep only those
+            try:
+                if valid_player_names:
+                    df = df[df['player'].apply(lambda x: _norm_name(x) in { _norm_name(v) for v in valid_player_names })]
+            except Exception:
+                pass
+            # Fill missing team from player_team_map
+            try:
+                if 'team' in df.columns:
+                    def _fill_team(row):
+                        t = row.get('team')
+                        if t is None or str(t).strip() == '' or str(t).lower() == 'nan':
+                            return player_team_map.get(_norm_name(row.get('player')), t)
+                        return t
+                    df['team'] = df.apply(_fill_team, axis=1)
+                    # Sanitize any lingering string 'nan' values into None
+                    df['team'] = df['team'].apply(lambda v: None if (v is None or str(v).strip()=='' or str(v).strip().lower() in ('nan','none','null')) else v)
+            except Exception:
+                pass
             # Ensure numeric types
             for c in ('line','ev','over_price','under_price','proj','p_over'):
                 if c in df.columns:
@@ -3650,7 +3798,14 @@ async def props_recommendations_page(
                     team = keys[1] if len(keys) > 1 else None
                 else:
                     player = keys; team = None
-                assets = get_team_assets(str(team)) if team else {}
+                # Clean team to avoid 'nan' string
+                team_clean = None
+                try:
+                    if team is not None and str(team).strip().lower() not in ('nan','none','null',''):
+                        team_clean = str(team).strip()
+                except Exception:
+                    team_clean = team
+                assets = get_team_assets(str(team_clean)) if team_clean else {}
                 markets = []
                 best_ev_overall = None
                 # Group per market within player
@@ -3662,23 +3817,65 @@ async def props_recommendations_page(
                         ladders = []
                         best_ev = None
                         best_row = None
+                        # For deduplication: keep best EV per (line, side) pair
+                        best_by_key = {}
                         for _, r in g.iterrows():
                             ev_val = r.get('ev')
                             try:
                                 ev_f = float(ev_val) if pd.notna(ev_val) else None
                             except Exception:
                                 ev_f = None
+                            line_v = float(r.get('line')) if pd.notna(r.get('line')) else None
+                            side_v = str(r.get('side') or 'Over').capitalize()
+                            key_ls = (line_v, side_v)
+                            # Track best row for overall best EV
                             if ev_f is not None and (best_ev is None or ev_f > best_ev):
                                 best_ev = ev_f
                                 best_row = r
-                            ladders.append({
-                                'line': float(r.get('line')) if pd.notna(r.get('line')) else None,
-                                'side': r.get('side') or 'Over',
-                                'over_price': int(r.get('over_price')) if pd.notna(r.get('over_price')) else None,
-                                'under_price': int(r.get('under_price')) if pd.notna(r.get('under_price')) else None,
-                                'book': r.get('book'),
-                                'ev': ev_f,
-                            })
+                            # Deduplicate keeping highest EV; tie-breaker by better price magnitude
+                            prev = best_by_key.get(key_ls)
+                            def _price_for_side(row_side, o, u):
+                                try:
+                                    if str(row_side).lower() == 'over':
+                                        return int(o) if pd.notna(o) else None
+                                    return int(u) if pd.notna(u) else None
+                                except Exception:
+                                    return None
+                            cur_price = _price_for_side(side_v, r.get('over_price'), r.get('under_price'))
+                            take = False
+                            if prev is None:
+                                take = True
+                            else:
+                                pe = prev.get('ev')
+                                if (ev_f is not None) and (pe is None or ev_f > pe + 1e-9):
+                                    take = True
+                                elif (ev_f is not None) and (pe is not None) and abs(ev_f - pe) <= 1e-9:
+                                    # EV tie: prefer better (higher for +, lower absolute negative) price
+                                    pp = prev.get('price')
+                                    if pp is None and cur_price is not None:
+                                        take = True
+                                    elif pp is not None and cur_price is not None:
+                                        # For American odds: prefer larger positive value for plus-money; for negatives, prefer closer to zero (e.g., -120 better than -150)
+                                        if prev.get('side') == 'Over' and side_v == 'Over' or prev.get('side') == 'Under' and side_v == 'Under':
+                                            if (cur_price >= 100 and (pp < 100 or cur_price > pp)) or (cur_price < 0 and pp < 0 and cur_price > pp):
+                                                take = True
+                            if take:
+                                best_by_key[key_ls] = {
+                                    'line': line_v,
+                                    'side': side_v,
+                                    'over_price': int(r.get('over_price')) if pd.notna(r.get('over_price')) else None,
+                                    'under_price': int(r.get('under_price')) if pd.notna(r.get('under_price')) else None,
+                                    'book': r.get('book'),
+                                    'ev': ev_f,
+                                    'price': cur_price,
+                                }
+                        # Emit deduped ladders
+                        ladders = list(best_by_key.values())
+                        # Sort ladders by line ascending and side (Over first)
+                        try:
+                            ladders.sort(key=lambda x: (x.get('line') if x.get('line') is not None else 0, 0 if (str(x.get('side')).lower()== 'over') else 1))
+                        except Exception:
+                            pass
                         proj_lambda = None
                         p_over_primary = None
                         primary_line = None
@@ -3726,12 +3923,12 @@ async def props_recommendations_page(
                     markets.sort(key=lambda x: market_sort_key(x.get('market')))
                 cards.append({
                     'player': player,
-                    'team': team,
+                    'team': team_clean,
                     'team_abbr': (assets.get('abbr') or '').upper() if isinstance(assets, dict) else None,
                     'team_logo': (assets.get('logo_light') or assets.get('logo_dark')) if isinstance(assets, dict) else None,
                     'best_ev': best_ev_overall,
                     'markets': markets,
-                    'photo': player_photo.get(str(player)),
+                    'photo': player_photo.get(_norm_name(player)),
                 })
             # Sort and top-N (now by player card)
             if cards:
@@ -3747,6 +3944,17 @@ async def props_recommendations_page(
                     cards.sort(key=lambda x: (str(x.get('team_abbr') or str(x.get('team') or '')).upper()))
                 if top and top > 0:
                     cards = cards[: int(top)]
+            # Add UI fallbacks for missing images/logos to avoid empty gaps
+            try:
+                for c in cards:
+                    if not c.get('photo'):
+                        # Neutral silhouette asset (data URI tiny svg to avoid network)
+                        c['photo'] = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='42' height='42'><circle cx='21' cy='14' r='8' fill='%23262a33'/><rect x='9' y='24' width='24' height='14' rx='7' fill='%23262a33'/></svg>"
+                    if not c.get('team_logo') and c.get('team_abbr'):
+                        a = get_team_assets(c.get('team_abbr')) or {}
+                        c['team_logo'] = a.get('logo_light') or a.get('logo_dark')
+            except Exception:
+                pass
     except Exception:
         cards = []
     template = env.get_template("props_recommendations.html")
@@ -3761,6 +3969,78 @@ async def props_recommendations_page(
         cards=cards,
     )
     return HTMLResponse(content=html)
+
+
+@app.post("/api/cron/props-full")
+async def api_cron_props_full(
+    token: Optional[str] = Query(None, description="Bearer token; must match REFRESH_CRON_TOKEN env var"),
+    date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD; defaults to ET today"),
+    min_ev: float = Query(0.0, description="Minimum EV threshold for recommendations"),
+    top: int = Query(200, description="Top N recommendations to keep"),
+    market: Optional[str] = Query(None, description="Optional market filter for recs: SOG,SAVES,GOALS,ASSISTS,POINTS,BLOCKS"),
+    authorization: Optional[str] = Header(None, description="Authorization: Bearer <token> header (optional alternative to token query param)"),
+):
+    """Secure endpoint to run the full props pipeline for a date:
+
+    1) Collect canonical lines from Bovada and Odds API (with roster enrichment)
+    2) Compute props projections CSV
+    3) Compute props recommendations CSV
+
+    Best-effort upserts artifacts to GitHub.
+    """
+    secret = os.getenv("REFRESH_CRON_TOKEN", "")
+    supplied = (token or "").strip()
+    if (not supplied) and authorization:
+        try:
+            auth = str(authorization)
+            if auth.lower().startswith("bearer "):
+                supplied = auth.split(" ", 1)[1].strip()
+        except Exception:
+            supplied = supplied
+    if not (secret and supplied and _const_time_eq(supplied, secret)):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    d = _normalize_date_param(date)
+    # Step 1: collect lines (reusing props-collect logic)
+    try:
+        res_collect = await api_cron_props_collect(token=token, date=d)
+        # Normalize JSON
+        if isinstance(res_collect, JSONResponse):
+            import json as _json
+            try:
+                res_collect = _json.loads(res_collect.body)
+            except Exception:
+                res_collect = {"ok": True}
+    except Exception as e:
+        res_collect = {"ok": False, "error": str(e)}
+    # Step 2: projections
+    try:
+        res_proj = await api_cron_props_projections(token=token, date=d, market=market, top=0)
+        if isinstance(res_proj, JSONResponse):
+            import json as _json
+            try:
+                res_proj = _json.loads(res_proj.body)
+            except Exception:
+                res_proj = {"ok": True}
+    except Exception as e:
+        res_proj = {"ok": False, "error": str(e)}
+    # Step 3: recommendations
+    try:
+        res_recs = await api_cron_props_recommendations(token=token, date=d, market=market, min_ev=min_ev, top=top)
+        if isinstance(res_recs, JSONResponse):
+            import json as _json
+            try:
+                res_recs = _json.loads(res_recs.body)
+            except Exception:
+                res_recs = {"ok": True}
+    except Exception as e:
+        res_recs = {"ok": False, "error": str(e)}
+    return JSONResponse({
+        "ok": True,
+        "date": d,
+        "collect": res_collect,
+        "projections": res_proj,
+        "recommendations": res_recs,
+    })
 
 @app.get("/props/reconciliation")
 async def props_reconciliation_page(

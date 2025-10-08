@@ -1,7 +1,0 @@
-date,home,away,market,ev
-2025-10-11T23:00:00Z,Pittsburgh Penguins,New York Rangers,ev_away_ml,0.7423
-2025-10-11T23:00:00Z,Pittsburgh Penguins,New York Rangers,ev_away_pl_+1.5,0.4365
-2025-10-11T23:00:00Z,Pittsburgh Penguins,New York Rangers,ev_under,0.0063
-2025-10-11T23:00:00Z,Pittsburgh Penguins,New York Rangers,ev_over,-0.0863
-2025-10-11T23:00:00Z,Pittsburgh Penguins,New York Rangers,ev_home_ml,-0.4617
-2025-10-11T23:00:00Z,Pittsburgh Penguins,New York Rangers,ev_home_pl_-1.5,-0.6706

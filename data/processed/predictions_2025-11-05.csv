@@ -1,5 +1,0 @@
-date,home,away,p_home_ml,p_away_ml,p_over,p_under,p_home_pl_-1.5,p_away_pl_+1.5,total_line_used,proj_home_goals,proj_away_goals,model_total,model_spread,pl_line_used,totals_pick,totals_edge_pts,ats_pick,ats_edge_pts,edge_over_pts,edge_under_pts,edge_home_pl_pts,edge_away_pl_pts,actual_home_goals,actual_away_goals,actual_total,venue,game_state
-2025-11-06T00:30:00Z,Washington Capitals,St. Louis Blues,0.5313,0.4687,0.4043,0.4338,0.3149,0.6851,6.0,3.21,2.86,6.07,0.36,1.5,Under,-0.07,away_+1.5,1.14,0.07,-0.07,-1.14,1.14,,,,Capital One Arena,FUT
-2025-11-06T02:30:00Z,Calgary Flames,Columbus Blue Jackets,0.6741,0.3259,0.4025,0.4333,0.4997,0.5003,6.0,3.81,2.26,6.07,1.56,1.5,Under,-0.07,away_+1.5,-0.06,0.07,-0.07,0.06,-0.06,,,,Scotiabank Saddledome,FUT
-2025-11-06T03:00:00Z,Vancouver Canucks,Chicago Blackhawks,0.8288,0.1712,0.3965,0.4314,0.6986,0.3014,6.0,4.46,1.61,6.07,2.86,1.5,Under,-0.07,home_-1.5,1.36,0.07,-0.07,1.36,-1.36,,,,Rogers Arena,FUT
-2025-11-06T03:00:00Z,Seattle Kraken,San Jose Sharks,0.7701,0.2299,0.3994,0.4323,0.6263,0.3737,6.0,4.22,1.85,6.07,2.36,1.5,Under,-0.07,home_-1.5,0.86,0.07,-0.07,0.86,-0.86,,,,Climate Pledge Arena,FUT

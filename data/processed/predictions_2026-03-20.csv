@@ -1,5 +1,0 @@
-date,home,away,p_home_ml,p_away_ml,p_over,p_under,p_home_pl_-1.5,p_away_pl_+1.5,total_line_used,proj_home_goals,proj_away_goals,model_total,model_spread,pl_line_used,totals_pick,totals_edge_pts,ats_pick,ats_edge_pts,edge_over_pts,edge_under_pts,edge_home_pl_pts,edge_away_pl_pts,actual_home_goals,actual_away_goals,actual_total,venue,game_state
-2026-03-20T23:00:00Z,Toronto Maple Leafs,Carolina Hurricanes,0.4618,0.5382,0.4044,0.4339,0.2362,0.7638,6.0,2.92,3.15,6.07,-0.23,1.5,Under,-0.07,away_+1.5,1.73,0.07,-0.07,-1.73,1.73,,,,Scotiabank Arena,FUT
-2026-03-20T23:00:00Z,Washington Capitals,New Jersey Devils,0.5928,0.4072,0.4038,0.4337,0.392,0.608,6.0,3.47,2.6,6.07,0.87,1.5,Under,-0.07,away_+1.5,0.63,0.07,-0.07,-0.63,0.63,,,,Capital One Arena,FUT
-2026-03-21T00:30:00Z,Chicago Blackhawks,Colorado Avalanche,0.2338,0.7662,0.4004,0.4326,0.0629,0.9371,6.0,1.96,4.11,6.07,-2.14,1.5,Under,-0.07,away_+1.5,3.64,0.07,-0.07,-3.64,3.64,,,,United Center,FUT
-2026-03-21T01:00:00Z,Calgary Flames,Florida Panthers,0.3153,0.6847,0.4027,0.4334,0.1091,0.8909,6.0,2.31,3.76,6.07,-1.46,1.5,Under,-0.07,away_+1.5,2.96,0.07,-0.07,-2.96,2.96,,,,Scotiabank Saddledome,FUT

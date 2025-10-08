@@ -7,22 +7,23 @@
   <link rel="stylesheet" href="/static/style.css" />
   <style>
     :root{--card-bg:#0f1115;--border:#262a33;--muted:#b9c2d0;--ev-bg:#113a34;--ev-fg:#a7f3d0;--ev-bd:rgba(12,148,106,.35)}
-    .filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0 12px}
-    .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
-    .card{border:1px solid var(--border);border-radius:12px;padding:12px;background:var(--card-bg)}
+    .filters{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:8px 0 14px}
+    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+    .card{position:relative;border:1px solid var(--border);border-radius:12px;padding:12px 12px 10px;background:var(--card-bg)}
     .row{display:flex;align-items:center;gap:10px}
-    .logo{width:36px;height:36px;object-fit:contain}
-    .avatar{width:36px;height:36px;border-radius:50%;object-fit:cover;border:1px solid var(--border)}
-    .title{font-weight:700}
-    .badge{font-size:11px;border:1px solid var(--border);border-radius:999px;padding:2px 6px;margin-left:6px}
-    .ev{display:inline-block;background:var(--ev-bg);color:var(--ev-fg);border:1px solid var(--ev-bd);border-radius:999px;padding:2px 6px;font-weight:600}
-    .muted{opacity:.85;color:var(--muted)}
+    .logo{position:absolute;top:10px;right:10px;width:32px;height:32px;object-fit:contain;opacity:.95}
+    .avatar{width:42px;height:42px;border-radius:50%;object-fit:cover;border:1px solid var(--border)}
+    .title{font-weight:700;font-size:15px;line-height:1.2}
+    .subtitle{font-size:12px}
+    .badge{font-size:11px;border:1px solid var(--border);border-radius:999px;padding:2px 6px;margin-left:6px;white-space:nowrap}
+    .ev{display:inline-block;background:var(--ev-bg);color:var(--ev-fg);border:1px solid var(--ev-bd);border-radius:999px;padding:2px 6px;font-weight:600;font-size:12px}
+    .muted{opacity:.9;color:var(--muted);font-size:12px}
     .ladders{margin-top:8px}
     .lad{display:flex;justify-content:space-between;border:1px dashed var(--border);border-radius:8px;padding:6px 8px;margin-top:6px}
     .lad .side{font-weight:600}
-  .row-market{margin-top:10px;gap:8px;align-items:flex-start}
-    @media (max-width:1200px){ .grid{grid-template-columns:repeat(2,minmax(0,1fr))} }
-    @media (max-width:760px){ .grid{grid-template-columns:1fr} }
+    .row-market{margin-top:10px;gap:10px;align-items:flex-start;flex-wrap:wrap}
+  @media (min-width:1600px){ .grid{grid-template-columns:repeat(3,minmax(0,1fr))} }
+  @media (max-width:980px){ .grid{grid-template-columns:1fr} }
   </style>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="data:," />
@@ -46,6 +47,12 @@
   </head>
 <body>
   <div class="container">
+  {% macro fmt_price(v) -%}
+    {%- if v is not none -%}
+      {%- set i = v|int -%}
+      {%- if i >= 0 -%}+{{ i }}{%- else -%}{{ i }}{%- endif -%}
+    {%- else -%}—{%- endif -%}
+  {%- endmacro %}
   <div class="nav"><a href="/">Cards</a> | <a href="/recommendations">Recs</a> | <a href="/props">Props</a> | <a href="/props/recommendations">Props Recs</a> | <a href="/props/reconciliation">Props Recon</a> | <a href="/props/stats-calibration">Props Cal</a></div>
     <h1>Props Recommendations</h1>
     <form class="filters" onsubmit="applyFilters(); return false;">
@@ -87,28 +94,28 @@
       {% for c in cards %}
         <div class="card">
           <div class="row">
-            {% if c.team_logo %}
-              <img class="logo" src="{{ c.team_logo }}" alt="{{ c.team_abbr }}" />
-            {% endif %}
             {% if c.photo %}
-              <img class="avatar" src="{{ c.photo }}" alt="{{ c.player }}" />
+              <img class="avatar" src="{{ c.photo }}" alt="{{ c.player }}" onerror="this.style.display='none'" />
             {% endif %}
             <div>
               <div class="title">{{ c.player }}</div>
-              <div class="muted">{{ c.team_abbr or c.team or '—' }} · Best EV <span class="ev">{{ '%.3f' % c.best_ev if c.best_ev is not none else '—' }}</span></div>
+              <div class="muted subtitle">{{ c.team_abbr or c.team or '—' }} · Best EV <span class="ev">{{ '%.3f' % c.best_ev if c.best_ev is not none else '—' }}</span></div>
             </div>
+            {% if c.team_logo %}
+              <img class="logo" src="{{ c.team_logo }}" alt="{{ c.team_abbr }}" onerror="this.style.display='none'" />
+            {% endif %}
           </div>
           {% if c.markets %}
             {% for m in c.markets %}
               <div class="row row-market">
                 <div class="badge">{{ m.market }}</div>
                 <div class="muted">λ {{ '%.2f' % m.proj if m.proj is not none else '—' }}</div>
-                <div class="muted">P(Over) {{ '%.1f' % (m.p_over*100) }}%{% if m.p_over is none %}—{% endif %}</div>
+                <div class="muted">P(Over) {% if m.p_over is not none %}{{ '%.1f' % (m.p_over*100) }}%{% else %}—{% endif %}</div>
                 {% if m.primary_line is not none %}
                   <div class="muted">Line {{ m.primary_line }}</div>
                 {% endif %}
                 {% if m.best_side %}
-                  <div class="muted">Best {{ m.best_side }} @ {{ m.best_book or '—' }} {{ m.best_price if m.best_price is not none else '—' }}</div>
+                  <div class="muted">Best {{ m.best_side }} @ {{ m.best_book or '—' }} {{ fmt_price(m.best_price) }}</div>
                 {% endif %}
                 <div class="muted">Best EV <span class="ev">{{ '%.3f' % m.best_ev if m.best_ev is not none else '—' }}</span></div>
               </div>
@@ -117,7 +124,7 @@
                   <div class="lad">
                     <div>{{ l.line }}</div>
                     <div class="side">{{ l.side or 'Over' }}</div>
-                    <div>O {{ l.over_price if l.over_price is not none else '—' }} · U {{ l.under_price if l.under_price is not none else '—' }}</div>
+                    <div>O {{ fmt_price(l.over_price) }} · U {{ fmt_price(l.under_price) }}</div>
                     <div>{{ l.book or '—' }}</div>
                     <div><span class="ev">{{ '%.3f' % l.ev if l.ev is not none else '—' }}</span></div>
                   </div>

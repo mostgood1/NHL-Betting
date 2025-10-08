@@ -1,6 +1,0 @@
-date,home,away,p_home_ml,p_away_ml,p_over,p_under,p_home_pl_-1.5,p_away_pl_+1.5,total_line_used,proj_home_goals,proj_away_goals,model_total,model_spread,pl_line_used,totals_pick,totals_edge_pts,ats_pick,ats_edge_pts,edge_over_pts,edge_under_pts,edge_home_pl_pts,edge_away_pl_pts,actual_home_goals,actual_away_goals,actual_total,venue,game_state
-2026-01-04T19:00:00Z,Dallas Stars,Montréal Canadiens,0.8168,0.1832,0.3972,0.4316,0.6842,0.3158,6.0,4.41,1.66,6.07,2.75,1.5,Under,-0.07,home_-1.5,1.25,0.07,-0.07,1.25,-1.25,,,,American Airlines Center,FUT
-2026-01-04T20:00:00Z,Columbus Blue Jackets,Pittsburgh Penguins,0.436,0.564,0.4042,0.4338,0.2098,0.7902,6.0,2.81,3.26,6.07,-0.44,1.5,Under,-0.07,away_+1.5,1.94,0.07,-0.07,-1.94,1.94,,,,Nationwide Arena,FUT
-2026-01-04T22:00:00Z,Florida Panthers,Colorado Avalanche,0.6585,0.3415,0.4028,0.4334,0.4788,0.5212,6.0,3.75,2.32,6.07,1.43,1.5,Under,-0.07,away_+1.5,0.07,0.07,-0.07,-0.07,0.07,,,,Amerant Bank Arena,FUT
-2026-01-05T00:00:00Z,New Jersey Devils,Carolina Hurricanes,0.3502,0.6498,0.4034,0.4336,0.1341,0.8659,6.0,2.45,3.62,6.07,-1.17,1.5,Under,-0.07,away_+1.5,2.67,0.07,-0.07,-2.67,2.67,,,,Prudential Center,FUT
-2026-01-05T00:00:00Z,Chicago Blackhawks,Vegas Golden Knights,0.291,0.709,0.4022,0.4332,0.0936,0.9064,6.0,2.21,3.87,6.07,-1.66,1.5,Under,-0.07,away_+1.5,3.16,0.07,-0.07,-3.16,3.16,,,,United Center,FUT

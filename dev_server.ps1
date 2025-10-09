@@ -1,5 +1,5 @@
 param(
-  [int]$Port = 8010,
+  [int]$Port = 8000,
   [string]$BindIP = '127.0.0.1'
 )
 

@@ -74,8 +74,10 @@ Notes:
   - `pip install -r requirements.txt`
 2. Add `.env` with `ODDS_API_KEY=...` (for The Odds API fallback).
 3. Run the server:
-  - `uvicorn nhl_betting.web.app:app --host 127.0.0.1 --port 8010 --reload`
-4. Open `http://127.0.0.1:8010`.
+  - `uvicorn nhl_betting.web.app:app --host 127.0.0.1 --port 8000 --reload`
+4. Open `http://127.0.0.1:8000`.
+
+Note: Default dev port changed to 8000 (was 8010). Update any personal bookmarks or scripts that referenced 8010.
 
 CLI examples:
 - Train from existing data: `python -m nhl_betting.cli train`

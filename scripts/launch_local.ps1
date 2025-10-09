@@ -1,6 +1,6 @@
 Param(
     [string]$HostAddress = "127.0.0.1",
-    [int]$Port = 8010,
+    [int]$Port = 8000,
     [switch]$NoReload
 )
 

@@ -58,6 +58,7 @@ try:
     _CACHE_TTL = int(os.getenv("CACHED_PROPS_TTL_SECONDS", "180"))  # default 3 minutes
 except Exception:
     _CACHE_TTL = 180
+START_TIME = time.time()
 
 def _cache_get(key):
     if _CACHE_TTL <= 0:
@@ -3637,6 +3638,36 @@ async def api_env_flags():
         'CACHED_PROPS_TTL_SECONDS': _CACHE_TTL,
     }
     return JSONResponse({'flags': flags})
+
+@app.get('/api/ping')
+def api_ping():
+    """Ultra-fast liveness check (lighter than /health)."""
+    return {"pong": True}
+
+@app.get('/api/diag/perf')
+def api_diag_perf():
+    """Runtime diagnostics: uptime, cache stats, selected env flags.
+
+    Avoids heavy data loads; safe to call frequently.
+    """
+    now = time.time()
+    uptime = now - START_TIME
+    try:
+        cache_entries = len(_CACHE)
+    except Exception:
+        cache_entries = None
+    flags = {
+        'WEB_READ_ONLY_PREDICTIONS': bool(os.getenv('WEB_READ_ONLY_PREDICTIONS')),
+        'WEB_DISABLE_ODDS_FETCH': bool(os.getenv('WEB_DISABLE_ODDS_FETCH')),
+        'PROPS_MAX_ROWS': os.getenv('PROPS_MAX_ROWS'),
+        'CACHED_PROPS_TTL_SECONDS': _CACHE_TTL,
+    }
+    return {
+        'status': 'ok',
+        'uptime_seconds': round(uptime, 2),
+        'cache_entries': cache_entries,
+        'env': flags,
+    }
 
 
 @app.get("/props/all.csv")

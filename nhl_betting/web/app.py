@@ -4112,6 +4112,70 @@ async def _api_props_all_players_impl(request: Request, date, team, market, sort
             "total_pages": total_pages,
         })
 
+@app.get('/api/props/recommendations/history.json')
+async def api_props_recommendations_history_json(
+    date: Optional[str] = Query(None, description="Anchor date (inclusive); defaults to today"),
+    days: int = Query(30, description="Lookback window in days"),
+    market: Optional[str] = Query(None),
+    player: Optional[str] = Query(None),
+    team: Optional[str] = Query(None),
+    limit: int = Query(1000, description="Max rows to return after filtering"),
+):
+    d = _normalize_date_param(date)
+    try:
+        base_date = datetime.strptime(d, '%Y-%m-%d').date()
+    except Exception:
+        return JSONResponse({"error":"bad date"}, status_code=400)
+    hist_path = PROC_DIR / 'props_recommendations_history.csv'
+    if not hist_path.exists():
+        return JSONResponse({"data": [], "total_rows": 0, "date": d})
+    try:
+        df = pd.read_csv(hist_path)
+    except Exception:
+        return JSONResponse({"data": [], "total_rows": 0, "date": d})
+    if df.empty:
+        return JSONResponse({"data": [], "total_rows": 0, "date": d})
+    # Date filter
+    if 'date' in df.columns:
+        try:
+            df['date'] = pd.to_datetime(df['date']).dt.date
+            start_date = base_date - timedelta(days=max(0, days))
+            df = df[(df['date'] >= start_date) & (df['date'] <= base_date)]
+        except Exception:
+            pass
+    # Column normalization
+    if 'proj' in df.columns and 'proj_lambda' not in df.columns:
+        try: df.rename(columns={'proj':'proj_lambda'}, inplace=True)
+        except Exception: pass
+    if 'ev' in df.columns and 'ev_over' not in df.columns:
+        try: df.rename(columns={'ev':'ev_over'}, inplace=True)
+        except Exception: pass
+    # Filters
+    if market and 'market' in df.columns:
+        try: df = df[df['market'].astype(str).str.upper() == market.upper()]
+        except Exception: pass
+    if player and 'player' in df.columns:
+        try: df = df[df['player'].astype(str).str.lower() == player.lower()]
+        except Exception: pass
+    if team and 'team' in df.columns:
+        try: df = df[df['team'].astype(str).str.upper() == team.upper()]
+        except Exception: pass
+    total_rows = len(df)
+    # Default sort: newest date then ev_over desc
+    if 'date' in df.columns:
+        try:
+            sort_cols = ['date']
+            ascending = [False]
+            if 'ev_over' in df.columns:
+                sort_cols.append('ev_over'); ascending.append(False)
+            df.sort_values(sort_cols, ascending=ascending, inplace=True)
+        except Exception:
+            pass
+    if limit and limit > 0:
+        df = df.head(limit)
+    rows = _df_jsonsafe_records(df)
+    return JSONResponse({"date": d, "data": rows, "returned_rows": len(rows), "total_rows": total_rows, "lookback_days": days})
+
 @app.get('/api/props/recommendations.json')
 async def api_props_recommendations_json(
     request: Request,
@@ -5209,7 +5273,7 @@ async def api_cron_refresh_bovada(
             try: df = df[df['player_name'].astype(str).str.lower() == player.lower()]
             except Exception: pass
         keep = [c for c in ['date','player_name','player_id','team','market','line','over_price','under_price','book','first_seen_at','last_seen_at','is_current'] if c in df.columns]
-        if keep:
+        if df.empty:
             df = df[keep]
         rows = _df_jsonsafe_records(df.rename(columns={'player_name':'player'}))
         rows = [_normalize_props_row_dict(r) for r in rows]
@@ -5222,7 +5286,44 @@ async def api_cron_refresh_bovada(
         min_levels: int = Query(2),
     ):
         d = _normalize_date_param(date)
-        base = PROC_DIR.parent / 'props' / f'player_props_lines/date={d}'
+        save_df(df, out_path)
+        # History append: maintain cumulative file data/processed/props_recommendations_history.csv
+        try:
+            hist_path = PROC_DIR / 'props_recommendations_history.csv'
+            # Prepare minimal normalized subset with date
+            hdf = df.copy()
+            if 'date' not in hdf.columns:
+                hdf['date'] = d
+            # Normalize column names to stable schema
+            rename_map = {}
+            if 'proj' in hdf.columns and 'proj_lambda' not in hdf.columns:
+                rename_map['proj'] = 'proj_lambda'
+            if 'ev' in hdf.columns and 'ev_over' not in hdf.columns:
+                rename_map['ev'] = 'ev_over'
+            if rename_map:
+                try: hdf.rename(columns=rename_map, inplace=True)
+                except Exception: pass
+            keep_cols = [c for c in ['date','player','team','market','line','proj_lambda','p_over','over_price','under_price','book','side','ev_over'] if c in hdf.columns]
+            if keep_cols:
+                hdf = hdf[keep_cols]
+            # Append (dedupe by date,player,market,line,book,side keeping latest)
+            if hist_path.exists():
+                try:
+                    cur = pd.read_csv(hist_path)
+                    combined = pd.concat([cur, hdf], ignore_index=True)
+                    subset_keys = [k for k in ['date','player','market','line','book','side'] if k in combined.columns]
+                    if subset_keys:
+                        combined.sort_values(subset_keys + ([ 'ev_over'] if 'ev_over' in combined.columns else []), ascending=False, inplace=True)
+                        combined.drop_duplicates(subset=subset_keys, keep='first', inplace=True)
+                    combined.to_csv(hist_path, index=False)
+                except Exception:
+                    try: hdf.to_csv(hist_path, index=False)
+                    except Exception: pass
+            else:
+                try: hdf.to_csv(hist_path, index=False)
+                except Exception: pass
+        except Exception:
+            pass
         parts = []
         for fname in ('bovada.parquet','oddsapi.parquet'):
             p = base / fname

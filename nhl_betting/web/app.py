@@ -5172,6 +5172,101 @@ async def api_cron_refresh_bovada(
     except Exception as e:
         return JSONResponse({"ok": False, "date": d, "error": str(e)}, status_code=500)
 
+    # ---------------- Normalization & new props endpoints -----------------
+    def _normalize_props_row_dict(r: dict) -> dict:
+        out = dict(r)
+        if 'proj' in out and 'proj_lambda' not in out:
+            out['proj_lambda'] = out.get('proj')
+        if 'ev' in out and 'ev_over' not in out:
+            out['ev_over'] = out.get('ev')
+        if 'price' in out and 'over_price' not in out and str(out.get('side','OVER')).upper() == 'OVER':
+            out['over_price'] = out.get('price')
+        return out
+
+    @app.get('/api/props/lines.json')
+    async def api_props_lines_json(
+        date: Optional[str] = Query(None, description='Slate date YYYY-MM-DD (ET)'),
+        market: Optional[str] = Query(None),
+        player: Optional[str] = Query(None),
+    ):
+        d = _normalize_date_param(date)
+        base = PROC_DIR.parent / 'props' / f'player_props_lines/date={d}'
+        parts = []
+        for fname in ('bovada.parquet','oddsapi.parquet'):
+            p = base / fname
+            if p.exists():
+                try:
+                    parts.append(pd.read_parquet(p))
+                except Exception:
+                    pass
+        if not parts:
+            return JSONResponse({"date": d, "data": [], "total_rows": 0})
+        df = pd.concat(parts, ignore_index=True)
+        if market and 'market' in df.columns:
+            try: df = df[df['market'].astype(str).str.upper() == market.upper()]
+            except Exception: pass
+        if player and 'player_name' in df.columns:
+            try: df = df[df['player_name'].astype(str).str.lower() == player.lower()]
+            except Exception: pass
+        keep = [c for c in ['date','player_name','player_id','team','market','line','over_price','under_price','book','first_seen_at','last_seen_at','is_current'] if c in df.columns]
+        if keep:
+            df = df[keep]
+        rows = _df_jsonsafe_records(df.rename(columns={'player_name':'player'}))
+        rows = [_normalize_props_row_dict(r) for r in rows]
+        return JSONResponse({"date": d, "data": rows, "total_rows": len(rows)})
+
+    @app.get('/api/props/ladders.json')
+    async def api_props_ladders_json(
+        date: Optional[str] = Query(None),
+        market: Optional[str] = Query('SOG'),
+        min_levels: int = Query(2),
+    ):
+        d = _normalize_date_param(date)
+        base = PROC_DIR.parent / 'props' / f'player_props_lines/date={d}'
+        parts = []
+        for fname in ('bovada.parquet','oddsapi.parquet'):
+            p = base / fname
+            if p.exists():
+                try: parts.append(pd.read_parquet(p))
+                except Exception: pass
+        if not parts:
+            return JSONResponse({"date": d, "market": market, "ladders": [], "total": 0})
+        df = pd.concat(parts, ignore_index=True)
+        if market and 'market' in df.columns:
+            try: df = df[df['market'].astype(str).str.upper() == market.upper()]
+            except Exception: pass
+        if 'side' in df.columns:
+            try: df_over = df[df['side'].astype(str).str.upper() == 'OVER']
+            except Exception: df_over = df
+        else:
+            df_over = df
+        ladders = []
+        try:
+            if 'player_name' in df_over.columns and 'line' in df_over.columns:
+                g = df_over.groupby(['player_name','market'])
+                for (player_name, mkt), sub in g:
+                    try:
+                        levels = sorted([lv for lv in sub['line'].dropna().unique().tolist() if lv is not None])
+                    except Exception:
+                        levels = []
+                    if len(levels) >= min_levels:
+                        level_rows = []
+                        for L in levels:
+                            cand = sub[sub['line'] == L]
+                            price = None
+                            try:
+                                if 'odds' in cand.columns:
+                                    price = cand['odds'].max()
+                                elif 'over_price' in cand.columns:
+                                    price = cand['over_price'].max()
+                            except Exception:
+                                pass
+                            level_rows.append({'line': L, 'best_over_price': price})
+                        ladders.append({'player': player_name, 'market': mkt, 'levels': level_rows, 'levels_count': len(levels)})
+        except Exception:
+            ladders = []
+        return JSONResponse({"date": d, "market": market, "ladders": ladders, "total": len(ladders)})
+
 
 @app.post("/api/cron/retune")
 async def api_cron_retune(

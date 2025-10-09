@@ -3686,47 +3686,6 @@ async def api_routes():
             commit_val = None
     return {"commit": commit_val, "count": len(out), "routes": out[:200]}
 
-@app.get("/props")
-async def props_page(
-    date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD (ET)"),
-    team: Optional[str] = Query(None, description="Filter by team abbreviation"),
-    market: Optional[str] = Query(None, description="Filter by market"),
-    sort: Optional[str] = Query("name", description="Sort by: name, team, market, lambda_desc, lambda_asc"),
-    top: int = Query(2000, description="Max rows to display"),
-    min_ev: float = Query(0.0, description="Minimum EV filter (over side)"),
-    page: int = Query(1, description="Page number (1-based)"),
-    page_size: Optional[int] = Query(None, description="Rows per page (defaults to PROPS_PAGE_SIZE env or 250)"),
-):
-    # Simpler: redirect to the canonical implementation at /props/all to avoid duplicate logic / potential divergence.
-    try:
-        from fastapi.responses import RedirectResponse
-        # Preserve existing query parameters (only include those explicitly passed / non-default for brevity optional)
-        params = []
-        if date: params.append(f"date={date}")
-        if team: params.append(f"team={team}")
-        if market: params.append(f"market={market}")
-        if sort and sort != 'name': params.append(f"sort={sort}")
-        if top != 2000: params.append(f"top={top}")
-        if (min_ev or 0) > 0: params.append(f"min_ev={min_ev}")
-        if page and page != 1: params.append(f"page={page}")
-        if page_size: params.append(f"page_size={page_size}")
-        q = ('?' + '&'.join(params)) if params else ''
-        return RedirectResponse(url=f"/props/all{q}", status_code=307)
-    except Exception:
-        # If redirect somehow fails, fall back to direct call.
-        return await props_all_players_page(
-            date=date,
-            team=team,
-            market=market,
-            sort=sort,
-            top=top,
-            min_ev=min_ev,
-            nocache=0,
-            page=page,
-            page_size=page_size,
-        )
-
-
 @app.get("/props/all")
 async def props_all_players_page(
     date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD (ET)"),

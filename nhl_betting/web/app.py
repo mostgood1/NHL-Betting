@@ -38,6 +38,13 @@ from ..models.props import (
 )
 from ..web.teams import get_team_assets as _team_assets
 
+# Diagnostic: confirm import proceeds (helpful when local tests appear to hang)
+try:
+    if os.getenv('PROPS_VERBOSE','0') == '1':
+        print(f"[startup] web.app imported PROPS_VERBOSE=1 FAST_PROPS_TEST={os.getenv('FAST_PROPS_TEST')} FORCE_SYNTH={os.getenv('PROPS_FORCE_SYNTHETIC')} NO_COMP={os.getenv('PROPS_NO_COMPUTE')}")
+except Exception:
+    pass
+
 # App and templating setup
 BASE_DIR = Path(__file__).resolve().parent
 TEMPLATE_DIR = BASE_DIR / "templates"
@@ -379,6 +386,17 @@ def _file_mtime_iso(path: Path) -> Optional[str]:
     return None
 
 
+_ROSTER_CACHE = None
+def _get_roster_snapshot():
+    global _ROSTER_CACHE
+    if _ROSTER_CACHE is not None:
+        return _ROSTER_CACHE
+    try:
+        _ROSTER_CACHE = _rosters.build_all_team_roster_snapshots()
+    except Exception:
+        _ROSTER_CACHE = None
+    return _ROSTER_CACHE
+
 def _clean_player_display_name(name: str) -> str:
     """Normalize player name strings that may be dict-like (e.g., "{'default': 'A. Last'}").
 
@@ -396,14 +414,14 @@ def _clean_player_display_name(name: str) -> str:
                         s = v
             except Exception:
                 pass
+        # Fast modes: skip disambiguation altogether
+        if os.getenv('FAST_PROPS_TEST','0') == '1' or os.getenv('PROPS_FORCE_SYNTHETIC','0') == '1':
+            return str(s)
         # Expand formats like "A. Last" when roster can disambiguate
         m = re.match(r"^([A-Za-z])[\.]?\s+([A-Za-z\-']+)$", str(s).strip())
         if m:
             ini = m.group(1).lower(); last = m.group(2).lower()
-            try:
-                roster = _rosters.build_all_team_roster_snapshots()
-            except Exception:
-                roster = None
+            roster = _get_roster_snapshot()
             if roster is not None and not roster.empty and 'full_name' in roster.columns:
                 cands = [fn for fn in roster['full_name'].dropna().astype(str).unique().tolist() if fn.lower().endswith(' ' + last)]
                 if len(cands) == 1:
@@ -418,7 +436,12 @@ def _clean_player_display_name(name: str) -> str:
 
 
 def _read_all_players_projections(date: str) -> pd.DataFrame:
-    """Read data/processed/props_projections_all_{date}.csv locally or via GitHub raw."""
+    """Read data/processed/props_projections_all_{date}.csv locally or via GitHub raw.
+
+    In fast synthetic modes we skip reading to force compute path's synthetic return.
+    """
+    if os.getenv('FAST_PROPS_TEST','0') == '1' or os.getenv('PROPS_FORCE_SYNTHETIC','0') == '1':
+        return None
     p = PROC_DIR / f"props_projections_all_{date}.csv"
     if p.exists():
         try:
@@ -434,6 +457,34 @@ def _compute_all_players_projections(date: str) -> pd.DataFrame:
 
     Mirrors CLI behavior; avoids external NHL Stats API when unavailable by using historical enrichment.
     """
+    t_global_start = time.perf_counter()
+    verbose = os.getenv('PROPS_VERBOSE','0') == '1'
+    def _v(msg: str):
+        if verbose:
+            try:
+                print(f"[props_compute][{date}] {msg}")
+            except Exception:
+                pass
+    # Synthetic short circuit flags
+    fast_flag = os.getenv('FAST_PROPS_TEST','0') == '1'
+    force_synth = os.getenv('PROPS_FORCE_SYNTHETIC','0') == '1'
+    no_compute = os.getenv('PROPS_NO_COMPUTE','0') == '1'
+    if fast_flag or force_synth:
+        _v("FAST_PROPS_TEST or PROPS_FORCE_SYNTHETIC enabled -> returning synthetic frame")
+        try:
+            df_synth = pd.DataFrame([
+                {"player":"Test Player A","team":"AAA","market":"Shots","proj_lambda":2.1},
+                {"player":"Test Player B","team":"BBB","market":"Goals","proj_lambda":0.4},
+                {"player":"Test Player C","team":"CCC","market":"Assists","proj_lambda":0.7},
+                {"player":"Test Player D","team":"DDD","market":"Points","proj_lambda":1.2},
+            ])
+            return df_synth
+        except Exception:
+            return pd.DataFrame()
+    if no_compute:
+        _v("PROPS_NO_COMPUTE=1 set -> skipping compute and returning empty frame")
+        return pd.DataFrame()
+    _v("Beginning compute pipeline (may involve IO)")
     # Ensure stats history exists (best effort)
     try:
         from ..data.collect import collect_player_game_stats as _collect_stats
@@ -3491,6 +3542,29 @@ async def api_last_updated(date: Optional[str] = Query(None)):
     except Exception:
         return JSONResponse({"date": date, "last_modified": None})
 
+@app.get('/health/props')
+async def health_props():
+    """Lightweight health probe for props data availability."""
+    d = _today_ymd()
+    proj_path = PROC_DIR / f"props_projections_all_{d}.csv"
+    rec_path = PROC_DIR / f"props_recommendations_{d}.csv"
+    def _mtime(p: Path):
+        try:
+            if p.exists():
+                import datetime as _dt
+                return _dt.datetime.fromtimestamp(p.stat().st_mtime, tz=timezone.utc).isoformat()
+        except Exception:
+            return None
+        return None
+    return JSONResponse({
+        "date": d,
+        "projections_all_present": proj_path.exists(),
+        "recommendations_present": rec_path.exists(),
+        "projections_all_mtime": _mtime(proj_path),
+        "recommendations_mtime": _mtime(rec_path),
+        "fast_mode": os.getenv('FAST_PROPS_TEST','0') == '1'
+    })
+
 @app.get("/props")
 async def props_page(
     date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD (ET)"),
@@ -3498,9 +3572,78 @@ async def props_page(
     market: Optional[str] = Query(None, description="Filter by market"),
     sort: Optional[str] = Query("name", description="Sort by: name, team, market, lambda_desc, lambda_asc"),
     top: int = Query(2000, description="Max rows to display"),
+    min_ev: float = Query(0.0, description="Minimum EV filter (over side)"),
+    page: int = Query(1, description="Page number (1-based)"),
+    page_size: Optional[int] = Query(None, description="Rows per page (defaults to PROPS_PAGE_SIZE env or 250)"),
 ):
-    # Delegate to the all-players view but keep the route canonical as /props
-    return await props_all_players_page(date=date, team=team, market=market, sort=sort, top=top)
+    # Delegate to the all-players view but keep the canonical friendly path /props.
+    # Graceful error handling: never 500 here if PROPS_GRACEFUL_ERRORS enabled (default on).
+    graceful = os.getenv('PROPS_GRACEFUL_ERRORS', '1') != '0'
+    try:
+        return await props_all_players_page(
+            date=date,
+            team=team,
+            market=market,
+            sort=sort,
+            top=top,
+            min_ev=min_ev,
+            nocache=0,
+            page=page,
+            page_size=page_size,
+        )
+    except Exception as e:
+        if not graceful:
+            raise
+        import traceback, json as _json
+        tb = traceback.format_exc()
+        try:
+            print(_json.dumps({"event":"props_page_error","error":str(e)}))
+        except Exception:
+            pass
+        # Attempt fallback: find latest props_projections_all CSV (today or previous 5 days)
+        from datetime import datetime as _dt, timedelta as _td
+        rows_html = ""
+        used_date = date or _dt.now().strftime('%Y-%m-%d')
+        try_dates = []
+        try:
+            base = _dt.strptime(used_date, '%Y-%m-%d')
+            for i in range(0, 6):
+                try_dates.append((base - _td(days=i)).strftime('%Y-%m-%d'))
+        except Exception:
+            try_dates.append(used_date)
+        fallback_found = None
+        for d_try in try_dates:
+            p = PROC_DIR / f"props_projections_all_{d_try}.csv"
+            if p.exists():
+                try:
+                    df_fb = _read_csv_fallback(p)
+                    if df_fb is not None and not df_fb.empty:
+                        fallback_found = (d_try, df_fb.head(50))
+                        break
+                except Exception:
+                    pass
+        if fallback_found:
+            d_found, df_fb = fallback_found
+            try:
+                cols = [c for c in ["player","team","market","proj_lambda"] if c in df_fb.columns]
+                for _, r in df_fb.iterrows():
+                    cells = ''.join(f"<td>{r.get(c,'')}</td>" for c in cols)
+                    rows_html += f"<tr>{cells}</tr>"
+                table = f"<table border='1' cellpadding='4'><thead><tr>{''.join(f'<th>{c}</th>' for c in cols)}</tr></thead><tbody>{rows_html}</tbody></table>"
+            except Exception:
+                table = '<p>Could not render fallback table.</p>'
+            note = f"Showing fallback cached data for {d_found} (original error: {e})."
+        else:
+            table = '<p>No fallback projections file found.</p>'
+            note = f"No data fallback available (original error: {e})."
+        html = f"""<!DOCTYPE html><html><head><meta charset='utf-8'><title>Props Unavailable</title></head>
+<body><h2>Props Page Temporary Error</h2>
+<p>{note}</p>
+<details><summary>Trace</summary><pre>{tb}</pre></details>
+{table}
+<hr><p>Set PROPS_GRACEFUL_ERRORS=0 to surface raw 500 for debugging.</p>
+</body></html>"""
+        return HTMLResponse(content=html, status_code=200, headers={"X-Error":"1"})
 
 
 @app.get("/props/all")
@@ -3510,23 +3653,59 @@ async def props_all_players_page(
     market: Optional[str] = Query(None, description="Filter by market"),
     sort: Optional[str] = Query("name", description="Sort by: name, team, market, lambda_desc, lambda_asc"),
     top: int = Query(2000, description="Max rows to display"),
+    min_ev: float = Query(0.0, description="Minimum EV filter (over side)"),
     nocache: int = Query(0, description="Bypass in-memory cache (1 = yes)"),
     page: int = Query(1, description="Page number (1-based)"),
     page_size: Optional[int] = Query(None, description="Rows per page (server-side pagination); defaults to PROPS_PAGE_SIZE env or 250"),
 ):
+    # Ultra-fast synthetic short-circuit for local smoke tests
+    if os.getenv('FAST_PROPS_TEST','0') == '1':
+        t0 = time.perf_counter()
+        try:
+            ps = page_size or 10
+            synth_rows = [
+                {"player":"Test Player A","team":"AAA","market":"Shots","proj_lambda":2.1},
+                {"player":"Test Player B","team":"BBB","market":"Goals","proj_lambda":0.4},
+                {"player":"Test Player C","team":"CCC","market":"Assists","proj_lambda":0.7},
+                {"player":"Test Player D","team":"DDD","market":"Points","proj_lambda":1.2},
+            ][:ps]
+            # Minimal HTML (avoid Jinja template cost)
+            rows_html = "".join(f"<tr><td>{r['player']}</td><td>{r['team']}</td><td>{r['market']}</td><td>{r['proj_lambda']}</td></tr>" for r in synth_rows)
+            html = f"""
+<!DOCTYPE html><html><head><meta charset='utf-8'><title>Props FAST TEST</title></head>
+<body><h3>FAST_PROPS_TEST Synthetic Props (page {page})</h3>
+<table border='1' cellpadding='4'><thead><tr><th>Player</th><th>Team</th><th>Market</th><th>Lambda</th></tr></thead>
+<tbody>{rows_html}</tbody></table>
+<p>Total synthetic rows: {len(synth_rows)} | Render time: {{round((time.perf_counter()-t0)*1000,2)}} ms</p>
+</body></html>"""
+            # Evaluate the timing expression now
+            rt = round((time.perf_counter()-t0)*1000,2)
+            html = html.replace('{round((time.perf_counter()-t0)*1000,2)}', str(rt))
+            try:
+                if os.getenv('PROPS_VERBOSE','0') == '1':
+                    print(json.dumps({"event":"props_fast_stub","dur_ms":rt,"rows":len(synth_rows)}))
+            except Exception:
+                pass
+            return HTMLResponse(content=html, headers={"X-Cache":"BYPASS","X-Fast":"1"})
+        except Exception as e:
+            return HTMLResponse(content=f"<pre>FAST_PROPS_TEST error: {e}</pre>", status_code=500)
+
     t0 = time.perf_counter()
     d_requested = _normalize_date_param(date)
     used_date = d_requested
     # Resolve page_size (env override)
     try:
-        default_ps = int(os.getenv('PROPS_PAGE_SIZE', '250'))
+        if os.getenv('FAST_PROPS_TEST','0') == '1':
+            default_ps = 10
+        else:
+            default_ps = int(os.getenv('PROPS_PAGE_SIZE', '250'))
     except Exception:
         default_ps = 250
     if not page_size or page_size <= 0:
         page_size = default_ps
     if page <= 0:
         page = 1
-    cache_key = ("props_all_html", d_requested, str(team or '').upper(), str(market or '').upper(), sort or 'name', int(top), int(page), int(page_size))
+    cache_key = ("props_all_html", d_requested, str(team or '').upper(), str(market or '').upper(), sort or 'name', float(min_ev or 0), int(top), int(page), int(page_size))
     if not nocache:
         cached = _cache_get(cache_key)
         if cached is not None:
@@ -3534,6 +3713,16 @@ async def props_all_players_page(
     # Load / compute
     t_load_start = time.perf_counter()
     df = _read_all_players_projections(d_requested)
+    # Attempt to load recommendations (lines + probabilities + EV)
+    rec_df = None
+    try:
+        rec_path = PROC_DIR / f"props_recommendations_{d_requested}.csv"
+        if rec_path.exists():
+            rec_df = _read_csv_fallback(rec_path)
+        elif _read_only(d_requested):
+            rec_df = _github_raw_read_csv(f"data/processed/props_recommendations_{d_requested}.csv")
+    except Exception:
+        rec_df = None
     notice = None
     if df is None or df.empty:
         if _read_only(d_requested):
@@ -3572,37 +3761,68 @@ async def props_all_players_page(
             teams = sorted({str(x).upper() for x in df['team'].dropna().unique().tolist() if str(x).strip()})
     except Exception:
         teams = []
+    # Merge model-only projections with recommendations if available
+    display_df = None
+    try:
+        if rec_df is not None and not rec_df.empty:
+            tmp_rec = rec_df.copy()
+            # Normalize columns
+            rename_map = {"proj": "proj_lambda", "ev": "ev", "p_over": "p_over"}
+            for k,v in rename_map.items():
+                if k in tmp_rec.columns and v not in tmp_rec.columns:
+                    tmp_rec.rename(columns={k:v}, inplace=True)
+            # Team fill from model-only if missing
+            if df is not None and not df.empty and 'team' in df.columns:
+                model_map = {}
+                try:
+                    model_map = {(str(r.player).lower(), str(r.market).upper()): r.team for r in df.itertuples()}
+                except Exception:
+                    model_map = {}
+                if 'team' in tmp_rec.columns:
+                    tmp_rec['team'] = tmp_rec.apply(lambda r: (r['team'] if str(r['team']).strip() else model_map.get((str(r['player']).lower(), str(r['market']).upper()), '')) , axis=1)
+            display_df = tmp_rec
+        else:
+            display_df = df
+    except Exception:
+        display_df = df
+
     total_rows = 0
     filtered_rows = 0
-    if df is not None and not df.empty:
+    if display_df is not None and not display_df.empty:
         try:
-            df['player'] = df['player'].astype(str).map(_clean_player_display_name)
+            display_df['player'] = display_df['player'].astype(str).map(_clean_player_display_name)
         except Exception:
             pass
-        total_rows = len(df)
+        total_rows = len(display_df)
         if team:
             su = str(team).upper()
             try:
-                df = df[df['team'].astype(str).str.upper() == su]
+                display_df = display_df[display_df['team'].astype(str).str.upper() == su]
             except Exception:
                 pass
         if market:
             try:
-                df = df[df['market'].astype(str).str.upper() == str(market).upper()]
+                display_df = display_df[display_df['market'].astype(str).str.upper() == str(market).upper()]
             except Exception:
                 pass
-        key = (sort or 'name').lower(); ascending = True
+        # Min EV filter (applies if we have ev field)
+        if 'ev' in display_df.columns and (min_ev or 0) > 0:
+            try:
+                display_df = display_df[display_df['ev'].astype(float) >= float(min_ev)]
+            except Exception:
+                pass
+        key = (sort or 'name').lower(); ascending = True; col = None
         if key in ('lambda_desc','lambda_asc'):
             col = 'proj_lambda'; ascending = (key == 'lambda_asc')
-        elif key == 'market':
-            col = 'market'
-        elif key == 'team':
-            col = 'team'
-        else:
-            col = 'player'
-        if col in df.columns:
+        elif key in ('p_over_desc','p_over_asc'):
+            col = 'p_over'; ascending = (key == 'p_over_asc')
+        elif key in ('ev_desc','ev_asc'):
+            col = 'ev'; ascending = (key == 'ev_asc')
+        elif key in ('market','team','player','line','book'):
+            col = key
+        if col and col in display_df.columns:
             try:
-                df = df.sort_values(by=[col], ascending=ascending, na_position='last')
+                display_df = display_df.sort_values(by=[col], ascending=ascending, na_position='last')
             except Exception:
                 pass
         # Respect env cap to keep memory/render bounded (e.g., PROPS_MAX_ROWS=10000)
@@ -3614,8 +3834,8 @@ async def props_all_players_page(
         if env_cap and (effective_top is None or env_cap < effective_top):
             effective_top = env_cap
         if effective_top:
-            df = df.head(effective_top)
-        filtered_rows = len(df)
+            display_df = display_df.head(effective_top)
+        filtered_rows = len(display_df)
         # Pagination slice
         if page_size:
             total_pages = max(1, (filtered_rows + page_size - 1) // page_size)
@@ -3623,10 +3843,14 @@ async def props_all_players_page(
                 page = total_pages
             start_idx = (page - 1) * page_size
             end_idx = start_idx + page_size
-            df = df.iloc[start_idx:end_idx]
+            display_df = display_df.iloc[start_idx:end_idx]
         else:
             total_pages = 1
-        rows = _df_jsonsafe_records(df)
+        # Conform row dict keys for template
+        rows = _df_jsonsafe_records(display_df)
+        for r in rows:
+            if 'ev_over' not in r and 'ev' in r:
+                r['ev_over'] = r.get('ev')
     else:
         total_pages = 0
         rows = []
@@ -3637,7 +3861,7 @@ async def props_all_players_page(
     html = template.render(
         rows=rows,
         market=market or "",
-        min_ev=None,
+    min_ev=min_ev,
         top=top,
         date=used_date,
         team=team or "",
@@ -3671,13 +3895,31 @@ async def api_props_all_players(
     page_size: Optional[int] = Query(None, description="Rows per page (defaults PROPS_PAGE_SIZE env or 250)"),
     top: int = Query(0, description="Optional max rows before pagination (0 = no cap aside from PROPS_MAX_ROWS)"),
 ):
+    graceful = os.getenv('PROPS_GRACEFUL_ERRORS','1') != '0'
+    try:
+        return await _api_props_all_players_impl(request, date, team, market, sort, page, page_size, top)
+    except Exception as e:
+        import traceback, json as _json
+        tb = traceback.format_exc()
+        try:
+            print(_json.dumps({"event":"api_props_all_error","error":str(e)}))
+        except Exception:
+            pass
+        if not graceful:
+            raise
+        return JSONResponse({"error":"props_api_failed","detail":str(e),"trace":tb[:4000]}, status_code=200)
+
+async def _api_props_all_players_impl(request: Request, date, team, market, sort, page, page_size, top):
     """JSON API for all-player model-only projections with server-side pagination.
 
     Returns metadata: total_rows (raw), filtered_rows (after filters & top/env cap), page, page_size, total_pages.
     """
     d = _normalize_date_param(date)
     try:
-        default_ps = int(os.getenv('PROPS_PAGE_SIZE', '250'))
+        if os.getenv('FAST_PROPS_TEST','0') == '1':
+            default_ps = 10
+        else:
+            default_ps = int(os.getenv('PROPS_PAGE_SIZE', '250'))
     except Exception:
         default_ps = 250
     if not page_size or page_size <= 0:
@@ -3836,6 +4078,7 @@ def api_diag_perf():
 @app.get("/props/all.csv")
 async def props_all_players_csv(
     date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD (ET)"),
+    min_ev: float = Query(0.0, description="Minimum EV (ev column) to include"),
 ):
     d = _normalize_date_param(date)
     df = _read_all_players_projections(d)
@@ -3844,10 +4087,38 @@ async def props_all_players_csv(
             df = _compute_all_players_projections(d)
     except Exception:
         df = pd.DataFrame()
+    # Merge recommendations if present
+    rec_df = None
+    try:
+        rp = PROC_DIR / f"props_recommendations_{d}.csv"
+        if rp.exists():
+            rec_df = _read_csv_fallback(rp)
+        elif _read_only(d):
+            rec_df = _github_raw_read_csv(f"data/processed/props_recommendations_{d}.csv")
+    except Exception:
+        rec_df = None
+    out_df = None
+    try:
+        if rec_df is not None and not rec_df.empty:
+            tmp = rec_df.copy()
+            if 'proj' in tmp.columns and 'proj_lambda' not in tmp.columns:
+                tmp.rename(columns={'proj':'proj_lambda'}, inplace=True)
+            out_df = tmp
+        else:
+            out_df = df
+    except Exception:
+        out_df = df
+    if out_df is None:
+        out_df = pd.DataFrame()
+    if (min_ev or 0) > 0 and 'ev' in out_df.columns:
+        try:
+            out_df = out_df[out_df['ev'].astype(float) >= float(min_ev)]
+        except Exception:
+            pass
     import io
     out = io.StringIO()
-    (df if df is not None else pd.DataFrame()).to_csv(out, index=False)
-    return Response(content=out.getvalue(), media_type="text/csv")
+    out_df.to_csv(out, index=False)
+    return Response(content=out.getvalue(), media_type="text/csv", headers={"Content-Disposition": f"attachment; filename=props_all_{d}.csv"})
 
 
 @app.post("/api/cron/props-all")

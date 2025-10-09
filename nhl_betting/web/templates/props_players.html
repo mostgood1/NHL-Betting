@@ -116,11 +116,11 @@
           <th class="th-sort" onclick="setSort('name')">Player</th>
           <th class="th-sort" onclick="setSort('team')">Team</th>
           <th class="th-sort" onclick="setSort('line')">Line</th>
-          <th>Odds (Over)</th>
-          <th>Odds (Under)</th>
           <th class="th-sort" onclick="toggleSort('lambda')">Proj λ</th>
           <th class="th-sort" onclick="toggleSort('p_over')">P(Over)</th>
-          <th class="th-sort" onclick="toggleSort('ev')">EV (Over)</th>
+          <th>Over Price</th>
+          <th>Under Price</th>
+          <th class="th-sort" onclick="toggleSort('ev')">EV</th>
         </tr>
       </thead>
       <tbody>
@@ -130,21 +130,15 @@
             <td>{{ r.player }}</td>
             <td>{{ r.team if r.team is defined else '' }}</td>
             <td>{{ r.line if r.line is defined else '' }}</td>
+            <td>{% if r.proj_lambda is defined and r.proj_lambda is not none %}{{ '%.2f' % r.proj_lambda }}{% else %}-{% endif %}</td>
+            <td>{% if r.p_over is defined and r.p_over is not none %}{{ '%.1f' % (r.p_over * 100) }}%{% else %}-{% endif %}</td>
             <td>{{ r.over_price if r.over_price is defined else '' }}</td>
             <td>{{ r.under_price if r.under_price is defined else '' }}</td>
-            <td>
-              {% if r.proj_lambda is defined and r.proj_lambda is not none %}
-                {{ '%.2f' % r.proj_lambda }}
-              {% else %}-{% endif %}
-            </td>
-            <td>
-              {% if r.p_over is defined and r.p_over is not none %}
-                {{ '%.1f' % (r.p_over * 100) }}%
-              {% else %}-{% endif %}
-            </td>
-            <td class="{% if r.ev_over is defined and r.ev_over is not none and r.ev_over >= 0 %}ev-pos{% else %}ev-neg{% endif %}">
+            <td class="{% if (r.ev_over if r.ev_over is defined else (r.ev if r.ev is defined else None)) is not none and (r.ev_over if r.ev_over is defined else (r.ev if r.ev is defined else 0)) >= 0 %}ev-pos{% else %}ev-neg{% endif %}">
               {% if r.ev_over is defined and r.ev_over is not none %}
                 {{ '%.3f' % r.ev_over }}
+              {% elif r.ev is defined and r.ev is not none %}
+                {{ '%.3f' % r.ev }}
               {% else %}-{% endif %}
             </td>
           </tr>

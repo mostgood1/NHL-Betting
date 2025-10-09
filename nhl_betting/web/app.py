@@ -4966,6 +4966,125 @@ async def api_cron_props_full(
         "recommendations": res_recs,
     })
 
+@app.post("/api/cron/props-range")
+async def api_cron_props_range(
+    token: Optional[str] = Query(None, description="Bearer token; must match REFRESH_CRON_TOKEN env var"),
+    start: Optional[str] = Query(None, description="Start date YYYY-MM-DD (inclusive); if provided without end, single date"),
+    end: Optional[str] = Query(None, description="End date YYYY-MM-DD (inclusive)"),
+    back: int = Query(0, description="How many days back from today (ET) to include if start not provided"),
+    ahead: int = Query(0, description="How many future days from today (ET) to include if start not provided"),
+    mode: str = Query("full", description="Which pipeline steps to run: full|collect|projections|recommendations"),
+    min_ev: float = Query(0.0, description="Minimum EV threshold for recommendations (when mode includes recommendations)"),
+    top: int = Query(200, description="Top N recommendations to keep (when mode includes recommendations)"),
+    market: Optional[str] = Query(None, description="Optional market filter passed to projections/recommendations"),
+    authorization: Optional[str] = Header(None, description="Authorization: Bearer <token> header (alternative to token query param)"),
+):
+    """Batch props pipeline over a date window.
+
+    Usage patterns:
+      - Explicit range: provide start & end.
+      - Relative window: omit start/end, use back & ahead around today (ET).
+
+    mode behaviors:
+      * full: runs collect + projections + recommendations (same as props-full per date)
+      * collect: only line collection
+      * projections: only projections (assumes lines exist or computes from model only)
+      * recommendations: only recommendations (requires projections file; will attempt to compute if missing)
+    """
+    secret = os.getenv("REFRESH_CRON_TOKEN", "")
+    supplied = (token or "").strip()
+    if (not supplied) and authorization:
+        try:
+            auth = str(authorization)
+            if auth.lower().startswith("bearer "):
+                supplied = auth.split(" ", 1)[1].strip()
+        except Exception:
+            supplied = supplied
+    if not (secret and supplied and _const_time_eq(supplied, secret)):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    # Build date list
+    dates: list[str] = []
+    try:
+        if start:
+            sd = datetime.strptime(start, "%Y-%m-%d").date()
+            if end:
+                ed = datetime.strptime(end, "%Y-%m-%d").date()
+            else:
+                ed = sd
+            if ed < sd:
+                sd, ed = ed, sd
+            cur = sd
+            while cur <= ed:
+                dates.append(cur.strftime("%Y-%m-%d"))
+                cur += timedelta(days=1)
+        else:
+            # Use existing helper _today_ymd (renders ET-based YMD elsewhere) to anchor base date
+            try:
+                base = datetime.strptime(_today_ymd(), "%Y-%m-%d").date()
+            except Exception:
+                base = datetime.utcnow().date()
+            for i in range(back, -1, -1):
+                if i == 0:
+                    dates.append(base.strftime("%Y-%m-%d"))
+                else:
+                    dates.append((base - timedelta(days=i)).strftime("%Y-%m-%d"))
+            for j in range(1, ahead + 1):
+                dates.append((base + timedelta(days=j)).strftime("%Y-%m-%d"))
+        # Dedup preserve order
+        seen = set(); ordered = []
+        for d in dates:
+            if d not in seen:
+                seen.add(d); ordered.append(d)
+        dates = ordered
+    except Exception as e:
+        return JSONResponse({"error": f"date_range_parse_failed: {e}"}, status_code=400)
+    mode_lc = (mode or "full").lower()
+    if mode_lc not in {"full","collect","projections","recommendations"}:
+        return JSONResponse({"error": f"invalid mode '{mode}'"}, status_code=400)
+    out: dict[str, dict] = {}
+    for d in dates:
+        # For consistency pass token along to internal callables
+        try:
+            if mode_lc == "full":
+                res = await api_cron_props_full(token=supplied, date=d, min_ev=min_ev, top=top, market=market)
+                if isinstance(res, JSONResponse):
+                    import json as _json
+                    try:
+                        res = _json.loads(res.body)
+                    except Exception:
+                        res = {"ok": True}
+                out[d] = res
+            elif mode_lc == "collect":
+                res = await api_cron_props_collect(token=supplied, date=d)
+                if isinstance(res, JSONResponse):
+                    import json as _json
+                    try:
+                        res = _json.loads(res.body)
+                    except Exception:
+                        res = {"ok": True}
+                out[d] = {"collect": res}
+            elif mode_lc == "projections":
+                res = await api_cron_props_projections(token=supplied, date=d, market=market, top=0)
+                if isinstance(res, JSONResponse):
+                    import json as _json
+                    try:
+                        res = _json.loads(res.body)
+                    except Exception:
+                        res = {"ok": True}
+                out[d] = {"projections": res}
+            else:  # recommendations
+                res = await api_cron_props_recommendations(token=supplied, date=d, market=market, min_ev=min_ev, top=top)
+                if isinstance(res, JSONResponse):
+                    import json as _json
+                    try:
+                        res = _json.loads(res.body)
+                    except Exception:
+                        res = {"ok": True}
+                out[d] = {"recommendations": res}
+        except Exception as e:
+            out[d] = {"error": str(e)}
+    return JSONResponse({"ok": True, "mode": mode_lc, "dates": dates, "results": out})
+
 @app.get("/props/reconciliation")
 async def props_reconciliation_page(
     date: Optional[str] = Query(None),

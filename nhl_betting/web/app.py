@@ -3722,6 +3722,7 @@ async def api_routes():
 
 @app.get("/props/all")
 async def props_all_players_page(
+    request: Request,
     date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD (ET)"),
     team: Optional[str] = Query(None, description="Filter by team abbreviation"),
     market: Optional[str] = Query(None, description="Filter by market"),
@@ -3950,6 +3951,7 @@ async def props_all_players_page(
         filtered_rows=filtered_rows,
         total_pages=total_pages,
         source=source or 'merged',
+        request=request,
     )
     t_render = time.perf_counter() - t_render_start
     total = time.perf_counter() - t0

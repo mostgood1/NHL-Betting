@@ -142,12 +142,39 @@ async def _commit_header_mw(request, call_next):
         pass
     return response
 
-@app.on_event("startup")
-async def _startup_log():
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app_: FastAPI):
+    # Startup phase
     try:
-        print(json.dumps({"event":"startup_diag","commit": (_git_commit_hash() or '')[:12], "route_count": len(app.routes)}))
+        print(json.dumps({"event":"startup_diag","commit": (_git_commit_hash() or '')[:12], "route_count": len(app_.routes)}))
     except Exception:
         pass
+    # Model bootstrap scheduling (merged from old second startup handler)
+    try:
+        from ..utils.io import MODEL_DIR
+        ratings_path = MODEL_DIR / "elo_ratings.json"
+        cfg_path = MODEL_DIR / "config.json"
+        if not (ratings_path.exists() and cfg_path.exists()):
+            now = datetime.now(timezone.utc)
+            end = f"{now.year}-08-01"
+            start_year = now.year - 2
+            start = f"{start_year}-09-01"
+            async def _do_bootstrap():
+                try:
+                    await asyncio.to_thread(cli_fetch, start, end, "web")
+                    await asyncio.to_thread(cli_train)
+                except Exception:
+                    pass
+            asyncio.create_task(_do_bootstrap())
+    except Exception:
+        pass
+    yield
+    # Shutdown phase (none currently)
+
+# Apply lifespan to app (FastAPI allows providing lifespan in constructor, but we retrofit here)
+app.router.lifespan_context = lifespan
 try:
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 except Exception:
@@ -1613,34 +1640,7 @@ def _american_from_prob(prob: float) -> Optional[int]:
 ## Removed duplicate async /health route to avoid double registration & confusion.
 
 
-@app.on_event("startup")
-async def _bootstrap_models_if_missing():
-    # Ensure Elo ratings and config exist; if missing, fetch ~two seasons and train.
-    try:
-        from ..utils.io import MODEL_DIR
-        ratings_path = MODEL_DIR / "elo_ratings.json"
-        cfg_path = MODEL_DIR / "config.json"
-        if ratings_path.exists() and cfg_path.exists():
-            return
-        # Build a two-season window ending last season end (Aug 1 current year)
-        now = datetime.now(timezone.utc)
-        end = f"{now.year}-08-01"
-        start_year = now.year - 2
-        start = f"{start_year}-09-01"
-
-        async def _do_bootstrap():
-            try:
-                await asyncio.to_thread(cli_fetch, start, end, "web")
-                await asyncio.to_thread(cli_train)
-            except Exception:
-                # Ignore failures; the app can still serve with on-demand prediction
-                pass
-
-        # Schedule in background so startup isn't blocked on Render
-        asyncio.create_task(_do_bootstrap())
-    except Exception:
-        # Don't block startup if bootstrap scheduling fails
-        pass
+## (Replaced by lifespan handler above) Removed deprecated @app.on_event startup hooks.
 
 
 async def _ensure_models(quick: bool = False) -> None:

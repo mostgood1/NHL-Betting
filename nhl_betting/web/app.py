@@ -1140,26 +1140,23 @@ def _df_hard_json_clean(df: pd.DataFrame) -> pd.DataFrame:
 
 @app.get("/health")
 def health():
-    """Simple health probe that avoids heavy work.
+    """Ultra-light health endpoint.
 
-    Returns service status and whether today's predictions file exists.
+    Intentionally avoids touching large data/model code paths. Returns current ET date and
+    whether today's predictions CSV exists (best-effort). Fast and safe for load balancers.
     """
+    et_today = None
     try:
         et_today = _today_ymd()
     except Exception:
-        et_today = None
-    pred_path = None; pred_exists = False
+        pass
+    pred_exists = False
     try:
         if et_today:
-            pred_path = PROC_DIR / f"predictions_{et_today}.csv"
-            pred_exists = pred_path.exists()
+            pred_exists = (PROC_DIR / f"predictions_{et_today}.csv").exists()
     except Exception:
-        pred_exists = False
-    return JSONResponse({
-        "status": "ok",
-        "date_et": et_today,
-        "predictions_today": bool(pred_exists),
-    })
+        pass
+    return {"status": "ok", "date_et": et_today, "predictions_today": bool(pred_exists)}
 
 
 @app.get("/health/render")
@@ -1471,20 +1468,7 @@ def _american_from_prob(prob: float) -> Optional[int]:
         return None
 
 
-@app.get("/health")
-async def health_async():
-    # Keep compatibility for async route; delegate to sync implementation above
-    try:
-        et_today = _today_ymd()
-    except Exception:
-        et_today = None
-    pred_exists = False
-    try:
-        pred_path = PROC_DIR / f"predictions_{et_today}.csv" if et_today else None
-        pred_exists = bool(pred_path and pred_path.exists())
-    except Exception:
-        pred_exists = False
-    return {"status": "ok", "date_et": et_today, "predictions_today": pred_exists}
+## Removed duplicate async /health route to avoid double registration & confusion.
 
 
 @app.on_event("startup")
@@ -3606,8 +3590,16 @@ async def props_all_players_page(
                 df = df.sort_values(by=[col], ascending=ascending, na_position='last')
             except Exception:
                 pass
-        if top and top > 0:
-            df = df.head(int(top))
+        # Respect env cap to keep memory/render bounded (e.g., PROPS_MAX_ROWS=10000)
+        try:
+            env_cap = int(os.getenv('PROPS_MAX_ROWS', '0'))
+        except Exception:
+            env_cap = 0
+        effective_top = int(top) if (top and top > 0) else None
+        if env_cap and (effective_top is None or env_cap < effective_top):
+            effective_top = env_cap
+        if effective_top:
+            df = df.head(effective_top)
         rows = _df_jsonsafe_records(df)
     else:
         rows = []

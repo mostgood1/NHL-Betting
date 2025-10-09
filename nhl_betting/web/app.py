@@ -3562,7 +3562,9 @@ async def health_props():
         "recommendations_present": rec_path.exists(),
         "projections_all_mtime": _mtime(proj_path),
         "recommendations_mtime": _mtime(rec_path),
-        "fast_mode": os.getenv('FAST_PROPS_TEST','0') == '1'
+        "fast_mode": os.getenv('FAST_PROPS_TEST','0') == '1',
+        "force_synthetic": os.getenv('PROPS_FORCE_SYNTHETIC','0') == '1',
+        "no_compute": os.getenv('PROPS_NO_COMPUTE','0') == '1'
     })
 
 @app.get("/props")
@@ -3576,10 +3578,23 @@ async def props_page(
     page: int = Query(1, description="Page number (1-based)"),
     page_size: Optional[int] = Query(None, description="Rows per page (defaults to PROPS_PAGE_SIZE env or 250)"),
 ):
-    # Delegate to the all-players view but keep the canonical friendly path /props.
-    # Graceful error handling: never 500 here if PROPS_GRACEFUL_ERRORS enabled (default on).
-    graceful = os.getenv('PROPS_GRACEFUL_ERRORS', '1') != '0'
+    # Simpler: redirect to the canonical implementation at /props/all to avoid duplicate logic / potential divergence.
     try:
+        from fastapi.responses import RedirectResponse
+        # Preserve existing query parameters (only include those explicitly passed / non-default for brevity optional)
+        params = []
+        if date: params.append(f"date={date}")
+        if team: params.append(f"team={team}")
+        if market: params.append(f"market={market}")
+        if sort and sort != 'name': params.append(f"sort={sort}")
+        if top != 2000: params.append(f"top={top}")
+        if (min_ev or 0) > 0: params.append(f"min_ev={min_ev}")
+        if page and page != 1: params.append(f"page={page}")
+        if page_size: params.append(f"page_size={page_size}")
+        q = ('?' + '&'.join(params)) if params else ''
+        return RedirectResponse(url=f"/props/all{q}", status_code=307)
+    except Exception:
+        # If redirect somehow fails, fall back to direct call.
         return await props_all_players_page(
             date=date,
             team=team,
@@ -3591,59 +3606,6 @@ async def props_page(
             page=page,
             page_size=page_size,
         )
-    except Exception as e:
-        if not graceful:
-            raise
-        import traceback, json as _json
-        tb = traceback.format_exc()
-        try:
-            print(_json.dumps({"event":"props_page_error","error":str(e)}))
-        except Exception:
-            pass
-        # Attempt fallback: find latest props_projections_all CSV (today or previous 5 days)
-        from datetime import datetime as _dt, timedelta as _td
-        rows_html = ""
-        used_date = date or _dt.now().strftime('%Y-%m-%d')
-        try_dates = []
-        try:
-            base = _dt.strptime(used_date, '%Y-%m-%d')
-            for i in range(0, 6):
-                try_dates.append((base - _td(days=i)).strftime('%Y-%m-%d'))
-        except Exception:
-            try_dates.append(used_date)
-        fallback_found = None
-        for d_try in try_dates:
-            p = PROC_DIR / f"props_projections_all_{d_try}.csv"
-            if p.exists():
-                try:
-                    df_fb = _read_csv_fallback(p)
-                    if df_fb is not None and not df_fb.empty:
-                        fallback_found = (d_try, df_fb.head(50))
-                        break
-                except Exception:
-                    pass
-        if fallback_found:
-            d_found, df_fb = fallback_found
-            try:
-                cols = [c for c in ["player","team","market","proj_lambda"] if c in df_fb.columns]
-                for _, r in df_fb.iterrows():
-                    cells = ''.join(f"<td>{r.get(c,'')}</td>" for c in cols)
-                    rows_html += f"<tr>{cells}</tr>"
-                table = f"<table border='1' cellpadding='4'><thead><tr>{''.join(f'<th>{c}</th>' for c in cols)}</tr></thead><tbody>{rows_html}</tbody></table>"
-            except Exception:
-                table = '<p>Could not render fallback table.</p>'
-            note = f"Showing fallback cached data for {d_found} (original error: {e})."
-        else:
-            table = '<p>No fallback projections file found.</p>'
-            note = f"No data fallback available (original error: {e})."
-        html = f"""<!DOCTYPE html><html><head><meta charset='utf-8'><title>Props Unavailable</title></head>
-<body><h2>Props Page Temporary Error</h2>
-<p>{note}</p>
-<details><summary>Trace</summary><pre>{tb}</pre></details>
-{table}
-<hr><p>Set PROPS_GRACEFUL_ERRORS=0 to surface raw 500 for debugging.</p>
-</body></html>"""
-        return HTMLResponse(content=html, status_code=200, headers={"X-Error":"1"})
 
 
 @app.get("/props/all")

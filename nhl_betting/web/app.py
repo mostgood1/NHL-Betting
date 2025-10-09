@@ -95,6 +95,42 @@ async def _early_props_redirect(date: Optional[str] = None):  # type: ignore
     except Exception:
         return HTMLResponse("<h3>Temporary redirect failure</h3>", status_code=503)
 
+# Secondary explicit safeguard endpoint to validate redirect logic without colliding with /props.
+@app.get("/props-safeguard", include_in_schema=False)
+async def props_safeguard(date: Optional[str] = None):
+    try:
+        from fastapi.responses import RedirectResponse
+        q = f"?date={date}" if date else ""
+        return RedirectResponse(url=f"/props/all{q}", status_code=307)
+    except Exception as e:
+        return JSONResponse({"error":"safeguard_failed","detail":str(e)}, status_code=500)
+
+@app.get("/diag/info")
+async def diag_info():
+    """Expose diagnostic information to debug deployment mismatches & 502 causes (non-sensitive)."""
+    import sys, inspect
+    try:
+        app_file = inspect.getsourcefile(app.__class__)
+    except Exception:
+        app_file = None
+    route_paths = []
+    try:
+        for r in app.routes:
+            try:
+                route_paths.append(getattr(r, 'path', None))
+            except Exception:
+                pass
+    except Exception:
+        pass
+    return {
+        "commit_live": (_git_commit_hash() or '')[:12],
+        "routes_contains_props": [p for p in route_paths if p and 'props' in p.lower()],
+        "total_routes": len(route_paths),
+        "sys_path_head": sys.path[:5],
+        "cwd": os.getcwd(),
+        "app_file": app_file,
+    }
+
 @app.middleware("http")
 async def _commit_header_mw(request, call_next):
     response = await call_next(request)

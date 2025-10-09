@@ -955,10 +955,19 @@ def props_recommendations(
         })
     out = pd.DataFrame(rows)
     if not out.empty:
-        out = out.sort_values("ev", ascending=False).head(top)
+        # Normalize column names at write-time
+        if 'proj' in out.columns and 'proj_lambda' not in out.columns:
+            out['proj_lambda'] = out['proj']
+        if 'ev' in out.columns and 'ev_over' not in out.columns:
+            out['ev_over'] = out['ev']
+        # Primary sort now by ev_over if present
+        sort_col = 'ev_over' if 'ev_over' in out.columns else ('ev' if 'ev' in out.columns else None)
+        if sort_col:
+            out = out.sort_values(sort_col, ascending=False)
+        out = out.head(top)
     out_path = PROC_DIR / f"props_recommendations_{date}.csv"
     save_df(out, out_path)
-    print(f"Wrote {out_path} with {len(out)} rows")
+    print(f"Wrote {out_path} with {len(out)} rows (normalized cols: {', '.join([c for c in ['proj_lambda','ev_over'] if c in out.columns])})")
 
 
 @app.command()

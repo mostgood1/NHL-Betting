@@ -290,6 +290,27 @@ def _today_ymd() -> str:
         return datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
 
+def _git_commit_hash() -> Optional[str]:
+    """Return short git commit hash if repository metadata is present.
+
+    In some deployment environments (Docker image without .git) this will return None.
+    """
+    try:
+        root = Path(__file__).resolve().parents[2]
+        head_file = root / '.git' / 'HEAD'
+        if not head_file.exists():
+            return None
+        head_content = head_file.read_text().strip()
+        if head_content.startswith('ref:'):
+            ref_path = head_content.split(' ', 1)[1].strip()
+            ref_file = root / '.git' / ref_path
+            if ref_file.exists():
+                return ref_file.read_text().strip()[:12]
+        return head_content[:12]
+    except Exception:
+        return None
+
+
 def _normalize_date_param(d: Optional[str]) -> str:
     """Normalize 'today'/'yesterday' to ET YYYY-MM-DD; pass-through other values."""
     if not d:
@@ -3564,8 +3585,13 @@ async def health_props():
         "recommendations_mtime": _mtime(rec_path),
         "fast_mode": os.getenv('FAST_PROPS_TEST','0') == '1',
         "force_synthetic": os.getenv('PROPS_FORCE_SYNTHETIC','0') == '1',
-        "no_compute": os.getenv('PROPS_NO_COMPUTE','0') == '1'
+        "no_compute": os.getenv('PROPS_NO_COMPUTE','0') == '1',
+        "commit": _git_commit_hash(),
     })
+
+@app.get('/api/version')
+async def api_version():
+    return {"commit": _git_commit_hash(), "generated_at": datetime.utcnow().isoformat()}
 
 @app.get("/props")
 async def props_page(

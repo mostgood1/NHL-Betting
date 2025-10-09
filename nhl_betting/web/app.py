@@ -3423,6 +3423,36 @@ async def api_cron_props_projections(
             df = df.head(int(top))
         out_path = PROC_DIR / f"props_projections_{d}.csv"
         save_df(df, out_path)
+        # Append to projections history
+        try:
+            hist_path = PROC_DIR / 'props_projections_history.csv'
+            h = df.copy()
+            if 'date' not in h.columns:
+                h['date'] = d
+            # Normalize column names
+            if 'proj' in h.columns and 'proj_lambda' not in h.columns:
+                try: h.rename(columns={'proj':'proj_lambda'}, inplace=True)
+                except Exception: pass
+            keep = [c for c in ['date','player','team','position','market','proj_lambda','p_over','ev_over'] if c in h.columns]
+            if keep:
+                h = h[keep]
+            if hist_path.exists():
+                try:
+                    cur = pd.read_csv(hist_path)
+                    comb = pd.concat([cur, h], ignore_index=True)
+                    subset_keys = [k for k in ['date','player','market'] if k in comb.columns]
+                    if subset_keys:
+                        comb.sort_values(subset_keys, ascending=[False]*len(subset_keys), inplace=True)
+                        comb.drop_duplicates(subset=subset_keys, keep='first', inplace=True)
+                    comb.to_csv(hist_path, index=False)
+                except Exception:
+                    try: h.to_csv(hist_path, index=False)
+                    except Exception: pass
+            else:
+                try: h.to_csv(hist_path, index=False)
+                except Exception: pass
+        except Exception:
+            pass
         try:
             _gh_upsert_file_if_better_or_same(out_path, f"web: update props projections for {d}")
         except Exception:
@@ -4173,8 +4203,36 @@ async def api_props_recommendations_history_json(
             pass
     if limit and limit > 0:
         df = df.head(limit)
+    # Sanitize NaN / inf for JSON compliance
+    try:
+        for c in df.columns:
+            if df[c].dtype.kind in ('f','i'):
+                try:
+                    df[c].replace([float('inf'), float('-inf')], pd.NA, inplace=True)
+                except Exception:
+                    pass
+        df = df.fillna(value={c: None for c in df.columns})
+    except Exception:
+        pass
     rows = _df_jsonsafe_records(df)
-    return JSONResponse({"date": d, "data": rows, "returned_rows": len(rows), "total_rows": total_rows, "lookback_days": days})
+    # Extra defensive pass: ensure no non-finite floats slipped through
+    try:
+        import math as _math
+        for _r in rows:
+            for _k, _v in list(_r.items()):
+                if isinstance(_v, float) and not _math.isfinite(_v):
+                    _r[_k] = None
+    except Exception:
+        pass
+    try:
+        payload = {"date": d, "data": rows, "returned_rows": len(rows), "total_rows": total_rows, "lookback_days": days}
+        # Final deep sanitize
+        if '_json_sanitize' in globals():  # safety
+            payload = _json_sanitize(payload)
+        return JSONResponse(payload)
+    except Exception:
+        # Fallback: minimally safe payload
+        return JSONResponse({"date": d, "data": [], "returned_rows": 0, "total_rows": total_rows, "lookback_days": days})
 
 @app.get('/api/props/recommendations.json')
 async def api_props_recommendations_json(
@@ -5236,48 +5294,140 @@ async def api_cron_refresh_bovada(
     except Exception as e:
         return JSONResponse({"ok": False, "date": d, "error": str(e)}, status_code=500)
 
-    # ---------------- Normalization & new props endpoints -----------------
-    def _normalize_props_row_dict(r: dict) -> dict:
-        out = dict(r)
-        if 'proj' in out and 'proj_lambda' not in out:
-            out['proj_lambda'] = out.get('proj')
-        if 'ev' in out and 'ev_over' not in out:
-            out['ev_over'] = out.get('ev')
-        if 'price' in out and 'over_price' not in out and str(out.get('side','OVER')).upper() == 'OVER':
-            out['over_price'] = out.get('price')
-        return out
+    # ---------------- End of api_cron_refresh_bovada -----------------
 
-    @app.get('/api/props/lines.json')
-    async def api_props_lines_json(
-        date: Optional[str] = Query(None, description='Slate date YYYY-MM-DD (ET)'),
-        market: Optional[str] = Query(None),
-        player: Optional[str] = Query(None),
-    ):
-        d = _normalize_date_param(date)
-        base = PROC_DIR.parent / 'props' / f'player_props_lines/date={d}'
-        parts = []
-        for fname in ('bovada.parquet','oddsapi.parquet'):
-            p = base / fname
-            if p.exists():
-                try:
-                    parts.append(pd.read_parquet(p))
-                except Exception:
-                    pass
-        if not parts:
-            return JSONResponse({"date": d, "data": [], "total_rows": 0})
-        df = pd.concat(parts, ignore_index=True)
-        if market and 'market' in df.columns:
-            try: df = df[df['market'].astype(str).str.upper() == market.upper()]
-            except Exception: pass
-        if player and 'player_name' in df.columns:
-            try: df = df[df['player_name'].astype(str).str.lower() == player.lower()]
-            except Exception: pass
-        keep = [c for c in ['date','player_name','player_id','team','market','line','over_price','under_price','book','first_seen_at','last_seen_at','is_current'] if c in df.columns]
-        if df.empty:
-            df = df[keep]
-        rows = _df_jsonsafe_records(df.rename(columns={'player_name':'player'}))
-        rows = [_normalize_props_row_dict(r) for r in rows]
-        return JSONResponse({"date": d, "data": rows, "total_rows": len(rows)})
+# ---------------- Normalization & new props endpoints (module level) -----------------
+def _normalize_props_row_dict(r: dict) -> dict:
+    out = dict(r)
+    if 'proj' in out and 'proj_lambda' not in out:
+        out['proj_lambda'] = out.get('proj')
+    if 'ev' in out and 'ev_over' not in out:
+        out['ev_over'] = out.get('ev')
+    if 'price' in out and 'over_price' not in out and str(out.get('side','OVER')).upper() == 'OVER':
+        out['over_price'] = out.get('price')
+    return out
+
+@app.get('/api/props/lines.json')
+async def api_props_lines_json(
+    date: Optional[str] = Query(None, description='Slate date YYYY-MM-DD (ET)'),
+    market: Optional[str] = Query(None),
+    player: Optional[str] = Query(None),
+):
+    d = _normalize_date_param(date)
+    base = PROC_DIR.parent / 'props' / f'player_props_lines/date={d}'
+    parts = []
+    for fname in ('bovada.parquet','oddsapi.parquet'):
+        p = base / fname
+        if p.exists():
+            try:
+                parts.append(pd.read_parquet(p))
+            except Exception:
+                pass
+    if not parts:
+        return JSONResponse({"date": d, "data": [], "total_rows": 0})
+    df = pd.concat(parts, ignore_index=True)
+    if market and 'market' in df.columns:
+        try: df = df[df['market'].astype(str).str.upper() == market.upper()]
+        except Exception: pass
+    if player and 'player_name' in df.columns:
+        try: df = df[df['player_name'].astype(str).str.lower() == player.lower()]
+        except Exception: pass
+    keep = [c for c in ['date','player_name','player_id','team','market','line','over_price','under_price','book','first_seen_at','last_seen_at','is_current'] if c in df.columns]
+    if df.empty:
+        df = df[keep]
+    rows = _df_jsonsafe_records(df.rename(columns={'player_name':'player'}))
+    rows = [_normalize_props_row_dict(r) for r in rows]
+    return JSONResponse({"date": d, "data": rows, "total_rows": len(rows)})
+
+@app.get('/api/props/projections/history.json')
+async def api_props_projections_history_json(
+    date: Optional[str] = Query(None, description="Anchor date (inclusive); defaults to today"),
+    days: int = Query(30, description="Lookback days"),
+    market: Optional[str] = Query(None),
+    player: Optional[str] = Query(None),
+    position: Optional[str] = Query(None),
+    team: Optional[str] = Query(None),
+    limit: int = Query(2000, description="Max rows after filtering"),
+):
+    d = _normalize_date_param(date)
+    hist_path = PROC_DIR / 'props_projections_history.csv'
+    if not hist_path.exists():
+        return JSONResponse({"date": d, "data": [], "total_rows": 0})
+    try:
+        df = pd.read_csv(hist_path)
+    except Exception:
+        return JSONResponse({"date": d, "data": [], "total_rows": 0})
+    if df.empty:
+        return JSONResponse({"date": d, "data": [], "total_rows": 0})
+    try:
+        df['date'] = pd.to_datetime(df['date']).dt.date
+        anchor = datetime.strptime(d, '%Y-%m-%d').date()
+        start = anchor - timedelta(days=max(0, days))
+        df = df[(df['date'] >= start) & (df['date'] <= anchor)]
+    except Exception:
+        pass
+    if market and 'market' in df.columns:
+        try: df = df[df['market'].astype(str).str.upper() == market.upper()]
+        except Exception: pass
+    if player and 'player' in df.columns:
+        try: df = df[df['player'].astype(str).str.lower() == player.lower()]
+        except Exception: pass
+    if position and 'position' in df.columns:
+        try: df = df[df['position'].astype(str).str.upper() == position.upper()]
+        except Exception: pass
+    if team and 'team' in df.columns:
+        try: df = df[df['team'].astype(str).str.upper() == team.upper()]
+        except Exception: pass
+    total_rows = len(df)
+    try:
+        sort_cols = ['date']
+        asc = [False]
+        if 'proj_lambda' in df.columns:
+            sort_cols.append('proj_lambda'); asc.append(False)
+        df.sort_values(sort_cols, ascending=asc, inplace=True)
+    except Exception:
+        pass
+    if limit and limit > 0:
+        df = df.head(limit)
+    # Force all numeric columns to be finite (replace inf / -inf with NaN which later becomes None)
+    try:
+        import numpy as _np
+        num_cols = df.select_dtypes(include=[np.number, 'float', 'int']).columns if hasattr(df, 'select_dtypes') else []
+        for _c in num_cols:
+            try:
+                col = df[_c]
+                mask = ~_np.isfinite(col.astype(float))
+                if mask.any():
+                    df.loc[mask, _c] = _np.nan
+            except Exception:
+                pass
+    except Exception:
+        pass
+    # Ensure categorical columns that may be all-null are treated as object so NaN -> None
+    for _cat in ['team','position']:
+        if _cat in df.columns:
+            try:
+                if df[_cat].isna().all():
+                    df[_cat] = df[_cat].astype(object)
+            except Exception:
+                pass
+    rows = _df_jsonsafe_records(df)
+    # Extra defensive pass: ensure no non-finite floats slipped through
+    try:
+        import math as _math
+        for _r in rows:
+            for _k, _v in list(_r.items()):
+                if isinstance(_v, float) and not _math.isfinite(_v):
+                    _r[_k] = None
+    except Exception:
+        pass
+    try:
+        payload = {"date": d, "data": rows, "returned_rows": len(rows), "total_rows": total_rows, "lookback_days": days}
+        if '_json_sanitize' in globals():
+            payload = _json_sanitize(payload)
+        return JSONResponse(payload)
+    except Exception:
+        return JSONResponse({"date": d, "data": [], "returned_rows": 0, "total_rows": total_rows, "lookback_days": days})
 
     @app.get('/api/props/ladders.json')
     async def api_props_ladders_json(

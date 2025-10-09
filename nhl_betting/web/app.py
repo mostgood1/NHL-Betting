@@ -8,7 +8,7 @@ from typing import Optional
 
 import pandas as pd
 import numpy as np
-from fastapi import FastAPI, Query, Header
+from fastapi import FastAPI, Query, Header, Request
 from fastapi.responses import HTMLResponse, JSONResponse, Response, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from jinja2 import Environment, FileSystemLoader, select_autoescape
@@ -3511,11 +3511,22 @@ async def props_all_players_page(
     sort: Optional[str] = Query("name", description="Sort by: name, team, market, lambda_desc, lambda_asc"),
     top: int = Query(2000, description="Max rows to display"),
     nocache: int = Query(0, description="Bypass in-memory cache (1 = yes)"),
+    page: int = Query(1, description="Page number (1-based)"),
+    page_size: Optional[int] = Query(None, description="Rows per page (server-side pagination); defaults to PROPS_PAGE_SIZE env or 250"),
 ):
     t0 = time.perf_counter()
     d_requested = _normalize_date_param(date)
     used_date = d_requested
-    cache_key = ("props_all_html", d_requested, str(team or '').upper(), str(market or '').upper(), sort or 'name', int(top))
+    # Resolve page_size (env override)
+    try:
+        default_ps = int(os.getenv('PROPS_PAGE_SIZE', '250'))
+    except Exception:
+        default_ps = 250
+    if not page_size or page_size <= 0:
+        page_size = default_ps
+    if page <= 0:
+        page = 1
+    cache_key = ("props_all_html", d_requested, str(team or '').upper(), str(market or '').upper(), sort or 'name', int(top), int(page), int(page_size))
     if not nocache:
         cached = _cache_get(cache_key)
         if cached is not None:
@@ -3561,11 +3572,14 @@ async def props_all_players_page(
             teams = sorted({str(x).upper() for x in df['team'].dropna().unique().tolist() if str(x).strip()})
     except Exception:
         teams = []
+    total_rows = 0
+    filtered_rows = 0
     if df is not None and not df.empty:
         try:
             df['player'] = df['player'].astype(str).map(_clean_player_display_name)
         except Exception:
             pass
+        total_rows = len(df)
         if team:
             su = str(team).upper()
             try:
@@ -3601,8 +3615,20 @@ async def props_all_players_page(
             effective_top = env_cap
         if effective_top:
             df = df.head(effective_top)
+        filtered_rows = len(df)
+        # Pagination slice
+        if page_size:
+            total_pages = max(1, (filtered_rows + page_size - 1) // page_size)
+            if page > total_pages:
+                page = total_pages
+            start_idx = (page - 1) * page_size
+            end_idx = start_idx + page_size
+            df = df.iloc[start_idx:end_idx]
+        else:
+            total_pages = 1
         rows = _df_jsonsafe_records(df)
     else:
+        total_pages = 0
         rows = []
     t_filter = time.perf_counter() - t_filter_start
     # Render
@@ -3619,6 +3645,11 @@ async def props_all_players_page(
         sort=sort or 'name',
         notice=notice,
         download_href=f"/props/all.csv?date={used_date}",
+        page=page,
+        page_size=page_size,
+        total_rows=total_rows,
+        filtered_rows=filtered_rows,
+        total_pages=total_pages,
     )
     t_render = time.perf_counter() - t_render_start
     total = time.perf_counter() - t0
@@ -3628,6 +3659,138 @@ async def props_all_players_page(
         pass
     _cache_put(cache_key, html)
     return HTMLResponse(content=html, headers={"X-Cache": "MISS"})
+
+@app.get('/api/props/all.json')
+async def api_props_all_players(
+    request: Request,
+    date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD (ET)"),
+    team: Optional[str] = Query(None, description="Filter by team abbreviation"),
+    market: Optional[str] = Query(None, description="Filter by market"),
+    sort: Optional[str] = Query("name", description="Sort by: name, team, market, lambda_desc, lambda_asc"),
+    page: int = Query(1, description="Page number (1-based)"),
+    page_size: Optional[int] = Query(None, description="Rows per page (defaults PROPS_PAGE_SIZE env or 250)"),
+    top: int = Query(0, description="Optional max rows before pagination (0 = no cap aside from PROPS_MAX_ROWS)"),
+):
+    """JSON API for all-player model-only projections with server-side pagination.
+
+    Returns metadata: total_rows (raw), filtered_rows (after filters & top/env cap), page, page_size, total_pages.
+    """
+    d = _normalize_date_param(date)
+    try:
+        default_ps = int(os.getenv('PROPS_PAGE_SIZE', '250'))
+    except Exception:
+        default_ps = 250
+    if not page_size or page_size <= 0:
+        page_size = default_ps
+    if page <= 0:
+        page = 1
+    df = _read_all_players_projections(d)
+    src_path = PROC_DIR / f"props_projections_all_{d}.csv"
+    if (df is None or df.empty):
+        df = _compute_all_players_projections(d)
+        # Best-effort write/backfill if we just computed
+        try:
+            if df is not None and not df.empty and not src_path.exists():
+                save_df(df, src_path)
+        except Exception:
+            pass
+    total_rows = 0 if df is None or df.empty else len(df)
+    if df is None or df.empty:
+        return JSONResponse({"date": d, "data": [], "total_rows": 0, "filtered_rows": 0, "page": 1, "page_size": page_size, "total_pages": 0})
+    # Filters
+    try:
+        df['player'] = df['player'].astype(str).map(_clean_player_display_name)
+    except Exception:
+        pass
+    if team:
+        try:
+            df = df[df['team'].astype(str).str.upper() == str(team).upper()]
+        except Exception:
+            pass
+    if market:
+        try:
+            df = df[df['market'].astype(str).str.upper() == str(market).upper()]
+        except Exception:
+            pass
+    key = (sort or 'name').lower(); ascending = True
+    if key in ('lambda_desc','lambda_asc'):
+        col = 'proj_lambda'; ascending = (key == 'lambda_asc')
+    elif key == 'market':
+        col = 'market'
+    elif key == 'team':
+        col = 'team'
+    else:
+        col = 'player'
+    if col in df.columns:
+        try:
+            df = df.sort_values(by=[col], ascending=ascending, na_position='last')
+        except Exception:
+            pass
+    # Top cap (pre-pagination) + env cap
+    try:
+        env_cap = int(os.getenv('PROPS_MAX_ROWS', '0'))
+    except Exception:
+        env_cap = 0
+    effective_top = int(top) if (top and top > 0) else None
+    if env_cap and (effective_top is None or env_cap < effective_top):
+        effective_top = env_cap
+    if effective_top:
+        df = df.head(effective_top)
+    filtered_rows = len(df)
+    total_pages = max(1, (filtered_rows + page_size - 1) // page_size) if filtered_rows else 0
+    if page > total_pages and total_pages > 0:
+        page = total_pages
+    if total_pages == 0:
+        page = 1
+    start_idx = (page - 1) * page_size
+    end_idx = start_idx + page_size
+    df_page = df.iloc[start_idx:end_idx]
+    rows = _df_jsonsafe_records(df_page)
+    # ETag / Last-Modified support for lightweight polling
+    try:
+        import hashlib, os as _os, email.utils as eut, time as _time
+        file_mtime = None
+        if src_path.exists():
+            try:
+                file_mtime = int(src_path.stat().st_mtime)
+            except Exception:
+                file_mtime = None
+        etag_basis = f"{d}|{team}|{market}|{sort}|{page}|{page_size}|{total_rows}|{filtered_rows}|{effective_top or ''}|{file_mtime or ''}".encode('utf-8')
+        etag = hashlib.md5(etag_basis).hexdigest()  # nosec B324 (non-cryptographic, fine for cache)
+        inm = request.headers.get('if-none-match')
+        if inm and inm.strip('"') == etag:
+            # Not modified
+            headers = {"ETag": f'"{etag}"'}
+            if file_mtime:
+                headers["Last-Modified"] = eut.formatdate(file_mtime, usegmt=True)
+            headers["Cache-Control"] = "public, max-age=60"
+            return Response(status_code=304, headers=headers)
+        payload = {
+            "date": d,
+            "data": rows,
+            "total_rows": total_rows,
+            "filtered_rows": filtered_rows,
+            "page": page,
+            "page_size": page_size,
+            "total_pages": total_pages,
+            "generated_at": datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
+        }
+        body = json.dumps(payload, ensure_ascii=False)
+        headers = {"ETag": f'"{etag}"', "Cache-Control": "public, max-age=60"}
+        if file_mtime:
+            import email.utils as _eut
+            headers["Last-Modified"] = _eut.formatdate(file_mtime, usegmt=True)
+        return Response(content=body, media_type="application/json", headers=headers)
+    except Exception:
+        return JSONResponse({
+            "date": d,
+            "data": rows,
+            "total_rows": total_rows,
+            "filtered_rows": filtered_rows,
+            "page": page,
+            "page_size": page_size,
+            "total_pages": total_pages,
+        })
 
 @app.get('/api/env-flags')
 async def api_env_flags():

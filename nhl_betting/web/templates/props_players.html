@@ -16,6 +16,14 @@
   .controls .spacer { flex: 1 1 auto; }
   .th-sort { cursor: pointer; -webkit-user-select: none; user-select: none; }
   .notice { margin:10px 0; padding:8px 12px; border:1px solid #2a3a7a; border-radius:8px; background:#0f1530; color:#cfe0ff; }
+  .pager { display:flex; gap:4px; align-items:center; }
+  .pager-btn { padding:4px 8px; }
+  .pager-stats { font-size:11px; color:#888; }
+  .pager-page { font-size:12px; }
+  .pager-size-label { font-size:11px; }
+  .pager-size-input { width:70px; }
+  .pager-jump-input { width:60px; }
+  .json-link { font-size:11px; color:#6aa3ff; text-decoration:none; }
   </style>
 </head>
 <body>
@@ -82,6 +90,22 @@
           </select>
         </label>
         <button onclick="reloadPage()">Apply</button>
+        {% if total_pages is defined and total_pages > 1 %}
+        <div class="pager">
+          <button class="pager-btn" onclick="changePage(-1)" {% if page <= 1 %}disabled{% endif %}>Prev</button>
+          <span class="pager-page">Page {{ page }} / {{ total_pages }}</span>
+          <button class="pager-btn" onclick="changePage(1)" {% if page >= total_pages %}disabled{% endif %}>Next</button>
+          <span class="pager-stats">Rows: {{ filtered_rows or 0 }} / {{ total_rows or 0 }}</span>
+          <label class="pager-size-label">Page Size
+            <input class="pager-size-input" id="page_size" type="number" min="25" step="25" value="{{ page_size or 250 }}" />
+          </label>
+          <label class="pager-size-label">Jump
+            <input class="pager-jump-input" id="page_jump" type="number" min="1" max="{{ total_pages }}" />
+          </label>
+          <button class="pager-btn" onclick="jumpPage()">Go</button>
+          <a class="json-link" target="_blank" rel="noopener" href="/api/props/all.json?date={{ date }}&page={{ page }}&page_size={{ page_size }}{% if market %}&market={{ market }}{% endif %}{% if team %}&team={{ team }}{% endif %}{% if sort %}&sort={{ sort }}{% endif %}">JSON</a>
+        </div>
+        {% endif %}
       </div>
     </div>
 
@@ -149,12 +173,16 @@
       const min_ev = document.getElementById('min_ev').value || '0';
       const top = document.getElementById('top').value || '50';
       const sort = document.getElementById('sort').value || 'ev_desc';
+      const pageSizeInput = document.getElementById('page_size');
       if (date) params.set('date', date); else params.delete('date');
       if (market) params.set('market', market); else params.delete('market');
       if (team) params.set('team', team); else params.delete('team');
       params.set('min_ev', min_ev);
       params.set('top', top);
       if (sort) params.set('sort', sort); else params.delete('sort');
+      if (pageSizeInput) params.set('page_size', pageSizeInput.value || '250');
+      // Reset to first page on new filters
+      params.delete('page');
       window.location.search = params.toString();
     }
     function setSort(key){
@@ -170,6 +198,23 @@
       else if(metric==='p_over') sel.value = (cur==='p_over_desc') ? 'p_over_asc' : 'p_over_desc';
       else if(metric==='lambda') sel.value = (cur==='lambda_desc') ? 'lambda_asc' : 'lambda_desc';
       reloadPage();
+    }
+    function changePage(delta){
+      const params = new URLSearchParams(window.location.search);
+      let p = parseInt(params.get('page')||'1',10);
+      p = p + delta;
+      if (p < 1) p = 1;
+      params.set('page', p);
+      window.location.search = params.toString();
+    }
+    function jumpPage(){
+      const inp = document.getElementById('page_jump');
+      if(!inp) return;
+      const val = parseInt(inp.value||'');
+      if(!val || val < 1) return;
+      const params = new URLSearchParams(window.location.search);
+      params.set('page', val);
+      window.location.search = params.toString();
     }
   </script>
 </body>

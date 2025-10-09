@@ -3634,7 +3634,10 @@ async def api_last_updated(date: Optional[str] = Query(None)):
 
 @app.get('/health/props')
 async def health_props():
-    """Lightweight health probe for props data availability."""
+    """Enhanced health probe for props data availability & cache stats.
+
+    Adds row counts (best-effort) and cache metrics for /props/all HTML cache entries.
+    """
     d = _today_ymd()
     proj_path = PROC_DIR / f"props_projections_all_{d}.csv"
     rec_path = PROC_DIR / f"props_recommendations_{d}.csv"
@@ -3646,25 +3649,61 @@ async def health_props():
         except Exception:
             return None
         return None
+    def _rows(p: Path):
+        try:
+            if p.exists():
+                df = _read_csv_fallback(p)
+                if df is not None and not df.empty:
+                    return int(len(df))
+        except Exception:
+            return None
+        return 0 if p.exists() else None
+    # Cache stats (only entries for props HTML)
+    try:
+        cache_keys = [k for k in _CACHE.keys() if isinstance(k, tuple) and k and k[0] == 'props_all_html']
+        cache_entries = len(cache_keys)
+    except Exception:
+        cache_entries = None
+        cache_keys = []
     return JSONResponse({
         "date": d,
         "projections_all_present": proj_path.exists(),
         "recommendations_present": rec_path.exists(),
         "projections_all_mtime": _mtime(proj_path),
         "recommendations_mtime": _mtime(rec_path),
+        "projections_all_rows": _rows(proj_path),
+        "recommendations_rows": _rows(rec_path),
         "fast_mode": os.getenv('FAST_PROPS_TEST','0') == '1',
         "force_synthetic": os.getenv('PROPS_FORCE_SYNTHETIC','0') == '1',
         "no_compute": os.getenv('PROPS_NO_COMPUTE','0') == '1',
         "commit": _git_commit_hash(),
+        "cache_entries": cache_entries,
+        "cache_ttl_sec": _CACHE_TTL,
     })
 
 @app.get('/api/version')
 async def api_version():
-    return {"commit": _git_commit_hash(), "generated_at": datetime.utcnow().isoformat()}
+    """Version & build diagnostics.
+
+    Includes short/long commit, route count, uptime, and timestamp.
+    """
+    commit_full = _git_commit_hash()
+    short = (commit_full or '')[:12] if commit_full else None
+    try:
+        uptime = round(time.time() - START_TIME, 2)
+    except Exception:
+        uptime = None
+    return {
+        "commit": commit_full,
+        "commit_short": short,
+        "routes": len(app.routes),
+        "uptime_seconds": uptime,
+        "generated_at": datetime.utcnow().isoformat(),
+    }
 
 @app.get('/api/routes')
 async def api_routes():
-    """List registered route paths & names for live debugging (no sensitive data)."""
+    """List registered route paths & names (deprecated: prefer /diag/info)."""
     out = []
     try:
         for r in app.routes:
@@ -3678,13 +3717,8 @@ async def api_routes():
                 pass
     except Exception:
         out = []
-    commit_val = globals().get('COMMIT_SHORT')
-    if not commit_val:
-        try:
-            commit_val = (_git_commit_hash() or '')[:12]
-        except Exception:
-            commit_val = None
-    return {"commit": commit_val, "count": len(out), "routes": out[:200]}
+    commit_val = (_git_commit_hash() or '')[:12]
+    return {"commit": commit_val, "count": len(out), "routes": out[:200], "deprecated": True}
 
 @app.get("/props/all")
 async def props_all_players_page(
@@ -3697,6 +3731,7 @@ async def props_all_players_page(
     nocache: int = Query(0, description="Bypass in-memory cache (1 = yes)"),
     page: int = Query(1, description="Page number (1-based)"),
     page_size: Optional[int] = Query(None, description="Rows per page (server-side pagination); defaults to PROPS_PAGE_SIZE env or 250"),
+    source: Optional[str] = Query(None, description="Data source: merged (default) or recs for recommendations only"),
 ):
     # Ultra-fast synthetic short-circuit for local smoke tests
     if os.getenv('FAST_PROPS_TEST','0') == '1':
@@ -3745,7 +3780,7 @@ async def props_all_players_page(
         page_size = default_ps
     if page <= 0:
         page = 1
-    cache_key = ("props_all_html", d_requested, str(team or '').upper(), str(market or '').upper(), sort or 'name', float(min_ev or 0), int(top), int(page), int(page_size))
+    cache_key = ("props_all_html", d_requested, str(team or '').upper(), str(market or '').upper(), sort or 'name', float(min_ev or 0), int(top), int(page), int(page_size), str(source or 'merged'))
     if not nocache:
         cached = _cache_get(cache_key)
         if cached is not None:
@@ -3804,14 +3839,13 @@ async def props_all_players_page(
     # Merge model-only projections with recommendations if available
     display_df = None
     try:
+        display_df = df
         if rec_df is not None and not rec_df.empty:
             tmp_rec = rec_df.copy()
-            # Normalize columns
             rename_map = {"proj": "proj_lambda", "ev": "ev", "p_over": "p_over"}
             for k,v in rename_map.items():
                 if k in tmp_rec.columns and v not in tmp_rec.columns:
                     tmp_rec.rename(columns={k:v}, inplace=True)
-            # Team fill from model-only if missing
             if df is not None and not df.empty and 'team' in df.columns:
                 model_map = {}
                 try:
@@ -3820,9 +3854,10 @@ async def props_all_players_page(
                     model_map = {}
                 if 'team' in tmp_rec.columns:
                     tmp_rec['team'] = tmp_rec.apply(lambda r: (r['team'] if str(r['team']).strip() else model_map.get((str(r['player']).lower(), str(r['market']).upper()), '')) , axis=1)
-            display_df = tmp_rec
-        else:
-            display_df = df
+            if (source or '').lower() == 'recs':
+                display_df = tmp_rec
+            else:
+                display_df = tmp_rec  # show recs (with EV) instead of raw projections when available
     except Exception:
         display_df = df
 
@@ -3914,6 +3949,7 @@ async def props_all_players_page(
         total_rows=total_rows,
         filtered_rows=filtered_rows,
         total_pages=total_pages,
+        source=source or 'merged',
     )
     t_render = time.perf_counter() - t_render_start
     total = time.perf_counter() - t0
@@ -4072,6 +4108,116 @@ async def _api_props_all_players_impl(request: Request, date, team, market, sort
             "page": page,
             "page_size": page_size,
             "total_pages": total_pages,
+        })
+
+@app.get('/api/props/recommendations.json')
+async def api_props_recommendations_json(
+    request: Request,
+    date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD (ET)"),
+    market: Optional[str] = Query(None, description="Filter by market"),
+    team: Optional[str] = Query(None, description="Filter by team (if present in recs)"),
+    min_ev: float = Query(0.0, description="Minimum EV"),
+    sort: Optional[str] = Query("ev_desc", description="Sort: ev_desc, ev_asc, p_over_desc, p_over_asc, name, market, team"),
+    page: int = Query(1, description="Page number (1-based)"),
+    page_size: Optional[int] = Query(None, description="Rows per page (defaults PROPS_PAGE_SIZE)"),
+    top: int = Query(0, description="Optional max rows before pagination (0 = unlimited)"),
+):
+    """Paginated recommendations JSON endpoint (mirrors /api/props/all.json metadata)."""
+    d = _normalize_date_param(date)
+    try:
+        if os.getenv('FAST_PROPS_TEST','0') == '1':
+            default_ps = 10
+        else:
+            default_ps = int(os.getenv('PROPS_PAGE_SIZE', '250'))
+    except Exception:
+        default_ps = 250
+    if not page_size or page_size <= 0:
+        page_size = default_ps
+    if page <= 0:
+        page = 1
+    rec_path = PROC_DIR / f"props_recommendations_{d}.csv"
+    df = _read_csv_fallback(rec_path) if rec_path.exists() else pd.DataFrame()
+    if df is None or df.empty:
+        # GitHub fallback
+        df = _github_raw_read_csv(f"data/processed/props_recommendations_{d}.csv")
+    if df is None or df.empty:
+        return JSONResponse({"date": d, "data": [], "total_rows": 0, "filtered_rows": 0, "page": 1, "page_size": page_size, "total_pages": 0})
+    total_rows = len(df)
+    # Normalize columns
+    if 'proj' in df.columns and 'proj_lambda' not in df.columns:
+        try:
+            df.rename(columns={'proj':'proj_lambda'}, inplace=True)
+        except Exception:
+            pass
+    # Filters
+    if market and 'market' in df.columns:
+        try: df = df[df['market'].astype(str).str.upper() == market.upper()] 
+        except Exception: pass
+    if team and 'team' in df.columns:
+        try: df = df[df['team'].astype(str).str.upper() == team.upper()] 
+        except Exception: pass
+    if (min_ev or 0) > 0 and 'ev' in df.columns:
+        try: df = df[df['ev'].astype(float) >= float(min_ev)]
+        except Exception: pass
+    # Sort
+    key = (sort or 'ev_desc').lower(); ascending = False; col = None
+    if key == 'ev_desc': col='ev'; ascending=False
+    elif key == 'ev_asc': col='ev'; ascending=True
+    elif key == 'p_over_desc': col='p_over'; ascending=False
+    elif key == 'p_over_asc': col='p_over'; ascending=True
+    elif key == 'name': col='player'; ascending=True
+    elif key == 'team': col='team'; ascending=True
+    elif key == 'market': col='market'; ascending=True
+    if col and col in df.columns:
+        try: df = df.sort_values(col, ascending=ascending, na_position='last')
+        except Exception: pass
+    # Top cap + env cap
+    try: env_cap = int(os.getenv('PROPS_MAX_ROWS','0'))
+    except Exception: env_cap = 0
+    effective_top = int(top) if (top and top>0) else None
+    if env_cap and (effective_top is None or env_cap < effective_top):
+        effective_top = env_cap
+    if effective_top:
+        df = df.head(effective_top)
+    filtered_rows = len(df)
+    total_pages = max(1, (filtered_rows + page_size - 1)//page_size) if filtered_rows else 0
+    if page > total_pages and total_pages>0:
+        page = total_pages
+    if total_pages == 0:
+        page = 1
+    start_idx = (page-1)*page_size
+    end_idx = start_idx + page_size
+    df_page = df.iloc[start_idx:end_idx]
+    rows = _df_jsonsafe_records(df_page)
+    # ETag support
+    try:
+        import hashlib
+        etag_basis = f"recs|{d}|{market}|{team}|{min_ev}|{sort}|{page}|{page_size}|{total_rows}|{filtered_rows}".encode('utf-8')
+        etag = hashlib.md5(etag_basis).hexdigest()
+        inm = request.headers.get('if-none-match')
+        if inm and inm.strip('"') == etag:
+            return Response(status_code=304, headers={'ETag': f'"{etag}"', 'Cache-Control':'public,max-age=60'})
+        payload = {
+            'date': d,
+            'data': rows,
+            'total_rows': total_rows,
+            'filtered_rows': filtered_rows,
+            'page': page,
+            'page_size': page_size,
+            'total_pages': total_pages,
+            'generated_at': datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
+        }
+        body = json.dumps(payload, ensure_ascii=False)
+        return Response(content=body, media_type='application/json', headers={'ETag': f'"{etag}"','Cache-Control':'public, max-age=60'})
+    except Exception:
+        return JSONResponse({
+            'date': d,
+            'data': rows,
+            'total_rows': total_rows,
+            'filtered_rows': filtered_rows,
+            'page': page,
+            'page_size': page_size,
+            'total_pages': total_pages,
         })
 
 @app.get('/api/env-flags')

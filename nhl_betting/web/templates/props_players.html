@@ -7,23 +7,34 @@
   <link rel="stylesheet" href="/static/style.css" />
   <style>
     .table { width: 100%; border-collapse: collapse; }
-    .table th, .table td { padding: 8px 10px; border-bottom: 1px solid #2a2a2a; text-align: left; }
+    .table th, .table td { padding: 6px 10px; border-bottom: 1px solid #2a2a2a; text-align: left; font-size: 13px; }
+    thead th { position: sticky; top: 0; background: #111; z-index: 2; }
     .ev-pos { color: #57d657; font-weight: 600; }
     .ev-neg { color: #ff6b6b; }
-    .controls { display: flex; gap: 8px; align-items: center; }
-    .controls input, .controls select { background: #1e1e1e; color: #f0f0f0; border: 1px solid #333; border-radius: 4px; padding: 6px 8px; }
-    .controls label { font-size: 12px; color: #bbb; }
-  .controls .spacer { flex: 1 1 auto; }
-  .th-sort { cursor: pointer; -webkit-user-select: none; user-select: none; }
-  .notice { margin:10px 0; padding:8px 12px; border:1px solid #2a3a7a; border-radius:8px; background:#0f1530; color:#cfe0ff; }
-  .pager { display:flex; gap:4px; align-items:center; }
-  .pager-btn { padding:4px 8px; }
-  .pager-stats { font-size:11px; color:#888; }
-  .pager-page { font-size:12px; }
-  .pager-size-label { font-size:11px; }
-  .pager-size-input { width:70px; }
-  .pager-jump-input { width:60px; }
-  .json-link { font-size:11px; color:#6aa3ff; text-decoration:none; }
+    .ev-cell { font-variant-numeric: tabular-nums; }
+    .ev-bar { height:4px; border-radius:2px; background:linear-gradient(90deg,#444,var(--ev-color,#57d657)); margin-top:2px; }
+    .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
+    .controls input, .controls select { background: #1e1e1e; color: #f0f0f0; border: 1px solid #333; border-radius: 4px; padding: 4px 6px; font-size:12px; }
+    .controls label { font-size: 11px; color: #bbb; display:flex; flex-direction:column; gap:2px; }
+    .controls button { background:#224488; color:#fff; border:1px solid #335599; border-radius:4px; padding:6px 12px; cursor:pointer; }
+    .controls button:hover { background:#2d5ca8; }
+    .controls .spacer { flex: 1 1 auto; }
+    .th-sort { cursor: pointer; -webkit-user-select: none; user-select: none; white-space:nowrap; }
+    .th-sort .arrow { opacity:0.4; margin-left:3px; font-size:10px; }
+    .th-sort.active .arrow { opacity:1; color:#6aa3ff; }
+    .notice { margin:10px 0; padding:8px 12px; border:1px solid #2a3a7a; border-radius:8px; background:#0f1530; color:#cfe0ff; }
+    .pager { display:flex; gap:4px; align-items:center; flex-wrap:wrap; }
+    .pager-btn { padding:4px 8px; }
+    .pager-stats { font-size:11px; color:#888; }
+    .pager-page { font-size:12px; }
+    .pager-size-label { font-size:11px; }
+    .pager-size-input { width:70px; }
+    .pager-jump-input { width:60px; }
+    .json-link { font-size:11px; color:#6aa3ff; text-decoration:none; }
+    .source-toggle { display:flex; gap:6px; align-items:center; font-size:12px; }
+    .source-toggle a { padding:4px 6px; border:1px solid #333; border-radius:4px; text-decoration:none; color:#ccc; }
+    .source-toggle a.active { background:#204060; color:#fff; border-color:#2f5d8a; }
+    tbody tr:hover { background:#151515; }
   </style>
 </head>
 <body>
@@ -90,6 +101,12 @@
           </select>
         </label>
         <button onclick="reloadPage()">Apply</button>
+        <div class="source-toggle">
+          <span>Source:</span>
+          {% set is_recs = (source or '') == 'recs' %}
+          <a href="{{ request.url.path }}?{{ request.query_params|safe }}" class="{{ '' if is_recs else 'active' }}" onclick="event.preventDefault(); setSource('merged');">Merged</a>
+          <a href="{{ request.url.path }}?{{ request.query_params|safe }}" class="{{ 'active' if is_recs else '' }}" onclick="event.preventDefault(); setSource('recs');">Recs</a>
+        </div>
         {% if total_pages is defined and total_pages > 1 %}
         <div class="pager">
           <button class="pager-btn" onclick="changePage(-1)" {% if page <= 1 %}disabled{% endif %}>Prev</button>
@@ -109,18 +126,18 @@
       </div>
     </div>
 
-    <table class="table">
+    <table class="table" id="props-table">
       <thead>
         <tr>
-          <th class="th-sort" onclick="setSort('market')">Market</th>
-          <th class="th-sort" onclick="setSort('name')">Player</th>
-          <th class="th-sort" onclick="setSort('team')">Team</th>
-          <th class="th-sort" onclick="setSort('line')">Line</th>
-          <th class="th-sort" onclick="toggleSort('lambda')">Proj λ</th>
-          <th class="th-sort" onclick="toggleSort('p_over')">P(Over)</th>
+          <th class="th-sort" data-key="market" onclick="setSort('market')">Market<span class="arrow">⇅</span></th>
+          <th class="th-sort" data-key="name" onclick="setSort('name')">Player<span class="arrow">⇅</span></th>
+          <th class="th-sort" data-key="team" onclick="setSort('team')">Team<span class="arrow">⇅</span></th>
+          <th class="th-sort" data-key="line" onclick="setSort('line')">Line<span class="arrow">⇅</span></th>
+          <th class="th-sort" data-key="lambda" onclick="toggleSort('lambda')">Proj λ<span class="arrow">⇅</span></th>
+          <th class="th-sort" data-key="p_over" onclick="toggleSort('p_over')">P(Over)<span class="arrow">⇅</span></th>
           <th>Over Price</th>
           <th>Under Price</th>
-          <th class="th-sort" onclick="toggleSort('ev')">EV</th>
+          <th class="th-sort" data-key="ev" onclick="toggleSort('ev')">EV<span class="arrow">⇅</span></th>
         </tr>
       </thead>
       <tbody>
@@ -134,12 +151,14 @@
             <td>{% if r.p_over is defined and r.p_over is not none %}{{ '%.1f' % (r.p_over * 100) }}%{% else %}-{% endif %}</td>
             <td>{{ r.over_price if r.over_price is defined else '' }}</td>
             <td>{{ r.under_price if r.under_price is defined else '' }}</td>
-            <td class="{% if (r.ev_over if r.ev_over is defined else (r.ev if r.ev is defined else None)) is not none and (r.ev_over if r.ev_over is defined else (r.ev if r.ev is defined else 0)) >= 0 %}ev-pos{% else %}ev-neg{% endif %}">
+            {% set ev_val = r.ev_over if r.ev_over is defined and r.ev_over is not none else (r.ev if r.ev is defined else None) %}
+            <td class="ev-cell {% if ev_val is not none and ev_val >= 0 %}ev-pos{% else %}ev-neg{% endif %}" data-ev="{{ ev_val if ev_val is not none else '' }}">
               {% if r.ev_over is defined and r.ev_over is not none %}
                 {{ '%.3f' % r.ev_over }}
               {% elif r.ev is defined and r.ev is not none %}
                 {{ '%.3f' % r.ev }}
               {% else %}-{% endif %}
+              {% if ev_val is not none %}<div class="ev-bar"></div>{% endif %}
             </td>
           </tr>
         {% endfor %}
@@ -168,6 +187,7 @@
       const top = document.getElementById('top').value || '50';
       const sort = document.getElementById('sort').value || 'ev_desc';
       const pageSizeInput = document.getElementById('page_size');
+  const source = window.localStorage.getItem('props_source') || "{{ (source or 'merged') }}";
       if (date) params.set('date', date); else params.delete('date');
       if (market) params.set('market', market); else params.delete('market');
       if (team) params.set('team', team); else params.delete('team');
@@ -175,6 +195,7 @@
       params.set('top', top);
       if (sort) params.set('sort', sort); else params.delete('sort');
       if (pageSizeInput) params.set('page_size', pageSizeInput.value || '250');
+      if (source && source !== 'merged') params.set('source', source); else params.delete('source');
       // Reset to first page on new filters
       params.delete('page');
       window.location.search = params.toString();
@@ -210,6 +231,43 @@
       params.set('page', val);
       window.location.search = params.toString();
     }
+    function setSource(mode){
+      try { window.localStorage.setItem('props_source', mode); } catch(e) {}
+      const params = new URLSearchParams(window.location.search);
+      if (mode && mode !== 'merged') params.set('source', mode); else params.delete('source');
+      params.delete('page');
+      window.location.search = params.toString();
+    }
+    // Highlight active sort header
+    (function(){
+      const curSort = (new URLSearchParams(window.location.search)).get('sort') || '{{ sort }}';
+      const map = {
+        'ev_desc':'ev','ev_asc':'ev',
+        'p_over_desc':'p_over','p_over_asc':'p_over',
+        'lambda_desc':'lambda','lambda_asc':'lambda',
+        'name':'name','team':'team','market':'market','line':'line'
+      };
+      const key = map[curSort];
+      if(key){
+        document.querySelectorAll('.th-sort').forEach(th=>{ if(th.dataset.key===key){ th.classList.add('active'); }});
+      }
+      // EV color bars
+      const cells = document.querySelectorAll('.ev-cell[data-ev]');
+      let maxEv = 0;
+      cells.forEach(c=>{ const v=parseFloat(c.getAttribute('data-ev')); if(!isNaN(v)) maxEv = Math.max(maxEv, Math.abs(v)); });
+      cells.forEach(c=>{
+        const v=parseFloat(c.getAttribute('data-ev'));
+        if(isNaN(v) || maxEv<=0) return;
+        const frac = Math.min(1, Math.abs(v)/maxEv);
+        const hue = v>=0 ? 120 : 0; // green to red
+        const sat = 70; const light = 45;
+        const bar = c.querySelector('.ev-bar');
+        if(bar){
+          bar.style.width = (frac*100).toFixed(1)+'%';
+          bar.style.setProperty('--ev-color', `hsl(${hue} ${sat}% ${light}%)`);
+        }
+      });
+    })();
   </script>
 </body>
 </html>

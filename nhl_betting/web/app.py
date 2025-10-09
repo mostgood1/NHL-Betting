@@ -85,13 +85,23 @@ def _cache_put(key, value):
 
 app = FastAPI()
 
+# Ultra-early minimal /props safeguard: if later handler fails, this ensures a redirect.
+@app.get("/props", include_in_schema=False)
+async def _early_props_redirect(date: Optional[str] = None):  # type: ignore
+    try:
+        from fastapi.responses import RedirectResponse
+        q = f"?date={date}" if date else ""
+        return RedirectResponse(url=f"/props/all{q}", status_code=307)
+    except Exception:
+        return HTMLResponse("<h3>Temporary redirect failure</h3>", status_code=503)
+
 @app.middleware("http")
 async def _commit_header_mw(request, call_next):
-    # COMMIT_SHORT resolved later (after _git_commit_hash defined); fallback empty if missing
     response = await call_next(request)
     try:
-        if 'COMMIT_SHORT' in globals() and COMMIT_SHORT:
-            response.headers['X-App-Commit'] = COMMIT_SHORT
+        h = (_git_commit_hash() or '')[:12]
+        if h:
+            response.headers['X-App-Commit'] = h
     except Exception:
         pass
     return response
@@ -99,8 +109,7 @@ async def _commit_header_mw(request, call_next):
 @app.on_event("startup")
 async def _startup_log():
     try:
-        if 'COMMIT_SHORT' in globals():
-            print(json.dumps({"event":"startup_diag","commit": COMMIT_SHORT, "route_count": len(app.routes)}))
+        print(json.dumps({"event":"startup_diag","commit": (_git_commit_hash() or '')[:12], "route_count": len(app.routes)}))
     except Exception:
         pass
 try:

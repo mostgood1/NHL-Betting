@@ -84,6 +84,25 @@ def _cache_put(key, value):
     _CACHE[key] = {"value": value, "ts": time.time()}
 
 app = FastAPI()
+
+@app.middleware("http")
+async def _commit_header_mw(request, call_next):
+    # COMMIT_SHORT resolved later (after _git_commit_hash defined); fallback empty if missing
+    response = await call_next(request)
+    try:
+        if 'COMMIT_SHORT' in globals() and COMMIT_SHORT:
+            response.headers['X-App-Commit'] = COMMIT_SHORT
+    except Exception:
+        pass
+    return response
+
+@app.on_event("startup")
+async def _startup_log():
+    try:
+        if 'COMMIT_SHORT' in globals():
+            print(json.dumps({"event":"startup_diag","commit": COMMIT_SHORT, "route_count": len(app.routes)}))
+    except Exception:
+        pass
 try:
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 except Exception:
@@ -770,6 +789,11 @@ async def _recompute_edges_and_recommendations(date: str) -> None:
             for i, r in df.iterrows():
                 r = _ensure_ev(r, "p_home_ml", "home_ml_odds", "ev_home_ml", "edge_home_ml")
                 r = _ensure_ev(r, "p_away_ml", "away_ml_odds", "ev_away_ml", "edge_away_ml")
+            try:
+                COMMIT_SHORT = (_git_commit_hash() or '')[:12]
+            except Exception:
+                COMMIT_SHORT = ''
+
                 r = _ensure_ev(r, "p_over", "over_odds", "ev_over", "edge_over")
                 r = _ensure_ev(r, "p_under", "under_odds", "ev_under", "edge_under")
                 r = _ensure_ev(r, "p_home_pl_-1.5", "home_pl_-1.5_odds", "ev_home_pl_-1.5", "edge_home_pl_-1.5")
@@ -3592,6 +3616,30 @@ async def health_props():
 @app.get('/api/version')
 async def api_version():
     return {"commit": _git_commit_hash(), "generated_at": datetime.utcnow().isoformat()}
+
+@app.get('/api/routes')
+async def api_routes():
+    """List registered route paths & names for live debugging (no sensitive data)."""
+    out = []
+    try:
+        for r in app.routes:
+            try:
+                out.append({
+                    'path': getattr(r, 'path', None),
+                    'name': getattr(r, 'name', None),
+                    'methods': sorted(list(getattr(r, 'methods', []) or [])),
+                })
+            except Exception:
+                pass
+    except Exception:
+        out = []
+    commit_val = globals().get('COMMIT_SHORT')
+    if not commit_val:
+        try:
+            commit_val = (_git_commit_hash() or '')[:12]
+        except Exception:
+            commit_val = None
+    return {"commit": commit_val, "count": len(out), "routes": out[:200]}
 
 @app.get("/props")
 async def props_page(

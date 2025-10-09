@@ -5286,53 +5286,73 @@ async def api_cron_refresh_bovada(
         min_levels: int = Query(2),
     ):
         d = _normalize_date_param(date)
-        save_df(df, out_path)
-        # History append: maintain cumulative file data/processed/props_recommendations_history.csv
-        try:
-            hist_path = PROC_DIR / 'props_recommendations_history.csv'
-            # Prepare minimal normalized subset with date
-            hdf = df.copy()
-            if 'date' not in hdf.columns:
-                hdf['date'] = d
-            # Normalize column names to stable schema
-            rename_map = {}
-            if 'proj' in hdf.columns and 'proj_lambda' not in hdf.columns:
-                rename_map['proj'] = 'proj_lambda'
-            if 'ev' in hdf.columns and 'ev_over' not in hdf.columns:
-                rename_map['ev'] = 'ev_over'
-            if rename_map:
-                try: hdf.rename(columns=rename_map, inplace=True)
-                except Exception: pass
-            keep_cols = [c for c in ['date','player','team','market','line','proj_lambda','p_over','over_price','under_price','book','side','ev_over'] if c in hdf.columns]
-            if keep_cols:
-                hdf = hdf[keep_cols]
-            # Append (dedupe by date,player,market,line,book,side keeping latest)
-            if hist_path.exists():
-                try:
-                    cur = pd.read_csv(hist_path)
-                    combined = pd.concat([cur, hdf], ignore_index=True)
-                    subset_keys = [k for k in ['date','player','market','line','book','side'] if k in combined.columns]
-                    if subset_keys:
-                        combined.sort_values(subset_keys + ([ 'ev_over'] if 'ev_over' in combined.columns else []), ascending=False, inplace=True)
-                        combined.drop_duplicates(subset=subset_keys, keep='first', inplace=True)
-                    combined.to_csv(hist_path, index=False)
-                except Exception:
-                    try: hdf.to_csv(hist_path, index=False)
-                    except Exception: pass
-            else:
-                try: hdf.to_csv(hist_path, index=False)
-                except Exception: pass
-        except Exception:
-            pass
+        base = PROC_DIR.parent / 'props' / f'player_props_lines/date={d}'
         parts = []
         for fname in ('bovada.parquet','oddsapi.parquet'):
             p = base / fname
             if p.exists():
-                try: parts.append(pd.read_parquet(p))
-                except Exception: pass
+                try:
+                    parts.append(pd.read_parquet(p))
+                except Exception:
+                    pass
         if not parts:
             return JSONResponse({"date": d, "market": market, "ladders": [], "total": 0})
         df = pd.concat(parts, ignore_index=True)
+        # Basic normalization
+        if 'market' in df.columns:
+            try: df['market'] = df['market'].astype(str).str.upper()
+            except Exception: pass
+        if market:
+            try: df = df[df['market'] == market.upper()]
+            except Exception: pass
+        # Choose current lines only if is_current flag exists
+        if 'is_current' in df.columns:
+            try: df = df[df['is_current'] == True]
+            except Exception: pass
+        # Build ladders per player+market
+        ladders = []
+        player_col = 'player_name' if 'player_name' in df.columns else ('player' if 'player' in df.columns else None)
+        if not player_col or df.empty:
+            return JSONResponse({"date": d, "market": market, "ladders": [], "total": 0})
+        group_cols = [player_col, 'market'] if 'market' in df.columns else [player_col]
+        for (grp_player, grp_market), g in df.groupby(group_cols):
+            try:
+                g = g.copy()
+                # Keep relevant columns
+                keep = [c for c in ['line','over_price','under_price','book','first_seen_at','last_seen_at'] if c in g.columns]
+                g = g[keep + ([] if 'line' in keep else [])]
+                # Drop null lines
+                if 'line' in g.columns:
+                    g = g[pd.notna(g['line'])]
+                if g.empty:
+                    continue
+                # Sort ascending by line numeric then price
+                if 'line' in g.columns:
+                    try: g['line'] = g['line'].astype(float)
+                    except Exception: pass
+                    try: g.sort_values(['line'], inplace=True)
+                    except Exception: pass
+                levels = []
+                for _, r in g.iterrows():
+                    levels.append({
+                        'line': r.get('line'),
+                        'over_price': r.get('over_price'),
+                        'under_price': r.get('under_price'),
+                        'book': r.get('book'),
+                        'first_seen_at': r.get('first_seen_at'),
+                        'last_seen_at': r.get('last_seen_at'),
+                    })
+                if len(levels) < int(min_levels):
+                    continue
+                ladders.append({
+                    'player': grp_player,
+                    'market': grp_market if isinstance(grp_market, str) else market.upper() if market else grp_market,
+                    'level_count': len(levels),
+                    'levels': levels,
+                })
+            except Exception:
+                continue
+        return JSONResponse({"date": d, "market": market, "ladders": ladders, "total": len(ladders)})
         if market and 'market' in df.columns:
             try: df = df[df['market'].astype(str).str.upper() == market.upper()]
             except Exception: pass

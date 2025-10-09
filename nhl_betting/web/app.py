@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import os
+import os, time, json
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 from pathlib import Path
@@ -47,6 +47,33 @@ env = Environment(
     loader=FileSystemLoader(str(TEMPLATE_DIR)),
     autoescape=select_autoescape(["html", "xml"]),
 )
+
+# ----------------------------------------------------------------------------------
+# In-memory cache for /props (all players) to mitigate repeated large DataFrame ->
+# JSON + template render overhead on resource-constrained deploys.
+# Keyed by ("props_all_html", date, TEAM, MARKET, SORT, TOP). TTL configurable.
+# ----------------------------------------------------------------------------------
+_CACHE: dict = {}
+try:
+    _CACHE_TTL = int(os.getenv("CACHED_PROPS_TTL_SECONDS", "180"))  # default 3 minutes
+except Exception:
+    _CACHE_TTL = 180
+
+def _cache_get(key):
+    if _CACHE_TTL <= 0:
+        return None
+    ent = _CACHE.get(key)
+    if not ent:
+        return None
+    if (time.time() - ent.get("ts", 0)) > _CACHE_TTL:
+        _CACHE.pop(key, None)
+        return None
+    return ent.get("value")
+
+def _cache_put(key, value):
+    if _CACHE_TTL <= 0:
+        return
+    _CACHE[key] = {"value": value, "ts": time.time()}
 
 app = FastAPI()
 try:
@@ -3498,13 +3525,21 @@ async def props_all_players_page(
     market: Optional[str] = Query(None, description="Filter by market"),
     sort: Optional[str] = Query("name", description="Sort by: name, team, market, lambda_desc, lambda_asc"),
     top: int = Query(2000, description="Max rows to display"),
+    nocache: int = Query(0, description="Bypass in-memory cache (1 = yes)"),
 ):
+    t0 = time.perf_counter()
     d_requested = _normalize_date_param(date)
     used_date = d_requested
+    cache_key = ("props_all_html", d_requested, str(team or '').upper(), str(market or '').upper(), sort or 'name', int(top))
+    if not nocache:
+        cached = _cache_get(cache_key)
+        if cached is not None:
+            return HTMLResponse(content=cached, headers={"X-Cache": "HIT"})
+    # Load / compute
+    t_load_start = time.perf_counter()
     df = _read_all_players_projections(d_requested)
     notice = None
     if df is None or df.empty:
-        # In read-only environments, avoid computing on-the-fly; try recent GitHub cache instead
         if _read_only(d_requested):
             try:
                 from datetime import datetime as _dt2, timedelta as _td2
@@ -3524,7 +3559,6 @@ async def props_all_players_page(
             except Exception:
                 df = pd.DataFrame(); notice = f"No model-only projections available for {d_requested}."
         else:
-            # Compute fresh and persist when writes are allowed
             try:
                 df = _compute_all_players_projections(d_requested)
                 if df is not None and not df.empty:
@@ -3533,6 +3567,9 @@ async def props_all_players_page(
                     _gh_upsert_file_if_better_or_same(out_path, f"web: update props projections ALL for {d_requested}")
             except Exception:
                 df = pd.DataFrame()
+    t_load = time.perf_counter() - t_load_start
+    # Filter / sort
+    t_filter_start = time.perf_counter()
     teams = []
     try:
         if df is not None and not df.empty and 'team' in df.columns:
@@ -3555,9 +3592,7 @@ async def props_all_players_page(
                 df = df[df['market'].astype(str).str.upper() == str(market).upper()]
             except Exception:
                 pass
-        key = (sort or 'name').lower()
-        ascending = True
-        col = None
+        key = (sort or 'name').lower(); ascending = True
         if key in ('lambda_desc','lambda_asc'):
             col = 'proj_lambda'; ascending = (key == 'lambda_asc')
         elif key == 'market':
@@ -3576,6 +3611,9 @@ async def props_all_players_page(
         rows = _df_jsonsafe_records(df)
     else:
         rows = []
+    t_filter = time.perf_counter() - t_filter_start
+    # Render
+    t_render_start = time.perf_counter()
     template = env.get_template("props_players.html")
     html = template.render(
         rows=rows,
@@ -3589,7 +3627,24 @@ async def props_all_players_page(
         notice=notice,
         download_href=f"/props/all.csv?date={used_date}",
     )
-    return HTMLResponse(content=html)
+    t_render = time.perf_counter() - t_render_start
+    total = time.perf_counter() - t0
+    try:
+        print(json.dumps({"event": "props_all_perf", "date": d_requested, "dur_load": round(t_load,4), "dur_filter": round(t_filter,4), "dur_render": round(t_render,4), "dur_total": round(total,4), "rows": len(rows)}))
+    except Exception:
+        pass
+    _cache_put(cache_key, html)
+    return HTMLResponse(content=html, headers={"X-Cache": "MISS"})
+
+@app.get('/api/env-flags')
+async def api_env_flags():
+    """Diagnostic, non-sensitive environment feature flags."""
+    flags = {
+        'WEB_READ_ONLY_PREDICTIONS': bool(os.getenv('WEB_READ_ONLY_PREDICTIONS')),
+        'WEB_DISABLE_ODDS_FETCH': bool(os.getenv('WEB_DISABLE_ODDS_FETCH')),
+        'CACHED_PROPS_TTL_SECONDS': _CACHE_TTL,
+    }
+    return JSONResponse({'flags': flags})
 
 
 @app.get("/props/all.csv")

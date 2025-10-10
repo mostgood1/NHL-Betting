@@ -3920,12 +3920,12 @@ async def api_last_updated(date: Optional[str] = Query(None)):
         return JSONResponse({"date": date, "last_modified": None})
 
 @app.get('/health/props')
-async def health_props():
+async def health_props(date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD (ET); defaults to today")):
     """Enhanced health probe for props data availability & cache stats.
 
     Adds row counts (best-effort) and cache metrics for /props/all HTML cache entries.
     """
-    d = _today_ymd()
+    d = _normalize_date_param(date) if date else _today_ymd()
     proj_path = PROC_DIR / f"props_projections_all_{d}.csv"
     rec_path = PROC_DIR / f"props_recommendations_{d}.csv"
     def _mtime(p: Path):

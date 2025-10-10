@@ -85,6 +85,28 @@ def _cache_put(key, value):
 
 app = FastAPI()
 
+def _is_public_host_env() -> bool:
+    """Heuristic to detect if we're on a public host (Render/production) vs local/test.
+
+    We consider it public if any of these env vars are present or typical of deploys:
+    - RENDER, RENDER_EXTERNAL_HOSTNAME, RENDER_SERVICE_ID
+    - PORT set (common in PaaS)
+    - GITHUB_ACTIONS (CI)
+    """
+    try:
+        env = os.environ
+        if env.get('RENDER') or env.get('RENDER_EXTERNAL_HOSTNAME') or env.get('RENDER_SERVICE_ID'):
+            return True
+        if env.get('GITHUB_ACTIONS'):
+            return True
+        # If a PORT is set and not the usual local ones, assume public
+        port = env.get('PORT')
+        if port and port not in ('8000','8010','3000','5000'):
+            return True
+    except Exception:
+        pass
+    return False
+
 # Ultra-early minimal /props safeguard: if later handler fails, this ensures a redirect.
 @app.get("/props", include_in_schema=False)
 async def _early_props_redirect(date: Optional[str] = None):  # type: ignore
@@ -552,7 +574,8 @@ def _read_all_players_projections(date: str) -> pd.DataFrame:
 
     In fast synthetic modes we skip reading to force compute path's synthetic return.
     """
-    if os.getenv('FAST_PROPS_TEST','0') == '1' or os.getenv('PROPS_FORCE_SYNTHETIC','0') == '1':
+    # Never enable synthetic short-circuits on public hosts
+    if (os.getenv('FAST_PROPS_TEST','0') == '1' or os.getenv('PROPS_FORCE_SYNTHETIC','0') == '1') and not _is_public_host_env():
         return None
     p = PROC_DIR / f"props_projections_all_{date}.csv"
     if p.exists():
@@ -581,7 +604,8 @@ def _compute_all_players_projections(date: str) -> pd.DataFrame:
     fast_flag = os.getenv('FAST_PROPS_TEST','0') == '1'
     force_synth = os.getenv('PROPS_FORCE_SYNTHETIC','0') == '1'
     no_compute = os.getenv('PROPS_NO_COMPUTE','0') == '1'
-    if fast_flag or force_synth:
+    # Never serve synthetic data when running on public hosts
+    if (fast_flag or force_synth) and not _is_public_host_env():
         _v("FAST_PROPS_TEST or PROPS_FORCE_SYNTHETIC enabled -> returning synthetic frame")
         try:
             df_synth = pd.DataFrame([

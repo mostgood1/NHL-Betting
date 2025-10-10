@@ -40,11 +40,13 @@ services:
     env: docker
     schedule: "0 8 * * *" # 8:00 UTC daily (~3:00am ET standard, ~4:00am ET DST)
     command: |
-      /bin/sh -lc "\
-      apk add --no-cache curl && \
-      curl -sSf -X POST \"https://nhl-betting.onrender.com/api/cron/refresh-bovada?date=yesterday\" -H \"Authorization: Bearer $REFRESH_CRON_TOKEN\" && \
-      curl -sSf -X POST \"https://nhl-betting.onrender.com/api/cron/capture-closing?date=yesterday\" -H \"Authorization: Bearer $REFRESH_CRON_TOKEN\" && \
-      curl -sSf -X POST \"https://nhl-betting.onrender.com/api/cron/retune\" -H \"Authorization: Bearer $REFRESH_CRON_TOKEN\" || true"
+      /bin/sh -lc '
+        set -e
+        apk add --no-cache curl
+        curl -fsS -X POST https://nhl-betting.onrender.com/api/cron/refresh-bovada?date=yesterday -H "Authorization: Bearer ${REFRESH_CRON_TOKEN}" || true
+        curl -fsS -X POST https://nhl-betting.onrender.com/api/cron/capture-closing?date=yesterday -H "Authorization: Bearer ${REFRESH_CRON_TOKEN}" || true
+        curl -fsS -X POST https://nhl-betting.onrender.com/api/cron/retune -H "Authorization: Bearer ${REFRESH_CRON_TOKEN}" || true
+      '
     envVars:
       - key: REFRESH_CRON_TOKEN
         sync: false
@@ -55,9 +57,11 @@ services:
     # Every 60 minutes to refresh today's slate; idempotent and only overwrites pre-start games
     schedule: "0 * * * *"
     command: |
-      /bin/sh -lc "\
-      apk add --no-cache curl && \
-      curl -sSf -X POST \"https://nhl-betting.onrender.com/api/cron/refresh-bovada\" -H \"Authorization: Bearer $REFRESH_CRON_TOKEN\" || true"
+      /bin/sh -lc '
+        set -e
+        apk add --no-cache curl
+        curl -fsS -X POST https://nhl-betting.onrender.com/api/cron/refresh-bovada -H "Authorization: Bearer ${REFRESH_CRON_TOKEN}" || true
+      '
     envVars:
       - key: REFRESH_CRON_TOKEN
         sync: false
@@ -68,12 +72,14 @@ services:
     # Daily precompute of player props projections; writes props_projections_YYYY-MM-DD.csv and pushes to GitHub
     schedule: "5 12 * * *" # 12:05 UTC daily
     command: |
-      /bin/sh -lc "\
-      apk add --no-cache curl && \
-      # Collect player props lines for today from both sources (best-effort)\
-      curl -sSf -X POST \"https://nhl-betting.onrender.com/api/cron/props-collect\" -H \"Authorization: Bearer $REFRESH_CRON_TOKEN\" || true && \
-      # Compute and persist projections CSV for today (top 1000 rows)\
-      curl -sSf -X POST \"https://nhl-betting.onrender.com/api/cron/props-projections?top=1000\" -H \"Authorization: Bearer $REFRESH_CRON_TOKEN\" || true"
+      /bin/sh -lc '
+        set -e
+        apk add --no-cache curl
+        # Collect player props lines for today from both sources (best-effort)
+        curl -fsS -X POST https://nhl-betting.onrender.com/api/cron/props-collect -H "Authorization: Bearer ${REFRESH_CRON_TOKEN}" || true
+        # Compute and persist projections CSV for today (top 1000 rows)
+        curl -fsS -X POST "https://nhl-betting.onrender.com/api/cron/props-projections?top=1000" -H "Authorization: Bearer ${REFRESH_CRON_TOKEN}" || true
+      '
     envVars:
       - key: REFRESH_CRON_TOKEN
         sync: false
@@ -85,10 +91,12 @@ services:
     # Scheduled a few minutes after projections to ensure inputs are ready
     schedule: "10 12 * * *" # 12:10 UTC daily
     command: |
-      /bin/sh -lc "\
-      apk add --no-cache curl && \
-      # Ensure props lines exist (best-effort) then compute and persist recommendations CSV for today\
-      curl -sSf -X POST \"https://nhl-betting.onrender.com/api/cron/props-recommendations\" -H \"Authorization: Bearer $REFRESH_CRON_TOKEN\" || true"
+      /bin/sh -lc '
+        set -e
+        apk add --no-cache curl
+        # Ensure props lines exist (best-effort) then compute and persist recommendations CSV for today
+        curl -fsS -X POST https://nhl-betting.onrender.com/api/cron/props-recommendations -H "Authorization: Bearer ${REFRESH_CRON_TOKEN}" || true
+      '
     envVars:
       - key: REFRESH_CRON_TOKEN
         sync: false
@@ -99,9 +107,11 @@ services:
     # End-to-end props pipeline (lines + projections + recommendations) to ensure artifacts are available daily
     schedule: "20 12 * * *" # 12:20 UTC daily
     command: |
-      /bin/sh -lc "\
-      apk add --no-cache curl && \
-      curl -sSf -X POST \"https://nhl-betting.onrender.com/api/cron/props-full\" -H \"Authorization: Bearer $REFRESH_CRON_TOKEN\" || true"
+      /bin/sh -lc '
+        set -e
+        apk add --no-cache curl
+        curl -fsS -X POST https://nhl-betting.onrender.com/api/cron/props-full -H "Authorization: Bearer ${REFRESH_CRON_TOKEN}" || true
+      '
     envVars:
       - key: REFRESH_CRON_TOKEN
         sync: false
@@ -112,9 +122,11 @@ services:
     # Daily precompute of model-only all-players projections to GitHub
     schedule: "15 12 * * *" # 12:15 UTC daily, between projections and recommendations
     command: |
-      /bin/sh -lc "\
-      apk add --no-cache curl && \
-      curl -sSf -X POST \"https://nhl-betting.onrender.com/api/cron/props-all\" -H \"Authorization: Bearer $REFRESH_CRON_TOKEN\" || true"
+      /bin/sh -lc '
+        set -e
+        apk add --no-cache curl
+        curl -fsS -X POST https://nhl-betting.onrender.com/api/cron/props-all -H "Authorization: Bearer ${REFRESH_CRON_TOKEN}" || true
+      '
     envVars:
       - key: REFRESH_CRON_TOKEN
         sync: false

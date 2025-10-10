@@ -5,6 +5,8 @@ from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 from pathlib import Path
 from typing import Optional, Dict, Any
+import threading
+import uuid
 
 import pandas as pd
 import numpy as np
@@ -84,6 +86,98 @@ def _cache_put(key, value):
     _CACHE[key] = {"value": value, "ts": time.time()}
 
 app = FastAPI()
+# ----------------------------------------------------------------------------------
+# Lightweight cron job status tracker (in-memory, best-effort)
+_CRON_JOBS: Dict[str, Dict[str, Any]] = {}
+_CRON_LOCK = threading.Lock()
+_CRON_MAX = 100
+
+def _cron_now_iso() -> str:
+    try:
+        return datetime.utcnow().isoformat()
+    except Exception:
+        return ""
+
+def _cron_set(job_id: str, patch: Dict[str, Any]):
+    try:
+        with _CRON_LOCK:
+            rec = _CRON_JOBS.get(job_id, {})
+            rec.update(patch)
+            rec['updated_at'] = _cron_now_iso()
+            _CRON_JOBS[job_id] = rec
+    except Exception:
+        pass
+
+def _cron_add(name: str, params: Dict[str, Any]) -> str:
+    jid = str(uuid.uuid4())[:12]
+    try:
+        with _CRON_LOCK:
+            _CRON_JOBS[jid] = {
+                'id': jid,
+                'name': name,
+                'params': params or {},
+                'state': 'queued',
+                'created_at': _cron_now_iso(),
+                'updated_at': _cron_now_iso(),
+                'error': None,
+                'result': None,
+            }
+            # trim if over max
+            if len(_CRON_JOBS) > _CRON_MAX:
+                # drop oldest by created_at
+                try:
+                    items = sorted(_CRON_JOBS.items(), key=lambda kv: kv[1].get('created_at',''))
+                    for k,_ in items[: max(0, len(_CRON_JOBS) - _CRON_MAX) ]:
+                        _CRON_JOBS.pop(k, None)
+                except Exception:
+                    pass
+    except Exception:
+        pass
+    return jid
+
+def _queue_cron(name: str, params: Dict[str, Any], target_fn):
+    jid = _cron_add(name, params)
+    def _runner():
+        _cron_set(jid, {'state': 'running'})
+        try:
+            res = target_fn()
+            # compact result if large
+            compact = res
+            try:
+                if isinstance(res, dict):
+                    compact = {k: res[k] for k in list(res.keys())[:20]}
+            except Exception:
+                compact = res
+            _cron_set(jid, {'state': 'done', 'result': compact})
+        except Exception as e:
+            _cron_set(jid, {'state': 'error', 'error': str(e)})
+    try:
+        threading.Thread(target=_runner, daemon=True).start()
+    except Exception as e:
+        _cron_set(jid, {'state': 'error', 'error': f"thread_start_failed: {e}"})
+    return jid
+
+@app.get("/api/cron/status")
+async def api_cron_status(job_id: Optional[str] = Query(None), name: Optional[str] = Query(None), limit: int = Query(50)):
+    try:
+        with _CRON_LOCK:
+            vals = list(_CRON_JOBS.values())
+        if job_id:
+            for rec in vals:
+                if rec.get('id') == job_id:
+                    return JSONResponse({'ok': True, 'job': rec})
+            return JSONResponse({'ok': False, 'error': 'not_found', 'job_id': job_id}, status_code=404)
+        if name:
+            vals = [r for r in vals if str(r.get('name') or '') == str(name)]
+        try:
+            vals.sort(key=lambda r: r.get('updated_at',''), reverse=True)
+        except Exception:
+            pass
+        if limit and limit > 0:
+            vals = vals[: int(limit)]
+        return JSONResponse({'ok': True, 'jobs': vals, 'count': len(vals)})
+    except Exception as e:
+        return JSONResponse({'ok': False, 'error': str(e)}, status_code=500)
 
 def _is_public_host_env() -> bool:
     """Heuristic to detect if we're on a public host (Render/production) vs local/test.
@@ -3466,9 +3560,8 @@ async def api_cron_props_collect(
         return out
     try:
         if async_run:
-            import threading
-            threading.Thread(target=lambda: _collect_lines_for_date(d), daemon=True).start()
-            return JSONResponse({"ok": True, "date": d, "queued": True, "mode": "async"}, status_code=202)
+            job_id = _queue_cron('props-collect', {'date': d}, lambda: _collect_lines_for_date(d))
+            return JSONResponse({"ok": True, "date": d, "queued": True, "mode": "async", "job_id": job_id}, status_code=202)
         out = _collect_lines_for_date(d)
         return JSONResponse({"ok": True, **out})
     except Exception as e:
@@ -3545,9 +3638,8 @@ async def api_cron_props_projections(
         return {"rows": 0 if df is None or df.empty else int(len(df)), "path": str(out_path)}
     try:
         if async_run:
-            import threading
-            threading.Thread(target=lambda: _compute_and_write(d), daemon=True).start()
-            return JSONResponse({"ok": True, "date": d, "queued": True, "mode": "async"}, status_code=202)
+            job_id = _queue_cron('props-projections', {'date': d, 'market': market, 'top': top}, lambda: _compute_and_write(d))
+            return JSONResponse({"ok": True, "date": d, "queued": True, "mode": "async", "job_id": job_id}, status_code=202)
         res = _compute_and_write(d)
         return JSONResponse({"ok": True, "date": d, **res})
     except Exception as e:
@@ -3767,9 +3859,8 @@ async def api_cron_props_recommendations(
         return {"rows": 0 if df is None or df.empty else int(len(df)), "path": str(rec_path)}
     try:
         if async_run:
-            import threading
-            threading.Thread(target=lambda: _compute_recommendations_for_date(d), daemon=True).start()
-            return JSONResponse({"ok": True, "date": d, "queued": True, "mode": "async"}, status_code=202)
+            job_id = _queue_cron('props-recommendations', {'date': d, 'market': market, 'min_ev': min_ev, 'top': top}, lambda: _compute_recommendations_for_date(d))
+            return JSONResponse({"ok": True, "date": d, "queued": True, "mode": "async", "job_id": job_id}, status_code=202)
         res = _compute_recommendations_for_date(d)
         return JSONResponse({"ok": True, "date": d, **res})
     except Exception as e:
@@ -4602,9 +4693,8 @@ async def cron_props_all(
         return {"rows": int(len(df)), "github": res_local}
     try:
         if async_run:
-            import threading
-            threading.Thread(target=lambda: _compute_all_and_write(d), daemon=True).start()
-            return JSONResponse({"ok": True, "date": d, "queued": True, "mode": "async"}, status_code=202)
+            job_id = _queue_cron('props-all', {'date': d}, lambda: _compute_all_and_write(d))
+            return JSONResponse({"ok": True, "date": d, "queued": True, "mode": "async", "job_id": job_id}, status_code=202)
         res = _compute_all_and_write(d)
         return JSONResponse({"ok": True, "date": d, **res})
     except Exception as e:

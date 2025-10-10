@@ -3776,35 +3776,35 @@ async def props_all_players_page(
         except Exception:
             is_local = False
         if is_local:
-        t0 = time.perf_counter()
-        try:
-            ps = page_size or 10
-            synth_rows = [
-                {"player":"Test Player A","team":"AAA","market":"Shots","proj_lambda":2.1},
-                {"player":"Test Player B","team":"BBB","market":"Goals","proj_lambda":0.4},
-                {"player":"Test Player C","team":"CCC","market":"Assists","proj_lambda":0.7},
-                {"player":"Test Player D","team":"DDD","market":"Points","proj_lambda":1.2},
-            ][:ps]
-            # Minimal HTML (avoid Jinja template cost)
-            rows_html = "".join(f"<tr><td>{r['player']}</td><td>{r['team']}</td><td>{r['market']}</td><td>{r['proj_lambda']}</td></tr>" for r in synth_rows)
-            html = f"""
+            t0 = time.perf_counter()
+            try:
+                ps = page_size or 10
+                synth_rows = [
+                    {"player":"Test Player A","team":"AAA","market":"Shots","proj_lambda":2.1},
+                    {"player":"Test Player B","team":"BBB","market":"Goals","proj_lambda":0.4},
+                    {"player":"Test Player C","team":"CCC","market":"Assists","proj_lambda":0.7},
+                    {"player":"Test Player D","team":"DDD","market":"Points","proj_lambda":1.2},
+                ][:ps]
+                # Minimal HTML (avoid Jinja template cost)
+                rows_html = "".join(f"<tr><td>{r['player']}</td><td>{r['team']}</td><td>{r['market']}</td><td>{r['proj_lambda']}</td></tr>" for r in synth_rows)
+                html = f"""
 <!DOCTYPE html><html><head><meta charset='utf-8'><title>Props FAST TEST</title></head>
 <body><h3>FAST_PROPS_TEST Synthetic Props (page {page})</h3>
 <table border='1' cellpadding='4'><thead><tr><th>Player</th><th>Team</th><th>Market</th><th>Lambda</th></tr></thead>
 <tbody>{rows_html}</tbody></table>
 <p>Total synthetic rows: {len(synth_rows)} | Render time: {{round((time.perf_counter()-t0)*1000,2)}} ms</p>
 </body></html>"""
-            # Evaluate the timing expression now
-            rt = round((time.perf_counter()-t0)*1000,2)
-            html = html.replace('{round((time.perf_counter()-t0)*1000,2)}', str(rt))
-            try:
-                if os.getenv('PROPS_VERBOSE','0') == '1':
-                    print(json.dumps({"event":"props_fast_stub","dur_ms":rt,"rows":len(synth_rows)}))
-            except Exception:
-                pass
-            return HTMLResponse(content=html, headers={"X-Cache":"BYPASS","X-Fast":"1"})
-        except Exception as e:
-            return HTMLResponse(content=f"<pre>FAST_PROPS_TEST error: {e}</pre>", status_code=500)
+                # Evaluate the timing expression now
+                rt = round((time.perf_counter()-t0)*1000,2)
+                html = html.replace('{round((time.perf_counter()-t0)*1000,2)}', str(rt))
+                try:
+                    if os.getenv('PROPS_VERBOSE','0') == '1':
+                        print(json.dumps({"event":"props_fast_stub","dur_ms":rt,"rows":len(synth_rows)}))
+                except Exception:
+                    pass
+                return HTMLResponse(content=html, headers={"X-Cache":"BYPASS","X-Fast":"1"})
+            except Exception as e:
+                return HTMLResponse(content=f"<pre>FAST_PROPS_TEST error: {e}</pre>", status_code=500)
 
     t0 = time.perf_counter()
     d_requested = _normalize_date_param(date)

@@ -5429,6 +5429,8 @@ async def api_cron_props_full(
                             pass
                     except Exception:
                         pass
+            except Exception:
+                pass
             return {"ok": True, "date": d_local}
         job_id = _queue_cron('props-full', {'date': d, 'min_ev': min_ev, 'top': top, 'market': market}, _run_full)
         return JSONResponse({"ok": True, "date": d, "queued": True, "mode": "async", "job_id": job_id}, status_code=202)

@@ -39,7 +39,6 @@ services:
   - type: cron
     name: nhl-betting-nightly
     env: docker
-    branch: master
     schedule: "0 8 * * *" # 8:00 UTC daily (~3:00am ET standard, ~4:00am ET DST)
     command: |
       /bin/sh -lc '
@@ -56,7 +55,6 @@ services:
   - type: cron
     name: nhl-betting-daytime
     env: docker
-    branch: master
     # Every 60 minutes to refresh today's slate; idempotent and only overwrites pre-start games
     schedule: "0 * * * *"
     command: |
@@ -72,7 +70,6 @@ services:
   - type: cron
     name: nhl-betting-props-projections
     env: docker
-    branch: master
     # Daily precompute of player props projections; writes props_projections_YYYY-MM-DD.csv and pushes to GitHub
     schedule: "5 12 * * *" # 12:05 UTC daily
     command: |
@@ -91,7 +88,6 @@ services:
   - type: cron
     name: nhl-betting-props-recommendations
     env: docker
-    branch: master
     # Daily precompute of player props recommendations; writes props_recommendations_YYYY-MM-DD.csv and pushes to GitHub
     # Scheduled a few minutes after projections to ensure inputs are ready
     schedule: "10 12 * * *" # 12:10 UTC daily
@@ -109,7 +105,6 @@ services:
   - type: cron
     name: nhl-betting-props-full
     env: docker
-    branch: master
     # End-to-end props pipeline (lines + projections + recommendations) to ensure artifacts are available daily
     schedule: "20 12 * * *" # 12:20 UTC daily
     command: |
@@ -125,7 +120,6 @@ services:
   - type: cron
     name: nhl-betting-props-all
     env: docker
-    branch: master
     # Daily precompute of model-only all-players projections to GitHub
     schedule: "15 12 * * *" # 12:15 UTC daily, between projections and recommendations
     command: |

@@ -4,7 +4,7 @@ import os, time, json
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict, Any
 
 import pandas as pd
 import numpy as np
@@ -3414,6 +3414,7 @@ async def api_cron_props_collect(
     token: Optional[str] = Query(None, description="Bearer token; must match REFRESH_CRON_TOKEN env var"),
     date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD; defaults to ET today"),
     authorization: Optional[str] = Header(None, description="Authorization: Bearer <token> header (optional alternative to token query param)"),
+    async_run: bool = Query(False, description="If true, queue work in background and return 202 immediately"),
 ):
     """Secure endpoint to collect canonical player props lines (Parquet) for a date.
 
@@ -3432,40 +3433,43 @@ async def api_cron_props_collect(
     if not (secret and supplied and _const_time_eq(supplied, secret)):
         return JSONResponse({"error": "unauthorized"}, status_code=401)
     d = _normalize_date_param(date)
-    try:
+    def _collect_lines_for_date(_d: str) -> Dict[str, Any]:
         from ..data import player_props as props_data
-        base = PROC_DIR.parent / "props" / f"player_props_lines/date={d}"
+        base = PROC_DIR.parent / "props" / f"player_props_lines/date={_d}"
         base.mkdir(parents=True, exist_ok=True)
-        out = {"date": d, "written": [], "errors": []}
-        # Collect from Bovada and Odds API
+        out: Dict[str, Any] = {"date": _d, "written": [], "errors": []}
         for which, src in (("bovada", "bovada"), ("oddsapi", "oddsapi")):
             try:
                 cfg = props_data.PropsCollectionConfig(output_root=str(PROC_DIR.parent / "props"), book=which, source=src)
-                # Use roster enrichment for better player_id/team mapping
                 try:
                     roster_df = _props_data._build_roster_enrichment()
                 except Exception:
                     roster_df = None
-                res = props_data.collect_and_write(d, roster_df=roster_df, cfg=cfg)
+                res = props_data.collect_and_write(_d, roster_df=roster_df, cfg=cfg)
                 path = res.get("output_path")
                 if path:
                     out["written"].append(str(path))
                     try:
-                        # Provide a rel hint in posix style
                         rel = str(Path(path)).replace("\\", "/")
                         try:
-                            # ensure rel starts at data/
                             parts = rel.split("/")
                             if "data" in parts:
                                 idx = parts.index("data")
                                 rel = "/".join(parts[idx:])
                         except Exception:
                             pass
-                        _gh_upsert_file_if_better_or_same(Path(path), f"web: update props lines {which} for {d}", rel_hint=rel)
+                        _gh_upsert_file_if_better_or_same(Path(path), f"web: update props lines {which} for {_d}", rel_hint=rel)
                     except Exception:
                         pass
             except Exception as e:
                 out["errors"].append({"book": which, "error": str(e)})
+        return out
+    try:
+        if async_run:
+            import threading
+            threading.Thread(target=lambda: _collect_lines_for_date(d), daemon=True).start()
+            return JSONResponse({"ok": True, "date": d, "queued": True, "mode": "async"}, status_code=202)
+        out = _collect_lines_for_date(d)
         return JSONResponse({"ok": True, **out})
     except Exception as e:
         return JSONResponse({"ok": False, "error": str(e), "date": d}, status_code=500)
@@ -3477,7 +3481,8 @@ async def api_cron_props_projections(
     date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD; defaults to ET today"),
     market: Optional[str] = Query(None, description="Optional market filter: SOG,SAVES,GOALS,ASSISTS,POINTS,BLOCKS"),
     top: int = Query(0, description="If >0 keep top N rows by EV/P(Over) before writing"),
-    authorization: Optional[str] = Header(None, description="Authorization: Bearer <token> header (optional alternative")
+    authorization: Optional[str] = Header(None, description="Authorization: Bearer <token> header (optional alternative"),
+    async_run: bool = Query(False, description="If true, queue work in background and return 202 immediately"),
 ):
     """Secure endpoint to compute and persist props projections CSV for a date.
 
@@ -3495,47 +3500,56 @@ async def api_cron_props_projections(
     if not (secret and supplied and _const_time_eq(supplied, secret)):
         return JSONResponse({"error": "unauthorized"}, status_code=401)
     d = _normalize_date_param(date)
-    try:
-        df = _compute_props_projections(d, market=market)
-        if not df.empty and top and top > 0:
+    def _compute_and_write(_d: str) -> Dict[str, Any]:
+        df = _compute_props_projections(_d, market=market)
+        if df is not None and not df.empty and top and top > 0:
             df = df.head(int(top))
-        out_path = PROC_DIR / f"props_projections_{d}.csv"
+        out_path = PROC_DIR / f"props_projections_{_d}.csv"
         save_df(df, out_path)
-        # Append to projections history
         try:
             hist_path = PROC_DIR / 'props_projections_history.csv'
-            h = df.copy()
-            if 'date' not in h.columns:
-                h['date'] = d
-            # Normalize column names
-            if 'proj' in h.columns and 'proj_lambda' not in h.columns:
-                try: h.rename(columns={'proj':'proj_lambda'}, inplace=True)
-                except Exception: pass
-            keep = [c for c in ['date','player','team','position','market','proj_lambda','p_over','ev_over'] if c in h.columns]
-            if keep:
-                h = h[keep]
-            if hist_path.exists():
+            h = df.copy() if df is not None else pd.DataFrame()
+            if 'date' not in (h.columns if isinstance(h, pd.DataFrame) else []):
                 try:
-                    cur = pd.read_csv(hist_path)
-                    comb = pd.concat([cur, h], ignore_index=True)
-                    subset_keys = [k for k in ['date','player','market'] if k in comb.columns]
-                    if subset_keys:
-                        comb.sort_values(subset_keys, ascending=[False]*len(subset_keys), inplace=True)
-                        comb.drop_duplicates(subset=subset_keys, keep='first', inplace=True)
-                    comb.to_csv(hist_path, index=False)
+                    h['date'] = _d
                 except Exception:
+                    pass
+            if isinstance(h, pd.DataFrame) and not h.empty:
+                if 'proj' in h.columns and 'proj_lambda' not in h.columns:
+                    try: h.rename(columns={'proj':'proj_lambda'}, inplace=True)
+                    except Exception: pass
+                keep = [c for c in ['date','player','team','position','market','proj_lambda','p_over','ev_over'] if c in h.columns]
+                if keep:
+                    h = h[keep]
+                if hist_path.exists():
+                    try:
+                        cur = pd.read_csv(hist_path)
+                        comb = pd.concat([cur, h], ignore_index=True)
+                        subset_keys = [k for k in ['date','player','market'] if k in comb.columns]
+                        if subset_keys:
+                            comb.sort_values(subset_keys, ascending=[False]*len(subset_keys), inplace=True)
+                            comb.drop_duplicates(subset=subset_keys, keep='first', inplace=True)
+                        comb.to_csv(hist_path, index=False)
+                    except Exception:
+                        try: h.to_csv(hist_path, index=False)
+                        except Exception: pass
+                else:
                     try: h.to_csv(hist_path, index=False)
                     except Exception: pass
-            else:
-                try: h.to_csv(hist_path, index=False)
-                except Exception: pass
         except Exception:
             pass
         try:
-            _gh_upsert_file_if_better_or_same(out_path, f"web: update props projections for {d}")
+            _gh_upsert_file_if_better_or_same(out_path, f"web: update props projections for {_d}")
         except Exception:
             pass
-        return JSONResponse({"ok": True, "date": d, "rows": 0 if df is None or df.empty else int(len(df)), "path": str(out_path)})
+        return {"rows": 0 if df is None or df.empty else int(len(df)), "path": str(out_path)}
+    try:
+        if async_run:
+            import threading
+            threading.Thread(target=lambda: _compute_and_write(d), daemon=True).start()
+            return JSONResponse({"ok": True, "date": d, "queued": True, "mode": "async"}, status_code=202)
+        res = _compute_and_write(d)
+        return JSONResponse({"ok": True, "date": d, **res})
     except Exception as e:
         return JSONResponse({"ok": False, "date": d, "error": str(e)}, status_code=500)
 
@@ -3587,6 +3601,7 @@ async def api_cron_props_recommendations(
     min_ev: float = Query(0.0),
     top: int = Query(200),
     authorization: Optional[str] = Header(None, description="Authorization: Bearer <token> header (optional alternative to token query param)"),
+    async_run: bool = Query(False, description="If true, queue work in background and return 202 immediately"),
 ):
     """Secure endpoint to compute props recommendations for a date and push CSV to GitHub.
 
@@ -3605,25 +3620,51 @@ async def api_cron_props_recommendations(
     if not (secret and supplied and _const_time_eq(supplied, secret)):
         return JSONResponse({"error": "unauthorized"}, status_code=401)
     d = _normalize_date_param(date)
-    # Ensure lines exist; if not, collect
-    try:
-        base = PROC_DIR.parent / "props" / f"player_props_lines/date={d}"
-        need_collect = not ((base / "bovada.parquet").exists() or (base / "oddsapi.parquet").exists())
-        if need_collect:
-            # Best-effort
-            try:
-                await api_cron_props_collect(token=token, date=d)
-            except Exception:
-                pass
-    except Exception:
-        pass
-    # Compute recommendations using the same logic as api_props_recommendations (compute branch)
-    try:
+    def _compute_recommendations_for_date(_d: str) -> Dict[str, Any]:
+        # Ensure lines exist; if not, collect
+        try:
+            base_local = PROC_DIR.parent / "props" / f"player_props_lines/date={_d}"
+            need_collect_local = not ((base_local / "bovada.parquet").exists() or (base_local / "oddsapi.parquet").exists())
+            if need_collect_local:
+                try:
+                    # Call the internal helper used by props-collect
+                    from ..data import player_props as props_data
+                    base_local.mkdir(parents=True, exist_ok=True)
+                    for which, src in (("bovada", "bovada"), ("oddsapi", "oddsapi")):
+                        try:
+                            cfg = props_data.PropsCollectionConfig(output_root=str(PROC_DIR.parent / "props"), book=which, source=src)
+                            try:
+                                roster_df_local = _props_data._build_roster_enrichment()
+                            except Exception:
+                                roster_df_local = None
+                            res_local = props_data.collect_and_write(_d, roster_df=roster_df_local, cfg=cfg)
+                            path_local = res_local.get("output_path")
+                            if path_local:
+                                try:
+                                    rel_local = str(Path(path_local)).replace("\\", "/")
+                                    try:
+                                        parts_local = rel_local.split("/")
+                                        if "data" in parts_local:
+                                            idx_local = parts_local.index("data")
+                                            rel_local = "/".join(parts_local[idx_local:])
+                                    except Exception:
+                                        pass
+                                    _gh_upsert_file_if_better_or_same(Path(path_local), f"web: update props lines {which} for {_d}", rel_hint=rel_local)
+                                except Exception:
+                                    pass
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        # Compute recommendations using the same logic as api_props_recommendations (compute branch)
         from ..models.props import SkaterShotsModel, GoalieSavesModel, SkaterGoalsModel
         from ..models.props import SkaterAssistsModel, SkaterPointsModel, SkaterBlocksModel
         from ..data.collect import collect_player_game_stats
         # Load lines
         parts = []
+        base = PROC_DIR.parent / "props" / f"player_props_lines/date={_d}"
         for name in ("bovada.parquet", "oddsapi.parquet"):
             p = base / name
             if p.exists():
@@ -3632,15 +3673,15 @@ async def api_cron_props_recommendations(
                 except Exception:
                     pass
         if not parts:
-            return JSONResponse({"ok": True, "date": d, "rows": 0, "message": "no-lines"})
+            return {"rows": 0, "message": "no-lines"}
         lines = pd.concat(parts, ignore_index=True)
         # Ensure stats exist for projection
         stats_path = RAW_DIR / "player_game_stats.csv"
         if not stats_path.exists():
             try:
                 from datetime import datetime as _dt, timedelta as _td
-                start = (_dt.strptime(d, "%Y-%m-%d") - _td(days=365)).strftime("%Y-%m-%d")
-                collect_player_game_stats(start, d, source="stats")
+                start = (_dt.strptime(_d, "%Y-%m-%d") - _td(days=365)).strftime("%Y-%m-%d")
+                collect_player_game_stats(start, _d, source="stats")
             except Exception:
                 pass
         hist = pd.read_csv(stats_path) if stats_path.exists() else pd.DataFrame()
@@ -3714,16 +3755,23 @@ async def api_cron_props_recommendations(
             df = df.sort_values('ev', ascending=False)
             if top and top > 0:
                 df = df.head(int(top))
-        rec_path = PROC_DIR / f"props_recommendations_{d}.csv"
+        rec_path = PROC_DIR / f"props_recommendations_{_d}.csv"
         try:
             save_df(df, rec_path)
             try:
-                _gh_upsert_file_if_better_or_same(rec_path, f"web: update props recommendations for {d}")
+                _gh_upsert_file_if_better_or_same(rec_path, f"web: update props recommendations for {_d}")
             except Exception:
                 pass
         except Exception:
             pass
-        return JSONResponse({"ok": True, "date": d, "rows": 0 if df is None or df.empty else int(len(df)), "path": str(rec_path)})
+        return {"rows": 0 if df is None or df.empty else int(len(df)), "path": str(rec_path)}
+    try:
+        if async_run:
+            import threading
+            threading.Thread(target=lambda: _compute_recommendations_for_date(d), daemon=True).start()
+            return JSONResponse({"ok": True, "date": d, "queued": True, "mode": "async"}, status_code=202)
+        res = _compute_recommendations_for_date(d)
+        return JSONResponse({"ok": True, "date": d, **res})
     except Exception as e:
         return JSONResponse({"ok": False, "date": d, "error": str(e)}, status_code=500)
 
@@ -4525,6 +4573,7 @@ async def cron_props_all(
     date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD; defaults to ET today"),
     token: Optional[str] = Query(None, description="Bearer token; must match REFRESH_CRON_TOKEN env var"),
     authorization: Optional[str] = Header(default=None, description="Authorization: Bearer <token> header (alternative to token query param)"),
+    async_run: bool = Query(False, description="If true, queue work in background and return 202 immediately"),
 ):
     d = _normalize_date_param(date)
     # Auth: align with other cron endpoints using REFRESH_CRON_TOKEN
@@ -4539,14 +4588,25 @@ async def cron_props_all(
             supplied = supplied
     if not (secret and supplied and _const_time_eq(supplied, secret)):
         return PlainTextResponse("Unauthorized", status_code=401)
-    try:
-        df = _compute_all_players_projections(d)
+    def _compute_all_and_write(_d: str) -> Dict[str, Any]:
+        df = _compute_all_players_projections(_d)
+        out_path = PROC_DIR / f"props_projections_all_{_d}.csv"
         if df is None or df.empty:
-            return JSONResponse({"ok": True, "date": d, "rows": 0})
-        out_path = PROC_DIR / f"props_projections_all_{d}.csv"
+            save_df(pd.DataFrame(), out_path)
+            return {"rows": 0, "github": None}
         save_df(df, out_path)
-        res = _gh_upsert_file_if_better_or_same(out_path, f"web: update props projections ALL for {d}")
-        return JSONResponse({"ok": True, "date": d, "rows": int(len(df)), "github": res})
+        try:
+            res_local = _gh_upsert_file_if_better_or_same(out_path, f"web: update props projections ALL for {_d}")
+        except Exception:
+            res_local = None
+        return {"rows": int(len(df)), "github": res_local}
+    try:
+        if async_run:
+            import threading
+            threading.Thread(target=lambda: _compute_all_and_write(d), daemon=True).start()
+            return JSONResponse({"ok": True, "date": d, "queued": True, "mode": "async"}, status_code=202)
+        res = _compute_all_and_write(d)
+        return JSONResponse({"ok": True, "date": d, **res})
     except Exception as e:
         return JSONResponse({"ok": False, "date": d, "error": str(e)}, status_code=500)
 

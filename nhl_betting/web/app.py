@@ -3764,8 +3764,18 @@ async def props_all_players_page(
     page_size: Optional[int] = Query(None, description="Rows per page (server-side pagination); defaults to PROPS_PAGE_SIZE env or 250"),
     source: Optional[str] = Query(None, description="Data source: merged (default) or recs for recommendations only"),
 ):
-    # Ultra-fast synthetic short-circuit for local smoke tests
+    # Ultra-fast synthetic short-circuit for local smoke tests (never on public hosts)
     if os.getenv('FAST_PROPS_TEST','0') == '1':
+        try:
+            client_host = getattr(request.client, 'host', '') or ''
+            header_host = (request.headers.get('host') or '').lower()
+            # Allow only for local/test contexts
+            is_local = client_host in ('127.0.0.1','::1','localhost','testserver','testclient') \
+                        or header_host.startswith('127.0.0.1') \
+                        or header_host.startswith('localhost')
+        except Exception:
+            is_local = False
+        if is_local:
         t0 = time.perf_counter()
         try:
             ps = page_size or 10

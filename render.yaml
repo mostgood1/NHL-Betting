@@ -36,7 +36,9 @@ services:
   - type: cron
     name: nhl-betting-nightly
     schedule: "0 8 * * *" # 8:00 UTC daily (~3:00/4:00 ET)
-    command: 'curl -fsS -X POST https://nhl-betting.onrender.com/api/cron/refresh-bovada?date=yesterday -H "Authorization: Bearer ${REFRESH_CRON_TOKEN}" || true; curl -fsS -X POST https://nhl-betting.onrender.com/api/cron/capture-closing?date=yesterday -H "Authorization: Bearer ${REFRESH_CRON_TOKEN}" || true; curl -fsS -X POST https://nhl-betting.onrender.com/api/cron/retune -H "Authorization: Bearer ${REFRESH_CRON_TOKEN}" || true'
+    env: docker
+    image: alpine:3.19
+    command: "/bin/sh -lc 'curl -fsS -X POST https://nhl-betting.onrender.com/api/cron/refresh-bovada?date=yesterday -H \"Authorization: Bearer ${REFRESH_CRON_TOKEN}\" || true; curl -fsS -X POST https://nhl-betting.onrender.com/api/cron/capture-closing?date=yesterday -H \"Authorization: Bearer ${REFRESH_CRON_TOKEN}\" || true; curl -fsS -X POST https://nhl-betting.onrender.com/api/cron/retune -H \"Authorization: Bearer ${REFRESH_CRON_TOKEN}\" || true'"
     envVars:
       - key: REFRESH_CRON_TOKEN
         sync: false
@@ -45,7 +47,9 @@ services:
     name: nhl-betting-daytime
     # Every 60 minutes to refresh today's slate; idempotent and only overwrites pre-start games
     schedule: "0 * * * *"
-    command: 'curl -fsS -X POST https://nhl-betting.onrender.com/api/cron/refresh-bovada -H "Authorization: Bearer ${REFRESH_CRON_TOKEN}" || true'
+    env: docker
+    image: alpine:3.19
+    command: "/bin/sh -lc 'curl -fsS -X POST https://nhl-betting.onrender.com/api/cron/refresh-bovada -H \"Authorization: Bearer ${REFRESH_CRON_TOKEN}\" || true'"
     envVars:
       - key: REFRESH_CRON_TOKEN
         sync: false
@@ -53,7 +57,9 @@ services:
   - type: cron
     name: nhl-betting-props-projections
     schedule: "5 12 * * *"
-    command: 'curl -fsS -X POST https://nhl-betting.onrender.com/api/cron/props-collect -H "Authorization: Bearer ${REFRESH_CRON_TOKEN}" || true; curl -fsS -X POST "https://nhl-betting.onrender.com/api/cron/props-projections?top=1000" -H "Authorization: Bearer ${REFRESH_CRON_TOKEN}" || true'
+    env: docker
+    image: alpine:3.19
+    command: "/bin/sh -lc 'curl -fsS -X POST https://nhl-betting.onrender.com/api/cron/props-collect -H \"Authorization: Bearer ${REFRESH_CRON_TOKEN}\" || true; curl -fsS -X POST https://nhl-betting.onrender.com/api/cron/props-projections?top=1000 -H \"Authorization: Bearer ${REFRESH_CRON_TOKEN}\" || true'"
     envVars:
       - key: REFRESH_CRON_TOKEN
         sync: false
@@ -62,7 +68,9 @@ services:
     name: nhl-betting-props-recommendations
     # Scheduled a few minutes after projections to ensure inputs are ready
     schedule: "10 12 * * *"
-    command: 'curl -fsS -X POST https://nhl-betting.onrender.com/api/cron/props-recommendations -H "Authorization: Bearer ${REFRESH_CRON_TOKEN}" || true'
+    env: docker
+    image: alpine:3.19
+    command: "/bin/sh -lc 'curl -fsS -X POST https://nhl-betting.onrender.com/api/cron/props-recommendations -H \"Authorization: Bearer ${REFRESH_CRON_TOKEN}\" || true'"
     envVars:
       - key: REFRESH_CRON_TOKEN
         sync: false
@@ -70,7 +78,9 @@ services:
   - type: cron
     name: nhl-betting-props-full
     schedule: "20 12 * * *"
-    command: 'curl -fsS -X POST https://nhl-betting.onrender.com/api/cron/props-full -H "Authorization: Bearer ${REFRESH_CRON_TOKEN}" || true'
+    env: docker
+    image: alpine:3.19
+    command: "/bin/sh -lc 'curl -fsS -X POST https://nhl-betting.onrender.com/api/cron/props-full -H \"Authorization: Bearer ${REFRESH_CRON_TOKEN}\" || true'"
     envVars:
       - key: REFRESH_CRON_TOKEN
         sync: false
@@ -78,7 +88,9 @@ services:
   - type: cron
     name: nhl-betting-props-all
     schedule: "15 12 * * *"
-    command: 'curl -fsS -X POST https://nhl-betting.onrender.com/api/cron/props-all -H "Authorization: Bearer ${REFRESH_CRON_TOKEN}" || true'
+    env: docker
+    image: alpine:3.19
+    command: "/bin/sh -lc 'curl -fsS -X POST https://nhl-betting.onrender.com/api/cron/props-all -H \"Authorization: Bearer ${REFRESH_CRON_TOKEN}\" || true'"
     envVars:
       - key: REFRESH_CRON_TOKEN
         sync: false

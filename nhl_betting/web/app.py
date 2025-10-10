@@ -5265,6 +5265,7 @@ async def api_cron_props_full(
     top: int = Query(200, description="Top N recommendations to keep"),
     market: Optional[str] = Query(None, description="Optional market filter for recs: SOG,SAVES,GOALS,ASSISTS,POINTS,BLOCKS"),
     authorization: Optional[str] = Header(None, description="Authorization: Bearer <token> header (optional alternative to token query param)"),
+    async_run: bool = Query(False, description="If true, queue work in background and return 202 immediately"),
 ):
     """Secure endpoint to run the full props pipeline for a date:
 
@@ -5286,6 +5287,152 @@ async def api_cron_props_full(
     if not (secret and supplied and _const_time_eq(supplied, secret)):
         return JSONResponse({"error": "unauthorized"}, status_code=401)
     d = _normalize_date_param(date)
+    # If async mode requested, queue the full pipeline and return immediately
+    if async_run:
+        d_local = d
+        def _run_full():
+            # Collect lines (bovada + oddsapi)
+            from ..data import player_props as props_data
+            base = PROC_DIR.parent / "props" / f"player_props_lines/date={d_local}"
+            base.mkdir(parents=True, exist_ok=True)
+            for which, src in (("bovada", "bovada"), ("oddsapi", "oddsapi")):
+                try:
+                    cfg = props_data.PropsCollectionConfig(output_root=str(PROC_DIR.parent / "props"), book=which, source=src)
+                    try:
+                        roster_df = _props_data._build_roster_enrichment()
+                    except Exception:
+                        roster_df = None
+                    res = props_data.collect_and_write(d_local, roster_df=roster_df, cfg=cfg)
+                    path = res.get("output_path")
+                    if path:
+                        try:
+                            rel = str(Path(path)).replace("\\", "/")
+                            parts = rel.split("/")
+                            if "data" in parts:
+                                rel = "/".join(parts[parts.index("data"):])
+                            _gh_upsert_file_if_better_or_same(Path(path), f"web: update props lines {which} for {d_local}", rel_hint=rel)
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+            # Projections
+            dfp = _compute_props_projections(d_local, market=market)
+            out_path = PROC_DIR / f"props_projections_{d_local}.csv"
+            try:
+                save_df(dfp, out_path)
+                try:
+                    _gh_upsert_file_if_better_or_same(out_path, f"web: update props projections for {d_local}")
+                except Exception:
+                    pass
+            except Exception:
+                pass
+            # Recommendations
+            try:
+                # Load lines if exist
+                parts = []
+                for name in ("bovada.parquet", "oddsapi.parquet"):
+                    p = base / name
+                    if p.exists():
+                        try:
+                            parts.append(pd.read_parquet(p))
+                        except Exception:
+                            pass
+                rec_df = pd.DataFrame()
+                if parts:
+                    lines = pd.concat(parts, ignore_index=True)
+                    # Ensure stats
+                    stats_path = RAW_DIR / "player_game_stats.csv"
+                    if not stats_path.exists():
+                        try:
+                            from datetime import datetime as _dt, timedelta as _td
+                            start = (_dt.strptime(d_local, "%Y-%m-%d") - _td(days=365)).strftime("%Y-%m-%d")
+                            from ..data.collect import collect_player_game_stats
+                            collect_player_game_stats(start, d_local, source="stats")
+                        except Exception:
+                            pass
+                    hist = pd.read_csv(stats_path) if stats_path.exists() else pd.DataFrame()
+                    shots = _SkaterShotsModel(); saves = _GoalieSavesModel(); goals = _SkaterGoalsModel(); assists = _SkaterAssistsModel(); points = _SkaterPointsModel(); blocks = _SkaterBlocksModel()
+                    def proj_prob(m, player, ln):
+                        m = (m or '').upper()
+                        if m == 'SOG':
+                            lam = shots.player_lambda(hist, player); return lam, shots.prob_over(lam, ln)
+                        if m == 'SAVES':
+                            lam = saves.player_lambda(hist, player); return lam, saves.prob_over(lam, ln)
+                        if m == 'GOALS':
+                            lam = goals.player_lambda(hist, player); return lam, goals.prob_over(lam, ln)
+                        if m == 'ASSISTS':
+                            lam = assists.player_lambda(hist, player); return lam, assists.prob_over(lam, ln)
+                        if m == 'POINTS':
+                            lam = points.player_lambda(hist, player); return lam, points.prob_over(lam, ln)
+                        if m == 'BLOCKS':
+                            lam = blocks.player_lambda(hist, player); return lam, blocks.prob_over(lam, ln)
+                        return None, None
+                    recs = []
+                    for _, r in lines.iterrows():
+                        m = str(r.get('market') or '').upper()
+                        if market and m != (market or '').upper():
+                            continue
+                        player = r.get('player_name') or r.get('player')
+                        if not player:
+                            continue
+                        try:
+                            ln = float(r.get('line'))
+                        except Exception:
+                            continue
+                        op = r.get('over_price'); up = r.get('under_price')
+                        if pd.isna(op) and pd.isna(up):
+                            continue
+                        lam, p_over = proj_prob(m, str(player), ln)
+                        if lam is None or p_over is None:
+                            continue
+                        def _dec(a):
+                            try:
+                                a = float(a); return 1.0 + (a/100.0) if a > 0 else 1.0 + (100.0/abs(a))
+                            except Exception:
+                                return None
+                        ev_o = (p_over * (_dec(op)-1.0) - (1.0 - p_over)) if (op is not None and _dec(op) is not None) else None
+                        p_under = max(0.0, 1.0 - float(p_over))
+                        ev_u = (p_under * (_dec(up)-1.0) - (1.0 - p_under)) if (up is not None and _dec(up) is not None) else None
+                        side = None; price = None; ev = None
+                        if ev_o is not None or ev_u is not None:
+                            if (ev_u is None) or (ev_o is not None and ev_o >= ev_u):
+                                side = 'Over'; price = op; ev = ev_o
+                            else:
+                                side = 'Under'; price = up; ev = ev_u
+                        if ev is None or not (float(ev) >= float(min_ev)):
+                            continue
+                        recs.append({
+                            'date': d_local,
+                            'player': player,
+                            'team': r.get('team') or None,
+                            'market': m,
+                            'line': ln,
+                            'proj': float(lam),
+                            'p_over': float(p_over),
+                            'over_price': op if pd.notna(op) else None,
+                            'under_price': up if pd.notna(up) else None,
+                            'book': r.get('book'),
+                            'side': side,
+                            'ev': float(ev) if ev is not None else None,
+                        })
+                    rec_df = pd.DataFrame(recs)
+                    if not rec_df.empty:
+                        rec_df = rec_df.sort_values('ev', ascending=False)
+                        if top and top > 0:
+                            rec_df = rec_df.head(int(top))
+                    rec_path = PROC_DIR / f"props_recommendations_{d_local}.csv"
+                    try:
+                        save_df(rec_df, rec_path)
+                        try:
+                            _gh_upsert_file_if_better_or_same(rec_path, f"web: update props recommendations for {d_local}")
+                        except Exception:
+                            pass
+                    except Exception:
+                        pass
+            return {"ok": True, "date": d_local}
+        job_id = _queue_cron('props-full', {'date': d, 'min_ev': min_ev, 'top': top, 'market': market}, _run_full)
+        return JSONResponse({"ok": True, "date": d, "queued": True, "mode": "async", "job_id": job_id}, status_code=202)
+
     # Step 1: collect lines (reusing props-collect logic)
     try:
         res_collect = await api_cron_props_collect(token=token, date=d)

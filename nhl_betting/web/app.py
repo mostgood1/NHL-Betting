@@ -520,6 +520,53 @@ def _file_mtime_iso(path: Path) -> Optional[str]:
     return None
 
 
+def _looks_like_synthetic_props(df: pd.DataFrame) -> bool:
+    """Heuristic: detect our tiny test/synthetic props frames (Test Player A/B/C/D).
+
+    Returns True if the frame appears to be the 4-row synthetic sample or similar.
+    We check for any of:
+      - player values starting with "Test Player"
+      - team values among {AAA, BBB, CCC, DDD} with a very small row count
+      - market set limited to {Shots, Goals, Assists, Points} with tiny row count
+    """
+    try:
+        if df is None or df.empty:
+            return False
+        # Locate columns case-insensitively
+        def _col(name: str):
+            ln = name.lower()
+            for c in df.columns:
+                if str(c).lower() == ln:
+                    return c
+            return None
+        pc = _col('player'); tc = _col('team'); mc = _col('market')
+        n = len(df)
+        if pc is not None:
+            try:
+                if any(str(x).startswith('Test Player') for x in df[pc].astype(str).head(min(20, n))):
+                    return True
+            except Exception:
+                pass
+        if tc is not None and n <= 20:
+            try:
+                teams = {str(x).upper() for x in df[tc].dropna().astype(str).unique().tolist()}
+                if teams.issubset({'AAA','BBB','CCC','DDD'}) and len(teams) > 0:
+                    return True
+            except Exception:
+                pass
+        if mc is not None and n <= 12:
+            try:
+                mk = {str(x).strip().upper() for x in df[mc].dropna().astype(str).unique().tolist()}
+                # Allow common canonical names used in the synthetic rows
+                if mk.issubset({'SHOTS','GOALS','ASSISTS','POINTS'}) and len(mk) > 0:
+                    return True
+            except Exception:
+                pass
+        return False
+    except Exception:
+        return False
+
+
 _ROSTER_CACHE = None
 def _get_roster_snapshot():
     global _ROSTER_CACHE
@@ -584,7 +631,14 @@ def _read_all_players_projections(date: str) -> pd.DataFrame:
         except Exception:
             pass
     # GitHub fallback
-    return _github_raw_read_csv(f"data/processed/props_projections_all_{date}.csv")
+    gh = _github_raw_read_csv(f"data/processed/props_projections_all_{date}.csv")
+    try:
+        if gh is not None and not gh.empty and _looks_like_synthetic_props(gh):
+            # Treat synthetic placeholder as missing to trigger compute or deeper fallback
+            return pd.DataFrame()
+    except Exception:
+        pass
+    return gh
 
 
 def _compute_all_players_projections(date: str) -> pd.DataFrame:
@@ -3727,6 +3781,7 @@ async def health_props():
         "recommendations_mtime": _mtime(rec_path),
         "projections_all_rows": _rows(proj_path),
         "recommendations_rows": _rows(rec_path),
+        "projections_all_synthetic_like": (lambda: (lambda _df: (_looks_like_synthetic_props(_df) if _df is not None and not _df.empty else False))(_read_csv_fallback(proj_path)))(),
         "fast_mode": os.getenv('FAST_PROPS_TEST','0') == '1',
         "force_synthetic": os.getenv('PROPS_FORCE_SYNTHETIC','0') == '1',
         "no_compute": os.getenv('PROPS_NO_COMPUTE','0') == '1',
@@ -3873,7 +3928,7 @@ async def props_all_players_page(
                 for i in range(0, 7):
                     d_try = (base - _td2(days=i)).strftime("%Y-%m-%d")
                     gh_df = _github_raw_read_csv(f"data/processed/props_projections_all_{d_try}.csv")
-                    if gh_df is not None and not gh_df.empty:
+                    if gh_df is not None and not gh_df.empty and not _looks_like_synthetic_props(gh_df):
                         df_found = gh_df; d_found = d_try; break
                 if df_found is not None:
                     df = df_found; used_date = d_found
@@ -4467,14 +4522,15 @@ async def props_all_players_csv(
 
 @app.post("/api/cron/props-all")
 async def cron_props_all(
-    date: Optional[str] = Query(None),
-    authorization: Optional[str] = Header(default=None),
+    date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD; defaults to ET today"),
+    token: Optional[str] = Query(None, description="Bearer token; must match REFRESH_CRON_TOKEN env var"),
+    authorization: Optional[str] = Header(default=None, description="Authorization: Bearer <token> header (alternative to token query param)"),
 ):
     d = _normalize_date_param(date)
     # Auth: align with other cron endpoints using REFRESH_CRON_TOKEN
     secret = os.getenv("REFRESH_CRON_TOKEN", "")
-    supplied = ""
-    if authorization:
+    supplied = (token or "").strip()
+    if (not supplied) and authorization:
         try:
             auth = str(authorization)
             if auth.lower().startswith("bearer "):

@@ -3,7 +3,7 @@ services:
     name: nhl-betting
     env: python
     plan: free
-  autoDeploy: true
+    autoDeploy: true
     buildCommand: |
       python -m pip install --upgrade pip setuptools wheel
       python -m pip install --prefer-binary -r requirements.txt

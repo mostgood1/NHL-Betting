@@ -3532,6 +3532,12 @@ async def api_cron_props_collect(
         base = PROC_DIR.parent / "props" / f"player_props_lines/date={_d}"
         base.mkdir(parents=True, exist_ok=True)
         out: Dict[str, Any] = {"date": _d, "written": [], "errors": []}
+        # Per-source timeout (seconds) to prevent indefinite hangs
+        try:
+            step_timeout = int(os.getenv('PROPS_STEP_TIMEOUT_SEC', '90'))
+        except Exception:
+            step_timeout = 90
+        from concurrent.futures import ThreadPoolExecutor, TimeoutError as _FutTimeout
         for which, src in (("bovada", "bovada"), ("oddsapi", "oddsapi")):
             try:
                 cfg = props_data.PropsCollectionConfig(output_root=str(PROC_DIR.parent / "props"), book=which, source=src)
@@ -3539,7 +3545,16 @@ async def api_cron_props_collect(
                     roster_df = _props_data._build_roster_enrichment()
                 except Exception:
                     roster_df = None
-                res = props_data.collect_and_write(_d, roster_df=roster_df, cfg=cfg)
+                # Run the collection in a tiny thread with timeout so it can't hang forever
+                def _do_collect():
+                    return props_data.collect_and_write(_d, roster_df=roster_df, cfg=cfg)
+                try:
+                    with ThreadPoolExecutor(max_workers=1) as ex:
+                        fut = ex.submit(_do_collect)
+                        res = fut.result(timeout=step_timeout)
+                except _FutTimeout:
+                    out["errors"].append({"book": which, "error": f"timeout_after_{step_timeout}s"})
+                    continue
                 path = res.get("output_path")
                 if path:
                     out["written"].append(str(path))
@@ -3715,6 +3730,11 @@ async def api_cron_props_recommendations(
     def _compute_recommendations_for_date(_d: str) -> Dict[str, Any]:
         # Ensure lines exist; if not, collect
         try:
+            try:
+                step_timeout = int(os.getenv('PROPS_STEP_TIMEOUT_SEC', '90'))
+            except Exception:
+                step_timeout = 90
+            from concurrent.futures import ThreadPoolExecutor, TimeoutError as _FutTimeout
             base_local = PROC_DIR.parent / "props" / f"player_props_lines/date={_d}"
             need_collect_local = not ((base_local / "bovada.parquet").exists() or (base_local / "oddsapi.parquet").exists())
             if need_collect_local:
@@ -3729,7 +3749,15 @@ async def api_cron_props_recommendations(
                                 roster_df_local = _props_data._build_roster_enrichment()
                             except Exception:
                                 roster_df_local = None
-                            res_local = props_data.collect_and_write(_d, roster_df=roster_df_local, cfg=cfg)
+                            # Timeout-guard the collection
+                            def _do_collect_local():
+                                return props_data.collect_and_write(_d, roster_df=roster_df_local, cfg=cfg)
+                            try:
+                                with ThreadPoolExecutor(max_workers=1) as ex:
+                                    fut = ex.submit(_do_collect_local)
+                                    res_local = fut.result(timeout=step_timeout)
+                            except _FutTimeout:
+                                res_local = {"output_path": None}
                             path_local = res_local.get("output_path")
                             if path_local:
                                 try:
@@ -3773,7 +3801,19 @@ async def api_cron_props_recommendations(
             try:
                 from datetime import datetime as _dt, timedelta as _td
                 start = (_dt.strptime(_d, "%Y-%m-%d") - _td(days=365)).strftime("%Y-%m-%d")
-                collect_player_game_stats(start, _d, source="stats")
+                # Guard the stats backfill with a timeout as well
+                def _do_stats():
+                    collect_player_game_stats(start, _d, source="stats")
+                try:
+                    from concurrent.futures import ThreadPoolExecutor, TimeoutError as _FutTimeout  # reuse names if not present
+                except Exception:
+                    pass
+                try:
+                    with ThreadPoolExecutor(max_workers=1) as ex:
+                        fut = ex.submit(_do_stats)
+                        fut.result(timeout=step_timeout)
+                except Exception:
+                    pass
             except Exception:
                 pass
         hist = pd.read_csv(stats_path) if stats_path.exists() else pd.DataFrame()
@@ -5323,6 +5363,11 @@ async def api_cron_props_full(
             from ..data import player_props as props_data
             base = PROC_DIR.parent / "props" / f"player_props_lines/date={d_local}"
             base.mkdir(parents=True, exist_ok=True)
+            try:
+                step_timeout = int(os.getenv('PROPS_STEP_TIMEOUT_SEC', '90'))
+            except Exception:
+                step_timeout = 90
+            from concurrent.futures import ThreadPoolExecutor, TimeoutError as _FutTimeout
             for which, src in (("bovada", "bovada"), ("oddsapi", "oddsapi")):
                 try:
                     cfg = props_data.PropsCollectionConfig(output_root=str(PROC_DIR.parent / "props"), book=which, source=src)
@@ -5330,7 +5375,15 @@ async def api_cron_props_full(
                         roster_df = _props_data._build_roster_enrichment()
                     except Exception:
                         roster_df = None
-                    res = props_data.collect_and_write(d_local, roster_df=roster_df, cfg=cfg)
+                    # Timeout-guard
+                    def _do_collect_full():
+                        return props_data.collect_and_write(d_local, roster_df=roster_df, cfg=cfg)
+                    try:
+                        with ThreadPoolExecutor(max_workers=1) as ex:
+                            fut = ex.submit(_do_collect_full)
+                            res = fut.result(timeout=step_timeout)
+                    except _FutTimeout:
+                        res = {"output_path": None}
                     path = res.get("output_path")
                     if path:
                         try:
@@ -5375,7 +5428,15 @@ async def api_cron_props_full(
                             from datetime import datetime as _dt, timedelta as _td
                             start = (_dt.strptime(d_local, "%Y-%m-%d") - _td(days=365)).strftime("%Y-%m-%d")
                             from ..data.collect import collect_player_game_stats
-                            collect_player_game_stats(start, d_local, source="stats")
+                            # Timeout-guard stats backfill
+                            def _do_stats_full():
+                                collect_player_game_stats(start, d_local, source="stats")
+                            try:
+                                with ThreadPoolExecutor(max_workers=1) as ex:
+                                    fut = ex.submit(_do_stats_full)
+                                    fut.result(timeout=step_timeout)
+                            except Exception:
+                                pass
                         except Exception:
                             pass
                     hist = pd.read_csv(stats_path) if stats_path.exists() else pd.DataFrame()

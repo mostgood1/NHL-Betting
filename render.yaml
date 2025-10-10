@@ -5,11 +5,8 @@ services:
     plan: free
     branch: master
     autoDeploy: true
-    buildCommand: |
-      python -m pip install --upgrade pip setuptools wheel
-      python -m pip install --prefer-binary -r requirements.txt
-    startCommand: |
-      uvicorn nhl_betting.web.app:app --host 0.0.0.0 --port $PORT
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn nhl_betting.web.app:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: ODDS_API_KEY
         sync: false
@@ -38,92 +35,50 @@ services:
 
   - type: cron
     name: nhl-betting-nightly
-    env: docker
-    schedule: "0 8 * * *"
-    command: |
-      /bin/sh -lc '
-        set -e
-        apk add --no-cache curl
-        curl -fsS -X POST https://nhl-betting.onrender.com/api/cron/refresh-bovada?date=yesterday -H "Authorization: Bearer ${REFRESH_CRON_TOKEN}" || true
-        curl -fsS -X POST https://nhl-betting.onrender.com/api/cron/capture-closing?date=yesterday -H "Authorization: Bearer ${REFRESH_CRON_TOKEN}" || true
-        curl -fsS -X POST https://nhl-betting.onrender.com/api/cron/retune -H "Authorization: Bearer ${REFRESH_CRON_TOKEN}" || true
-      '
+    schedule: "0 8 * * *" # 8:00 UTC daily (~3:00/4:00 ET)
+    command: curl -fsS -X POST https://nhl-betting.onrender.com/api/cron/refresh-bovada?date=yesterday -H "Authorization: Bearer ${REFRESH_CRON_TOKEN}" || true; curl -fsS -X POST https://nhl-betting.onrender.com/api/cron/capture-closing?date=yesterday -H "Authorization: Bearer ${REFRESH_CRON_TOKEN}" || true; curl -fsS -X POST https://nhl-betting.onrender.com/api/cron/retune -H "Authorization: Bearer ${REFRESH_CRON_TOKEN}" || true
     envVars:
       - key: REFRESH_CRON_TOKEN
         sync: false
 
   - type: cron
     name: nhl-betting-daytime
-    env: docker
     # Every 60 minutes to refresh today's slate; idempotent and only overwrites pre-start games
     schedule: "0 * * * *"
-    command: |
-      /bin/sh -lc '
-        set -e
-        apk add --no-cache curl
-        curl -fsS -X POST https://nhl-betting.onrender.com/api/cron/refresh-bovada -H "Authorization: Bearer ${REFRESH_CRON_TOKEN}" || true
-      '
+    command: curl -fsS -X POST https://nhl-betting.onrender.com/api/cron/refresh-bovada -H "Authorization: Bearer ${REFRESH_CRON_TOKEN}" || true
     envVars:
       - key: REFRESH_CRON_TOKEN
         sync: false
 
   - type: cron
     name: nhl-betting-props-projections
-    env: docker
     schedule: "5 12 * * *"
-    command: |
-      /bin/sh -lc '
-        set -e
-        apk add --no-cache curl
-        # Collect player props lines for today from both sources (best-effort)
-        curl -fsS -X POST https://nhl-betting.onrender.com/api/cron/props-collect -H "Authorization: Bearer ${REFRESH_CRON_TOKEN}" || true
-        # Compute and persist projections CSV for today (top 1000 rows)
-        curl -fsS -X POST "https://nhl-betting.onrender.com/api/cron/props-projections?top=1000" -H "Authorization: Bearer ${REFRESH_CRON_TOKEN}" || true
-      '
+    command: curl -fsS -X POST https://nhl-betting.onrender.com/api/cron/props-collect -H "Authorization: Bearer ${REFRESH_CRON_TOKEN}" || true; curl -fsS -X POST "https://nhl-betting.onrender.com/api/cron/props-projections?top=1000" -H "Authorization: Bearer ${REFRESH_CRON_TOKEN}" || true
     envVars:
       - key: REFRESH_CRON_TOKEN
         sync: false
 
   - type: cron
     name: nhl-betting-props-recommendations
-    env: docker
     # Scheduled a few minutes after projections to ensure inputs are ready
     schedule: "10 12 * * *"
-    command: |
-      /bin/sh -lc '
-        set -e
-        apk add --no-cache curl
-        # Ensure props lines exist (best-effort) then compute and persist recommendations CSV for today
-        curl -fsS -X POST https://nhl-betting.onrender.com/api/cron/props-recommendations -H "Authorization: Bearer ${REFRESH_CRON_TOKEN}" || true
-      '
+    command: curl -fsS -X POST https://nhl-betting.onrender.com/api/cron/props-recommendations -H "Authorization: Bearer ${REFRESH_CRON_TOKEN}" || true
     envVars:
       - key: REFRESH_CRON_TOKEN
         sync: false
 
   - type: cron
     name: nhl-betting-props-full
-    env: docker
     schedule: "20 12 * * *"
-    command: |
-      /bin/sh -lc '
-        set -e
-        apk add --no-cache curl
-        curl -fsS -X POST https://nhl-betting.onrender.com/api/cron/props-full -H "Authorization: Bearer ${REFRESH_CRON_TOKEN}" || true
-      '
+    command: curl -fsS -X POST https://nhl-betting.onrender.com/api/cron/props-full -H "Authorization: Bearer ${REFRESH_CRON_TOKEN}" || true
     envVars:
       - key: REFRESH_CRON_TOKEN
         sync: false
 
   - type: cron
     name: nhl-betting-props-all
-    env: docker
     schedule: "15 12 * * *"
-    command: |
-      /bin/sh -lc '
-        set -e
-        apk add --no-cache curl
-        curl -fsS -X POST https://nhl-betting.onrender.com/api/cron/props-all -H "Authorization: Bearer ${REFRESH_CRON_TOKEN}" || true
-      '
+    command: curl -fsS -X POST https://nhl-betting.onrender.com/api/cron/props-all -H "Authorization: Bearer ${REFRESH_CRON_TOKEN}" || true
     envVars:
       - key: REFRESH_CRON_TOKEN
         sync: false

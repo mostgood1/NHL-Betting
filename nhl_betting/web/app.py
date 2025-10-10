@@ -5769,6 +5769,151 @@ async def api_cron_refresh_bovada(
     try:
         # Use backfill to avoid clobbering existing values and overwrite_prestart to update pre-start games during the day
         res = await api_refresh_odds(date=d, snapshot=None, bankroll=0.0, kelly_fraction_part=0.5, backfill=True, overwrite_prestart=True)
+
+        # Helper to collect Bovada player props and compute props recommendations for the date
+        def _refresh_bovada_props_and_recs(_d: str) -> dict:
+            summary: dict = {"date": _d}
+            try:
+                # Collect Bovada props into parquet with roster enrichment
+                from ..data import player_props as _pp
+                base_dir = PROC_DIR.parent / "props" / f"player_props_lines/date={_d}"
+                base_dir.mkdir(parents=True, exist_ok=True)
+                try:
+                    roster_df = _pp._build_roster_enrichment()
+                except Exception:
+                    roster_df = None
+                cfg = _pp.PropsCollectionConfig(output_root=str(PROC_DIR.parent / "props"), book="bovada", source="bovada")
+                props_res = _pp.collect_and_write(_d, roster_df=roster_df, cfg=cfg)
+                summary["props"] = props_res
+                # Upsert parquet to GitHub if created
+                try:
+                    pth = props_res.get("output_path") if isinstance(props_res, dict) else None
+                    if pth:
+                        rel = str(Path(pth)).replace("\\", "/")
+                        try:
+                            parts = rel.split("/")
+                            if "data" in parts:
+                                idx = parts.index("data")
+                                rel = "/".join(parts[idx:])
+                        except Exception:
+                            pass
+                        _gh_upsert_file_if_better_or_same(Path(pth), f"web: update props lines bovada for {_d}", rel_hint=rel)
+                except Exception:
+                    pass
+            except Exception as e:
+                summary["props_error"] = str(e)
+
+            # Compute props recommendations CSV using existing inline logic
+            try:
+                from ..models.props import SkaterShotsModel, GoalieSavesModel, SkaterGoalsModel
+                from ..models.props import SkaterAssistsModel, SkaterPointsModel, SkaterBlocksModel
+                from ..utils.io import RAW_DIR
+                import pandas as _pd
+                # Load canonical lines from any available book (bovada first, then oddsapi)
+                parts = []
+                base = PROC_DIR.parent / "props" / f"player_props_lines/date={_d}"
+                for name in ("bovada.parquet", "oddsapi.parquet"):
+                    p = base / name
+                    if p.exists():
+                        try:
+                            parts.append(pd.read_parquet(p))
+                        except Exception:
+                            pass
+                if not parts:
+                    summary["recommendations"] = {"rows": 0, "message": "no-lines"}
+                    return summary
+                lines_df = pd.concat(parts, ignore_index=True)
+                # Ensure stats history exists (best-effort)
+                stats_path = RAW_DIR / "player_game_stats.csv"
+                if not stats_path.exists():
+                    try:
+                        from datetime import datetime as _dt, timedelta as _td
+                        start = (_dt.strptime(_d, "%Y-%m-%d") - _td(days=365)).strftime("%Y-%m-%d")
+                        from ..data.collect import collect_player_game_stats as _collect_stats
+                        _collect_stats(start, _d, source="stats")
+                    except Exception:
+                        pass
+                hist = pd.read_csv(stats_path) if stats_path.exists() else pd.DataFrame()
+                shots = SkaterShotsModel(); saves = GoalieSavesModel(); goals = SkaterGoalsModel(); assists = SkaterAssistsModel(); points = SkaterPointsModel(); blocks = SkaterBlocksModel()
+                def _proj_prob(mk, player, ln):
+                    mk = (mk or '').upper()
+                    if mk == 'SOG':
+                        lam = shots.player_lambda(hist, player); return lam, shots.prob_over(lam, ln)
+                    if mk == 'SAVES':
+                        lam = saves.player_lambda(hist, player); return lam, saves.prob_over(lam, ln)
+                    if mk == 'GOALS':
+                        lam = goals.player_lambda(hist, player); return lam, goals.prob_over(lam, ln)
+                    if mk == 'ASSISTS':
+                        lam = assists.player_lambda(hist, player); return lam, assists.prob_over(lam, ln)
+                    if mk == 'POINTS':
+                        lam = points.player_lambda(hist, player); return lam, points.prob_over(lam, ln)
+                    if mk == 'BLOCKS':
+                        lam = blocks.player_lambda(hist, player); return lam, blocks.prob_over(lam, ln)
+                    return None, None
+                recs = []
+                for _, r in lines_df.iterrows():
+                    m = str(r.get('market') or '').upper()
+                    player = r.get('player_name') or r.get('player')
+                    if not player:
+                        continue
+                    try:
+                        ln = float(r.get('line'))
+                    except Exception:
+                        continue
+                    op = r.get('over_price'); up = r.get('under_price')
+                    if _pd.isna(op) and _pd.isna(up):
+                        continue
+                    lam, p_over = _proj_prob(m, str(player), ln)
+                    if lam is None or p_over is None:
+                        continue
+                    def _dec(a):
+                        try:
+                            a = float(a); return 1.0 + (a/100.0) if a > 0 else 1.0 + (100.0/abs(a))
+                        except Exception:
+                            return None
+                    ev_o = (p_over * (_dec(op)-1.0) - (1.0 - p_over)) if (op is not None and _dec(op) is not None) else None
+                    p_under = max(0.0, 1.0 - float(p_over))
+                    ev_u = (p_under * (_dec(up)-1.0) - (1.0 - p_under)) if (up is not None and _dec(up) is not None) else None
+                    side = None; price = None; ev = None
+                    if ev_o is not None or ev_u is not None:
+                        if (ev_u is None) or (ev_o is not None and ev_o >= ev_u):
+                            side = 'Over'; price = op; ev = ev_o
+                        else:
+                            side = 'Under'; price = up; ev = ev_u
+                    recs.append({
+                        'date': _d,
+                        'player': player,
+                        'team': r.get('team') or None,
+                        'market': m,
+                        'line': ln,
+                        'proj': float(lam) if lam is not None else None,
+                        'p_over': float(p_over) if p_over is not None else None,
+                        'over_price': op if _pd.notna(op) else None,
+                        'under_price': up if _pd.notna(up) else None,
+                        'book': r.get('book'),
+                        'side': side,
+                        'ev': float(ev) if ev is not None else None,
+                    })
+                df_recs = pd.DataFrame(recs)
+                if not df_recs.empty:
+                    try:
+                        df_recs.sort_values('ev', ascending=False, inplace=True)
+                    except Exception:
+                        pass
+                rec_path = PROC_DIR / f"props_recommendations_{_d}.csv"
+                try:
+                    save_df(df_recs, rec_path)
+                    summary["recommendations"] = {"rows": 0 if df_recs.empty else int(len(df_recs)), "path": str(rec_path)}
+                    try:
+                        _gh_upsert_file_if_better_or_same(rec_path, f"web: update props recommendations for {_d}")
+                    except Exception:
+                        pass
+                except Exception as _e2:
+                    summary["recommendations_error"] = str(_e2)
+            except Exception as _e:
+                summary["recommendations_error"] = str(_e)
+            return summary
+
         # Normalize response in case it's a JSONResponse
         if isinstance(res, JSONResponse):
             try:
@@ -5786,6 +5931,11 @@ async def api_cron_refresh_bovada(
                 body["settlement"] = _backfill_settlement_for_date(d)
             except Exception:
                 pass
+            # New: refresh Bovada player props and compute props recommendations
+            try:
+                body["props_pipeline"] = _refresh_bovada_props_and_recs(d)
+            except Exception as _pe:
+                body["props_pipeline_error"] = str(_pe)
             return JSONResponse({"ok": True, "date": d, "result": body})
         # If non-JSONResponse path, still try closing capture
         out = {"ok": True, "date": d, "result": res}
@@ -5798,6 +5948,11 @@ async def api_cron_refresh_bovada(
             out["settlement"] = _backfill_settlement_for_date(d)
         except Exception:
             pass
+        # New: refresh Bovada player props and compute props recommendations
+        try:
+            out["props_pipeline"] = _refresh_bovada_props_and_recs(d)
+        except Exception as _pe2:
+            out["props_pipeline_error"] = str(_pe2)
         return JSONResponse(out)
     except Exception as e:
         return JSONResponse({"ok": False, "date": d, "error": str(e)}, status_code=500)

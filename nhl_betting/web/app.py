@@ -3899,7 +3899,34 @@ async def api_cron_props_recommendations(
         return {"rows": 0 if df is None or df.empty else int(len(df)), "path": str(rec_path)}
     try:
         if async_run:
-            job_id = _queue_cron('props-recommendations', {'date': d, 'market': market, 'min_ev': min_ev, 'top': top}, lambda: _compute_recommendations_for_date(d))
+            # Run with an overall timeout so we never hang indefinitely
+            def _run_recs_with_timeout():
+                try:
+                    timeout_s = int(os.getenv('PROPS_RECS_TIMEOUT_SEC', '180'))
+                except Exception:
+                    timeout_s = 180
+                res_holder: Dict[str, Any] = {}
+                err_holder: Dict[str, Any] = {}
+                def _inner():
+                    try:
+                        res_holder['res'] = _compute_recommendations_for_date(d)
+                    except Exception as e:
+                        err_holder['err'] = str(e)
+                th = threading.Thread(target=_inner, daemon=True)
+                th.start()
+                th.join(timeout=timeout_s)
+                if th.is_alive():
+                    # Timed out: write an empty CSV so downstream health reflects presence
+                    try:
+                        rec_path = PROC_DIR / f"props_recommendations_{d}.csv"
+                        save_df(pd.DataFrame(), rec_path)
+                    except Exception:
+                        pass
+                    return {"rows": 0, "path": str(PROC_DIR / f"props_recommendations_{d}.csv"), "message": "timeout"}
+                if 'err' in err_holder:
+                    raise Exception(err_holder['err'])
+                return res_holder.get('res', {"rows": 0, "path": str(PROC_DIR / f"props_recommendations_{d}.csv"), "message": "no-result"})
+            job_id = _queue_cron('props-recommendations', {'date': d, 'market': market, 'min_ev': min_ev, 'top': top}, _run_recs_with_timeout)
             return JSONResponse({"ok": True, "date": d, "queued": True, "mode": "async", "job_id": job_id}, status_code=202)
         res = _compute_recommendations_for_date(d)
         return JSONResponse({"ok": True, "date": d, **res})

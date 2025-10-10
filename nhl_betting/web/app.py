@@ -3961,6 +3961,9 @@ async def health_props(date: Optional[str] = Query(None, description="Slate date
         "projections_all_rows": _rows(proj_path),
         "recommendations_rows": _rows(rec_path),
         "projections_all_synthetic_like": (lambda: (lambda _df: (_looks_like_synthetic_props(_df) if _df is not None and not _df.empty else False))(_read_csv_fallback(proj_path)))(),
+        # Lines presence for the date
+        "lines_present": (lambda: ( (PROC_DIR.parent/"props"/f"player_props_lines/date={d}").exists() and ( (PROC_DIR.parent/"props"/f"player_props_lines/date={d}/bovada.parquet").exists() or (PROC_DIR.parent/"props"/f"player_props_lines/date={d}/oddsapi.parquet").exists() ) ))(),
+        "lines_books": (lambda: [name for name,path in ( ("bovada", PROC_DIR.parent/"props"/f"player_props_lines/date={d}/bovada.parquet"), ("oddsapi", PROC_DIR.parent/"props"/f"player_props_lines/date={d}/oddsapi.parquet") ) if path.exists() ])(),
         "fast_mode": os.getenv('FAST_PROPS_TEST','0') == '1',
         "force_synthetic": os.getenv('PROPS_FORCE_SYNTHETIC','0') == '1',
         "no_compute": os.getenv('PROPS_NO_COMPUTE','0') == '1',

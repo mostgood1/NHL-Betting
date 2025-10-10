@@ -4693,7 +4693,35 @@ async def cron_props_all(
         return {"rows": int(len(df)), "github": res_local}
     try:
         if async_run:
-            job_id = _queue_cron('props-all', {'date': d}, lambda: _compute_all_and_write(d))
+            # Run with a max duration budget; if it exceeds, write an empty CSV so health can reflect presence
+            def _run_all_with_timeout():
+                timeout_s = 0
+                try:
+                    timeout_s = int(os.getenv('PROPS_ALL_TIMEOUT_SEC', '120'))
+                except Exception:
+                    timeout_s = 120
+                res_holder: Dict[str, Any] = {}
+                err_holder: Dict[str, Any] = {}
+                def _inner():
+                    try:
+                        res_holder['res'] = _compute_all_and_write(d)
+                    except Exception as e:
+                        err_holder['err'] = str(e)
+                th = threading.Thread(target=_inner, daemon=True)
+                th.start()
+                th.join(timeout=timeout_s)
+                if th.is_alive():
+                    # Timed out; write empty to mark presence and return
+                    try:
+                        out_path = PROC_DIR / f"props_projections_all_{d}.csv"
+                        save_df(pd.DataFrame(), out_path)
+                    except Exception:
+                        pass
+                    return {"rows": 0, "github": None, "message": "timeout"}
+                if 'err' in err_holder:
+                    raise Exception(err_holder['err'])
+                return res_holder.get('res', {"rows": 0, "github": None, "message": "no-result"})
+            job_id = _queue_cron('props-all', {'date': d}, _run_all_with_timeout)
             return JSONResponse({"ok": True, "date": d, "queued": True, "mode": "async", "job_id": job_id}, status_code=202)
         res = _compute_all_and_write(d)
         return JSONResponse({"ok": True, "date": d, **res})

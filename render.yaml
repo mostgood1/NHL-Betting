@@ -22,8 +22,13 @@ services:
         value: Render Bot
       - key: GITHUB_COMMIT_EMAIL
         value: render-bot@example.com
-      - key: WEB_READ_ONLY_PREDICTIONS
-        value: "true"
+          dockerCommand: >
+            sh -lc '
+              f(){ url="$1"; for i in 1 2 3; do curl -fsS -X POST "$url" && return 0; echo "retry $i: $url"; sleep 5; done; return 0; };
+              f "https://nhl-betting.onrender.com/api/cron/refresh-bovada?date=yesterday&token=$REFRESH_CRON_TOKEN&async_run=1";
+              f "https://nhl-betting.onrender.com/api/cron/capture-closing?date=yesterday&token=$REFRESH_CRON_TOKEN&async_run=1";
+              f "https://nhl-betting.onrender.com/api/cron/retune?token=$REFRESH_CRON_TOKEN&async_run=1";
+            '
       - key: WEB_DISABLE_ODDS_FETCH
         value: "true"
       - key: REFRESH_CRON_TOKEN
@@ -31,16 +36,23 @@ services:
       - key: PYTHON_VERSION
         value: 3.11.9
       - key: NIXPACKS_PYTHON_VERSION
-        value: 3.11.9
-      - key: PIP_DISABLE_PIP_VERSION_CHECK
+          dockerCommand: >
+            sh -lc '
+              f(){ url="$1"; for i in 1 2 3; do curl -fsS -X POST "$url" && return 0; echo "retry $i: $url"; sleep 5; done; return 0; };
+              f "https://nhl-betting.onrender.com/api/cron/refresh-bovada?token=$REFRESH_CRON_TOKEN&async_run=1";
+            '
         value: "1"
 
   - type: cron
     name: nhl-betting-nightly
     schedule: "0 8 * * *" # 8:00 UTC daily (~3:00/4:00 ET)
     runtime: image
-    image:
-      url: docker.io/curlimages/curl:8.11.0
+          dockerCommand: >
+            sh -lc '
+              f(){ url="$1"; for i in 1 2 3; do curl -fsS -X POST "$url" && return 0; echo "retry $i: $url"; sleep 5; done; return 0; };
+              f "https://nhl-betting.onrender.com/api/cron/props-collect?token=$REFRESH_CRON_TOKEN&async_run=1";
+              f "https://nhl-betting.onrender.com/api/cron/props-projections?top=1000&token=$REFRESH_CRON_TOKEN&async_run=1";
+            '
     dockerCommand: >
       sh -lc "curl -fsS -X POST https://nhl-betting.onrender.com/api/cron/refresh-bovada?date=yesterday&token=$REFRESH_CRON_TOKEN\&async_run=1 || true; curl -fsS -X POST https://nhl-betting.onrender.com/api/cron/capture-closing?date=yesterday&token=$REFRESH_CRON_TOKEN\&async_run=1 || true; curl -fsS -X POST https://nhl-betting.onrender.com/api/cron/retune?token=$REFRESH_CRON_TOKEN\&async_run=1 || true"
     envVars:
@@ -48,24 +60,33 @@ services:
         sync: false
 
   - type: cron
-    name: nhl-betting-daytime
-    # Every 60 minutes to refresh today's slate; idempotent and only overwrites pre-start games
+          dockerCommand: >
+            sh -lc '
+              f(){ url="$1"; for i in 1 2 3; do curl -fsS -X POST "$url" && return 0; echo "retry $i: $url"; sleep 5; done; return 0; };
+              f "https://nhl-betting.onrender.com/api/cron/props-recommendations?token=$REFRESH_CRON_TOKEN&async_run=1";
+            '
     schedule: "0 * * * *"
     runtime: image
     image:
       url: docker.io/curlimages/curl:8.11.0
     dockerCommand: >
       sh -lc "curl -fsS -X POST https://nhl-betting.onrender.com/api/cron/refresh-bovada?token=$REFRESH_CRON_TOKEN\&async_run=1 || true"
-    envVars:
-      - key: REFRESH_CRON_TOKEN
+          dockerCommand: >
+            sh -lc '
+              f(){ url="$1"; for i in 1 2 3; do curl -fsS -X POST "$url" && return 0; echo "retry $i: $url"; sleep 5; done; return 0; };
+              f "https://nhl-betting.onrender.com/api/cron/props-full?token=$REFRESH_CRON_TOKEN&async_run=1";
+            '
         sync: false
 
   - type: cron
     name: nhl-betting-props-projections
     schedule: "5 12 * * *"
     runtime: image
-    image:
-      url: docker.io/curlimages/curl:8.11.0
+          dockerCommand: >
+            sh -lc '
+              f(){ url="$1"; for i in 1 2 3; do curl -fsS -X POST "$url" && return 0; echo "retry $i: $url"; sleep 5; done; return 0; };
+              f "https://nhl-betting.onrender.com/api/cron/props-all?token=$REFRESH_CRON_TOKEN&async_run=1";
+            '
     dockerCommand: >
       sh -lc "curl -fsS -X POST https://nhl-betting.onrender.com/api/cron/props-collect?token=$REFRESH_CRON_TOKEN\&async_run=1 || true; curl -fsS -X POST https://nhl-betting.onrender.com/api/cron/props-projections?top=1000\&token=$REFRESH_CRON_TOKEN\&async_run=1 || true"
     envVars:

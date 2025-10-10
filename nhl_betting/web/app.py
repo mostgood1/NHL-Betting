@@ -5649,10 +5649,7 @@ async def api_cron_props_range(
                 cur += timedelta(days=1)
         else:
             # Use existing helper _today_ymd (renders ET-based YMD elsewhere) to anchor base date
-            try:
-                base = datetime.strptime(_today_ymd(), "%Y-%m-%d").date()
-            except Exception:
-                base = datetime.utcnow().date()
+            base = datetime.strptime(_today_ymd(), "%Y-%m-%d").date()
             for i in range(back, -1, -1):
                 if i == 0:
                     dates.append(base.strftime("%Y-%m-%d"))

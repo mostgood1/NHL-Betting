@@ -5075,8 +5075,9 @@ async def props_recommendations_page(
             gh_df = _github_raw_read_csv(f"data/processed/props_recommendations_{date}.csv")
             if gh_df is not None and not gh_df.empty:
                 df = gh_df
-        # Inline compute fallback if still empty: build from canonical lines + models
-        if (df is None or df.empty) and not _read_only(date):
+    # Inline compute fallback if still empty: build from canonical lines + models
+    # Note: allow this even in read-only predictions mode; this path does not fetch odds
+    if (df is None or df.empty):
             try:
                 base = PROC_DIR.parent / "props" / f"player_props_lines/date={date}"
                 parts = []

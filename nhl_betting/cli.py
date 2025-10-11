@@ -1352,8 +1352,12 @@ def props_project_all(
                 collect_player_game_stats(start, date, source="stats")
         except Exception as e:
             print(f"[history] ensure failed: {e}")
+    # Load a lightweight view of history (only used for last-known position/team); avoid full CSV costs
     try:
-        hist = load_df(stats_path) if stats_path.exists() else pd.read_csv(stats_path)
+        if stats_path.exists():
+            hist = pd.read_csv(stats_path, usecols=[c for c in ["player","primary_position","team"] if c], low_memory=False)
+        else:
+            hist = pd.read_csv(stats_path, usecols=["player","primary_position","team"], low_memory=False)
     except Exception:
         hist = pd.DataFrame()
     # Harmonize initials to full names using roster
@@ -1409,31 +1413,116 @@ def props_project_all(
         ab = (_assets(str(nm)).get('abbr') or '').upper()
         if ab:
             slate_abbrs.add(ab)
-    # Try live roster via Stats API; on failure, fallback to historical roster enrichment
+    # Prepare a tiny cache to avoid rebuilding roster repeatedly within a day
+    roster_cache = PROC_DIR / f"roster_{date}.csv"
     roster_df = pd.DataFrame()
+    if roster_cache.exists():
+        try:
+            tmp = pd.read_csv(roster_cache)
+            # Basic sanity: required columns present and within slate
+            if not tmp.empty and {"player","team","position"}.issubset(tmp.columns):
+                if slate_abbrs:
+                    tmp = tmp[tmp["team"].astype(str).str.upper().isin(slate_abbrs)]
+                roster_df = tmp.copy()
+        except Exception:
+            roster_df = pd.DataFrame()
+    # Fast path: derive roster from canonical lines if present (avoids slow Stats API calls)
+    if roster_df.empty:
+        try:
+            base = Path("data/props") / f"player_props_lines/date={date}"
+            parts = []
+            for fn in ("bovada.parquet", "oddsapi.parquet"):
+                p = base / fn
+                if p.exists():
+                    try:
+                        parts.append(pd.read_parquet(p))
+                    except Exception:
+                        pass
+            if parts:
+                lines_df = pd.concat(parts, ignore_index=True)
+                # Map to minimal roster columns
+                def _abbr_team(t: str | None) -> str | None:
+                    if not t:
+                        return None
+                    try:
+                        a = _assets(str(t)) or {}
+                        ab = a.get("abbr")
+                        return str(ab).upper() if ab else (str(t).strip().upper() if str(t).strip() else None)
+                    except Exception:
+                        return str(t).strip().upper() if isinstance(t, str) and t.strip() else None
+                cur = lines_df.copy()
+                # Prefer current rows when marked; otherwise use all
+                try:
+                    if "is_current" in cur.columns:
+                        cur = cur[cur["is_current"] == True]
+                except Exception:
+                    pass
+                cur = cur.dropna(subset=["player_name"]).copy()
+                cur["_team_abbr"] = cur.get("team", pd.Series(index=cur.index)).map(_abbr_team)
+                # Position inference: use historical last known, else infer goalies from SAVES market
+                pos_map = {}
+                try:
+                    if hist is not None and not hist.empty and {"player","primary_position"}.issubset(hist.columns):
+                        tmp = hist.dropna(subset=["player"]).copy()
+                        tmp["player"] = tmp["player"].astype(str)
+                        last_pos = tmp.dropna(subset=["primary_position"]).groupby("player")["primary_position"].last()
+                        pos_map = {k: v for k, v in last_pos.items() if isinstance(k, str)}
+                except Exception:
+                    pos_map = {}
+                # Identify goalies from lines explicitly
+                goalie_names = set()
+                try:
+                    if {"market","player_name"}.issubset(cur.columns):
+                        goalie_names = set(cur[cur["market"].astype(str).str.upper() == "SAVES"]["player_name"].astype(str))
+                except Exception:
+                    goalie_names = set()
+                rows_fast = []
+                for _, rr in cur.iterrows():
+                    nm = str(rr.get("player_name") or "").strip()
+                    if not nm:
+                        continue
+                    tm = rr.get("_team_abbr")
+                    if tm and slate_abbrs and str(tm).upper() not in slate_abbrs:
+                        # Keep only slate teams
+                        continue
+                    raw_pos = pos_map.get(nm, "")
+                    pos = "G" if (include_goalies and (str(raw_pos).upper().startswith("G") or nm in goalie_names)) else ("D" if str(raw_pos).upper().startswith("D") else "F")
+                    rows_fast.append({"player": nm, "position": pos, "team": (str(tm).upper() if isinstance(tm, str) else tm)})
+                roster_df = pd.DataFrame(rows_fast).drop_duplicates()
+                # Persist cache for next calls
+                try:
+                    if not roster_df.empty:
+                        roster_df.to_csv(roster_cache, index=False)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+    # Try live roster via Stats API only if still empty; on failure, fallback to historical roster enrichment
     try:
         from .data.rosters import list_teams as _list_teams, fetch_current_roster as _fetch_current_roster
         teams = _list_teams()
         name_to_id = { str(t.get('name') or '').strip().lower(): int(t.get('id')) for t in teams }
         id_to_abbr = { int(t.get('id')): str(t.get('abbreviation') or '').upper() for t in teams }
-        rows_live = []
-        for nm in sorted(slate_team_names):
-            tid = name_to_id.get(str(nm).strip().lower())
-            if not tid:
-                continue
-            try:
-                players = _fetch_current_roster(tid)
-            except Exception:
-                players = []
-            for p in players:
-                rows_live.append({
-                    'player_id': p.player_id,
-                    'player': p.full_name,
-                    'position': p.position,
-                    'team': id_to_abbr.get(tid),
-                })
-        roster_df = pd.DataFrame(rows_live)
+        if roster_df.empty:
+            rows_live = []
+            for nm in sorted(slate_team_names):
+                tid = name_to_id.get(str(nm).strip().lower())
+                if not tid:
+                    continue
+                try:
+                    players = _fetch_current_roster(tid)
+                except Exception:
+                    players = []
+                for p in players:
+                    rows_live.append({
+                        'player_id': p.player_id,
+                        'player': p.full_name,
+                        'position': p.position,
+                        'team': id_to_abbr.get(tid),
+                    })
+            roster_df = pd.DataFrame(rows_live)
     except Exception as e:
+        # Silence noisy DNS/network errors; we'll use historical fallback
         print(f"[roster] live roster unavailable, using historical fallback: {e}")
         try:
             from .data import player_props as _pp
@@ -1474,8 +1563,12 @@ def props_project_all(
                 rows_fb.append({'player_id': rr.get('player_id'), 'player': nm, 'position': pos, 'team': ab})
             roster_df = pd.DataFrame(rows_fb)
     if roster_df.empty:
-        print("No roster players found for slate.")
-        raise typer.Exit(code=1)
+        print("No roster players found for slate. Writing empty projections file for fast exit.")
+        out = pd.DataFrame(columns=["date","player","team","position","market","proj_lambda"])
+        out_path = PROC_DIR / f"props_projections_all_{date}.csv"
+        save_df(out, out_path)
+        print(f"Wrote {out_path} with 0 rows")
+        return
     # Models
     shots = SkaterShotsModel(); saves = GoalieSavesModel(); goals = SkaterGoalsModel(); assists = SkaterAssistsModel(); points = SkaterPointsModel(); blocks = SkaterBlocksModel()
     rows = []

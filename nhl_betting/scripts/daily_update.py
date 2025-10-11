@@ -750,11 +750,48 @@ def run(days_ahead: int = 2, years_back: int = 2, reconcile_yesterday: bool = Tr
                 else:
                     raise RuntimeError('Unsupported command object for props build dataset')
             from nhl_betting.utils.io import RAW_DIR
-            out_csv = str((RAW_DIR.parent / "props" / "props_modeling_dataset.csv").resolve())
-            _vprint(verbose, f"[run] Building props modeling dataset {start}..{end}…")
-            _call_typer_or_func(_props_build_dataset, start=start, end=end, output_csv=out_csv)
+            out_csv_path = (RAW_DIR.parent / "props" / "props_modeling_dataset.csv")
+            out_csv_path.parent.mkdir(parents=True, exist_ok=True)
+            # Skip rebuild if file is fresh (modified within last 3 hours) to keep runs predictable
+            try:
+                if out_csv_path.exists():
+                    import datetime as _dt
+                    mtime = _dt.datetime.fromtimestamp(out_csv_path.stat().st_mtime)
+                    if (_dt.datetime.now() - mtime).total_seconds() < 3 * 3600:
+                        _vprint(verbose, f"[run] Skipping props modeling dataset rebuild (fresh as of {mtime:%H:%M}).")
+                    else:
+                        _vprint(verbose, f"[run] Building props modeling dataset {start}..{end}…")
+                        _call_typer_or_func(_props_build_dataset, start=start, end=end, output_csv=str(out_csv_path.resolve()))
+                else:
+                    _vprint(verbose, f"[run] Building props modeling dataset {start}..{end}…")
+                    _call_typer_or_func(_props_build_dataset, start=start, end=end, output_csv=str(out_csv_path.resolve()))
+            except Exception as ie:
+                _vprint(verbose, f"[run] props dataset build skipped quickly due to error: {ie}")
         except Exception as e:
             _vprint(verbose, f"[run] props dataset build skipped quickly due to error: {e}")
+        # Precompute model-only projections for slate players to lighten web compute
+        try:
+            from nhl_betting.cli import props_project_all as _props_project_all
+            def _call_typer_or_func_proj(cmd, **kwargs):
+                if hasattr(cmd, 'callback') and callable(getattr(cmd, 'callback')):
+                    return cmd.callback(**kwargs)
+                elif callable(cmd):
+                    return cmd(**kwargs)
+                else:
+                    raise RuntimeError('Unsupported command object for props project all')
+            base = _today_et().date()
+            targets = [base.strftime('%Y-%m-%d')]
+            if days_ahead and int(days_ahead) > 1:
+                from datetime import timedelta as _td
+                targets.append((base + _td(days=1)).strftime('%Y-%m-%d'))
+            for d in targets:
+                try:
+                    _vprint(verbose, f"[run] Precomputing props projections (all) for {d}…")
+                    _call_typer_or_func_proj(_props_project_all, date=d, ensure_history_days=365, include_goalies=True)
+                except Exception as e2:
+                    _vprint(verbose, f"[run] props_project_all failed for {d}: {e2}")
+        except Exception as e:
+            _vprint(verbose, f"[run] precompute props projections_all skipped: {e}")
         # Precompute props recommendations for ET today (+1 day) to speed up web UI
         try:
             from nhl_betting.cli import props_recommendations as _props_recs

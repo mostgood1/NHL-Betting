@@ -661,6 +661,55 @@ def _looks_like_synthetic_props(df: pd.DataFrame) -> bool:
         return False
 
 
+def _artifact_info_for_date(d: str) -> dict:
+    """Summarize key artifacts for a given ET date with exists/rows/mtime.
+
+    Includes predictions, edges, props recommendations, props projections (per-player and ALL),
+    and canonical props lines parquet presence by book.
+    """
+    info: dict[str, Any] = {"date": d}
+    try:
+        def _rows_csv(p: Path):
+            try:
+                if not p.exists():
+                    return None
+                df = _read_csv_fallback(p)
+                return 0 if df is None or df.empty else int(len(df))
+            except Exception:
+                return None
+        def _rows_parquet(p: Path):
+            try:
+                if not p.exists():
+                    return None
+                df = pd.read_parquet(p)
+                return 0 if df is None or df.empty else int(len(df))
+            except Exception:
+                return None
+        # Predictions / edges
+        pred = PROC_DIR / f"predictions_{d}.csv"
+        edges = PROC_DIR / f"edges_{d}.csv"
+        info["predictions"] = {"exists": pred.exists(), "rows": _rows_csv(pred), "mtime": _file_mtime_iso(pred)}
+        info["edges"] = {"exists": edges.exists(), "rows": _rows_csv(edges), "mtime": _file_mtime_iso(edges)}
+        # Recommendations and props projections
+        rec = PROC_DIR / f"props_recommendations_{d}.csv"
+        proj = PROC_DIR / f"props_projections_{d}.csv"
+        proj_all = PROC_DIR / f"props_projections_all_{d}.csv"
+        info["props_recommendations"] = {"exists": rec.exists(), "rows": _rows_csv(rec), "mtime": _file_mtime_iso(rec)}
+        info["props_projections"] = {"exists": proj.exists(), "rows": _rows_csv(proj), "mtime": _file_mtime_iso(proj)}
+        info["props_projections_all"] = {"exists": proj_all.exists(), "rows": _rows_csv(proj_all), "mtime": _file_mtime_iso(proj_all)}
+        # Canonical lines parquet by book
+        lines_base = PROC_DIR.parent / "props" / f"player_props_lines/date={d}"
+        books = {"bovada": lines_base / "bovada.parquet", "oddsapi": lines_base / "oddsapi.parquet"}
+        info["props_lines"] = {
+            "path": str(lines_base),
+            "exists": lines_base.exists(),
+            "books": {bk: {"exists": p.exists(), "rows": _rows_parquet(p), "mtime": _file_mtime_iso(p)} for bk, p in books.items()},
+        }
+    except Exception:
+        pass
+    return info
+
+
 _ROSTER_CACHE = None
 def _get_roster_snapshot():
     global _ROSTER_CACHE
@@ -3998,6 +4047,60 @@ async def health_props(date: Optional[str] = Query(None, description="Slate date
         "cache_entries": cache_entries,
         "cache_ttl_sec": _CACHE_TTL,
     })
+
+
+@app.get("/api/cron/overview")
+async def api_cron_overview(date: Optional[str] = Query(None), window: int = Query(1)):
+    """Summarize artifacts for date, previous day, and next day plus last cron jobs.
+
+    window controls how many neighbor days to include on each side (default 1 => D-1, D, D+1).
+    """
+    d = _normalize_date_param(date)
+    try:
+        base = datetime.strptime(d, "%Y-%m-%d")
+    except Exception:
+        base = datetime.strptime(_today_ymd(), "%Y-%m-%d")
+    days = []
+    try:
+        w = int(window) if window is not None else 1
+    except Exception:
+        w = 1
+    for off in range(-w, w + 1):
+        days.append((base + timedelta(days=off)).strftime("%Y-%m-%d"))
+    artifacts = {di: _artifact_info_for_date(di) for di in days}
+    # Sample last N jobs
+    try:
+        with _CRON_LOCK:
+            jobs = list(_CRON_JOBS.values())
+        jobs.sort(key=lambda r: r.get('updated_at',''), reverse=True)
+        jobs = jobs[:50]
+    except Exception:
+        jobs = []
+    return JSONResponse({"date": d, "days": days, "artifacts": artifacts, "jobs": jobs, "commit": _git_commit_hash()})
+
+
+@app.get("/cron")
+async def cron_dashboard(date: Optional[str] = Query(None), window: int = Query(1)):
+    """HTML dashboard summarizing artifacts and recent cron runs for quick verification."""
+    d = _normalize_date_param(date)
+    # Reuse API to assemble data
+    resp = await api_cron_overview(date=d, window=window)
+    payload = {}
+    if isinstance(resp, JSONResponse):
+        try:
+            import json as _json
+            payload = _json.loads(resp.body)
+        except Exception:
+            payload = {"date": d, "days": [], "artifacts": {}, "jobs": []}
+    template = env.get_template("cron.html")
+    html = template.render(
+        date=payload.get("date", d),
+        days=payload.get("days", []),
+        artifacts=payload.get("artifacts", {}),
+        jobs=payload.get("jobs", []),
+        commit=payload.get("commit"),
+    )
+    return HTMLResponse(content=html)
 
 @app.get('/api/version')
 async def api_version():

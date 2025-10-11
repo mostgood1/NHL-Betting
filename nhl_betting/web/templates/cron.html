@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cron Dashboard</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin: 16px; color: #111; }
+    h1 { margin: 0 0 8px; font-size: 1.5rem; }
+    .sub { color: #666; margin-bottom: 16px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+    .card { border: 1px solid #ddd; border-radius: 8px; padding: 12px; background: #fff; }
+    .card h3 { margin: 0 0 8px; font-size: 1.05rem; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    th, td { border-bottom: 1px solid #eee; padding: 6px 4px; text-align: left; vertical-align: top; }
+    th { color: #444; font-weight: 600; background: #fafafa; }
+    .muted { color: #777; }
+    .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.75rem; }
+    .ok { background: #e6ffed; color: #03643b; border: 1px solid #b7ebc6; }
+    .warn { background: #fff8e1; color: #7a5d00; border: 1px solid #ffe08a; }
+    .bad { background: #ffeaea; color: #8a1f1f; border: 1px solid #ffb3b3; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+    .row { display: flex; gap: 16px; align-items: center; }
+    .flex { display: flex; gap: 8px; flex-wrap: wrap; }
+    .small { font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+  <h1>Cron Dashboard</h1>
+  <div class="sub small">Date: <span class="mono">{{ date }}</span> • Commit: <span class="mono">{{ (commit or '')[:12] }}</span></div>
+
+  <div class="grid">
+    {% for d in days %}
+    {% set art = artifacts.get(d, {}) %}
+    <div class="card">
+      <h3>{{ d }}</h3>
+      <table>
+        <tbody>
+          {% set pr = art.get('predictions', {}) %}
+          <tr>
+            <th>Predictions</th>
+            <td>
+              {% if pr.get('exists') %}<span class="pill ok">exists</span>{% else %}<span class="pill bad">missing</span>{% endif %}
+              <span class="muted">rows: {{ pr.get('rows') }}</span>
+              <div class="muted small">mtime: {{ pr.get('mtime') }}</div>
+            </td>
+          </tr>
+          {% set ed = art.get('edges', {}) %}
+          <tr>
+            <th>Edges</th>
+            <td>
+              {% if ed.get('exists') %}<span class="pill ok">exists</span>{% else %}<span class="pill warn">missing</span>{% endif %}
+              <span class="muted">rows: {{ ed.get('rows') }}</span>
+              <div class="muted small">mtime: {{ ed.get('mtime') }}</div>
+            </td>
+          </tr>
+          {% set rr = art.get('props_recommendations', {}) %}
+          <tr>
+            <th>Props Recs</th>
+            <td>
+              {% if rr.get('exists') %}<span class="pill ok">exists</span>{% else %}<span class="pill warn">missing</span>{% endif %}
+              <span class="muted">rows: {{ rr.get('rows') }}</span>
+              <div class="muted small">mtime: {{ rr.get('mtime') }}</div>
+            </td>
+          </tr>
+          {% set pj = art.get('props_projections', {}) %}
+          <tr>
+            <th>Props Projections</th>
+            <td>
+              {% if pj.get('exists') %}<span class="pill ok">exists</span>{% else %}<span class="pill warn">missing</span>{% endif %}
+              <span class="muted">rows: {{ pj.get('rows') }}</span>
+              <div class="muted small">mtime: {{ pj.get('mtime') }}</div>
+            </td>
+          </tr>
+          {% set pja = art.get('props_projections_all', {}) %}
+          <tr>
+            <th>Projections ALL</th>
+            <td>
+              {% if pja.get('exists') %}<span class="pill ok">exists</span>{% else %}<span class="pill warn">missing</span>{% endif %}
+              <span class="muted">rows: {{ pja.get('rows') }}</span>
+              <div class="muted small">mtime: {{ pja.get('mtime') }}</div>
+            </td>
+          </tr>
+          {% set ln = art.get('props_lines', {}) %}
+          <tr>
+            <th>Props Lines</th>
+            <td>
+              {% if ln.get('exists') %}<span class="pill ok">dir</span>{% else %}<span class="pill bad">missing</span>{% endif %}
+              <div class="muted small">{{ ln.get('path') }}</div>
+              <div class="small">
+                {% for bk, meta in (ln.get('books') or {}).items() %}
+                  <div>
+                    <span class="mono">{{ bk }}</span> — {% if meta.get('exists') %}<span class="pill ok">exists</span>{% else %}<span class="pill warn">missing</span>{% endif %}
+                    <span class="muted">rows: {{ meta.get('rows') }}</span>
+                    <span class="muted small">mtime: {{ meta.get('mtime') }}</span>
+                  </div>
+                {% endfor %}
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="card" >
+    <h3>Recent Cron Jobs</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Id</th>
+          <th>Name</th>
+          <th>State</th>
+          <th>Updated</th>
+          <th class="muted">Params</th>
+          <th class="muted">Result/Error</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for j in jobs %}
+        <tr>
+          <td class="mono">{{ j.get('id') }}</td>
+          <td>{{ j.get('name') }}</td>
+          <td>
+            {% set st = (j.get('state') or '').lower() %}
+            {% if st == 'done' %}
+              <span class="pill ok">done</span>
+            {% elif st == 'running' %}
+              <span class="pill warn">running</span>
+            {% elif st == 'error' %}
+              <span class="pill bad">error</span>
+            {% else %}
+              <span class="pill">{{ j.get('state') }}</span>
+            {% endif %}
+          </td>
+          <td class="mono small">{{ j.get('updated_at') }}</td>
+          <td class="small mono">{{ j.get('params') }}</td>
+          <td class="small mono">
+            {% if j.get('error') %}
+              {{ j.get('error') }}
+            {% else %}
+              {{ j.get('result') }}
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</body>
+</html>

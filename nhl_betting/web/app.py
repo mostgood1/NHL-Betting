@@ -5075,120 +5075,120 @@ async def props_recommendations_page(
             gh_df = _github_raw_read_csv(f"data/processed/props_recommendations_{date}.csv")
             if gh_df is not None and not gh_df.empty:
                 df = gh_df
+    except Exception:
+        df = pd.DataFrame()
     # Inline compute fallback if still empty: build from canonical lines + models
     # Note: allow this even in read-only predictions mode; this path does not fetch odds
     if (df is None or df.empty):
-            try:
-                base = PROC_DIR.parent / "props" / f"player_props_lines/date={date}"
-                parts = []
-                for name in ("bovada.parquet", "oddsapi.parquet"):
-                    p = base / name
-                    if p.exists():
+        try:
+            base = PROC_DIR.parent / "props" / f"player_props_lines/date={date}"
+            parts = []
+            for name in ("bovada.parquet", "oddsapi.parquet"):
+                p = base / name
+                if p.exists():
+                    try:
+                        parts.append(pd.read_parquet(p))
+                    except Exception:
+                        pass
+            if parts:
+                lines = pd.concat(parts, ignore_index=True)
+                from ..models.props import SkaterShotsModel, GoalieSavesModel, SkaterGoalsModel
+                from ..models.props import SkaterAssistsModel, SkaterPointsModel, SkaterBlocksModel
+                from ..utils.io import RAW_DIR as _RAW
+                stats_path = _RAW / "player_game_stats.csv"
+                if not stats_path.exists():
+                    try:
+                        from datetime import datetime as _dt, timedelta as _td
+                        from ..data.collect import collect_player_game_stats as _collect
+                        start = (_dt.strptime(date, "%Y-%m-%d") - _td(days=365)).strftime("%Y-%m-%d")
+                        _collect(start, date, source="stats")
+                    except Exception:
+                        pass
+                hist = pd.read_csv(stats_path) if stats_path.exists() else pd.DataFrame()
+                shots = SkaterShotsModel(); saves = GoalieSavesModel(); goals = SkaterGoalsModel(); assists = SkaterAssistsModel(); points = SkaterPointsModel(); blocks = SkaterBlocksModel()
+                def _fallback_lambda(mk: str) -> float:
+                    mk = (mk or '').upper()
+                    if mk == 'SOG': return 2.4
+                    if mk == 'GOALS': return 0.35
+                    if mk == 'ASSISTS': return 0.4
+                    if mk == 'POINTS': return 0.9
+                    if mk == 'SAVES': return 27.0
+                    if mk == 'BLOCKS': return 1.3
+                    return 1.0
+                def _proj_prob(m, player, ln):
+                    m = (m or '').upper()
+                    if m == 'SOG':
+                        lam = shots.player_lambda(hist, player)
+                        if lam is None: lam = _fallback_lambda(m)
+                        return lam, shots.prob_over(lam, ln)
+                    if m == 'SAVES':
+                        lam = saves.player_lambda(hist, player)
+                        if lam is None: lam = _fallback_lambda(m)
+                        return lam, saves.prob_over(lam, ln)
+                    if m == 'GOALS':
+                        lam = goals.player_lambda(hist, player)
+                        if lam is None: lam = _fallback_lambda(m)
+                        return lam, goals.prob_over(lam, ln)
+                    if m == 'ASSISTS':
+                        lam = assists.player_lambda(hist, player)
+                        if lam is None: lam = _fallback_lambda(m)
+                        return lam, assists.prob_over(lam, ln)
+                    if m == 'POINTS':
+                        lam = points.player_lambda(hist, player)
+                        if lam is None: lam = _fallback_lambda(m)
+                        return lam, points.prob_over(lam, ln)
+                    if m == 'BLOCKS':
+                        lam = blocks.player_lambda(hist, player)
+                        if lam is None: lam = _fallback_lambda(m)
+                        return lam, blocks.prob_over(lam, ln)
+                    return None, None
+                recs = []
+                for _, r in lines.iterrows():
+                    m = str(r.get('market') or '').upper()
+                    player = r.get('player_name') or r.get('player')
+                    if not player:
+                        continue
+                    try:
+                        ln = float(r.get('line'))
+                    except Exception:
+                        continue
+                    op = r.get('over_price'); up = r.get('under_price')
+                    if pd.isna(op) and pd.isna(up):
+                        continue
+                    lam, p_over = _proj_prob(m, str(player), ln)
+                    if lam is None or p_over is None:
+                        continue
+                    def _dec(a):
                         try:
-                            parts.append(pd.read_parquet(p))
+                            a = float(a); return 1.0 + (a/100.0) if a > 0 else 1.0 + (100.0/abs(a))
                         except Exception:
-                            pass
-                if parts:
-                    lines = pd.concat(parts, ignore_index=True)
-                    from ..models.props import SkaterShotsModel, GoalieSavesModel, SkaterGoalsModel
-                    from ..models.props import SkaterAssistsModel, SkaterPointsModel, SkaterBlocksModel
-                    from ..utils.io import RAW_DIR as _RAW
-                    stats_path = _RAW / "player_game_stats.csv"
-                    if not stats_path.exists():
-                        try:
-                            from datetime import datetime as _dt, timedelta as _td
-                            from ..data.collect import collect_player_game_stats as _collect
-                            start = (_dt.strptime(date, "%Y-%m-%d") - _td(days=365)).strftime("%Y-%m-%d")
-                            _collect(start, date, source="stats")
-                        except Exception:
-                            pass
-                    hist = pd.read_csv(stats_path) if stats_path.exists() else pd.DataFrame()
-                    shots = SkaterShotsModel(); saves = GoalieSavesModel(); goals = SkaterGoalsModel(); assists = SkaterAssistsModel(); points = SkaterPointsModel(); blocks = SkaterBlocksModel()
-                    def _fallback_lambda(mk: str) -> float:
-                        mk = (mk or '').upper()
-                        if mk == 'SOG': return 2.4
-                        if mk == 'GOALS': return 0.35
-                        if mk == 'ASSISTS': return 0.4
-                        if mk == 'POINTS': return 0.9
-                        if mk == 'SAVES': return 27.0
-                        if mk == 'BLOCKS': return 1.3
-                        return 1.0
-                    def _proj_prob(m, player, ln):
-                        m = (m or '').upper()
-                        if m == 'SOG':
-                            lam = shots.player_lambda(hist, player)
-                            if lam is None: lam = _fallback_lambda(m)
-                            return lam, shots.prob_over(lam, ln)
-                        if m == 'SAVES':
-                            lam = saves.player_lambda(hist, player)
-                            if lam is None: lam = _fallback_lambda(m)
-                            return lam, saves.prob_over(lam, ln)
-                        if m == 'GOALS':
-                            lam = goals.player_lambda(hist, player)
-                            if lam is None: lam = _fallback_lambda(m)
-                            return lam, goals.prob_over(lam, ln)
-                        if m == 'ASSISTS':
-                            lam = assists.player_lambda(hist, player)
-                            if lam is None: lam = _fallback_lambda(m)
-                            return lam, assists.prob_over(lam, ln)
-                        if m == 'POINTS':
-                            lam = points.player_lambda(hist, player)
-                            if lam is None: lam = _fallback_lambda(m)
-                            return lam, points.prob_over(lam, ln)
-                        if m == 'BLOCKS':
-                            lam = blocks.player_lambda(hist, player)
-                            if lam is None: lam = _fallback_lambda(m)
-                            return lam, blocks.prob_over(lam, ln)
-                        return None, None
-                    recs = []
-                    for _, r in lines.iterrows():
-                        m = str(r.get('market') or '').upper()
-                        player = r.get('player_name') or r.get('player')
-                        if not player:
-                            continue
-                        try:
-                            ln = float(r.get('line'))
-                        except Exception:
-                            continue
-                        op = r.get('over_price'); up = r.get('under_price')
-                        if pd.isna(op) and pd.isna(up):
-                            continue
-                        lam, p_over = _proj_prob(m, str(player), ln)
-                        if lam is None or p_over is None:
-                            continue
-                        def _dec(a):
-                            try:
-                                a = float(a); return 1.0 + (a/100.0) if a > 0 else 1.0 + (100.0/abs(a))
-                            except Exception:
-                                return None
-                        ev_o = (p_over * (_dec(op)-1.0) - (1.0 - p_over)) if (op is not None and _dec(op) is not None) else None
-                        p_under = max(0.0, 1.0 - float(p_over))
-                        ev_u = (p_under * (_dec(up)-1.0) - (1.0 - p_under)) if (up is not None and _dec(up) is not None) else None
-                        side = None; price = None; ev = None
-                        if ev_o is not None or ev_u is not None:
-                            if (ev_u is None) or (ev_o is not None and ev_o >= ev_u):
-                                side = 'Over'; price = op; ev = ev_o
-                            else:
-                                side = 'Under'; price = up; ev = ev_u
-                        recs.append({
-                            'date': date,
-                            'player': player,
-                            'team': r.get('team') or None,
-                            'market': m,
-                            'line': ln,
-                            'proj': float(lam) if lam is not None else None,
-                            'p_over': float(p_over) if p_over is not None else None,
-                            'over_price': op if pd.notna(op) else None,
-                            'under_price': up if pd.notna(up) else None,
-                            'book': r.get('book'),
-                            'side': side,
-                            'ev': float(ev) if ev is not None else None,
-                        })
-                    df = pd.DataFrame(recs)
-            except Exception:
-                df = df
-    except Exception:
-        df = pd.DataFrame()
+                            return None
+                    ev_o = (p_over * (_dec(op)-1.0) - (1.0 - p_over)) if (op is not None and _dec(op) is not None) else None
+                    p_under = max(0.0, 1.0 - float(p_over))
+                    ev_u = (p_under * (_dec(up)-1.0) - (1.0 - p_under)) if (up is not None and _dec(up) is not None) else None
+                    side = None; price = None; ev = None
+                    if ev_o is not None or ev_u is not None:
+                        if (ev_u is None) or (ev_o is not None and ev_o >= ev_u):
+                            side = 'Over'; price = op; ev = ev_o
+                        else:
+                            side = 'Under'; price = up; ev = ev_u
+                    recs.append({
+                        'date': date,
+                        'player': player,
+                        'team': r.get('team') or None,
+                        'market': m,
+                        'line': ln,
+                        'proj': float(lam) if lam is not None else None,
+                        'p_over': float(p_over) if p_over is not None else None,
+                        'over_price': op if pd.notna(op) else None,
+                        'under_price': up if pd.notna(up) else None,
+                        'book': r.get('book'),
+                        'side': side,
+                        'ev': float(ev) if ev is not None else None,
+                    })
+                df = pd.DataFrame(recs)
+        except Exception:
+            pass
     # Apply filters
     try:
         if df is None or df.empty:

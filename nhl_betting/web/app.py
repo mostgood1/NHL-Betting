@@ -7236,7 +7236,28 @@ async def api_reconciliation(
     Uses predictions_{date}.csv. Totals/puckline results are read from result_total/result_ats when present.
     Moneyline results are included only if price/result fields exist.
     """
-    d = date or _today_ymd()
+    # Normalize potential FastAPI Query objects when invoked internally
+    try:
+        from fastapi import params as _params
+    except Exception:
+        _params = None
+    def _norm(v, default=None):
+        if _params and isinstance(v, _params.Query):
+            return v.default if v.default is not None else default
+        return v if v is not None else default
+    d = _norm(date, _today_ymd())
+    try:
+        bankroll = float(_norm(bankroll, 1000.0) or 1000.0)
+    except Exception:
+        bankroll = 1000.0
+    try:
+        flat_stake = float(_norm(flat_stake, 100.0) or 100.0)
+    except Exception:
+        flat_stake = 100.0
+    try:
+        top = int(_norm(top, 200) or 200)
+    except Exception:
+        top = 200
     path = PROC_DIR / f"predictions_{d}.csv"
     if not path.exists():
         return JSONResponse({"summary": {"date": d, "picks": 0, "decided": 0, "wins": 0, "losses": 0, "pushes": 0, "staked": 0.0, "pnl": 0.0, "roi": None}, "rows": []})

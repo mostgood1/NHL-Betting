@@ -6,6 +6,19 @@ import time
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
+# Ensure the repository root is on sys.path when this file is executed directly
+# (e.g., python path/to/nhl_betting/scripts/daily_update.py)
+try:
+    import sys
+    from pathlib import Path
+    _THIS = Path(__file__).resolve()
+    # Repo root is three levels up: nhl_betting/scripts/daily_update.py -> nhl_betting -> repo root
+    _ROOT = _THIS.parent.parent.parent
+    if str(_ROOT) not in sys.path:
+        sys.path.insert(0, str(_ROOT))
+except Exception:
+    pass
+
 import pandas as pd
 
 from nhl_betting.cli import predict_core, featurize, train

@@ -7173,6 +7173,22 @@ async def recommendations(
             recon_summary = _payload.get("summary", {}) or {}
     except Exception:
         recon_summary = {}
+    # Normalize keys for template safety: older paths may return 'staked' instead of 'stake'
+    try:
+        if isinstance(recon_summary, dict):
+            if ('stake' not in recon_summary) and ('staked' in recon_summary):
+                recon_summary['stake'] = recon_summary.get('staked')
+            # Ensure essential fields exist to avoid Jinja attribute errors
+            for k, dv in {
+                'wins': 0,
+                'losses': 0,
+                'pushes': 0,
+                'pnl': 0.0,
+                'roi': None,
+            }.items():
+                recon_summary.setdefault(k, dv)
+    except Exception:
+        pass
     # Summary metrics (overall and per-group)
     def american_to_decimal_local(american):
         try:

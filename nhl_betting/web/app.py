@@ -5181,7 +5181,9 @@ async def props_recommendations_page(
     except Exception:
         df = pd.DataFrame()
     # Inline compute fallback if still empty: build from canonical lines + models
-    # Note: allow this even in read-only predictions mode; this path does not fetch odds
+    # Note: allow this even in read-only predictions mode; this path does not fetch odds.
+    # IMPORTANT: Do NOT backfill player stats here (web request path) to avoid long timeouts on Render.
+    # If local RAW stats are missing, attempt GitHub raw; otherwise proceed with empty stats and use model defaults.
     if (df is None or df.empty):
         try:
             base = PROC_DIR.parent / "props" / f"player_props_lines/date={date}"
@@ -5199,15 +5201,17 @@ async def props_recommendations_page(
                 from ..models.props import SkaterAssistsModel, SkaterPointsModel, SkaterBlocksModel
                 from ..utils.io import RAW_DIR as _RAW
                 stats_path = _RAW / "player_game_stats.csv"
-                if not stats_path.exists():
-                    try:
-                        from datetime import datetime as _dt, timedelta as _td
-                        from ..data.collect import collect_player_game_stats as _collect
-                        start = (_dt.strptime(date, "%Y-%m-%d") - _td(days=365)).strftime("%Y-%m-%d")
-                        _collect(start, date, source="stats")
-                    except Exception:
-                        pass
-                hist = pd.read_csv(stats_path) if stats_path.exists() else pd.DataFrame()
+                hist = pd.DataFrame()
+                try:
+                    if stats_path.exists():
+                        hist = pd.read_csv(stats_path)
+                    else:
+                        # Best-effort GitHub raw fallback; do not fetch over network APIs here
+                        gh_hist = _github_raw_read_csv("data/raw/player_game_stats.csv")
+                        if gh_hist is not None and not gh_hist.empty:
+                            hist = gh_hist
+                except Exception:
+                    hist = pd.DataFrame()
                 shots = SkaterShotsModel(); saves = GoalieSavesModel(); goals = SkaterGoalsModel(); assists = SkaterAssistsModel(); points = SkaterPointsModel(); blocks = SkaterBlocksModel()
                 def _fallback_lambda(mk: str) -> float:
                     mk = (mk or '').upper()

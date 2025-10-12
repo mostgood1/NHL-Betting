@@ -4232,25 +4232,27 @@ async def props_all_players_page(
         rec_df = None
     notice = None
     if df is None or df.empty:
-        if _read_only(d_requested):
-            try:
-                from datetime import datetime as _dt2, timedelta as _td2
-                base = _dt2.strptime(d_requested, "%Y-%m-%d")
-                df_found = None; d_found = None
-                for i in range(0, 7):
-                    d_try = (base - _td2(days=i)).strftime("%Y-%m-%d")
-                    gh_df = _github_raw_read_csv(f"data/processed/props_projections_all_{d_try}.csv")
-                    if gh_df is not None and not gh_df.empty and not _looks_like_synthetic_props(gh_df):
-                        df_found = gh_df; d_found = d_try; break
-                if df_found is not None:
-                    df = df_found; used_date = d_found
-                    if used_date != d_requested:
-                        notice = f"No data for {d_requested}. Showing latest available model-only projections from {used_date}."
-                else:
-                    df = pd.DataFrame(); notice = f"No model-only projections available for {d_requested}."
-            except Exception:
-                df = pd.DataFrame(); notice = f"No model-only projections available for {d_requested}."
-        else:
+        # Always attempt GitHub recent fallback first (last 7 days), regardless of read-only flag
+        try:
+            from datetime import datetime as _dt2, timedelta as _td2
+            base = _dt2.strptime(d_requested, "%Y-%m-%d")
+            df_found = None; d_found = None
+            for i in range(0, 7):
+                d_try = (base - _td2(days=i)).strftime("%Y-%m-%d")
+                gh_df = _github_raw_read_csv(f"data/processed/props_projections_all_{d_try}.csv")
+                if gh_df is not None and not gh_df.empty and not _looks_like_synthetic_props(gh_df):
+                    df_found = gh_df; d_found = d_try; break
+            if df_found is not None:
+                df = df_found; used_date = d_found
+                if used_date != d_requested:
+                    notice = f"No data for {d_requested}. Showing latest available model-only projections from {used_date}."
+        except Exception:
+            pass
+        # If still empty and we're on a public host, avoid heavy on-demand compute to prevent timeouts
+        if (df is None or df.empty) and _is_public_host_env():
+            df = pd.DataFrame(); notice = notice or f"No model-only projections available for {d_requested}."
+        elif df is None or df.empty:
+            # Local/dev compute path
             try:
                 df = _compute_all_players_projections(d_requested)
                 if df is not None and not df.empty:

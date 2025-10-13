@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import subprocess
 import json
 import time
 from datetime import datetime, timedelta, timezone
@@ -725,7 +726,7 @@ def reconcile_date(date: str, bankroll: float = 1000.0, flat_stake: float = 100.
     return {"status": "ok", **summary}
 
 
-def run(days_ahead: int = 2, years_back: int = 2, reconcile_yesterday: bool = True, verbose: bool = False, bootstrap_models: bool = False, trends_decay: float = 0.98, reset_trends: bool = False, skip_props: bool = False) -> None:
+def run(days_ahead: int = 2, years_back: int = 2, reconcile_yesterday: bool = True, verbose: bool = False, bootstrap_models: bool = False, trends_decay: float = 0.98, reset_trends: bool = False, skip_props: bool = False, git_push: bool = True, git_remote: str = "origin", git_branch: str | None = None) -> None:
     _vprint(verbose, "[run] Starting daily update…")
     t_start = time.perf_counter()
     # 1) Optionally (re)build models from history
@@ -874,6 +875,44 @@ def run(days_ahead: int = 2, years_back: int = 2, reconcile_yesterday: bool = Tr
         _vprint(verbose, f"[summary] Predicted: {', '.join(pred_dates)}; Trends: ml_keys={tr_ml}, goals_keys={tr_goals}; Duration: {total_dur:.1f}s")
     else:
         print(f"[summary] Predicted: {', '.join(pred_dates)}; Trends: ml_keys={tr_ml}, goals_keys={tr_goals}; Duration: {total_dur:.1f}s")
+    # 4) Optionally commit and push changes to git (code + tracked data updates)
+    if git_push:
+        try:
+            # Determine repo root and current branch
+            root = _ROOT if '_ROOT' in globals() else Path(__file__).resolve().parents[2]
+            def _run(cmd: list[str]) -> subprocess.CompletedProcess:
+                return subprocess.run(cmd, cwd=str(root), capture_output=True, text=True, check=False)
+            # Ensure we are inside a git repository
+            chk = _run(["git", "rev-parse", "--is-inside-work-tree"])
+            if chk.returncode != 0 or (chk.stdout or '').strip() != 'true':
+                _vprint(verbose, "[git] Not a git repository; skipping push.")
+            else:
+                # Stage all tracked/untracked (respects .gitignore)
+                _run(["git", "add", "-A"]).stdout
+                # Skip commit if no changes
+                status = _run(["git", "status", "--porcelain"]).stdout
+                if status.strip():
+                    # Get current branch if none provided
+                    branch = git_branch
+                    if not branch:
+                        br = _run(["git", "rev-parse", "--abbrev-ref", "HEAD"]).stdout.strip()
+                        branch = br or "master"
+                    # Compose message
+                    now_et = _today_et().strftime('%Y-%m-%d %H:%M %Z')
+                    msg = f"[auto] daily update: {', '.join(pred_dates)} @ {now_et}"
+                    cm = _run(["git", "commit", "-m", msg])
+                    if cm.returncode != 0:
+                        _vprint(verbose, f"[git] Commit returned code {cm.returncode}: {cm.stderr.strip()}")
+                    # Push
+                    ps = _run(["git", "push", git_remote, branch])
+                    if ps.returncode == 0:
+                        print(f"[git] Pushed to {git_remote}/{branch}: {msg}")
+                    else:
+                        _vprint(verbose, f"[git] Push failed code {ps.returncode}: {ps.stderr.strip()}")
+                else:
+                    _vprint(verbose, "[git] No changes to commit.")
+        except Exception as e:
+            _vprint(verbose, f"[git] Skipped due to error: {e}")
     _vprint(verbose, "[run] Daily update complete.")
 
 
@@ -1113,6 +1152,10 @@ if __name__ == "__main__":
     ap.add_argument("--skip-props", action="store_true", help="Skip props reconciliation for previous day")
     ap.add_argument("--trends-decay", type=float, default=0.98, help="Daily decay factor applied to trend adjustments (0-1)")
     ap.add_argument("--reset-trends", action="store_true", help="Reset trend adjustments before retune")
+    # Git auto-push controls (enabled by default)
+    ap.add_argument("--no-git-push", action="store_true", help="Disable final git commit/push step")
+    ap.add_argument("--git-remote", type=str, default="origin", help="Remote name to push to (default: origin)")
+    ap.add_argument("--git-branch", type=str, default=None, help="Branch to push (default: current branch)")
     args = ap.parse_args()
     run(
         days_ahead=args.days_ahead,
@@ -1123,4 +1166,7 @@ if __name__ == "__main__":
         trends_decay=args.trends_decay,
         reset_trends=args.reset_trends,
         skip_props=args.skip_props,
+        git_push=(not args.no_git_push),
+        git_remote=args.git_remote,
+        git_branch=args.git_branch,
     )

@@ -221,19 +221,7 @@ async def props_safeguard(date: Optional[str] = None):
     except Exception as e:
         return JSONResponse({"error":"safeguard_failed","detail":str(e)}, status_code=500)
 
-# Root handlers: avoid 405/404 noise and keep the landing tiny
-@app.get("/", include_in_schema=False)
-async def root_get(request: Request):
-    """Lightweight landing redirect to the main props page."""
-    try:
-        from urllib.parse import urlencode
-        allowed_keys = {"date", "team", "market", "sort", "page", "page_size"}
-        qp = {k: v for k, v in dict(request.query_params).items() if k in allowed_keys and v is not None}
-        q = ("?" + urlencode(qp)) if qp else ""
-    except Exception:
-        q = ""
-    from fastapi.responses import RedirectResponse
-    return RedirectResponse(url=f"/props/all{q}", status_code=307)
+# Root HEAD handler: avoids 405s from HEAD probes without invoking heavy work
 
 @app.head("/", include_in_schema=False)
 async def root_head():

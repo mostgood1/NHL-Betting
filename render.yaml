@@ -29,6 +29,8 @@ services:
         value: "8000"
       - key: CACHED_PROPS_TTL_SECONDS
         value: "300"
+      - key: WEB_DISABLE_GH_UPSERT
+        value: "true"
       - key: REFRESH_CRON_TOKEN
         sync: false
       - key: PYTHON_VERSION

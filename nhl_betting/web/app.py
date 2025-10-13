@@ -1241,6 +1241,8 @@ def _backfill_settlement_for_date(date: str) -> dict:
 def _gh_upsert_file_if_configured(path: Path, message: str) -> dict:
     """Push a file to GitHub if GITHUB_TOKEN and GITHUB_REPO are configured. Best-effort, non-fatal."""
     try:
+        if os.getenv("WEB_DISABLE_GH_UPSERT", "").strip() in ("1","true","yes"):
+            return {"skipped": True, "reason": "disabled_by_env"}
         token = os.getenv("GITHUB_TOKEN", "").strip()
         repo = os.getenv("GITHUB_REPO", "").strip()
         branch = os.getenv("GITHUB_BRANCH", "master").strip()
@@ -1333,6 +1335,8 @@ def _gh_upsert_file_if_better_or_same(path: Path, message: str, rel_hint: Option
     For Parquet lines, regression = fewer rows as well.
     """
     try:
+        if os.getenv("WEB_DISABLE_GH_UPSERT", "").strip() in ("1","true","yes"):
+            return {"skipped": True, "reason": "disabled_by_env"}
         token = os.getenv("GITHUB_TOKEN", "").strip()
         repo = os.getenv("GITHUB_REPO", "").strip()
         branch = os.getenv("GITHUB_BRANCH", "master").strip() or "master"

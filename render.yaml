@@ -23,6 +23,12 @@ services:
         value: render-bot@example.com
       - key: WEB_DISABLE_ODDS_FETCH
         value: "true"
+      - key: PROPS_PAGE_SIZE
+        value: "150"
+      - key: PROPS_MAX_ROWS
+        value: "8000"
+      - key: CACHED_PROPS_TTL_SECONDS
+        value: "300"
       - key: REFRESH_CRON_TOKEN
         sync: false
       - key: PYTHON_VERSION
@@ -77,3 +83,13 @@ services:
       sh -lc 'curl -fsS "https://nhl-betting.onrender.com/api/refresh-odds-light?overwrite_prestart=1" || curl -fsS "https://nhl-betting.onrender.com/api/recompute-only" || true'
 
   # Daily: Props refresh disabled server-side (now produced locally by daily updater)
+
+  # Keepalive ping (lightweight) to reduce free plan cold start health check timeouts
+  - type: cron
+    name: keepalive-health
+    schedule: "*/10 * * * *" # every 10 minutes
+    runtime: image
+    image:
+      url: docker.io/curlimages/curl:8.11.0
+    dockerCommand: >
+      sh -lc 'curl -fsS "https://nhl-betting.onrender.com/health" >/dev/null 2>&1 || true'

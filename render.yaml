@@ -7,7 +7,8 @@ services:
     autoDeployTrigger: commit
     healthCheckPath: /health
     buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn nhl_betting.web.app:app --host 0.0.0.0 --port $PORT
+  # Use a lightweight ASGI wrapper to avoid cold-start timeouts on health checks.
+  startCommand: uvicorn nhl_betting.web.asgi:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: ODDS_API_KEY
         sync: false
@@ -77,4 +78,4 @@ services:
     image:
       url: docker.io/curlimages/curl:8.11.0
     dockerCommand: >
-      sh -lc 'curl -fsS "https://nhl-betting.onrender.com/health" >/dev/null 2>&1 || true'
+      sh -lc 'curl -fsS "https://nhl-betting.onrender.com/warmup?async_run=1" >/dev/null 2>&1 || true; curl -fsS "https://nhl-betting.onrender.com/health" >/dev/null 2>&1 || true'

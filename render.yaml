@@ -3,9 +3,10 @@ services:
     name: nhl-betting
     env: python
     plan: starter
+    autoDeploy: false
     branch: master
-    autoDeployTrigger: commit
-    healthCheckPath: /health
+  # Health is served by the lightweight ASGI wrapper and is very fast.
+  healthCheckPath: /health
     buildCommand: pip install -r requirements.txt
   # Use a lightweight ASGI wrapper to avoid cold-start timeouts on health checks.
   startCommand: uvicorn nhl_betting.web.asgi:app --host 0.0.0.0 --port $PORT

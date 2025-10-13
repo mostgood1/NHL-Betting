@@ -85,6 +85,19 @@ def _cache_put(key, value):
         return
     _CACHE[key] = {"value": value, "ts": time.time()}
 
+def _compute_allowed() -> bool:
+    """Return True if server-side compute fallback is allowed.
+
+    We explicitly disable on public hosts and when PROPS_NO_COMPUTE=1.
+    """
+    try:
+        if os.getenv('PROPS_NO_COMPUTE', '0') == '1':
+            return False
+    except Exception:
+        pass
+    # Never compute on public deploys unless explicitly overridden
+    return not _is_public_host_env()
+
 app = FastAPI()
 # ----------------------------------------------------------------------------------
 # Lightweight cron job status tracker (in-memory, best-effort)
@@ -4231,7 +4244,26 @@ async def props_all_players_page(
             return HTMLResponse(content=cached, headers={"X-Cache": "HIT"})
     # Load / compute
     t_load_start = time.perf_counter()
-    df = _read_all_players_projections(d_requested)
+    # CSV-only policy for public host to keep route light
+    df = None
+    if _is_public_host_env():
+        try:
+            p = PROC_DIR / f"props_projections_all_{d_requested}.csv"
+            if p.exists():
+                df = _read_csv_fallback(p)
+            if (df is None or df.empty):
+                # GitHub recent fallback
+                from datetime import datetime as _dt2, timedelta as _td2
+                base = _dt2.strptime(d_requested, "%Y-%m-%d")
+                for i in range(0, 7):
+                    d_try = (base - _td2(days=i)).strftime("%Y-%m-%d")
+                    gh_df = _github_raw_read_csv(f"data/processed/props_projections_all_{d_try}.csv")
+                    if gh_df is not None and not gh_df.empty and not _looks_like_synthetic_props(gh_df):
+                        df = gh_df; used_date = d_try; break
+        except Exception:
+            df = None
+    else:
+        df = _read_all_players_projections(d_requested)
     # Attempt to load recommendations (lines + probabilities + EV)
     rec_df = None
     try:
@@ -5390,10 +5422,8 @@ async def props_recommendations_page(
     except Exception:
         df = pd.DataFrame()
     # Inline compute fallback if still empty: build from canonical lines + models
-    # Note: allow this even in read-only predictions mode; this path does not fetch odds.
-    # IMPORTANT: Do NOT backfill player stats here (web request path) to avoid long timeouts on Render.
-    # If local RAW stats are missing, attempt GitHub raw; otherwise proceed with empty stats and use model defaults.
-    if (df is None or df.empty):
+    # Server policy: disable heavy compute on public host. Local/dev may compute.
+    if (df is None or df.empty) and _compute_allowed():
         try:
             base = PROC_DIR.parent / "props" / f"player_props_lines/date={date}"
             parts = []
@@ -5544,7 +5574,7 @@ async def props_recommendations_page(
                 pass
     except Exception:
         df = pd.DataFrame()
-    # Build an optional player_id map from canonical lines to attach headshots
+    # Build an optional player_id map from canonical lines to attach headshots (skip on public host)
     player_photo: dict[str, str] = {}
     player_team_map: dict[str, str] = {}
     valid_player_names: set[str] = set()
@@ -5556,6 +5586,8 @@ async def props_recommendations_page(
         except Exception:
             return str(x)
     try:
+        if _is_public_host_env():
+            raise Exception("skip_enrichment_on_public_host")
         d_for_lines = date or _today_ymd()
         base = PROC_DIR.parent / "props" / f"player_props_lines/date={d_for_lines}"
         parts = []
@@ -5898,6 +5930,50 @@ async def props_recommendations_page(
         cards=cards,
     )
     return HTMLResponse(content=html)
+
+@app.get("/api/props/recommendations.json")
+async def props_recommendations_json(
+    date: Optional[str] = Query(None),
+    market: Optional[str] = Query(None),
+    min_ev: float = Query(0.0),
+    side: Optional[str] = Query("both"),
+):
+    d = date or _today_ymd()
+    df = pd.DataFrame()
+    try:
+        p = PROC_DIR / f"props_recommendations_{d}.csv"
+        if p.exists():
+            df = _read_csv_fallback(p)
+        if (df is None or df.empty):
+            gh = _github_raw_read_csv(f"data/processed/props_recommendations_{d}.csv")
+            if gh is not None and not gh.empty:
+                df = gh
+    except Exception:
+        df = pd.DataFrame()
+    if df is None or df.empty:
+        return JSONResponse({"date": d, "rows": 0, "data": []})
+    try:
+        if market and 'market' in df.columns:
+            df = df[df['market'].astype(str).str.upper() == str(market).upper()]
+        if 'ev' in df.columns:
+            df['ev'] = pd.to_numeric(df['ev'], errors='coerce')
+            df = df[df['ev'] >= float(min_ev)]
+        if side and side.lower() in ("over","under") and 'side' in df.columns:
+            df = df[df['side'].astype(str).str.lower() == side.lower()]
+    except Exception:
+        pass
+    # Trim to safe size
+    try:
+        n = int(os.getenv('PROPS_MAX_ROWS','8000'))
+        if len(df) > n:
+            df = df.head(n)
+    except Exception:
+        pass
+    try:
+        recs = df.to_dict(orient='records')
+    except Exception:
+        recs = []
+    return JSONResponse({"date": d, "rows": len(recs), "data": recs})
 
 
 @app.post("/api/cron/props-full")

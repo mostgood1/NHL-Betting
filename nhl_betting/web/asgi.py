@@ -71,10 +71,15 @@ class WrapperASGI:
         # Proxy others
         if _HEAVY_APP is None:
             ensure_heavy_loaded(background=True)
-            # Fast, friendly warmup response
+            # Fast, friendly warmup response without 5xx to avoid upstream 502s
             if method in ("HEAD", "OPTIONS"):
                 return await self._send_empty(send, 204)
-            return await self._send_html(send, 503, b"<html><body><p>Warming up... retry shortly.</p></body></html>", {b"Retry-After": b"2"})
+            warm_html = (
+                b"<html><head><meta http-equiv=\"refresh\" content=\"2;url=/\" /></head>"
+                b"<body><p>Service warming up. This will auto-retry in 2s...</p>"
+                b"<p>If not redirected, <a href=\"/\">click here</a>.</p></body></html>"
+            )
+            return await self._send_html(send, 200, warm_html)
 
         return await _HEAVY_APP(scope, receive, send)
 
@@ -102,3 +107,9 @@ class WrapperASGI:
 
 
 app = WrapperASGI()
+
+# Proactively begin warming on process start to reduce first-hit latency
+try:
+    ensure_heavy_loaded(background=True)
+except Exception:
+    pass

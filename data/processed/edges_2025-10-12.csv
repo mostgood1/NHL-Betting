@@ -1,0 +1,5 @@
+date,home,away,market,ev
+2025-10-12T23:00:00Z,New York Rangers,Washington Capitals,ev_over,0.1143
+2025-10-12T23:00:00Z,New York Rangers,Washington Capitals,ev_away_ml,0.0379
+2025-10-12T23:00:00Z,New York Rangers,Washington Capitals,ev_home_ml,-0.1387
+2025-10-12T23:00:00Z,New York Rangers,Washington Capitals,ev_under,-0.5287

@@ -57,27 +57,10 @@ services:
         sync: false
 
   # Daily: Recompute-only passes (no model runs). Optionally fill fresh Bovada odds lightly and recompute.
+  # Single light recompute cron (pruned duplicates). Adjust schedule as needed.
   - type: cron
-    name: games-recompute-1
-    schedule: "30 15 * * *" # 15:30 UTC (~11:30 ET)
-    runtime: image
-    image:
-      url: docker.io/curlimages/curl:8.11.0
-    dockerCommand: >
-      sh -lc 'curl -fsS "https://nhl-betting.onrender.com/api/refresh-odds-light?overwrite_prestart=1" || curl -fsS "https://nhl-betting.onrender.com/api/recompute-only" || true'
-
-  - type: cron
-    name: games-recompute-2
-    schedule: "30 18 * * *" # 18:30 UTC (~14:30 ET)
-    runtime: image
-    image:
-      url: docker.io/curlimages/curl:8.11.0
-    dockerCommand: >
-      sh -lc 'curl -fsS "https://nhl-betting.onrender.com/api/refresh-odds-light?overwrite_prestart=1" || curl -fsS "https://nhl-betting.onrender.com/api/recompute-only" || true'
-
-  - type: cron
-    name: games-recompute-3
-    schedule: "30 22 * * *" # 22:30 UTC (~18:30 ET)
+    name: games-recompute
+    schedule: "30 18 * * *" # default 18:30 UTC (~14:30 ET)
     runtime: image
     image:
       url: docker.io/curlimages/curl:8.11.0

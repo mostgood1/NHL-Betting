@@ -5153,6 +5153,201 @@ async def api_refresh_odds(
         pass
     return JSONResponse({"status": "ok", "date": date})
 
+
+@app.get("/api/recompute-only")
+async def api_recompute_only(
+    date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD (ET)"),
+):
+    """Recompute EV/edges/recommendations from existing predictions without fetching odds or running models.
+
+    - Reads predictions_{date}.csv (must already exist locally or be present via GitHub cache in UI paths)
+    - Recomputes EV and edges from current odds/close_* columns
+    - Regenerates recommendations_{date}.csv
+    """
+    d = date or _today_ymd()
+    try:
+        await _recompute_edges_and_recommendations(d)
+        return JSONResponse({"status": "ok", "date": d})
+    except Exception as e:
+        return JSONResponse({"status": "error", "date": d, "error": str(e)}, status_code=500)
+
+
+def _inject_bovada_odds_into_predictions(date: str, backfill: bool = False) -> Dict[str, Any]:
+    """Fetch Bovada odds and inject into predictions_{date}.csv without recomputing model probabilities.
+
+    If backfill=True, only fill missing odds; otherwise, overwrite existing odds for the slate.
+    Returns a small summary dict with counts.
+    """
+    from .teams import get_team_assets as _assets
+    # Ensure predictions file exists locally; if not, try GitHub raw and persist
+    pred_path = PROC_DIR / f"predictions_{date}.csv"
+    df = None
+    if pred_path.exists():
+        try:
+            df = _read_csv_fallback(pred_path)
+        except Exception:
+            df = pd.DataFrame()
+    if (df is None or df.empty):
+        try:
+            gh = _github_raw_read_csv(f"data/processed/predictions_{date}.csv")
+            if gh is not None and not gh.empty:
+                df = gh
+                try:
+                    df.to_csv(pred_path, index=False)
+                except Exception:
+                    pass
+        except Exception:
+            df = df
+    if df is None or df.empty:
+        return {"status": "no-predictions", "date": date}
+    # Fetch Bovada odds
+    try:
+        bc = BovadaClient()
+        odds = bc.fetch_game_odds(date)
+        if odds is None:
+            odds = pd.DataFrame()
+    except Exception:
+        odds = pd.DataFrame()
+    if odds is None or odds.empty:
+        return {"status": "no-odds", "date": date}
+    # Normalize odds keys for robust matching
+    import re, unicodedata
+    def norm_team(s: str) -> str:
+        if s is None:
+            return ""
+        s = str(s)
+        s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode()
+        s = s.lower()
+        s = re.sub(r"[^a-z0-9]+", "", s)
+        return s
+    odds = odds.copy()
+    odds["date"] = pd.to_datetime(odds["date"], errors="coerce").dt.strftime("%Y-%m-%d")
+    odds["home_norm"] = odds["home"].apply(norm_team)
+    odds["away_norm"] = odds["away"].apply(norm_team)
+    try:
+        def to_abbr(x):
+            try:
+                return (_assets(str(x)).get("abbr") or "").upper()
+            except Exception:
+                return ""
+        odds["home_abbr"] = odds["home"].apply(to_abbr)
+        odds["away_abbr"] = odds["away"].apply(to_abbr)
+    except Exception:
+        odds["home_abbr"] = ""
+        odds["away_abbr"] = ""
+    # Build lookups
+    by_abbr = {}
+    by_norm = {}
+    for _, r in odds.iterrows():
+        k1 = (str(r.get("date") or date), str(r.get("home_abbr") or ""), str(r.get("away_abbr") or ""))
+        k2 = (str(r.get("date") or date), str(r.get("home_norm") or ""), str(r.get("away_norm") or ""))
+        by_abbr[k1] = r
+        by_norm[k2] = r
+    # Ensure destination columns exist
+    for c in [
+        "home_ml_odds","away_ml_odds","over_odds","under_odds","total_line_used",
+        "home_pl_-1.5_odds","away_pl_+1.5_odds",
+        "home_ml_book","away_ml_book","over_book","under_book","home_pl_-1.5_book","away_pl_+1.5_book",
+    ]:
+        if c not in df.columns:
+            df[c] = pd.NA
+    updated_rows = 0
+    updated_fields = 0
+    def set_val(idx, col, val):
+        nonlocal updated_fields
+        try:
+            cur = df.at[idx, col]
+            if backfill:
+                if pd.isna(cur) or cur is None or cur == "":
+                    df.at[idx, col] = val
+                    updated_fields += 1
+            else:
+                df.at[idx, col] = val
+                updated_fields += 1
+        except Exception:
+            pass
+    def date_key(x) -> str:
+        try:
+            return pd.to_datetime(x).strftime("%Y-%m-%d")
+        except Exception:
+            return date
+    for idx, r in df.iterrows():
+        dkey = date_key(r.get("date"))
+        home = str(r.get("home") or "")
+        away = str(r.get("away") or "")
+        try:
+            h_ab = (_assets(home).get("abbr") or "").upper()
+            a_ab = (_assets(away).get("abbr") or "").upper()
+        except Exception:
+            h_ab = a_ab = ""
+        h_n = norm_team(home)
+        a_n = norm_team(away)
+        m = by_abbr.get((dkey, h_ab, a_ab)) or by_norm.get((dkey, h_n, a_n))
+        if m is None:
+            continue
+        before_fields = updated_fields
+        # Map odds fields
+        def _to_float_or_none(v):
+            try:
+                return float(v)
+            except Exception:
+                return v
+        mapping = [
+            ("home_ml_odds", m.get("home_ml")),
+            ("away_ml_odds", m.get("away_ml")),
+            ("over_odds", m.get("over")),
+            ("under_odds", m.get("under")),
+            ("total_line_used", _to_float_or_none(m.get("total_line"))),
+            ("home_pl_-1.5_odds", m.get("home_pl_-1.5")),
+            ("away_pl_+1.5_odds", m.get("away_pl_+1.5")),
+            ("home_ml_book", m.get("home_ml_book")),
+            ("away_ml_book", m.get("away_ml_book")),
+            ("over_book", m.get("over_book")),
+            ("under_book", m.get("under_book")),
+            ("home_pl_-1.5_book", m.get("home_pl_-1.5_book")),
+            ("away_pl_+1.5_book", m.get("away_pl_+1.5_book")),
+        ]
+        for col, val in mapping:
+            if val is None or (isinstance(val, float) and pd.isna(val)):
+                continue
+            set_val(idx, col, val)
+        if updated_fields > before_fields:
+            updated_rows += 1
+    # Persist
+    df.to_csv(pred_path, index=False)
+    try:
+        _gh_upsert_file_if_configured(pred_path, f"web: update predictions with fresh Bovada odds for {date}")
+    except Exception:
+        pass
+    return {"status": "ok", "date": date, "updated_rows": int(updated_rows), "updated_fields": int(updated_fields)}
+
+
+@app.get("/api/refresh-odds-light")
+async def api_refresh_odds_light(
+    date: Optional[str] = Query(None),
+    backfill: bool = Query(False, description="If true, only fill missing odds; do not overwrite existing prices"),
+    overwrite_prestart: bool = Query(False, description="If true, allow refresh even during live slates"),
+):
+    """Lightweight odds refresh that DOES NOT run models.
+
+    - Ensures predictions_{date}.csv exists locally (uses GitHub fallback if available)
+    - Fetches Bovada odds and injects into predictions file
+    - Recomputes EV/edges/recommendations from existing model probabilities
+    """
+    d = date or _today_ymd()
+    # Skip refresh during live slates unless explicitly allowed
+    try:
+        if _is_live_day(d) and not overwrite_prestart:
+            return JSONResponse({"status": "skipped-live", "date": d, "message": "Live games in progress; light odds refresh skipped."}, status_code=200)
+    except Exception:
+        pass
+    summary = _inject_bovada_odds_into_predictions(d, backfill=backfill)
+    try:
+        await _recompute_edges_and_recommendations(d)
+    except Exception:
+        pass
+    return JSONResponse({"status": "ok", **(summary or { }), "date": d})
+
 @app.get("/props/recommendations")
 async def props_recommendations_page(
     date: Optional[str] = Query(None),

@@ -28,7 +28,7 @@ services:
       - key: PYTHON_VERSION
         value: 3.11.9
 
-  # Nightly maintenance: capture yesterday closings, run retune, and refresh odds.
+  # Nightly maintenance: capture yesterday closings and write reconciliations (no server-side model runs).
   - type: cron
     name: nightly-core
     schedule: "0 8 * * *" # 08:00 UTC (~03/04 ET)
@@ -38,9 +38,8 @@ services:
     dockerCommand: >
       sh -lc '
         f(){ url="$1"; for i in 1 2 3; do curl -fsS "$url" && return 0; echo "retry $i: $url"; sleep 5; done; return 0; };
-        # Capture closings and retune
+        # Capture closings only (no server-side retune)
         f "https://nhl-betting.onrender.com/api/cron/capture-closing?date=yesterday&token=$REFRESH_CRON_TOKEN&async_run=1";
-        f "https://nhl-betting.onrender.com/api/cron/retune?token=$REFRESH_CRON_TOKEN&async_run=1";
         # Persist reconciliations for games and props (GET endpoints compute and write caches)
         f "https://nhl-betting.onrender.com/api/reconciliation?date=yesterday";
         f "https://nhl-betting.onrender.com/api/player-props-reconciliation?date=yesterday&refresh=1";
@@ -49,103 +48,32 @@ services:
       - key: REFRESH_CRON_TOKEN
         sync: false
 
-  # Daily: Games odds + projections refresh passes (2-3x). Also recomputes edges and recommendations.
+  # Daily: Recompute-only passes (no model runs). Optionally fill fresh Bovada odds lightly and recompute.
   - type: cron
-    name: games-refresh-1
+    name: games-recompute-1
     schedule: "30 15 * * *" # 15:30 UTC (~11:30 ET)
     runtime: image
     image:
       url: docker.io/curlimages/curl:8.11.0
     dockerCommand: >
-      sh -lc 'curl -fsS "https://nhl-betting.onrender.com/api/refresh-odds?overwrite_prestart=1" || true'
+      sh -lc 'curl -fsS "https://nhl-betting.onrender.com/api/refresh-odds-light?overwrite_prestart=1" || curl -fsS "https://nhl-betting.onrender.com/api/recompute-only" || true'
 
   - type: cron
-    name: games-refresh-2
+    name: games-recompute-2
     schedule: "30 18 * * *" # 18:30 UTC (~14:30 ET)
     runtime: image
     image:
       url: docker.io/curlimages/curl:8.11.0
     dockerCommand: >
-      sh -lc 'curl -fsS "https://nhl-betting.onrender.com/api/refresh-odds?overwrite_prestart=1" || true'
+      sh -lc 'curl -fsS "https://nhl-betting.onrender.com/api/refresh-odds-light?overwrite_prestart=1" || curl -fsS "https://nhl-betting.onrender.com/api/recompute-only" || true'
 
   - type: cron
-    name: games-refresh-3
+    name: games-recompute-3
     schedule: "30 22 * * *" # 22:30 UTC (~18:30 ET)
     runtime: image
     image:
       url: docker.io/curlimages/curl:8.11.0
     dockerCommand: >
-      sh -lc 'curl -fsS "https://nhl-betting.onrender.com/api/refresh-odds?overwrite_prestart=1" || true'
+      sh -lc 'curl -fsS "https://nhl-betting.onrender.com/api/refresh-odds-light?overwrite_prestart=1" || curl -fsS "https://nhl-betting.onrender.com/api/recompute-only" || true'
 
-  # Daily: Props sequence (collect -> projections_all -> recommendations), 2 passes
-  - type: cron
-    name: props-refresh-1-collect
-    schedule: "35 15 * * *" # 15:35 UTC (~11:35 ET)
-    runtime: image
-    image:
-      url: docker.io/curlimages/curl:8.11.0
-    dockerCommand: >
-      sh -lc 'curl -fsS -X POST "https://nhl-betting.onrender.com/api/cron/props-collect?token=$REFRESH_CRON_TOKEN&async_run=1" || true'
-    envVars:
-      - key: REFRESH_CRON_TOKEN
-        sync: false
-
-  - type: cron
-    name: props-refresh-1-projections-all
-    schedule: "40 15 * * *"
-    runtime: image
-    image:
-      url: docker.io/curlimages/curl:8.11.0
-    dockerCommand: >
-      sh -lc 'curl -fsS -X POST "https://nhl-betting.onrender.com/api/cron/props-all?token=$REFRESH_CRON_TOKEN&async_run=1" || true'
-    envVars:
-      - key: REFRESH_CRON_TOKEN
-        sync: false
-
-  - type: cron
-    name: props-refresh-1-recommendations
-    schedule: "45 15 * * *"
-    runtime: image
-    image:
-      url: docker.io/curlimages/curl:8.11.0
-    dockerCommand: >
-      sh -lc 'curl -fsS -X POST "https://nhl-betting.onrender.com/api/cron/props-recommendations?token=$REFRESH_CRON_TOKEN&async_run=1" || true'
-    envVars:
-      - key: REFRESH_CRON_TOKEN
-        sync: false
-
-  - type: cron
-    name: props-refresh-2-collect
-    schedule: "35 18 * * *" # 18:35 UTC (~14:35 ET)
-    runtime: image
-    image:
-      url: docker.io/curlimages/curl:8.11.0
-    dockerCommand: >
-      sh -lc 'curl -fsS -X POST "https://nhl-betting.onrender.com/api/cron/props-collect?token=$REFRESH_CRON_TOKEN&async_run=1" || true'
-    envVars:
-      - key: REFRESH_CRON_TOKEN
-        sync: false
-
-  - type: cron
-    name: props-refresh-2-projections-all
-    schedule: "40 18 * * *"
-    runtime: image
-    image:
-      url: docker.io/curlimages/curl:8.11.0
-    dockerCommand: >
-      sh -lc 'curl -fsS -X POST "https://nhl-betting.onrender.com/api/cron/props-all?token=$REFRESH_CRON_TOKEN&async_run=1" || true'
-    envVars:
-      - key: REFRESH_CRON_TOKEN
-        sync: false
-
-  - type: cron
-    name: props-refresh-2-recommendations
-    schedule: "45 18 * * *"
-    runtime: image
-    image:
-      url: docker.io/curlimages/curl:8.11.0
-    dockerCommand: >
-      sh -lc 'curl -fsS -X POST "https://nhl-betting.onrender.com/api/cron/props-recommendations?token=$REFRESH_CRON_TOKEN&async_run=1" || true'
-    envVars:
-      - key: REFRESH_CRON_TOKEN
-        sync: false
+  # Daily: Props refresh disabled server-side (now produced locally by daily updater)

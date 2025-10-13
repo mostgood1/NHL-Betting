@@ -53,6 +53,61 @@ def _vprint(verbose: bool, *args, **kwargs):
         print(*args, **kwargs)
 
 
+def _ensure_predictions_csv(date: str, verbose: bool = False) -> None:
+    """Ensure a predictions_{date}.csv exists; if missing, generate a minimal one without odds.
+
+    This allows reconciliation to proceed even if the prior day wasn't run locally.
+    """
+    path = PROC_DIR / f"predictions_{date}.csv"
+    if path.exists() and path.stat().st_size > 0:
+        return
+    try:
+        predict_core(date=date, source="web", odds_source="csv")
+        _vprint(verbose, f"[ensure] predictions_{date}.csv created (no odds)")
+    except Exception as e:
+        _vprint(verbose, f"[ensure] failed to create predictions_{date}.csv: {e}")
+
+
+def _maybe_calibrate_props_stats(verbose: bool = False) -> None:
+    """Calibrate stats-only props models once per day (writes processed JSON).
+
+    Runs only if player_game_stats.csv exists and last calibration is older than ~20 hours.
+    """
+    try:
+        # Allow quick opt-out via environment
+        import os as _os
+        if str(_os.environ.get("SKIP_PROPS_CALIBRATION", "")).strip() in ("1", "true", "yes"): 
+            _vprint(verbose, "[props] calibration skipped by SKIP_PROPS_CALIBRATION env")
+            return
+        from nhl_betting.utils.io import RAW_DIR as _RAW
+        stats_path = _RAW / "player_game_stats.csv"
+        if not stats_path.exists() or stats_path.stat().st_size < 10:
+            return
+        # Determine if we need to refresh calibration
+        out_path = PROC_DIR / "props_stats_calibration.json"
+        import datetime as _dt
+        if out_path.exists():
+            mtime = _dt.datetime.fromtimestamp(out_path.stat().st_mtime)
+            if (_dt.datetime.now() - mtime).total_seconds() < 20 * 3600:
+                return
+        # Choose season window (Sep 1 of last season to yesterday ET)
+        today_et = _today_et().date()
+        season_start_year = today_et.year - 1
+        start = f"{season_start_year}-09-01"
+        end = (today_et - _dt.timedelta(days=1)).strftime("%Y-%m-%d")
+        try:
+            from nhl_betting.cli import props_stats_calibration as _props_cal
+            if hasattr(_props_cal, 'callback') and callable(getattr(_props_cal, 'callback')):
+                _props_cal.callback(start=start, end=end, windows="5,10,20", bins=10, output_json=str(out_path))
+            else:
+                _props_cal(start=start, end=end, windows="5,10,20", bins=10, output_json=str(out_path))
+            _vprint(verbose, f"[props] stats calibration refreshed {start}..{end}")
+        except Exception as e:
+            _vprint(verbose, f"[props] calibration skipped: {e}")
+    except Exception:
+        return
+
+
 def update_models_history_window(years_back: int = 2, verbose: bool = False) -> None:
     """Fetch recent seasons' schedule/results, overwrite games.csv, featurize and train.
 
@@ -734,6 +789,12 @@ def run(days_ahead: int = 2, years_back: int = 2, reconcile_yesterday: bool = Tr
         t0 = time.perf_counter()
         update_models_history_window(years_back=years_back, verbose=verbose)
         _vprint(verbose, f"[run] Models updated in {time.perf_counter() - t0:.1f}s")
+    # 1a) Ensure prior-day predictions CSV exists (enables reconciliation if prior run missed)
+    try:
+        y_et = _today_et().date() - timedelta(days=1)
+        _ensure_predictions_csv(y_et.strftime('%Y-%m-%d'), verbose=verbose)
+    except Exception:
+        pass
     # 1b) Quick retune from yesterday's completed games
     t_rt = time.perf_counter()
     quick_retune_from_yesterday(verbose=verbose, trends_decay=trends_decay, reset_trends=reset_trends)
@@ -806,6 +867,11 @@ def run(days_ahead: int = 2, years_back: int = 2, reconcile_yesterday: bool = Tr
                     _vprint(verbose, f"[run] props_project_all failed for {d}: {e2}")
         except Exception as e:
             _vprint(verbose, f"[run] precompute props projections_all skipped: {e}")
+        # Calibrate stats-only props models (periodic)
+        try:
+            _maybe_calibrate_props_stats(verbose=verbose)
+        except Exception:
+            pass
         # Precompute props recommendations for ET today (+1 day) to speed up web UI
         try:
             from nhl_betting.cli import props_recommendations as _props_recs
@@ -828,6 +894,14 @@ def run(days_ahead: int = 2, years_back: int = 2, reconcile_yesterday: bool = Tr
                     _call_typer_or_func_recs(_props_recs, date=d, min_ev=0.0, top=200, market="")
                 except Exception as e2:
                     _vprint(verbose, f"[run] props recommendations failed for {d}: {e2}")
+                    # Write an empty placeholder to allow reconciliation to proceed
+                    try:
+                        outp = PROC_DIR / f"props_recommendations_{d}.csv"
+                        if not outp.exists():
+                            pd.DataFrame(columns=["date","player_id","player_name","team","market","line","over_price","under_price","book","ev","p_over"]).to_csv(outp, index=False)
+                            _vprint(verbose, f"[run] wrote empty props_recommendations_{d}.csv placeholder")
+                    except Exception:
+                        pass
         except Exception as e:
             _vprint(verbose, f"[run] precompute props recommendations skipped: {e}")
         _vprint(verbose, f"[run] Props collection/dataset in {time.perf_counter() - t1b:.1f}s")

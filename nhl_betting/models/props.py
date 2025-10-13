@@ -39,20 +39,43 @@ def _name_variants(full_name: str) -> Set[str]:
 
 
 def _select_player_rows(df: pd.DataFrame, player: str, role: str, metric_cols: List[str]) -> pd.DataFrame:
+    """Return per-player rows for a given role with guaranteed metric columns present.
+
+    This helper is defensive: if expected metric columns are missing from the source
+    data, it will create them as NaN so downstream dropna/sort logic is safe.
+    """
+    expected = ["date", "player", "role", *metric_cols]
     if df is None or df.empty:
-        return pd.DataFrame(columns=["date", "player", "role", *metric_cols])
+        # Ensure the returned frame has the expected schema
+        return pd.DataFrame(columns=expected)
     try:
         candidates = _name_variants(player)
-        pdf = df[df["role"] == role].copy()
+        pdf = df[df.get("role", "").astype(str).str.lower() == str(role).lower()].copy()
         # Normalize player names in the view for matching
-        pdf["_p_norm"] = pdf["player"].astype(str).map(_normalize_name)
-        pdf = pdf[pdf["_p_norm"].isin(candidates)]
-        # Clean to expected columns
-        keep = [c for c in ["date", "player", "role", *metric_cols] if c in pdf.columns]
-        pdf = pdf[keep] if keep else pdf
-        return pdf
+        if "player" in pdf.columns:
+            pdf["_p_norm"] = pdf["player"].astype(str).map(_normalize_name)
+            pdf = pdf[pdf["_p_norm"].isin(candidates)]
+        else:
+            # No player column; return empty schema
+            return pd.DataFrame(columns=expected)
+        # If 'date' is missing but 'date_key' exists (common in calibration), copy it
+        if "date" not in pdf.columns and "date_key" in pdf.columns:
+            pdf["date"] = pdf["date_key"]
+        # Materialize any missing metric columns as NaN
+        for col in metric_cols:
+            if col not in pdf.columns:
+                pdf[col] = np.nan
+        # Build final view with the expected schema order (missing added above)
+        keep = [c for c in expected if c in pdf.columns]
+        if len(keep) < len(expected):
+            # If any core columns like date/player/role were still missing, add them
+            for core in ["date", "player", "role"]:
+                if core not in pdf.columns:
+                    pdf[core] = "" if core != "date" else None
+            keep = expected
+        return pdf[keep]
     except Exception:
-        return pd.DataFrame(columns=["date", "player", "role", *metric_cols])
+        return pd.DataFrame(columns=expected)
 
 
 
@@ -61,8 +84,12 @@ class SkaterShotsModel:
         self.cfg = cfg or PropsConfig()
 
     def player_lambda(self, df: pd.DataFrame, player: str, team: Optional[str] = None) -> float:
-        pdf = _select_player_rows(df, player, role="skater", metric_cols=["shots"]).dropna(subset=["shots"]).copy()
-        pdf = pdf.sort_values("date").tail(self.cfg.window)
+        pdf = _select_player_rows(df, player, role="skater", metric_cols=["shots"]).copy()
+        # Coerce metric and drop missing
+        pdf["shots"] = pd.to_numeric(pdf.get("shots"), errors="coerce")
+        pdf = pdf.dropna(subset=["shots"]).copy()
+        # History (df) is already chronological per player; avoid re-sorting for speed
+        pdf = pdf.tail(self.cfg.window)
         if pdf.empty:
             return 2.0
         return float(pdf["shots"].mean())
@@ -78,8 +105,10 @@ class GoalieSavesModel:
         self.cfg = cfg or PropsConfig()
 
     def player_lambda(self, df: pd.DataFrame, player: str) -> float:
-        pdf = _select_player_rows(df, player, role="goalie", metric_cols=["saves"]).dropna(subset=["saves"]).copy()
-        pdf = pdf.sort_values("date").tail(self.cfg.window)
+        pdf = _select_player_rows(df, player, role="goalie", metric_cols=["saves"]).copy()
+        pdf["saves"] = pd.to_numeric(pdf.get("saves"), errors="coerce")
+        pdf = pdf.dropna(subset=["saves"]).copy()
+        pdf = pdf.tail(self.cfg.window)
         if pdf.empty:
             return 25.0
         return float(pdf["saves"].mean())
@@ -94,8 +123,10 @@ class SkaterGoalsModel:
         self.cfg = cfg or PropsConfig()
 
     def player_lambda(self, df: pd.DataFrame, player: str) -> float:
-        pdf = _select_player_rows(df, player, role="skater", metric_cols=["goals"]).dropna(subset=["goals"]).copy()
-        pdf = pdf.sort_values("date").tail(self.cfg.window)
+        pdf = _select_player_rows(df, player, role="skater", metric_cols=["goals"]).copy()
+        pdf["goals"] = pd.to_numeric(pdf.get("goals"), errors="coerce")
+        pdf = pdf.dropna(subset=["goals"]).copy()
+        pdf = pdf.tail(self.cfg.window)
         if pdf.empty:
             return 0.3
         return float(pdf["goals"].mean())
@@ -110,8 +141,10 @@ class SkaterAssistsModel:
         self.cfg = cfg or PropsConfig()
 
     def player_lambda(self, df: pd.DataFrame, player: str) -> float:
-        pdf = _select_player_rows(df, player, role="skater", metric_cols=["assists"]).dropna(subset=["assists"]).copy()
-        pdf = pdf.sort_values("date").tail(self.cfg.window)
+        pdf = _select_player_rows(df, player, role="skater", metric_cols=["assists"]).copy()
+        pdf["assists"] = pd.to_numeric(pdf.get("assists"), errors="coerce")
+        pdf = pdf.dropna(subset=["assists"]).copy()
+        pdf = pdf.tail(self.cfg.window)
         if pdf.empty:
             return 0.4
         return float(pdf["assists"].mean())
@@ -127,8 +160,11 @@ class SkaterPointsModel:
 
     def player_lambda(self, df: pd.DataFrame, player: str) -> float:
         # Points = goals + assists
-        pdf = _select_player_rows(df, player, role="skater", metric_cols=["goals","assists"]).dropna(subset=["goals", "assists"]).copy()
-        pdf = pdf.sort_values("date").tail(self.cfg.window)
+        pdf = _select_player_rows(df, player, role="skater", metric_cols=["goals","assists"]).copy()
+        pdf["goals"] = pd.to_numeric(pdf.get("goals"), errors="coerce")
+        pdf["assists"] = pd.to_numeric(pdf.get("assists"), errors="coerce")
+        pdf = pdf.dropna(subset=["goals", "assists"]).copy()
+        pdf = pdf.tail(self.cfg.window)
         if pdf.empty:
             return 0.7
         pts = (pdf["goals"].astype(float) + pdf["assists"].astype(float))
@@ -144,8 +180,10 @@ class SkaterBlocksModel:
         self.cfg = cfg or PropsConfig()
 
     def player_lambda(self, df: pd.DataFrame, player: str) -> float:
-        pdf = _select_player_rows(df, player, role="skater", metric_cols=["blocked"]).dropna(subset=["blocked"]).copy()
-        pdf = pdf.sort_values("date").tail(self.cfg.window)
+        pdf = _select_player_rows(df, player, role="skater", metric_cols=["blocked"]).copy()
+        pdf["blocked"] = pd.to_numeric(pdf.get("blocked"), errors="coerce")
+        pdf = pdf.dropna(subset=["blocked"]).copy()
+        pdf = pdf.tail(self.cfg.window)
         if pdf.empty:
             return 1.5
         return float(pdf["blocked"].mean())

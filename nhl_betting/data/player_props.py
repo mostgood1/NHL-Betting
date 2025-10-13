@@ -8,7 +8,7 @@ Responsibilities:
 - Persist Parquet outputs for downstream modeling.
 """
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Set
 from datetime import datetime
 import os
 
@@ -183,20 +183,100 @@ def collect_oddsapi_props(date: str) -> pd.DataFrame:
 
 
 def normalize_player_names(raw: pd.DataFrame, roster_df: Optional[pd.DataFrame]) -> pd.DataFrame:
+    """Attach player_id and team to raw props rows using a robust name matching strategy.
+
+    Strategy tiers:
+    1) Exact lowercase full name match
+    2) Punctuation/space stripped match (squashed)
+    3) Initial+last variants (e.g., "T Bertuzzi", "JG Pageau")
+
+    If PROPS_DEBUG_NAME_MATCH=1, writes a CSV of unmatched names by date.
+    """
     if raw.empty:
         raw["player_id"] = []
         raw["team"] = []
         return raw
     df = raw.copy()
-    df["player_clean"] = df["player"].str.strip().str.lower()
+    # Basic cleaned form
+    def _clean(s: str) -> str:
+        import unicodedata, re
+        s = unicodedata.normalize("NFKD", str(s or "")).encode("ascii", "ignore").decode()
+        s = re.sub(r"\s+", " ", s).strip().lower()
+        return s
+    def _squash(s: str) -> str:
+        import re
+        return re.sub(r"[^a-z0-9]", "", str(s or "").lower())
+    def _initials_for_first(first: str) -> str:
+        # For hyphenated or multi-part first names, take all initials (e.g., Jean-Gabriel -> JG)
+        import re
+        parts = re.split(r"[-\s]+", first.strip())
+        return "".join([p[0] for p in parts if p]) if first else ""
+    def _variant_keys(full: str) -> Set[str]:
+        full_c = _clean(full)
+        if not full_c:
+            return set()
+        parts = full_c.split(" ")
+        last = parts[-1] if len(parts) >= 2 else ""
+        first = parts[0] if parts else ""
+        keys: Set[str] = {full_c, _squash(full_c)}
+        if first and last:
+            ini1 = (first[0] if first else "")
+            iniall = _initials_for_first(first)
+            # Space forms
+            if ini1:
+                keys.add(f"{ini1} {last}")
+                keys.add(f"{ini1}{last}")  # fallback without space
+            if iniall and iniall != ini1:
+                keys.add(f"{iniall} {last}")
+                keys.add(f"{iniall}{last}")
+            # Squashed last too
+            keys.add(_squash(f"{ini1} {last}"))
+            if iniall and iniall != ini1:
+                keys.add(_squash(f"{iniall} {last}"))
+        return keys
+
+    df["player_clean"] = df["player"].map(_clean)
+    df["player_squash"] = df["player_clean"].map(_squash)
+    # Build roster indices
     if roster_df is not None and not roster_df.empty:
         r = roster_df.copy()
-        # Expect roster_df has columns: player_id, full_name, team (abbr or name)
-        r["full_name_clean"] = r["full_name"].astype(str).str.strip().str.lower()
-        id_mapper = dict(zip(r["full_name_clean"], r["player_id"]))
+        r["full_name_clean"] = r["full_name"].astype(str).map(_clean)
+        r["full_name_squash"] = r["full_name_clean"].map(_squash)
+        # Primary exact map
+        map_exact = dict(zip(r["full_name_clean"], r["player_id"]))
+        # Squashed map
+        map_squash = dict(zip(r["full_name_squash"], r["player_id"]))
+        # Variant map: initial(s)+last and squashed variants
+        var_map: Dict[str, str] = {}
+        for _, row in r.iterrows():
+            pid = row["player_id"]
+            for k in _variant_keys(row["full_name_clean"]):
+                var_map.setdefault(k, pid)
+        # Apply in order
+        pid_series = (
+            df["player_clean"].map(map_exact)
+            .fillna(df["player_squash"].map(map_squash))
+        )
+        # Build props-side variants
+        def _player_variants_row(s: str) -> List[str]:
+            return list(_variant_keys(s))
+        # Try variant lookups for any remaining nulls
+        missing_mask = pid_series.isna()
+        if missing_mask.any():
+            # For performance, we vectorize by expanding to a long form
+            sub = df.loc[missing_mask, ["player_clean"]].copy()
+            # Map each player_clean to any variant key hit
+            def _map_first_hit(name: str) -> Optional[str]:
+                for k in _variant_keys(name):
+                    v = var_map.get(k)
+                    if v is not None:
+                        return v
+                return None
+            pid_fills = sub["player_clean"].map(_map_first_hit)
+            pid_series.loc[missing_mask] = pid_series.loc[missing_mask].fillna(pid_fills)
+        df["player_id"] = pid_series
+        # Team mapping from roster
         team_mapper = dict(zip(r["full_name_clean"], r.get("team", pd.Series([None]*len(r)))))
-        df["player_id"] = df["player_clean"].map(id_mapper)
-        # Attach team from roster snapshot where available
         df["team"] = df["player_clean"].map(team_mapper)
         # Normalize team to abbreviation when possible
         def _team_abbr(x):
@@ -221,6 +301,24 @@ def normalize_player_names(raw: pd.DataFrame, roster_df: Optional[pd.DataFrame])
     else:
         df["player_id"] = None
         df["team"] = None
+
+    # Optional debug: write unmatched names
+    try:
+        if os.environ.get("PROPS_DEBUG_NAME_MATCH", "").strip() in ("1", "true", "yes"):
+            miss = df[df["player_id"].isna()].copy()
+            if not miss.empty:
+                date_val = None
+                try:
+                    date_val = str(df["date"].dropna().astype(str).unique()[0])
+                except Exception:
+                    date_val = "unknown"
+                out_dir = os.path.join("data", "props")
+                os.makedirs(out_dir, exist_ok=True)
+                out_path = os.path.join(out_dir, f"name_misses_date={date_val}.csv")
+                miss.groupby(["player","market"]).size().reset_index(name="count").to_csv(out_path, index=False)
+    except Exception:
+        pass
+
     return df
 
 
@@ -311,9 +409,16 @@ def write_props(df: pd.DataFrame, cfg: PropsCollectionConfig, date: str) -> str:
     os.makedirs(out_dir, exist_ok=True)
     # Use file label based on source
     file_label = "bovada" if (cfg.source or "bovada").lower() == "bovada" else "oddsapi"
-    path = os.path.join(out_dir, f"{file_label}.parquet")
-    df.to_parquet(path, index=False)
-    return path
+    pq_path = os.path.join(out_dir, f"{file_label}.parquet")
+    try:
+        # Use pyarrow engine explicitly for stability across environments
+        df.to_parquet(pq_path, index=False, engine="pyarrow")
+        return pq_path
+    except Exception:
+        # Fallback to CSV if Parquet writer is unavailable/mismatched
+        csv_path = os.path.join(out_dir, f"{file_label}.csv")
+        df.to_csv(csv_path, index=False)
+        return csv_path
 
 
 def collect_and_write(date: str, roster_df: Optional[pd.DataFrame] = None, cfg: PropsCollectionConfig | None = None) -> Dict:

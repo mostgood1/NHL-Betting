@@ -802,10 +802,15 @@ def props_recommendations(
     # Read canonical lines for date
     parts = []
     base = Path("data/props") / f"player_props_lines/date={date}"
-    for f in (base / "bovada.parquet", base / "oddsapi.parquet"):
+    # Prefer Parquet files; fallback to CSVs if Parquet not present or unreadable
+    cand_files = [base / "bovada.parquet", base / "oddsapi.parquet", base / "bovada.csv", base / "oddsapi.csv"]
+    for f in cand_files:
         if f.exists():
             try:
-                parts.append(pd.read_parquet(f))
+                if f.suffix == ".parquet":
+                    parts.append(pd.read_parquet(f, engine="pyarrow"))
+                else:
+                    parts.append(pd.read_csv(f))
             except Exception:
                 pass
     if not parts:
@@ -1013,7 +1018,7 @@ def props_full(
         p = base / fname
         if p.exists():
             try:
-                parts.append(pd.read_parquet(p))
+                parts.append(pd.read_parquet(p, engine="pyarrow"))
             except Exception:
                 pass
     if not parts:
@@ -1435,7 +1440,7 @@ def props_project_all(
                 p = base / fn
                 if p.exists():
                     try:
-                        parts.append(pd.read_parquet(p))
+                        parts.append(pd.read_parquet(p, engine="pyarrow"))
                     except Exception:
                         pass
             if parts:
@@ -2564,7 +2569,7 @@ def props_stats_calibration(
         raise typer.Exit(code=0)
     df["role"] = df["role"].apply(lambda x: str(x).lower() if pd.notna(x) else "")
     windows_list = [int(w.strip()) for w in windows.split(",") if w.strip()]
-    # models per window
+    # models (probability only); we will compute lambdas via rolling means for speed
     models_by_w = {}
     for w in windows_list:
         cfg = PropsConfig(window=w)
@@ -2583,79 +2588,79 @@ def props_stats_calibration(
         "POINTS": [0.5, 1.5],
         "SAVES": [24.5, 26.5],
     }
-    # Helper: build per-player rolling history incrementally to avoid lookahead
+    # Precompute per-player rolling lambdas (shifted to exclude current row)
     df = df.sort_values(["player", "date_key"])  # ensure chronological per player
+    for metric in ("shots", "goals", "assists", "saves"):
+        df[metric] = pd.to_numeric(df.get(metric), errors="coerce")
+    # Points as goals+assists
+    df["points_val_cal"] = pd.to_numeric(df.get("goals"), errors="coerce").fillna(0) + pd.to_numeric(df.get("assists"), errors="coerce").fillna(0)
+    for w in windows_list:
+        df[f"lam_shots_{w}"] = df.groupby("player")["shots"].rolling(window=w, min_periods=1).mean().reset_index(level=0, drop=True).shift(1)
+        df[f"lam_goals_{w}"] = df.groupby("player")["goals"].rolling(window=w, min_periods=1).mean().reset_index(level=0, drop=True).shift(1)
+        df[f"lam_assists_{w}"] = df.groupby("player")["assists"].rolling(window=w, min_periods=1).mean().reset_index(level=0, drop=True).shift(1)
+        df[f"lam_points_{w}"] = df.groupby("player")["points_val_cal"].rolling(window=w, min_periods=1).mean().reset_index(level=0, drop=True).shift(1)
+        df[f"lam_saves_{w}"] = df.groupby("player")["saves"].rolling(window=w, min_periods=1).mean().reset_index(level=0, drop=True).shift(1)
+
     results = []  # rows of {date, player, market, window, line, p_over, over_actual}
-    for player, g in df.groupby("player"):
-        g = g.copy().sort_values("date_key")
-        # Precompute points series
-        try:
-            pts_series = (g.get("goals").astype(float).fillna(0) + g.get("assists").astype(float).fillna(0))
-        except Exception:
-            pts_series = pd.Series([None]*len(g), index=g.index)
-        # Iterate games for this player
-        for idx, row in g.iterrows():
-            # Build history strictly before this game
-            hist = g[g["date_key"] < row["date_key"]]
-            if hist.empty:
-                continue
-            is_skater = (str(row.get("role")).lower() == "skater")
-            is_goalie = (str(row.get("role")).lower() == "goalie")
-            # Actual values
-            shots = row.get("shots"); goals = row.get("goals"); assists = row.get("assists"); saves = row.get("saves")
-            try:
-                points_val = float((goals or 0)) + float((assists or 0))
-            except Exception:
-                points_val = None
-            for w in windows_list:
-                ms = models_by_w[w]
-                if is_skater:
-                    # SOG
-                    try:
-                        lam = ms["SOG"].player_lambda(hist, player)
+    for idx, row in df.iterrows():
+        is_skater = (str(row.get("role")).lower() == "skater")
+        is_goalie = (str(row.get("role")).lower() == "goalie")
+        shots = row.get("shots"); goals = row.get("goals"); assists = row.get("assists"); saves = row.get("saves")
+        points_val = row.get("points_val_cal")
+        for w in windows_list:
+            ms = models_by_w[w]
+            if is_skater:
+                # SOG
+                try:
+                    lam = float(row.get(f"lam_shots_{w}")) if pd.notna(row.get(f"lam_shots_{w}")) else None
+                    if lam is not None:
                         for ln in thresholds["SOG"]:
                             p = ms["SOG"].prob_over(lam, ln)
                             ov = (float(shots) > ln) if pd.notna(shots) else None
-                            results.append({"date": row["date_key"], "player": player, "market": "SOG", "window": w, "line": ln, "p_over": float(p), "over_actual": (1 if ov else (0 if ov is not None else None))})
-                    except Exception:
-                        pass
-                    # GOALS
-                    try:
-                        lam = ms["GOALS"].player_lambda(hist, player)
+                            results.append({"date": row["date_key"], "player": row.get("player"), "market": "SOG", "window": w, "line": ln, "p_over": float(p), "over_actual": (1 if ov else (0 if ov is not None else None))})
+                except Exception:
+                    pass
+                # GOALS
+                try:
+                    lam = float(row.get(f"lam_goals_{w}")) if pd.notna(row.get(f"lam_goals_{w}")) else None
+                    if lam is not None:
                         for ln in thresholds["GOALS"]:
                             p = ms["GOALS"].prob_over(lam, ln)
                             ov = (float(goals) > ln) if pd.notna(goals) else None
-                            results.append({"date": row["date_key"], "player": player, "market": "GOALS", "window": w, "line": ln, "p_over": float(p), "over_actual": (1 if ov else (0 if ov is not None else None))})
-                    except Exception:
-                        pass
-                    # ASSISTS
-                    try:
-                        lam = ms["ASSISTS"].player_lambda(hist, player)
+                            results.append({"date": row["date_key"], "player": row.get("player"), "market": "GOALS", "window": w, "line": ln, "p_over": float(p), "over_actual": (1 if ov else (0 if ov is not None else None))})
+                except Exception:
+                    pass
+                # ASSISTS
+                try:
+                    lam = float(row.get(f"lam_assists_{w}")) if pd.notna(row.get(f"lam_assists_{w}")) else None
+                    if lam is not None:
                         for ln in thresholds["ASSISTS"]:
                             p = ms["ASSISTS"].prob_over(lam, ln)
                             ov = (float(assists) > ln) if pd.notna(assists) else None
-                            results.append({"date": row["date_key"], "player": player, "market": "ASSISTS", "window": w, "line": ln, "p_over": float(p), "over_actual": (1 if ov else (0 if ov is not None else None))})
-                    except Exception:
-                        pass
-                    # POINTS
-                    try:
-                        lam = ms["POINTS"].player_lambda(hist, player)
+                            results.append({"date": row["date_key"], "player": row.get("player"), "market": "ASSISTS", "window": w, "line": ln, "p_over": float(p), "over_actual": (1 if ov else (0 if ov is not None else None))})
+                except Exception:
+                    pass
+                # POINTS
+                try:
+                    lam = float(row.get(f"lam_points_{w}")) if pd.notna(row.get(f"lam_points_{w}")) else None
+                    if lam is not None:
                         for ln in thresholds["POINTS"]:
                             p = ms["POINTS"].prob_over(lam, ln)
                             ov = (float(points_val) > ln) if (points_val is not None) else None
-                            results.append({"date": row["date_key"], "player": player, "market": "POINTS", "window": w, "line": ln, "p_over": float(p), "over_actual": (1 if ov else (0 if ov is not None else None))})
-                    except Exception:
-                        pass
-                if is_goalie:
-                    # SAVES
-                    try:
-                        lam = ms["SAVES"].player_lambda(hist, player)
+                            results.append({"date": row["date_key"], "player": row.get("player"), "market": "POINTS", "window": w, "line": ln, "p_over": float(p), "over_actual": (1 if ov else (0 if ov is not None else None))})
+                except Exception:
+                    pass
+            if is_goalie:
+                # SAVES
+                try:
+                    lam = float(row.get(f"lam_saves_{w}")) if pd.notna(row.get(f"lam_saves_{w}")) else None
+                    if lam is not None:
                         for ln in thresholds["SAVES"]:
                             p = ms["SAVES"].prob_over(lam, ln)
                             ov = (float(saves) > ln) if pd.notna(saves) else None
-                            results.append({"date": row["date_key"], "player": player, "market": "SAVES", "window": w, "line": ln, "p_over": float(p), "over_actual": (1 if ov else (0 if ov is not None else None))})
-                    except Exception:
-                        pass
+                            results.append({"date": row["date_key"], "player": row.get("player"), "market": "SAVES", "window": w, "line": ln, "p_over": float(p), "over_actual": (1 if ov else (0 if ov is not None else None))})
+                except Exception:
+                    pass
     res_df = pd.DataFrame(results)
     if res_df.empty:
         print("No calibration rows produced.")

@@ -18,7 +18,12 @@ import time
 import pandas as pd
 import requests
 
-STATS_BASE = "https://statsapi.web.nhl.com/api/v1"
+# Prefer primary Stats API host but keep alternates to survive DNS hiccups
+STATS_BASES = [
+    "https://statsapi.web.nhl.com/api/v1",
+    # historical/alternate DNS entries sometimes used
+    "https://statsapi.nhl.com/api/v1",
+]
 RATE_LIMIT_SLEEP = 0.35  # ~3 req/sec safety
 RECENT_GAMES = 10
 MIN_GAMES_FOR_CONFIDENCE = 3
@@ -33,16 +38,23 @@ class RosterPlayer:
 
 
 def _get(path: str, params: Optional[Dict] = None, retries: int = 3) -> Dict:
+    """GET helper with multi-base fallback and simple backoff.
+
+    Tries multiple Stats API base URLs to avoid transient DNS/host issues.
+    """
     last_exc: Optional[Exception] = None
     for attempt in range(retries):
-        try:
-            time.sleep(RATE_LIMIT_SLEEP)
-            r = requests.get(f"{STATS_BASE}{path}", params=params, timeout=30)
-            r.raise_for_status()
-            return r.json()
-        except Exception as e:
-            last_exc = e
-            time.sleep(RATE_LIMIT_SLEEP * (2 ** attempt))
+        for base in STATS_BASES:
+            try:
+                time.sleep(RATE_LIMIT_SLEEP)
+                r = requests.get(f"{base}{path}", params=params, timeout=12)
+                r.raise_for_status()
+                return r.json()
+            except Exception as e:
+                last_exc = e
+                continue
+        # after cycling bases, back off and retry
+        time.sleep(min(5.0, RATE_LIMIT_SLEEP * (2 ** attempt)))
     if last_exc:
         raise last_exc
     raise RuntimeError("Unknown request error")

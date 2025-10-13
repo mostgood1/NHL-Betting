@@ -5,6 +5,7 @@ services:
     plan: starter
     autoDeploy: false
     branch: master
+  numInstances: 1
   # Health is served by the lightweight ASGI wrapper and is very fast.
   healthCheckPath: /health
     buildCommand: pip install -r requirements.txt

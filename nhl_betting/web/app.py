@@ -214,6 +214,36 @@ def _is_public_host_env() -> bool:
         pass
     return False
 
+def _use_headshot_proxy() -> bool:
+    """Return True if we should proxy NHL headshots via this server.
+
+    Default: enabled locally (not public host) unless PROXY_HEADSHOTS=0.
+    """
+    try:
+        v = os.getenv('PROXY_HEADSHOTS')
+        if v is None:
+            return not _is_public_host_env()
+        return str(v).strip().lower() in ('1','true','yes','on')
+    except Exception:
+        return not _is_public_host_env()
+
+def _nhl_season_code(d_ymd: Optional[str]) -> str:
+    """Return NHL season code like '20252026' for a given YYYY-MM-DD date string.
+    Uses July (7) as the season boundary.
+    """
+    try:
+        from datetime import datetime as _dt
+        if d_ymd and isinstance(d_ymd, str):
+            dt = _dt.strptime(d_ymd, '%Y-%m-%d')
+        else:
+            dt = _dt.utcnow()
+        start_year = dt.year if dt.month >= 7 else (dt.year - 1)
+        return f"{start_year}{start_year+1}"
+    except Exception:
+        # Fallback to current UTC year pairing
+        y = datetime.utcnow().year
+        return f"{y}{y+1}"
+
 # Ultra-early minimal /props safeguard: if later handler fails, this ensures a redirect.
 @app.get("/props", include_in_schema=False)
 async def _early_props_redirect(date: Optional[str] = None):  # type: ignore
@@ -6281,6 +6311,14 @@ async def props_recommendations_page(
             # Add UI fallbacks for missing images/logos to avoid empty gaps
             try:
                 for c in cards:
+                    # If proxy enabled and photo points at NHL CMS, use local proxy path
+                    try:
+                        if _use_headshot_proxy() and isinstance(c.get('photo'), str) and '/images/headshots/current/168x168/' in c['photo']:
+                            pid_part = c['photo'].split('/168x168/')[-1].split('.')[0]
+                            if pid_part and pid_part.isdigit():
+                                c['photo_src'] = f"/img/headshot/{pid_part}.jpg"
+                    except Exception:
+                        pass
                     # Fallback: if still missing photo, attempt last-name+team lookup from canonical lines
                     if (not c.get('photo') or c['photo'].startswith('data:image')) and c.get('team_abbr'):
                         try:
@@ -6290,7 +6328,10 @@ async def props_recommendations_page(
                                 key = (last, c.get('team_abbr'))
                                 pid_fallback = last_team_pid_map.get(key) if 'last_team_pid_map' in locals() else None
                                 if pid_fallback:
-                                    url_fb = f"https://cms.nhl.bamgrid.com/images/headshots/current/168x168/{int(pid_fallback)}.jpg"
+                                    # Prefer official assets.nhle.com mugs pattern
+                                    season = _nhl_season_code(date)
+                                    team_ab = str(c.get('team_abbr')).upper()
+                                    url_fb = f"https://assets.nhle.com/mugs/nhl/{season}/{team_ab}/{int(pid_fallback)}.png"
                                     c['photo'] = url_fb
                         except Exception:
                             pass
@@ -6307,13 +6348,16 @@ async def props_recommendations_page(
     template = env.get_template("props_recommendations.html")
     # Debug metrics about enrichment to help diagnose missing photos/logos client side
     try:
-        remote_photo_cnt = sum(1 for c in (cards or []) if isinstance(c.get('photo'), str) and c['photo'].startswith('https://cms.nhl.bamgrid.com/images/headshots'))
+        # Count any remote http(s) photo, with sub-count for assets host
+        remote_photo_cnt = sum(1 for c in (cards or []) if isinstance(c.get('photo'), str) and c['photo'].startswith('http'))
+        assets_photo_cnt = sum(1 for c in (cards or []) if isinstance(c.get('photo'), str) and 'assets.nhle.com/mugs' in c['photo'])
+        proxy_photo_cnt = sum(1 for c in (cards or []) if isinstance(c.get('photo_src'), str) and c['photo_src'].startswith('/img/headshot/'))
         silhouette_cnt = sum(1 for c in (cards or []) if isinstance(c.get('photo'), str) and c['photo'].startswith('data:image/svg+xml'))
         logo_cnt = sum(1 for c in (cards or []) if c.get('team_logo'))
         pos_cnt = sum(1 for c in (cards or []) if c.get('position'))
         debug_info = None
         if debug:
-            debug_info = f"photos_remote={remote_photo_cnt} silhouette={silhouette_cnt} cards={len(cards)} logos={logo_cnt} positions={pos_cnt} date={date}"
+            debug_info = f"photos_remote={remote_photo_cnt} photos_assets={assets_photo_cnt} photos_proxy={proxy_photo_cnt} silhouette={silhouette_cnt} cards={len(cards)} logos={logo_cnt} positions={pos_cnt} date={date}"
     except Exception:
         debug_info = None
 
@@ -6389,6 +6433,8 @@ async def props_recommendations_page(
             'date': date,
             'cards': len(cards) if isinstance(cards, list) else 0,
             'photos_remote': remote_photo_cnt,
+            'photos_assets': assets_photo_cnt,
+            'photos_proxy': proxy_photo_cnt,
             'silhouettes': silhouette_cnt,
             'logos': logo_cnt,
             'positions': pos_cnt,
@@ -6410,6 +6456,95 @@ async def props_recommendations_page(
         debug_info=debug_info,
     )
     return HTMLResponse(content=html)
+
+@app.get('/img/headshot/{player_id}.jpg')
+async def proxy_headshot(player_id: str):
+    """Proxy NHL headshots to avoid hotlink restrictions in local testing."""
+    try:
+        pid = int(str(player_id).split('.')[0])
+    except Exception:
+        return Response(status_code=400)
+    import httpx, os
+    cms_url = f"https://cms.nhl.bamgrid.com/images/headshots/current/168x168/{pid}.jpg"
+    headers = {
+        'User-Agent': 'Mozilla/5.0',
+        'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8'
+    }
+    # Local disk cache: data/models/headshots/{pid}.jpg
+    try:
+        cache_dir = _MODEL_DIR / 'headshots'
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        cache_path = cache_dir / f"{pid}.jpg"
+        if cache_path.exists() and cache_path.stat().st_size > 0:
+            with open(cache_path, 'rb') as f:
+                return Response(content=f.read(), media_type='image/jpeg', headers={'Cache-Control': 'public, max-age=86400'})
+    except Exception:
+        cache_path = None
+    # First try direct CMS (bamgrid)
+    try:
+        async with httpx.AsyncClient(timeout=6.0, headers=headers) as client:
+            r = await client.get(cms_url)
+            if r.status_code == 200 and r.content:
+                try:
+                    if cache_path:
+                        with open(cache_path, 'wb') as f:
+                            f.write(r.content)
+                except Exception:
+                    pass
+                return Response(content=r.content, media_type='image/jpeg', headers={'Cache-Control': 'public, max-age=86400'})
+            # If direct fails, fall back to external image proxy (DNS-resilient)
+    except Exception:
+        r = None
+    # Second try alternate host (bamcontent)
+    try:
+        alt_url = f"https://nhl.bamcontent.com/images/headshots/current/168x168/{pid}.jpg"
+        async with httpx.AsyncClient(timeout=6.0, headers=headers) as client:
+            r_alt = await client.get(alt_url)
+            if r_alt.status_code == 200 and r_alt.content:
+                try:
+                    if cache_path:
+                        with open(cache_path, 'wb') as f:
+                            f.write(r_alt.content)
+                except Exception:
+                    pass
+                return Response(content=r_alt.content, media_type='image/jpeg', headers={'Cache-Control': 'public, max-age=86400'})
+    except Exception:
+        pass
+    # External proxy fallbacks (browser-safe, avoid local DNS on cms host)
+    try:
+        # Try wsrv.nl with explicit SSL indicator
+        proxy_url = f"https://images.weserv.nl/?url=ssl:cms.nhl.bamgrid.com/images/headshots/current/168x168/{pid}.jpg"
+        async with httpx.AsyncClient(timeout=8.0, headers=headers) as client:
+            r2 = await client.get(proxy_url)
+            if r2.status_code == 200 and r2.content:
+                try:
+                    if cache_path:
+                        with open(cache_path, 'wb') as f:
+                            f.write(r2.content)
+                except Exception:
+                    pass
+                return Response(content=r2.content, media_type='image/jpeg', headers={'Cache-Control': 'public, max-age=86400'})
+            # Try statically.io mirror
+            stat_url = f"https://cdn.statically.io/img/cms.nhl.bamgrid.com/images/headshots/current/168x168/{pid}.jpg?quality=85&format=jpg"
+            r3 = await client.get(stat_url)
+            if r3.status_code == 200 and r3.content:
+                try:
+                    if cache_path:
+                        with open(cache_path, 'wb') as f:
+                            f.write(r3.content)
+                except Exception:
+                    pass
+                return Response(content=r3.content, media_type='image/jpeg', headers={'Cache-Control': 'public, max-age=86400'})
+            return Response(status_code=r3.status_code if 'r3' in locals() else r2.status_code)
+    except Exception:
+        # As a last resort, return a generated SVG placeholder so <img> doesn't break
+        svg = """
+<svg xmlns='http://www.w3.org/2000/svg' width='168' height='168'>
+  <rect width='168' height='168' fill='#E5E7EB'/>
+  <circle cx='84' cy='60' r='34' fill='#9CA3AF'/>
+  <rect x='34' y='104' width='100' height='44' rx='22' fill='#9CA3AF'/>
+</svg>"""
+        return Response(content=svg, media_type='image/svg+xml', headers={'Cache-Control': 'public, max-age=600'})
 
 @app.get("/api/props/recommendations.json")
 async def props_recommendations_json(

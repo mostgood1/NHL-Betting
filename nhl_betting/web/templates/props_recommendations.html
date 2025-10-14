@@ -99,8 +99,8 @@
       {% for c in cards %}
         <div class="card">
           <div class="row">
-            {% if c.photo %}
-              <img class="avatar" src="{{ c.photo }}" alt="{{ c.player }}" onerror="this.style.display='none'" />
+            {% if c.photo or c.photo_src %}
+              <img class="avatar" src="{{ c.photo_src or c.photo }}" alt="{{ c.player }}" referrerpolicy="no-referrer" onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'42\' height=\'42\'><circle cx=\'21\' cy=\'14\' r=\'8\' fill=\'%23262a33\'/><rect x=\'9\' y=\'24\' width=\'24\' height=\'14\' rx=\'7\' fill=\'%23262a33\'/></svg>'" />
             {% endif %}
             <div>
               <div class="title">{{ c.player }}</div>

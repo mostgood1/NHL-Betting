@@ -789,7 +789,7 @@ def props_predict(odds_csv: str = typer.Option(..., help="CSV with columns: mark
 def props_recommendations(
     date: str = typer.Option(..., help="Slate date YYYY-MM-DD (ET)"),
     min_ev: float = typer.Option(0.0, help="Minimum EV threshold for ev_over"),
-    top: int = typer.Option(200, help="Top N to keep after sorting by EV desc"),
+    top: int = typer.Option(250, help="Top N to keep after sorting by EV desc"),
     market: str = typer.Option("", help="Optional filter: SOG,SAVES,GOALS,ASSISTS,POINTS"),
 ):
     """Build props recommendations_{date}.csv from canonical Parquet lines and simple Poisson projections.
@@ -873,41 +873,93 @@ def props_recommendations(
                     pass
     except Exception:
         player_team_map = player_team_map
-    # Ensure player stats history
-    stats_path = RAW_DIR / "player_game_stats.csv"
-    if not stats_path.exists():
-        # Try to backfill last 2 seasons quickly
-        try:
-            from datetime import datetime as _dt, timedelta as _td
-            end = date
-            start = (_dt.strptime(date, "%Y-%m-%d") - _td(days=365*2)).strftime("%Y-%m-%d")
-            collect_player_game_stats(start, end, source="stats")
-        except Exception:
-            pass
-    hist = load_df(stats_path)
-    # Instantiate models
+    # Prefer precomputed per-player lambdas to avoid expensive history scans
+    # data/processed/props_projections_all_{date}.csv: [date, player, team, position, market, proj_lambda]
+    lam_map: dict[tuple[str, str], float] = {}
+    try:
+        proj_all_path = PROC_DIR / f"props_projections_all_{date}.csv"
+        if proj_all_path.exists():
+            _proj = pd.read_csv(proj_all_path)
+            if _proj is not None and not _proj.empty and {"player","market","proj_lambda"}.issubset(_proj.columns):
+                for _, rr in _proj.iterrows():
+                    try:
+                        key = (_norm_name(rr.get("player")).lower(), str(rr.get("market")).upper())
+                        val = float(rr.get("proj_lambda")) if pd.notna(rr.get("proj_lambda")) else None
+                        if key[0] and key[1] and val is not None:
+                            lam_map[key] = val
+                    except Exception:
+                        pass
+    except Exception:
+        lam_map = lam_map
+    # Instantiate models (probabilities only). We'll only compute lambdas from history for missing players lazily.
     shots = SkaterShotsModel(); saves = GoalieSavesModel(); goals = SkaterGoalsModel(); assists = SkaterAssistsModel(); points = SkaterPointsModel(); blocks = SkaterBlocksModel()
-    def proj_and_prob(mkt: str, player: str, line: float) -> tuple[float, float]:
-        m = mkt.upper()
+    hist = None  # defer loading
+    def _ensure_hist():
+        nonlocal hist
+        if hist is None:
+            stats_path = RAW_DIR / "player_game_stats.csv"
+            if not stats_path.exists():
+                try:
+                    from datetime import datetime as _dt, timedelta as _td
+                    end = date
+                    start = (_dt.strptime(date, "%Y-%m-%d") - _td(days=365*2)).strftime("%Y-%m-%d")
+                    # Prefer web (faster) with fallback
+                    try:
+                        collect_player_game_stats(start, end, source="web")
+                    except Exception:
+                        collect_player_game_stats(start, end, source="stats")
+                except Exception:
+                    pass
+            try:
+                hist = load_df(stats_path) if stats_path.exists() else pd.DataFrame()
+            except Exception:
+                try:
+                    hist = pd.read_csv(stats_path) if stats_path.exists() else pd.DataFrame()
+                except Exception:
+                    hist = pd.DataFrame()
+        return hist
+    def _prob_over_for(mkt: str, lam: float, line: float) -> float:
+        m = (mkt or '').upper()
         if m == "SOG":
-            lam = shots.player_lambda(hist, player)
-            return lam, shots.prob_over(lam, line)
+            return shots.prob_over(lam, line)
         if m == "SAVES":
-            lam = saves.player_lambda(hist, player)
-            return lam, saves.prob_over(lam, line)
+            return saves.prob_over(lam, line)
         if m == "GOALS":
-            lam = goals.player_lambda(hist, player)
-            return lam, goals.prob_over(lam, line)
+            return goals.prob_over(lam, line)
         if m == "ASSISTS":
-            lam = assists.player_lambda(hist, player)
-            return lam, assists.prob_over(lam, line)
+            return assists.prob_over(lam, line)
         if m == "POINTS":
-            lam = points.player_lambda(hist, player)
-            return lam, points.prob_over(lam, line)
+            return points.prob_over(lam, line)
         if m == "BLOCKS":
-            lam = blocks.player_lambda(hist, player)
-            return lam, blocks.prob_over(lam, line)
-        return None, None
+            return blocks.prob_over(lam, line)
+        return None
+    def proj_and_prob(mkt: str, player: str, line: float) -> tuple[float, float]:
+        m = (mkt or '').upper()
+        key = (_norm_name(player).lower(), m)
+        lam = lam_map.get(key)
+        if lam is None:
+            # Lazy fallback: compute lambda from history just for this player if projections_all didn't have it
+            H = _ensure_hist()
+            try:
+                if m == "SOG":
+                    lam = shots.player_lambda(H, player)
+                elif m == "SAVES":
+                    lam = saves.player_lambda(H, player)
+                elif m == "GOALS":
+                    lam = goals.player_lambda(H, player)
+                elif m == "ASSISTS":
+                    lam = assists.player_lambda(H, player)
+                elif m == "POINTS":
+                    lam = points.player_lambda(H, player)
+                elif m == "BLOCKS":
+                    lam = blocks.player_lambda(H, player)
+            except Exception:
+                lam = None
+            if lam is not None:
+                lam_map[key] = lam  # cache for reuse within run
+        if lam is None:
+            return None, None
+        return lam, _prob_over_for(m, lam, line)
     # Normalize player display and filter out team-level rows
     import ast as _ast
     def _norm_player(s):
@@ -2923,7 +2975,7 @@ if __name__ == "__main__":
             rec_path = PROC_DIR / f"props_recommendations_{d}.csv"
             if not rec_path.exists():
                 print({"recs": "building", "date": d})
-                props_recommendations(date=d, min_ev=0.0, top=500, market="")
+                props_recommendations(date=d, min_ev=0.0, top=250, market="")
         except Exception as e:
             print({"recs": "error", "date": d, "error": str(e)})
         # 3) Reconcile props for date (ALL markets)

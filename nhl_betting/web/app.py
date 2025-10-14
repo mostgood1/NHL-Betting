@@ -5637,11 +5637,15 @@ async def props_recommendations_page(
         d_for_lines = date or _today_ymd()
         base = PROC_DIR.parent / "props" / f"player_props_lines/date={d_for_lines}"
         parts = []
-        for name in ("bovada.parquet", "oddsapi.parquet"):
+        # Prefer Parquet, then CSV fallback for canonical lines so we can enrich player/team metadata.
+        for name in ("bovada.parquet", "oddsapi.parquet", "bovada.csv", "oddsapi.csv"):
             p = base / name
             if p.exists():
                 try:
-                    parts.append(pd.read_parquet(p))
+                    if p.suffix == ".parquet":
+                        parts.append(pd.read_parquet(p))
+                    else:
+                        parts.append(_read_csv_fallback(p))
                 except Exception:
                     pass
         if parts:

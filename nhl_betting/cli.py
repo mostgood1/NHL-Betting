@@ -1362,17 +1362,19 @@ def props_project_all(
       [date, player, team, position, market, proj_lambda]
     """
     from datetime import datetime as _dt, timedelta as _td
-    # Ensure history
+    # Ensure history (fast check). Allow opt-out via env PROPS_SKIP_HISTORY=1
     stats_path = RAW_DIR / "player_game_stats.csv"
     def _needs_history(p: Path) -> bool:
         try:
-            if not p.exists() or p.stat().st_size == 0:
+            if not p.exists() or p.stat().st_size <= 64:  # tiny/empty file
                 return True
-            tmp = pd.read_csv(p)
-            return tmp.empty
+            # Read just one data row to avoid loading entire CSV
+            sample = pd.read_csv(p, nrows=1)
+            return sample is None or sample.empty
         except Exception:
             return True
-    if _needs_history(stats_path):
+    import os as _os
+    if (str(_os.getenv("PROPS_SKIP_HISTORY", "")).strip().lower() not in ("1","true","yes")) and _needs_history(stats_path):
         try:
             start = (_dt.strptime(date, "%Y-%m-%d") - _td(days=int(ensure_history_days))).strftime("%Y-%m-%d")
             try:
@@ -1381,53 +1383,8 @@ def props_project_all(
                 collect_player_game_stats(start, date, source="stats")
         except Exception as e:
             print(f"[history] ensure failed: {e}")
-    # Load a lightweight view of history (only used for last-known position/team); avoid full CSV costs
-    try:
-        if stats_path.exists():
-            hist = pd.read_csv(stats_path, usecols=[c for c in ["player","primary_position","team"] if c], low_memory=False)
-        else:
-            hist = pd.read_csv(stats_path, usecols=["player","primary_position","team"], low_memory=False)
-    except Exception:
-        hist = pd.DataFrame()
-    # Harmonize initials to full names using roster
-    try:
-        if hist is not None and not hist.empty and 'player' in hist.columns:
-            import re, ast
-            roster = build_all_team_roster_snapshots()
-            last_to_full = {}
-            if roster is not None and not roster.empty and 'full_name' in roster.columns:
-                for nm in roster['full_name'].dropna().astype(str).unique().tolist():
-                    parts = nm.strip().split(' ')
-                    if len(parts) >= 2:
-                        last = parts[-1].lower()
-                        last_to_full.setdefault(last, set()).add(nm)
-            def _extract_default(s: str):
-                if isinstance(s, str) and s.strip().startswith('{'):
-                    try:
-                        d = ast.literal_eval(s)
-                        if isinstance(d, dict):
-                            v = d.get('default') or d.get('name') or ''
-                            if isinstance(v, str):
-                                return v
-                    except Exception:
-                        return s
-                return s
-            def _fix(n: str) -> str:
-                n = _extract_default(n)
-                m = re.match(r"^([A-Za-z])[\.]?\s+([A-Za-z\-']+)$", str(n).strip())
-                if m:
-                    ini = m.group(1).lower(); last = m.group(2).lower()
-                    cands = list(last_to_full.get(last, []))
-                    if len(cands) == 1:
-                        return cands[0]
-                    for c in cands:
-                        first = c.split(' ')[0]
-                        if first and first[0].lower() == ini:
-                            return c
-                return str(n)
-            hist['player'] = hist['player'].astype(str).map(_fix)
-    except Exception:
-        pass
+    # We'll build any needed last-known positions lazily, filtered to slate roster only, using chunked reads
+    hist = pd.DataFrame()
     # Get slate teams (Web API)
     web = NHLWebClient()
     games = web.schedule_day(date)
@@ -1467,6 +1424,15 @@ def props_project_all(
                         parts.append(pd.read_parquet(p, engine="pyarrow"))
                     except Exception:
                         pass
+            # Also support CSV if parquet not available
+            if not parts:
+                for fn in ("bovada.csv", "oddsapi.csv"):
+                    p = base / fn
+                    if p.exists():
+                        try:
+                            parts.append(pd.read_csv(p))
+                        except Exception:
+                            pass
             if parts:
                 lines_df = pd.concat(parts, ignore_index=True)
                 # Map to minimal roster columns
@@ -1488,14 +1454,38 @@ def props_project_all(
                     pass
                 cur = cur.dropna(subset=["player_name"]).copy()
                 cur["_team_abbr"] = cur.get("team", pd.Series(index=cur.index)).map(_abbr_team)
-                # Position inference: use historical last known, else infer goalies from SAVES market
+                # Position inference: build last-known positions for slate players via chunked read (fast)
                 pos_map = {}
                 try:
-                    if hist is not None and not hist.empty and {"player","primary_position"}.issubset(hist.columns):
-                        tmp = hist.dropna(subset=["player"]).copy()
-                        tmp["player"] = tmp["player"].astype(str)
-                        last_pos = tmp.dropna(subset=["primary_position"]).groupby("player")["primary_position"].last()
-                        pos_map = {k: v for k, v in last_pos.items() if isinstance(k, str)}
+                    stats_p = stats_path
+                    targets: set[str] = set()
+                    try:
+                        targets = set(lines_df.dropna(subset=["player_name"])['player_name'].astype(str))
+                    except Exception:
+                        targets = set()
+                    if targets and stats_p.exists():
+                        import ast
+                        def _unwrap(val: str) -> str:
+                            s = str(val or "").strip()
+                            if s.startswith("{") and s.endswith("}"):
+                                try:
+                                    d = ast.literal_eval(s)
+                                    if isinstance(d, dict):
+                                        v = d.get("default") or d.get("name") or d.get("fullName")
+                                        if isinstance(v, str) and v.strip():
+                                            return v.strip()
+                                except Exception:
+                                    pass
+                            return str(val or "")
+                        seen = set()
+                        for chunk in pd.read_csv(stats_p, usecols=["player","primary_position"], chunksize=100000):
+                            chunk["player"] = chunk["player"].astype(str).map(_unwrap)
+                            sub = chunk[chunk["player"].isin(targets)].dropna(subset=["primary_position"]).copy()
+                            for _, rr in sub.iterrows():
+                                nm = str(rr.get("player") or "")
+                                if nm and nm not in seen:
+                                    pos_map[nm] = rr.get("primary_position")
+                                    seen.add(nm)
                 except Exception:
                     pos_map = {}
                 # Identify goalies from lines explicitly
@@ -1570,15 +1560,33 @@ def props_project_all(
                     return None
             enrich = enrich.copy()
             enrich['team_abbr'] = enrich['team'].map(_to_abbr)
-            # Infer position from historical stats if available
+            # Infer position from historical stats if available (chunked, filtered to enrich names)
             pos_map = {}
             try:
-                if hist is not None and not hist.empty and {'player','primary_position'}.issubset(hist.columns):
-                    tmp = hist.dropna(subset=['player']).copy()
-                    tmp['player'] = tmp['player'].astype(str)
-                    # take last known non-null position
-                    last_pos = tmp.dropna(subset=['primary_position']).groupby('player')['primary_position'].last()
-                    pos_map = {k: v for k, v in last_pos.items() if isinstance(k, str)}
+                targets = set(enrich['full_name'].astype(str)) if {'full_name'}.issubset(enrich.columns) else set()
+                if targets and stats_path.exists():
+                    import ast
+                    def _unwrap(val: str) -> str:
+                        s = str(val or "").strip()
+                        if s.startswith("{") and s.endswith("}"):
+                            try:
+                                d = ast.literal_eval(s)
+                                if isinstance(d, dict):
+                                    v = d.get("default") or d.get("name") or d.get("fullName")
+                                    if isinstance(v, str) and v.strip():
+                                        return v.strip()
+                            except Exception:
+                                pass
+                        return str(val or "")
+                    seen = set()
+                    for chunk in pd.read_csv(stats_path, usecols=['player','primary_position'], chunksize=100000):
+                        chunk['player'] = chunk['player'].astype(str).map(_unwrap)
+                        sub = chunk[chunk['player'].isin(targets)].dropna(subset=['primary_position']).copy()
+                        for _, rr in sub.iterrows():
+                            nm = str(rr.get('player') or '')
+                            if nm and nm not in seen:
+                                pos_map[nm] = rr.get('primary_position')
+                                seen.add(nm)
             except Exception:
                 pos_map = {}
             rows_fb = []

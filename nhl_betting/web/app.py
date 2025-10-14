@@ -5973,6 +5973,12 @@ async def props_recommendations_page(
             try:
                 from ..utils.io import RAW_DIR as _RAW
                 pstats = _read_csv_fallback(_RAW / 'player_game_stats.csv')
+                # If not present locally (Render image), try GitHub raw fallback
+                if (pstats is None) or pstats.empty:
+                    try:
+                        pstats = _github_raw_read_csv('data/raw/player_game_stats.csv')
+                    except Exception:
+                        pstats = pd.DataFrame()
                 if pstats is not None and not pstats.empty and {'player','player_id'}.issubset(pstats.columns):
                     # Use the most recent non-null player_id per player name
                     pstats = pstats.dropna(subset=['player'])
@@ -6097,6 +6103,22 @@ async def props_recommendations_page(
                                         player_position_map[nm] = pv_u
                     except Exception:
                         pass
+            except Exception:
+                pass
+            # Fallback positions via processed roster CSV if available (player,position,team columns)
+            try:
+                roster_csv = PROC_DIR / f"roster_{date}.csv"
+                rdf = _read_csv_fallback(roster_csv)
+                if (rdf is None) or rdf.empty:
+                    rdf = _github_raw_read_csv(f"data/processed/roster_{date}.csv")
+                if rdf is not None and not rdf.empty:
+                    if {'player','position'}.issubset(set(rdf.columns)):
+                        for _, rr in rdf.iterrows():
+                            nm = rr.get('player')
+                            posv = str(rr.get('position') or '').upper()
+                            if nm and posv and (_norm_name(nm) not in player_position_map):
+                                if posv in ('F','D','G','C','LW','RW'):
+                                    player_position_map[_norm_name(nm)] = ('F' if posv in ('C','LW','RW') else posv)
             except Exception:
                 pass
     except Exception:

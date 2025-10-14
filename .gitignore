@@ -49,6 +49,11 @@ data/**
 # Example whitelist: keep calibration summary if desired
 !data/processed/props_stats_calibration.json
 
+# Allow committing lightweight, CSV-backed props artifacts needed by the public web app
+!data/processed/props_projections_*.csv
+!data/processed/props_projections_all_*.csv
+!data/processed/props_recommendations_*.csv
+
 # OS files
 Thumbs.db
 .DS_Store

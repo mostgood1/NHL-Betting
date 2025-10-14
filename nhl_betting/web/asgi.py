@@ -101,45 +101,20 @@ class WrapperASGI:
                 if not date:
                     from datetime import datetime
                     date = datetime.utcnow().strftime("%Y-%m-%d")
-                # Fetch CSV from GitHub raw (public host) first; if that fails, return empty
-                import os
-                import requests
-                from io import StringIO
+                # Local-file only: avoid outbound network during warmup to prevent 502s
                 import csv as _csv
-                repo = os.getenv("GITHUB_REPO", "mostgood1/NHL-Betting").strip() or "mostgood1/NHL-Betting"
-                branch = os.getenv("GITHUB_BRANCH", "master").strip() or "master"
+                import pathlib
                 rel = f"data/processed/props_projections_all_{date}.csv"
-                url = f"https://raw.githubusercontent.com/{repo}/{branch}/{rel}"
-                text = ""
-                last_exc = None
-                for _ in range(2):
-                    try:
-                        r = requests.get(url, timeout=7)
-                        if r.status_code == 200 and r.text:
-                            text = r.text
-                            break
-                    except Exception as e:
-                        last_exc = e
                 rows = []
-                if text:
-                    try:
-                        f = StringIO(text)
-                        reader = _csv.DictReader(f)
-                        for row in reader:
-                            rows.append(row)
-                    except Exception:
-                        rows = []
-                # If still empty, attempt to read from local file system path
-                if not rows:
-                    try:
-                        import pathlib
-                        p = pathlib.Path(__file__).resolve().parents[3] / rel  # repo root + rel
-                        if p.exists():
-                            with p.open("r", encoding="utf-8") as fh:
-                                reader = _csv.DictReader(fh)
-                                rows = list(reader)
-                    except Exception:
-                        rows = []
+                try:
+                    # repo root = nhl_betting (parents[1])'s parent => parents[2]
+                    p = pathlib.Path(__file__).resolve().parents[2] / rel
+                    if p.exists():
+                        with p.open("r", encoding="utf-8") as fh:
+                            reader = _csv.DictReader(fh)
+                            rows = list(reader)
+                except Exception:
+                    rows = []
                 total_rows = len(rows)
                 # Filter
                 if team:

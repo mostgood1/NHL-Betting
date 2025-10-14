@@ -60,6 +60,9 @@ data/**
 # Allow player stats history used for enrichment
 !data/raw/player_game_stats.csv
 
+# Allow roster snapshots per date for enrichment on public deploys
+!data/processed/roster_*.csv
+
 # OS files
 Thumbs.db
 .DS_Store

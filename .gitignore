@@ -54,6 +54,12 @@ data/**
 !data/processed/props_projections_all_*.csv
 !data/processed/props_recommendations_*.csv
 
+# Allow canonical player props lines so web can enrich with player_id/team locally
+!data/props/player_props_lines/**
+
+# Allow player stats history used for enrichment
+!data/raw/player_game_stats.csv
+
 # OS files
 Thumbs.db
 .DS_Store

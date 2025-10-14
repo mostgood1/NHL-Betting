@@ -390,6 +390,7 @@ def _compute_props_projections(date: str, market: Optional[str] = None) -> pd.Da
     try:
         base = PROC_DIR.parent / "props" / f"player_props_lines/date={date}"
         parts = []
+        # Prefer parquet, but fall back to CSV if parquet is unavailable
         for name in ("bovada.parquet", "oddsapi.parquet"):
             p = base / name
             if p.exists():
@@ -397,6 +398,14 @@ def _compute_props_projections(date: str, market: Optional[str] = None) -> pd.Da
                     parts.append(pd.read_parquet(p))
                 except Exception:
                     pass
+        if not parts:
+            for name in ("bovada.csv", "oddsapi.csv"):
+                p = base / name
+                if p.exists():
+                    try:
+                        parts.append(pd.read_csv(p))
+                    except Exception:
+                        pass
         lines = pd.concat(parts, ignore_index=True) if parts else pd.DataFrame()
     except Exception:
         lines = pd.DataFrame()

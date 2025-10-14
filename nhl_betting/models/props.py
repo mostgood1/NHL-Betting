@@ -18,6 +18,25 @@ def _normalize_name(s: str) -> str:
     return s
 
 
+def _unwrap_dictish_name(val: str) -> str:
+    """If the name is serialized like "{'default': 'N. Schmaltz'}", extract the default/name.
+
+    Returns the original string if parsing fails.
+    """
+    try:
+        s = str(val or "").strip()
+        if s.startswith("{") and s.endswith("}"):
+            import ast
+            d = ast.literal_eval(s)
+            if isinstance(d, dict):
+                v = d.get("default") or d.get("name") or d.get("fullName")
+                if isinstance(v, str) and v.strip():
+                    return v.strip()
+    except Exception:
+        pass
+    return str(val or "")
+
+
 def _name_variants(full_name: str) -> Set[str]:
     """Generate reasonable variants for matching player names in historical data.
 
@@ -53,7 +72,8 @@ def _select_player_rows(df: pd.DataFrame, player: str, role: str, metric_cols: L
         pdf = df[df.get("role", "").astype(str).str.lower() == str(role).lower()].copy()
         # Normalize player names in the view for matching
         if "player" in pdf.columns:
-            pdf["_p_norm"] = pdf["player"].astype(str).map(_normalize_name)
+            # Unwrap dict-like serialized names, then normalize
+            pdf["_p_norm"] = pdf["player"].astype(str).map(_unwrap_dictish_name).map(_normalize_name)
             pdf = pdf[pdf["_p_norm"].isin(candidates)]
         else:
             # No player column; return empty schema

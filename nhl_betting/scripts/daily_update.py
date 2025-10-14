@@ -352,24 +352,24 @@ def collect_props_canonical(days_ahead: int = 1, verbose: bool = False) -> dict:
         _vprint(verbose, f"[props] roster snapshot failed: {e}")
     for d in ordered:
         try:
-            res = props_data.collect_and_write(d, roster_df=roster_df, cfg=cfg_b)
-            cnt = int(res.get("combined_count") or 0)
-            out["counts"][d] = cnt
-            out["paths"][d] = res.get("output_path")
-            if cnt == 0:
-                # Fallback to Odds API
-                try:
-                    res2 = props_data.collect_and_write(d, roster_df=roster_df, cfg=cfg_o)
-                    out["counts"][d] = int(res2.get("combined_count") or 0)
-                    out["paths"][d] = res2.get("output_path")
-                except Exception as e2:
-                    _vprint(verbose, f"[props] oddsapi fallback failed for {d}: {e2}")
-            if verbose:
-                _vprint(verbose, f"[props] {d}: lines={out['counts'][d]} path={out['paths'][d]}")
-        except Exception as e:
-            _vprint(verbose, f"[props] {d} collection failed: {e}")
-            out["counts"][d] = 0
-            out["paths"][d] = None
+            # Always attempt both sources to maximize coverage
+            res_b = props_data.collect_and_write(d, roster_df=roster_df, cfg=cfg_b)
+            cnt_b = int(res_b.get("combined_count") or 0)
+            path_b = res_b.get("output_path")
+        except Exception as e_b:
+            cnt_b, path_b = 0, None
+            _vprint(verbose, f"[props] bovada failed for {d}: {e_b}")
+        try:
+            res_o = props_data.collect_and_write(d, roster_df=roster_df, cfg=cfg_o)
+            cnt_o = int(res_o.get("combined_count") or 0)
+            path_o = res_o.get("output_path")
+        except Exception as e_o:
+            cnt_o, path_o = 0, None
+            _vprint(verbose, f"[props] oddsapi failed for {d}: {e_o}")
+        out["counts"][d] = {"bovada": cnt_b, "oddsapi": cnt_o, "combined": cnt_b + cnt_o}
+        out["paths"][d] = {"bovada": path_b, "oddsapi": path_o}
+        if verbose:
+            _vprint(verbose, f"[props] {d}: bovada={cnt_b} oddsapi={cnt_o} total={cnt_b+cnt_o}")
     return out
 
 

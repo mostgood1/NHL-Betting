@@ -333,8 +333,12 @@ def combine_over_under(df: pd.DataFrame) -> pd.DataFrame:
         pid = row.get("player_id")
         if pd.notna(pid):
             return f"id::{pid}"
-        name = str(row.get("player") or "").strip().lower()
-        return f"name::{name}" if name else None
+        # Require a non-empty player name; drop aggregate rows like 'Total Shots On Goal'
+        name_raw = row.get("player")
+        name = str(name_raw or "").strip()
+        if not name:
+            return None
+        return f"name::{name.lower()}"
     df[player_key_col] = df.apply(_mk_key, axis=1)
     # Drop rows without any player identifier
     df = df[df[player_key_col].notna()]

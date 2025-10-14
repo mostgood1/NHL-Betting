@@ -126,11 +126,15 @@ def get_team_assets(name: str) -> dict:
         # Additional aliases can be added as needed
     }
     div, conf = _DIV_CONF.get(abbr, (None, None))
+    # Prefer the light variant by default for dark-themed UI; also expose a generic 'logo' alias
+    logo_light = f"{base}/{abbr}_light.svg"
+    logo_dark = f"{base}/{abbr}_dark.svg"
     return {
         "name": name,
         "abbr": abbr,
-        "logo_light": f"{base}/{abbr}_light.svg",
-        "logo_dark": f"{base}/{abbr}_dark.svg",
+        "logo_light": logo_light,
+        "logo_dark": logo_dark,
+        "logo": logo_light,
         "division": div,
         "conference": conf,
     }

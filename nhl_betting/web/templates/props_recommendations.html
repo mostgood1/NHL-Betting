@@ -111,7 +111,7 @@
               <div class="muted subtitle">{{ c.team_abbr or c.team or '—' }}{% if c.position %} · {{ c.position }}{% endif %} · Best EV <span class="ev">{{ '%.3f' % c.best_ev if c.best_ev is not none else '—' }}</span></div>
               {# Single-line projections for SOG, Goals, Assists, Points #}
               {% if c.markets %}
-                {% set ns = namespace(sog=null, goals=null, assists=null, points=null) %}
+                {% set ns = namespace(sog=none, goals=none, assists=none, points=none) %}
                 {% for m in c.markets %}
                   {% if m.market == 'SOG' and m.proj is not none %}{% set ns.sog = m.proj %}{% endif %}
                   {% if m.market == 'GOALS' and m.proj is not none %}{% set ns.goals = m.proj %}{% endif %}

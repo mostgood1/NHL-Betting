@@ -156,6 +156,109 @@ class WrapperASGI:
                 body = b'{"date":"","data":[],"total_rows":0,"filtered_rows":0,"page":1,"page_size":250,"total_pages":0}'
                 return await self._send_json(send, 200, body)
 
+        # Lightweight CSV-backed JSON for props recommendations (no heavy app required)
+        if path == "/api/props/recommendations.json":
+            try:
+                raw_qs = scope.get("query_string") or b""
+                q = parse_qs(raw_qs.decode("utf-8"), keep_blank_values=False)
+                date = (q.get("date", [""])[0] or "").strip() or None
+                market = (q.get("market", [""])[0] or "").strip()
+                team = (q.get("team", [""])[0] or "").strip()
+                try:
+                    min_ev = float((q.get("min_ev", ["0"]) [0] or "0"))
+                except Exception:
+                    min_ev = 0.0
+                sort = (q.get("sort", ["ev_desc"]) [0] or "ev_desc").strip().lower()
+                try:
+                    page = int((q.get("page", ["1"]) [0] or "1"))
+                except Exception:
+                    page = 1
+                try:
+                    page_size = int((q.get("page_size", ["250"]) [0] or "250"))
+                except Exception:
+                    page_size = 250
+                try:
+                    top = int((q.get("top", ["0"]) [0] or "0"))
+                except Exception:
+                    top = 0
+                if not date:
+                    from datetime import datetime
+                    date = datetime.utcnow().strftime("%Y-%m-%d")
+
+                import csv as _csv
+                import pathlib
+                rel = f"data/processed/props_recommendations_{date}.csv"
+                rows = []
+                try:
+                    p = pathlib.Path(__file__).resolve().parents[2] / rel
+                    if p.exists():
+                        with p.open("r", encoding="utf-8") as fh:
+                            reader = _csv.DictReader(fh)
+                            rows = list(reader)
+                except Exception:
+                    rows = []
+                total_rows = len(rows)
+                # Normalize types and filter
+                def _flt(x, default=None):
+                    try:
+                        return float(x)
+                    except Exception:
+                        return default
+                if market:
+                    mu = market.upper()
+                    rows = [r for r in rows if (r.get("market") or "").upper() == mu]
+                if team:
+                    tu = team.upper()
+                    rows = [r for r in rows if (r.get("team") or "").upper() == tu]
+                if min_ev and min_ev > 0:
+                    rows = [r for r in rows if _flt(r.get("ev"), -1e9) >= min_ev]
+                # Sort
+                key = None; asc = False
+                if sort == "ev_desc": key = "ev"; asc = False
+                elif sort == "ev_asc": key = "ev"; asc = True
+                elif sort == "p_over_desc": key = "p_over"; asc = False
+                elif sort == "p_over_asc": key = "p_over"; asc = True
+                elif sort == "name": key = "player"; asc = True
+                elif sort == "team": key = "team"; asc = True
+                elif sort == "market": key = "market"; asc = True
+                if key:
+                    try:
+                        if key in ("ev","p_over"):
+                            rows.sort(key=lambda r: _flt(r.get(key), float("nan")), reverse=not asc)
+                        else:
+                            rows.sort(key=lambda r: (r.get(key) or ""), reverse=not asc)
+                    except Exception:
+                        pass
+                # Top cap
+                if top and top > 0:
+                    rows = rows[: top]
+                filtered_rows = len(rows)
+                # Pagination
+                if page <= 0: page = 1
+                if page_size <= 0: page_size = 250
+                total_pages = (filtered_rows + page_size - 1) // page_size if filtered_rows else 0
+                if total_pages == 0:
+                    page = 1
+                elif page > total_pages:
+                    page = total_pages
+                start = (page - 1) * page_size
+                end = start + page_size
+                page_rows = rows[start:end]
+                payload = {
+                    "date": date,
+                    "data": page_rows,
+                    "total_rows": total_rows,
+                    "filtered_rows": filtered_rows,
+                    "page": page,
+                    "page_size": page_size,
+                    "total_pages": total_pages,
+                }
+                body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+                return await self._send_json(send, 200, body)
+            except Exception:
+                body = b'{"date":"","data":[],"total_rows":0,"filtered_rows":0,"page":1,"page_size":250,"total_pages":0}'
+                return await self._send_json(send, 200, body)
+
         # Proxy others
         if _HEAVY_APP is None:
             ensure_heavy_loaded(background=True)

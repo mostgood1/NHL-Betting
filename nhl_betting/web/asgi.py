@@ -61,7 +61,12 @@ class WrapperASGI:
         if path == "/health":
             body = b'{"status":"ok","heavy_ready":%s}' % (b"true" if _HEAVY_APP is not None else b"false")
             return await self._send_json(send, 200, body)
+        if path == "/ready":
+            # Readiness endpoint separate from health (no side-effects)
+            body = b'{"ready":%s}' % (b"true" if _HEAVY_APP is not None else b"false")
+            return await self._send_json(send, 200, body)
         if path == "/warmup":
+            # Trigger background warmup explicitly
             ensure_heavy_loaded(background=True)
             body = b'{"ok":true,"heavy_ready":%s}' % (b"true" if _HEAVY_APP is not None else b"false")
             return await self._send_json(send, 200, body)
@@ -107,9 +112,3 @@ class WrapperASGI:
 
 
 app = WrapperASGI()
-
-# Proactively begin warming on process start to reduce first-hit latency
-try:
-    ensure_heavy_loaded(background=True)
-except Exception:
-    pass

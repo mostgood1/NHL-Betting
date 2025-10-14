@@ -908,14 +908,36 @@ def props_recommendations(
             lam = blocks.player_lambda(hist, player)
             return lam, blocks.prob_over(lam, line)
         return None, None
+    # Normalize player display and filter out team-level rows
+    import ast as _ast
+    def _norm_player(s):
+        if s is None:
+            return ""
+        x = str(s).strip()
+        if x.startswith('{') and x.endswith('}'):
+            try:
+                d = _ast.literal_eval(x)
+                if isinstance(d, dict):
+                    v = d.get('default') or d.get('name') or ''
+                    if isinstance(v, str):
+                        x = v.strip()
+            except Exception:
+                pass
+        return " ".join(x.split())
+    def _looks_like_player(x: str) -> bool:
+        s = (x or '').strip().lower()
+        if not s:
+            return False
+        bad = ['total shots on goal', 'team total', 'first period', 'second period', 'third period']
+        return (any(ch.isalpha() for ch in s) and not any(b in s for b in bad))
     # Combine rows: lines contain over_price and under_price per (market,player,line,book)
     rows = []
     for _, r in lines.iterrows():
         m = str(r.get("market") or "").upper()
         if market and m != market.upper():
             continue
-        player = r.get("player_name") or r.get("player")
-        if not player:
+        player = _norm_player(r.get("player_name") or r.get("player"))
+        if not player or not _looks_like_player(player):
             continue
         try:
             ln = float(r.get("line"))
@@ -944,10 +966,12 @@ def props_recommendations(
                 side = "Under"; price = under_price; ev = ev_u
         if ev is None or float(ev) < float(min_ev):
             continue
+        # Choose best available team: prefer input team, else use map from enrichment/historical
+        team_val = r.get("team") or player_team_map.get(_norm_name(player))
         rows.append({
             "date": date,
             "player": player,
-            "team": r.get("team") or None,
+            "team": team_val or None,
             "market": m,
             "line": ln,
             "proj": round(float(lam), 3),
@@ -1574,11 +1598,27 @@ def props_project_all(
         save_df(out, out_path)
         print(f"Wrote {out_path} with 0 rows")
         return
+    # Normalize player display strings to avoid dict-string artifacts and stray whitespace
+    import ast as _ast
+    def _norm_player(s):
+        if s is None:
+            return ""
+        x = str(s).strip()
+        if x.startswith('{') and x.endswith('}'):
+            try:
+                d = _ast.literal_eval(x)
+                if isinstance(d, dict):
+                    v = d.get('default') or d.get('name') or ''
+                    if isinstance(v, str):
+                        x = v.strip()
+            except Exception:
+                pass
+        return " ".join(x.split())
     # Models
     shots = SkaterShotsModel(); saves = GoalieSavesModel(); goals = SkaterGoalsModel(); assists = SkaterAssistsModel(); points = SkaterPointsModel(); blocks = SkaterBlocksModel()
     rows = []
     for _, r in roster_df.iterrows():
-        player = str(r.get('player') or '').strip()
+        player = _norm_player(r.get('player'))
         pos = str(r.get('position') or '').upper()
         team = r.get('team')
         if not player:
@@ -1598,6 +1638,11 @@ def props_project_all(
             continue
     out = pd.DataFrame(rows)
     if not out.empty:
+        # Final pass normalization on player column
+        try:
+            out['player'] = out['player'].astype(str).map(_norm_player)
+        except Exception:
+            pass
         try:
             out = out.sort_values(['team','position','player','market'])
         except Exception:

@@ -22,6 +22,7 @@
     .lad{display:flex;justify-content:space-between;border:1px dashed var(--border);border-radius:8px;padding:6px 8px;margin-top:6px}
     .lad .side{font-weight:600}
     .row-market{margin-top:10px;gap:10px;align-items:flex-start;flex-wrap:wrap}
+    .hint-more{margin-left:8px}
   @media (min-width:1600px){ .grid{grid-template-columns:repeat(3,minmax(0,1fr))} }
   @media (max-width:980px){ .grid{grid-template-columns:1fr} }
   </style>
@@ -89,7 +90,10 @@
       <button type="submit">Apply</button>
   <a class="button push-right" href="/props/recommendations.csv?date={{ date }}">Download CSV</a>
     </form>
-    <div class="muted">{{ cards|length }} players</div>
+    <div class="muted">
+      {{ cards|length }} players{% if truncated %} (truncated){% endif %}
+    {% if not truncated and not all %}<span class="hint-more">Use &all=1 or increase Top to see more.</span>{% endif %}
+    </div>
     <div class="grid">
       {% for c in cards %}
         <div class="card">

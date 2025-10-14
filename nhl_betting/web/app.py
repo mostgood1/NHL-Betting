@@ -5431,9 +5431,11 @@ async def props_recommendations_page(
     date: Optional[str] = Query(None),
     market: Optional[str] = Query(None),
     min_ev: float = Query(0.0),
-    top: int = Query(200),
+    # Raise default top to 500 so more players appear by default
+    top: int = Query(500),
     sortBy: Optional[str] = Query("ev_desc"),
     side: Optional[str] = Query("both"),
+    # When all=1 we bypass any top slicing
     all: Optional[int] = Query(0),
 ):
     """Card-style props recommendations page.
@@ -5447,12 +5449,22 @@ async def props_recommendations_page(
     # Prefer local cache; otherwise try GitHub raw for today's file
     try:
         path = PROC_DIR / f"props_recommendations_{date}.csv"
+        local_rows = -1
         if path.exists():
-            df = _read_csv_fallback(path)
-        if (df is None or df.empty):
+            df_local = _read_csv_fallback(path)
+            if df_local is not None and not df_local.empty:
+                local_rows = len(df_local)
+                df = df_local
+        # Attempt GitHub freshness upgrade if remote appears to have more rows
+        try:
             gh_df = _github_raw_read_csv(f"data/processed/props_recommendations_{date}.csv")
-            if gh_df is not None and not gh_df.empty:
-                df = gh_df
+        except Exception:
+            gh_df = None
+        if (df is None or df.empty) and gh_df is not None and not gh_df.empty:
+            df = gh_df
+        elif gh_df is not None and not gh_df.empty and local_rows > 0 and len(gh_df) > local_rows:
+            # Replace stale local snapshot with fresher remote copy (do not write to disk here)
+            df = gh_df
     except Exception:
         df = pd.DataFrame()
     # Inline compute fallback if still empty: build from canonical lines + models
@@ -5603,9 +5615,8 @@ async def props_recommendations_page(
                     df = df.sort_values(col, ascending=asc)
                 except Exception:
                     pass
-            if top and top > 0:
-                # Top applied post-group via best_ev; keep more rows to form ladders
-                pass
+            # Defer slicing until after card build (handled later) so ladders are complete
+            pass
     except Exception:
         df = pd.DataFrame()
     # Build an optional player_id map from canonical lines to attach headshots (skip on public host)
@@ -5934,12 +5945,18 @@ async def props_recommendations_page(
                 elif (sortBy or '').lower() == 'name':
                     cards.sort(key=lambda x: (str(x.get('player') or '').lower()))
                 elif (sortBy or '').lower() == 'market':
-                    # Keep existing order; optional: sort by first market name
                     cards.sort(key=lambda x: (x.get('markets')[0]['market'] if (x.get('markets') and x.get('markets')[0].get('market')) else ''))
                 elif (sortBy or '').lower() == 'team':
                     cards.sort(key=lambda x: (str(x.get('team_abbr') or str(x.get('team') or '')).upper()))
-                if top and top > 0:
+                # Only apply slicing if all flag not set
+                truncated = False
+                if (not all) and top and top > 0 and len(cards) > top:
                     cards = cards[: int(top)]
+                    truncated = True
+                else:
+                    truncated = False
+            else:
+                truncated = False
             # Add UI fallbacks for missing images/logos to avoid empty gaps
             try:
                 for c in cards:
@@ -5963,6 +5980,8 @@ async def props_recommendations_page(
         side=side or 'both',
         all=bool(all),
         cards=cards,
+        truncated=locals().get('truncated', False),
+        total_cards=len(cards) if isinstance(cards, list) else 0,
     )
     return HTMLResponse(content=html)
 

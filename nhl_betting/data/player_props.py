@@ -197,6 +197,27 @@ def normalize_player_names(raw: pd.DataFrame, roster_df: Optional[pd.DataFrame])
         raw["team"] = []
         return raw
     df = raw.copy()
+    # Some sources (historical stats fallback) may pass player strings that look like dicts
+    # (e.g., "{'default': 'C. McDavid'}"). Parse these early so later normalization variants
+    # operate on the canonical display form.
+    def _unwrap_dict_like_player(val):
+        try:
+            s = str(val)
+            if s.startswith('{') and 'default' in s:
+                import ast as _ast
+                obj = _ast.literal_eval(s)
+                if isinstance(obj, dict):
+                    dv = obj.get('default')
+                    if isinstance(dv, str) and dv.strip():
+                        return dv.strip()
+            return val
+        except Exception:
+            return val
+    try:
+        if 'player' in df.columns:
+            df['player'] = df['player'].map(_unwrap_dict_like_player)
+    except Exception:
+        pass
     # Basic cleaned form
     def _clean(s: str) -> str:
         import unicodedata, re
@@ -486,6 +507,27 @@ def _build_roster_enrichment() -> pd.DataFrame:
             stats = pd.read_csv(stats_p)
             if not stats.empty and {"player","player_id"}.issubset(stats.columns):
                 stats = stats.dropna(subset=["player"])  # require a name
+                # Extract a cleaner display name when the raw value is a dict-like string such as
+                # "{'default': 'A. Matthews'}" or includes localized variants. This improves
+                # downstream variant key matching (initial+last) for player_id enrichment when
+                # live roster snapshots are unavailable (e.g., network/DNS issues on cold start).
+                def _extract_default(v):
+                    try:
+                        s = str(v)
+                        if s.startswith('{') and 'default' in s:
+                            import ast as _ast
+                            obj = _ast.literal_eval(s)
+                            # Typical structure: {'default': 'N. Schmaltz', 'fr': '...', ...}
+                            dval = obj.get('default') if isinstance(obj, dict) else None
+                            if isinstance(dval, str) and dval.strip():
+                                return dval.strip()
+                        return s
+                    except Exception:
+                        return str(v)
+                try:
+                    stats['player'] = stats['player'].map(_extract_default)
+                except Exception:
+                    pass
                 # Order by date to take last known mapping
                 try:
                     stats["_date"] = pd.to_datetime(stats["date"], errors="coerce")

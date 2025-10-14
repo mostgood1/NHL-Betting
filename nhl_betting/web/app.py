@@ -5437,6 +5437,7 @@ async def props_recommendations_page(
     side: Optional[str] = Query("both"),
     # When all=1 we bypass any top slicing
     all: Optional[int] = Query(0),
+    debug: Optional[int] = Query(0, description="If 1, include debug comment with photo/team mapping counts"),
 ):
     """Card-style props recommendations page.
 
@@ -5622,6 +5623,7 @@ async def props_recommendations_page(
     # Build an optional player_id map from canonical lines to attach headshots (skip on public host)
     player_photo: dict[str, str] = {}
     player_team_map: dict[str, str] = {}
+    player_position_map: dict[str, str] = {}
     valid_player_names: set[str] = set()
     # Helper: normalize player display names consistently
     def _norm_name(x: str) -> str:
@@ -5650,25 +5652,254 @@ async def props_recommendations_page(
                     pass
         if parts:
             lp = pd.concat(parts, ignore_index=True)
+            # Build a fallback index: (last_name_lower, team_abbr_upper) -> predominant player_id
+            last_team_pid_map: dict[tuple[str, str], int] = {}
+            try:
+                if not lp.empty and {'player_name','team','player_id'}.issubset(lp.columns):
+                    tmp = lp.dropna(subset=['player_name','team','player_id']).copy()
+                    # Normalize team to assets abbr if possible
+                    def _team_abbr(t):
+                        try:
+                            a = get_team_assets(t) or {}
+                            ab = a.get('abbr')
+                            return (ab or t).upper()
+                        except Exception:
+                            return str(t).upper()
+                    tmp['team_abbr_norm'] = tmp['team'].apply(_team_abbr)
+                    def _last(nm):
+                        try:
+                            nm = str(nm)
+                            if nm.startswith('{') and nm.endswith('}'):
+                                # strip dict-like wrappers quickly
+                                if 'default' in nm:
+                                    import re as _re
+                                    m = _re.search(r"'default':\s*'([^']+)'", nm)
+                                    if m:
+                                        nm = m.group(1)
+                            parts = nm.strip().split()
+                            return parts[-1].lower() if parts else ''
+                        except Exception:
+                            return ''
+                    tmp['last_lower'] = tmp['player_name'].apply(_last)
+                    grp_lt = tmp.groupby(['last_lower','team_abbr_norm'])['player_id'].agg(lambda s: s.dropna().astype(str).value_counts().idxmax())
+                    for (ln, tm), pid in grp_lt.items():
+                        try:
+                            pid_int = int(float(pid))
+                            last_team_pid_map[(ln, tm)] = pid_int
+                        except Exception:
+                            continue
+            except Exception:
+                last_team_pid_map = {}
             # Build mapping by player_name -> player_id (prefer most frequent id if duplicates)
             if not lp.empty and 'player_name' in lp.columns and 'player_id' in lp.columns:
                 try:
                     # Normalize player_name keys to avoid subtle whitespace/case issues
                     grp = lp.groupby('player_name')['player_id'].agg(lambda s: s.dropna().astype(str).value_counts().idxmax())
+                    def _unwrap_name(raw_name: str) -> str:
+                        """Unwrap dict-like string representations and quoted wrappers.
+
+                        Examples:
+                        - "{'default': 'C. D'Astous'}" -> "C. D'Astous"
+                        - '{"default": "J. O'Brien"}' -> "J. O'Brien"
+                        - '"Auston Matthews"' -> Auston Matthews
+                        - "{'alt': 'Foo', 'default': 'Bar'}" -> 'Bar' (prefer 'default')
+                        Falls back to raw_name if parsing fails.
+                        """
+                        try:
+                            txt = str(raw_name)
+                            # Fast path: if not dict-like
+                            if not (txt.startswith('{') and txt.endswith('}')):
+                                return txt.strip().strip('"').strip("'")
+                            import ast
+                            try:
+                                obj = ast.literal_eval(txt)
+                                if isinstance(obj, dict):
+                                    for k in ('default','full','name','player'):
+                                        if k in obj and obj[k]:
+                                            return str(obj[k]).strip()
+                                    # Fallback: first non-empty value
+                                    for v in obj.values():
+                                        if v:
+                                            return str(v).strip()
+                            except Exception:
+                                pass
+                            return txt.strip()
+                        except Exception:
+                            return str(raw_name)
                     for name_key, pid in grp.items():
                         try:
-                            pid_s = str(pid)
-                            player_photo[_norm_name(name_key)] = f"https://cms.nhl.bamgrid.com/images/headshots/current/168x168/{pid_s}.jpg"
+                            # Coerce potential float (e.g., 8479323.0) to int string to avoid '.0' in URL
+                            pid_int = None
+                            if pid is not None and str(pid).strip() != '':
+                                try:
+                                    pid_int = int(float(pid))
+                                except Exception:
+                                    pid_int = int(str(pid).split('.')[0]) if str(pid).split('.')[0].isdigit() else None
+                            if pid_int is None:
+                                continue
+                            clean_name = _norm_name(_unwrap_name(name_key))
+                            if clean_name:
+                                url = f"https://cms.nhl.bamgrid.com/images/headshots/current/168x168/{pid_int}.jpg"
+                                player_photo[clean_name] = url
+                                # If the raw name differs (dict-like), also map raw normalized string to same URL for completeness
+                                raw_norm = _norm_name(str(name_key))
+                                if raw_norm != clean_name and raw_norm not in player_photo:
+                                    player_photo[raw_norm] = url
                         except Exception:
-                            pass
+                            continue
                 except Exception:
                     pass
             # Valid player set filtered from lines
             try:
                 if 'player_name' in lp.columns:
-                    valid_player_names = {str(x).strip() for x in lp['player_name'].dropna().tolist() if str(x).strip()}
+                    raw_names = [str(x) for x in lp['player_name'].dropna().tolist()]
+                    expanded = []
+                    for rn in raw_names:
+                        expanded.append(str(rn).strip())
+                        try:
+                            # Attempt unwrap for dict-like names
+                            if rn.startswith('{') and rn.endswith('}'):
+                                import ast
+                                obj = ast.literal_eval(rn)
+                                if isinstance(obj, dict):
+                                    for k in ('default','full','name','player'):
+                                        if k in obj and obj[k]:
+                                            expanded.append(str(obj[k]).strip())
+                                            break
+                        except Exception:
+                            pass
+                    valid_player_names = {x for x in expanded if x}
             except Exception:
                 valid_player_names = set()
+            # Roster-based expansion: map initial+last -> full first+last using snapshot (models dir or raw)
+            try:
+                from ..utils.io import RAW_DIR as _RAW, MODEL_DIR as _MODEL_DIR
+                candidates = []
+                # Search both raw (legacy) and model directories for roster snapshots
+                for base_dir in (_RAW, _MODEL_DIR):
+                    try:
+                        for pth in base_dir.glob('roster_snapshot_*.parquet'):
+                            try:
+                                candidates.append((pth.stat().st_mtime, pth))
+                            except Exception:
+                                continue
+                    except Exception:
+                        continue
+                roster_df = None
+                if candidates:
+                    latest = sorted(candidates)[-1][1]
+                    try:
+                        roster_df = pd.read_parquet(latest)
+                    except Exception:
+                        roster_df = None
+                # Accept either camelCase or snake_case column variants
+                if roster_df is not None and not roster_df.empty:
+                    cols = set(roster_df.columns)
+                    has_full = ('fullName' in cols) or ('full_name' in cols)
+                    has_pid = ('playerId' in cols) or ('player_id' in cols)
+                    if has_full and has_pid:
+                        # Build last-name buckets keyed by (initial, last_lower) -> list of full names
+                        buckets = {}
+                        # Attempt to extract coarse position (F/D/G) if roster has grouping lists
+                        try:
+                            if 'position' in roster_df.columns:
+                                def _norm_pos(p):
+                                    p = str(p or '').upper()
+                                    if p in ('C','LW','RW'): return 'F'
+                                    if p in ('F','D','G'): return p
+                                    return ''
+                                for _, rr in roster_df.iterrows():
+                                    fn_full = rr.get('fullName') or rr.get('full_name')
+                                    posv = _norm_pos(rr.get('position'))
+                                    if fn_full and posv and fn_full not in player_position_map:
+                                        player_position_map[fn_full] = posv
+                        except Exception:
+                            pass
+                        for _, rr in roster_df.iterrows():
+                            fn = rr.get('fullName') or rr.get('full_name')
+                            if not fn or not isinstance(fn, str):
+                                continue
+                            parts_name = fn.strip().split()
+                            if len(parts_name) < 2:
+                                continue
+                            first, last = parts_name[0], parts_name[-1]
+                            key = (first[0].upper(), last.lower())
+                            buckets.setdefault(key, []).append(fn.strip())
+                        # For each existing abbreviated mapping key (e.g., 'C. O'Reilly'), clone to full names
+                        existing_keys = list(player_photo.keys())
+                        import re
+                        for abbr in existing_keys:
+                            m = re.match(r"^([A-Z])\.\s+([A-Za-z\-']+)$", abbr)
+                            if not m:
+                                continue
+                            ini, last = m.group(1), m.group(2)
+                        # Normalize last removing stray punctuation spacing distinctions
+                        last_norm = last.lower()
+                        # Basic punctuation normalization
+                        last_norm_simple = last_norm.replace("'", "").replace('-', '')
+                        # Gather candidate bucket keys (with and without punctuation)
+                        cand_keys = [(ini, last_norm), (ini, last_norm_simple)]
+                        seen_full = set()
+                        for ck in cand_keys:
+                            if ck in buckets:
+                                for full_n in buckets[ck]:
+                                    if full_n not in player_photo:
+                                        player_photo[full_n] = player_photo[abbr]
+                                        seen_full.add(full_n)
+                        # If we found exactly one candidate, also add its lowercase variant stripped (defensive)
+                        if len(seen_full) == 1:
+                            only = list(seen_full)[0]
+                            low = only.lower().title()
+                            if low not in player_photo:
+                                player_photo[low] = player_photo[abbr]
+            except Exception:
+                pass
+            # Fallback: if still no positions, attempt live roster fetch (only if compute allowed locally)
+            try:
+                if not player_position_map and _compute_allowed() and not _is_public_host_env():
+                    # Derive teams to query from player_team_map (limit to avoid explosion)
+                    from ..data import rosters as _rosters_mod
+                    team_abbrs = {v for v in player_team_map.values() if v}
+                    if team_abbrs:
+                        # Map team abbr back to team IDs via list_teams
+                        try:
+                            teams_json = _rosters_mod.list_teams()
+                            abbr_to_id = {t.get('abbreviation','').upper(): t.get('id') for t in teams_json if t.get('abbreviation')}
+                        except Exception:
+                            abbr_to_id = {}
+                        for ab in list(team_abbrs)[:20]:  # safety cap
+                            tid = abbr_to_id.get(ab.upper())
+                            if not tid:
+                                continue
+                            try:
+                                roster_players = _rosters_mod.fetch_current_roster(int(tid))
+                                for rp in roster_players:
+                                    fn_full = rp.full_name
+                                    posv = rp.position
+                                    if fn_full and posv and fn_full not in player_position_map:
+                                        player_position_map[fn_full] = posv
+                            except Exception:
+                                continue
+            except Exception:
+                pass
+            # Bridge initial+last -> full first name variants (lines based mapping)
+            try:
+                if valid_player_names and player_photo:
+                    import re
+                    full_names_set = { _norm_name(v) for v in valid_player_names }
+                    mapping_keys_snapshot = list(player_photo.keys())
+                    for mk in mapping_keys_snapshot:
+                        m = re.match(r"^([A-Z])\.\s+([A-Za-z\-']+)$", mk)
+                        if m:
+                            ini, last = m.group(1), m.group(2)
+                            # Find full names whose last token matches last and first initial matches
+                            cands = [fn for fn in full_names_set if fn.split() and fn.split()[-1].replace("'"," ").lower()==last.replace("'"," ").lower() and fn[0].upper()==ini]
+                            url = player_photo.get(mk)
+                            for fn in cands:
+                                if fn not in player_photo and url:
+                                    player_photo[fn] = url
+            except Exception:
+                pass
             # Also build a player -> latest team map to fill missing teams
             if not lp.empty and {'player_name','team'}.issubset(lp.columns):
                 try:
@@ -5698,7 +5929,7 @@ async def props_recommendations_page(
                             player_team_map[str(name_key).strip()] = str(tm).strip()
                 except Exception:
                     player_team_map = player_team_map
-            # Secondary photo and team mapping from historical player_game_stats.csv (fills gaps)
+            # Secondary photo, team, and position mapping from historical player_game_stats.csv (fills gaps)
             try:
                 from ..utils.io import RAW_DIR as _RAW
                 pstats = _read_csv_fallback(_RAW / 'player_game_stats.csv')
@@ -5718,11 +5949,84 @@ async def props_recommendations_page(
                         key = nm.strip()
                         if key and key not in player_photo:
                             try:
-                                player_photo[key] = f"https://cms.nhl.bamgrid.com/images/headshots/current/168x168/{int(pid)}.jpg"
+                                if pid is None or str(pid).strip()=='':
+                                    continue
+                                pid_int = int(float(pid))
+                                player_photo[key] = f"https://cms.nhl.bamgrid.com/images/headshots/current/168x168/{pid_int}.jpg"
                             except Exception:
-                                pass
+                                continue
+                        # Bridge abbreviated forms like 'A. Matthews' -> 'Auston Matthews' for odds lines
+                        # where canonical lines often contain full first names but stats snapshot may only
+                        # hold initial+last. We attempt a fuzzy expansion: if pattern 'X. Lastname' and we
+                        # have any valid_player_names with same last name and first initial, map them too.
+                        try:
+                            if key and '.' in key and valid_player_names:
+                                import re
+                                m = re.match(r'^([A-Z])\.\s+([A-Za-z\-\']+)$', key)
+                                if m:
+                                    ini, last = m.group(1), m.group(2)
+                                    candidates = [v for v in valid_player_names if v.split() and v.split()[-1].lower()==last.lower() and v[0].upper()==ini]
+                                    for full in candidates:
+                                        if full not in player_photo:
+                                            try:
+                                                if pid is None or str(pid).strip()=='' :
+                                                    continue
+                                                pid_int = int(float(pid))
+                                                player_photo[full] = f"https://cms.nhl.bamgrid.com/images/headshots/current/168x168/{pid_int}.jpg"
+                                            except Exception:
+                                                continue
+                        except Exception:
+                            pass
                     # Also build a last known team per player as a fallback
                     if 'team' in pstats.columns:
+                        # Manual final overrides for stubborn silhouettes if still missing (use any discovered pid)
+                        try:
+                            remaining_manual = [
+                                "Jordan Oesterle",
+                                "Scott Morrow",
+                                "Henry Thrun",
+                                "David Kampf",
+                                "Mitchell Stephens",
+                                "Jakob Pelletier",
+                                "Zachary L'Heureux",
+                                "Joshua Roy",
+                            ]
+                            # Build simple last-name index once
+                            last_name_pid = {}
+                            for name_key, url in list(player_photo.items()):
+                                # extract pid from url if possible
+                                try:
+                                    if '/168x168/' in url:
+                                        pid_part = url.split('/168x168/')[-1].split('.')[0]
+                                        # map last name
+                                        parts_n = name_key.split()
+                                        if len(parts_n) >= 2:
+                                            last_name_pid.setdefault(parts_n[-1].lower(), pid_part)
+                                except Exception:
+                                    continue
+                            for mm in remaining_manual:
+                                if mm in player_photo:
+                                    continue
+                                parts_mm = mm.split()
+                                if len(parts_mm) < 2:
+                                    continue
+                                last = parts_mm[-1].lower()
+                                pid_guess = last_name_pid.get(last)
+                                if not pid_guess:
+                                    # fall back to last_team_pid_map search on last name
+                                    for (lname, _team), pidv in last_team_pid_map.items():
+                                        if lname == parts_mm[-1]:
+                                            pid_guess = pidv
+                                            break
+                                if not pid_guess:
+                                    continue
+                                try:
+                                    pid_int = int(str(pid_guess).split('.')[0])
+                                except Exception:
+                                    continue
+                                player_photo[mm] = f"https://cms.nhl.bamgrid.com/images/headshots/current/168x168/{pid_int}.jpg"
+                        except Exception:
+                            pass
                         def _last_team_norm(g):
                             try:
                                 t = g.dropna().astype(str).iloc[-1]
@@ -5741,6 +6045,18 @@ async def props_recommendations_page(
                         for nm, tm in last_teams.items():
                             if nm and (nm not in player_team_map or not player_team_map.get(nm)):
                                 player_team_map[nm] = str(tm).strip()
+                    # Position inference from stats file if available
+                    try:
+                        if 'primary_position' in pstats.columns:
+                            pos_last = pstats.dropna(subset=['primary_position']).groupby('player')['primary_position'].last()
+                            for nm, pv in pos_last.items():
+                                if nm and nm not in player_position_map and pv:
+                                    pv_u = str(pv).upper()
+                                    if pv_u in ('C','LW','RW'): pv_u = 'F'
+                                    if pv_u in ('F','D','G'):
+                                        player_position_map[nm] = pv_u
+                    except Exception:
+                        pass
             except Exception:
                 pass
     except Exception:
@@ -5940,6 +6256,7 @@ async def props_recommendations_page(
                     'best_ev': best_ev_overall,
                     'markets': markets,
                     'photo': player_photo.get(_norm_name(player)),
+                    'position': player_position_map.get(_norm_name(player)) or player_position_map.get(player) or None,
                 })
             # Sort and top-N (now by player card)
             if cards:
@@ -5964,6 +6281,19 @@ async def props_recommendations_page(
             # Add UI fallbacks for missing images/logos to avoid empty gaps
             try:
                 for c in cards:
+                    # Fallback: if still missing photo, attempt last-name+team lookup from canonical lines
+                    if (not c.get('photo') or c['photo'].startswith('data:image')) and c.get('team_abbr'):
+                        try:
+                            pl = c.get('player')
+                            if pl and isinstance(pl, str):
+                                last = pl.strip().split()[-1].lower()
+                                key = (last, c.get('team_abbr'))
+                                pid_fallback = last_team_pid_map.get(key) if 'last_team_pid_map' in locals() else None
+                                if pid_fallback:
+                                    url_fb = f"https://cms.nhl.bamgrid.com/images/headshots/current/168x168/{int(pid_fallback)}.jpg"
+                                    c['photo'] = url_fb
+                        except Exception:
+                            pass
                     if not c.get('photo'):
                         # Neutral silhouette asset (data URI tiny svg to avoid network)
                         c['photo'] = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='42' height='42'><circle cx='21' cy='14' r='8' fill='%23262a33'/><rect x='9' y='24' width='24' height='14' rx='7' fill='%23262a33'/></svg>"
@@ -5975,6 +6305,97 @@ async def props_recommendations_page(
     except Exception:
         cards = []
     template = env.get_template("props_recommendations.html")
+    # Debug metrics about enrichment to help diagnose missing photos/logos client side
+    try:
+        remote_photo_cnt = sum(1 for c in (cards or []) if isinstance(c.get('photo'), str) and c['photo'].startswith('https://cms.nhl.bamgrid.com/images/headshots'))
+        silhouette_cnt = sum(1 for c in (cards or []) if isinstance(c.get('photo'), str) and c['photo'].startswith('data:image/svg+xml'))
+        logo_cnt = sum(1 for c in (cards or []) if c.get('team_logo'))
+        pos_cnt = sum(1 for c in (cards or []) if c.get('position'))
+        debug_info = None
+        if debug:
+            debug_info = f"photos_remote={remote_photo_cnt} silhouette={silhouette_cnt} cards={len(cards)} logos={logo_cnt} positions={pos_cnt} date={date}"
+    except Exception:
+        debug_info = None
+
+    # When debug==2 return JSON metrics; debug==3 adds deeper mapping diagnostics
+    if debug in (2,3):
+        extra = {}
+        if debug == 3:
+            # Build a quick diagnostic of canonical lines and mapping results
+            diag = {
+                'lines_player_id_non_null': None,
+                'lines_distinct_players': None,
+                'mapping_sample': [],
+                'card_vs_mapping': [],
+            }
+            try:
+                # Re-run minimal load for canonical lines
+                d_for_lines = date or _today_ymd()
+                base = PROC_DIR.parent / "props" / f"player_props_lines/date={d_for_lines}"
+                parts2 = []
+                for name in ("bovada.parquet", "oddsapi.parquet", "bovada.csv", "oddsapi.csv"):
+                    p2 = base / name
+                    if p2.exists():
+                        try:
+                            if p2.suffix == '.parquet':
+                                parts2.append(pd.read_parquet(p2))
+                            else:
+                                parts2.append(_read_csv_fallback(p2))
+                        except Exception:
+                            continue
+                if parts2:
+                    lp2 = pd.concat(parts2, ignore_index=True)
+                    if {'player_name','player_id'}.issubset(lp2.columns):
+                        try:
+                            diag['lines_player_id_non_null'] = int(lp2['player_id'].notna().sum())
+                        except Exception:
+                            pass
+                        try:
+                            diag['lines_distinct_players'] = int(lp2['player_name'].nunique())
+                        except Exception:
+                            pass
+                # Use existing player_photo mapping
+                samp = []
+                def _maybe_unwrap(nm: str) -> str:
+                    try:
+                        if nm.startswith('{') and nm.endswith('}'):
+                            import ast
+                            obj = ast.literal_eval(nm)
+                            if isinstance(obj, dict):
+                                for k2 in ('default','full','name','player'):
+                                    if k2 in obj and obj[k2]:
+                                        return str(obj[k2])
+                    except Exception:
+                        pass
+                    return nm
+                for k,v in list(player_photo.items())[:10]:
+                    samp.append({'player_name_norm': k, 'player_name_unwrapped': _maybe_unwrap(k), 'url': v})
+                diag['mapping_sample'] = samp
+                # Add comparison of first few card player names to mapping presence
+                try:
+                    if cards:
+                        comp = []
+                        for c in cards[:10]:
+                            nm = c.get('player')
+                            hit = player_photo.get(_norm_name(nm)) is not None
+                            comp.append({'card_player': nm, 'mapping_hit': hit})
+                        diag['card_vs_mapping'] = comp
+                except Exception:
+                    pass
+            except Exception:
+                pass
+            extra['diagnostics'] = diag
+        return JSONResponse({
+            'date': date,
+            'cards': len(cards) if isinstance(cards, list) else 0,
+            'photos_remote': remote_photo_cnt,
+            'silhouettes': silhouette_cnt,
+            'logos': logo_cnt,
+            'positions': pos_cnt,
+            'sample_players_no_photo': [c.get('player') for c in (cards or []) if c.get('photo','').startswith('data:image')][:10],
+            **extra,
+        })
+
     html = template.render(
         date=date,
         market=market or "",
@@ -5986,6 +6407,7 @@ async def props_recommendations_page(
         cards=cards,
         truncated=locals().get('truncated', False),
         total_cards=len(cards) if isinstance(cards, list) else 0,
+        debug_info=debug_info,
     )
     return HTMLResponse(content=html)
 
@@ -6032,6 +6454,132 @@ async def props_recommendations_json(
     except Exception:
         recs = []
     return JSONResponse({"date": d, "rows": len(recs), "data": recs})
+
+@app.get('/props/debug/photos', response_class=PlainTextResponse)
+def debug_props_photos(date: str = Query(default='today'), include_stats_sample: int = Query(0, ge=0, le=50)):
+    """Diagnostic CSV of photo enrichment mapping for props recommendations.
+
+    Columns: player_name,has_photo,photo_url,player_id_in_lines,teams_in_lines,stats_player_id,abbrev_candidate_pid
+    include_stats_sample optionally appends up to N abbreviated stats name entries not present in lines.
+    """
+    import io, csv
+    from ..utils.io import RAW_DIR as _RAW
+    if date == 'today':
+        date = _today_ymd()
+    base = PROC_DIR.parent / 'props' / f'player_props_lines/date={date}'
+    dfs = []
+    for name in ('bovada.parquet','oddsapi.parquet','bovada.csv','oddsapi.csv'):
+        p = base / name
+        if p.exists():
+            try:
+                dfs.append(pd.read_parquet(p) if p.suffix=='.parquet' else _read_csv_fallback(p))
+            except Exception:
+                continue
+    if not dfs:
+        return PlainTextResponse('no canonical lines found for date')
+    lines = pd.concat(dfs, ignore_index=True)
+    def _norm_name(x: str) -> str:
+        try: return ' '.join(str(x or '').split())
+        except Exception: return str(x)
+    agg = {}
+    for _, r in lines.iterrows():
+        pname = _norm_name(r.get('player_name') or r.get('player'))
+        if not pname: continue
+        ent = agg.setdefault(pname, {'player_ids': set(), 'teams': set()})
+        pid = r.get('player_id')
+        if pd.notna(pid):
+            try: ent['player_ids'].add(str(int(pid)))
+            except Exception: pass
+        t = r.get('team')
+        if t and str(t).strip():
+            ent['teams'].add(str(t).strip())
+    stats_ids = {}
+    abbrev_forms = {}
+    try:
+        sp = _RAW / 'player_game_stats.csv'
+        if sp.exists():
+            s = _read_csv_fallback(sp)
+            if not s.empty and {'player','player_id'}.issubset(s.columns):
+                s = s.dropna(subset=['player'])
+                def _unwrap(v):
+                    try:
+                        vs = str(v)
+                        if vs.startswith('{') and 'default' in vs:
+                            import ast as _ast
+                            obj = _ast.literal_eval(vs)
+                            if isinstance(obj, dict):
+                                dv = obj.get('default')
+                                if isinstance(dv, str) and dv.strip():
+                                    return dv.strip()
+                        return vs
+                    except Exception:
+                        return str(v)
+                s['player_clean'] = s['player'].map(_unwrap)
+                try:
+                    s['_d'] = pd.to_datetime(s['date'], errors='coerce')
+                    s = s.sort_values('_d')
+                except Exception:
+                    pass
+                last_ids = s.dropna(subset=['player_id']).groupby('player_clean')['player_id'].last()
+                for nm, pid in last_ids.items():
+                    stats_ids[_norm_name(nm)] = str(int(pid))
+                for nm in list(stats_ids.keys()):
+                    parts = nm.split()
+                    if len(parts) >= 2:
+                        ini = parts[0][0].upper(); last = parts[-1]
+                        abbrev_forms[f'{ini}. {last}'] = stats_ids[nm]
+    except Exception:
+        pass
+    def _url(pid: str):
+        return f'https://cms.nhl.bamgrid.com/images/headshots/current/168x168/{pid}.jpg'
+    out_rows = []
+    for pname, meta in sorted(agg.items()):
+        pids = meta['player_ids']
+        pid_any = next(iter(pids)) if pids else ''
+        photo_pid = ''
+        if pid_any:
+            photo_pid = pid_any
+        elif pname in stats_ids:
+            photo_pid = stats_ids[pname]
+        else:
+            parts = pname.split()
+            if len(parts) >= 2:
+                ini = parts[0][0].upper(); last = parts[-1]
+                key_abbrev = f'{ini}. {last}'
+                if key_abbrev in stats_ids:
+                    photo_pid = stats_ids[key_abbrev]
+        out_rows.append({
+            'player_name': pname,
+            'has_photo': bool(photo_pid),
+            'photo_url': _url(photo_pid) if photo_pid else '',
+            'player_id_in_lines': ';'.join(sorted(pids)) if pids else '',
+            'teams_in_lines': ';'.join(sorted(meta['teams'])) if meta['teams'] else '',
+            'stats_player_id': stats_ids.get(pname, ''),
+            'abbrev_candidate_pid': stats_ids.get(f"{pname.split()[0][0].upper()}. {pname.split()[-1]}", ''),
+        })
+    if include_stats_sample > 0:
+        added = 0
+        for abbr, pid in abbrev_forms.items():
+            if added >= include_stats_sample: break
+            if not any(r['player_name'] == abbr for r in out_rows):
+                out_rows.append({
+                    'player_name': abbr,
+                    'has_photo': True,
+                    'photo_url': _url(pid),
+                    'player_id_in_lines': '',
+                    'teams_in_lines': '',
+                    'stats_player_id': pid,
+                    'abbrev_candidate_pid': pid,
+                })
+                added += 1
+    buf = io.StringIO()
+    if out_rows:
+        w = csv.DictWriter(buf, fieldnames=list(out_rows[0].keys()))
+        w.writeheader()
+        for r in out_rows: w.writerow(r)
+    else:
+        buf.write('no_rows')
+    return PlainTextResponse(buf.getvalue(), media_type='text/plain')
 
 
 @app.post("/api/cron/props-full")

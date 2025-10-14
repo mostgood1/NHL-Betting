@@ -93,6 +93,7 @@
     <div class="muted">
       {{ cards|length }} players{% if truncated %} (truncated){% endif %}
     {% if not truncated and not all %}<span class="hint-more">Use &all=1 or increase Top to see more.</span>{% endif %}
+    {% if debug_info %}<br/><code style="font-size:11px;color:#6fa">{{ debug_info }}</code>{% endif %}
     </div>
     <div class="grid">
       {% for c in cards %}
@@ -103,7 +104,7 @@
             {% endif %}
             <div>
               <div class="title">{{ c.player }}</div>
-              <div class="muted subtitle">{{ c.team_abbr or c.team or '—' }} · Best EV <span class="ev">{{ '%.3f' % c.best_ev if c.best_ev is not none else '—' }}</span></div>
+              <div class="muted subtitle">{{ c.team_abbr or c.team or '—' }}{% if c.position %} · {{ c.position }}{% endif %} · Best EV <span class="ev">{{ '%.3f' % c.best_ev if c.best_ev is not none else '—' }}</span></div>
             </div>
             {% if c.team_logo %}
               <img class="logo" src="{{ c.team_logo }}" alt="{{ c.team_abbr }}" onerror="this.style.display='none'" />

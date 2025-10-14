@@ -5611,8 +5611,9 @@ async def props_recommendations_page(
         except Exception:
             return str(x)
     try:
-        if _is_public_host_env():
-            raise Exception("skip_enrichment_on_public_host")
+        # Note: We allow local enrichment on public hosts as this reads only local Parquet/CSV files
+        # and does not perform any external network calls. This enables player photos and team logos
+        # to render reliably from precomputed artifacts.
         d_for_lines = date or _today_ymd()
         base = PROC_DIR.parent / "props" / f"player_props_lines/date={d_for_lines}"
         parts = []

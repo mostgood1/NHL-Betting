@@ -324,6 +324,8 @@ def _github_raw_read_csv(rel_path: str) -> pd.DataFrame:
 
     rel_path should be a posix-style path like 'data/processed/props_projections_YYYY-MM-DD.csv'.
     Uses env GITHUB_REPO and GITHUB_BRANCH (defaults to mostgood1/NHL-Betting@master).
+
+    Includes a tiny retry to tolerate transient network hiccups on cold starts.
     """
     try:
         repo = os.getenv("GITHUB_REPO", "mostgood1/NHL-Betting").strip() or "mostgood1/NHL-Betting"
@@ -331,12 +333,25 @@ def _github_raw_read_csv(rel_path: str) -> pd.DataFrame:
         # Normalize leading slashes
         rel = rel_path.lstrip("/")
         url = f"https://raw.githubusercontent.com/{repo}/{branch}/{rel}"
-        resp = requests.get(url, timeout=10)
-        if resp.status_code == 200 and resp.text:
+        last_exc = None
+        for attempt in range(2):
             try:
-                return pd.read_csv(StringIO(resp.text))
+                # Keep timeout modest to avoid tying up workers
+                resp = requests.get(url, timeout=7)
+                if resp.status_code == 200 and resp.text:
+                    try:
+                        return pd.read_csv(StringIO(resp.text))
+                    except Exception:
+                        return pd.DataFrame()
+            except Exception as e:
+                last_exc = e
+            # brief backoff
+            try:
+                import time as _t
+                _t.sleep(0.4)
             except Exception:
-                return pd.DataFrame()
+                pass
+        # On failure return empty (callers handle empty as cache miss)
         return pd.DataFrame()
     except Exception:
         return pd.DataFrame()
@@ -4484,13 +4499,23 @@ async def _api_props_all_players_impl(request: Request, date, team, market, sort
     df = _read_all_players_projections(d)
     src_path = PROC_DIR / f"props_projections_all_{d}.csv"
     if (df is None or df.empty):
-        df = _compute_all_players_projections(d)
-        # Best-effort write/backfill if we just computed
-        try:
-            if df is not None and not df.empty and not src_path.exists():
-                save_df(df, src_path)
-        except Exception:
-            pass
+        # On public hosts, do NOT compute on-demand to avoid cold-start timeouts; serve empty.
+        if _is_public_host_env():
+            try:
+                # Also attempt one more GitHub raw read in case of transient
+                df = _github_raw_read_csv(f"data/processed/props_projections_all_{d}.csv")
+            except Exception:
+                df = df
+        if df is None or df.empty:
+            if _is_public_host_env():
+                return JSONResponse({"date": d, "data": [], "total_rows": 0, "filtered_rows": 0, "page": 1, "page_size": page_size, "total_pages": 0})
+            # Local/dev: compute and backfill cache file
+            df = _compute_all_players_projections(d)
+            try:
+                if df is not None and not df.empty and not src_path.exists():
+                    save_df(df, src_path)
+            except Exception:
+                pass
     total_rows = 0 if df is None or df.empty else len(df)
     if df is None or df.empty:
         return JSONResponse({"date": d, "data": [], "total_rows": 0, "filtered_rows": 0, "page": 1, "page_size": page_size, "total_pages": 0})

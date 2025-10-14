@@ -1454,40 +1454,15 @@ def props_project_all(
                     pass
                 cur = cur.dropna(subset=["player_name"]).copy()
                 cur["_team_abbr"] = cur.get("team", pd.Series(index=cur.index)).map(_abbr_team)
-                # Position inference: build last-known positions for slate players via chunked read (fast)
-                pos_map = {}
+                # Position inference: use cached positions map to avoid repeated scans
+                from .utils.positions_cache import get_positions_map
+                pos_cache = PROC_DIR / "props_positions_cache.json"
+                targets: set[str] = set()
                 try:
-                    stats_p = stats_path
-                    targets: set[str] = set()
-                    try:
-                        targets = set(lines_df.dropna(subset=["player_name"])['player_name'].astype(str))
-                    except Exception:
-                        targets = set()
-                    if targets and stats_p.exists():
-                        import ast
-                        def _unwrap(val: str) -> str:
-                            s = str(val or "").strip()
-                            if s.startswith("{") and s.endswith("}"):
-                                try:
-                                    d = ast.literal_eval(s)
-                                    if isinstance(d, dict):
-                                        v = d.get("default") or d.get("name") or d.get("fullName")
-                                        if isinstance(v, str) and v.strip():
-                                            return v.strip()
-                                except Exception:
-                                    pass
-                            return str(val or "")
-                        seen = set()
-                        for chunk in pd.read_csv(stats_p, usecols=["player","primary_position"], chunksize=100000):
-                            chunk["player"] = chunk["player"].astype(str).map(_unwrap)
-                            sub = chunk[chunk["player"].isin(targets)].dropna(subset=["primary_position"]).copy()
-                            for _, rr in sub.iterrows():
-                                nm = str(rr.get("player") or "")
-                                if nm and nm not in seen:
-                                    pos_map[nm] = rr.get("primary_position")
-                                    seen.add(nm)
+                    targets = set(lines_df.dropna(subset=["player_name"])['player_name'].astype(str))
                 except Exception:
-                    pos_map = {}
+                    targets = set()
+                pos_map = get_positions_map(targets, stats_path, pos_cache) if targets else {}
                 # Identify goalies from lines explicitly
                 goalie_names = set()
                 try:
@@ -1560,35 +1535,11 @@ def props_project_all(
                     return None
             enrich = enrich.copy()
             enrich['team_abbr'] = enrich['team'].map(_to_abbr)
-            # Infer position from historical stats if available (chunked, filtered to enrich names)
-            pos_map = {}
-            try:
-                targets = set(enrich['full_name'].astype(str)) if {'full_name'}.issubset(enrich.columns) else set()
-                if targets and stats_path.exists():
-                    import ast
-                    def _unwrap(val: str) -> str:
-                        s = str(val or "").strip()
-                        if s.startswith("{") and s.endswith("}"):
-                            try:
-                                d = ast.literal_eval(s)
-                                if isinstance(d, dict):
-                                    v = d.get("default") or d.get("name") or d.get("fullName")
-                                    if isinstance(v, str) and v.strip():
-                                        return v.strip()
-                            except Exception:
-                                pass
-                        return str(val or "")
-                    seen = set()
-                    for chunk in pd.read_csv(stats_path, usecols=['player','primary_position'], chunksize=100000):
-                        chunk['player'] = chunk['player'].astype(str).map(_unwrap)
-                        sub = chunk[chunk['player'].isin(targets)].dropna(subset=['primary_position']).copy()
-                        for _, rr in sub.iterrows():
-                            nm = str(rr.get('player') or '')
-                            if nm and nm not in seen:
-                                pos_map[nm] = rr.get('primary_position')
-                                seen.add(nm)
-            except Exception:
-                pos_map = {}
+            # Infer position using cached positions map
+            from .utils.positions_cache import get_positions_map
+            pos_cache = PROC_DIR / "props_positions_cache.json"
+            targets = set(enrich['full_name'].astype(str)) if {'full_name'}.issubset(enrich.columns) else set()
+            pos_map = get_positions_map(targets, stats_path, pos_cache) if targets else {}
             rows_fb = []
             for _, rr in enrich.iterrows():
                 ab = rr.get('team_abbr')

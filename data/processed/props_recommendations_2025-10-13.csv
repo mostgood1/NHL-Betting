@@ -1,0 +1,6 @@
+date,player,team,market,line,proj,p_over,over_price,under_price,book,side,ev,proj_lambda,ev_over
+2025-10-13,2.5,,BLOCKS,2.5,1.5,0.1912,-110,-120,bovada,Under,0.4829,1.5,0.4829
+2025-10-13,1.5,,BLOCKS,1.5,1.5,0.4422,-200,150,bovada,Under,0.3946,1.5,0.3946
+2025-10-13,Total Shots On Goal,,SOG,3.5,2.0,0.1429,130,-170,bovada,Under,0.3613,2.0,0.3613
+2025-10-13,Total Shots On Goal,,SOG,1.5,2.0,0.594,-105,-125,bovada,Over,0.1597,2.0,0.1597
+2025-10-13,Total Shots On Goal,,SOG,2.5,2.0,0.3233,150,-200,bovada,Under,0.015,2.0,0.015

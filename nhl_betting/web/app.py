@@ -5694,6 +5694,9 @@ async def props_recommendations_page(
             lp = pd.concat(parts, ignore_index=True)
             # Build a fallback index: (last_name_lower, team_abbr_upper) -> predominant player_id
             last_team_pid_map: dict[tuple[str, str], int] = {}
+            # Also build last-name only unique PID and team modes to handle nickname/full-name mismatches
+            last_only_unique_pid: dict[str, int] = {}
+            last_only_team_mode: dict[str, str] = {}
             try:
                 if not lp.empty and {'player_name','team','player_id'}.issubset(lp.columns):
                     tmp = lp.dropna(subset=['player_name','team','player_id']).copy()
@@ -5728,6 +5731,24 @@ async def props_recommendations_page(
                             last_team_pid_map[(ln, tm)] = pid_int
                         except Exception:
                             continue
+                    # Last-name only aggregates
+                    try:
+                        # Unique PID per last name (only keep if exactly one distinct pid)
+                        pid_counts = tmp.dropna(subset=['player_id']).groupby('last_lower')['player_id'].nunique()
+                        for ln, nuniq in pid_counts.items():
+                            if int(nuniq) == 1:
+                                pid_val = tmp[tmp['last_lower'] == ln]['player_id'].dropna().iloc[0]
+                                try:
+                                    last_only_unique_pid[ln] = int(float(pid_val))
+                                except Exception:
+                                    pass
+                        # Team mode per last name
+                        team_mode = tmp.groupby('last_lower')['team_abbr_norm'].agg(lambda s: s.dropna().astype(str).value_counts().idxmax())
+                        for ln, tm in team_mode.items():
+                            if ln and tm:
+                                last_only_team_mode[ln] = str(tm).upper()
+                    except Exception:
+                        pass
             except Exception:
                 last_team_pid_map = {}
             # Build mapping by player_name -> player_id (prefer most frequent id if duplicates)
@@ -6154,13 +6175,20 @@ async def props_recommendations_page(
                     df = df[df['player'].apply(lambda x: _norm_name(x) in { _norm_name(v) for v in valid_player_names })]
             except Exception:
                 pass
-            # Fill missing team from player_team_map
+            # Fill missing team from player_team_map (with last-name fallback)
             try:
                 if 'team' in df.columns:
                     def _fill_team(row):
                         t = row.get('team')
                         if t is None or str(t).strip() == '' or str(t).lower() == 'nan':
-                            return player_team_map.get(_norm_name(row.get('player')), t)
+                            nm = _norm_name(row.get('player'))
+                            t0 = player_team_map.get(nm)
+                            if not t0 and nm and ' ' in nm:
+                                last = nm.split()[-1].lower()
+                                # If we have a team mode for this last name, use that
+                                if 'last_only_team_mode' in locals():
+                                    t0 = last_only_team_mode.get(last) or t0
+                            return t0 or t
                         return t
                     df['team'] = df.apply(_fill_team, axis=1)
                     # Sanitize any lingering string 'nan' values into None
@@ -6352,7 +6380,7 @@ async def props_recommendations_page(
                     except Exception:
                         pass
                     # Fallback: if still missing photo, attempt last-name+team lookup from canonical lines
-                    if (not c.get('photo') or c['photo'].startswith('data:image')) and c.get('team_abbr'):
+                    if (not c.get('photo') or (isinstance(c.get('photo'), str) and c['photo'].startswith('data:image'))) and c.get('team_abbr'):
                         try:
                             pl = c.get('player')
                             if pl and isinstance(pl, str):
@@ -6365,6 +6393,23 @@ async def props_recommendations_page(
                                     team_ab = str(c.get('team_abbr')).upper()
                                     url_fb = f"https://assets.nhle.com/mugs/nhl/{season}/{team_ab}/{int(pid_fallback)}.png"
                                     c['photo'] = url_fb
+                        except Exception:
+                            pass
+                    # Second fallback: last-name-only unique pid
+                    if (not c.get('photo') or (isinstance(c.get('photo'), str) and c['photo'].startswith('data:image'))):
+                        try:
+                            pl = c.get('player')
+                            if pl and isinstance(pl, str):
+                                last = pl.strip().split()[-1].lower()
+                                pid_guess = (last_only_unique_pid.get(last) if 'last_only_unique_pid' in locals() else None)
+                                if pid_guess:
+                                    # If we know team too, use assets mug; else use CMS headshot
+                                    season = _nhl_season_code(date)
+                                    team_ab = str(c.get('team_abbr') or '').upper()
+                                    if team_ab:
+                                        c['photo'] = f"https://assets.nhle.com/mugs/nhl/{season}/{team_ab}/{int(pid_guess)}.png"
+                                    else:
+                                        c['photo'] = f"https://cms.nhl.bamgrid.com/images/headshots/current/168x168/{int(pid_guess)}.jpg"
                         except Exception:
                             pass
                     if not c.get('photo'):

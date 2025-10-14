@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import threading
 from typing import Optional
+from urllib.parse import parse_qs
+
+import json
 
 # Minimal ASGI wrapper. No FastAPI here to keep cold-start as small as possible.
 
@@ -72,6 +75,111 @@ class WrapperASGI:
             return await self._send_json(send, 200, body)
         if path == "/" and method == "HEAD":
             return await self._send_empty(send, 204)
+
+        # Ultra-light CSV-backed JSON for props projections (no heavy app required)
+        if path == "/api/props/all.json":
+            try:
+                # Parse query params
+                raw_qs = scope.get("query_string") or b""
+                q = parse_qs(raw_qs.decode("utf-8"), keep_blank_values=False)
+                date = (q.get("date", [""])[0] or "").strip() or None
+                team = (q.get("team", [""])[0] or "").strip()
+                market = (q.get("market", [""])[0] or "").strip()
+                try:
+                    page = int((q.get("page", ["1"])[0] or "1"))
+                except Exception:
+                    page = 1
+                try:
+                    page_size = int((q.get("page_size", ["250"])[0] or "250"))
+                except Exception:
+                    page_size = 250
+                try:
+                    top = int((q.get("top", ["0"])[0] or "0"))
+                except Exception:
+                    top = 0
+                # Default date fallback (UTC today)
+                if not date:
+                    from datetime import datetime
+                    date = datetime.utcnow().strftime("%Y-%m-%d")
+                # Fetch CSV from GitHub raw (public host) first; if that fails, return empty
+                import os
+                import requests
+                from io import StringIO
+                import csv as _csv
+                repo = os.getenv("GITHUB_REPO", "mostgood1/NHL-Betting").strip() or "mostgood1/NHL-Betting"
+                branch = os.getenv("GITHUB_BRANCH", "master").strip() or "master"
+                rel = f"data/processed/props_projections_all_{date}.csv"
+                url = f"https://raw.githubusercontent.com/{repo}/{branch}/{rel}"
+                text = ""
+                last_exc = None
+                for _ in range(2):
+                    try:
+                        r = requests.get(url, timeout=7)
+                        if r.status_code == 200 and r.text:
+                            text = r.text
+                            break
+                    except Exception as e:
+                        last_exc = e
+                rows = []
+                if text:
+                    try:
+                        f = StringIO(text)
+                        reader = _csv.DictReader(f)
+                        for row in reader:
+                            rows.append(row)
+                    except Exception:
+                        rows = []
+                # If still empty, attempt to read from local file system path
+                if not rows:
+                    try:
+                        import pathlib
+                        p = pathlib.Path(__file__).resolve().parents[3] / rel  # repo root + rel
+                        if p.exists():
+                            with p.open("r", encoding="utf-8") as fh:
+                                reader = _csv.DictReader(fh)
+                                rows = list(reader)
+                    except Exception:
+                        rows = []
+                total_rows = len(rows)
+                # Filter
+                if team:
+                    tu = team.upper()
+                    rows = [r for r in rows if (r.get("team") or "").upper() == tu]
+                if market:
+                    mu = market.upper()
+                    rows = [r for r in rows if (r.get("market") or "").upper() == mu]
+                # Top cap
+                if top and top > 0:
+                    rows = rows[: top]
+                filtered_rows = len(rows)
+                # Pagination
+                if page <= 0:
+                    page = 1
+                if page_size <= 0:
+                    page_size = 250
+                total_pages = (filtered_rows + page_size - 1) // page_size if filtered_rows else 0
+                if total_pages == 0:
+                    page = 1
+                elif page > total_pages:
+                    page = total_pages
+                start = (page - 1) * page_size
+                end = start + page_size
+                page_rows = rows[start:end]
+                payload = {
+                    "date": date,
+                    "data": page_rows,
+                    "total_rows": total_rows,
+                    "filtered_rows": filtered_rows,
+                    "page": page,
+                    "page_size": page_size,
+                    "total_pages": total_pages,
+                }
+                body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+                return await self._send_json(send, 200, body)
+            except Exception:
+                # Always return a well-formed empty payload on failure (never 5xx)
+                body = b'{"date":"","data":[],"total_rows":0,"filtered_rows":0,"page":1,"page_size":250,"total_pages":0}'
+                return await self._send_json(send, 200, body)
 
         # Proxy others
         if _HEAVY_APP is None:

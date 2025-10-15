@@ -15,6 +15,26 @@ from .data.nhl_api import NHLClient
 from .data.nhl_api_web import NHLWebClient
 from .features.engineering import make_team_game_features
 from .models.elo import Elo
+from .models.elo import Elo, EloConfig
+def _load_elo_config() -> EloConfig:
+    """Load EloConfig from MODEL_DIR/config.json if present, else defaults.
+
+    Keys:
+      - elo_k (float)
+      - elo_home_adv (float, Elo points)
+    """
+    cfg_path = MODEL_DIR / "config.json"
+    if cfg_path.exists():
+        try:
+            with cfg_path.open("r", encoding="utf-8") as f:
+                obj = json.load(f)
+            k = float(obj.get("elo_k", 20.0))
+            ha = float(obj.get("elo_home_adv", 50.0))
+            return EloConfig(k=k, home_adv=ha)
+        except Exception:
+            return EloConfig()
+    return EloConfig()
+
 from .models.poisson import PoissonGoals
 from .models.trends import TrendAdjustments, team_keys, get_adjustment
 from .utils.odds import american_to_decimal, decimal_to_implied_prob, remove_vig_two_way, ev_unit, kelly_stake
@@ -121,7 +141,8 @@ def train():
         # If mapping not available, proceed without filtering
         pass
     df = df.sort_values("date")
-    elo = Elo()
+    # Use configured Elo parameters for training
+    elo = Elo(cfg=_load_elo_config())
     for _, g in df.iterrows():
         elo.update_game(g["home"], g["away"], int(g["home_goals"]), int(g["away_goals"]))
     # Save ratings
@@ -134,9 +155,19 @@ def train():
     games_count = len(df)
     # per-team per-game mean goals lambda (for PoissonGoals base)
     base_mu = float(total_goals / (2 * games_count)) if games_count > 0 else 3.0
+    # Update config.json: preserve existing keys (e.g., elo_k, elo_home_adv) and only update base_mu
     cfg_path = MODEL_DIR / "config.json"
-    with open(cfg_path, "w", encoding="utf-8") as f:
-        json.dump({"base_mu": base_mu}, f, indent=2)
+    cfg_path.parent.mkdir(parents=True, exist_ok=True)
+    cfg_obj = {}
+    if cfg_path.exists():
+        try:
+            with cfg_path.open("r", encoding="utf-8") as f:
+                cfg_obj = json.load(f) or {}
+        except Exception:
+            cfg_obj = {}
+    cfg_obj["base_mu"] = float(base_mu)
+    with cfg_path.open("w", encoding="utf-8") as f:
+        json.dump(cfg_obj, f, indent=2)
     print(f"Saved Elo ratings to {ratings_path} and config to {cfg_path} (base_mu={base_mu:.3f})")
 
 
@@ -217,7 +248,7 @@ def predict_core(
     with open(ratings_path, "r", encoding="utf-8") as f:
         ratings = json.load(f)
     elo = Elo()
-    elo.ratings = ratings
+    elo = Elo(cfg=_load_elo_config()); elo.ratings = ratings
 
     # Simple Poisson baseline (load base_mu if available)
     base_mu = None
@@ -419,6 +450,23 @@ def predict_core(
         lam_h = max(0.1, lam_h + gh_delta)
         lam_a = max(0.1, lam_a + ga_delta)
         p = pois.probs(total_line=per_game_total, lam_h=lam_h, lam_a=lam_a)
+
+        # Optional: apply probability calibration if available
+        try:
+            from .utils.calibration import load_calibration
+            cal_path = PROC_DIR / "model_calibration.json"
+            ml_cal, tot_cal = load_calibration(cal_path)
+            # moneyline: calibrate the stronger side, then derive the other by 1-p
+            p_home_cal = float(ml_cal.apply(np.array([p.get("home_ml", 0.5)]))[0])
+            p_away_cal = 1.0 - p_home_cal
+            # totals: calibrate over; under=1-over
+            p_over_cal = float(tot_cal.apply(np.array([p.get("over", 0.5)]))[0])
+            p_under_cal = 1.0 - p_over_cal
+        except Exception:
+            p_home_cal = float(p.get("home_ml"))
+            p_away_cal = float(p.get("away_ml"))
+            p_over_cal = float(p.get("over"))
+            p_under_cal = float(p.get("under"))
         # Derived projections (used by UI): per-team goals, total and spread
         proj_home_goals = float(lam_h)
         proj_away_goals = float(lam_a)
@@ -437,10 +485,10 @@ def predict_core(
             "proj_away_goals": round(proj_away_goals, 2),
             "model_total": round(model_total, 2),
             "model_spread": round(model_spread, 2),
-            "p_home_ml": float(p.get("home_ml")),
-            "p_away_ml": float(p.get("away_ml")),
-            "p_over": float(p.get("over")),
-            "p_under": float(p.get("under")),
+            "p_home_ml": p_home_cal,
+            "p_away_ml": p_away_cal,
+            "p_over": p_over_cal,
+            "p_under": p_under_cal,
             "p_home_pl_-1.5": float(p.get("home_puckline_-1.5")),
             "p_away_pl_+1.5": float(p.get("away_puckline_+1.5")),
         }
@@ -645,6 +693,10 @@ def predict_core(
         except Exception:
             # best-effort merge; ignore errors
             pass
+    # If no games (empty frame), avoid writing empty files
+    if out is None or (hasattr(out, "empty") and bool(out.empty)):
+        print("No eligible NHL games found for date.")
+        return out_path
     save_df(out, out_path)
     print(out)
     print(f"Saved predictions to {out_path}")
@@ -722,6 +774,361 @@ def collect_props(start: str = typer.Option(...), end: str = typer.Option(...), 
 
 
 @app.command()
+def predict_range(
+    start: str = typer.Argument(..., help="Start date YYYY-MM-DD"),
+    end: str = typer.Argument(..., help="End date YYYY-MM-DD"),
+    total_line: float = 6.0,
+    odds_source: str = typer.Option("bovada", help="Odds source: csv|oddsapi|bovada"),
+    bankroll: float = 0.0,
+    kelly_fraction_part: float = 0.5,
+):
+    """Regenerate predictions_{date}.csv and edges_{date}.csv for each date in [start,end]."""
+    from datetime import datetime as _dt, timedelta as _td
+    try:
+        s_dt = _dt.strptime(start, "%Y-%m-%d"); e_dt = _dt.strptime(end, "%Y-%m-%d")
+    except Exception:
+        print("Invalid date format; use YYYY-MM-DD"); raise typer.Exit(code=1)
+    if e_dt < s_dt:
+        s_dt, e_dt = e_dt, s_dt
+    d = s_dt
+    while d <= e_dt:
+        day = d.strftime("%Y-%m-%d")
+        try:
+            # Load existing predictions (to preserve finals/closings where present)
+            old_path = PROC_DIR / f"predictions_{day}.csv"
+            old_df = None
+            if old_path.exists():
+                try:
+                    old_df = pd.read_csv(old_path)
+                except Exception:
+                    old_df = None
+            predict_core(
+                date=day,
+                total_line=total_line,
+                odds_csv=None,
+                source="web",
+                odds_source=odds_source,
+                snapshot=None,
+                odds_regions="us",
+                odds_markets="h2h,totals,spreads",
+                odds_bookmaker=None,
+                odds_best=False,
+                bankroll=bankroll,
+                kelly_fraction_part=kelly_fraction_part,
+            )
+            # After write, if we have an old_df with finals, merge them back in
+            if old_df is not None:
+                try:
+                    new_df = pd.read_csv(old_path)
+                    key_cols = [c for c in ("date","date_et") if c in new_df.columns]
+                    key = [key_cols[0], "home", "away"] if key_cols else ["home", "away"]
+                    if set(key).issubset(new_df.columns) and set(key).issubset(old_df.columns):
+                        ndx = new_df.set_index(key)
+                        odx = old_df.set_index(key)
+                        for col in [
+                            "final_home_goals","final_away_goals","actual_home_goals","actual_away_goals","actual_total",
+                            "winner_actual","winner_model","winner_correct","result_total","total_diff",
+                            "close_home_ml_odds","close_away_ml_odds","close_over_odds","close_under_odds","close_home_pl_-1.5_odds","close_away_pl_+1.5_odds",
+                            "close_total_line_used","close_home_ml_book","close_away_ml_book","close_over_book","close_under_book","close_home_pl_-1.5_book","close_away_pl_+1.5_book","close_snapshot",
+                        ]:
+                            if col in odx.columns:
+                                if col not in ndx.columns:
+                                    ndx[col] = odx[col]
+                                else:
+                                    ndx[col] = ndx[col].combine_first(odx[col])
+                        new_df = ndx.reset_index()
+                        save_df(new_df, old_path)
+                except Exception:
+                    pass
+        except SystemExit:
+            pass
+        except Exception as e:
+            print(f"[warn] predict failed for {day}: {e}")
+        d += _td(days=1)
+
+
+@app.command()
+def backfill_finals(
+    start: str = typer.Argument(..., help="Start date YYYY-MM-DD"),
+    end: str = typer.Argument(..., help="End date YYYY-MM-DD"),
+):
+    """Backfill final scores and result fields into predictions_{date}.csv from data/raw/games.csv."""
+    from datetime import datetime as _dt, timedelta as _td
+    try:
+        s_dt = _dt.strptime(start, "%Y-%m-%d"); e_dt = _dt.strptime(end, "%Y-%m-%d")
+    except Exception:
+        print("Invalid date format; use YYYY-MM-DD"); raise typer.Exit(code=1)
+    if e_dt < s_dt:
+        s_dt, e_dt = e_dt, s_dt
+    games_path = RAW_DIR / "games.csv"
+    if not games_path.exists():
+        print("Missing data/raw/games.csv; cannot backfill finals.")
+        raise typer.Exit(code=1)
+    gdf = pd.read_csv(games_path)
+    # Normalize date
+    if "date" in gdf.columns:
+        gdf["date"] = pd.to_datetime(gdf["date"], errors="coerce").dt.strftime("%Y-%m-%d")
+    need = {"home","away","home_goals","away_goals","date"}
+    if not need.issubset(gdf.columns):
+        print("games.csv missing required columns for backfill.")
+        raise typer.Exit(code=1)
+    d = s_dt
+    while d <= e_dt:
+        day = d.strftime("%Y-%m-%d")
+        pred_path = PROC_DIR / f"predictions_{day}.csv"
+        if pred_path.exists():
+            try:
+                pdf = pd.read_csv(pred_path)
+                # Join on date_et (pred) to date (games), plus home/away names
+                key_pred_date = "date_et" if "date_et" in pdf.columns else ("date" if "date" in pdf.columns else None)
+                if key_pred_date is None:
+                    d += _td(days=1); continue
+                pdf[key_pred_date] = pd.to_datetime(pdf[key_pred_date], errors="coerce").dt.strftime("%Y-%m-%d")
+                sub_games = gdf[gdf["date"] == day].copy()
+                if sub_games.empty:
+                    d += _td(days=1); continue
+                # Merge in final scores from games.csv. Ensure goal columns are suffixed as *_g
+                games_cols = ["home","away","home_goals","away_goals"]
+                gsub = sub_games[games_cols].rename(columns={"home_goals": "home_goals_g", "away_goals": "away_goals_g"})
+                merged = pdf.merge(gsub, on=["home","away"], how="left")
+                # Fill finals where available
+                has_suff = {"home_goals_g","away_goals_g"}.issubset(merged.columns)
+                has_raw = {"home_goals","away_goals"}.issubset(merged.columns)
+                if has_suff or has_raw:
+                    # Ensure final_* columns exist before fill
+                    if "final_home_goals" not in merged.columns:
+                        merged["final_home_goals"] = pd.NA
+                    if "final_away_goals" not in merged.columns:
+                        merged["final_away_goals"] = pd.NA
+                    src_h = "home_goals_g" if has_suff else "home_goals"
+                    src_a = "away_goals_g" if has_suff else "away_goals"
+                    merged["final_home_goals"] = merged["final_home_goals"].fillna(merged[src_h])
+                    merged["final_away_goals"] = merged["final_away_goals"].fillna(merged[src_a])
+                    # Derive extras
+                    try:
+                        merged["actual_home_goals"] = merged["final_home_goals"].astype(float)
+                        merged["actual_away_goals"] = merged["final_away_goals"].astype(float)
+                        merged["actual_total"] = merged["actual_home_goals"] + merged["actual_away_goals"]
+                        merged["winner_actual"] = merged.apply(lambda r: r["home"] if float(r["actual_home_goals"]) > float(r["actual_away_goals"]) else (r["away"] if float(r["actual_home_goals"]) < float(r["actual_away_goals"]) else "Push"), axis=1)
+                        if "p_home_ml" in merged.columns:
+                            merged["winner_model"] = merged.apply(lambda r: (r["home"] if float(r["p_home_ml"]) >= 0.5 else r["away"]), axis=1)
+                            merged["winner_correct"] = (merged["winner_actual"] == merged["winner_model"]) & (~merged["winner_actual"].isin(["Push"]))
+                        if "total_line_used" in merged.columns:
+                            def _tot_result(r):
+                                try:
+                                    at = float(r["actual_total"]); tl = float(r["total_line_used"]) if pd.notna(r["total_line_used"]) else np.nan
+                                    if np.isnan(tl):
+                                        return None
+                                    if abs(at - tl) < 1e-9:
+                                        return "Push"
+                                    return "Over" if at > tl else "Under"
+                                except Exception:
+                                    return None
+                            merged["result_total"] = merged.apply(_tot_result, axis=1)
+                            merged["total_diff"] = merged.apply(lambda r: float(r["actual_total"]) - float(r["total_line_used"]) if pd.notna(r.get("total_line_used")) else np.nan, axis=1)
+                    except Exception:
+                        pass
+                    # Drop helper cols and save
+                    if "home_goals_g" in merged.columns:
+                        merged = merged.drop(columns=[c for c in ["home_goals_g","away_goals_g"] if c in merged.columns])
+                    save_df(merged, pred_path)
+                    print(f"Backfilled finals into {pred_path}")
+            except Exception as e:
+                print(f"[warn] backfill {day}: {e}")
+        d += _td(days=1)
+
+
+@app.command()
+def eval_segments(
+    start: str = typer.Argument(..., help="Start date YYYY-MM-DD"),
+    end: str = typer.Argument(..., help="End date YYYY-MM-DD"),
+    out_json: Optional[str] = typer.Option(None, help="Optional path to write JSON summary"),
+):
+    """Segmented diagnostics on moneyline predictions vs results and closings.
+
+    Reports by:
+      - side: favored by model (home p>=0.5) vs dog
+      - prob buckets (5 bins)
+      - team bias: avg(y - p) by team (home only)
+      - line movement (if open/close available): moved toward home vs away
+    """
+    from datetime import datetime as _dt, timedelta as _td
+    try:
+        s_dt = _dt.strptime(start, "%Y-%m-%d"); e_dt = _dt.strptime(end, "%Y-%m-%d")
+    except Exception:
+        print("Invalid date format; use YYYY-MM-DD"); raise typer.Exit(code=1)
+    if e_dt < s_dt:
+        s_dt, e_dt = e_dt, s_dt
+    rows = []
+    d = s_dt
+    while d <= e_dt:
+        day = d.strftime("%Y-%m-%d")
+        path = PROC_DIR / f"predictions_{day}.csv"
+        if path.exists():
+            try:
+                df = pd.read_csv(path)
+                need = {"home","away","p_home_ml","final_home_goals","final_away_goals"}
+                if not need.issubset(df.columns):
+                    d += _td(days=1); continue
+                sub = df.dropna(subset=["p_home_ml","final_home_goals","final_away_goals"]).copy()
+                if sub.empty:
+                    d += _td(days=1); continue
+                rows.append(sub)
+            except Exception:
+                pass
+        d += _td(days=1)
+    if not rows:
+        print("No rows to evaluate.")
+        return
+    data = pd.concat(rows, ignore_index=True)
+    # outcome 1 if home won
+    y = (data["final_home_goals"].astype(float) > data["final_away_goals"].astype(float)).astype(int)
+    p = data["p_home_ml"].astype(float).clip(1e-6, 1-1e-6)
+    # side buckets
+    favored = (p >= 0.5).astype(int)
+    seg_side = data.assign(y=y, p=p).groupby(favored).apply(lambda g: pd.Series({
+        "n": int(len(g)),
+        "acc": float(((g["p"]>=0.5).astype(int) == g["y"]).mean()),
+        "brier": float(((g["p"] - g["y"])**2).mean()),
+    })).rename(index={0:"dog",1:"fav"}).to_dict(orient="index")
+    # prob bins (5)
+    q = pd.qcut(p, q=5, duplicates="drop")
+    seg_bins = data.assign(y=y, p=p, bin=q.astype(str)).groupby("bin").apply(lambda g: pd.Series({
+        "n": int(len(g)), "mean_p": float(g["p"].mean()), "obs": float(g["y"].mean())
+    })).reset_index().to_dict(orient="records")
+    # team bias (home side only aggregate)
+    seg_team = data.assign(y=y, p=p).groupby("home").apply(lambda g: pd.Series({
+        "n": int(len(g)), "bias": float((g["y"].mean() - g["p"].mean()))
+    })).reset_index().sort_values("bias", ascending=False).to_dict(orient="records")
+    # line movement direction if open/close available
+    seg_move = {}
+    if {"open_home_ml_odds","open_away_ml_odds","close_home_ml_odds","close_away_ml_odds"}.issubset(data.columns):
+        tmp = data.dropna(subset=["open_home_ml_odds","open_away_ml_odds","close_home_ml_odds","close_away_ml_odds"]).copy()
+        if not tmp.empty:
+            # Convert American odds to implied (vig ignored) and compute movement toward home vs away
+            def imp(o):
+                o = float(o)
+                return (100.0 / (o + 100.0)) if o > 0 else (abs(o) / (abs(o) + 100.0))
+            tmp["open_home_imp"] = tmp["open_home_ml_odds"].apply(imp)
+            tmp["open_away_imp"] = tmp["open_away_ml_odds"].apply(imp)
+            tmp["close_home_imp"] = tmp["close_home_ml_odds"].apply(imp)
+            tmp["close_away_imp"] = tmp["close_away_ml_odds"].apply(imp)
+            tmp["move_to_home"] = (tmp["close_home_imp"] - tmp["open_home_imp"]) - (tmp["close_away_imp"] - tmp["open_away_imp"])  # positive favors home
+            tmp["move_dir"] = tmp["move_to_home"].apply(lambda x: "to_home" if x>0 else ("to_away" if x<0 else "flat"))
+            seg_move = tmp.assign(y=y.loc[tmp.index].values, p=p.loc[tmp.index].values).groupby("move_dir").apply(lambda g: pd.Series({
+                "n": int(len(g)), "acc": float(((g["p"]>=0.5).astype(int) == g["y"]).mean()), "brier": float(((g["p"]-g["y"])**2).mean())
+            })).to_dict(orient="index")
+    res = {"range": {"start": start, "end": end}, "side": seg_side, "prob_bins": seg_bins, "team_bias": seg_team[:20], "line_move": seg_move}
+    print(res)
+    if out_json:
+        out_path = Path(out_json); out_path.parent.mkdir(parents=True, exist_ok=True)
+        with out_path.open("w", encoding="utf-8") as f:
+            json.dump(res, f, indent=2)
+        print(f"Wrote -> {out_path}")
+
+
+@app.command()
+def retune_elo(
+    start: str = typer.Argument(..., help="Eval start date YYYY-MM-DD"),
+    end: str = typer.Argument(..., help="Eval end date YYYY-MM-DD"),
+    k_grid: str = typer.Option("14,18,20,22,26,30", help="Comma-separated K values to try"),
+    home_adv_grid: str = typer.Option("35,45,50,55,65", help="Comma-separated home-adv Elo points to try"),
+    metric: str = typer.Option("logloss", help="Optimization metric: logloss|brier"),
+    save: bool = typer.Option(True, help="If true, save best Elo cfg and retrained ratings to model dir"),
+):
+    """Quick grid retune for Elo (K, home_adv):
+    - Trains Elo on data/raw/games.csv for each candidate pair
+    - Evaluates moneyline predictive quality over [start, end]
+    - Optionally saves best config to MODEL_DIR/config.json and ratings to MODEL_DIR/elo_ratings.json
+    """
+    from datetime import datetime as _dt
+    try:
+        s_dt = _dt.strptime(start, "%Y-%m-%d"); e_dt = _dt.strptime(end, "%Y-%m-%d")
+    except Exception:
+        print("Invalid date format; use YYYY-MM-DD"); raise typer.Exit(code=1)
+    path = RAW_DIR / "games.csv"
+    if not path.exists():
+        print("Missing data/raw/games.csv. Run 'fetch' or build_two_seasons first.")
+        raise typer.Exit(code=1)
+    df = pd.read_csv(path)
+    # Normalize dates
+    for col in ("date", "date_et"):
+        if col in df.columns:
+            df[col] = pd.to_datetime(df[col], errors="coerce").dt.strftime("%Y-%m-%d")
+    # Basic filter to completed games
+    need = {"home","away","home_goals","away_goals"}
+    if not need.issubset(df.columns):
+        print("games.csv missing required columns")
+        raise typer.Exit(code=1)
+    eval_mask = df["date"].between(start, end) if "date" in df.columns else df["date_et"].between(start, end)
+    eval_rows = df[eval_mask].copy()
+    if eval_rows.empty:
+        print("No games in eval range.")
+        raise typer.Exit(code=1)
+    ks = [float(x) for x in str(k_grid).split(",") if str(x).strip()]
+    has = [float(x) for x in str(home_adv_grid).split(",") if str(x).strip()]
+    best_cfg = None; best_score = float("inf")
+    for k in ks:
+        for ha in has:
+            elo = Elo(EloConfig(k=float(k), home_adv=float(ha)))
+            # Train on full history
+            for _, r in df.dropna(subset=["home","away","home_goals","away_goals"]).iterrows():
+                try:
+                    elo.update_game(str(r["home"]), str(r["away"]), int(r["home_goals"]), int(r["away_goals"]))
+                except Exception:
+                    continue
+            # Evaluate on window
+            probs = []; ys = []
+            eval_played = eval_rows.dropna(subset=["home_goals","away_goals"]).copy()
+            for _, r in eval_played.iterrows():
+                try:
+                    ph, _ = elo.predict_moneyline_prob(str(r["home"]), str(r["away"]))
+                    yv = 1 if int(r["home_goals"]) > int(r["away_goals"]) else 0
+                    probs.append(ph); ys.append(yv)
+                except Exception:
+                    continue
+            if not probs:
+                continue
+            p = np.clip(np.array(probs, dtype=float), 1e-6, 1-1e-6)
+            y = np.array(ys, dtype=float)
+            if metric == "brier":
+                score = float(np.mean((p - y) ** 2))
+            else:
+                score = float(-np.mean(y * np.log(p) + (1 - y) * np.log(1 - p)))
+            if score < best_score:
+                best_score = score; best_cfg = (k, ha)
+    if not best_cfg:
+        print("No valid config found.")
+        raise typer.Exit(code=1)
+    print({"best": {"k": best_cfg[0], "home_adv": best_cfg[1], metric: best_score}})
+    if save:
+        # Persist config and retrained ratings for best cfg
+        k, ha = best_cfg
+        elo = Elo(EloConfig(k=float(k), home_adv=float(ha)))
+        for _, r in df.dropna(subset=["home","away","home_goals","away_goals"]).iterrows():
+            try:
+                elo.update_game(str(r["home"]), str(r["away"]), int(r["home_goals"]), int(r["away_goals"]))
+            except Exception:
+                continue
+        # Write ratings
+        with (MODEL_DIR / "elo_ratings.json").open("w", encoding="utf-8") as f:
+            json.dump(elo.ratings, f, indent=2)
+        # Update config.json (merge with existing keys)
+        cfg_path = MODEL_DIR / "config.json"
+        obj = {}
+        if cfg_path.exists():
+            try:
+                with cfg_path.open("r", encoding="utf-8") as f:
+                    obj = json.load(f)
+            except Exception:
+                obj = {}
+        obj["elo_k"] = float(k); obj["elo_home_adv"] = float(ha)
+        with cfg_path.open("w", encoding="utf-8") as f:
+            json.dump(obj, f, indent=2)
+        print({"saved": {"elo_k": float(k), "elo_home_adv": float(ha)}})
+
+
+@app.command()
 def props_predict(odds_csv: str = typer.Option(..., help="CSV with columns: market,player,line,odds,team (optional)")):
     """
     Predict props using simple Poisson models from rolling means.
@@ -748,41 +1155,270 @@ def props_predict(odds_csv: str = typer.Option(..., help="CSV with columns: mark
     out_rows = []
     for _, r in req.iterrows():
         market = str(r["market"]).upper()
-        player = str(r["player"])
-        line = float(r["line"])
-        odds = float(r["odds"])
-        dec = american_to_decimal(odds)
-        if market == "SOG":
-            lam = shots.player_lambda(hist, player, r.get("team"))
-            p_over = shots.prob_over(lam, line)
-        elif market == "SAVES":
-            lam = saves.player_lambda(hist, player)
-            p_over = saves.prob_over(lam, line)
-        elif market == "GOALS":
-            lam = goals.player_lambda(hist, player)
-            p_over = goals.prob_over(lam, line)
-        elif market == "ASSISTS":
-            lam = assists.player_lambda(hist, player)
-            p_over = assists.prob_over(lam, line)
-        elif market == "POINTS":
-            lam = points.player_lambda(hist, player)
-            p_over = points.prob_over(lam, line)
-        else:
-            continue
-        out_rows.append({
-            "market": market,
-            "player": player,
-            "line": line,
-            "odds": odds,
-            "proj_lambda": round(lam, 3),
-            "p_over": round(p_over, 4),
-            "ev_over": round(ev_unit(p_over, dec), 4)
-        })
-    out = pd.DataFrame(out_rows)
-    out_path = PROC_DIR / "props_predictions.csv"
-    save_df(out, out_path)
-    print(out)
-    print(f"Saved props predictions to {out_path}")
+@app.command()
+def calibrate_models(
+    start: str = typer.Argument(..., help="Start date YYYY-MM-DD"),
+    end: str = typer.Argument(..., help="End date YYYY-MM-DD"),
+    metric: str = typer.Option("logloss", help="Metric to optimize: logloss|brier"),
+):
+    """
+    Fit simple temperature+bias calibration for moneyline (home win) and totals (over) using predictions_{date}.csv across a date range.
+    Writes data/processed/model_calibration.json.
+    """
+    from datetime import datetime as _dt, timedelta as _td
+    from .utils.calibration import fit_temp_shift, save_calibration
+
+    try:
+        s_dt = _dt.strptime(start, "%Y-%m-%d"); e_dt = _dt.strptime(end, "%Y-%m-%d")
+    except Exception:
+        print("Invalid date format; use YYYY-MM-DD"); raise typer.Exit(code=1)
+    if e_dt < s_dt:
+        s_dt, e_dt = e_dt, s_dt
+
+    p_ml, y_ml = [], []
+    p_tot, y_tot = [], []
+    d = s_dt
+    while d <= e_dt:
+        day = d.strftime("%Y-%m-%d")
+        path = PROC_DIR / f"predictions_{day}.csv"
+        if path.exists():
+            try:
+                df = pd.read_csv(path)
+                # Moneyline: home win
+                if {"p_home_ml","final_home_goals","final_away_goals"}.issubset(df.columns):
+                    sub = df.dropna(subset=["p_home_ml","final_home_goals","final_away_goals"]).copy()
+                    if not sub.empty:
+                        p_ml.extend([float(x) for x in sub["p_home_ml"].values])
+                        y_ml.extend([1 if (int(h) > int(a)) else 0 for h,a in zip(sub["final_home_goals"].values, sub["final_away_goals"].values)])
+                # Totals: Over vs total_line_used; drop pushes
+                if {"p_over","final_home_goals","final_away_goals","total_line_used"}.issubset(df.columns):
+                    sub2 = df.dropna(subset=["p_over","final_home_goals","final_away_goals","total_line_used"]).copy()
+                    if not sub2.empty:
+                        totals = (sub2["final_home_goals"].astype(float) + sub2["final_away_goals"].astype(float)).values
+                        lines = sub2["total_line_used"].astype(float).values
+                        keep = totals != lines  # exclude pushes
+                        if np.any(keep):
+                            p_tot.extend([float(x) for x in sub2.loc[keep, "p_over"].values])
+                            y_tot.extend([1 if (float(t) > float(l)) else 0 for t,l in zip(totals[keep], lines[keep])])
+            except Exception as e:
+                print(f"[warn] {day}: {e}")
+        d += _td(days=1)
+
+    if not p_ml and not p_tot:
+        print("No data found for calibration.")
+        raise typer.Exit(code=0)
+
+    # Fit calibrations
+    from .utils.calibration import summarize_binary, BinaryCalibration
+    ml_cal = fit_temp_shift(p_ml, y_ml, metric=metric) if p_ml else BinaryCalibration()
+    tot_cal = fit_temp_shift(p_tot, y_tot, metric=metric) if p_tot else BinaryCalibration()
+
+    # Report
+    p_ml_arr = np.array(p_ml, dtype=float) if p_ml else np.array([])
+    y_ml_arr = np.array(y_ml, dtype=float) if y_ml else np.array([])
+    p_ml_cal = ml_cal.apply(p_ml_arr) if p_ml else p_ml_arr
+    p_tot_arr = np.array(p_tot, dtype=float) if p_tot else np.array([])
+    y_tot_arr = np.array(y_tot, dtype=float) if y_tot else np.array([])
+    p_tot_cal = tot_cal.apply(p_tot_arr) if p_tot else p_tot_arr
+    ml_pre = summarize_binary(y_ml_arr, p_ml_arr) if p_ml else {"n":0}
+    ml_post = summarize_binary(y_ml_arr, p_ml_cal) if p_ml else {"n":0}
+    tt_pre = summarize_binary(y_tot_arr, p_tot_arr) if p_tot else {"n":0}
+    tt_post = summarize_binary(y_tot_arr, p_tot_cal) if p_tot else {"n":0}
+    print({"ml": {"n": ml_pre.get("n"), "pre": ml_pre, "post": ml_post, "cal": {"t": ml_cal.t, "b": ml_cal.b}},
+           "totals": {"n": tt_pre.get("n"), "pre": tt_pre, "post": tt_post, "cal": {"t": tot_cal.t, "b": tot_cal.b}}})
+
+    # Save
+    out_path = PROC_DIR / "model_calibration.json"
+    save_calibration(out_path, ml_cal, tot_cal, meta={"start": start, "end": end, "n_ml": len(p_ml), "n_totals": len(p_tot), "metric": metric})
+    print(f"Saved calibration -> {out_path}")
+
+
+@app.command()
+def eval_predictions(
+    start: str = typer.Argument(..., help="Start date YYYY-MM-DD"),
+    end: str = typer.Argument(..., help="End date YYYY-MM-DD"),
+    out_json: Optional[str] = typer.Option(None, help="Optional path to write JSON summary")
+):
+    """
+    Evaluate predictions across a date range, reporting accuracy/logloss/brier for moneyline (home win) and totals (over), with and without calibration.
+    """
+    from datetime import datetime as _dt, timedelta as _td
+    from .utils.calibration import load_calibration, summarize_binary
+
+    def _american_profit_per_1(odds: float | int | str) -> float:
+        try:
+            o = float(odds)
+        except Exception:
+            return float("nan")
+        if np.isnan(o):
+            return float("nan")
+        return (o / 100.0) if o > 0 else (100.0 / abs(o))
+
+    def _calibration_bins(y: np.ndarray, p: np.ndarray, bins: int = 10):
+        y = np.asarray(y, dtype=float)
+        p = np.asarray(p, dtype=float)
+        m = (~np.isnan(y)) & (~np.isnan(p))
+        y = y[m]
+        p = np.clip(p[m], 1e-6, 1 - 1e-6)
+        if y.size == 0:
+            return []
+        qs = np.quantile(p, np.linspace(0, 1, bins + 1))
+        # Ensure strictly increasing bin edges
+        for i in range(1, len(qs)):
+            if qs[i] <= qs[i - 1]:
+                qs[i] = min(qs[i - 1] + 1e-6, 1.0)
+        out = []
+        for i in range(bins):
+            lo, hi = qs[i], qs[i + 1]
+            if i == bins - 1:
+                sel = (p >= lo) & (p <= hi)
+            else:
+                sel = (p >= lo) & (p < hi)
+            if not np.any(sel):
+                out.append({"bin": i + 1, "lo": float(lo), "hi": float(hi), "n": 0, "mean_p": float("nan"), "obs": float("nan")})
+            else:
+                pp = p[sel]; yy = y[sel]
+                out.append({
+                    "bin": i + 1,
+                    "lo": float(lo),
+                    "hi": float(hi),
+                    "n": int(pp.size),
+                    "mean_p": float(np.mean(pp)),
+                    "obs": float(np.mean(yy)),
+                })
+        return out
+
+    try:
+        s_dt = _dt.strptime(start, "%Y-%m-%d"); e_dt = _dt.strptime(end, "%Y-%m-%d")
+    except Exception:
+        print("Invalid date format; use YYYY-MM-DD"); raise typer.Exit(code=1)
+    if e_dt < s_dt:
+        s_dt, e_dt = e_dt, s_dt
+
+    ml_cal, tot_cal = load_calibration(PROC_DIR / "model_calibration.json")
+    p_ml_raw, y_ml = [], []
+    p_tot_raw, y_tot = [], []
+    # Track ROI vs closing odds using a naive "bet 1 unit on model-favored side" policy
+    ml_roi_profits: list[float] = []
+    tot_roi_profits: list[float] = []
+    d = s_dt
+    while d <= e_dt:
+        day = d.strftime("%Y-%m-%d")
+        path = PROC_DIR / f"predictions_{day}.csv"
+        if path.exists():
+            try:
+                df = pd.read_csv(path)
+                if {"p_home_ml","final_home_goals","final_away_goals"}.issubset(df.columns):
+                    sub = df.dropna(subset=["p_home_ml","final_home_goals","final_away_goals"]).copy()
+                    if not sub.empty:
+                        p_ml_raw.extend([float(x) for x in sub["p_home_ml"].values])
+                        y_ml.extend([1 if (int(h) > int(a)) else 0 for h,a in zip(sub["final_home_goals"].values, sub["final_away_goals"].values)])
+                        # ROI vs closing for ML
+                        # Choose side by p>=0.5; if closing odds missing for chosen side, skip row
+                        if {"close_home_ml_odds","close_away_ml_odds"}.issubset(sub.columns):
+                            for _, r in sub.iterrows():
+                                try:
+                                    ph = float(r["p_home_ml"]) if pd.notna(r["p_home_ml"]) else np.nan
+                                    if np.isnan(ph):
+                                        continue
+                                    bet_home = bool(ph >= 0.5)
+                                    close_home = r.get("close_home_ml_odds")
+                                    close_away = r.get("close_away_ml_odds")
+                                    # need final result
+                                    h = r.get("final_home_goals"); a = r.get("final_away_goals")
+                                    if pd.isna(h) or pd.isna(a):
+                                        continue
+                                    home_won = int(h) > int(a)
+                                    if bet_home and pd.notna(close_home):
+                                        ret = _american_profit_per_1(close_home)
+                                        ml_roi_profits.append(ret if home_won else -1.0)
+                                    elif (not bet_home) and pd.notna(close_away):
+                                        ret = _american_profit_per_1(close_away)
+                                        ml_roi_profits.append(ret if (not home_won) else -1.0)
+                                except Exception:
+                                    continue
+                if {"p_over","final_home_goals","final_away_goals","total_line_used"}.issubset(df.columns):
+                    sub2 = df.dropna(subset=["p_over","final_home_goals","final_away_goals","total_line_used"]).copy()
+                    if not sub2.empty:
+                        totals = (sub2["final_home_goals"].astype(float) + sub2["final_away_goals"].astype(float)).values
+                        lines = sub2["total_line_used"].astype(float).values
+                        keep = totals != lines
+                        if np.any(keep):
+                            p_tot_raw.extend([float(x) for x in sub2.loc[keep, "p_over"].values])
+                            y_tot.extend([1 if (float(t) > float(l)) else 0 for t,l in zip(totals[keep], lines[keep])])
+                            # ROI vs closing for totals (treat push as 0 profit)
+                            if {"close_over_odds","close_under_odds","close_total_line_used"}.issubset(sub2.columns):
+                                for _, r in sub2.loc[keep].iterrows():
+                                    try:
+                                        po = float(r["p_over"]) if pd.notna(r["p_over"]) else np.nan
+                                        if np.isnan(po):
+                                            continue
+                                        bet_over = bool(po >= 0.5)
+                                        close_over = r.get("close_over_odds")
+                                        close_under = r.get("close_under_odds")
+                                        # final vs line for push detection
+                                        th = r.get("final_home_goals"); ta = r.get("final_away_goals"); tl = r.get("total_line_used")
+                                        if pd.isna(th) or pd.isna(ta) or pd.isna(tl):
+                                            continue
+                                        total_goals = float(th) + float(ta)
+                                        line = float(tl)
+                                        if abs(total_goals - line) < 1e-9:
+                                            tot_roi_profits.append(0.0)
+                                            continue
+                                        over_won = total_goals > line
+                                        if bet_over and pd.notna(close_over):
+                                            ret = _american_profit_per_1(close_over)
+                                            tot_roi_profits.append(ret if over_won else -1.0)
+                                        elif (not bet_over) and pd.notna(close_under):
+                                            ret = _american_profit_per_1(close_under)
+                                            tot_roi_profits.append(ret if (not over_won) else -1.0)
+                                    except Exception:
+                                        continue
+            except Exception as e:
+                print(f"[warn] {day}: {e}")
+        d += _td(days=1)
+
+    res = {"range": {"start": start, "end": end}}
+    if p_ml_raw:
+        p = np.array(p_ml_raw, dtype=float); y = np.array(y_ml, dtype=float)
+        res["moneyline_raw"] = summarize_binary(y, p)
+        res["moneyline_cal"] = summarize_binary(y, ml_cal.apply(p))
+        res["moneyline_bins_raw"] = _calibration_bins(y, p)
+        res["moneyline_bins_cal"] = _calibration_bins(y, ml_cal.apply(p))
+    else:
+        res["moneyline_raw"] = {"n": 0}
+        res["moneyline_cal"] = {"n": 0}
+        res["moneyline_bins_raw"] = []
+        res["moneyline_bins_cal"] = []
+    if p_tot_raw:
+        p = np.array(p_tot_raw, dtype=float); y = np.array(y_tot, dtype=float)
+        res["totals_raw"] = summarize_binary(y, p)
+        res["totals_cal"] = summarize_binary(y, tot_cal.apply(p))
+        res["totals_bins_raw"] = _calibration_bins(y, p)
+        res["totals_bins_cal"] = _calibration_bins(y, tot_cal.apply(p))
+    else:
+        res["totals_raw"] = {"n": 0}
+        res["totals_cal"] = {"n": 0}
+        res["totals_bins_raw"] = []
+        res["totals_bins_cal"] = []
+    # ROI summaries
+    if ml_roi_profits:
+        total = float(np.sum(ml_roi_profits)); n_bets = int(len(ml_roi_profits))
+        res["moneyline_roi"] = {"n": n_bets, "roi_per_bet": total / n_bets, "profit_total": total}
+    else:
+        res["moneyline_roi"] = {"n": 0}
+    if tot_roi_profits:
+        total = float(np.sum(tot_roi_profits)); n_bets = int(len(tot_roi_profits))
+        res["totals_roi"] = {"n": n_bets, "roi_per_bet": total / n_bets, "profit_total": total}
+    else:
+        res["totals_roi"] = {"n": 0}
+    print(res)
+    if out_json:
+        out_path = Path(out_json)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        with out_path.open("w", encoding="utf-8") as f:
+            json.dump(res, f, indent=2)
+        print(f"Wrote -> {out_path}")
 
 
 @app.command()
@@ -1632,9 +2268,8 @@ def props_project_all(
                         'team': id_to_abbr.get(tid),
                     })
             roster_df = pd.DataFrame(rows_live)
-    except Exception as e:
-        # Silence noisy DNS/network errors; we'll use historical fallback
-        print(f"[roster] live roster unavailable, using historical fallback: {e}")
+    except Exception:
+        # Silently use historical fallback if live roster fetch fails
         try:
             from .data import player_props as _pp
             enrich = _pp._build_roster_enrichment()

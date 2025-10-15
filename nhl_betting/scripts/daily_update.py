@@ -33,7 +33,7 @@ from nhl_betting.data import player_props as props_data
 from nhl_betting.data.rosters import build_all_team_roster_snapshots
 from nhl_betting.data.collect import collect_player_game_stats
 from nhl_betting.utils.odds import american_to_decimal
-from nhl_betting.models.elo import Elo
+from nhl_betting.models.elo import Elo, EloConfig
 from nhl_betting.models.trends import TrendAdjustments, team_keys
 
 
@@ -63,7 +63,11 @@ def _ensure_predictions_csv(date: str, verbose: bool = False) -> None:
         return
     try:
         predict_core(date=date, source="web", odds_source="csv")
-        _vprint(verbose, f"[ensure] predictions_{date}.csv created (no odds)")
+        # Check if file was actually created and non-empty (no-game days won't create a file)
+        if path.exists() and path.stat().st_size > 0:
+            _vprint(verbose, f"[ensure] predictions_{date}.csv created (no odds)")
+        else:
+            _vprint(verbose, f"[ensure] no eligible games for {date}; predictions CSV not created")
     except Exception as e:
         _vprint(verbose, f"[ensure] failed to create predictions_{date}.csv: {e}")
 
@@ -163,7 +167,16 @@ def quick_retune_from_yesterday(verbose: bool = False, trends_decay: float = 0.9
     with open(cfg_path, "r", encoding="utf-8") as f:
         cfg = json.load(f)
     base_mu = float(cfg.get("base_mu", 3.05))
-    elo = Elo()
+    # Respect tuned Elo parameters if present
+    try:
+        k = float(cfg.get("elo_k", 20.0))
+    except Exception:
+        k = 20.0
+    try:
+        ha = float(cfg.get("elo_home_adv", 50.0))
+    except Exception:
+        ha = 50.0
+    elo = Elo(EloConfig(k=k, home_adv=ha))
     elo.ratings = ratings
     # Fetch yesterday ET games
     y_et = _today_et().date() - timedelta(days=1)
@@ -278,8 +291,13 @@ def quick_retune_from_yesterday(verbose: bool = False, trends_decay: float = 0.9
     if tot_games > 0:
         y_avg_per_team = (tot_goals / (2 * tot_games))
         new_mu = 0.99 * base_mu + 0.01 * y_avg_per_team
+        # Preserve existing keys (elo_k, elo_home_adv, etc.) when updating base_mu
+        try:
+            cfg["base_mu"] = float(new_mu)
+        except Exception:
+            cfg = {"base_mu": float(new_mu)}
         with open(cfg_path, "w", encoding="utf-8") as f:
-            json.dump({"base_mu": float(new_mu)}, f, indent=2)
+            json.dump(cfg, f, indent=2)
     _vprint(verbose, f"[retune] Applied {upd} game(s). base_mu -> {float(new_mu) if tot_games>0 else base_mu:.3f}")
     # Report sample of adjustments for visibility
     try:
@@ -314,9 +332,12 @@ def make_predictions(days_ahead: int = 2, verbose: bool = False) -> None:
         try:
             from nhl_betting.utils.io import PROC_DIR as _PROC
             path = _PROC / f"predictions_{d}.csv"
-            if not path.exists():
+            if not (path.exists() and path.stat().st_size > 0):
                 predict_core(date=d, source="web", odds_source="csv")
-                _vprint(verbose, f"[predict] {d}: Ensured predictions CSV exists")
+                if path.exists() and path.stat().st_size > 0:
+                    _vprint(verbose, f"[predict] {d}: Ensured predictions CSV exists")
+                else:
+                    _vprint(verbose, f"[predict] {d}: No eligible games; predictions not created")
         except Exception:
             pass
 
@@ -648,7 +669,7 @@ def archive_finals_for_date(date: str, verbose: bool = False) -> dict:
     return {"status": "ok", "date": date, "changed": int(changed)}
 
 
-def reconcile_date(date: str, bankroll: float = 1000.0, flat_stake: float = 100.0, verbose: bool = False) -> dict:
+def reconcile_date(date: str, bankroll: float = 1000.0, flat_stake: float = 100.0, verbose: bool = False, ev_threshold: float = 0.0) -> dict:
     """Write reconciliation summary/rows for a given date to data/processed/reconciliation_{date}.json.
 
     Mirrors the web API logic for totals/puckline; moneyline requires explicit winner/price mapping and
@@ -675,7 +696,8 @@ def reconcile_date(date: str, bankroll: float = 1000.0, flat_stake: float = 100.
             evf = float(ev)
         except Exception:
             return
-        if evf <= 0:
+        # Apply EV threshold filter (default 0 keeps behavior unchanged)
+        if evf <= float(ev_threshold):
             return
         close_map = {
             "home_ml_odds": "close_home_ml_odds",
@@ -781,7 +803,7 @@ def reconcile_date(date: str, bankroll: float = 1000.0, flat_stake: float = 100.
     return {"status": "ok", **summary}
 
 
-def run(days_ahead: int = 2, years_back: int = 2, reconcile_yesterday: bool = True, verbose: bool = False, bootstrap_models: bool = False, trends_decay: float = 0.98, reset_trends: bool = False, skip_props: bool = False, git_push: bool = True, git_remote: str = "origin", git_branch: str | None = None) -> None:
+def run(days_ahead: int = 2, years_back: int = 2, reconcile_yesterday: bool = True, verbose: bool = False, bootstrap_models: bool = False, trends_decay: float = 0.98, reset_trends: bool = False, skip_props: bool = False, git_push: bool = True, git_remote: str = "origin", git_branch: str | None = None, recon_ev_threshold: float = 0.0) -> None:
     _vprint(verbose, "[run] Starting daily update…")
     t_start = time.perf_counter()
     # 1) Optionally (re)build models from history
@@ -921,7 +943,7 @@ def run(days_ahead: int = 2, years_back: int = 2, reconcile_yesterday: bool = Tr
             capture_closing_for_date(y_str, verbose=verbose)
         except Exception:
             pass
-        recon_games = reconcile_date(y_str, verbose=verbose)
+        recon_games = reconcile_date(y_str, verbose=verbose, ev_threshold=recon_ev_threshold)
         # Also reconcile props for yesterday
         if not skip_props:
             try:
@@ -1226,6 +1248,7 @@ if __name__ == "__main__":
     ap.add_argument("--skip-props", action="store_true", help="Skip props reconciliation for previous day")
     ap.add_argument("--trends-decay", type=float, default=0.98, help="Daily decay factor applied to trend adjustments (0-1)")
     ap.add_argument("--reset-trends", action="store_true", help="Reset trend adjustments before retune")
+    ap.add_argument("--recon-ev-threshold", type=float, default=0.0, help="Minimum EV required to include a pick in reconciliation (0.0 keeps previous behavior)")
     # Git auto-push controls (enabled by default)
     ap.add_argument("--no-git-push", action="store_true", help="Disable final git commit/push step")
     ap.add_argument("--git-remote", type=str, default="origin", help="Remote name to push to (default: origin)")
@@ -1243,4 +1266,5 @@ if __name__ == "__main__":
         git_push=(not args.no_git_push),
         git_remote=args.git_remote,
         git_branch=args.git_branch,
-    )
+        recon_ev_threshold=args.recon_ev_threshold)
+    

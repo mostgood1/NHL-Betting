@@ -983,58 +983,123 @@ def props_recommendations(
         bad = ['total shots on goal', 'team total', 'first period', 'second period', 'third period']
         return (any(ch.isalpha() for ch in s) and not any(b in s for b in bad))
     # Combine rows: lines contain over_price and under_price per (market,player,line,book)
-    rows = []
-    for _, r in lines.iterrows():
-        m = str(r.get("market") or "").upper()
-        if market and m != market.upper():
+    # Vectorized EV computation using precomputed lambdas; fallback row-wise for misses
+    import numpy as _np
+    from scipy.stats import poisson as _poisson
+    # Prepare normalized working frame
+    work = lines.copy()
+    work["market"] = work["market"].astype(str).str.upper()
+    if market:
+        work = work[work["market"] == market.upper()]
+    # Normalize player display and filter likely players
+    work["player_display"] = work.apply(lambda r: _norm_player(r.get("player_name") or r.get("player")), axis=1)
+    work = work[work["player_display"].map(_looks_like_player)]
+    # Parse numeric line and keep valid
+    work["line_num"] = pd.to_numeric(work.get("line"), errors="coerce")
+    work = work[work["line_num"].notna()]
+    # Attach normalized name for join
+    work["player_norm"] = work["player_display"].map(_norm_name).str.lower()
+    # Build lambda DataFrame from lam_map for merge
+    lam_df = pd.DataFrame([{"player_norm": k[0], "market": k[1], "proj_lambda": v} for k, v in lam_map.items()]) if lam_map else pd.DataFrame(columns=["player_norm","market","proj_lambda"])
+    merged = work.merge(lam_df, on=["player_norm", "market"], how="left")
+    # Vectorized p_over for rows with proj_lambda available
+    vec_mask = merged["proj_lambda"].notna()
+    p_over_vec = pd.Series(_np.nan, index=merged.index)
+    for mkt in ["SOG","SAVES","GOALS","ASSISTS","POINTS","BLOCKS"]:
+        sel = vec_mask & (merged["market"] == mkt)
+        if sel.any():
+            lam_arr = merged.loc[sel, "proj_lambda"].astype(float).values
+            line_arr = _np.floor(merged.loc[sel, "line_num"].astype(float).values + 1e-9).astype(int)
+            p_over_vec.loc[sel] = _poisson.sf(line_arr, mu=lam_arr)
+    merged["p_over_vec"] = p_over_vec
+    # Vectorized EVs
+    def _american_to_decimal_series(s: pd.Series) -> pd.Series:
+        s = pd.to_numeric(s, errors="coerce")
+        pos = s[s > 0]
+        neg = s[s <= 0]
+        out = pd.Series(_np.nan, index=s.index)
+        out.loc[pos.index] = 1.0 + (pos / 100.0)
+        out.loc[neg.index] = 1.0 + (100.0 / _np.abs(neg))
+        return out
+    dec_over = _american_to_decimal_series(merged.get("over_price"))
+    dec_under = _american_to_decimal_series(merged.get("under_price"))
+    p_over_s = pd.to_numeric(merged["p_over_vec"], errors="coerce")
+    ev_over_s = p_over_s * (dec_over - 1.0) - (1.0 - p_over_s)
+    p_under_s = (1.0 - p_over_s).clip(lower=0.0, upper=1.0)
+    ev_under_s = p_under_s * (dec_under - 1.0) - (1.0 - p_under_s)
+    # Choose side with better EV, handling NaNs
+    over_better = (ev_under_s.isna()) | (~ev_over_s.isna() & (ev_over_s >= ev_under_s))
+    chosen_side = _np.where(over_better, "Over", "Under")
+    chosen_price = _np.where(over_better, merged.get("over_price"), merged.get("under_price"))
+    chosen_ev = _np.where(over_better, ev_over_s, ev_under_s)
+    # Build vectorized output rows (only where we had lambda and EV is finite)
+    vec_out = merged[vec_mask].copy()
+    vec_out["side"] = chosen_side
+    vec_out["ev"] = pd.to_numeric(chosen_ev, errors="coerce")
+    vec_out = vec_out[vec_out["ev"].notna() & (vec_out["ev"].astype(float) >= float(min_ev))]
+    # Choose best team: prefer input team, else map
+    vec_out["team_final"] = vec_out.get("team")
+    try:
+        missing_team = vec_out["team_final"].isna() | (vec_out["team_final"].astype(str).str.strip() == "")
+        vec_out.loc[missing_team, "team_final"] = vec_out.loc[missing_team, "player_display"].map(lambda nm: player_team_map.get(_norm_name(nm)))
+    except Exception:
+        pass
+    out_vec = vec_out.assign(
+        date=date,
+        player=lambda df: df["player_display"],
+        market=lambda df: df["market"],
+        line=lambda df: df["line_num"],
+        proj=lambda df: df["proj_lambda"].astype(float).round(3),
+        p_over=lambda df: df["p_over_vec"].astype(float).round(4),
+        over_price=lambda df: df.get("over_price"),
+        under_price=lambda df: df.get("under_price"),
+        book=lambda df: df.get("book"),
+        team=lambda df: df["team_final"],
+    )[[
+        "date","player","team","market","line","proj","p_over","over_price","under_price","book","side","ev"
+    ]]
+    # Fallback: row-wise compute for rows missing proj_lambda (should be small)
+    remain = merged[~vec_mask]
+    rows_fallback = []
+    for _, rr in remain.iterrows():
+        m = str(rr.get("market") or "").upper()
+        player = rr.get("player_display")
+        ln = rr.get("line_num")
+        if pd.isna(ln):
             continue
-        player = _norm_player(r.get("player_name") or r.get("player"))
-        if not player or not _looks_like_player(player):
+        op = rr.get("over_price"); up = rr.get("under_price")
+        if pd.isna(op) and pd.isna(up):
             continue
-        try:
-            ln = float(r.get("line"))
-        except Exception:
-            continue
-        over_price = r.get("over_price")
-        under_price = r.get("under_price")
-        if pd.isna(over_price) and pd.isna(under_price):
-            continue
-        lam, p_over = proj_and_prob(m, str(player), ln)
+        lam, p_over = proj_and_prob(m, str(player), float(ln))
         if lam is None or p_over is None:
             continue
-        # EVs
-        ev_o = None; ev_u = None
-        if pd.notna(over_price):
-            ev_o = ev_unit(float(p_over), american_to_decimal(float(over_price)))
-        if pd.notna(under_price):
-            p_under = max(0.0, 1.0 - float(p_over))
-            ev_u = ev_unit(float(p_under), american_to_decimal(float(under_price)))
-        # Choose side recommendation by higher EV
-        side = None; price = None; ev = None
+        ev_o = ev_unit(float(p_over), american_to_decimal(float(op))) if pd.notna(op) else None
+        p_under = max(0.0, 1.0 - float(p_over))
+        ev_u = ev_unit(float(p_under), american_to_decimal(float(up))) if pd.notna(up) else None
+        side = None; ev = None
         if ev_o is not None or ev_u is not None:
             if (ev_u is None) or (ev_o is not None and ev_o >= ev_u):
-                side = "Over"; price = over_price; ev = ev_o
+                side = "Over"; ev = ev_o
             else:
-                side = "Under"; price = under_price; ev = ev_u
+                side = "Under"; ev = ev_u
         if ev is None or float(ev) < float(min_ev):
             continue
-        # Choose best available team: prefer input team, else use map from enrichment/historical
-        team_val = r.get("team") or player_team_map.get(_norm_name(player))
-        rows.append({
+        team_val = rr.get("team") or player_team_map.get(_norm_name(player))
+        rows_fallback.append({
             "date": date,
             "player": player,
             "team": team_val or None,
             "market": m,
-            "line": ln,
+            "line": float(ln),
             "proj": round(float(lam), 3),
             "p_over": round(float(p_over), 4),
-            "over_price": over_price if pd.notna(over_price) else None,
-            "under_price": under_price if pd.notna(under_price) else None,
-            "book": r.get("book"),
+            "over_price": op if pd.notna(op) else None,
+            "under_price": up if pd.notna(up) else None,
+            "book": rr.get("book"),
             "side": side,
             "ev": round(float(ev), 4) if ev is not None else None,
         })
-    out = pd.DataFrame(rows)
+    out = pd.concat([out_vec, pd.DataFrame(rows_fallback)], ignore_index=True) if not out_vec.empty or rows_fallback else pd.DataFrame()
     if not out.empty:
         # Normalize column names at write-time
         if 'proj' in out.columns and 'proj_lambda' not in out.columns:

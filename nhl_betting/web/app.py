@@ -5519,6 +5519,22 @@ async def props_recommendations_page(
             df = gh_df
     except Exception:
         df = pd.DataFrame()
+    # Normalize column names from CLI outputs (which may use ev_over/proj_lambda)
+    try:
+        if df is not None and not df.empty:
+            cols = set(df.columns)
+            if ('ev' not in cols) and ('ev_over' in cols):
+                try:
+                    df['ev'] = pd.to_numeric(df['ev_over'], errors='coerce')
+                except Exception:
+                    df['ev'] = df['ev_over']
+            if ('proj' not in cols) and ('proj_lambda' in cols):
+                try:
+                    df['proj'] = pd.to_numeric(df['proj_lambda'], errors='coerce')
+                except Exception:
+                    df['proj'] = df['proj_lambda']
+    except Exception:
+        pass
     # Inline compute fallback if still empty: build from canonical lines + models
     # Server policy: disable heavy compute on public host. Local/dev may compute.
     if (df is None or df.empty) and _compute_allowed():
@@ -6681,6 +6697,22 @@ async def props_recommendations_json(
                 df = gh
     except Exception:
         df = pd.DataFrame()
+    # Normalize columns if CLI wrote ev_over/proj_lambda
+    try:
+        if df is not None and not df.empty:
+            cols = set(df.columns)
+            if ('ev' not in cols) and ('ev_over' in cols):
+                try:
+                    df['ev'] = pd.to_numeric(df['ev_over'], errors='coerce')
+                except Exception:
+                    df['ev'] = df['ev_over']
+            if ('proj' not in cols) and ('proj_lambda' in cols):
+                try:
+                    df['proj'] = pd.to_numeric(df['proj_lambda'], errors='coerce')
+                except Exception:
+                    df['proj'] = df['proj_lambda']
+    except Exception:
+        pass
     if df is None or df.empty:
         return JSONResponse({"date": d, "rows": 0, "data": []})
     try:

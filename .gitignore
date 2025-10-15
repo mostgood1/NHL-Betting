@@ -54,6 +54,10 @@ data/**
 !data/processed/props_projections_all_*.csv
 !data/processed/props_recommendations_*.csv
 
+# Also allow daily predictions/edges so web (Render) can use GitHub raw fallback
+!data/processed/predictions_*.csv
+!data/processed/edges_*.csv
+
 # Allow canonical player props lines so web can enrich with player_id/team locally
 !data/props/player_props_lines/**
 

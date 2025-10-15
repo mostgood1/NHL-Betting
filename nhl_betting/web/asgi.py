@@ -69,8 +69,11 @@ class WrapperASGI:
             body = b'{"ready":%s}' % (b"true" if _HEAVY_APP is not None else b"false")
             return await self._send_json(send, 200, body)
         if path == "/warmup":
-            # Trigger background warmup explicitly
-            ensure_heavy_loaded(background=True)
+            # Trigger background warmup explicitly (non-blocking)
+            try:
+                ensure_heavy_loaded(background=True)
+            except Exception:
+                pass
             body = b'{"ok":true,"heavy_ready":%s}' % (b"true" if _HEAVY_APP is not None else b"false")
             return await self._send_json(send, 200, body)
         if path == "/" and method == "HEAD":
@@ -261,7 +264,11 @@ class WrapperASGI:
 
         # Proxy others
         if _HEAVY_APP is None:
-            ensure_heavy_loaded(background=True)
+            # Kick off heavy load in background; never block health/readiness here
+            try:
+                ensure_heavy_loaded(background=True)
+            except Exception:
+                pass
             # Fast, friendly warmup response without 5xx to avoid upstream 502s
             if method in ("HEAD", "OPTIONS"):
                 return await self._send_empty(send, 204)

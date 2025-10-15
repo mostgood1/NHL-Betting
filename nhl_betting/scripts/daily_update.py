@@ -53,6 +53,110 @@ def _vprint(verbose: bool, *args, **kwargs):
         print(*args, **kwargs)
 
 
+def ensure_props_recs_history(dates: list[str], verbose: bool = False) -> None:
+    """Append per-day recommendations into a rolling history CSV used by the web app.
+
+    Writes/updates data/processed/props_recommendations_history.csv.
+    """
+    try:
+        hist_path = PROC_DIR / "props_recommendations_history.csv"
+        try:
+            hist = pd.read_csv(hist_path) if hist_path.exists() else pd.DataFrame()
+        except Exception:
+            hist = pd.DataFrame()
+        for d in dates or []:
+            try:
+                p = PROC_DIR / f"props_recommendations_{d}.csv"
+                if not p.exists() or p.stat().st_size == 0:
+                    continue
+                df = pd.read_csv(p)
+                if df is None or df.empty:
+                    continue
+                # Ensure date column present
+                if 'date' not in df.columns:
+                    df['date'] = d
+                # Normalize minimal columns
+                keep = [c for c in ['date','player','team','market','line','over_price','under_price','book','p_over','ev','proj_lambda','ev_over'] if c in df.columns]
+                if keep:
+                    df = df[keep]
+                # Merge into history with simple de-dup on (date, player, market, line)
+                if hist is not None and not hist.empty:
+                    combined = pd.concat([hist, df], ignore_index=True)
+                else:
+                    combined = df
+                if not combined.empty:
+                    subset = [c for c in ['date','player','market','line'] if c in combined.columns]
+                    if subset:
+                        combined = combined.drop_duplicates(subset=subset, keep='last')
+                hist = combined
+                _vprint(verbose, f"[history] appended recs for {d} ({len(df)} rows)")
+            except Exception as e:
+                _vprint(verbose, f"[history] skip {d}: {e}")
+        if hist is not None and not hist.empty:
+            save_df(hist, hist_path)
+            _vprint(verbose, f"[history] wrote {hist_path.name} with {len(hist)} rows")
+    except Exception as e:
+        _vprint(verbose, f"[history] failed: {e}")
+
+
+def build_player_props_vs_actuals(date: str, verbose: bool = False) -> None:
+    """Produce player_props_vs_actuals_{date}.csv by joining canonical lines with realized stats.
+
+    Mirrors the logic in web endpoint /api/player-props-reconciliation but runs locally.
+    """
+    try:
+        # Load canonical lines parquet (bovada + oddsapi)
+        base = PROC_DIR.parent / "props" / f"player_props_lines/date={date}"
+        parts = []
+        for name in ("bovada.parquet", "oddsapi.parquet"):
+            p = base / name
+            if p.exists():
+                try:
+                    parts.append(pd.read_parquet(p))
+                except Exception:
+                    pass
+        lines = pd.concat(parts, ignore_index=True) if parts else pd.DataFrame()
+        if lines.empty:
+            save_df(pd.DataFrame(), PROC_DIR / f"player_props_vs_actuals_{date}.csv")
+            _vprint(verbose, f"[vs_actuals] no lines for {date}; wrote empty cache")
+            return
+        # Ensure stats exist and load
+        try:
+            collect_player_game_stats(date, date, source="stats")
+        except Exception:
+            pass
+        stats_path = RAW_DIR / "player_game_stats.csv"
+        stats = pd.read_csv(stats_path) if stats_path.exists() else pd.DataFrame()
+        if stats.empty:
+            save_df(pd.DataFrame(), PROC_DIR / f"player_props_vs_actuals_{date}.csv")
+            _vprint(verbose, f"[vs_actuals] no stats for {date}; wrote empty cache")
+            return
+        stats['date_key'] = pd.to_datetime(stats['date'], errors='coerce').dt.strftime('%Y-%m-%d')
+        stats_day = stats[stats['date_key'] == date].copy()
+        left = lines.rename(columns={"date":"date_key","player_name":"player"}).copy()
+        keep_stats = [c for c in ['player','shots','goals','assists','saves','blocked'] if c in stats_day.columns]
+        right = stats_day[['date_key'] + keep_stats]
+        merged = left.merge(right, on=['date_key','player'], how='left', suffixes=('', '_act'))
+        def _act_row(row):
+            m = str(row.get('market') or '').upper()
+            if m == 'SOG': return row.get('shots')
+            if m == 'GOALS': return row.get('goals')
+            if m == 'ASSISTS': return row.get('assists')
+            if m == 'POINTS':
+                try: return float((row.get('goals') or 0)) + float((row.get('assists') or 0))
+                except Exception: return None
+            if m == 'SAVES': return row.get('saves')
+            if m == 'BLOCKS': return row.get('blocked')
+            return None
+        merged['actual'] = merged.apply(_act_row, axis=1)
+        out_cols = [c for c in ['date_key','player','team','market','line','over_price','under_price','book','actual'] if c in merged.columns]
+        out = merged[out_cols].rename(columns={'date_key':'date'}) if out_cols else merged
+        save_df(out, PROC_DIR / f"player_props_vs_actuals_{date}.csv")
+        _vprint(verbose, f"[vs_actuals] wrote player_props_vs_actuals_{date}.csv ({len(out)} rows)")
+    except Exception as e:
+        _vprint(verbose, f"[vs_actuals] failed for {date}: {e}")
+
+
 def _ensure_predictions_csv(date: str, verbose: bool = False) -> None:
     """Ensure a predictions_{date}.csv exists; if missing, generate a minimal one without odds.
 
@@ -924,6 +1028,11 @@ def run(days_ahead: int = 2, years_back: int = 2, reconcile_yesterday: bool = Tr
                             _vprint(verbose, f"[run] wrote empty props_recommendations_{d}.csv placeholder")
                     except Exception:
                         pass
+            # Append into history CSV for web charts/tables
+            try:
+                ensure_props_recs_history(targets, verbose=verbose)
+            except Exception:
+                pass
         except Exception as e:
             _vprint(verbose, f"[run] precompute props recommendations skipped: {e}")
         _vprint(verbose, f"[run] Props collection/dataset in {time.perf_counter() - t1b:.1f}s")
@@ -948,6 +1057,11 @@ def run(days_ahead: int = 2, years_back: int = 2, reconcile_yesterday: bool = Tr
         if not skip_props:
             try:
                 recon_props = reconcile_props_date(y_str, verbose=verbose)
+            except Exception:
+                pass
+            # Build per-day props vs actuals cache for web and commit
+            try:
+                build_player_props_vs_actuals(y_str, verbose=verbose)
             except Exception:
                 pass
         _vprint(verbose, f"[run] Reconciliation completed in {time.perf_counter() - t2:.1f}s")

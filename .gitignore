@@ -53,6 +53,8 @@ data/**
 !data/processed/props_projections_*.csv
 !data/processed/props_projections_all_*.csv
 !data/processed/props_recommendations_*.csv
+!data/processed/props_recommendations_history.csv
+!data/processed/player_props_vs_actuals_*.csv
 
 # Also allow daily predictions/edges so web (Render) can use GitHub raw fallback
 !data/processed/predictions_*.csv

@@ -5741,8 +5741,17 @@ async def props_recommendations_page(
                         parts.append(_read_csv_fallback(p))
                 except Exception:
                     pass
-        # If nothing found locally (such as on Render with a fresh build), try GitHub raw CSV fallback
+        # If nothing found locally (such as on Render with a fresh build), try GitHub raw fallback
         if not parts:
+            # Try Parquet first (primary artifact), then CSV as a secondary option
+            try:
+                for name in ("bovada.parquet", "oddsapi.parquet"):
+                    rel = f"data/props/player_props_lines/date={d_for_lines}/{name}"
+                    gh_df = _github_raw_read_parquet(rel)
+                    if gh_df is not None and not gh_df.empty:
+                        parts.append(gh_df)
+            except Exception:
+                pass
             try:
                 for name in ("bovada.csv", "oddsapi.csv"):
                     rel = f"data/props/player_props_lines/date={d_for_lines}/{name}"

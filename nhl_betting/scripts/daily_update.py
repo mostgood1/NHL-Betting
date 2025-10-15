@@ -1009,15 +1009,53 @@ def run(days_ahead: int = 2, years_back: int = 2, reconcile_yesterday: bool = Tr
                     return cmd(**kwargs)
                 else:
                     raise RuntimeError('Unsupported command object for props recommendations')
+            # Helper to normalize ev/proj columns for downstream web routes
+            def _normalize_recs_file(path):
+                try:
+                    if not path.exists() or path.stat().st_size == 0:
+                        return False
+                    df = pd.read_csv(path)
+                    if df is None or df.empty:
+                        return False
+                    cols = set(df.columns)
+                    changed = False
+                    if ('ev' not in cols) and ('ev_over' in cols):
+                        try:
+                            df['ev'] = pd.to_numeric(df['ev_over'], errors='coerce')
+                        except Exception:
+                            df['ev'] = df['ev_over']
+                        changed = True
+                    if ('proj' not in cols) and ('proj_lambda' in cols):
+                        try:
+                            df['proj'] = pd.to_numeric(df['proj_lambda'], errors='coerce')
+                        except Exception:
+                            df['proj'] = df['proj_lambda']
+                        changed = True
+                    if changed:
+                        save_df(df, path)
+                        return True
+                except Exception:
+                    return False
+                return False
             base = _today_et().date()
             targets = [base.strftime('%Y-%m-%d')]
             if days_ahead and int(days_ahead) > 1:
                 from datetime import timedelta as _td
                 targets.append((base + _td(days=1)).strftime('%Y-%m-%d'))
+            # Track artifacts to explicitly stage for git (belt-and-suspenders)
+            produced_artifacts: list[str] = []
             for d in targets:
                 try:
                     _vprint(verbose, f"[run] Building props recommendations for {d}…")
                     _call_typer_or_func_recs(_props_recs, date=d, min_ev=0.0, top=200, market="")
+                    # Normalize and record artifact
+                    outp = PROC_DIR / f"props_recommendations_{d}.csv"
+                    try:
+                        if _normalize_recs_file(outp):
+                            _vprint(verbose, f"[run] normalized columns in {outp.name}")
+                    except Exception:
+                        pass
+                    produced_artifacts.append(str(outp))
                 except Exception as e2:
                     _vprint(verbose, f"[run] props recommendations failed for {d}: {e2}")
                     # Write an empty placeholder to allow reconciliation to proceed
@@ -1026,11 +1064,17 @@ def run(days_ahead: int = 2, years_back: int = 2, reconcile_yesterday: bool = Tr
                         if not outp.exists():
                             pd.DataFrame(columns=["date","player_id","player_name","team","market","line","over_price","under_price","book","ev","p_over"]).to_csv(outp, index=False)
                             _vprint(verbose, f"[run] wrote empty props_recommendations_{d}.csv placeholder")
+                        produced_artifacts.append(str(outp))
                     except Exception:
                         pass
             # Append into history CSV for web charts/tables
             try:
                 ensure_props_recs_history(targets, verbose=verbose)
+            except Exception:
+                pass
+            # Persist list of artifacts on the instance for later git stage
+            try:
+                globals()["_DAILY_UPDATE_PRODUCED_ARTIFACTS"] = produced_artifacts
             except Exception:
                 pass
         except Exception as e:
@@ -1099,6 +1143,13 @@ def run(days_ahead: int = 2, years_back: int = 2, reconcile_yesterday: bool = Tr
             else:
                 # Stage all tracked/untracked (respects .gitignore)
                 _run(["git", "add", "-A"]).stdout
+                # Explicitly stage key processed artifacts we rely on in web (safety against ignore edge cases)
+                try:
+                    produced = globals().get("_DAILY_UPDATE_PRODUCED_ARTIFACTS", []) or []
+                    for p in produced:
+                        _run(["git", "add", p])
+                except Exception:
+                    pass
                 # Skip commit if no changes
                 status = _run(["git", "status", "--porcelain"]).stdout
                 if status.strip():

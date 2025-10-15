@@ -4713,9 +4713,13 @@ async def api_props_recommendations_history_json(
         try: df.rename(columns={'ev':'ev_over'}, inplace=True)
         except Exception: pass
     # Filters
-    if market and 'market' in df.columns:
-        try: df = df[df['market'].astype(str).str.upper() == market.upper()]
-        except Exception: pass
+    # Market filter: ignore common 'All' sentinels
+    market_u = str(market or '').strip().upper()
+    if market_u and market_u not in ('ALL', 'ALL MARKETS', 'ANY') and 'market' in df.columns:
+        try:
+            df = df[df['market'].astype(str).str.upper() == market_u]
+        except Exception:
+            pass
     if player and 'player' in df.columns:
         try: df = df[df['player'].astype(str).str.lower() == player.lower()]
         except Exception: pass

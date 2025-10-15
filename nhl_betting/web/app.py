@@ -349,13 +349,13 @@ except Exception:
     pass
 
 
-def _github_raw_read_csv(rel_path: str) -> pd.DataFrame:
+def _github_raw_read_csv(rel_path: str, timeout_sec: Optional[float] = None, attempts: Optional[int] = None) -> pd.DataFrame:
     """Fetch a CSV from the GitHub repo's raw content and return as DataFrame.
 
     rel_path should be a posix-style path like 'data/processed/props_projections_YYYY-MM-DD.csv'.
     Uses env GITHUB_REPO and GITHUB_BRANCH (defaults to mostgood1/NHL-Betting@master).
 
-    Includes a tiny retry to tolerate transient network hiccups on cold starts.
+    Timeouts and retries are aggressively reduced on public hosts to avoid 502s.
     """
     try:
         repo = os.getenv("GITHUB_REPO", "mostgood1/NHL-Betting").strip() or "mostgood1/NHL-Betting"
@@ -363,11 +363,15 @@ def _github_raw_read_csv(rel_path: str) -> pd.DataFrame:
         # Normalize leading slashes
         rel = rel_path.lstrip("/")
         url = f"https://raw.githubusercontent.com/{repo}/{branch}/{rel}"
+        # Tune network behavior to avoid tying up request workers
+        if timeout_sec is None:
+            timeout_sec = 2.0 if _is_public_host_env() else 7.0
+        if attempts is None:
+            attempts = 1 if _is_public_host_env() else 2
         last_exc = None
-        for attempt in range(2):
+        for _ in range(max(1, int(attempts))):
             try:
-                # Keep timeout modest to avoid tying up workers
-                resp = requests.get(url, timeout=7)
+                resp = requests.get(url, timeout=float(timeout_sec))
                 if resp.status_code == 200 and resp.text:
                     try:
                         return pd.read_csv(StringIO(resp.text))
@@ -378,7 +382,7 @@ def _github_raw_read_csv(rel_path: str) -> pd.DataFrame:
             # brief backoff
             try:
                 import time as _t
-                _t.sleep(0.4)
+                _t.sleep(0.2 if _is_public_host_env() else 0.4)
             except Exception:
                 pass
         # On failure return empty (callers handle empty as cache miss)
@@ -387,7 +391,7 @@ def _github_raw_read_csv(rel_path: str) -> pd.DataFrame:
         return pd.DataFrame()
 
 
-def _github_raw_read_parquet(rel_path: str) -> pd.DataFrame:
+def _github_raw_read_parquet(rel_path: str, timeout_sec: Optional[float] = None) -> pd.DataFrame:
     """Fetch a Parquet file from the GitHub repo's raw content and return as DataFrame.
 
     rel_path should be a posix-style path like 'data/props/player_props_lines/date=YYYY-MM-DD/oddsapi.parquet'.
@@ -398,7 +402,9 @@ def _github_raw_read_parquet(rel_path: str) -> pd.DataFrame:
         branch = os.getenv("GITHUB_BRANCH", "master").strip() or "master"
         rel = rel_path.lstrip("/")
         url = f"https://raw.githubusercontent.com/{repo}/{branch}/{rel}"
-        resp = requests.get(url, timeout=15)
+        if timeout_sec is None:
+            timeout_sec = 3.0 if _is_public_host_env() else 15.0
+        resp = requests.get(url, timeout=float(timeout_sec))
         if resp.status_code == 200 and resp.content:
             try:
                 import io as _io
@@ -408,6 +414,21 @@ def _github_raw_read_parquet(rel_path: str) -> pd.DataFrame:
         return pd.DataFrame()
     except Exception:
         return pd.DataFrame()
+
+
+def _gh_lookback_days(default_public: int = 2, default_local: int = 7) -> int:
+    """Determine how many days back to search GitHub raw for props artifacts.
+
+    Public hosts default to a very small lookback to avoid long serial network loops.
+    Can be overridden by PROPS_GH_LOOKBACK_DAYS env var.
+    """
+    try:
+        v = os.getenv('PROPS_GH_LOOKBACK_DAYS')
+        if v is not None and str(v).strip().isdigit():
+            return max(0, int(str(v).strip()))
+    except Exception:
+        pass
+    return int(default_public if _is_public_host_env() else default_local)
 
 
 def _compute_props_projections(date: str, market: Optional[str] = None) -> pd.DataFrame:
@@ -4306,12 +4327,12 @@ async def props_all_players_page(
             if p.exists():
                 df = _read_csv_fallback(p)
             if (df is None or df.empty):
-                # GitHub recent fallback
+                # GitHub recent fallback with bounded lookback and short timeout
                 from datetime import datetime as _dt2, timedelta as _td2
                 base = _dt2.strptime(d_requested, "%Y-%m-%d")
-                for i in range(0, 7):
+                for i in range(0, _gh_lookback_days(default_public=2)):
                     d_try = (base - _td2(days=i)).strftime("%Y-%m-%d")
-                    gh_df = _github_raw_read_csv(f"data/processed/props_projections_all_{d_try}.csv")
+                    gh_df = _github_raw_read_csv(f"data/processed/props_projections_all_{d_try}.csv", timeout_sec=2.0, attempts=1)
                     if gh_df is not None and not gh_df.empty and not _looks_like_synthetic_props(gh_df):
                         df = gh_df; used_date = d_try; break
         except Exception:
@@ -4335,9 +4356,9 @@ async def props_all_players_page(
             from datetime import datetime as _dt2, timedelta as _td2
             base = _dt2.strptime(d_requested, "%Y-%m-%d")
             df_found = None; d_found = None
-            for i in range(0, 7):
+            for i in range(0, _gh_lookback_days(default_public=2, default_local=7)):
                 d_try = (base - _td2(days=i)).strftime("%Y-%m-%d")
-                gh_df = _github_raw_read_csv(f"data/processed/props_projections_all_{d_try}.csv")
+                gh_df = _github_raw_read_csv(f"data/processed/props_projections_all_{d_try}.csv", timeout_sec=(2.0 if _is_public_host_env() else 7.0), attempts=(1 if _is_public_host_env() else 2))
                 if gh_df is not None and not gh_df.empty and not _looks_like_synthetic_props(gh_df):
                     df_found = gh_df; d_found = d_try; break
             if df_found is not None:

@@ -891,7 +891,7 @@ def run(days_ahead: int = 2, years_back: int = 2, reconcile_yesterday: bool = Tr
             for d in targets:
                 try:
                     _vprint(verbose, f"[run] Building props recommendations for {d}…")
-                    _call_typer_or_func_recs(_props_recs, date=d, min_ev=0.0, top=250, market="")
+                    _call_typer_or_func_recs(_props_recs, date=d, min_ev=0.0, top=200, market="")
                 except Exception as e2:
                     _vprint(verbose, f"[run] props recommendations failed for {d}: {e2}")
                     # Write an empty placeholder to allow reconciliation to proceed
@@ -1016,7 +1016,7 @@ def reconcile_props_date(date: str, flat_stake: float = 100.0, verbose: bool = F
                 else:
                     raise RuntimeError('Unsupported command object for props recommendations')
             _vprint(verbose, f"[props] Building recommendations for {date}…")
-            _call_typer_or_func_recs(_props_recs, date=date, min_ev=0.0, top=500, market="")
+            _call_typer_or_func_recs(_props_recs, date=date, min_ev=0.0, top=200, market="")
         except Exception as e:
             return {"status": "no-recommendations", "date": date, "error": str(e)}
     try:

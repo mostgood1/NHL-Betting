@@ -789,7 +789,7 @@ def props_predict(odds_csv: str = typer.Option(..., help="CSV with columns: mark
 def props_recommendations(
     date: str = typer.Option(..., help="Slate date YYYY-MM-DD (ET)"),
     min_ev: float = typer.Option(0.0, help="Minimum EV threshold for ev_over"),
-    top: int = typer.Option(250, help="Top N to keep after sorting by EV desc"),
+    top: int = typer.Option(200, help="Top N to keep after sorting by EV desc"),
     market: str = typer.Option("", help="Optional filter: SOG,SAVES,GOALS,ASSISTS,POINTS"),
 ):
     """Build props recommendations_{date}.csv from canonical Parquet lines and simple Poisson projections.
@@ -3040,7 +3040,7 @@ if __name__ == "__main__":
             rec_path = PROC_DIR / f"props_recommendations_{d}.csv"
             if not rec_path.exists():
                 print({"recs": "building", "date": d})
-                props_recommendations(date=d, min_ev=0.0, top=250, market="")
+                props_recommendations(date=d, min_ev=0.0, top=200, market="")
         except Exception as e:
             print({"recs": "error", "date": d, "error": str(e)})
         # 3) Reconcile props for date (ALL markets)

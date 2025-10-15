@@ -475,6 +475,15 @@ def collect_props_canonical(days_ahead: int = 1, verbose: bool = False) -> dict:
         roster_df = build_all_team_roster_snapshots()
     except Exception as e:
         _vprint(verbose, f"[props] roster snapshot failed: {e}")
+    # Also build a master roster lookup with image URLs and team abbreviations for web enrichment
+    try:
+        from nhl_betting.cli import roster_master as _roster_master
+        if hasattr(_roster_master, 'callback') and callable(getattr(_roster_master, 'callback')):
+            _roster_master.callback(date=_ymd(base_et))
+        else:
+            _roster_master(date=_ymd(base_et))
+    except Exception as e:
+        _vprint(verbose, f"[props] roster master build skipped: {e}")
     for d in ordered:
         try:
             # Always attempt both sources to maximize coverage

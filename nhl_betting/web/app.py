@@ -5715,6 +5715,7 @@ async def props_recommendations_page(
     player_photo: dict[str, str] = {}
     player_team_map: dict[str, str] = {}
     player_position_map: dict[str, str] = {}
+    roster_master_map: dict[str, dict] = {}
     valid_player_names: set[str] = set()
     # Helper: normalize player display names consistently
     def _norm_name(x: str) -> str:
@@ -5760,6 +5761,24 @@ async def props_recommendations_page(
                         parts.append(gh_df)
             except Exception:
                 pass
+        # Load roster_master.csv for strong mapping of player->(team_abbr, position, image_url)
+        try:
+            rm = _read_csv_fallback(PROC_DIR / 'roster_master.csv')
+            if (rm is None) or rm.empty:
+                rm = _github_raw_read_csv('data/processed/roster_master.csv')
+            if rm is not None and not rm.empty:
+                for _, rr in rm.iterrows():
+                    nm = _norm_name(rr.get('full_name') or rr.get('player'))
+                    if not nm:
+                        continue
+                    roster_master_map[nm] = {
+                        'team_abbr': str(rr.get('team_abbr') or '').upper() or None,
+                        'position': str(rr.get('position') or '').upper() or None,
+                        'image_url': rr.get('image_url') or None,
+                        'player_id': rr.get('player_id') or None,
+                    }
+        except Exception:
+            roster_master_map = {}
         if parts:
             lp = pd.concat(parts, ignore_index=True)
             # Build a fallback index: (last_name_lower, team_abbr_upper) -> predominant player_id
@@ -6292,7 +6311,16 @@ async def props_recommendations_page(
                         team_clean = str(team).strip()
                 except Exception:
                     team_clean = team
-                assets = get_team_assets(str(team_clean)) if team_clean else {}
+                # Strong override from roster_master if available
+                if player and roster_master_map:
+                    rm = roster_master_map.get(_norm_name(player))
+                else:
+                    rm = None
+                team_from_rm = (rm.get('team_abbr') if isinstance(rm, dict) else None)
+                photo_from_rm = (rm.get('image_url') if isinstance(rm, dict) else None)
+                pos_from_rm = (rm.get('position') if isinstance(rm, dict) else None)
+                team_eff = team_from_rm or team_clean
+                assets = get_team_assets(str(team_eff)) if team_eff else {}
                 markets = []
                 best_ev_overall = None
                 # Group per market within player
@@ -6410,13 +6438,13 @@ async def props_recommendations_page(
                     markets.sort(key=lambda x: market_sort_key(x.get('market')))
                 cards.append({
                     'player': player,
-                    'team': team_clean,
+                    'team': team_eff,
                     'team_abbr': (assets.get('abbr') or '').upper() if isinstance(assets, dict) else None,
                     'team_logo': (assets.get('logo_light') or assets.get('logo_dark')) if isinstance(assets, dict) else None,
                     'best_ev': best_ev_overall,
                     'markets': markets,
-                    'photo': player_photo.get(_norm_name(player)),
-                    'position': player_position_map.get(_norm_name(player)) or player_position_map.get(player) or None,
+                    'photo': photo_from_rm or player_photo.get(_norm_name(player)),
+                    'position': pos_from_rm or player_position_map.get(_norm_name(player)) or player_position_map.get(player) or None,
                 })
             # Sort and top-N (now by player card)
             if cards:

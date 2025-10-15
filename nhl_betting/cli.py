@@ -171,6 +171,80 @@ def train():
     print(f"Saved Elo ratings to {ratings_path} and config to {cfg_path} (base_mu={base_mu:.3f})")
 
 
+def _season_code_for_date(d_ymd: Optional[str]) -> str:
+    """Return NHL season code like '20252026' for a given YYYY-MM-DD (uses ET boundary in July)."""
+    try:
+        if d_ymd and isinstance(d_ymd, str):
+            dt = datetime.fromisoformat(d_ymd)
+        else:
+            dt = datetime.now(ZoneInfo("America/New_York"))
+        start_year = dt.year if dt.month >= 7 else (dt.year - 1)
+        return f"{start_year}{start_year+1}"
+    except Exception:
+        y = datetime.now(ZoneInfo("America/New_York")).year
+        return f"{y}{y+1}"
+
+
+@app.command()
+def roster_master(date: Optional[str] = typer.Option(None, help="ET date YYYY-MM-DD to stamp output and choose season code")):
+    """Build a master roster CSV of current NHL players with player_id, name, position, team, and image URL.
+
+    Writes data/processed/roster_{date}.csv and data/processed/roster_master.csv
+    """
+    from .data.rosters import list_teams, fetch_current_roster
+    from .web.teams import get_team_assets as _assets
+    d = date
+    if not d:
+        d = datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
+    season = _season_code_for_date(d)
+    try:
+        teams = list_teams()
+    except Exception as e:
+        print("Failed to list NHL teams:", e)
+        raise typer.Exit(code=1)
+    id_to_abbr = {}
+    id_to_name = {}
+    for t in teams:
+        try:
+            tid = int(t.get("id"))
+            ab = str(t.get("abbreviation") or (_assets(t.get("name") or "").get("abbr") if _assets else ""))
+            nm = str(t.get("name") or "")
+            id_to_abbr[tid] = ab.upper()
+            id_to_name[tid] = nm
+        except Exception:
+            continue
+    rows = []
+    for tid in sorted(id_to_abbr.keys()):
+        try:
+            roster = fetch_current_roster(tid)
+        except Exception as e:
+            print(f"[roster] team {tid} failed: {e}")
+            roster = []
+        for rp in roster:
+            try:
+                ab = id_to_abbr.get(rp.team_id, "")
+                pid = int(rp.player_id)
+                img = f"https://assets.nhle.com/mugs/nhl/{season}/{ab}/{pid}.png" if ab else f"https://cms.nhl.bamgrid.com/images/headshots/current/168x168/{pid}.jpg"
+                rows.append({
+                    "player_id": pid,
+                    "player": rp.full_name,
+                    "full_name": rp.full_name,
+                    "position": rp.position,
+                    "team_id": int(rp.team_id),
+                    "team_abbr": ab,
+                    "team_name": id_to_name.get(rp.team_id, ""),
+                    "image_url": img,
+                })
+            except Exception:
+                continue
+    df = pd.DataFrame(rows)
+    out_dated = PROC_DIR / f"roster_{d}.csv"
+    out_master = PROC_DIR / "roster_master.csv"
+    save_df(df, out_dated)
+    save_df(df, out_master)
+    print(f"Wrote {len(df)} players to {out_dated.name} and roster_master.csv")
+
+
 def predict_core(
     date: str,
     total_line: float = 6.0,

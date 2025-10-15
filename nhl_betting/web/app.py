@@ -5654,8 +5654,10 @@ async def props_recommendations_page(
         if df is None or df.empty:
             df = pd.DataFrame()
         else:
-            if market and 'market' in df.columns:
-                df = df[df['market'].astype(str).str.upper() == str(market).upper()]
+            # Market filter: ignore when set to 'All' or blank
+            market_u = str(market or '').strip().upper()
+            if market_u and market_u not in ('ALL', 'ALL MARKETS', 'ANY') and 'market' in df.columns:
+                df = df[df['market'].astype(str).str.upper() == market_u]
             if 'ev' in df.columns:
                 try:
                     df['ev'] = pd.to_numeric(df['ev'], errors='coerce')
@@ -6716,8 +6718,9 @@ async def props_recommendations_json(
     if df is None or df.empty:
         return JSONResponse({"date": d, "rows": 0, "data": []})
     try:
-        if market and 'market' in df.columns:
-            df = df[df['market'].astype(str).str.upper() == str(market).upper()]
+        market_u = str(market or '').strip().upper()
+        if market_u and market_u not in ('ALL', 'ALL MARKETS', 'ANY') and 'market' in df.columns:
+            df = df[df['market'].astype(str).str.upper() == market_u]
         if 'ev' in df.columns:
             df['ev'] = pd.to_numeric(df['ev'], errors='coerce')
             df = df[df['ev'] >= float(min_ev)]

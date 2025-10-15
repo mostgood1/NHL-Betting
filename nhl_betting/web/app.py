@@ -5511,28 +5511,27 @@ async def props_recommendations_page(
             if df_local is not None and not df_local.empty:
                 local_rows = len(df_local)
                 df = df_local
-        # Attempt GitHub freshness upgrade if remote appears to have more rows
-        try:
-            gh_df = _github_raw_read_csv(f"data/processed/props_recommendations_{date}.csv")
-        except Exception:
-            gh_df = None
-        if (df is None or df.empty) and gh_df is not None and not gh_df.empty:
-            df = gh_df
-        elif gh_df is not None and not gh_df.empty and local_rows > 0 and len(gh_df) > local_rows:
-            # Replace stale local snapshot with fresher remote copy (do not write to disk here)
-            df = gh_df
+        # Attempt GitHub freshness upgrade if remote appears to have more rows (skip on public host)
+        gh_df = None
+        if not _is_public_host_env():
+            try:
+                gh_df = _github_raw_read_csv(f"data/processed/props_recommendations_{date}.csv")
+            except Exception:
+                gh_df = None
+            if (df is None or df.empty) and gh_df is not None and not gh_df.empty:
+                df = gh_df
+            elif gh_df is not None and not gh_df.empty and local_rows > 0 and len(gh_df) > local_rows:
+                # Replace stale local snapshot with fresher remote copy (do not write to disk here)
+                df = gh_df
     except Exception:
         df = pd.DataFrame()
 
-    # Load model-only projections for all players/markets so we can show projections even without lines
+    # Load model-only projections for all players/markets strictly from precomputed CSVs
+    # Never compute on this page when running on a public host or when compute is disabled.
     proj_map = {}
     try:
         proj_df = _read_all_players_projections(date)
-        if proj_df is None or proj_df.empty:
-            try:
-                proj_df = _compute_all_players_projections(date)
-            except Exception:
-                proj_df = pd.DataFrame()
+        # Do NOT compute fallback here; page must remain read-only on public hosts.
         if proj_df is not None and not proj_df.empty and {'player','market','proj_lambda'}.issubset(set(proj_df.columns)):
             tmp = proj_df.dropna(subset=['player','market'])[['player','market','proj_lambda']].copy()
             tmp['player_norm'] = tmp['player'].astype(str).map(_norm_name)
@@ -5562,120 +5561,7 @@ async def props_recommendations_page(
                     df['proj'] = df['proj_lambda']
     except Exception:
         pass
-    # Inline compute fallback if still empty: build from canonical lines + models
-    # Server policy: disable heavy compute on public host. Local/dev may compute.
-    if (df is None or df.empty) and _compute_allowed():
-        try:
-            base = PROC_DIR.parent / "props" / f"player_props_lines/date={date}"
-            parts = []
-            for name in ("bovada.parquet", "oddsapi.parquet"):
-                p = base / name
-                if p.exists():
-                    try:
-                        parts.append(pd.read_parquet(p))
-                    except Exception:
-                        pass
-            if parts:
-                lines = pd.concat(parts, ignore_index=True)
-                from ..models.props import SkaterShotsModel, GoalieSavesModel, SkaterGoalsModel
-                from ..models.props import SkaterAssistsModel, SkaterPointsModel, SkaterBlocksModel
-                from ..utils.io import RAW_DIR as _RAW
-                stats_path = _RAW / "player_game_stats.csv"
-                hist = pd.DataFrame()
-                try:
-                    if stats_path.exists():
-                        hist = pd.read_csv(stats_path)
-                    else:
-                        # Best-effort GitHub raw fallback; do not fetch over network APIs here
-                        gh_hist = _github_raw_read_csv("data/raw/player_game_stats.csv")
-                        if gh_hist is not None and not gh_hist.empty:
-                            hist = gh_hist
-                except Exception:
-                    hist = pd.DataFrame()
-                shots = SkaterShotsModel(); saves = GoalieSavesModel(); goals = SkaterGoalsModel(); assists = SkaterAssistsModel(); points = SkaterPointsModel(); blocks = SkaterBlocksModel()
-                def _fallback_lambda(mk: str) -> float:
-                    mk = (mk or '').upper()
-                    if mk == 'SOG': return 2.4
-                    if mk == 'GOALS': return 0.35
-                    if mk == 'ASSISTS': return 0.4
-                    if mk == 'POINTS': return 0.9
-                    if mk == 'SAVES': return 27.0
-                    if mk == 'BLOCKS': return 1.3
-                    return 1.0
-                def _proj_prob(m, player, ln):
-                    m = (m or '').upper()
-                    if m == 'SOG':
-                        lam = shots.player_lambda(hist, player)
-                        if lam is None: lam = _fallback_lambda(m)
-                        return lam, shots.prob_over(lam, ln)
-                    if m == 'SAVES':
-                        lam = saves.player_lambda(hist, player)
-                        if lam is None: lam = _fallback_lambda(m)
-                        return lam, saves.prob_over(lam, ln)
-                    if m == 'GOALS':
-                        lam = goals.player_lambda(hist, player)
-                        if lam is None: lam = _fallback_lambda(m)
-                        return lam, goals.prob_over(lam, ln)
-                    if m == 'ASSISTS':
-                        lam = assists.player_lambda(hist, player)
-                        if lam is None: lam = _fallback_lambda(m)
-                        return lam, assists.prob_over(lam, ln)
-                    if m == 'POINTS':
-                        lam = points.player_lambda(hist, player)
-                        if lam is None: lam = _fallback_lambda(m)
-                        return lam, points.prob_over(lam, ln)
-                    if m == 'BLOCKS':
-                        lam = blocks.player_lambda(hist, player)
-                        if lam is None: lam = _fallback_lambda(m)
-                        return lam, blocks.prob_over(lam, ln)
-                    return None, None
-                recs = []
-                for _, r in lines.iterrows():
-                    m = str(r.get('market') or '').upper()
-                    player = r.get('player_name') or r.get('player')
-                    if not player:
-                        continue
-                    try:
-                        ln = float(r.get('line'))
-                    except Exception:
-                        continue
-                    op = r.get('over_price'); up = r.get('under_price')
-                    if pd.isna(op) and pd.isna(up):
-                        continue
-                    lam, p_over = _proj_prob(m, str(player), ln)
-                    if lam is None or p_over is None:
-                        continue
-                    def _dec(a):
-                        try:
-                            a = float(a); return 1.0 + (a/100.0) if a > 0 else 1.0 + (100.0/abs(a))
-                        except Exception:
-                            return None
-                    ev_o = (p_over * (_dec(op)-1.0) - (1.0 - p_over)) if (op is not None and _dec(op) is not None) else None
-                    p_under = max(0.0, 1.0 - float(p_over))
-                    ev_u = (p_under * (_dec(up)-1.0) - (1.0 - p_under)) if (up is not None and _dec(up) is not None) else None
-                    side = None; price = None; ev = None
-                    if ev_o is not None or ev_u is not None:
-                        if (ev_u is None) or (ev_o is not None and ev_o >= ev_u):
-                            side = 'Over'; price = op; ev = ev_o
-                        else:
-                            side = 'Under'; price = up; ev = ev_u
-                    recs.append({
-                        'date': date,
-                        'player': player,
-                        'team': r.get('team') or None,
-                        'market': m,
-                        'line': ln,
-                        'proj': float(lam) if lam is not None else None,
-                        'p_over': float(p_over) if p_over is not None else None,
-                        'over_price': op if pd.notna(op) else None,
-                        'under_price': up if pd.notna(up) else None,
-                        'book': r.get('book'),
-                        'side': side,
-                        'ev': float(ev) if ev is not None else None,
-                    })
-                df = pd.DataFrame(recs)
-        except Exception:
-            pass
+    # No server-side compute fallback: if CSV missing/empty, we keep an empty df and render fast.
     # Apply filters
     try:
         if df is None or df.empty:

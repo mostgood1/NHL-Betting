@@ -2,6 +2,7 @@
   "tests/test_api_props_all.py::test_etag_behavior",
   "tests/test_api_props_all.py::test_props_all_basic",
   "tests/test_api_props_all.py::test_recommendations_json_empty_ok",
+  "tests/test_props_history.py::test_recommendations_history_empty_ok",
   "tests/test_props_page.py::test_props_all_html_renders",
   "tests/test_props_projections_history.py::test_projections_history_empty_ok",
   "tests/test_props_range.py::test_props_range_projections_mode",

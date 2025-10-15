@@ -108,7 +108,7 @@
             {% endif %}
             <div>
               <div class="title">{{ c.player }}</div>
-              <div class="muted subtitle">{{ c.team_abbr or c.team or '—' }}{% if c.position %} · {{ c.position }}{% endif %} · Best EV <span class="ev">{{ '%.3f' % c.best_ev if c.best_ev is not none else '—' }}</span></div>
+              <div class="muted subtitle">{{ c.team_abbr or c.team or '—' }}{% if c.position %} · {{ c.position }}{% endif %}</div>
               {# Single-line projections for SOG, Goals, Assists, Points #}
               {% if c.markets %}
                 {% set ns = namespace(sog=none, goals=none, assists=none, points=none) %}
@@ -141,10 +141,12 @@
                   {% for l in m.ladders %}
                     <div class="lad">
                       <div><span class="badge">{{ m.market }}</span> {{ l.line }}</div>
-                      <div class="side">{{ l.side or 'Over' }}</div>
+                      <div class="side">{{ l.side or 'Over' }}{% if l.rec %} <span class="badge rec">REC</span>{% endif %}</div>
                       <div>O {{ fmt_price(l.over_price) }} · U {{ fmt_price(l.under_price) }}</div>
                       <div>{{ l.book or '—' }}</div>
-                      <div><span class="ev">{{ '%.3f' % l.ev if l.ev is not none else '—' }}</span></div>
+                      <div>
+                        <span class="ev">{{ '%.0f%%' % l.ev_pct if l.ev_pct is not none else ('%.0f%%' % (l.ev*100) if l.ev is not none else '—') }}</span>
+                      </div>
                     </div>
                   {% endfor %}
                 </div>

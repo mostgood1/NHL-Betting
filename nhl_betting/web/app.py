@@ -5523,6 +5523,29 @@ async def props_recommendations_page(
             df = gh_df
     except Exception:
         df = pd.DataFrame()
+
+    # Load model-only projections for all players/markets so we can show projections even without lines
+    proj_map = {}
+    try:
+        proj_df = _read_all_players_projections(date)
+        if proj_df is None or proj_df.empty:
+            try:
+                proj_df = _compute_all_players_projections(date)
+            except Exception:
+                proj_df = pd.DataFrame()
+        if proj_df is not None and not proj_df.empty and {'player','market','proj_lambda'}.issubset(set(proj_df.columns)):
+            tmp = proj_df.dropna(subset=['player','market'])[['player','market','proj_lambda']].copy()
+            tmp['player_norm'] = tmp['player'].astype(str).map(_norm_name)
+            tmp['market_u'] = tmp['market'].astype(str).str.upper()
+            for _, rr in tmp.iterrows():
+                try:
+                    nm = rr.get('player_norm'); mk = rr.get('market_u'); val = rr.get('proj_lambda')
+                    if nm and mk and pd.notna(val):
+                        proj_map.setdefault(nm, {})[mk] = float(val)
+                except Exception:
+                    continue
+    except Exception:
+        proj_map = {}
     # Normalize column names from CLI outputs (which may use ev_over/proj_lambda)
     try:
         if df is not None and not df.empty:
@@ -6386,6 +6409,28 @@ async def props_recommendations_page(
                                 }
                         # Emit deduped ladders
                         ladders = list(best_by_key.values())
+                        # Compute best pick per line (highest EV) and mark recommendation
+                        try:
+                            best_per_line = {}
+                            for item in ladders:
+                                ln = item.get('line')
+                                evv = item.get('ev')
+                                if ln is None:
+                                    continue
+                                if ln not in best_per_line:
+                                    best_per_line[ln] = item
+                                else:
+                                    prev = best_per_line[ln]
+                                    pe = prev.get('ev')
+                                    if (evv is not None) and ((pe is None) or (evv > pe)):
+                                        best_per_line[ln] = item
+                            for item in ladders:
+                                evv = item.get('ev')
+                                item['ev_pct'] = (float(evv) * 100.0) if (evv is not None) else None
+                                ln = item.get('line')
+                                item['rec'] = bool(best_per_line.get(ln) is item and (evv is not None) and (evv > 0))
+                        except Exception:
+                            pass
                         # Sort ladders by line ascending and side (Over first)
                         try:
                             ladders.sort(key=lambda x: (x.get('line') if x.get('line') is not None else 0, 0 if (str(x.get('side')).lower()== 'over') else 1))
@@ -6433,6 +6478,25 @@ async def props_recommendations_page(
                             'best_price': best_price,
                             'ladders': ladders,
                         })
+                # Inject projection-only markets (no lines) so the UI can show SOG/Goals/Assists/Points even without prices
+                try:
+                    pmap = proj_map.get(_norm_name(player), {}) if proj_map else {}
+                    have = { (m.get('market') or '').upper() for m in markets }
+                    for m_add in ['SOG','GOALS','ASSISTS','POINTS','SAVES','BLOCKS']:
+                        if (m_add not in have) and (m_add in pmap):
+                            markets.append({
+                                'market': m_add,
+                                'best_ev': None,
+                                'proj': pmap.get(m_add),
+                                'p_over': None,
+                                'primary_line': None,
+                                'best_side': None,
+                                'best_book': None,
+                                'best_price': None,
+                                'ladders': [],
+                            })
+                except Exception:
+                    pass
                 # Sort markets by preferred order
                 if markets:
                     markets.sort(key=lambda x: market_sort_key(x.get('market')))

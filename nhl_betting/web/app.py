@@ -5650,6 +5650,24 @@ async def props_recommendations_page(
             pass
     except Exception:
         df = pd.DataFrame()
+    # If still empty, short-circuit render to avoid heavy enrichment on public hosts
+    if df is None or df.empty:
+        template = env.get_template("props_recommendations.html")
+        html = template.render(
+            date=date,
+            market=market or "",
+            min_ev=min_ev,
+            top=top,
+            sortBy=sortBy or 'ev_desc',
+            side=side or 'both',
+            all=bool(all),
+            cards=[],
+            truncated=False,
+            total_cards=0,
+            debug_info=None,
+        )
+        return HTMLResponse(content=html)
+
     # Build an optional player_id map from canonical lines to attach headshots (skip on public host)
     player_photo: dict[str, str] = {}
     player_team_map: dict[str, str] = {}

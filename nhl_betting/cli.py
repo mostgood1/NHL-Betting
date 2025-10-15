@@ -1622,19 +1622,25 @@ def props_recommendations(
     # Vectorized EV computation using precomputed lambdas; fallback row-wise for misses
     import numpy as _np
     from scipy.stats import poisson as _poisson
-    # Prepare normalized working frame
-    work = lines.copy()
-    work["market"] = work["market"].astype(str).str.upper()
-    if market:
-        work = work[work["market"] == market.upper()]
+    # Prepare normalized working frame (explicit core columns to avoid accidental column loss)
+    core_cols = [c for c in [
+        "market","player_name","player","team","line","over_price","under_price","book"
+    ] if c in lines.columns]
+    work = lines[core_cols].copy()
+    # Uppercase market and optional filter
+    if "market" in work.columns:
+        work["market"] = work["market"].astype(str).str.upper()
+        msel = (market or "").strip()
+        if msel and msel.lower() not in ("all", ""): 
+            work = work.loc[work["market"] == msel.upper()].copy()
     # Normalize player display and filter likely players
     work["player_display"] = work.apply(lambda r: _norm_player(r.get("player_name") or r.get("player")), axis=1)
-    work = work[work["player_display"].map(_looks_like_player)]
-    # Parse numeric line and keep valid
+    work = work.loc[work["player_display"].map(_looks_like_player)].copy()
+    # Parse numeric line and keep valid (preserve all columns using loc)
     work["line_num"] = pd.to_numeric(work.get("line"), errors="coerce")
-    work = work[work["line_num"].notna()]
+    work = work.loc[work["line_num"].notna()].copy()
     # Attach normalized name for join
-    work["player_norm"] = work["player_display"].map(_norm_name).str.lower()
+    work["player_norm"] = work["player_display"].astype(str).map(_norm_name).str.lower()
     # Build lambda DataFrame from lam_map for merge
     lam_df = pd.DataFrame([{"player_norm": k[0], "market": k[1], "proj_lambda": v} for k, v in lam_map.items()]) if lam_map else pd.DataFrame(columns=["player_norm","market","proj_lambda"])
     merged = work.merge(lam_df, on=["player_norm", "market"], how="left")

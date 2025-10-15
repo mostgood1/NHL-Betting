@@ -2439,7 +2439,14 @@ def props_project_all(
         except Exception as e:
             print(f"[history] ensure failed: {e}")
     # We'll build any needed last-known positions lazily, filtered to slate roster only, using chunked reads
-    hist = pd.DataFrame()
+    # Load stats history now (we ensured presence above). This is critical so all markets get non-null lambdas.
+    try:
+        hist = load_df(stats_path) if stats_path.exists() else pd.DataFrame()
+    except Exception:
+        try:
+            hist = pd.read_csv(stats_path) if stats_path.exists() else pd.DataFrame()
+        except Exception:
+            hist = pd.DataFrame()
     # Get slate teams (Web API)
     web = NHLWebClient()
     games = web.schedule_day(date)
@@ -2629,6 +2636,22 @@ def props_project_all(
         return " ".join(x.split())
     # Models
     shots = SkaterShotsModel(); saves = GoalieSavesModel(); goals = SkaterGoalsModel(); assists = SkaterAssistsModel(); points = SkaterPointsModel(); blocks = SkaterBlocksModel()
+    # Conservative league-average fallbacks to avoid missing projections
+    def _fallback_lambda(mk: str) -> float:
+        m = (mk or '').upper()
+        if m == 'SOG':
+            return 2.4
+        if m == 'GOALS':
+            return 0.35
+        if m == 'ASSISTS':
+            return 0.45
+        if m == 'POINTS':
+            return 0.9
+        if m == 'SAVES':
+            return 27.0
+        if m == 'BLOCKS':
+            return 1.3
+        return 1.0
     rows = []
     for _, r in roster_df.iterrows():
         player = _norm_player(r.get('player'))
@@ -2640,13 +2663,30 @@ def props_project_all(
             if pos == 'G':
                 if include_goalies:
                     lam = saves.player_lambda(hist, player)
+                    if lam is None:
+                        lam = _fallback_lambda('SAVES')
                     rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'SAVES', 'proj_lambda': float(lam) if lam is not None else None})
             else:
-                lam = shots.player_lambda(hist, player); rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'SOG', 'proj_lambda': float(lam) if lam is not None else None})
-                lam = goals.player_lambda(hist, player); rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'GOALS', 'proj_lambda': float(lam) if lam is not None else None})
-                lam = assists.player_lambda(hist, player); rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'ASSISTS', 'proj_lambda': float(lam) if lam is not None else None})
-                lam = points.player_lambda(hist, player); rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'POINTS', 'proj_lambda': float(lam) if lam is not None else None})
-                lam = blocks.player_lambda(hist, player); rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'BLOCKS', 'proj_lambda': float(lam) if lam is not None else None})
+                lam = shots.player_lambda(hist, player)
+                if lam is None:
+                    lam = _fallback_lambda('SOG')
+                rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'SOG', 'proj_lambda': float(lam) if lam is not None else None})
+                lam = goals.player_lambda(hist, player)
+                if lam is None:
+                    lam = _fallback_lambda('GOALS')
+                rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'GOALS', 'proj_lambda': float(lam) if lam is not None else None})
+                lam = assists.player_lambda(hist, player)
+                if lam is None:
+                    lam = _fallback_lambda('ASSISTS')
+                rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'ASSISTS', 'proj_lambda': float(lam) if lam is not None else None})
+                lam = points.player_lambda(hist, player)
+                if lam is None:
+                    lam = _fallback_lambda('POINTS')
+                rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'POINTS', 'proj_lambda': float(lam) if lam is not None else None})
+                lam = blocks.player_lambda(hist, player)
+                if lam is None:
+                    lam = _fallback_lambda('BLOCKS')
+                rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'BLOCKS', 'proj_lambda': float(lam) if lam is not None else None})
         except Exception:
             continue
     out = pd.DataFrame(rows)

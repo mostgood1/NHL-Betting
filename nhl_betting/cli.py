@@ -185,58 +185,280 @@ def _season_code_for_date(d_ymd: Optional[str]) -> str:
         return f"{y}{y+1}"
 
 
+def _gh_raw_read_csv(rel_path: str, timeout_sec: float = 4.0) -> pd.DataFrame:
+    """Read a CSV from GitHub raw given a repo-relative path."""
+    import os, requests
+    try:
+        repo = os.getenv("GITHUB_REPO", "mostgood1/NHL-Betting").strip() or "mostgood1/NHL-Betting"
+        branch = os.getenv("GITHUB_BRANCH", "master").strip() or "master"
+        rel = rel_path.lstrip("/")
+        url = f"https://raw.githubusercontent.com/{repo}/{branch}/{rel}"
+        r = requests.get(url, timeout=timeout_sec)
+        if r.ok and r.text:
+            from io import StringIO
+            return pd.read_csv(StringIO(r.text))
+    except Exception:
+        pass
+    return pd.DataFrame()
+
+
+def _gh_raw_read_parquet(rel_path: str, timeout_sec: float = 6.0) -> pd.DataFrame:
+    """Read a Parquet from GitHub raw given a repo-relative path."""
+    import os, requests, io
+    try:
+        repo = os.getenv("GITHUB_REPO", "mostgood1/NHL-Betting").strip() or "mostgood1/NHL-Betting"
+        branch = os.getenv("GITHUB_BRANCH", "master").strip() or "master"
+        rel = rel_path.lstrip("/")
+        url = f"https://raw.githubusercontent.com/{repo}/{branch}/{rel}"
+        r = requests.get(url, timeout=timeout_sec)
+        if r.ok and r.content:
+            return pd.read_parquet(io.BytesIO(r.content))
+    except Exception:
+        pass
+    return pd.DataFrame()
+
+
 @app.command()
 def roster_master(date: Optional[str] = typer.Option(None, help="ET date YYYY-MM-DD to stamp output and choose season code")):
     """Build a master roster CSV of current NHL players with player_id, name, position, team, and image URL.
 
     Writes data/processed/roster_{date}.csv and data/processed/roster_master.csv
     """
-    from .data.rosters import list_teams, fetch_current_roster
     from .web.teams import get_team_assets as _assets
     d = date
     if not d:
         d = datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
     season = _season_code_for_date(d)
-    try:
-        teams = list_teams()
-    except Exception as e:
-        print("Failed to list NHL teams:", e)
-        raise typer.Exit(code=1)
-    id_to_abbr = {}
-    id_to_name = {}
-    for t in teams:
-        try:
-            tid = int(t.get("id"))
-            ab = str(t.get("abbreviation") or (_assets(t.get("name") or "").get("abbr") if _assets else ""))
-            nm = str(t.get("name") or "")
-            id_to_abbr[tid] = ab.upper()
-            id_to_name[tid] = nm
-        except Exception:
-            continue
     rows = []
-    for tid in sorted(id_to_abbr.keys()):
-        try:
-            roster = fetch_current_roster(tid)
-        except Exception as e:
-            print(f"[roster] team {tid} failed: {e}")
-            roster = []
-        for rp in roster:
+    built_via_web_api = False
+    # Primary path: NHL api-web for teams and rosters
+    try:
+        import requests, time
+        BASE = "https://api-web.nhle.com/v1"
+        def _get(path: str, params=None, retries=3, timeout=20):
+            last = None
+            for i in range(retries):
+                try:
+                    r = requests.get(f"{BASE}{path}", params=params, timeout=timeout)
+                    if r.status_code == 200:
+                        return r.json()
+                except Exception as e:
+                    last = e
+                    time.sleep(0.4 * (2 ** i))
+            if last:
+                raise last
+            raise RuntimeError("web api error")
+        # teams via standings/now
+        st = _get("/standings/now")
+        # standings/now structure: {'standings': [...]} with entries containing teamAbbrev, teamName, teamCommonName, teamId
+        teams_info = []
+        def _txt(v):
+            if isinstance(v, dict):
+                # handle both 'default' and 'DEFAULT' keys
+                return v.get('default') or v.get('DEFAULT') or v.get('en') or v.get('name') or ''
+            return str(v or '')
+        if isinstance(st, dict):
+            lst = st.get('standings') or st.get('standingsByDivision') or st.get('records') or []
+            # try flatten common cases
+            if isinstance(lst, dict):
+                # sometimes wrapped by divisions
+                tmp = []
+                for v in lst.values():
+                    if isinstance(v, list): tmp.extend(v)
+                lst = tmp
+            if isinstance(lst, list):
+                for t in lst:
+                    try:
+                        ab = _txt(t.get('teamAbbrev') or t.get('teamAbbrevTricode') or t.get('teamAbbrevShort') or '').upper()
+                        tid = t.get('teamId') or t.get('id')
+                        nm = _txt(t.get('teamName') or t.get('teamCommonName') or t.get('teamFullName'))
+                        if ab:
+                            teams_info.append({'abbr': ab, 'id': int(tid) if tid else None, 'name': nm})
+                    except Exception:
+                        continue
+        # Unique by abbr
+        seen_abbr = set(); uniq = []
+        for t in teams_info:
+            if t['abbr'] in seen_abbr: continue
+            seen_abbr.add(t['abbr']); uniq.append(t)
+        # Fetch roster per team
+        for t in uniq:
+            ab = str(t['abbr']).upper(); tid = t.get('id'); tname = t.get('name')
             try:
-                ab = id_to_abbr.get(rp.team_id, "")
-                pid = int(rp.player_id)
-                img = f"https://assets.nhle.com/mugs/nhl/{season}/{ab}/{pid}.png" if ab else f"https://cms.nhl.bamgrid.com/images/headshots/current/168x168/{pid}.jpg"
-                rows.append({
-                    "player_id": pid,
-                    "player": rp.full_name,
-                    "full_name": rp.full_name,
-                    "position": rp.position,
-                    "team_id": int(rp.team_id),
-                    "team_abbr": ab,
-                    "team_name": id_to_name.get(rp.team_id, ""),
-                    "image_url": img,
-                })
-            except Exception:
+                rjson = _get(f"/roster/{ab}/current")
+            except Exception as e:
+                # skip if roster endpoint fails for one team
+                print(f"[roster] roster fetch failed for {ab}: {e}")
                 continue
+            # Expect keys like 'forwards','defensemen','goalies' or similar; also some APIs use 'forwards','defense','goalies'
+            buckets = []
+            if isinstance(rjson, dict):
+                for k in ('forwards','defense','defensemen','goalies','skaters','roster'):  # cover variants
+                    v = rjson.get(k)
+                    if isinstance(v, list):
+                        buckets.extend(v)
+            def _norm_pos(ps):
+                s = str(ps or '').strip().upper()
+                if not s:
+                    return None
+                # Goalies
+                if s in ('G', 'GOALIE', 'GOALTENDER'):
+                    return 'G'
+                if s.startswith('G'):
+                    return 'G'
+                # Defense
+                if s in ('D', 'DEF', 'DEFENSE', 'DEFENCE', 'DEFENCEMAN', 'DEFENSEMAN'):
+                    return 'D'
+                if s.startswith('D'):
+                    return 'D'
+                # Forwards (centers/wings)
+                if s in ('F', 'FORWARD', 'C', 'LW', 'RW', 'L', 'R', 'W'):
+                    return 'F'
+                if s.startswith('F') or s.startswith('W') or s.startswith('L') or s.startswith('R') or s.startswith('C'):
+                    return 'F'
+                return None
+            for p in buckets:
+                try:
+                    # Extract id, name, position
+                    pid = p.get('id') or (p.get('person') or {}).get('id')
+                    if pid is None:
+                        continue
+                    pid = int(pid)
+                    def _txt(v):
+                        if isinstance(v, dict):
+                            return v.get('default') or v.get('full') or v.get('name') or ''
+                        return str(v or '')
+                    first = _txt(p.get('firstName') or (p.get('person') or {}).get('firstName'))
+                    last = _txt(p.get('lastName') or (p.get('person') or {}).get('lastName'))
+                    full = (first + ' ' + last).strip() or _txt(p.get('fullName'))
+                    pos_raw = p.get('positionCode') or p.get('position') or (p.get('positionObj') or {}).get('code')
+                    pos = _norm_pos(pos_raw)
+                    img = f"https://assets.nhle.com/mugs/nhl/{season}/{ab}/{pid}.png"
+                    rows.append({
+                        'player_id': pid,
+                        'player': full,
+                        'full_name': full,
+                        'position': pos,
+                        'team_id': tid,
+                        'team_abbr': ab,
+                        'team_name': tname,
+                        'image_url': img,
+                    })
+                except Exception:
+                    continue
+        built_via_web_api = len(rows) > 0
+    except Exception as e:
+        print("[roster] api-web unavailable, will try canonical lines + stats fallback:", e)
+    # Fallback path: canonical lines + stats
+    if not built_via_web_api:
+        try:
+            # Pick a lines date: prefer provided date; else try the most recent available partition
+            from .utils.io import PROC_DIR as _PROC
+            base_root = _PROC.parent / "props" / "player_props_lines"
+            date_dir = None
+            cand = base_root / f"date={d}"
+            if cand.exists():
+                date_dir = cand
+            else:
+                # find latest date=YYYY-MM-DD dir
+                dirs = [p for p in base_root.glob("date=*") if p.is_dir()]
+                if dirs:
+                    date_dir = sorted(dirs, key=lambda p: p.name)[-1]
+            import pandas as _pd
+            parts = []
+            if date_dir is not None:
+                for name in ("bovada.parquet", "oddsapi.parquet", "bovada.csv", "oddsapi.csv"):
+                    p = date_dir / name
+                    if p.exists():
+                        try:
+                            parts.append(_pd.read_parquet(p) if p.suffix == ".parquet" else _pd.read_csv(p))
+                        except Exception:
+                            continue
+            # If still empty, try GitHub raw for the provided date and yesterday
+            if not parts:
+                from datetime import datetime as _dt, timedelta as _td
+                dates_try = [d]
+                try:
+                    d0 = _dt.fromisoformat(d)
+                    dates_try.append((d0 - _td(days=1)).strftime('%Y-%m-%d'))
+                except Exception:
+                    pass
+                for dtry in dates_try:
+                    for name in ("bovada.parquet", "oddsapi.parquet"):
+                        rel = f"data/props/player_props_lines/date={dtry}/{name}"
+                        gdf = _gh_raw_read_parquet(rel)
+                        if gdf is not None and not gdf.empty:
+                            parts.append(gdf)
+                    for name in ("bovada.csv", "oddsapi.csv"):
+                        rel = f"data/props/player_props_lines/date={dtry}/{name}"
+                        gdf = _gh_raw_read_csv(rel)
+                        if gdf is not None and not gdf.empty:
+                            parts.append(gdf)
+            lines = _pd.concat(parts, ignore_index=True) if parts else _pd.DataFrame()
+            if lines.empty:
+                print("[roster] No canonical lines found; cannot build roster fallback.")
+            else:
+                # Unique by player_id where available, else by player_name
+                # Standardize columns
+                name_col = "player_name" if "player_name" in lines.columns else ("player" if "player" in lines.columns else None)
+                team_col = "team" if "team" in lines.columns else None
+                pid_col = "player_id" if "player_id" in lines.columns else None
+                if not name_col or not team_col:
+                    print("[roster] lines missing required columns; aborting fallback.")
+                else:
+                    # Last known position from stats by player_id if possible (fallback by name)
+                    from .utils.io import RAW_DIR as _RAW
+                    stats = _pd.read_csv(_RAW / "player_game_stats.csv") if (_RAW / "player_game_stats.csv").exists() else _pd.DataFrame()
+                    pos_by_pid = {}
+                    pos_by_name = {}
+                    if not stats.empty:
+                        try:
+                            stats["_d"] = _pd.to_datetime(stats.get("date"), errors="coerce")
+                            stats = stats.sort_values("_d")
+                        except Exception:
+                            pass
+                        if {"player_id", "primary_position"}.issubset(stats.columns):
+                            last_pos = stats.dropna(subset=["primary_position"]).groupby("player_id")["primary_position"].last()
+                            pos_by_pid = {int(k): str(v).upper() for k, v in last_pos.to_dict().items() if _pd.notna(v)}
+                        if {"player", "primary_position"}.issubset(stats.columns):
+                            last_pos2 = stats.dropna(subset=["primary_position"]).groupby("player")["primary_position"].last()
+                            pos_by_name = {str(k): str(v).upper() for k, v in last_pos2.to_dict().items() if _pd.notna(v)}
+                    # Build set of players
+                    lines = lines.dropna(subset=[name_col, team_col])
+                    seen = set()
+                    for _, r in lines.iterrows():
+                        nm = str(r.get(name_col) or "").strip()
+                        tm = str(r.get(team_col) or "").strip()
+                        ab = (_assets(tm).get("abbr") or "").upper() if _assets else ""
+                        pid_val = r.get(pid_col) if pid_col else None
+                        pid = None
+                        try:
+                            if pid_val is not None and str(pid_val).strip() != "":
+                                pid = int(float(pid_val))
+                        except Exception:
+                            pid = None
+                        key = pid if pid is not None else (nm, ab)
+                        if key in seen:
+                            continue
+                        seen.add(key)
+                        pos_raw = pos_by_pid.get(pid) if pid is not None else pos_by_name.get(nm)
+                        pos = None
+                        if pos_raw:
+                            if pos_raw in ("C","LW","RW"): pos = "F"
+                            elif pos_raw in ("F","D","G"): pos = pos_raw
+                        img = f"https://assets.nhle.com/mugs/nhl/{season}/{ab}/{pid}.png" if (pid and ab) else (f"https://cms.nhl.bamgrid.com/images/headshots/current/168x168/{pid}.jpg" if pid else None)
+                        rows.append({
+                            "player_id": pid,
+                            "player": nm,
+                            "full_name": nm,
+                            "position": pos,
+                            "team_id": None,
+                            "team_abbr": ab,
+                            "team_name": tm,
+                            "image_url": img,
+                        })
+        except Exception as e:
+            print("[roster] fallback failed:", e)
     df = pd.DataFrame(rows)
     out_dated = PROC_DIR / f"roster_{d}.csv"
     out_master = PROC_DIR / "roster_master.csv"

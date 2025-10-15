@@ -70,6 +70,19 @@ services:
     dockerCommand: >
       sh -lc 'curl -fsS "https://nhl-betting.onrender.com/api/refresh-odds-light?overwrite_prestart=1" || curl -fsS "https://nhl-betting.onrender.com/api/recompute-only" || true'
 
+  # Hourly props refresh: append/update recs from canonical lines + precomputed projections, skip started games
+  - type: cron
+    name: props-recs-hourly
+    schedule: "0 * * * *" # every hour at minute 0
+    runtime: image
+    image:
+      url: docker.io/curlimages/curl:8.11.0
+    dockerCommand: >
+      sh -lc 'curl -fsS -H "Authorization: Bearer $REFRESH_CRON_TOKEN" "https://nhl-betting.onrender.com/api/cron/light-refresh?min_ev=0&top=200" || true'
+    envVars:
+      - key: REFRESH_CRON_TOKEN
+        sync: false
+
   # Daily: Props refresh disabled server-side (now produced locally by daily updater)
 
   # Keepalive ping (lightweight) to reduce free plan cold start health check timeouts

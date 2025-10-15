@@ -5305,7 +5305,7 @@ async def api_recompute_only(
         return JSONResponse({"status": "error", "date": d, "error": str(e)}, status_code=500)
 
 
-def _inject_bovada_odds_into_predictions(date: str, backfill: bool = False) -> Dict[str, Any]:
+def _inject_bovada_odds_into_predictions(date: str, backfill: bool = False, skip_started: bool = True) -> Dict[str, Any]:
     """Fetch Bovada odds and inject into predictions_{date}.csv without recomputing model probabilities.
 
     If backfill=True, only fill missing odds; otherwise, overwrite existing odds for the slate.
@@ -5368,6 +5368,22 @@ def _inject_bovada_odds_into_predictions(date: str, backfill: bool = False) -> D
     except Exception:
         odds["home_abbr"] = ""
         odds["away_abbr"] = ""
+    # Determine started games for the date (to optionally skip updates)
+    started_pairs: set[tuple[str, str]] = set()
+    if skip_started:
+        try:
+            wc = NHLWebClient()
+            games = wc.scoreboard(date) or []
+            for g in games:
+                st = str((g.get('gameState') or '')).upper()
+                # Consider any state containing LIVE/IN/PROGRESS or FINAL as started/closed for odds updates
+                if ("LIVE" in st) or ("IN" in st and "PROGRESS" in st) or ("FINAL" in st):
+                    ha = ((g.get('homeTeam') or {}).get('abbrev') or '').upper()
+                    aa = ((g.get('awayTeam') or {}).get('abbrev') or '').upper()
+                    if ha and aa:
+                        started_pairs.add((ha, aa))
+        except Exception:
+            started_pairs = started_pairs
     # Build lookups
     by_abbr = {}
     by_norm = {}
@@ -5413,6 +5429,9 @@ def _inject_bovada_odds_into_predictions(date: str, backfill: bool = False) -> D
             a_ab = (_assets(away).get("abbr") or "").upper()
         except Exception:
             h_ab = a_ab = ""
+        # Skip rows for games that have started
+        if skip_started and h_ab and a_ab and (h_ab, a_ab) in started_pairs:
+            continue
         h_n = norm_team(home)
         a_n = norm_team(away)
         m = by_abbr.get((dkey, h_ab, a_ab)) or by_norm.get((dkey, h_n, a_n))
@@ -5645,7 +5664,7 @@ async def api_cron_light_refresh(
     out = {"date": d}
     # Update team odds from Bovada into predictions (best-effort)
     try:
-        out["odds"] = _inject_bovada_odds_into_predictions(d, backfill=True)
+        out["odds"] = _inject_bovada_odds_into_predictions(d, backfill=True, skip_started=True)
     except Exception as e:
         out["odds"] = {"status": "error", "error": str(e)}
     # Recompute edges/recommendations for team markets

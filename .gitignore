@@ -68,6 +68,7 @@ data/**
 
 # Allow roster snapshots per date for enrichment on public deploys
 !data/processed/roster_*.csv
+!data/processed/roster_master.csv
 
 # OS files
 Thumbs.db

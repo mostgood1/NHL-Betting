@@ -5481,6 +5481,184 @@ async def api_refresh_odds_light(
         pass
     return JSONResponse({"status": "ok", **(summary or { }), "date": d})
 
+
+# ---------------- Lightweight props recommendations refresh (read-only compute) -----------------
+def _refresh_props_recommendations(date: str, min_ev: float = 0.0, top: int = 200) -> dict:
+    """Recompute props_recommendations_{date}.csv from canonical lines + precomputed lambdas.
+
+    - Reads data/props/player_props_lines/date=YYYY-MM-DD/{bovada,oddsapi}.parquet (local first; GH raw fallback)
+    - Reads data/processed/props_projections_all_{date}.csv (local first; GH raw fallback)
+    - Computes EV vectorized (no history scans), writes CSV, upserts to GitHub
+    """
+    import numpy as _np
+    from scipy.stats import poisson as _poisson
+    d = _normalize_date_param(date)
+    # Load canonical lines (parquet), prefer local; GH fallback allowed in cron
+    base = PROC_DIR.parent / "props" / f"player_props_lines/date={d}"
+    parts = []
+    for fname in ("bovada.parquet","oddsapi.parquet"):
+        p = base / fname
+        if p.exists():
+            try:
+                parts.append(pd.read_parquet(p, engine="pyarrow"))
+            except Exception:
+                pass
+        elif True:
+            try:
+                ghp = _github_raw_read_parquet(f"data/props/player_props_lines/date={d}/{fname}")
+                if ghp is not None and not ghp.empty:
+                    parts.append(ghp)
+            except Exception:
+                pass
+    if not parts:
+        return {"ok": False, "date": d, "reason": "no_lines"}
+    lines = pd.concat(parts, ignore_index=True)
+    # Load projections_all
+    proj = None
+    try:
+        local = PROC_DIR / f"props_projections_all_{d}.csv"
+        if local.exists():
+            proj = _read_csv_fallback(local)
+        if (proj is None or proj.empty):
+            proj = _github_raw_read_csv(f"data/processed/props_projections_all_{d}.csv")
+    except Exception:
+        proj = proj
+    if proj is None or proj.empty or not {"player","market","proj_lambda"}.issubset(set(proj.columns)):
+        return {"ok": False, "date": d, "reason": "no_proj_all"}
+    # Lambda map
+    def _norm_name(x: str) -> str:
+        try:
+            s = str(x or "").strip(); return " ".join(s.split())
+        except Exception:
+            return str(x)
+    lam_map = {}
+    tmp = proj.dropna(subset=["player","market","proj_lambda"]).copy()
+    tmp["player_norm"] = tmp["player"].astype(str).map(_norm_name).str.lower()
+    tmp["market_u"] = tmp["market"].astype(str).str.upper()
+    for _, rr in tmp.iterrows():
+        try:
+            lam_map[(rr.get("player_norm"), rr.get("market_u"))] = float(rr.get("proj_lambda"))
+        except Exception:
+            continue
+    # Prepare working frame
+    cols = [c for c in ["market","player_name","player","team","line","over_price","under_price","book"] if c in lines.columns]
+    work = lines[cols].copy()
+    work["market"] = work.get("market").astype(str).str.upper()
+    work["player_display"] = work.apply(lambda r: (r.get("player_name") or r.get("player") or ""), axis=1).astype(str).map(_norm_name)
+    work["player_norm"] = work["player_display"].str.lower()
+    work["line_num"] = pd.to_numeric(work.get("line"), errors="coerce")
+    work = work.loc[work["line_num"].notna()].copy()
+    # Merge lambdas
+    ldf = pd.DataFrame([{"player_norm": k[0], "market": k[1], "proj_lambda": v} for k, v in lam_map.items()])
+    merged = work.merge(ldf, on=["player_norm","market"], how="left")
+    vec_mask = merged["proj_lambda"].notna()
+    p_over_vec = pd.Series(_np.nan, index=merged.index)
+    for mkt in ["SOG","SAVES","GOALS","ASSISTS","POINTS","BLOCKS"]:
+        sel = vec_mask & (merged["market"] == mkt)
+        if sel.any():
+            lam_arr = merged.loc[sel, "proj_lambda"].astype(float).values
+            line_arr = _np.floor(merged.loc[sel, "line_num"].astype(float).values + 1e-9).astype(int)
+            p_over_vec.loc[sel] = _poisson.sf(line_arr, mu=lam_arr)
+    def _american_to_decimal_series(s: pd.Series) -> pd.Series:
+        s = pd.to_numeric(s, errors="coerce"); pos = s[s > 0]; neg = s[s <= 0]
+        out = pd.Series(_np.nan, index=s.index)
+        out.loc[pos.index] = 1.0 + (pos / 100.0)
+        out.loc[neg.index] = 1.0 + (100.0 / _np.abs(neg))
+        return out
+    dec_over = _american_to_decimal_series(merged.get("over_price"))
+    dec_under = _american_to_decimal_series(merged.get("under_price"))
+    p_over_s = pd.to_numeric(p_over_vec, errors="coerce")
+    ev_over_s = p_over_s * (dec_over - 1.0) - (1.0 - p_over_s)
+    p_under_s = (1.0 - p_over_s).clip(lower=0.0, upper=1.0)
+    ev_under_s = p_under_s * (dec_under - 1.0) - (1.0 - p_under_s)
+    over_better = (ev_under_s.isna()) | (~ev_over_s.isna() & (ev_over_s >= ev_under_s))
+    chosen_side = _np.where(over_better, "Over", "Under")
+    chosen_ev = _np.where(over_better, ev_over_s, ev_under_s)
+    out = merged.copy()
+    out["side"] = chosen_side
+    out["ev"] = pd.to_numeric(chosen_ev, errors="coerce")
+    out = out[out["ev"].notna() & (out["ev"].astype(float) >= float(min_ev))]
+    out = out.assign(
+        date=d,
+        player=lambda df: df["player_display"],
+        market=lambda df: df["market"],
+        line=lambda df: df["line_num"],
+        proj=lambda df: df["proj_lambda"].astype(float).round(3),
+        p_over=lambda df: p_over_s.astype(float).round(4),
+        over_price=lambda df: df.get("over_price"),
+        under_price=lambda df: df.get("under_price"),
+        book=lambda df: df.get("book"),
+        team=lambda df: df.get("team"),
+    )[["date","player","team","market","line","proj","p_over","over_price","under_price","book","side","ev"]]
+    if not out.empty:
+        out = out.sort_values("ev", ascending=False).head(int(top))
+        if "proj" in out.columns and "proj_lambda" not in out.columns:
+            out["proj_lambda"] = out["proj"]
+        if "ev" in out.columns and "ev_over" not in out.columns:
+            out["ev_over"] = out["ev"]
+    path = PROC_DIR / f"props_recommendations_{d}.csv"
+    save_df(out, path)
+    try:
+        _gh_upsert_file_if_better_or_same(path, f"web: update props_recommendations for {d}")
+    except Exception:
+        pass
+    return {"ok": True, "date": d, "rows": int(len(out))}
+
+
+@app.post("/api/cron/props-recs-refresh")
+async def api_cron_props_recs_refresh(
+    token: Optional[str] = Query(None, description="Bearer token; must match REFRESH_CRON_TOKEN env var"),
+    date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD; defaults to ET today"),
+    min_ev: float = Query(0.0),
+    top: int = Query(200),
+    authorization: Optional[str] = Header(None, description="Authorization: Bearer <token> header (optional alternative)"),
+):
+    d = _normalize_date_param(date)
+    try:
+        want = os.getenv("REFRESH_CRON_TOKEN", "").strip()
+        got = (authorization or "").replace("Bearer ", "").strip() or (token or "").strip()
+        if want and (got != want):
+            return JSONResponse({"ok": False, "error": "unauthorized"}, status_code=401)
+    except Exception:
+        pass
+    res = _refresh_props_recommendations(d, min_ev=min_ev, top=top)
+    return JSONResponse(res)
+
+
+@app.post("/api/cron/light-refresh")
+async def api_cron_light_refresh(
+    token: Optional[str] = Query(None),
+    date: Optional[str] = Query(None),
+    min_ev: float = Query(0.0),
+    top: int = Query(200),
+    do_edges: int = Query(1, description="Also recompute team edges if 1 (default 1)"),
+    authorization: Optional[str] = Header(None),
+):
+    d = _normalize_date_param(date)
+    try:
+        want = os.getenv("REFRESH_CRON_TOKEN", "").strip()
+        got = (authorization or "").replace("Bearer ", "").strip() or (token or "").strip()
+        if want and (got != want):
+            return JSONResponse({"ok": False, "error": "unauthorized"}, status_code=401)
+    except Exception:
+        pass
+    out = {"date": d}
+    # Update team odds from Bovada into predictions (best-effort)
+    try:
+        out["odds"] = _inject_bovada_odds_into_predictions(d, backfill=True)
+    except Exception as e:
+        out["odds"] = {"status": "error", "error": str(e)}
+    # Recompute edges/recommendations for team markets
+    if int(do_edges) == 1:
+        try:
+            await _recompute_edges_and_recommendations(d)
+            out["edges"] = {"ok": True}
+        except Exception as e:
+            out["edges"] = {"ok": False, "error": str(e)}
+    # Refresh player props recommendations from canonical lines
+    out["props"] = _refresh_props_recommendations(d, min_ev=min_ev, top=top)
+    return JSONResponse({"ok": True, **out})
+
 @app.get("/props/recommendations")
 async def props_recommendations_page(
     date: Optional[str] = Query(None),

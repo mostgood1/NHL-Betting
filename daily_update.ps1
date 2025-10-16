@@ -54,10 +54,12 @@ try {
     $status = git --no-pager status -s
     if ($status) {
       if (-not $Quiet) { Write-Host "[git] Changes detected; staging and committing…" }
-      # Stage common outputs from daily update
-      git add data/models/*.json 2>$null | Out-Null
-      git add data/processed/*.csv 2>$null | Out-Null
-      git add data/processed/*.json 2>$null | Out-Null
+  # Stage common outputs from daily update
+  git add data/models/*.json 2>$null | Out-Null
+  git add data/processed/*.csv 2>$null | Out-Null
+  git add data/processed/*.json 2>$null | Out-Null
+  # Also stage canonical props lines so Render has odds inputs (OddsAPI preferred)
+  git add data/props/player_props_lines/** 2>$null | Out-Null
       # Commit with timestamped message; ignore if nothing staged
   # Use PS5.1 compatible UTC timestamp (AsUTC not available on older shells)
   $date = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')

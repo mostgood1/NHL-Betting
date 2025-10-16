@@ -1781,7 +1781,7 @@ def props_recommendations(
             last_team = cur.groupby("player_name")["_team_abbr"].agg(lambda s: s.dropna().astype(str).iloc[-1] if len(s.dropna()) else None)
             for nm, tm in last_team.items():
                 if tm:
-                    player_team_map[_norm_name(nm)] = str(tm)
+                    player_team_map[_norm_name(nm).lower()] = str(tm)
         # Fallback: use historical player_game_stats.csv for last known team
         if True:
             from .utils.io import RAW_DIR as _RAW
@@ -1796,7 +1796,7 @@ def props_recommendations(
                     if "team" in pstats.columns:
                         last_teams = pstats.dropna(subset=["team"]).groupby("player")["team"].last()
                         for nm, tm in last_teams.items():
-                            key = _norm_name(nm)
+                            key = _norm_name(nm).lower()
                             if key and key not in player_team_map:
                                 ab = _abbr_team(tm)
                                 if ab:
@@ -1805,6 +1805,46 @@ def props_recommendations(
                     pass
     except Exception:
         player_team_map = player_team_map
+    # Enrich player_team_map with cached roster for the slate date if available (more authoritative)
+    try:
+        roster_cache = PROC_DIR / f"roster_{date}.csv"
+        if roster_cache.exists():
+            _r = pd.read_csv(roster_cache)
+            if _r is not None and not _r.empty:
+                # Accept columns: full_name or player, and team (abbr)
+                name_col = "full_name" if "full_name" in _r.columns else ("player" if "player" in _r.columns else None)
+                # support multiple team column variants
+                team_col = None
+                for cand in ("team", "team_abbr", "team_abbrev", "teamAbbrev", "team_abbreviation"):
+                    if cand in _r.columns:
+                        team_col = cand; break
+                if name_col and team_col:
+                    for _, rr in _r.dropna(subset=[name_col, team_col]).iterrows():
+                        nm = _norm_name(str(rr.get(name_col))).lower()
+                        tm = str(rr.get(team_col)).strip().upper()
+                        if nm and tm:
+                            player_team_map[nm] = tm
+    except Exception:
+        pass
+    # Enrich from roster_master.csv as an additional fallback
+    try:
+        rm_path = PROC_DIR / "roster_master.csv"
+        if rm_path.exists():
+            _rm = pd.read_csv(rm_path)
+            if _rm is not None and not _rm.empty:
+                name_col = "full_name" if "full_name" in _rm.columns else ("player" if "player" in _rm.columns else None)
+                team_col = None
+                for cand in ("team", "team_abbr", "team_abbrev", "teamAbbrev", "team_abbreviation"):
+                    if cand in _rm.columns:
+                        team_col = cand; break
+                if name_col and team_col:
+                    for _, rr in _rm.dropna(subset=[name_col, team_col]).iterrows():
+                        nm = _norm_name(str(rr.get(name_col))).lower()
+                        tm = str(rr.get(team_col)).strip().upper()
+                        if nm and tm and nm not in player_team_map:
+                            player_team_map[nm] = tm
+    except Exception:
+        pass
     # Prefer precomputed per-player lambdas to avoid expensive history scans
     # data/processed/props_projections_all_{date}.csv: [date, player, team, position, market, proj_lambda]
     lam_map: dict[tuple[str, str], float] = {}
@@ -1940,6 +1980,106 @@ def props_recommendations(
     # Build lambda DataFrame from lam_map for merge
     lam_df = pd.DataFrame([{"player_norm": k[0], "market": k[1], "proj_lambda": v} for k, v in lam_map.items()]) if lam_map else pd.DataFrame(columns=["player_norm","market","proj_lambda"])
     merged = work.merge(lam_df, on=["player_norm", "market"], how="left")
+    # Restrict to tonight's slate teams (ET) to avoid cross-day or stale lines leaking in
+    # Build slate team abbreviations via Web API
+    slate_abbrs: set[str] = set()
+    try:
+        web = NHLWebClient()
+        games = web.schedule_day(date)
+        from .web.teams import get_team_assets as _assets
+        names = set()
+        for g in games:
+            names.add(str(getattr(g, "home", "")))
+            names.add(str(getattr(g, "away", "")))
+        for nm in names:
+            try:
+                ab = (_assets(nm).get("abbr") or "").upper()
+                if ab:
+                    slate_abbrs.add(ab)
+            except Exception:
+                continue
+    except Exception:
+        slate_abbrs = set()
+    # Build allowed player set for tonight's slate (from roster caches)
+    allowed_names: set[str] = set()
+    try:
+        # helper to add names from a dataframe with name and team columns
+        def _add_names(df: pd.DataFrame):
+            nonlocal allowed_names
+            if df is None or df.empty:
+                return
+            name_col = None
+            for cand in ("full_name", "player", "name"):
+                if cand in df.columns:
+                    name_col = cand; break
+            team_col = None
+            for cand in ("team", "team_abbr", "teamAbbrev", "team_abbrev", "team_abbreviation"):
+                if cand in df.columns:
+                    team_col = cand; break
+            if not name_col or not team_col:
+                return
+            tmp = df.dropna(subset=[name_col, team_col]).copy()
+            tmp["_team_abbr"] = tmp[team_col].astype(str).str.upper()
+            if slate_abbrs:
+                tmp = tmp[tmp["_team_abbr"].isin(slate_abbrs)]
+            vals = tmp[name_col].astype(str).map(lambda s: " ".join(str(s).split()).lower())
+            allowed_names.update(vals.tolist())
+        # roster_{date}.csv
+        _rc = PROC_DIR / f"roster_{date}.csv"
+        if _rc.exists():
+            _add_names(pd.read_csv(_rc))
+        # roster_master.csv
+        _rm = PROC_DIR / "roster_master.csv"
+        if _rm.exists():
+            _add_names(pd.read_csv(_rm))
+    except Exception:
+        allowed_names = set()
+    # Fallback: build allowed_names directly from Stats API for slate teams
+    try:
+        if slate_abbrs and not allowed_names:
+            from .data import rosters as _rosters_mod
+            teams = _rosters_mod.list_teams()
+            # map abbr -> id(s)
+            abbr_to_ids = {}
+            for t in teams:
+                try:
+                    ab = str(t.get("abbreviation") or t.get("teamAbbrev") or "").upper()
+                    tid = int(t.get("id")) if t.get("id") is not None else None
+                    if ab and tid is not None:
+                        abbr_to_ids.setdefault(ab, []).append(tid)
+                except Exception:
+                    continue
+            for ab in slate_abbrs:
+                for tid in abbr_to_ids.get(ab, []):
+                    try:
+                        rp = _rosters_mod.fetch_current_roster(int(tid))
+                        for r in rp:
+                            nm = str(getattr(r, 'full_name', '') or '').strip().lower()
+                            if nm:
+                                allowed_names.add(" ".join(nm.split()))
+                    except Exception:
+                        continue
+    except Exception:
+        pass
+    # Resolve each row's best team guess (from line team or player mapping), then filter to slate_abbrs if available
+    try:
+        merged["_team_from_line"] = merged.get("team")
+        try:
+            merged["_team_from_line"] = merged["_team_from_line"].map(_abbr_team)
+        except Exception:
+            pass
+        merged["_team_from_map"] = merged["player_norm"].map(lambda nm: player_team_map.get(nm))
+        # Prefer roster-based mapping (player_team_map) over line-provided team to avoid opponent/market mis-tags
+        merged["_team_final"] = merged["_team_from_map"].fillna(merged["_team_from_line"])
+        if slate_abbrs:
+            # Strict: only include rows where resolved team is in tonight's slate
+            merged = merged.loc[merged["_team_final"].isin(slate_abbrs)].copy()
+            # Further restrict to names present on roster for slate teams if we have such a set
+            if allowed_names:
+                merged = merged.loc[merged["player_norm"].isin(allowed_names)].copy()
+    except Exception:
+        # If anything goes wrong, proceed without slate filter
+        pass
     # Vectorized p_over for rows with proj_lambda available
     vec_mask = merged["proj_lambda"].notna()
     p_over_vec = pd.Series(_np.nan, index=merged.index)
@@ -1975,13 +2115,16 @@ def props_recommendations(
     vec_out["side"] = chosen_side
     vec_out["ev"] = pd.to_numeric(chosen_ev, errors="coerce")
     vec_out = vec_out[vec_out["ev"].notna() & (vec_out["ev"].astype(float) >= float(min_ev))]
-    # Choose best team: prefer input team, else map
-    vec_out["team_final"] = vec_out.get("team")
-    try:
-        missing_team = vec_out["team_final"].isna() | (vec_out["team_final"].astype(str).str.strip() == "")
-        vec_out.loc[missing_team, "team_final"] = vec_out.loc[missing_team, "player_display"].map(lambda nm: player_team_map.get(_norm_name(nm)))
-    except Exception:
-        pass
+    # Choose best team: prefer previously resolved _team_final; else fallback to input team or map
+    if "_team_final" in vec_out.columns:
+        vec_out["team_final"] = vec_out["_team_final"]
+    else:
+        vec_out["team_final"] = vec_out.get("team")
+        try:
+            missing_team = vec_out["team_final"].isna() | (vec_out["team_final"].astype(str).str.strip() == "")
+            vec_out.loc[missing_team, "team_final"] = vec_out.loc[missing_team, "player_norm"].map(lambda nm: player_team_map.get(nm))
+        except Exception:
+            pass
     out_vec = vec_out.assign(
         date=date,
         player=lambda df: df["player_display"],
@@ -2008,6 +2151,18 @@ def props_recommendations(
         op = rr.get("over_price"); up = rr.get("under_price")
         if pd.isna(op) and pd.isna(up):
             continue
+        # Skip non-slate teams if we resolved a team and have a slate set
+        try:
+            if slate_abbrs:
+                tf = rr.get("_team_final") or rr.get("team") or player_team_map.get(_norm_name(str(player)).lower())
+                if tf and str(tf).strip() and str(tf).strip().upper() not in slate_abbrs:
+                    continue
+                if allowed_names:
+                    nm_ok = _norm_name(str(player)).lower() in allowed_names
+                    if not nm_ok:
+                        continue
+        except Exception:
+            pass
         lam, p_over = proj_and_prob(m, str(player), float(ln))
         if lam is None or p_over is None:
             continue
@@ -2022,7 +2177,8 @@ def props_recommendations(
                 side = "Under"; ev = ev_u
         if ev is None or float(ev) < float(min_ev):
             continue
-        team_val = rr.get("team") or player_team_map.get(_norm_name(player))
+        # Prefer map over line for consistency
+        team_val = rr.get("_team_from_map") or rr.get("_team_final") or rr.get("team") or player_team_map.get(_norm_name(player).lower())
         rows_fallback.append({
             "date": date,
             "player": player,

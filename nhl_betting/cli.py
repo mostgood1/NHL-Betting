@@ -1729,7 +1729,11 @@ def props_recommendations(
     Reads data/props/player_props_lines/date=YYYY-MM-DD/*.parquet, computes p_over and EV for each OVER/UNDER pair
     using rolling-mean lambdas, and writes a denormalized recommendation list similar to NFL.
     """
-    import os
+    import os, time
+    dbg = str(os.getenv("PROPS_DEBUG", "1")).strip().lower() in ("1","true","yes")
+    def _dbg(msg: str):
+        if dbg:
+            print(f"[recs] {msg}", flush=True)
     from glob import glob
     # Read canonical lines for date (OddsAPI-only by default; fallback to Bovada if empty/missing)
     parts = []
@@ -1745,24 +1749,37 @@ def props_recommendations(
                 except Exception:
                     continue
         return out
+    t0 = time.monotonic()
     parts = _read_any(prefer)
+    _dbg(f"read preferred parts: {[str(p) for p in prefer if p.exists()]} -> {sum((0 if p is None else len(p)) for p in parts)} rows")
     # Optional override to include Bovada alongside OddsAPI
     include_bovada = str(os.getenv("PROPS_INCLUDE_BOVADA", "")).strip().lower() in ("1","true","yes")
     if (not parts) or (sum(len(p) for p in parts if p is not None) == 0):
         parts = _read_any(fb)
+        _dbg(f"fallback read bovada parts: {[str(p) for p in fb if p.exists()]} -> {sum((0 if p is None else len(p)) for p in parts)} rows")
     elif include_bovada:
         parts.extend(_read_any(fb))
     if not parts:
-        print("No props lines found for", date)
-        raise typer.Exit(code=1)
+        # Fast-fail: write empty output instead of aborting to avoid killing parent flows
+        print("No props lines found for", date, "- writing empty recommendations")
+        out = pd.DataFrame(columns=["date","player","team","market","line","proj","p_over","over_price","under_price","book","side","ev"])
+        out_path = PROC_DIR / f"props_recommendations_{date}.csv"
+        save_df(out, out_path)
+        print(f"Wrote {out_path} with 0 rows")
+        return
     try:
         lines = pd.concat(parts, ignore_index=True)
+        _dbg(f"concat lines: {len(lines)} rows")
     except Exception:
-        # Fallback: use first non-empty
+        # Fallback: use first non-empty; otherwise write empty output and return
         lines = next((p for p in parts if p is not None and not p.empty), pd.DataFrame())
         if lines is None or lines.empty:
-            print("No props lines found for", date)
-            raise typer.Exit(code=1)
+            print("No readable props lines for", date, "- writing empty recommendations")
+            out = pd.DataFrame(columns=["date","player","team","market","line","proj","p_over","over_price","under_price","book","side","ev"])
+            out_path = PROC_DIR / f"props_recommendations_{date}.csv"
+            save_df(out, out_path)
+            print(f"Wrote {out_path} with 0 rows")
+            return
 
     # Build a player->team mapping to ensure team alignment in outputs
     from .web.teams import get_team_assets as _get_team_assets
@@ -1946,6 +1963,7 @@ def props_recommendations(
         "market","player_name","player","team","line","over_price","under_price","book"
     ] if c in lines.columns]
     work = lines[core_cols].copy()
+    _dbg(f"work core cols kept={core_cols}; rows={len(work)}")
     # Uppercase market and optional filter
     if "market" in work.columns:
         work["market"] = work["market"].astype(str).str.upper()
@@ -1955,6 +1973,7 @@ def props_recommendations(
     # Normalize player display and filter likely players
     work["player_display"] = work.apply(lambda r: _norm_player(r.get("player_name") or r.get("player")), axis=1)
     work = work.loc[work["player_display"].map(_looks_like_player)].copy()
+    _dbg(f"after looks_like_player filter: {len(work)} rows")
     # Parse numeric line and keep valid (preserve all columns using loc)
     work["line_num"] = pd.to_numeric(work.get("line"), errors="coerce")
     work = work.loc[work["line_num"].notna()].copy()
@@ -1963,6 +1982,7 @@ def props_recommendations(
     # Build lambda DataFrame from lam_map for merge
     lam_df = pd.DataFrame([{"player_norm": k[0], "market": k[1], "proj_lambda": v} for k, v in lam_map.items()]) if lam_map else pd.DataFrame(columns=["player_norm","market","proj_lambda"])
     merged = work.merge(lam_df, on=["player_norm", "market"], how="left")
+    _dbg(f"merged with lam_df: {len(merged)} rows; lam_df={len(lam_df)} rows")
     # Restrict to tonight's slate teams (ET) to avoid cross-day or stale lines leaking in
     # Build slate team abbreviations via Web API
     slate_abbrs: set[str] = set()
@@ -2071,8 +2091,10 @@ def props_recommendations(
     except Exception:
         # If anything goes wrong, proceed without slate filter
         pass
+    _dbg(f"slate_abbrs={len(slate_abbrs)}; building allowed_names...")
     # Vectorized p_over for rows with proj_lambda available
     vec_mask = merged["proj_lambda"].notna()
+    _dbg(f"vec rows with lambda: {int(vec_mask.sum())}; remain: {int((~vec_mask).sum())}")
     p_over_vec = pd.Series(_np.nan, index=merged.index)
     for mkt in ["SOG","SAVES","GOALS","ASSISTS","POINTS","BLOCKS"]:
         sel = vec_mask & (merged["market"] == mkt)
@@ -2132,6 +2154,7 @@ def props_recommendations(
     ]]
     # Fallback: row-wise compute for rows missing proj_lambda (should be small)
     remain = merged[~vec_mask]
+    _dbg(f"fallback row-wise count: {len(remain)}")
     rows_fallback = []
     for _, rr in remain.iterrows():
         m = str(rr.get("market") or "").upper()
@@ -2198,7 +2221,51 @@ def props_recommendations(
         out = out.head(top)
     out_path = PROC_DIR / f"props_recommendations_{date}.csv"
     save_df(out, out_path)
-    print(f"Wrote {out_path} with {len(out)} rows (normalized cols: {', '.join([c for c in ['proj_lambda','ev_over'] if c in out.columns])})")
+    dt = round(time.monotonic() - t0, 2)
+    print(f"Wrote {out_path} with {len(out)} rows (normalized cols: {', '.join([c for c in ['proj_lambda','ev_over'] if c in out.columns])}); took {dt}s")
+
+
+@app.command(name="props-collect")
+def props_collect(
+    date: str = typer.Option(..., help="Slate date YYYY-MM-DD (ET)"),
+    source: str = typer.Option("oddsapi", help="Source to collect: oddsapi|bovada"),
+):
+    """Collect player props lines for a date from a single source and write canonical Parquet/CSV.
+
+    Prints rows and output path, returns quickly. Use this to run step 1.
+    """
+    import time
+    from .data import player_props as _pp
+    t0 = time.monotonic()
+    src = source.strip().lower()
+    if src not in ("oddsapi","bovada"):
+        print("Invalid source; use oddsapi or bovada"); raise typer.Exit(code=1)
+    cfg = _pp.PropsCollectionConfig(output_root="data/props", book=src, source=src)
+    res = _pp.collect_and_write(date, roster_df=None, cfg=cfg)
+    dt = round(time.monotonic() - t0, 2)
+    print(f"[collect:{src}] raw={res.get('raw_count')} combined={res.get('combined_count')} path={res.get('output_path')} ({dt}s)")
+
+
+@app.command(name="props-verify")
+def props_verify(
+    date: str = typer.Option(..., help="Slate date YYYY-MM-DD (ET)"),
+):
+    """Print counts for canonical lines files for the given date."""
+    base = Path("data/props") / f"player_props_lines/date={date}"
+    found = []
+    for fn in ("oddsapi.parquet","oddsapi.csv","bovada.parquet","bovada.csv"):
+        p = base / fn
+        if p.exists():
+            try:
+                df = pd.read_parquet(p, engine="pyarrow") if p.suffix == ".parquet" else pd.read_csv(p)
+                found.append((fn, len(df)))
+            except Exception as e:
+                found.append((fn, f"error: {e}"))
+    if not found:
+        print("No canonical files found for", date)
+    else:
+        for name, n in found:
+            print(f"{name}: {n}")
 
 
 @app.command(name="props-fast")
@@ -2239,30 +2306,34 @@ def props_fast(
             print(f"[fast] bovada fallback rows={int(res2.get('combined_count') or 0)} path={res2.get('output_path')}")
         except Exception as e:
             print("[fast] bovada fallback failed:", e)
-    # Projections (all markets)
-    try:
-        t3 = time.monotonic()
-        props_project_all.callback(date=date, ensure_history_days=365, include_goalies=True)
-        timings['projections_all_sec'] = round(time.monotonic() - t3, 3)
-    except Exception:
+    # Projections (all markets) — optional, default skip for speed unless forced
+    import os as _os
+    if str(_os.getenv("PROPS_SKIP_PROJECTIONS", "1")).strip().lower() not in ("1","true","yes"):
         try:
-            t3b = time.monotonic()
-            props_project_all(date=date, ensure_history_days=365, include_goalies=True)
-            timings['projections_all_sec'] = round(time.monotonic() - t3b, 3)
-        except Exception as e:
-            print("[fast] projections failed:", e)
-            timings['projections_error'] = str(e)
+            t3 = time.monotonic()
+            props_project_all.callback(date=date, ensure_history_days=365, include_goalies=True)
+            timings['projections_all_sec'] = round(time.monotonic() - t3, 3)
+        except Exception:
+            try:
+                t3b = time.monotonic()
+                props_project_all(date=date, ensure_history_days=365, include_goalies=True)
+                timings['projections_all_sec'] = round(time.monotonic() - t3b, 3)
+            except Exception as e:
+                print("[fast] projections failed:", e)
+                timings['projections_error'] = str(e)
+    else:
+        timings['projections_skipped'] = True
     # Recommendations
     try:
         t4 = time.monotonic()
         props_recommendations.callback(date=date, min_ev=min_ev, top=top, market=market)
         timings['recommendations_sec'] = round(time.monotonic() - t4, 3)
-    except Exception as e:
+    except BaseException as e:
         try:
             t4b = time.monotonic()
             props_recommendations(date=date, min_ev=min_ev, top=top, market=market)
             timings['recommendations_sec'] = round(time.monotonic() - t4b, 3)
-        except Exception as e2:
+        except BaseException as e2:
             import traceback
             print('[fast] recommendations failed:', e2)
             traceback.print_exc()

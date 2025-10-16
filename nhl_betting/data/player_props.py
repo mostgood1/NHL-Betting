@@ -45,43 +45,21 @@ def collect_bovada_props(date: str) -> pd.DataFrame:
 
 
 def collect_oddsapi_props(date: str) -> pd.DataFrame:
-    """Collect player props via The Odds API historical snapshot.
+    """Collect player props via The Odds API using a fast, concurrent path.
 
-    Notes:
-    - Requires ODDS_API_KEY in environment or passed via OddsAPIClient.
-    - Uses a single snapshot at 17:00:00Z (midday US) on the given date to approximate pre-game markets.
-    - Markets covered: SOG, GOALS, ASSISTS, POINTS. (SAVES is not available via Odds API v4)
+    Strategy for speed:
+    - Prefer current event odds for the UTC day window [00:00Z, 23:59Z] for icehockey_nhl only.
+    - Limit to core bookmakers (default: 'fanduel,draftkings,pinnacle') and regions 'us'.
+    - Fetch per-event odds concurrently to reduce wall-clock time.
+    - Fall back to the slower historical snapshot path only if current path yields no rows.
     """
-    # Choose a snapshot time on the given date (17:00Z ~ 12:00-13:00 ET depending on DST)
-    try:
-        dt = datetime.strptime(date, "%Y-%m-%d")
-        snapshot = dt.strftime("%Y-%m-%dT17:00:00Z")
-    except Exception:
-        snapshot = f"{date}T17:00:00Z"
-    client = OddsAPIClient()
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    # Configurable knobs via env
+    fast_on = os.environ.get("PROPS_ODDSAPI_FAST", "1").strip().lower() in ("1","true","yes")
+    bk_pref = os.environ.get("PROPS_ODDSAPI_BOOKMAKERS", "fanduel,draftkings,pinnacle").strip()
+    regions = os.environ.get("PROPS_ODDSAPI_REGIONS", "us").strip()
+    max_workers = int(os.environ.get("PROPS_ODDSAPI_WORKERS", "6"))
     markets = "player_shots_on_goal,player_goals,player_assists,player_points"
-    def _empty_df():
-        return pd.DataFrame(columns=["market","player","line","odds","side","book","date","collected_at"])
-    # Collect event ids for the given date using historical snapshot first
-    events: List[Dict] = []
-    for sport_key in ("icehockey_nhl", "icehockey_nhl_preseason"):
-        try:
-            snap, _ = client.historical_list_events(sport_key, snapshot)
-            evs = snap.get("data", []) if isinstance(snap, dict) else []
-            if evs:
-                events = evs
-                break
-        except Exception:
-            continue
-    # Filter events to the date window (UTC day)
-    def _is_same_day(ev: Dict) -> bool:
-        try:
-            ct = ev.get("commence_time")
-            d = datetime.fromisoformat(str(ct).replace("Z", "+00:00")).strftime("%Y-%m-%d")
-            return d == date
-        except Exception:
-            return False
-    events = [e for e in events if _is_same_day(e)]
     rows: List[Dict] = []
     # Map Odds API market keys to our canonical markets
     m_map = {
@@ -95,8 +73,7 @@ def collect_oddsapi_props(date: str) -> pd.DataFrame:
         for bk in bks:
             book_key = bk.get("key") or "oddsapi"
             for m in bk.get("markets", []):
-                mkey = m.get("key")
-                market = m_map.get(mkey)
+                market = m_map.get(m.get("key"))
                 if not market:
                     continue
                 for oc in m.get("outcomes", []):
@@ -125,60 +102,60 @@ def collect_oddsapi_props(date: str) -> pd.DataFrame:
                         "date": date,
                         "collected_at": _utc_now_iso(),
                     })
-    # Query historical event odds for each event
-    if events:
+    # Fast path: current events + concurrent per-event odds
+    try:
+        client = OddsAPIClient(rate_limit_per_sec=10.0)
+        from_dt = f"{date}T00:00:00Z"; to_dt = f"{date}T23:59:59Z"
+        evs, _ = client.list_events("icehockey_nhl", commence_from_iso=from_dt, commence_to_iso=to_dt)
+        if isinstance(evs, list) and evs:
+            def fetch(ev_id: str):
+                try:
+                    eo, _ = client.event_odds("icehockey_nhl", ev_id, markets=markets, regions=regions, bookmakers=(bk_pref or None))
+                    return eo
+                except Exception:
+                    return None
+            with ThreadPoolExecutor(max_workers=max_workers) as ex:
+                futs = {ex.submit(fetch, str(ev.get("id"))): ev for ev in evs if ev.get("id")}
+                for fut in as_completed(futs):
+                    eo = fut.result()
+                    if isinstance(eo, dict) and eo.get("bookmakers"):
+                        _parse_event_markets(eo)
+        # If we captured rows, return quickly
+        if rows:
+            return pd.DataFrame(rows)
+    except Exception:
+        # Continue to fallback
+        pass
+    # Fallback: slower historical snapshot loop (limited scope to NHL only for speed)
+    try:
+        dt = datetime.strptime(date, "%Y-%m-%d")
+        snapshot = dt.strftime("%Y-%m-%dT17:00:00Z")
+    except Exception:
+        snapshot = f"{date}T17:00:00Z"
+    client = OddsAPIClient()
+    try:
+        snap, _ = client.historical_list_events("icehockey_nhl", snapshot)
+        data = snap.get("data", []) if isinstance(snap, dict) else []
+        def _is_same_day(ev: Dict) -> bool:
+            try:
+                ct = ev.get("commence_time")
+                d = datetime.fromisoformat(str(ct).replace("Z", "+00:00")).strftime("%Y-%m-%d")
+                return d == date
+            except Exception:
+                return False
+        events = [e for e in data if _is_same_day(e)]
         for ev in events:
             ev_id = ev.get("id")
             if not ev_id:
                 continue
-            for sport_key in ("icehockey_nhl", "icehockey_nhl_preseason"):
-                success = False
-                for bks in (None, "fanduel,draftkings,betmgm,caesars,pointsbetus,pinnacle", "bovada,betonlineag"):
-                    for regs in ("us", "us,us2", "us,eu"):
-                        try:
-                            eo, _ = client.historical_event_odds(sport_key, ev_id, markets=markets, snapshot_iso=snapshot, bookmakers=bks, regions=regs)
-                            if isinstance(eo, dict) and eo.get("bookmakers"):
-                                _parse_event_markets(eo)
-                                success = True
-                                break
-                        except Exception:
-                            continue
-                    if success:
-                        break
-                if success:
-                    break
-    # Fallback: use current events/odds for that date window
-    if not rows:
-        try:
-            # current events list (doesn't count) then per-event odds
-            from_dt = f"{date}T00:00:00Z"
-            to_dt = f"{date}T23:59:59Z"
-            for sport_key in ("icehockey_nhl", "icehockey_nhl_preseason"):
-                try:
-                    evs, _ = client.list_events(sport_key, commence_from_iso=from_dt, commence_to_iso=to_dt)
-                    if not isinstance(evs, list) or not evs:
-                        continue
-                    for ev in evs:
-                        ev_id = ev.get("id")
-                        if not ev_id:
-                            continue
-                        success = False
-                        for bks in (None, "fanduel,draftkings,betmgm,caesars,pointsbetus,pinnacle", "bovada,betonlineag"):
-                            for regs in ("us", "us,us2", "us,eu"):
-                                try:
-                                    eo, _ = client.event_odds(sport_key, ev_id, markets=markets, bookmakers=bks, regions=regs)
-                                    if isinstance(eo, dict) and eo.get("bookmakers"):
-                                        _parse_event_markets(eo)
-                                        success = True
-                                        break
-                                except Exception:
-                                    continue
-                            if success:
-                                break
-                except Exception:
-                    continue
-        except Exception:
-            pass
+            try:
+                eo, _ = client.historical_event_odds("icehockey_nhl", ev_id, markets=markets, snapshot_iso=snapshot, regions=regions, bookmakers=(bk_pref or None))
+                if isinstance(eo, dict) and eo.get("bookmakers"):
+                    _parse_event_markets(eo)
+            except Exception:
+                continue
+    except Exception:
+        pass
     return pd.DataFrame(rows)
 
 

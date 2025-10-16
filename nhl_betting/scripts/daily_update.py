@@ -484,15 +484,12 @@ def collect_props_canonical(days_ahead: int = 1, verbose: bool = False) -> dict:
             _roster_master(date=_ymd(base_et))
     except Exception as e:
         _vprint(verbose, f"[props] roster master build skipped: {e}")
+    import os as _os
+    include_bovada = str(_os.environ.get("PROPS_INCLUDE_BOVADA", "")).strip().lower() in ("1","true","yes")
     for d in ordered:
-        try:
-            # Always attempt both sources to maximize coverage
-            res_b = props_data.collect_and_write(d, roster_df=roster_df, cfg=cfg_b)
-            cnt_b = int(res_b.get("combined_count") or 0)
-            path_b = res_b.get("output_path")
-        except Exception as e_b:
-            cnt_b, path_b = 0, None
-            _vprint(verbose, f"[props] bovada failed for {d}: {e_b}")
+        # Prefer OddsAPI; optionally add Bovada fallback or include both via env
+        cnt_b, path_b = 0, None
+        cnt_o, path_o = 0, None
         try:
             res_o = props_data.collect_and_write(d, roster_df=roster_df, cfg=cfg_o)
             cnt_o = int(res_o.get("combined_count") or 0)
@@ -500,6 +497,15 @@ def collect_props_canonical(days_ahead: int = 1, verbose: bool = False) -> dict:
         except Exception as e_o:
             cnt_o, path_o = 0, None
             _vprint(verbose, f"[props] oddsapi failed for {d}: {e_o}")
+        # Fallback to Bovada only if OddsAPI empty OR explicitly included
+        if include_bovada or cnt_o == 0:
+            try:
+                res_b = props_data.collect_and_write(d, roster_df=roster_df, cfg=cfg_b)
+                cnt_b = int(res_b.get("combined_count") or 0)
+                path_b = res_b.get("output_path")
+            except Exception as e_b:
+                cnt_b, path_b = 0, None
+                _vprint(verbose, f"[props] bovada failed for {d}: {e_b}")
         out["counts"][d] = {"bovada": cnt_b, "oddsapi": cnt_o, "combined": cnt_b + cnt_o}
         out["paths"][d] = {"bovada": path_b, "oddsapi": path_o}
         if verbose:
@@ -979,27 +985,31 @@ def run(days_ahead: int = 2, years_back: int = 2, reconcile_yesterday: bool = Tr
                 _vprint(verbose, f"[run] props dataset build skipped quickly due to error: {ie}")
         except Exception as e:
             _vprint(verbose, f"[run] props dataset build skipped quickly due to error: {e}")
-        # Precompute model-only projections for slate players to lighten web compute
+        # Precompute model-only projections for slate players is optional (skip by default for speed)
         try:
-            from nhl_betting.cli import props_project_all as _props_project_all
-            def _call_typer_or_func_proj(cmd, **kwargs):
-                if hasattr(cmd, 'callback') and callable(getattr(cmd, 'callback')):
-                    return cmd.callback(**kwargs)
-                elif callable(cmd):
-                    return cmd(**kwargs)
-                else:
-                    raise RuntimeError('Unsupported command object for props project all')
-            base = _today_et().date()
-            targets = [base.strftime('%Y-%m-%d')]
-            if days_ahead and int(days_ahead) > 1:
-                from datetime import timedelta as _td
-                targets.append((base + _td(days=1)).strftime('%Y-%m-%d'))
-            for d in targets:
-                try:
-                    _vprint(verbose, f"[run] Precomputing props projections (all) for {d}…")
-                    _call_typer_or_func_proj(_props_project_all, date=d, ensure_history_days=365, include_goalies=True)
-                except Exception as e2:
-                    _vprint(verbose, f"[run] props_project_all failed for {d}: {e2}")
+            import os as _os
+            if str(_os.environ.get("PROPS_PRECOMPUTE_ALL", "")).strip().lower() in ("1","true","yes"):
+                from nhl_betting.cli import props_project_all as _props_project_all
+                def _call_typer_or_func_proj(cmd, **kwargs):
+                    if hasattr(cmd, 'callback') and callable(getattr(cmd, 'callback')):
+                        return cmd.callback(**kwargs)
+                    elif callable(cmd):
+                        return cmd(**kwargs)
+                    else:
+                        raise RuntimeError('Unsupported command object for props project all')
+                base = _today_et().date()
+                targets = [base.strftime('%Y-%m-%d')]
+                if days_ahead and int(days_ahead) > 1:
+                    from datetime import timedelta as _td
+                    targets.append((base + _td(days=1)).strftime('%Y-%m-%d'))
+                for d in targets:
+                    try:
+                        _vprint(verbose, f"[run] Precomputing props projections (all) for {d}…")
+                        _call_typer_or_func_proj(_props_project_all, date=d, ensure_history_days=365, include_goalies=True)
+                    except Exception as e2:
+                        _vprint(verbose, f"[run] props_project_all failed for {d}: {e2}")
+            else:
+                _vprint(verbose, "[run] Skipping props_projections_all precompute (PROPS_PRECOMPUTE_ALL not set)")
         except Exception as e:
             _vprint(verbose, f"[run] precompute props projections_all skipped: {e}")
         # Calibrate stats-only props models (periodic)

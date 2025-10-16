@@ -156,7 +156,6 @@ player_id,player,full_name,position,team_id,team_abbr,team_name,image_url
 8480990,Declan Chisholm,Declan Chisholm,D,,WSH,Washington Capitals,https://assets.nhle.com/mugs/nhl/20252026/WSH/8480990.png
 8479345,Jakob Chychrun,Jakob Chychrun,D,,WSH,Washington Capitals,https://assets.nhle.com/mugs/nhl/20252026/WSH/8479345.png
 8480796,Martin Fehérváry,Martin Fehérváry,D,,WSH,Washington Capitals,https://assets.nhle.com/mugs/nhl/20252026/WSH/8480796.png
-8482861,Vincent Iorio,Vincent Iorio,D,,WSH,Washington Capitals,https://assets.nhle.com/mugs/nhl/20252026/WSH/8482861.png
 8475795,Dylan McIlrath,Dylan McIlrath,D,,WSH,Washington Capitals,https://assets.nhle.com/mugs/nhl/20252026/WSH/8475795.png
 8478911,Matt Roy,Matt Roy,D,,WSH,Washington Capitals,https://assets.nhle.com/mugs/nhl/20252026/WSH/8478911.png
 8480873,Rasmus Sandin,Rasmus Sandin,D,,WSH,Washington Capitals,https://assets.nhle.com/mugs/nhl/20252026/WSH/8480873.png
@@ -267,7 +266,6 @@ player_id,player,full_name,position,team_id,team_abbr,team_name,image_url
 8476887,Filip Forsberg,Filip Forsberg,F,,NSH,Nashville Predators,https://assets.nhle.com/mugs/nhl/20252026/NSH/8476887.png
 8475287,Erik Haula,Erik Haula,F,,NSH,Nashville Predators,https://assets.nhle.com/mugs/nhl/20252026/NSH/8475287.png
 8479370,Tyson Jost,Tyson Jost,F,,NSH,Nashville Predators,https://assets.nhle.com/mugs/nhl/20252026/NSH/8479370.png
-8483465,Joakim Kemell,Joakim Kemell,F,,NSH,Nashville Predators,https://assets.nhle.com/mugs/nhl/20252026/NSH/8483465.png
 8476539,Jonathan Marchessault,Jonathan Marchessault,F,,NSH,Nashville Predators,https://assets.nhle.com/mugs/nhl/20252026/NSH/8476539.png
 8485405,Brady Martin,Brady Martin,F,,NSH,Nashville Predators,https://assets.nhle.com/mugs/nhl/20252026/NSH/8485405.png
 8477446,Michael McCarron,Michael McCarron,F,,NSH,Nashville Predators,https://assets.nhle.com/mugs/nhl/20252026/NSH/8477446.png
@@ -324,7 +322,6 @@ player_id,player,full_name,position,team_id,team_abbr,team_name,image_url
 8476460,Mark Scheifele,Mark Scheifele,F,,WPG,Winnipeg Jets,https://assets.nhle.com/mugs/nhl/20252026/WPG/8476460.png
 8473604,Jonathan Toews,Jonathan Toews,F,,WPG,Winnipeg Jets,https://assets.nhle.com/mugs/nhl/20252026/WPG/8473604.png
 8480014,Gabriel Vilardi,Gabriel Vilardi,F,,WPG,Winnipeg Jets,https://assets.nhle.com/mugs/nhl/20252026/WPG/8480014.png
-8479348,Kale Clague,Kale Clague,D,,WPG,Winnipeg Jets,https://assets.nhle.com/mugs/nhl/20252026/WPG/8479348.png
 8476331,Dylan DeMelo,Dylan DeMelo,D,,WPG,Winnipeg Jets,https://assets.nhle.com/mugs/nhl/20252026/WPG/8476331.png
 8477938,Haydn Fleury,Haydn Fleury,D,,WPG,Winnipeg Jets,https://assets.nhle.com/mugs/nhl/20252026/WPG/8477938.png
 8476525,Colin Miller,Colin Miller,D,,WPG,Winnipeg Jets,https://assets.nhle.com/mugs/nhl/20252026/WPG/8476525.png
@@ -501,7 +498,6 @@ player_id,player,full_name,position,team_id,team_abbr,team_name,image_url
 8484798,Zeev Buium,Zeev Buium,D,,MIN,Minnesota Wild,https://assets.nhle.com/mugs/nhl/20252026/MIN/8484798.png
 8482122,Brock Faber,Brock Faber,D,,MIN,Minnesota Wild,https://assets.nhle.com/mugs/nhl/20252026/MIN/8482122.png
 8482094,Daemon Hunt,Daemon Hunt,D,,MIN,Minnesota Wild,https://assets.nhle.com/mugs/nhl/20252026/MIN/8482094.png
-8483460,David Jiricek,David Jiricek,D,,MIN,Minnesota Wild,https://assets.nhle.com/mugs/nhl/20252026/MIN/8483460.png
 8478136,Jake Middleton,Jake Middleton,D,,MIN,Minnesota Wild,https://assets.nhle.com/mugs/nhl/20252026/MIN/8478136.png
 8474716,Jared Spurgeon,Jared Spurgeon,D,,MIN,Minnesota Wild,https://assets.nhle.com/mugs/nhl/20252026/MIN/8474716.png
 8479406,Filip Gustavsson,Filip Gustavsson,G,,MIN,Minnesota Wild,https://assets.nhle.com/mugs/nhl/20252026/MIN/8479406.png
@@ -665,6 +661,7 @@ player_id,player,full_name,position,team_id,team_abbr,team_name,image_url
 8479576,Vincent Desharnais,Vincent Desharnais,D,,SJS,San Jose Sharks,https://assets.nhle.com/mugs/nhl/20252026/SJS/8479576.png
 8484806,Sam Dickinson,Sam Dickinson,D,,SJS,San Jose Sharks,https://assets.nhle.com/mugs/nhl/20252026/SJS/8484806.png
 8479983,Mario Ferraro,Mario Ferraro,D,,SJS,San Jose Sharks,https://assets.nhle.com/mugs/nhl/20252026/SJS/8479983.png
+8482861,Vincent Iorio,Vincent Iorio,D,,SJS,San Jose Sharks,https://assets.nhle.com/mugs/nhl/20252026/SJS/8482861.png
 8475906,John Klingberg,John Klingberg,D,,SJS,San Jose Sharks,https://assets.nhle.com/mugs/nhl/20252026/SJS/8475906.png
 8475181,Nick Leddy,Nick Leddy,D,,SJS,San Jose Sharks,https://assets.nhle.com/mugs/nhl/20252026/SJS/8475181.png
 8480043,Timothy Liljegren,Timothy Liljegren,D,,SJS,San Jose Sharks,https://assets.nhle.com/mugs/nhl/20252026/SJS/8480043.png
@@ -689,7 +686,6 @@ player_id,player,full_name,position,team_id,team_abbr,team_name,image_url
 8480196,Jacob Bryson,Jacob Bryson,D,,BUF,Buffalo Sabres,https://assets.nhle.com/mugs/nhl/20252026/BUF/8480196.png
 8481524,Bowen Byram,Bowen Byram,D,,BUF,Buffalo Sabres,https://assets.nhle.com/mugs/nhl/20252026/BUF/8481524.png
 8480839,Rasmus Dahlin,Rasmus Dahlin,D,,BUF,Buffalo Sabres,https://assets.nhle.com/mugs/nhl/20252026/BUF/8480839.png
-8481564,Ryan Johnson,Ryan Johnson,D,,BUF,Buffalo Sabres,https://assets.nhle.com/mugs/nhl/20252026/BUF/8481564.png
 8480891,Michael Kesselring,Michael Kesselring,D,,BUF,Buffalo Sabres,https://assets.nhle.com/mugs/nhl/20252026/BUF/8480891.png
 8482671,Owen Power,Owen Power,D,,BUF,Buffalo Sabres,https://assets.nhle.com/mugs/nhl/20252026/BUF/8482671.png
 8480807,Mattias Samuelsson,Mattias Samuelsson,D,,BUF,Buffalo Sabres,https://assets.nhle.com/mugs/nhl/20252026/BUF/8480807.png

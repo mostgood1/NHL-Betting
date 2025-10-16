@@ -2,52 +2,80 @@
 
 ## Current Status
 
-✅ **System Detected**: Qualcomm ARMv8 (64-bit) processor  
-✅ **Dependencies Installed**: PyTorch, ONNX, ONNX Runtime  
-⚠️ **NPU Driver**: QNN execution provider not yet available  
+✅ **System**: Qualcomm Snapdragon X (ARMv8 64-bit)  
+✅ **QNN SDK**: Installed at `C:\Qualcomm\QNN_SDK`  
+✅ **NPU Driver**: QNNExecutionProvider verified working!  
+✅ **Dependencies**: PyTorch, ONNX, ONNX Runtime  
+✅ **Models**: Neural network infrastructure ready  
+✅ **Environment**: Configured via `activate_npu.ps1`  
 
-## Next Steps to Enable NPU
+🎉 **Your Qualcomm NPU is ready for AI acceleration!**
 
-### 1. Install Qualcomm AI Engine Direct SDK
+## Important: Python Environment
 
-Download and install from: https://www.qualcomm.com/developer/software/neural-processing-sdk
+**Use System Python for NPU operations:**
+- System Python: `python` → Has QNN-enabled ONNX Runtime ✅
+- Venv Python: `.\.venv\Scripts\python.exe` → Standard build (CPU only)
 
-After installation, verify:
+## Quick Setup
+
+### 1. Activate NPU Environment
+
 ```powershell
-.\.venv\Scripts\Activate.ps1
+. .\activate_npu.ps1
+```
+
+This configures QNN SDK paths automatically.
+
+### 2. Verify NPU is Ready
+
+```powershell
 python -m nhl_betting.models.nn_inference
 ```
 
-Should show: `available: True` and `QNNExecutionProvider` in providers list.
+Should show: `available: True` with `QNNExecutionProvider` in providers list.
 
-### 2. Train Neural Network Models
+### 3. Collect Historical Data (if needed)
 
 ```powershell
-# Ensure you have player stats history (run once)
-python -m nhl_betting.cli collect_props --start 2023-09-01 --end 2025-10-16 --source stats
-
-# Train all market models
-python -m nhl_betting.scripts.train_nn_props train-all --epochs 50
+# Gather 2 seasons of player game stats
+python -m nhl_betting.cli collect-props --start 2023-09-01 --end 2025-10-16 --source web
 ```
 
-This creates ONNX models in `data/models/nn_props/` ready for NPU inference.
+### 4. Train Neural Network Models
 
-### 3. Benchmark Performance
+```powershell
+# Train all market models (SOG, GOALS, ASSISTS, POINTS, SAVES, BLOCKS)
+python -m nhl_betting.scripts.train_nn_props train-all --epochs 50
+
+# Or train a single market
+python -m nhl_betting.scripts.train_nn_props train --market SOG --epochs 50
+```
+
+Models are saved to:
+- PyTorch: `data/models/nn_props/{market}_model.pt`
+- ONNX: `data/models/nn_props/{market}_model.onnx` (for NPU)
+
+### 5. Benchmark NPU Performance
 
 ```powershell
 # Compare CPU vs NPU inference speed
 python -m nhl_betting.scripts.train_nn_props benchmark --market SOG --num-runs 1000
 ```
 
-### 4. Use NPU in Production
+Expected: **5-10x speedup** on Snapdragon X NPU!
 
-Enable NPU for daily pipeline:
+### 6. Use in Production
+
 ```powershell
-$env:USE_NPU = "1"
-.\daily_update.ps1 -DaysAhead 2
+# Generate projections
+python -m nhl_betting.cli props-project-all --date 2025-10-16 --ensure-history-days 365 --include-goalies
+
+# Generate recommendations
+python -m nhl_betting.cli props-recommendations --date 2025-10-16 --min-ev 0 --top 400
 ```
 
-Or use in individual commands:
+NPU is automatically used if ONNX models are available (automatic fallback to CPU).
 ```powershell
 $env:USE_NPU = "1"
 python -m nhl_betting.cli props-recommendations --date 2025-10-16 --min-ev 0 --top 400

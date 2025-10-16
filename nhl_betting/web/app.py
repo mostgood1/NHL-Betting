@@ -4331,9 +4331,14 @@ async def props_all_players_page(
                 # GitHub recent fallback with bounded lookback and short timeout
                 from datetime import datetime as _dt2, timedelta as _td2
                 base = _dt2.strptime(d_requested, "%Y-%m-%d")
-                for i in range(0, _gh_lookback_days(default_public=2)):
+                # Expand lookback/timeout slightly to avoid transient cache misses on public host
+                for i in range(0, _gh_lookback_days(default_public=3)):
                     d_try = (base - _td2(days=i)).strftime("%Y-%m-%d")
-                    gh_df = _github_raw_read_csv(f"data/processed/props_projections_all_{d_try}.csv", timeout_sec=2.0, attempts=1)
+                    gh_df = _github_raw_read_csv(
+                        f"data/processed/props_projections_all_{d_try}.csv",
+                        timeout_sec=4.0,
+                        attempts=2,
+                    )
                     if gh_df is not None and not gh_df.empty and not _looks_like_synthetic_props(gh_df):
                         df = gh_df; used_date = d_try; break
         except Exception:
@@ -4346,8 +4351,13 @@ async def props_all_players_page(
         rec_path = PROC_DIR / f"props_recommendations_{d_requested}.csv"
         if rec_path.exists():
             rec_df = _read_csv_fallback(rec_path)
-        elif _read_only(d_requested):
-            rec_df = _github_raw_read_csv(f"data/processed/props_recommendations_{d_requested}.csv")
+        # Always attempt GitHub fallback for recs if not found locally; safe for public hosts
+        if (rec_df is None or rec_df.empty):
+            rec_df = _github_raw_read_csv(
+                f"data/processed/props_recommendations_{d_requested}.csv",
+                timeout_sec=(4.0 if _is_public_host_env() else 7.0),
+                attempts=(2 if _is_public_host_env() else 2),
+            )
     except Exception:
         rec_df = None
     notice = None
@@ -4357,9 +4367,13 @@ async def props_all_players_page(
             from datetime import datetime as _dt2, timedelta as _td2
             base = _dt2.strptime(d_requested, "%Y-%m-%d")
             df_found = None; d_found = None
-            for i in range(0, _gh_lookback_days(default_public=2, default_local=7)):
+            for i in range(0, _gh_lookback_days(default_public=3, default_local=7)):
                 d_try = (base - _td2(days=i)).strftime("%Y-%m-%d")
-                gh_df = _github_raw_read_csv(f"data/processed/props_projections_all_{d_try}.csv", timeout_sec=(2.0 if _is_public_host_env() else 7.0), attempts=(1 if _is_public_host_env() else 2))
+                gh_df = _github_raw_read_csv(
+                    f"data/processed/props_projections_all_{d_try}.csv",
+                    timeout_sec=(4.0 if _is_public_host_env() else 7.0),
+                    attempts=(2 if _is_public_host_env() else 2),
+                )
                 if gh_df is not None and not gh_df.empty and not _looks_like_synthetic_props(gh_df):
                     df_found = gh_df; d_found = d_try; break
             if df_found is not None:

@@ -13,3 +13,10 @@ uvicorn==0.30.6
 Jinja2==3.1.4
 python-dotenv==1.0.1
 pyarrow==17.0.0
+# Neural network and NPU acceleration
+torch>=2.0.0
+onnx>=1.14.0
+onnxruntime>=1.20.0
+# Note: For Qualcomm NPU support, install onnxruntime-qnn separately:
+#   Download from Qualcomm AI Engine Direct SDK (https://www.qualcomm.com/developer/software/neural-processing-sdk)
+#   Or wait for onnxruntime-qnn wheels to be available on PyPI

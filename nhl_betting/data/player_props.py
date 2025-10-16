@@ -457,7 +457,43 @@ def collect_and_write(date: str, roster_df: Optional[pd.DataFrame] = None, cfg: 
         raise ValueError(f"Unknown props source: {cfg.source}")
     # If no roster_df provided, attempt to build one for reliable player_id/team mapping
     if roster_df is None:
-        roster_df = _build_roster_enrichment()
+        # Prefer unified processed roster caches for speed and stability
+        try:
+            from ..utils.io import PROC_DIR as _PROC
+            # Try date-stamped roster first, then master
+            p_dated = _PROC / f"roster_{date}.csv"
+            p_master = _PROC / "roster_master.csv"
+            use = None
+            if p_dated.exists() and p_dated.stat().st_size > 64:
+                use = p_dated
+            elif p_master.exists() and p_master.stat().st_size > 64:
+                use = p_master
+            if use is not None:
+                try:
+                    r = pd.read_csv(use)
+                    # Normalize to expected columns [full_name, player_id, team]
+                    name_col = 'full_name' if 'full_name' in r.columns else ('player' if 'player' in r.columns else None)
+                    team_col = None
+                    for cand in ('team','team_abbr','teamAbbrev','team_abbrev','team_abbreviation'):
+                        if cand in r.columns:
+                            team_col = cand; break
+                    pid_col = 'player_id' if 'player_id' in r.columns else None
+                    if name_col and team_col:
+                        roster_df = r.rename(columns={name_col: 'full_name'})
+                        if 'team' != team_col:
+                            roster_df['team'] = roster_df[team_col]
+                        if pid_col and pid_col != 'player_id':
+                            roster_df['player_id'] = roster_df[pid_col]
+                        roster_df = roster_df[['full_name','player_id','team']]
+                    else:
+                        roster_df = None
+                except Exception:
+                    roster_df = None
+        except Exception:
+            roster_df = None
+        # Fallback to dynamic build only if unified roster not present
+        if roster_df is None:
+            roster_df = _build_roster_enrichment()
     norm = normalize_player_names(raw, roster_df)
     combined = combine_over_under(norm)
     written_path = write_props(combined, cfg, date)

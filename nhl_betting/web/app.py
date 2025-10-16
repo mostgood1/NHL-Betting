@@ -4245,6 +4245,7 @@ async def api_routes():
 async def props_all_players_page(
     request: Request,
     date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD (ET)"),
+    game: Optional[str] = Query(None, description="Filter by game as AWY@HOME (team abbreviations)"),
     team: Optional[str] = Query(None, description="Filter by team abbreviation"),
     market: Optional[str] = Query(None, description="Filter by market"),
     sort: Optional[str] = Query("name", description="Sort by: name, team, market, lambda_desc, lambda_asc"),
@@ -4312,7 +4313,7 @@ async def props_all_players_page(
         page_size = default_ps
     if page <= 0:
         page = 1
-    cache_key = ("props_all_html", d_requested, str(team or '').upper(), str(market or '').upper(), sort or 'name', float(min_ev or 0), int(top), int(page), int(page_size), str(source or 'merged'))
+    cache_key = ("props_all_html", d_requested, str(team or '').upper(), str(game or '').upper(), str(market or '').upper(), sort or 'name', float(min_ev or 0), int(top), int(page), int(page_size), str(source or 'merged'))
     if not nocache:
         cached = _cache_get(cache_key)
         if cached is not None:
@@ -4384,11 +4385,30 @@ async def props_all_players_page(
     # Filter / sort
     t_filter_start = time.perf_counter()
     teams = []
+    games_options: list[str] = []
     try:
         if df is not None and not df.empty and 'team' in df.columns:
             teams = sorted({str(x).upper() for x in df['team'].dropna().unique().tolist() if str(x).strip()})
     except Exception:
         teams = []
+    # Build slate game options AWY@HOME from NHL Web API schedule for the (possibly substituted) used_date
+    try:
+        client = NHLWebClient()
+        gms = client.schedule_day(used_date)
+        opts = []
+        for g in gms or []:
+            try:
+                ha = get_team_assets(str(getattr(g, 'home', ''))) or {}
+                aa = get_team_assets(str(getattr(g, 'away', ''))) or {}
+                hab = (ha.get('abbr') or '').upper()
+                aab = (aa.get('abbr') or '').upper()
+                if hab and aab:
+                    opts.append(f"{aab}@{hab}")
+            except Exception:
+                continue
+        games_options = sorted(list({o for o in opts if o}))
+    except Exception:
+        games_options = []
     # Merge model-only projections with recommendations if available
     display_df = None
     try:
@@ -4426,6 +4446,15 @@ async def props_all_players_page(
             su = str(team).upper()
             try:
                 display_df = display_df[display_df['team'].astype(str).str.upper() == su]
+            except Exception:
+                pass
+        if game:
+            try:
+                g = str(game).upper()
+                if '@' in g:
+                    a, h = g.split('@', 1)
+                    ab_set = {a.strip(), h.strip()}
+                    display_df = display_df[display_df['team'].astype(str).str.upper().isin(ab_set)]
             except Exception:
                 pass
         if market:
@@ -4493,7 +4522,9 @@ async def props_all_players_page(
         top=top,
         date=used_date,
         team=team or "",
+        game=game or "",
         teams=teams,
+        games=games_options,
         sort=sort or 'name',
         notice=notice,
         download_href=f"/props/all.csv?date={used_date}",
@@ -5687,6 +5718,8 @@ async def props_recommendations_page(
     top: int = Query(500),
     sortBy: Optional[str] = Query("ev_desc"),
     side: Optional[str] = Query("both"),
+    team: Optional[str] = Query(None, description="Filter by team abbreviation for cards"),
+    game: Optional[str] = Query(None, description="Filter by game as AWY@HOME for cards"),
     # When all=1 we bypass any top slicing
     all: Optional[int] = Query(0),
     debug: Optional[int] = Query(0, description="If 1, include debug comment with photo/team mapping counts"),
@@ -5799,8 +5832,10 @@ async def props_recommendations_page(
             pass
     except Exception:
         df = pd.DataFrame()
-    # If still empty, short-circuit render to avoid heavy enrichment on public hosts
-    if df is None or df.empty:
+    # If still empty, normally short-circuit render to avoid heavy enrichment on public hosts.
+    # Allow a light fallback later when a specific team/game filter is provided.
+    _empty_df_early = bool(df is None or df.empty)
+    if _empty_df_early and not (team or game):
         template = env.get_template("props_recommendations.html")
         html = template.render(
             date=date,
@@ -5810,10 +5845,13 @@ async def props_recommendations_page(
             sortBy=sortBy or 'ev_desc',
             side=side or 'both',
             all=bool(all),
+            team=team or "",
+            game=game or "",
             cards=[],
             truncated=False,
             total_cards=0,
             debug_info=None,
+            games=[],
         )
         return HTMLResponse(content=html)
 
@@ -6342,6 +6380,190 @@ async def props_recommendations_page(
         player_team_map = {}
 
     # Build cards: group by player (and team), with per-market sections including projections
+    # Precompute today's slate team abbreviations to validate/fix team attribution
+    slate_team_abbrs: set[str] = set()
+    try:
+        _client_tmp = NHLWebClient()
+        _games_tmp = _client_tmp.schedule_day(date)
+        for _g in _games_tmp or []:
+            try:
+                _ha = get_team_assets(str(getattr(_g, 'home', ''))) or {}
+                _aa = get_team_assets(str(getattr(_g, 'away', ''))) or {}
+                _hab = ( _ha.get('abbr') or '' ).upper()
+                _aab = ( _aa.get('abbr') or '' ).upper()
+                if _hab: slate_team_abbrs.add(_hab)
+                if _aab: slate_team_abbrs.add(_aab)
+            except Exception:
+                continue
+    except Exception:
+        slate_team_abbrs = set()
+    # If recommendations were empty but fallback is allowed, synthesize a minimal dataframe from canonical lines
+    try:
+        if (locals().get('_empty_df_early') and (team or game)):
+            # Use lp if available from earlier canonical lines load; otherwise try to load quickly
+            _lp_src = locals().get('lp') if 'lp' in locals() else None
+            if _lp_src is None or (_lp_src is not None and _lp_src.empty):
+                try:
+                    d_for_lines = date or _today_ymd()
+                    base = PROC_DIR.parent / "props" / f"player_props_lines/date={d_for_lines}"
+                    _parts_fb = []
+                    for _nm in ("bovada.parquet","oddsapi.parquet","bovada.csv","oddsapi.csv"):
+                        _p = base / _nm
+                        if _p.exists():
+                            try:
+                                _parts_fb.append(pd.read_parquet(_p) if _p.suffix=='.parquet' else _read_csv_fallback(_p))
+                            except Exception:
+                                continue
+                    _lp_src = pd.concat(_parts_fb, ignore_index=True) if _parts_fb else None
+                except Exception:
+                    _lp_src = None
+            if isinstance(_lp_src, pd.DataFrame) and not _lp_src.empty:
+                tmp = _lp_src.copy()
+                name_col = 'player_name' if 'player_name' in tmp.columns else ('player' if 'player' in tmp.columns else None)
+                if name_col:
+                    # Normalize team
+                    def _team_abbr_val2(t):
+                        try:
+                            a = get_team_assets(t) or {}
+                            ab = a.get('abbr')
+                            return (ab or t).upper()
+                        except Exception:
+                            return str(t).upper()
+                    if 'team' in tmp.columns:
+                        tmp['team'] = tmp['team'].apply(_team_abbr_val2)
+                    # Standardize market
+                    if 'market' not in tmp.columns:
+                        for _alt in ('prop','bet_type','market_name'):
+                            if _alt in tmp.columns:
+                                tmp['market'] = tmp[_alt]
+                                break
+                    # Filter slate
+                    try:
+                        if 'team' in tmp.columns and slate_team_abbrs:
+                            tmp = tmp[tmp['team'].astype(str).str.upper().isin(list(slate_team_abbrs))]
+                    except Exception:
+                        pass
+                    # Apply team/game filter
+                    try:
+                        if team and 'team' in tmp.columns:
+                            t_u = str(team).upper()
+                            tmp = tmp[tmp['team'].astype(str).str.upper() == t_u]
+                        if game and 'team' in tmp.columns and '@' in str(game):
+                            a, h = str(game).upper().split('@', 1)
+                            tmp = tmp[tmp['team'].astype(str).str.upper().isin([a.strip(), h.strip()])]
+                    except Exception:
+                        pass
+                    # Keep known markets if available
+                    try:
+                        if 'market' in tmp.columns:
+                            tmp['market'] = tmp['market'].astype(str).str.upper()
+                            tmp = tmp[tmp['market'].isin(['SOG','GOALS','ASSISTS','POINTS','SAVES','BLOCKS'])]
+                    except Exception:
+                        pass
+                    # Select/rename columns
+                    cols_out = {name_col: 'player'}
+                    for c in ('team','market','line','over_price','under_price','book'):
+                        if c in tmp.columns:
+                            cols_out[c] = c
+                    df_fb = tmp[list(cols_out.keys())].rename(columns=cols_out)
+                    # Add missing columns
+                    for c in ('side','ev','proj','p_over'):
+                        if c not in df_fb.columns:
+                            df_fb[c] = None
+                    # Clean names and numerics
+                    try:
+                        df_fb['player'] = df_fb['player'].astype(str).map(lambda s: ' '.join(s.split()))
+                        df_fb = df_fb[df_fb['player'].str.strip() != '']
+                    except Exception:
+                        pass
+                    for c in ('line','over_price','under_price'):
+                        if c in df_fb.columns:
+                            try:
+                                df_fb[c] = pd.to_numeric(df_fb[c], errors='coerce')
+                            except Exception:
+                                pass
+                    df = df_fb
+    except Exception:
+        pass
+    # If a specific team/game is requested but df lacks those teams, augment from canonical lines
+    try:
+        target_teams: set[str] = set()
+        if team:
+            target_teams.add(str(team).upper())
+        if game and '@' in str(game):
+            a, h = str(game).upper().split('@', 1)
+            target_teams.update({a.strip(), h.strip()})
+        if df is not None and not df.empty and target_teams:
+            has_col = 'team' in df.columns
+            has_any = False
+            if has_col:
+                try:
+                    has_any = df['team'].astype(str).str.upper().isin(list(target_teams)).any()
+                except Exception:
+                    has_any = False
+            if not has_any:
+                # Build augmentation from lines
+                d_for_lines = date or _today_ymd()
+                base = PROC_DIR.parent / "props" / f"player_props_lines/date={d_for_lines}"
+                parts_aug = []
+                for _nm in ("bovada.parquet","oddsapi.parquet","bovada.csv","oddsapi.csv"):
+                    _p = base / _nm
+                    if _p.exists():
+                        try:
+                            parts_aug.append(pd.read_parquet(_p) if _p.suffix=='.parquet' else _read_csv_fallback(_p))
+                        except Exception:
+                            continue
+                if parts_aug:
+                    tmp = pd.concat(parts_aug, ignore_index=True)
+                    name_col = 'player_name' if 'player_name' in tmp.columns else ('player' if 'player' in tmp.columns else None)
+                    if name_col:
+                        def _team_abbr_val3(t):
+                            try:
+                                a = get_team_assets(t) or {}
+                                ab = a.get('abbr')
+                                return (ab or t).upper()
+                            except Exception:
+                                return str(t).upper()
+                        if 'team' in tmp.columns:
+                            tmp['team'] = tmp['team'].apply(_team_abbr_val3)
+                        # Standardize market
+                        if 'market' not in tmp.columns:
+                            for _alt in ('prop','bet_type','market_name'):
+                                if _alt in tmp.columns:
+                                    tmp['market'] = tmp[_alt]
+                                    break
+                        # Filter to target teams
+                        if 'team' in tmp.columns:
+                            tmp = tmp[tmp['team'].astype(str).str.upper().isin(list(target_teams))]
+                        # Keep known markets
+                        if 'market' in tmp.columns:
+                            tmp['market'] = tmp['market'].astype(str).str.upper()
+                            tmp = tmp[tmp['market'].isin(['SOG','GOALS','ASSISTS','POINTS','SAVES','BLOCKS'])]
+                        cols_out = {name_col: 'player'}
+                        for c in ('team','market','line','over_price','under_price','book'):
+                            if c in tmp.columns:
+                                cols_out[c] = c
+                        df_aug = tmp[list(cols_out.keys())].rename(columns=cols_out)
+                        for c in ('side','ev','proj','p_over'):
+                            if c not in df_aug.columns:
+                                df_aug[c] = None
+                        try:
+                            df_aug['player'] = df_aug['player'].astype(str).map(lambda s: ' '.join(s.split()))
+                            df_aug = df_aug[df_aug['player'].str.strip() != '']
+                        except Exception:
+                            pass
+                        for c in ('line','over_price','under_price'):
+                            if c in df_aug.columns:
+                                try:
+                                    df_aug[c] = pd.to_numeric(df_aug[c], errors='coerce')
+                                except Exception:
+                                    pass
+                        try:
+                            df = pd.concat([df, df_aug], ignore_index=True)
+                        except Exception:
+                            pass
+    except Exception:
+        pass
     cards = []
     try:
         if df is not None and not df.empty:
@@ -6417,7 +6639,7 @@ async def props_recommendations_page(
                         team_clean = str(team).strip()
                 except Exception:
                     team_clean = team
-                # Strong override from roster_master if available
+                # Prefer team from lines/stats; use roster_master only if missing or to add photo/position
                 if player and roster_master_map:
                     rm = roster_master_map.get(_norm_name(player))
                 else:
@@ -6425,7 +6647,17 @@ async def props_recommendations_page(
                 team_from_rm = (rm.get('team_abbr') if isinstance(rm, dict) else None)
                 photo_from_rm = (rm.get('image_url') if isinstance(rm, dict) else None)
                 pos_from_rm = (rm.get('position') if isinstance(rm, dict) else None)
-                team_eff = team_from_rm or team_clean
+                # Start with team from data rows (lines/stats fill), then fall back to roster_master
+                team_eff = team_clean or team_from_rm
+                # If roster_master contradicts slate while line-derived fits slate, prefer the line-derived team
+                try:
+                    if team_from_rm and team_clean and slate_team_abbrs:
+                        t_rm = str(team_from_rm).upper()
+                        t_ln = str(team_clean).upper()
+                        if (t_rm not in slate_team_abbrs) and (t_ln in slate_team_abbrs):
+                            team_eff = t_ln
+                except Exception:
+                    pass
                 assets = get_team_assets(str(team_eff)) if team_eff else {}
                 markets = []
                 best_ev_overall = None
@@ -6764,6 +6996,48 @@ async def props_recommendations_page(
             **extra,
         })
 
+    # Optional team/game filtering at the card level
+    try:
+        if team or game:
+            team_u = str(team or '').upper()
+            game_pair = None
+            if game:
+                g = str(game).upper()
+                if '@' in g:
+                    a, h = g.split('@', 1)
+                    game_pair = {a.strip(), h.strip()}
+            def _keep(c):
+                try:
+                    ab = str(c.get('team_abbr') or c.get('team') or '').upper()
+                    if team_u and ab != team_u:
+                        return False
+                    if game_pair and ab not in game_pair:
+                        return False
+                    return True
+                except Exception:
+                    return True
+            cards[:] = [c for c in (cards or []) if _keep(c)]
+    except Exception:
+        pass
+    # Build slate games for dropdown
+    games_options: list[str] = []
+    try:
+        client = NHLWebClient()
+        gms = client.schedule_day(date)
+        opts = []
+        for g in gms or []:
+            try:
+                ha = get_team_assets(str(getattr(g, 'home', ''))) or {}
+                aa = get_team_assets(str(getattr(g, 'away', ''))) or {}
+                hab = (ha.get('abbr') or '').upper(); aab = (aa.get('abbr') or '').upper()
+                if hab and aab:
+                    opts.append(f"{aab}@{hab}")
+            except Exception:
+                continue
+        games_options = sorted(list({o for o in opts if o}))
+    except Exception:
+        games_options = []
+
     html = template.render(
         date=date,
         market=market or "",
@@ -6772,10 +7046,13 @@ async def props_recommendations_page(
         sortBy=sortBy or 'ev_desc',
         side=side or 'both',
         all=bool(all),
+        team=team or "",
+        game=game or "",
         cards=cards,
         truncated=locals().get('truncated', False),
         total_cards=len(cards) if isinstance(cards, list) else 0,
         debug_info=debug_info,
+        games=games_options,
     )
     return HTMLResponse(content=html)
 
@@ -7431,6 +7708,38 @@ async def props_reconciliation_page(
     template = env.get_template("props_reconciliation.html")
     html = template.render(date=date, refresh=(refresh==1), rows=rows)
     return HTMLResponse(content=html)
+
+@app.post("/api/cron/props-fast")
+async def api_cron_props_fast(
+    token: Optional[str] = Query(None, description="Bearer token; must match REFRESH_CRON_TOKEN env var"),
+    date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD; defaults to ET today"),
+    min_ev: float = Query(0.0, description="Minimum EV threshold for recommendations"),
+    top: int = Query(400, description="Top N recommendations to keep"),
+    market: Optional[str] = Query("", description="Optional market filter for recs: SOG,SAVES,GOALS,ASSISTS,POINTS,BLOCKS"),
+    authorization: Optional[str] = Header(None, description="Authorization: Bearer <token> header (optional)"),
+):
+    secret = os.getenv("REFRESH_CRON_TOKEN", "")
+    supplied = (token or "").strip()
+    if (not supplied) and authorization:
+        try:
+            auth = str(authorization)
+            if auth.lower().startswith("bearer "):
+                supplied = auth.split(" ", 1)[1].strip()
+        except Exception:
+            supplied = supplied
+    if not (secret and supplied and _const_time_eq(supplied, secret)):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    d = _normalize_date_param(date)
+    # Execute fast pipeline
+    try:
+        from ..cli import props_fast as _props_fast
+        if hasattr(_props_fast, 'callback') and callable(getattr(_props_fast, 'callback')):
+            _props_fast.callback(date=d, min_ev=min_ev, top=top, market=(market or ""))
+        else:
+            _props_fast(date=d, min_ev=min_ev, top=top, market=(market or ""))
+    except Exception as e:
+        return JSONResponse({"ok": False, "date": d, "error": str(e)}, status_code=500)
+    return JSONResponse({"ok": True, "date": d})
 
 
 @app.post("/api/cron/refresh-bovada")

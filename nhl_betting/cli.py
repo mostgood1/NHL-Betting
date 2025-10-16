@@ -1731,24 +1731,38 @@ def props_recommendations(
     """
     import os
     from glob import glob
-    # Read canonical lines for date
+    # Read canonical lines for date (OddsAPI-only by default; fallback to Bovada if empty/missing)
     parts = []
     base = Path("data/props") / f"player_props_lines/date={date}"
-    # Prefer Parquet files; fallback to CSVs if Parquet not present or unreadable
-    cand_files = [base / "bovada.parquet", base / "oddsapi.parquet", base / "bovada.csv", base / "oddsapi.csv"]
-    for f in cand_files:
-        if f.exists():
-            try:
-                if f.suffix == ".parquet":
-                    parts.append(pd.read_parquet(f, engine="pyarrow"))
-                else:
-                    parts.append(pd.read_csv(f))
-            except Exception:
-                pass
+    prefer = [base / "oddsapi.parquet", base / "oddsapi.csv"]
+    fb = [base / "bovada.parquet", base / "bovada.csv"]
+    def _read_any(files):
+        out = []
+        for f in files:
+            if f.exists():
+                try:
+                    out.append(pd.read_parquet(f, engine="pyarrow") if f.suffix == ".parquet" else pd.read_csv(f))
+                except Exception:
+                    continue
+        return out
+    parts = _read_any(prefer)
+    # Optional override to include Bovada alongside OddsAPI
+    include_bovada = str(os.getenv("PROPS_INCLUDE_BOVADA", "")).strip().lower() in ("1","true","yes")
+    if (not parts) or (sum(len(p) for p in parts if p is not None) == 0):
+        parts = _read_any(fb)
+    elif include_bovada:
+        parts.extend(_read_any(fb))
     if not parts:
         print("No props lines found for", date)
         raise typer.Exit(code=1)
-    lines = pd.concat(parts, ignore_index=True)
+    try:
+        lines = pd.concat(parts, ignore_index=True)
+    except Exception:
+        # Fallback: use first non-empty
+        lines = next((p for p in parts if p is not None and not p.empty), pd.DataFrame())
+        if lines is None or lines.empty:
+            print("No props lines found for", date)
+            raise typer.Exit(code=1)
 
     # Build a player->team mapping to ensure team alignment in outputs
     from .web.teams import get_team_assets as _get_team_assets
@@ -1865,31 +1879,16 @@ def props_recommendations(
         lam_map = lam_map
     # Instantiate models (probabilities only). We'll only compute lambdas from history for missing players lazily.
     shots = SkaterShotsModel(); saves = GoalieSavesModel(); goals = SkaterGoalsModel(); assists = SkaterAssistsModel(); points = SkaterPointsModel(); blocks = SkaterBlocksModel()
-    hist = None  # defer loading
-    def _ensure_hist():
-        nonlocal hist
-        if hist is None:
-            stats_path = RAW_DIR / "player_game_stats.csv"
-            if not stats_path.exists():
-                try:
-                    from datetime import datetime as _dt, timedelta as _td
-                    end = date
-                    start = (_dt.strptime(date, "%Y-%m-%d") - _td(days=365*2)).strftime("%Y-%m-%d")
-                    # Prefer web (faster) with fallback
-                    try:
-                        collect_player_game_stats(start, end, source="web")
-                    except Exception:
-                        collect_player_game_stats(start, end, source="stats")
-                except Exception:
-                    pass
-            try:
-                hist = load_df(stats_path) if stats_path.exists() else pd.DataFrame()
-            except Exception:
-                try:
-                    hist = pd.read_csv(stats_path) if stats_path.exists() else pd.DataFrame()
-                except Exception:
-                    hist = pd.DataFrame()
-        return hist
+    # Do NOT load or backfill history here; rely on precomputed projections_all. Use conservative fallbacks for misses.
+    def _fallback_lambda(mk: str) -> float:
+        m = (mk or '').upper()
+        if m == 'SOG': return 2.4
+        if m == 'GOALS': return 0.35
+        if m == 'ASSISTS': return 0.45
+        if m == 'POINTS': return 0.9
+        if m == 'SAVES': return 27.0
+        if m == 'BLOCKS': return 1.3
+        return 1.0
     def _prob_over_for(mkt: str, lam: float, line: float) -> float:
         m = (mkt or '').upper()
         if m == "SOG":
@@ -1910,25 +1909,9 @@ def props_recommendations(
         key = (_norm_name(player).lower(), m)
         lam = lam_map.get(key)
         if lam is None:
-            # Lazy fallback: compute lambda from history just for this player if projections_all didn't have it
-            H = _ensure_hist()
-            try:
-                if m == "SOG":
-                    lam = shots.player_lambda(H, player)
-                elif m == "SAVES":
-                    lam = saves.player_lambda(H, player)
-                elif m == "GOALS":
-                    lam = goals.player_lambda(H, player)
-                elif m == "ASSISTS":
-                    lam = assists.player_lambda(H, player)
-                elif m == "POINTS":
-                    lam = points.player_lambda(H, player)
-                elif m == "BLOCKS":
-                    lam = blocks.player_lambda(H, player)
-            except Exception:
-                lam = None
-            if lam is not None:
-                lam_map[key] = lam  # cache for reuse within run
+            # Use conservative league-average fallback lambdas to avoid slow history scans
+            lam = _fallback_lambda(m)
+            lam_map[key] = lam
         if lam is None:
             return None, None
         return lam, _prob_over_for(m, lam, line)
@@ -2034,17 +2017,16 @@ def props_recommendations(
             _add_names(pd.read_csv(_rm))
     except Exception:
         allowed_names = set()
-    # Fallback: build allowed_names directly from Stats API for slate teams
+    # Optional (disabled by default): live roster fallback via Stats API
     try:
-        if slate_abbrs and not allowed_names:
+        if (str(os.getenv('PROPS_ALLOW_LIVE_ROSTER','')).strip().lower() in ('1','true','yes')) and slate_abbrs and not allowed_names:
             from .data import rosters as _rosters_mod
             teams = _rosters_mod.list_teams()
-            # map abbr -> id(s)
             abbr_to_ids = {}
             for t in teams:
                 try:
-                    ab = str(t.get("abbreviation") or t.get("teamAbbrev") or "").upper()
-                    tid = int(t.get("id")) if t.get("id") is not None else None
+                    ab = str(t.get('abbreviation') or t.get('teamAbbrev') or '').upper()
+                    tid = int(t.get('id')) if t.get('id') is not None else None
                     if ab and tid is not None:
                         abbr_to_ids.setdefault(ab, []).append(tid)
                 except Exception:
@@ -2054,9 +2036,9 @@ def props_recommendations(
                     try:
                         rp = _rosters_mod.fetch_current_roster(int(tid))
                         for r in rp:
-                            nm = str(getattr(r, 'full_name', '') or '').strip().lower()
+                            nm = str(getattr(r, 'full_name', '') or '').strip()
                             if nm:
-                                allowed_names.add(" ".join(nm.split()))
+                                allowed_names.add(' '.join(nm.split()).lower())
                     except Exception:
                         continue
     except Exception:
@@ -2074,9 +2056,18 @@ def props_recommendations(
         if slate_abbrs:
             # Strict: only include rows where resolved team is in tonight's slate
             merged = merged.loc[merged["_team_final"].isin(slate_abbrs)].copy()
-            # Further restrict to names present on roster for slate teams if we have such a set
-            if allowed_names:
-                merged = merged.loc[merged["player_norm"].isin(allowed_names)].copy()
+            # Further restrict to names present on roster for slate teams if we have such a set.
+            # However, roster caches can be stale or wrong (e.g., fallback build). To avoid
+            # dropping valid slate players, only apply this filter if it retains a healthy
+            # fraction of rows; otherwise, skip it.
+            if allowed_names and not merged.empty and "player_norm" in merged.columns:
+                msk = merged["player_norm"].isin(allowed_names)
+                try:
+                    frac = float(msk.sum()) / float(len(msk)) if len(msk) else 0.0
+                except Exception:
+                    frac = 0.0
+                if frac >= 0.6:  # keep filter only if it preserves at least 60% of rows
+                    merged = merged.loc[msk].copy()
     except Exception:
         # If anything goes wrong, proceed without slate filter
         pass
@@ -2210,330 +2201,91 @@ def props_recommendations(
     print(f"Wrote {out_path} with {len(out)} rows (normalized cols: {', '.join([c for c in ['proj_lambda','ev_over'] if c in out.columns])})")
 
 
-@app.command()
-def props_full(
+@app.command(name="props-fast")
+def props_fast(
     date: str = typer.Option(..., help="Slate date YYYY-MM-DD (ET)"),
     min_ev: float = typer.Option(0.0, help="Minimum EV threshold for recommendations"),
-    top: int = typer.Option(200, help="Top N recommendations to keep"),
-    sources: str = typer.Option("bovada,oddsapi", help="Comma list of sources to collect: bovada,oddsapi"),
-    ensure_history_days: int = typer.Option(365, help="Days of player history to ensure before date"),
-    market: str = typer.Option("", help="Optional market filter for recs: SOG,SAVES,GOALS,ASSISTS,POINTS,BLOCKS"),
+    top: int = typer.Option(400, help="Top N recommendations to keep"),
+    market: str = typer.Option("", help="Optional market filter: SOG,SAVES,GOALS,ASSISTS,POINTS,BLOCKS"),
 ):
-    """Run full props modeling for a date: collect lines, ensure stats, compute projections and recommendations.
+    """Fast daily props pipeline: OddsAPI-only (Bovada fallback), projections_all, recommendations.
 
-    Outputs:
-      - data/processed/props_projections_{date}.csv
+    Writes:
+      - data/processed/props_projections_all_{date}.csv
       - data/processed/props_recommendations_{date}.csv
     """
-    from datetime import datetime as _dt, timedelta as _td
-    from .models.props import (
-        SkaterShotsModel, GoalieSavesModel, SkaterGoalsModel,
-        SkaterAssistsModel, SkaterPointsModel, SkaterBlocksModel,
-    )
+    import time, json
     from .data import player_props as props_data
-
-    # 1) Collect canonical lines for date from requested sources
-    srcs = [s.strip().lower() for s in str(sources).split(',') if s.strip()]
+    t0 = time.monotonic(); timings = {}
     base = Path("data/props") / f"player_props_lines/date={date}"
     base.mkdir(parents=True, exist_ok=True)
-    wrote_any = False
-    for sel in srcs:
+    # Collect OddsAPI
+    cnt = 0
+    try:
+        t1 = time.monotonic()
+        cfg_odds = props_data.PropsCollectionConfig(output_root=str(base.parent.parent), book="oddsapi", source="oddsapi")
+        res = props_data.collect_and_write(date, roster_df=None, cfg=cfg_odds)
+        cnt = int(res.get("combined_count") or 0)
+        timings['collect_oddsapi_sec'] = round(time.monotonic() - t1, 3)
+    except Exception as e:
+        print("[fast] oddsapi collection failed:", e)
+    # Fallback to Bovada iff OddsAPI had zero rows
+    if cnt == 0:
         try:
-            cfg = props_data.PropsCollectionConfig(output_root="data/props", book=("bovada" if sel=="bovada" else "oddsapi"), source=sel)
-            res = props_data.collect_and_write(date, roster_df=None, cfg=cfg)
-            cnt = int(res.get("combined_count") or 0)
-            path = res.get("output_path")
-            print(f"[collect] {sel}: rows={cnt} path={path}")
-            wrote_any = wrote_any or (cnt > 0)
+            t2 = time.monotonic()
+            cfg_bov = props_data.PropsCollectionConfig(output_root=str(base.parent.parent), book="bovada", source="bovada")
+            res2 = props_data.collect_and_write(date, roster_df=None, cfg=cfg_bov)
+            timings['collect_bovada_fallback_sec'] = round(time.monotonic() - t2, 3)
+            print(f"[fast] bovada fallback rows={int(res2.get('combined_count') or 0)} path={res2.get('output_path')}")
         except Exception as e:
-            print(f"[collect] {sel} failed: {e}")
-    # Validate we have at least one parquet
-    parts = []
-    for fname in ("bovada.parquet","oddsapi.parquet"):
-        p = base / fname
-        if p.exists():
-            try:
-                parts.append(pd.read_parquet(p, engine="pyarrow"))
-            except Exception:
-                pass
-    if not parts:
-        print("No props lines found; aborting.")
-        raise typer.Exit(code=1)
-    lines = pd.concat(parts, ignore_index=True)
-
-    # Build a player->team mapping to ensure aligned team abbreviations in outputs
-    from .web.teams import get_team_assets as _get_team_assets
-    def _norm_name(x):
-        try:
-            s = str(x or "").strip()
-            return " ".join(s.split())
-        except Exception:
-            return str(x)
-    def _abbr_team(t):
-        if not t:
-            return None
-        try:
-            a = _get_team_assets(str(t)) or {}
-            ab = a.get("abbr")
-            return str(ab).upper() if ab else (str(t).strip().upper() if str(t).strip() else None)
-        except Exception:
-            return str(t).strip().upper() if isinstance(t, str) and t.strip() else None
-    player_team_map = {}
+            print("[fast] bovada fallback failed:", e)
+    # Projections (all markets)
     try:
-        # 1) Roster enrichment: full_name -> team abbr, with name-variant keys (First Last, F Last, F. Last)
-        try:
-            from .data import player_props as _pp
-            roster_df = _pp._build_roster_enrichment()
-        except Exception:
-            roster_df = None
-        if roster_df is not None and not roster_df.empty and {"full_name","team"}.issubset(roster_df.columns):
-            def _name_keys(full_name: str):
-                try:
-                    nm = str(full_name or "").strip()
-                    parts = nm.split()
-                    if len(parts) >= 2:
-                        first = parts[0]; last = parts[-1]
-                        keys = { _norm_name(nm).lower() }
-                        fi = first[0]
-                        keys.add(_norm_name(f"{fi} {last}").lower())
-                        keys.add(_norm_name(f"{fi}. {last}").lower())
-                        return keys
-                    return { _norm_name(nm).lower() } if nm else set()
-                except Exception:
-                    return set()
-            for _, row in roster_df.iterrows():
-                full = row.get("full_name"); tm = row.get("team")
-                ab = _abbr_team(tm)
-                if not ab:
-                    continue
-                for k in _name_keys(full):
-                    if k and k not in player_team_map:
-                        player_team_map[k] = ab
-        # 2) From lines parquet themselves (latest team seen)
-        if not lines.empty and {"player_name","team"}.issubset(lines.columns):
-            cur = lines
-            try:
-                if "is_current" in cur.columns:
-                    cur = cur[cur["is_current"] == True]
-            except Exception:
-                pass
-            cur = cur.dropna(subset=["player_name","team"]).copy()
-            cur["_team_abbr"] = cur["team"].map(_abbr_team)
-            last_team = cur.groupby("player_name")["_team_abbr"].agg(lambda s: s.dropna().astype(str).iloc[-1] if len(s.dropna()) else None)
-            for nm, tm in last_team.items():
-                if tm:
-                    player_team_map[_norm_name(nm).lower()] = str(tm)
-        # Fallback: historical last known team per player
-        from .utils.io import RAW_DIR as _RAW
-        try:
-            pstats = pd.read_csv(_RAW / "player_game_stats.csv")
-        except Exception:
-            pstats = pd.DataFrame()
-        if pstats is not None and not pstats.empty and "player" in pstats.columns:
-            try:
-                pstats = pstats.dropna(subset=["player"]).copy()
-                pstats["player"] = pstats["player"].astype(str).map(_norm_name)
-                if "team" in pstats.columns:
-                    last_teams = pstats.dropna(subset=["team"]).groupby("player")["team"].last()
-                    for nm, tm in last_teams.items():
-                        key = _norm_name(nm).lower()
-                        if key and key not in player_team_map:
-                            ab = _abbr_team(tm)
-                            if ab:
-                                player_team_map[key] = ab
-            except Exception:
-                pass
+        t3 = time.monotonic()
+        props_project_all.callback(date=date, ensure_history_days=365, include_goalies=True)
+        timings['projections_all_sec'] = round(time.monotonic() - t3, 3)
     except Exception:
-        player_team_map = player_team_map
-
-    # 2) Ensure player stats history exists (file present and non-empty)
-    stats_path = RAW_DIR / "player_game_stats.csv"
-    def _needs_history(p):
         try:
-            if not p.exists() or p.stat().st_size == 0:
-                return True
-            try:
-                tmp = pd.read_csv(p)
-                return tmp.empty
-            except Exception:
-                return True
-        except Exception:
-            return True
-    if _needs_history(stats_path):
-        try:
-            start = (_dt.strptime(date, "%Y-%m-%d") - _td(days=int(ensure_history_days))).strftime("%Y-%m-%d")
-            # Try web first (faster), fallback to stats
-            try:
-                collect_player_game_stats(start, date, source="web")
-            except Exception:
-                collect_player_game_stats(start, date, source="stats")
+            t3b = time.monotonic()
+            props_project_all(date=date, ensure_history_days=365, include_goalies=True)
+            timings['projections_all_sec'] = round(time.monotonic() - t3b, 3)
         except Exception as e:
-            print(f"[history] failed to ensure: {e}")
+            print("[fast] projections failed:", e)
+            timings['projections_error'] = str(e)
+    # Recommendations
     try:
-        hist = load_df(stats_path) if stats_path.exists() else pd.DataFrame()
-    except Exception:
-        hist = pd.read_csv(stats_path) if stats_path.exists() else pd.DataFrame()
-    # Harmonize names like "T. Liljegren" to full names when possible using roster snapshots
+        t4 = time.monotonic()
+        props_recommendations.callback(date=date, min_ev=min_ev, top=top, market=market)
+        timings['recommendations_sec'] = round(time.monotonic() - t4, 3)
+    except Exception as e:
+        try:
+            t4b = time.monotonic()
+            props_recommendations(date=date, min_ev=min_ev, top=top, market=market)
+            timings['recommendations_sec'] = round(time.monotonic() - t4b, 3)
+        except Exception as e2:
+            import traceback
+            print('[fast] recommendations failed:', e2)
+            traceback.print_exc()
+            timings['recommendations_error'] = str(e2)
+    timings['total_sec'] = round(time.monotonic() - t0, 3)
     try:
-        if hist is not None and not hist.empty and 'player' in hist.columns:
-            import re, ast
-            from .data import rosters as _rosters_mod  # type: ignore
-            roster = _rosters_mod.build_all_team_roster_snapshots()
-            last_to_full = {}
-            if roster is not None and not roster.empty and 'full_name' in roster.columns:
-                for nm in roster['full_name'].dropna().astype(str).unique().tolist():
-                    parts = nm.strip().split(' ')
-                    if len(parts) >= 2:
-                        last = parts[-1].lower()
-                        last_to_full.setdefault(last, set()).add(nm)
-            def _extract_default(s: str):
-                if isinstance(s, str) and s.strip().startswith('{'):
-                    try:
-                        d = ast.literal_eval(s)
-                        if isinstance(d, dict):
-                            v = d.get('default') or d.get('name') or ''
-                            if isinstance(v, str):
-                                return v
-                    except Exception:
-                        return s
-                return s
-            def _fix(n: str) -> str:
-                n = _extract_default(n)
-                m = re.match(r"^([A-Za-z])[\.]?\s+([A-Za-z\-']+)$", str(n).strip())
-                if m:
-                    ini = m.group(1).lower(); last = m.group(2).lower()
-                    cands = list(last_to_full.get(last, []))
-                    if len(cands) == 1:
-                        return cands[0]
-                    for c in cands:
-                        first = c.split(' ')[0]
-                        if first and first[0].lower() == ini:
-                            return c
-                return str(n)
-            hist['player'] = hist['player'].astype(str).map(_fix)
+        out = PROC_DIR / f"props_timing_{date}.json"
+        with open(out, 'w', encoding='utf-8') as f:
+            json.dump(timings, f, indent=2)
+        print('[fast] timings:', timings, '\n[fast] wrote timings to', out)
     except Exception:
-        pass
+        print('[fast] timings:', timings)
+    print('[fast] done')
 
-    # 3) Compute projections CSV (ev_over and p_over per line)
-    shots = SkaterShotsModel(); saves = GoalieSavesModel(); goals = SkaterGoalsModel(); assists = SkaterAssistsModel(); points = SkaterPointsModel(); blocks = SkaterBlocksModel()
-    def proj_prob(m, player, ln):
-        m = (m or '').upper()
-        if m == 'SOG':
-            lam = shots.player_lambda(hist, player); return lam, shots.prob_over(lam, ln)
-        if m == 'SAVES':
-            lam = saves.player_lambda(hist, player); return lam, saves.prob_over(lam, ln)
-        if m == 'GOALS':
-            lam = goals.player_lambda(hist, player); return lam, goals.prob_over(lam, ln)
-        if m == 'ASSISTS':
-            lam = assists.player_lambda(hist, player); return lam, assists.prob_over(lam, ln)
-        if m == 'POINTS':
-            lam = points.player_lambda(hist, player); return lam, points.prob_over(lam, ln)
-        if m == 'BLOCKS':
-            lam = blocks.player_lambda(hist, player); return lam, blocks.prob_over(lam, ln)
-        return None, None
-    def _dec(a):
-        try:
-            a = float(a); return 1.0 + (a/100.0) if a > 0 else 1.0 + (100.0/abs(a))
-        except Exception:
-            return None
-    proj_rows = []
-    for _, r in lines.iterrows():
-        player = r.get('player_name') or r.get('player')
-        if not player:
-            continue
-        m = str(r.get('market') or '').upper()
-        try:
-            ln = float(r.get('line'))
-        except Exception:
-            ln = None
-        lam, p_over = (None, None)
-        if ln is not None:
-            lam, p_over = proj_prob(m, str(player), ln)
-        op = r.get('over_price'); up = r.get('under_price')
-        ev_over = None
-        if (p_over is not None) and (op is not None):
-            dec = _dec(op)
-            if dec is not None:
-                ev_over = float(p_over) * (dec - 1.0) - (1.0 - float(p_over))
-        team_val = r.get('team') or player_team_map.get(_norm_name(player).lower())
-        proj_rows.append({
-            'market': m,
-            'player': player,
-            'team': _abbr_team(team_val) if team_val else None,
-            'line': ln,
-            'over_price': op if pd.notna(op) else None,
-            'under_price': up if pd.notna(up) else None,
-            'proj_lambda': float(lam) if lam is not None else None,
-            'p_over': float(p_over) if p_over is not None else None,
-            'ev_over': float(ev_over) if ev_over is not None else None,
-            'book': r.get('book'),
-        })
-    df_proj = pd.DataFrame(proj_rows)
-    if not df_proj.empty:
-        try:
-            if df_proj['ev_over'].notna().any():
-                df_proj = df_proj.sort_values(['ev_over','p_over'], ascending=[False, False])
-            elif df_proj['p_over'].notna().any():
-                df_proj = df_proj.sort_values('p_over', ascending=False)
-        except Exception:
-            pass
-    out_proj = PROC_DIR / f"props_projections_{date}.csv"
-    save_df(df_proj, out_proj)
-    print(f"Wrote {out_proj} with {0 if df_proj is None or df_proj.empty else len(df_proj)} rows")
-
-    # 4) Compute recommendations CSV using same logic as props_recommendations
-    rec_rows = []
-    for _, r in lines.iterrows():
-        m = str(r.get('market') or '').upper()
-        if market and m != market.upper():
-            continue
-        player = r.get('player_name') or r.get('player')
-        if not player:
-            continue
-        try:
-            ln = float(r.get('line'))
-        except Exception:
-            continue
-        op = r.get('over_price'); up = r.get('under_price')
-        if pd.isna(op) and pd.isna(up):
-            continue
-        lam, p_over = proj_prob(m, str(player), ln)
-        if lam is None or p_over is None:
-            continue
-        ev_o = (p_over * (_dec(op)-1.0) - (1.0 - p_over)) if (op is not None and _dec(op) is not None) else None
-        p_under = max(0.0, 1.0 - float(p_over))
-        ev_u = (p_under * (_dec(up)-1.0) - (1.0 - p_under)) if (up is not None and _dec(up) is not None) else None
-        side = None; ev = None; price = None
-        if ev_o is not None or ev_u is not None:
-            if (ev_u is None) or (ev_o is not None and ev_o >= ev_u):
-                side = 'Over'; price = op; ev = ev_o
-            else:
-                side = 'Under'; price = up; ev = ev_u
-        if ev is None or not (float(ev) >= float(min_ev)):
-            continue
-        team_val = r.get('team') or player_team_map.get(_norm_name(player).lower())
-        rec_rows.append({
-            'date': date,
-            'player': player,
-            'team': _abbr_team(team_val) if team_val else None,
-            'market': m,
-            'line': ln,
-            'proj': float(lam),
-            'p_over': float(p_over),
-            'over_price': op if pd.notna(op) else None,
-            'under_price': up if pd.notna(up) else None,
-            'book': r.get('book'),
-            'side': side,
-            'ev': float(ev) if ev is not None else None,
-        })
-    df_rec = pd.DataFrame(rec_rows)
-    if not df_rec.empty:
-        df_rec = df_rec.sort_values('ev', ascending=False)
-        if top and top > 0:
-            df_rec = df_rec.head(top)
-    out_rec = PROC_DIR / f"props_recommendations_{date}.csv"
-    save_df(df_rec, out_rec)
-    print(f"Wrote {out_rec} with {0 if df_rec is None or df_rec.empty else len(df_rec)} rows")
+# Alias
+@app.command(name="props_fast")
+def props_fast_alias(
+    date: str = typer.Option(..., help="Slate date YYYY-MM-DD (ET)"),
+    min_ev: float = typer.Option(0.0, help="Minimum EV threshold for recommendations"),
+    top: int = typer.Option(400, help="Top N recommendations to keep"),
+    market: str = typer.Option("", help="Optional market filter: SOG,SAVES,GOALS,ASSISTS,POINTS,BLOCKS"),
+):
+    return props_fast(date=date, min_ev=min_ev, top=top, market=market)
 
 
 @app.command()
@@ -2585,7 +2337,8 @@ def props_project_all(
         except Exception:
             return True
     import os as _os
-    if (str(_os.getenv("PROPS_SKIP_HISTORY", "")).strip().lower() not in ("1","true","yes")) and _needs_history(stats_path):
+    # Default to skipping history backfill for speed unless explicitly opted-in
+    if (str(_os.getenv("PROPS_FORCE_HISTORY", "")).strip().lower() in ("1","true","yes")) and _needs_history(stats_path):
         try:
             start = (_dt.strptime(date, "%Y-%m-%d") - _td(days=int(ensure_history_days))).strftime("%Y-%m-%d")
             try:

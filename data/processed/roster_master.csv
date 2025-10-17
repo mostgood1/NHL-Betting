@@ -490,6 +490,7 @@ player_id,player,full_name,position,team_id,team_abbr,team_name,image_url
 8479343,Clayton Keller,Clayton Keller,F,,UTA,Utah Mammoth,https://assets.nhle.com/mugs/nhl/20252026/UTA/8479343.png
 8477021,Alexander Kerfoot,Alexander Kerfoot,F,,UTA,Utah Mammoth,https://assets.nhle.com/mugs/nhl/20252026/UTA/8477021.png
 8480855,Jack McBain,Jack McBain,F,,UTA,Utah Mammoth,https://assets.nhle.com/mugs/nhl/20252026/UTA/8480855.png
+8477070,Liam O'Brien,Liam O'Brien,F,,UTA,Utah Mammoth,https://assets.nhle.com/mugs/nhl/20252026/UTA/8477070.png
 8482175,JJ Peterka,JJ Peterka,F,,UTA,Utah Mammoth,https://assets.nhle.com/mugs/nhl/20252026/UTA/8482175.png
 8477951,Nick Schmaltz,Nick Schmaltz,F,,UTA,Utah Mammoth,https://assets.nhle.com/mugs/nhl/20252026/UTA/8477951.png
 8478831,Kevin Stenlund,Kevin Stenlund,F,,UTA,Utah Mammoth,https://assets.nhle.com/mugs/nhl/20252026/UTA/8478831.png
@@ -497,7 +498,6 @@ player_id,player,full_name,position,team_id,team_abbr,team_name,image_url
 8479977,Kailer Yamamoto,Kailer Yamamoto,F,,UTA,Utah Mammoth,https://assets.nhle.com/mugs/nhl/20252026/UTA/8479977.png
 8474013,Ian Cole,Ian Cole,D,,UTA,Utah Mammoth,https://assets.nhle.com/mugs/nhl/20252026/UTA/8474013.png
 8480084,Nick DeSimone,Nick DeSimone,D,,UTA,Utah Mammoth,https://assets.nhle.com/mugs/nhl/20252026/UTA/8480084.png
-8480434,Sean Durzi,Sean Durzi,D,,UTA,Utah Mammoth,https://assets.nhle.com/mugs/nhl/20252026/UTA/8480434.png
 8478507,John Marino,John Marino,D,,UTA,Utah Mammoth,https://assets.nhle.com/mugs/nhl/20252026/UTA/8478507.png
 8476874,Olli Määttä,Olli Määttä,D,,UTA,Utah Mammoth,https://assets.nhle.com/mugs/nhl/20252026/UTA/8476874.png
 8477220,Nate Schmidt,Nate Schmidt,D,,UTA,Utah Mammoth,https://assets.nhle.com/mugs/nhl/20252026/UTA/8477220.png
@@ -613,6 +613,7 @@ player_id,player,full_name,position,team_id,team_abbr,team_name,image_url
 8476453,Nikita Kucherov,Nikita Kucherov,F,,TBL,Tampa Bay Lightning,https://assets.nhle.com/mugs/nhl/20252026/TBL/8476453.png
 8477426,Nick Paul,Nick Paul,F,,TBL,Tampa Bay Lightning,https://assets.nhle.com/mugs/nhl/20252026/TBL/8477426.png
 8478010,Brayden Point,Brayden Point,F,,TBL,Tampa Bay Lightning,https://assets.nhle.com/mugs/nhl/20252026/TBL/8478010.png
+8477149,Scott Sabourin,Scott Sabourin,F,,TBL,Tampa Bay Lightning,https://assets.nhle.com/mugs/nhl/20252026/TBL/8477149.png
 8478416,Erik Cernak,Erik Cernak,D,,TBL,Tampa Bay Lightning,https://assets.nhle.com/mugs/nhl/20252026/TBL/8478416.png
 8481719,Max Crozier,Max Crozier,D,,TBL,Tampa Bay Lightning,https://assets.nhle.com/mugs/nhl/20252026/TBL/8481719.png
 8475167,Victor Hedman,Victor Hedman,D,,TBL,Tampa Bay Lightning,https://assets.nhle.com/mugs/nhl/20252026/TBL/8475167.png
@@ -749,7 +750,6 @@ player_id,player,full_name,position,team_id,team_abbr,team_name,image_url
 8482679,Matt Coronato,Matt Coronato,F,,CGY,Calgary Flames,https://assets.nhle.com/mugs/nhl/20252026/CGY/8482679.png
 8480797,Joel Farabee,Joel Farabee,F,,CGY,Calgary Flames,https://assets.nhle.com/mugs/nhl/20252026/CGY/8480797.png
 8480028,Morgan Frost,Morgan Frost,F,,CGY,Calgary Flames,https://assets.nhle.com/mugs/nhl/20252026/CGY/8480028.png
-8484860,Matvei Gridin,Matvei Gridin,F,,CGY,Calgary Flames,https://assets.nhle.com/mugs/nhl/20252026/CGY/8484860.png
 8484180,Samuel Honzek,Samuel Honzek,F,,CGY,Calgary Flames,https://assets.nhle.com/mugs/nhl/20252026/CGY/8484180.png
 8476456,Jonathan Huberdeau,Jonathan Huberdeau,F,,CGY,Calgary Flames,https://assets.nhle.com/mugs/nhl/20252026/CGY/8476456.png
 8475172,Nazem Kadri,Nazem Kadri,F,,CGY,Calgary Flames,https://assets.nhle.com/mugs/nhl/20252026/CGY/8475172.png

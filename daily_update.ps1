@@ -30,6 +30,9 @@ $Activate = Join-Path $Venv "Scripts/Activate.ps1"
 if (-not (Test-Path $Activate)) { python -m venv $Venv }
 . $Activate
 
+# Enable NPU-accelerated NN model precomputation for props
+$env:PROPS_PRECOMPUTE_ALL = "1"
+
 # Ensure dependencies
 pip install -q -r (Join-Path $RepoRoot "requirements.txt")
 

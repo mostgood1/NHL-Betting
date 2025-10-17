@@ -14,6 +14,7 @@ import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
+import onnxruntime as ort
 
 
 @dataclass
@@ -92,13 +93,16 @@ class NNPropsModel:
         market: str,  # SOG, GOALS, ASSISTS, POINTS, SAVES, BLOCKS
         cfg: NNPropsConfig | None = None,
         model_dir: Path | None = None,
+        use_npu: bool = True,  # Use NPU (ONNX/QNN) vs CPU (PyTorch)
     ):
         self.market = market.upper()
         self.cfg = cfg or NNPropsConfig()
         self.model_dir = model_dir or Path("data/models/nn_props")
         self.model_dir.mkdir(parents=True, exist_ok=True)
+        self.use_npu = use_npu
         
         self.model: Optional[PlayerPropsNN] = None
+        self.onnx_session: Optional[ort.InferenceSession] = None
         self.feature_columns: List[str] = []
         self.scaler_mean: Optional[np.ndarray] = None
         self.scaler_std: Optional[np.ndarray] = None
@@ -117,10 +121,9 @@ class NNPropsModel:
     
     def _try_load(self) -> bool:
         """Load model weights and metadata if available."""
-        model_path = self._get_model_path()
         meta_path = self._get_metadata_path()
         
-        if not (model_path.exists() and meta_path.exists()):
+        if not meta_path.exists():
             return False
         
         try:
@@ -131,14 +134,53 @@ class NNPropsModel:
             self.scaler_std = meta["scaler_std"]
             input_dim = len(self.feature_columns)
             
-            # Initialize and load model
-            self.model = PlayerPropsNN(input_dim, self.cfg)
-            self.model.load_state_dict(torch.load(model_path, weights_only=True))
-            self.model.eval()
-            return True
+            if self.use_npu:
+                # Load ONNX model for NPU inference
+                onnx_path = self._get_onnx_path()
+                if not onnx_path.exists():
+                    print(f"[warn] ONNX model not found for {self.market}, falling back to CPU")
+                    self.use_npu = False
+                else:
+                    # QNN execution provider for Qualcomm NPU
+                    qnn_sdk = os.environ.get("QNN_SDK_ROOT", r"C:\Qualcomm\QNN_SDK")
+                    providers = [
+                        (
+                            "QNNExecutionProvider",
+                            {
+                                "backend_path": f"{qnn_sdk}\\lib\\arm64x-windows-msvc\\QnnHtp.dll",
+                                "qnn_context_priority": "high",
+                            },
+                        ),
+                        "CPUExecutionProvider",  # Fallback
+                    ]
+                    
+                    self.onnx_session = ort.InferenceSession(
+                        str(onnx_path),
+                        providers=providers,
+                    )
+                    
+                    # Verify NPU is being used
+                    active_provider = self.onnx_session.get_providers()[0]
+                    print(f"[npu] {self.market} model loaded with {active_provider}")
+                    return True
+            
+            if not self.use_npu:
+                # Load PyTorch model for CPU inference
+                model_path = self._get_model_path()
+                if not model_path.exists():
+                    return False
+                    
+                self.model = PlayerPropsNN(input_dim, self.cfg)
+                self.model.load_state_dict(torch.load(model_path, weights_only=True))
+                self.model.eval()
+                print(f"[cpu] {self.market} model loaded with PyTorch CPU")
+                return True
+                
         except Exception as e:
             print(f"[warn] Failed to load NN model for {self.market}: {e}")
             return False
+        
+        return False
     
     def _prepare_features(
         self,
@@ -154,8 +196,29 @@ class NNPropsModel:
         - Opponent strength (optional)
         - TOI, position, etc.
         """
+        # Check if player_name column already exists (from train method)
+        if "player_name" not in df.columns:
+            # Parse player names if they're in dictionary format
+            import json
+            df = df.copy()
+            
+            # Handle player name format: {'default': 'Name'} or just 'Name'
+            def parse_player_name(p):
+                if pd.isna(p):
+                    return ""
+                p_str = str(p)
+                if p_str.startswith("{"):
+                    try:
+                        p_dict = json.loads(p_str.replace("'", '"'))
+                        return p_dict.get("default", "")
+                    except:
+                        return p_str
+                return p_str
+            
+            df["player_name"] = df["player"].apply(parse_player_name)
+        
         # Filter to player rows
-        pdf = df[df["player"].astype(str).str.lower() == player.lower()].copy()
+        pdf = df[df["player_name"].astype(str).str.lower() == player.lower()].copy()
         pdf = pdf[pdf["role"].astype(str).str.lower() == role.lower()].copy()
         
         if pdf.empty:
@@ -166,6 +229,15 @@ class NNPropsModel:
         
         # Rolling features for target metric
         metric_col = self._get_metric_column()
+        
+        # Special handling for POINTS - calculate from goals + assists
+        if self.market == "POINTS" and metric_col == "points":
+            if "goals" in pdf.columns and "assists" in pdf.columns:
+                pdf["points"] = pd.to_numeric(pdf["goals"], errors="coerce").fillna(0) + \
+                               pd.to_numeric(pdf["assists"], errors="coerce").fillna(0)
+            else:
+                return None
+        
         if metric_col not in pdf.columns:
             return None
         
@@ -203,7 +275,7 @@ class NNPropsModel:
             "ASSISTS": "assists",
             "POINTS": "points",
             "SAVES": "saves",
-            "BLOCKS": "blocked_shots",
+            "BLOCKS": "blocked",  # Column is "blocked" not "blocked_shots"
         }
         return mapping.get(self.market, "shots")
     
@@ -227,21 +299,77 @@ class NNPropsModel:
         all_features = []
         role = "goalie" if self.market == "SAVES" else "skater"
         
-        players = df["player"].unique()
+        # Parse player names from dictionary format if needed
+        import json
+        df_copy = df.copy()
+        
+        def parse_player_name(p):
+            if pd.isna(p):
+                return ""
+            p_str = str(p)
+            if p_str.startswith("{"):
+                try:
+                    p_dict = json.loads(p_str.replace("'", '"'))
+                    return p_dict.get("default", "")
+                except:
+                    return p_str
+            return p_str
+        
+        df_copy["player_name"] = df_copy["player"].apply(parse_player_name)
+        players = df_copy["player_name"].unique()
+        players = [p for p in players if p and str(p).strip()]  # Filter out empty names
+        
         if verbose:
             print(f"[train] Preparing features for {len(players)} players...")
         
-        for player in players:
-            feats = self._prepare_features(df, player, role)
+        success_count = 0
+        for i, player in enumerate(players):
+            # Pass the parsed df_copy instead of original df
+            feats = self._prepare_features(df_copy, player, role)
             if feats is not None and not feats.empty:
                 all_features.append(feats)
+                success_count += 1
+            
+            # Progress logging
+            if verbose and (i + 1) % 500 == 0:
+                print(f"[train] Processed {i+1}/{len(players)} players, {success_count} with valid features...")
+        
+        if verbose:
+            print(f"[train] Feature prep complete: {success_count}/{len(players)} players with valid data")
         
         if not all_features:
             raise ValueError(f"No training data available for {self.market}")
         
         # Combine all player features
+        if verbose:
+            print(f"[train] Combining {len(all_features)} player feature sets...")
+            # Check sample sizes
+            sample_sizes = [len(f) for f in all_features[:5]]
+            print(f"[train] Sample feature set sizes: {sample_sizes}")
+        
         data = pd.concat(all_features, ignore_index=True)
+        
+        if verbose:
+            print(f"[train] Combined data shape: {data.shape}")
+            print(f"[train] Columns: {list(data.columns)}")
+            null_counts = data.isnull().sum()
+            if null_counts.sum() > 0:
+                print(f"[train] Columns with nulls: {null_counts[null_counts > 0].to_dict()}")
+        
+        # Fill NaN values in one-hot encoded columns with 0
+        # (sparse team features should be 0, not NaN)
+        team_cols = [c for c in data.columns if c.startswith('team_')]
+        if team_cols:
+            data[team_cols] = data[team_cols].fillna(0)
+            if verbose:
+                print(f"[train] Filled {len(team_cols)} team columns with 0s")
+        
+        # Now drop rows with NaN in critical columns only
+        before_dropna = len(data)
         data = data.dropna()
+        
+        if verbose:
+            print(f"[train] After dropna: {len(data)} samples (dropped {before_dropna - len(data)})")
         
         if len(data) < 100:
             raise ValueError(f"Insufficient training data: {len(data)} samples")
@@ -253,10 +381,17 @@ class NNPropsModel:
         X = data[feature_cols].values
         y = data[target_col].values
         
+        # Ensure X and y are proper numpy arrays
+        X = np.asarray(X, dtype=np.float32)
+        y = np.asarray(y, dtype=np.float32)
+        
+        if verbose:
+            print(f"[train] Feature matrix: {X.shape}, Target: {y.shape}")
+        
         # Normalize features
         self.feature_columns = feature_cols
-        self.scaler_mean = X.mean(axis=0)
-        self.scaler_std = X.std(axis=0) + 1e-8
+        self.scaler_mean = np.mean(X, axis=0)
+        self.scaler_std = np.std(X, axis=0) + 1e-8
         X_scaled = (X - self.scaler_mean) / self.scaler_std
         
         # Train/val split
@@ -335,8 +470,14 @@ class NNPropsModel:
             scaler_std=self.scaler_std,
         )
         
-        # Export to ONNX
-        self.export_onnx()
+        # Export to ONNX (optional - will warn if dependencies missing)
+        try:
+            self.export_onnx()
+        except Exception as e:
+            import warnings
+            warnings.warn(f"ONNX export failed (model still saved as PyTorch): {e}")
+            if verbose:
+                print(f"[warn] ONNX export skipped: {e}")
         
         return {
             "best_val_loss": best_val_loss,
@@ -378,7 +519,7 @@ class NNPropsModel:
         
         Returns None if model not available or player has insufficient history.
         """
-        if self.model is None:
+        if self.model is None and self.onnx_session is None:
             return None
         
         role = "goalie" if self.market == "SAVES" else "skater"
@@ -401,9 +542,19 @@ class NNPropsModel:
         X_scaled = (X - self.scaler_mean) / self.scaler_std
         
         # Inference
-        self.model.eval()
-        with torch.no_grad():
-            X_tensor = torch.FloatTensor(X_scaled).unsqueeze(0)
-            lam = self.model(X_tensor).item()
+        if self.use_npu and self.onnx_session is not None:
+            # NPU inference via ONNX Runtime with QNN
+            input_data = X_scaled.astype(np.float32).reshape(1, -1)
+            input_name = self.onnx_session.get_inputs()[0].name
+            output_name = self.onnx_session.get_outputs()[0].name
+            
+            result = self.onnx_session.run([output_name], {input_name: input_data})
+            lam = float(result[0][0])
+        else:
+            # CPU inference via PyTorch
+            self.model.eval()
+            with torch.no_grad():
+                X_tensor = torch.FloatTensor(X_scaled).unsqueeze(0)
+                lam = self.model(X_tensor).item()
         
         return float(lam)

@@ -118,7 +118,7 @@ def train_all(
         print(f"{'='*60}")
         
         try:
-            train.callback(
+            train(
                 market=market,
                 epochs=epochs,
                 batch_size=128,

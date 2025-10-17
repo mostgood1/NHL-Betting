@@ -16,6 +16,7 @@ from .data.nhl_api_web import NHLWebClient
 from .features.engineering import make_team_game_features
 from .models.elo import Elo
 from .models.elo import Elo, EloConfig
+
 def _load_elo_config() -> EloConfig:
     """Load EloConfig from MODEL_DIR/config.json if present, else defaults.
 
@@ -680,6 +681,17 @@ def predict_core(
             odds_df = None
     else:
         print("Unknown odds_source. Use 'csv', 'oddsapi', or 'bovada'.")
+    
+    # Load PERIOD_GOALS model for period-by-period predictions (lazy import to avoid DLL issues on web server)
+    period_model = None
+    try:
+        from .models.nn_games import NNGameModel  # Lazy import
+        period_model = NNGameModel(model_type="PERIOD_GOALS", model_dir=MODEL_DIR / "nn_games")
+        if period_model.model is None:
+            period_model = None
+    except Exception:
+        period_model = None
+    
     for g in games:
         # Skip non-NHL matchups if any slipped through
         try:
@@ -768,6 +780,24 @@ def predict_core(
         proj_away_goals = float(lam_a)
         model_total = float(lam_h + lam_a)
         model_spread = float(lam_h - lam_a)
+        
+        # Period-by-period predictions if model available
+        p1_home, p1_away, p2_home, p2_away, p3_home, p3_away = None, None, None, None, None, None
+        if period_model is not None:
+            try:
+                # Build feature dict for period prediction (minimal features needed)
+                game_features = {
+                    "home_elo": elo.get(g.home),
+                    "away_elo": elo.get(g.away),
+                    "is_home": 1.0,
+                    # Add other features as needed by the model
+                }
+                # Predict returns array [p1_home, p1_away, p2_home, p2_away, p3_home, p3_away]
+                period_preds = period_model.predict(g.home, g.away, game_features)
+                if period_preds is not None and len(period_preds) == 6:
+                    p1_home, p1_away, p2_home, p2_away, p3_home, p3_away = period_preds
+            except Exception:
+                pass
 
         # Build base row with model probabilities
         row = {
@@ -781,6 +811,13 @@ def predict_core(
             "proj_away_goals": round(proj_away_goals, 2),
             "model_total": round(model_total, 2),
             "model_spread": round(model_spread, 2),
+            # Period projections
+            "period1_home_proj": round(float(p1_home), 2) if p1_home is not None else None,
+            "period1_away_proj": round(float(p1_away), 2) if p1_away is not None else None,
+            "period2_home_proj": round(float(p2_home), 2) if p2_home is not None else None,
+            "period2_away_proj": round(float(p2_away), 2) if p2_away is not None else None,
+            "period3_home_proj": round(float(p3_home), 2) if p3_home is not None else None,
+            "period3_away_proj": round(float(p3_away), 2) if p3_away is not None else None,
             "p_home_ml": p_home_cal,
             "p_away_ml": p_away_cal,
             "p_over": p_over_cal,

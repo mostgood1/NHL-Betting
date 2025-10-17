@@ -18,15 +18,29 @@
   .last-sb { font-variant-numeric:tabular-nums; }
   .pause-btn { margin-left:4px; }
   .debug-date { font-size:0.65rem; color:#c33; margin-left:6px; }
-  /* Period projections styling */
-  .period-projections { margin: 12px 0; border: 1px solid var(--border, #243356); border-radius: 8px; background: var(--card-bg, #0f1530); }
-  .period-projections summary { cursor: pointer; padding: 8px 12px; font-weight: 600; color: var(--text, #cfe0ff); user-select: none; }
+  /* Period projections - Traditional line score table */
+  .period-projections { margin: 12px 0; border: 1px solid var(--border, #243356); border-radius: 8px; background: var(--card-bg, #0f1530); overflow: hidden; }
+  .period-projections summary { cursor: pointer; padding: 10px 14px; font-weight: 600; font-size: 13px; color: var(--text, #cfe0ff); user-select: none; border-bottom: 1px solid var(--border, #243356); background: rgba(255,255,255,0.02); }
   .period-projections summary::-webkit-details-marker { display: none; }
-  .period-grid { padding: 8px 12px; display: grid; gap: 6px; }
-  .period-row { display: flex; justify-content: space-between; font-size: 13px; color: var(--text-muted, #9fb0ff); }
-  .period-row.period-total { font-weight: 600; color: var(--text, #cfe0ff); border-top: 1px solid var(--border, #243356); padding-top: 6px; margin-top: 4px; }
-  .period-label { opacity: 0.8; }
-  .period-score { font-variant-numeric: tabular-nums; }
+  .period-projections[open] summary { background: rgba(255,255,255,0.04); }
+  .line-score { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+  .line-score thead th { text-align: center; padding: 8px 6px; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted, #9fb0ff); background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--border, #243356); }
+  .line-score thead th:first-child { text-align: left; padding-left: 14px; }
+  .line-score tbody td { text-align: center; padding: 10px 6px; color: var(--text, #cfe0ff); border-bottom: 1px solid rgba(36, 51, 86, 0.3); }
+  .line-score tbody tr:last-child td { border-bottom: none; }
+  .line-score tbody td.team-name { text-align: left; padding-left: 14px; font-weight: 600; }
+  .line-score tbody td.total-val { font-weight: 700; background: rgba(255,255,255,0.03); border-left: 1px solid var(--border, #243356); }
+  .line-score tbody .period-val { color: var(--text-muted, #9fb0ff); }
+  .line-score tbody .home-row { background: rgba(255,255,255,0.01); }
+  /* Light mode overrides */
+  body.light .period-projections { border-color: #cbd5e1; background: #ffffff; }
+  body.light .period-projections summary { color: #0a0f1c; border-bottom-color: #cbd5e1; background: #f8fafc; }
+  body.light .period-projections[open] summary { background: #f1f5f9; }
+  body.light .line-score thead th { color: #475569; background: #f8fafc; border-bottom-color: #cbd5e1; }
+  body.light .line-score tbody td { color: #0a0f1c; border-bottom-color: #e2e8f0; }
+  body.light .line-score tbody td.total-val { background: #f1f5f9; border-left-color: #cbd5e1; }
+  body.light .line-score tbody .period-val { color: #64748b; }
+  body.light .line-score tbody .home-row { background: #f8fafc; }
   </style>
   <script>
   // Theme toggle initialization (before page render)
@@ -147,38 +161,40 @@
                 </div>
               </div>
             </div>
-            {# Period-by-period projections (placeholder until Phase B models trained) #}
-            <details class="period-projections">
-              <summary>Period Projections ▾</summary>
-              <div class="period-grid">
-                {% set pag = r.get('proj_away_goals') %}
-                {% set phg = r.get('proj_home_goals') %}
-                {% if pag is not none and phg is not none %}
-                  {% set p1_away = pag / 3.0 %}
-                  {% set p1_home = phg / 3.0 %}
-                  <div class="period-row">
-                    <span class="period-label">Period 1:</span>
-                    <span class="period-score">Away {{ '%.2f' % p1_away }} / Home {{ '%.2f' % p1_home }}</span>
-                  </div>
-                  <div class="period-row">
-                    <span class="period-label">Period 2:</span>
-                    <span class="period-score">Away {{ '%.2f' % p1_away }} / Home {{ '%.2f' % p1_home }}</span>
-                  </div>
-                  <div class="period-row">
-                    <span class="period-label">Period 3:</span>
-                    <span class="period-score">Away {{ '%.2f' % p1_away }} / Home {{ '%.2f' % p1_home }}</span>
-                  </div>
-                  <div class="period-row period-total">
-                    <span class="period-label">Model Total:</span>
-                    <span class="period-score">{{ '%.2f' % r.model_total if r.get('model_total') is not none else '—' }}</span>
-                  </div>
-                {% else %}
-                  <div class="period-row">
-                    <span class="period-label">No period projections available yet</span>
-                  </div>
-                {% endif %}
-              </div>
+            {# Period-by-period projections - Traditional line score format #}
+            {% set has_period_data = r.get('period1_home_proj') is not none and r.get('period1_away_proj') is not none %}
+            {% if has_period_data %}
+            <details class="period-projections" open>
+              <summary>Projected Line Score ▾</summary>
+              <table class="line-score">
+                <thead>
+                  <tr>
+                    <th>Team</th>
+                    <th>1st</th>
+                    <th>2nd</th>
+                    <th>3rd</th>
+                    <th>Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr class="away-row">
+                    <td class="team-name">{{ r.get('away', '') }}</td>
+                    <td class="period-val">{{ '%.2f' % r.period1_away_proj if r.get('period1_away_proj') is not none else '—' }}</td>
+                    <td class="period-val">{{ '%.2f' % r.period2_away_proj if r.get('period2_away_proj') is not none else '—' }}</td>
+                    <td class="period-val">{{ '%.2f' % r.period3_away_proj if r.get('period3_away_proj') is not none else '—' }}</td>
+                    <td class="total-val">{{ '%.2f' % r.proj_away_goals if r.get('proj_away_goals') is not none else '—' }}</td>
+                  </tr>
+                  <tr class="home-row">
+                    <td class="team-name">{{ r.get('home', '') }}</td>
+                    <td class="period-val">{{ '%.2f' % r.period1_home_proj if r.get('period1_home_proj') is not none else '—' }}</td>
+                    <td class="period-val">{{ '%.2f' % r.period2_home_proj if r.get('period2_home_proj') is not none else '—' }}</td>
+                    <td class="period-val">{{ '%.2f' % r.period3_home_proj if r.get('period3_home_proj') is not none else '—' }}</td>
+                    <td class="total-val">{{ '%.2f' % r.proj_home_goals if r.get('proj_home_goals') is not none else '—' }}</td>
+                  </tr>
+                </tbody>
+              </table>
             </details>
+            {% endif %}
             <div class="row chips">
               <div class="chip title">Moneyline</div>
               {% set ev_a_ml = r.ev_away_ml if 'ev_away_ml' in r else None %}

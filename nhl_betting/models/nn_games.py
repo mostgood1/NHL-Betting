@@ -41,6 +41,7 @@ class NNGamesConfig:
     include_roster_strength: bool = True  # aggregate player stats
     include_rest_days: bool = True
     include_time_of_season: bool = True
+    include_team_encoding: bool = True  # one-hot encode teams for team-specific learning
     
     # Output type
     task: str = "classification"  # classification, regression, multi_output
@@ -275,6 +276,14 @@ class NNGameModel:
             # Home ice advantage indicator
             feat_dict["is_home"] = 1.0
             
+            # Team-specific features (one-hot encoding for team awareness)
+            # This allows the model to learn team-specific tendencies
+            if self.cfg.include_team_encoding:
+                # Add home team indicator
+                feat_dict[f"home_team_{home_team}"] = 1.0
+                # Add away team indicator
+                feat_dict[f"away_team_{away_team}"] = 1.0
+            
             features.append(feat_dict)
             
             # Target values based on model type
@@ -308,6 +317,8 @@ class NNGameModel:
             targets.append(target)
         
         features_df = pd.DataFrame(features)
+        # Fill NaN values with 0 (for missing team encodings and other features)
+        features_df = features_df.fillna(0.0)
         targets_array = np.array(targets)
         
         return features_df, targets_array
@@ -501,8 +512,15 @@ class NNGameModel:
         if self.model is None:
             raise ValueError("Model not trained or loaded")
         
-        # Build feature vector
-        X = np.array([game_features.get(col, 0) for col in self.feature_columns], dtype=np.float32)
+        # Add team encoding features if model was trained with them
+        features_with_teams = game_features.copy()
+        if self.cfg.include_team_encoding:
+            # Add team indicators (will be 0.0 if not in feature_columns)
+            features_with_teams[f"home_team_{home_team}"] = 1.0
+            features_with_teams[f"away_team_{away_team}"] = 1.0
+        
+        # Build feature vector (uses 0.0 for missing columns)
+        X = np.array([features_with_teams.get(col, 0) for col in self.feature_columns], dtype=np.float32)
         
         # Normalize
         X_scaled = (X - self.scaler_mean) / self.scaler_std

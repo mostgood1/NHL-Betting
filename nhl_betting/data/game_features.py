@@ -24,11 +24,19 @@ from nhl_betting.utils.io import RAW_DIR, MODEL_DIR
 
 def load_games() -> pd.DataFrame:
     """Load raw games data."""
+    # Try games_with_periods.csv first (larger dataset), fallback to games.csv
+    games_with_periods = RAW_DIR / "games_with_periods.csv"
     games_csv = RAW_DIR / "games.csv"
-    if not games_csv.exists():
-        raise FileNotFoundError(f"Games data not found: {games_csv}")
     
-    df = pd.read_csv(games_csv)
+    if games_with_periods.exists():
+        print(f"[load] Using {games_with_periods.name}")
+        df = pd.read_csv(games_with_periods)
+    elif games_csv.exists():
+        print(f"[load] Using {games_csv.name}")
+        df = pd.read_csv(games_csv)
+    else:
+        raise FileNotFoundError(f"Games data not found: {games_csv} or {games_with_periods}")
+    
     df["date"] = pd.to_datetime(df["date"])
     df = df.sort_values("date")
     return df
@@ -316,18 +324,21 @@ def prepare_game_features(output_path: Optional[Path] = None) -> pd.DataFrame:
         how="left"
     )
     
-    # Add period goals
-    result = result.merge(
-        period_df[[
-            "gamePk",
-            "period1_home_goals", "period1_away_goals",
-            "period2_home_goals", "period2_away_goals",
-            "period3_home_goals", "period3_away_goals",
-            "goals_first_10min"
-        ]],
-        on="gamePk",
-        how="left"
-    )
+    # Add period goals (only if not already in result)
+    period_cols = [
+        "period1_home_goals", "period1_away_goals",
+        "period2_home_goals", "period2_away_goals",
+        "period3_home_goals", "period3_away_goals",
+        "goals_first_10min"
+    ]
+    
+    # Check if period columns already exist in result
+    if not all(col in result.columns for col in period_cols):
+        result = result.merge(
+            period_df[["gamePk"] + period_cols],
+            on="gamePk",
+            how="left"
+        )
     
     # Add season progress
     result = result.merge(

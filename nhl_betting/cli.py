@@ -684,13 +684,18 @@ def predict_core(
     
     # Load PERIOD_GOALS model for period-by-period predictions (lazy import to avoid DLL issues on web server)
     period_model = None
+    first_10min_model = None
     try:
         from .models.nn_games import NNGameModel  # Lazy import
         period_model = NNGameModel(model_type="PERIOD_GOALS", model_dir=MODEL_DIR / "nn_games")
         if period_model.model is None:
             period_model = None
+        first_10min_model = NNGameModel(model_type="FIRST_10MIN", model_dir=MODEL_DIR / "nn_games")
+        if first_10min_model.model is None:
+            first_10min_model = None
     except Exception:
         period_model = None
+        first_10min_model = None
     
     for g in games:
         # Skip non-NHL matchups if any slipped through
@@ -783,6 +788,7 @@ def predict_core(
         
         # Period-by-period predictions if model available
         p1_home, p1_away, p2_home, p2_away, p3_home, p3_away = None, None, None, None, None, None
+        first_10min_proj = None
         if period_model is not None:
             try:
                 # Build feature dict for period prediction (minimal features needed)
@@ -796,6 +802,20 @@ def predict_core(
                 period_preds = period_model.predict(g.home, g.away, game_features)
                 if period_preds is not None and len(period_preds) == 6:
                     p1_home, p1_away, p2_home, p2_away, p3_home, p3_away = period_preds
+            except Exception:
+                pass
+        
+        # First 10 minutes prediction if model available
+        if first_10min_model is not None:
+            try:
+                # Reuse same features as period model
+                game_features = {
+                    "home_elo": elo.get(g.home),
+                    "away_elo": elo.get(g.away),
+                    "is_home": 1.0,
+                }
+                # Predict returns single value (total goals in first 10 min)
+                first_10min_proj = first_10min_model.predict(g.home, g.away, game_features)
             except Exception:
                 pass
 
@@ -818,6 +838,8 @@ def predict_core(
             "period2_away_proj": round(float(p2_away), 2) if p2_away is not None else None,
             "period3_home_proj": round(float(p3_home), 2) if p3_home is not None else None,
             "period3_away_proj": round(float(p3_away), 2) if p3_away is not None else None,
+            # First 10 minutes projection
+            "first_10min_proj": round(float(first_10min_proj), 2) if first_10min_proj is not None else None,
             "p_home_ml": p_home_cal,
             "p_away_ml": p_away_cal,
             "p_over": p_over_cal,
@@ -3908,6 +3930,75 @@ def props_stats_calibration(
         json.dump(out, f, indent=2)
     print(f"Saved calibration summary to {out_path} with {len(out['groups'])} groups")
     print("[props_watch] no props found; finished attempts")
+
+
+@app.command()
+def periods_recommend(
+    date: str = typer.Option(..., help="Date to analyze (YYYY-MM-DD or 'today')"),
+    min_prob: float = typer.Option(0.55, help="Minimum probability threshold (0-1)"),
+    top: int = typer.Option(50, help="Maximum number of recommendations"),
+    output: Optional[str] = typer.Option(None, help="Output CSV path"),
+):
+    """Generate period-specific betting recommendations.
+    
+    Analyzes period 1/2/3 totals, first 10 minute goals, and period winners.
+    Requires predictions with period projections.
+    """
+    from .models.period_betting import analyze_period_bets, format_period_bets_table
+    
+    # Parse date
+    if date == "today":
+        date = datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
+    
+    # Load predictions with period data
+    pred_path = PROC_DIR / f"predictions_{date}.csv"
+    if not pred_path.exists():
+        print(f"[error] Predictions not found for {date}")
+        print(f"[hint] Run: python -m nhl_betting.cli predict --date {date} --source web")
+        raise typer.Exit(code=1)
+    
+    try:
+        df = pd.read_csv(pred_path)
+    except Exception as e:
+        print(f"[error] Failed to load predictions: {e}")
+        raise typer.Exit(code=1)
+    
+    # Check for period columns
+    required_cols = ["period1_home_proj", "period1_away_proj"]
+    if not all(col in df.columns for col in required_cols):
+        print(f"[error] Predictions missing period projections")
+        print(f"[hint] Predictions must include period-by-period data")
+        raise typer.Exit(code=1)
+    
+    print(f"[analyze] Finding period betting opportunities for {date}")
+    print(f"  Min probability: {min_prob*100:.1f}%")
+    print(f"  Games: {len(df)}")
+    
+    # Analyze period bets
+    bets = analyze_period_bets(df, min_prob=min_prob)
+    
+    if not bets:
+        print(f"\n[result] No period bets found meeting criteria")
+        return
+    
+    # Limit to top N
+    bets = bets[:top]
+    
+    # Format as table
+    bets_df = format_period_bets_table(bets)
+    
+    # Display
+    print(f"\n[result] Found {len(bets)} period betting opportunities:\n")
+    print(bets_df.to_string(index=False))
+    
+    # Save to file
+    if output:
+        out_path = Path(output)
+    else:
+        out_path = PROC_DIR / f"period_bets_{date}.csv"
+    
+    save_df(bets_df, out_path)
+    print(f"\n[saved] {out_path}")
 
 
 if __name__ == "__main__":

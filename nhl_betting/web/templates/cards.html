@@ -41,6 +41,20 @@
   body.light .line-score tbody td.total-val { background: #f1f5f9; border-left-color: #cbd5e1; }
   body.light .line-score tbody .period-val { color: #64748b; }
   body.light .line-score tbody .home-row { background: #f8fafc; }
+  /* First 10 minutes indicator */
+  .first-10min-indicator { margin: 16px 0; padding: 14px; background: rgba(255,255,255,0.02); border: 1px solid var(--border, #243356); border-radius: 8px; }
+  .indicator-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted, #9fb0ff); font-weight: 600; margin-bottom: 8px; }
+  .indicator-value { font-size: 24px; font-weight: 700; margin-bottom: 4px; }
+  .indicator-value.high { color: #2e8b57; }
+  .indicator-value.medium { color: #f59e0b; }
+  .indicator-value.low { color: #64748b; }
+  .indicator-subtitle { font-size: 12px; color: var(--text-muted, #9fb0ff); }
+  .hot-start { display: inline-block; margin-left: 8px; font-size: 14px; padding: 4px 8px; background: linear-gradient(135deg, #ff6b6b, #ee5a24); border-radius: 4px; font-weight: 600; color: #fff; }
+  /* Light mode overrides for first 10 min indicator */
+  body.light .first-10min-indicator { background: #f8fafc; border-color: #cbd5e1; }
+  body.light .indicator-label { color: #475569; }
+  body.light .indicator-value.low { color: #94a3b8; }
+  body.light .indicator-subtitle { color: #64748b; }
   </style>
   <script>
   // Theme toggle initialization (before page render)
@@ -194,6 +208,22 @@
                 </tbody>
               </table>
             </details>
+            
+            {# First 10 Minutes Goal Probability #}
+            {% set first_10_proj = r.get('first_10min_proj') %}
+            {% if first_10_proj is not none and first_10_proj > 0 %}
+            <div class="first-10min-indicator">
+              {% set prob_at_least_one = (1 - (2.71828 ** (-first_10_proj))) * 100 %}
+              <div class="indicator-label">First 10 Min Goal Probability</div>
+              <div class="indicator-value {% if prob_at_least_one >= 70 %}high{% elif prob_at_least_one >= 55 %}medium{% else %}low{% endif %}">
+                {{ '%.0f' % prob_at_least_one }}%
+                {% if prob_at_least_one >= 70 %}
+                <span class="hot-start">🔥 HOT START EXPECTED</span>
+                {% endif %}
+              </div>
+              <div class="indicator-subtitle">Expected goals: {{ '%.2f' % first_10_proj }}</div>
+            </div>
+            {% endif %}
             {% endif %}
             <div class="row chips">
               <div class="chip title">Moneyline</div>

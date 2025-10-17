@@ -4,7 +4,7 @@
 $env:QNN_SDK_ROOT = "C:\Qualcomm\QNN_SDK"
 $env:PATH = "C:\Qualcomm\QNN_SDK\lib\arm64x-windows-msvc;$env:PATH"
 
-Write-Host "✓ QNN SDK paths configured" -ForegroundColor Green
+Write-Host "[OK] QNN SDK paths configured" -ForegroundColor Green
 Write-Host "  SDK Root: $env:QNN_SDK_ROOT" -ForegroundColor Yellow
 Write-Host "  NPU Libraries: C:\Qualcomm\QNN_SDK\lib\arm64x-windows-msvc" -ForegroundColor Yellow
 Write-Host ""

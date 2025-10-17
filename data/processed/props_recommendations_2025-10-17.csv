@@ -45,13 +45,13 @@ date,player,team,market,line,proj,p_over,over_price,under_price,book,side,ev,pro
 2025-10-17,Vladimir Tarasenko,MIN,SOG,1.5,2.4,0.6916,-120.0,-110.0,draftkings,Over,0.2679,2.4,0.2679
 2025-10-17,Matt Boldy,MIN,SOG,3.5,2.4,0.2213,119.0,-160.0,pinnacle,Under,0.2654,2.4,0.2654
 2025-10-17,Oliver Bjorkstrand,TBL,POINTS,0.5,0.9,0.5934,113.0,-151.0,pinnacle,Over,0.264,0.9,0.264
-2025-10-17,Connor McMichael,WSH,POINTS,0.5,0.9,0.5934,112.0,-148.0,pinnacle,Over,0.2581,0.9,0.2581
 2025-10-17,Connor McMichael,WSH,POINTS,0.5,0.9,0.5934,110.0,-142.0,draftkings,Over,0.2462,0.9,0.2462
 2025-10-17,Zeev Buium,MIN,POINTS,0.5,0.9,0.5934,110.0,-142.0,draftkings,Over,0.2462,0.9,0.2462
 2025-10-17,Anthony Cirelli,TBL,POINTS,0.5,0.9,0.5934,110.0,-142.0,draftkings,Over,0.2462,0.9,0.2462
+2025-10-17,Oliver Bjorkstrand,TBL,SOG,1.5,2.4,0.6916,-125.0,-104.0,fanduel,Over,0.2448,2.4,0.2448
 2025-10-17,Oliver Bjorkstrand,TBL,SOG,1.5,2.4,0.6916,-125.0,-107.0,pinnacle,Over,0.2448,2.4,0.2448
 2025-10-17,Vladimir Tarasenko,MIN,SOG,1.5,2.4,0.6916,-125.0,-107.0,pinnacle,Over,0.2448,2.4,0.2448
-2025-10-17,Oliver Bjorkstrand,TBL,SOG,1.5,2.4,0.6916,-125.0,-104.0,fanduel,Over,0.2448,2.4,0.2448
+2025-10-17,Connor McMichael,WSH,POINTS,0.5,0.9,0.5934,109.0,-146.0,pinnacle,Over,0.2403,0.9,0.2403
 2025-10-17,Alex DeBrincat,DET,SOG,2.5,2.4,0.4303,-160.0,117.0,pinnacle,Under,0.2363,2.4,0.2363
 2025-10-17,Connor McMichael,WSH,ASSISTS,0.5,0.45,0.3624,240.0,-345.0,pinnacle,Over,0.2321,0.45,0.2321
 2025-10-17,Joel Eriksson Ek,MIN,SOG,2.5,2.4,0.4303,-152.0,116.0,fanduel,Under,0.2306,2.4,0.2306
@@ -66,7 +66,6 @@ date,player,team,market,line,proj,p_over,over_price,under_price,book,side,ev,pro
 2025-10-17,Vladimir Tarasenko,MIN,POINTS,0.5,0.9,0.5934,104.0,-140.0,pinnacle,Over,0.2106,0.9,0.2106
 2025-10-17,Nikita Kucherov,TBL,SOG,3.5,2.4,0.2213,138.0,-182.0,fanduel,Under,0.2066,2.4,0.2066
 2025-10-17,Anthony Beauvillier,WSH,SOG,1.5,2.4,0.6916,-135.0,105.0,draftkings,Over,0.2038,2.4,0.2038
-2025-10-17,Kirill Kaprizov,MIN,POINTS,1.5,0.9,0.2275,132.0,-180.0,pinnacle,Under,0.2016,0.9,0.2016
 2025-10-17,Anthony Cirelli,TBL,POINTS,0.5,0.9,0.5934,102.0,-136.0,pinnacle,Over,0.1987,0.9,0.1987
 2025-10-17,Connor McMichael,WSH,ASSISTS,0.5,0.45,0.3624,230.0,-320.0,draftkings,Over,0.1958,0.45,0.1958
 2025-10-17,Zeev Buium,MIN,POINTS,0.5,0.9,0.5934,101.0,-134.0,pinnacle,Over,0.1928,0.9,0.1928
@@ -75,14 +74,15 @@ date,player,team,market,line,proj,p_over,over_price,under_price,book,side,ev,pro
 2025-10-17,Dylan Strome,WSH,ASSISTS,0.5,0.45,0.3624,-115.0,-115.0,draftkings,Under,0.1921,0.45,0.1921
 2025-10-17,Kirill Kaprizov,MIN,ASSISTS,0.5,0.45,0.3624,-115.0,-115.0,pinnacle,Under,0.1921,0.45,0.1921
 2025-10-17,Kirill Kaprizov,MIN,ASSISTS,0.5,0.45,0.3624,-115.0,-115.0,draftkings,Under,0.1921,0.45,0.1921
+2025-10-17,Kirill Kaprizov,MIN,POINTS,1.5,0.9,0.2275,134.0,-185.0,pinnacle,Under,0.19,0.9,0.19
 2025-10-17,Anthony Cirelli,TBL,SOG,1.5,2.4,0.6916,-139.0,104.0,pinnacle,Over,0.1891,2.4,0.1891
 2025-10-17,Dylan Strome,WSH,ASSISTS,0.5,0.45,0.3624,-115.0,-116.0,pinnacle,Under,0.1873,0.45,0.1873
-2025-10-17,Vladimir Tarasenko,MIN,POINTS,0.5,0.9,0.5934,100.0,-128.0,fanduel,Over,0.1869,0.9,0.1869
-2025-10-17,John Carlson,WSH,POINTS,0.5,0.9,0.5934,100.0,-130.0,draftkings,Over,0.1869,0.9,0.1869
-2025-10-17,Moritz Seider,DET,POINTS,0.5,0.9,0.5934,100.0,-133.0,pinnacle,Over,0.1869,0.9,0.1869
 2025-10-17,Moritz Seider,DET,POINTS,0.5,0.9,0.5934,100.0,-130.0,draftkings,Over,0.1869,0.9,0.1869
-2025-10-17,Kirill Kaprizov,MIN,POINTS,1.5,0.9,0.2275,145.0,-188.0,draftkings,Under,0.1834,0.9,0.1834
+2025-10-17,John Carlson,WSH,POINTS,0.5,0.9,0.5934,100.0,-130.0,draftkings,Over,0.1869,0.9,0.1869
+2025-10-17,Vladimir Tarasenko,MIN,POINTS,0.5,0.9,0.5934,100.0,-128.0,fanduel,Over,0.1869,0.9,0.1869
+2025-10-17,Moritz Seider,DET,POINTS,0.5,0.9,0.5934,100.0,-133.0,pinnacle,Over,0.1869,0.9,0.1869
 2025-10-17,Nikita Kucherov,TBL,POINTS,1.5,0.9,0.2275,145.0,-188.0,draftkings,Under,0.1834,0.9,0.1834
+2025-10-17,Kirill Kaprizov,MIN,POINTS,1.5,0.9,0.2275,145.0,-188.0,draftkings,Under,0.1834,0.9,0.1834
 2025-10-17,John Carlson,WSH,POINTS,0.5,0.9,0.5934,-101.0,-131.0,pinnacle,Over,0.181,0.9,0.181
 2025-10-17,Moritz Seider,DET,SOG,1.5,2.4,0.6916,-142.0,110.0,draftkings,Over,0.1786,2.4,0.1786
 2025-10-17,Connor McMichael,WSH,SOG,1.5,2.4,0.6916,-142.0,110.0,draftkings,Over,0.1786,2.4,0.1786
@@ -124,6 +124,7 @@ date,player,team,market,line,proj,p_over,over_price,under_price,book,side,ev,pro
 2025-10-17,Ryan Hartman,MIN,SOG,1.5,2.4,0.6916,-188.0,145.0,draftkings,Over,0.0594,2.4,0.0594
 2025-10-17,Victor Hedman,TBL,SOG,1.5,2.4,0.6916,-188.0,145.0,draftkings,Over,0.0594,2.4,0.0594
 2025-10-17,Tom Wilson,WSH,SOG,1.5,2.4,0.6916,-188.0,145.0,draftkings,Over,0.0594,2.4,0.0594
+2025-10-17,Dylan Strome,WSH,POINTS,0.5,0.9,0.5934,-230.0,160.0,pinnacle,Under,0.0571,0.9,0.0571
 2025-10-17,Victor Hedman,TBL,SOG,1.5,2.4,0.6916,-192.0,146.0,fanduel,Over,0.0517,2.4,0.0517
 2025-10-17,Vladimir Tarasenko,MIN,ASSISTS,0.5,0.45,0.3624,190.0,-255.0,draftkings,Over,0.0509,0.45,0.0509
 2025-10-17,Ryan Hartman,MIN,SOG,2.5,2.4,0.4303,144.0,-190.0,fanduel,Over,0.0499,2.4,0.0499
@@ -134,7 +135,6 @@ date,player,team,market,line,proj,p_over,over_price,under_price,book,side,ev,pro
 2025-10-17,Tom Wilson,WSH,SOG,1.5,2.4,0.6916,-195.0,141.0,pinnacle,Over,0.0462,2.4,0.0462
 2025-10-17,Jakob Chychrun,WSH,ASSISTS,0.5,0.45,0.3624,188.0,-261.0,pinnacle,Over,0.0436,0.45,0.0436
 2025-10-17,Ryan Hartman,MIN,SOG,1.5,2.4,0.6916,-200.0,144.0,pinnacle,Over,0.0373,2.4,0.0373
-2025-10-17,Dylan Strome,WSH,POINTS,0.5,0.9,0.5934,-220.0,155.0,pinnacle,Under,0.0368,0.9,0.0368
 2025-10-17,Dylan Strome,WSH,POINTS,0.5,0.9,0.5934,-204.0,155.0,draftkings,Under,0.0368,0.9,0.0368
 2025-10-17,Victor Hedman,TBL,POINTS,0.5,0.9,0.5934,-134.0,100.0,pinnacle,Over,0.0363,0.9,0.0363
 2025-10-17,Joel Eriksson Ek,MIN,GOALS,0.5,0.35,0.2953,250.0,-380.0,fanduel,Over,0.0336,0.35,0.0336

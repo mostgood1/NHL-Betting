@@ -985,10 +985,11 @@ def run(days_ahead: int = 2, years_back: int = 2, reconcile_yesterday: bool = Tr
                 _vprint(verbose, f"[run] props dataset build skipped quickly due to error: {ie}")
         except Exception as e:
             _vprint(verbose, f"[run] props dataset build skipped quickly due to error: {e}")
-        # Precompute model-only projections for slate players is optional (skip by default for speed)
+        # Precompute model-only projections for slate players using NN models (enabled by default)
         try:
             import os as _os
-            if str(_os.environ.get("PROPS_PRECOMPUTE_ALL", "")).strip().lower() in ("1","true","yes"):
+            # Allow opt-out via PROPS_SKIP_PROJECTIONS=1, otherwise run by default with NN
+            if str(_os.environ.get("PROPS_SKIP_PROJECTIONS", "")).strip().lower() not in ("1","true","yes"):
                 from nhl_betting.cli import props_project_all as _props_project_all
                 def _call_typer_or_func_proj(cmd, **kwargs):
                     if hasattr(cmd, 'callback') and callable(getattr(cmd, 'callback')):
@@ -1004,12 +1005,13 @@ def run(days_ahead: int = 2, years_back: int = 2, reconcile_yesterday: bool = Tr
                     targets.append((base + _td(days=1)).strftime('%Y-%m-%d'))
                 for d in targets:
                     try:
-                        _vprint(verbose, f"[run] Precomputing props projections (all) for {d}…")
-                        _call_typer_or_func_proj(_props_project_all, date=d, ensure_history_days=365, include_goalies=True)
+                        _vprint(verbose, f"[run] Precomputing NN props projections for {d}…")
+                        # Always use NN models (use_nn=True is default)
+                        _call_typer_or_func_proj(_props_project_all, date=d, ensure_history_days=365, include_goalies=True, use_nn=True)
                     except Exception as e2:
                         _vprint(verbose, f"[run] props_project_all failed for {d}: {e2}")
             else:
-                _vprint(verbose, "[run] Skipping props_projections_all precompute (PROPS_PRECOMPUTE_ALL not set)")
+                _vprint(verbose, "[run] Skipping props_projections_all precompute (PROPS_SKIP_PROJECTIONS=1)")
         except Exception as e:
             _vprint(verbose, f"[run] precompute props projections_all skipped: {e}")
         # Calibrate stats-only props models (periodic)

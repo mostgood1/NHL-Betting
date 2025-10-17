@@ -105,7 +105,25 @@ def collect_oddsapi_props(date: str) -> pd.DataFrame:
     # Fast path: current events + concurrent per-event odds
     try:
         client = OddsAPIClient(rate_limit_per_sec=10.0)
-        from_dt = f"{date}T00:00:00Z"; to_dt = f"{date}T23:59:59Z"
+        # CRITICAL: NHL games on an ET calendar day can extend into the next UTC day
+        # (e.g., a 9:00 PM PT game on 2025-10-17 ET starts at 2025-10-18T04:00:00Z).
+        # Use an extended UTC window from ET day start (05:00Z) to next day end (08:59Z)
+        # to capture all games on the ET slate without missing late West Coast games.
+        from datetime import datetime, timedelta, timezone
+        from zoneinfo import ZoneInfo
+        try:
+            # Parse input date as ET calendar day, get UTC bounds
+            et_date = datetime.strptime(date, "%Y-%m-%d").replace(tzinfo=ZoneInfo("America/New_York"))
+            # ET calendar day starts at midnight ET; earliest NHL game ~7:00 PM ET (00:00Z next day)
+            # Convert to UTC and extend window backward to capture 7 PM ET games (which are ~00:00Z)
+            # and forward to capture late PT games (which can be ~05:00Z next UTC day)
+            utc_start = et_date.astimezone(timezone.utc) - timedelta(hours=5)  # 7 PM previous ET day
+            utc_end = utc_start + timedelta(hours=33)  # covers full ET day + late games
+            from_dt = utc_start.strftime("%Y-%m-%dT%H:%M:%SZ")
+            to_dt = utc_end.strftime("%Y-%m-%dT%H:%M:%SZ")
+        except Exception:
+            # Fallback: old logic (will miss late games but better than nothing)
+            from_dt = f"{date}T00:00:00Z"; to_dt = f"{date}T23:59:59Z"
         evs, _ = client.list_events("icehockey_nhl", commence_from_iso=from_dt, commence_to_iso=to_dt)
         if isinstance(evs, list) and evs:
             def fetch(ev_id: str):

@@ -29,6 +29,13 @@
     .debug-meta{font-size:11px;color:#6fa}
   @media (min-width:1600px){ .grid{grid-template-columns:repeat(3,minmax(0,1fr))} }
   @media (max-width:980px){ .grid{grid-template-columns:1fr} }
+  /* Theme variables for light mode */
+  body.light { background: #ffffff; color: #0a0f1c; }
+  body.light .card { background: #f8fafc; border-color: #cbd5e1; }
+  body.light .badge { border-color: #cbd5e1; }
+  body.light .ev { background: #dcfce7; color: #065f46; border-color: #10b981; }
+  body.light .muted { color: #475569; }
+  body.light .lad { border-color: #cbd5e1; }
   </style>
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" href="data:," />
@@ -62,7 +69,7 @@
       {%- if i >= 0 -%}+{{ i }}{%- else -%}{{ i }}{%- endif -%}
     {%- else -%}—{%- endif -%}
   {%- endmacro %}
-  <div class="nav"><a href="/">Cards</a> | <a href="/recommendations">Recs</a> | <a href="/props">Props</a> | <a href="/props/recommendations">Props Recs</a> | <a href="/props/reconciliation">Props Recon</a> | <a href="/props/stats-calibration">Props Cal</a></div>
+  <div class="nav"><a href="/">Cards</a> | <a href="/recommendations">Recs</a> | <a href="/props">Props</a> | <a href="/props/recommendations">Props Recs</a> | <a href="/props/reconciliation">Props Recon</a> | <a href="/props/stats-calibration">Props Cal</a> | <button type="button" id="themeToggle" style="background:#243056;border:1px solid #384a7a;padding:6px 8px;border-radius:6px;color:#cfe0ff;cursor:pointer;">Toggle Theme</button></div>
     <h1>Props Recommendations</h1>
     <form class="filters" onsubmit="applyFilters(); return false;">
       <label>Date <input id="date" type="date" value="{{ date }}" /></label>
@@ -178,5 +185,27 @@
       {% endfor %}
     </div>
   </div>
+  {% include '_footer.html' %}
 </body>
+<script>
+// Theme toggle
+(function() {
+  const btn = document.getElementById('themeToggle');
+  if (!btn) return;
+  // Initialize from localStorage
+  try {
+    const saved = localStorage.getItem('theme');
+    if (saved === 'light') {
+      document.body.classList.add('light');
+    }
+  } catch (e) {}
+  // Toggle handler
+  btn.addEventListener('click', function() {
+    document.body.classList.toggle('light');
+    try {
+      localStorage.setItem('theme', document.body.classList.contains('light') ? 'light' : 'dark');
+    } catch (e) {}
+  });
+})();
+</script>
 </html>

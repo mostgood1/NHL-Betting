@@ -1,0 +1,39 @@
+<div class="app-footer" role="contentinfo">
+  <small>
+    {% if last_updates %}
+      {% if last_updates.get('predictions_iso') %}
+        <span>Predictions: {{ last_updates.predictions_iso }}</span>
+      {% endif %}
+      {% if last_updates.get('recommendations_iso') %}
+        <span class="sep">•</span>
+        <span>Recommendations: {{ last_updates.recommendations_iso }}</span>
+      {% endif %}
+      {% if last_updates.get('odds_source') %}
+        <span class="sep">•</span>
+        <span>Odds: {{ last_updates.odds_source }}</span>
+      {% endif %}
+    {% else %}
+      <span>NHL Betting Predictions</span>
+    {% endif %}
+  </small>
+</div>
+<style>
+.app-footer {
+  margin-top: 32px;
+  padding: 16px 0;
+  border-top: 1px solid var(--border, #243356);
+  color: var(--muted, #9fb0ff);
+  font-size: 12px;
+  text-align: center;
+}
+.app-footer small {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  align-items: center;
+}
+.app-footer .sep {
+  opacity: 0.5;
+}
+</style>

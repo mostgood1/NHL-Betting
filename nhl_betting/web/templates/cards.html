@@ -18,7 +18,27 @@
   .last-sb { font-variant-numeric:tabular-nums; }
   .pause-btn { margin-left:4px; }
   .debug-date { font-size:0.65rem; color:#c33; margin-left:6px; }
+  /* Period projections styling */
+  .period-projections { margin: 12px 0; border: 1px solid var(--border, #243356); border-radius: 8px; background: var(--card-bg, #0f1530); }
+  .period-projections summary { cursor: pointer; padding: 8px 12px; font-weight: 600; color: var(--text, #cfe0ff); user-select: none; }
+  .period-projections summary::-webkit-details-marker { display: none; }
+  .period-grid { padding: 8px 12px; display: grid; gap: 6px; }
+  .period-row { display: flex; justify-content: space-between; font-size: 13px; color: var(--text-muted, #9fb0ff); }
+  .period-row.period-total { font-weight: 600; color: var(--text, #cfe0ff); border-top: 1px solid var(--border, #243356); padding-top: 6px; margin-top: 4px; }
+  .period-label { opacity: 0.8; }
+  .period-score { font-variant-numeric: tabular-nums; }
   </style>
+  <script>
+  // Theme toggle initialization (before page render)
+  (function() {
+    try {
+      const saved = localStorage.getItem('theme');
+      if (saved === 'light') {
+        document.documentElement.classList.add('light');
+      }
+    } catch (e) {}
+  })();
+  </script>
 </head>
 <body>
   <header>
@@ -38,6 +58,7 @@
   <a class="btn" href="/props/recommendations?date={{ date }}">Props Recs</a>
   <a class="btn" href="/props/reconciliation?date={{ date }}">Props Recon</a>
   <a class="btn" href="/props/stats-calibration">Props Cal</a>
+  <button type="button" id="themeToggle" class="btn" title="Toggle light/dark theme">Toggle Theme</button>
         
       </form>
       <div class="hb-wrap">
@@ -126,6 +147,38 @@
                 </div>
               </div>
             </div>
+            {# Period-by-period projections (placeholder until Phase B models trained) #}
+            <details class="period-projections">
+              <summary>Period Projections ▾</summary>
+              <div class="period-grid">
+                {% set pag = r.get('proj_away_goals') %}
+                {% set phg = r.get('proj_home_goals') %}
+                {% if pag is not none and phg is not none %}
+                  {% set p1_away = pag / 3.0 %}
+                  {% set p1_home = phg / 3.0 %}
+                  <div class="period-row">
+                    <span class="period-label">Period 1:</span>
+                    <span class="period-score">Away {{ '%.2f' % p1_away }} / Home {{ '%.2f' % p1_home }}</span>
+                  </div>
+                  <div class="period-row">
+                    <span class="period-label">Period 2:</span>
+                    <span class="period-score">Away {{ '%.2f' % p1_away }} / Home {{ '%.2f' % p1_home }}</span>
+                  </div>
+                  <div class="period-row">
+                    <span class="period-label">Period 3:</span>
+                    <span class="period-score">Away {{ '%.2f' % p1_away }} / Home {{ '%.2f' % p1_home }}</span>
+                  </div>
+                  <div class="period-row period-total">
+                    <span class="period-label">Model Total:</span>
+                    <span class="period-score">{{ '%.2f' % r.model_total if r.get('model_total') is not none else '—' }}</span>
+                  </div>
+                {% else %}
+                  <div class="period-row">
+                    <span class="period-label">No period projections available yet</span>
+                  </div>
+                {% endif %}
+              </div>
+            </details>
             <div class="row chips">
               <div class="chip title">Moneyline</div>
               {% set ev_a_ml = r.ev_away_ml if 'ev_away_ml' in r else None %}
@@ -278,6 +331,7 @@
     {% endif %}
     </div>
   </main>
+  {% include '_footer.html' %}
   <footer>
     <div class="container">
       <div class="footer-note">
@@ -627,6 +681,18 @@
   const r = document.getElementById('luRecs');
   if (o) o.textContent = fmtLocal(o.textContent.trim());
   if (r) r.textContent = fmtLocal(r.textContent.trim());
+})();
+// Theme toggle handler
+(function() {
+  const btn = document.getElementById('themeToggle');
+  if (!btn) return;
+  btn.addEventListener('click', function() {
+    const html = document.documentElement;
+    html.classList.toggle('light');
+    try {
+      localStorage.setItem('theme', html.classList.contains('light') ? 'light' : 'dark');
+    } catch (e) {}
+  });
 })();
 </script>
 </html>

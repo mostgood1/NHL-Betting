@@ -34,8 +34,23 @@
     .meta-note { color:#9fb0ff; font-size:12px; }
     /* Buttons/links */
     .link-reset { display:inline-block; margin-left:6px; text-decoration:none; }
-    .btn-chip { display:inline-block; background:#243056; border:1px solid #384a7a; padding:6px 8px; border-radius:6px; font-size:13px; color:#cfe0ff; }
+    .btn-chip { display:inline-block; background:#243056; border:1px solid #384a7a; padding:6px 8px; border-radius:6px; font-size:13px; color:#cfe0ff; cursor:pointer; }
     .filters a { color:#9fb0ff; text-decoration: underline; }
+    /* Theme variables for light mode */
+    body.light {
+      background: #ffffff;
+      color: #0a0f1c;
+    }
+    body.light .sum-card { background: #f8fafc; border-color: #cbd5e1; color: #0a0f1c; }
+    body.light .sum-card h3 { color: #0a0f1c; }
+    body.light h2 { color: #0a0f1c; }
+    body.light .nav a, body.light .btn-chip { background: #f1f5f9; border-color: #94a3b8; color: #0a0f1c; }
+    body.light .filters input, body.light .filters select { background: #ffffff; border-color: #94a3b8; color: #0a0f1c; }
+    body.light th, body.light td { border-color: #cbd5e1; }
+    body.light .market-pill { background: #f1f5f9; border-color: #cbd5e1; color: #0a0f1c; }
+    body.light .badge-high { background: #d1fae5; color: #065f46; border-color: #10b981; }
+    body.light .badge-medium { background: #fef3c7; color: #92400e; border-color: #f59e0b; }
+    body.light .badge-low { background: #e0e7ff; color: #3730a3; border-color: #818cf8; }
   </style>
   </head>
 <body>
@@ -48,6 +63,7 @@
       <a href="/reconciliation">Reconciliation</a>
       <a href="/api/predictions">API</a>
       <a href="/health">Health</a>
+      <button type="button" id="themeToggle" class="btn-chip" title="Toggle light/dark theme">Toggle Theme</button>
     </div>
 
     {# Money formatting helpers for summary cards #}
@@ -246,6 +262,26 @@
   const r = document.getElementById('luRecs');
   if (o) o.textContent = fmtLocal(o.textContent.trim());
   if (r) r.textContent = fmtLocal(r.textContent.trim());
+})();
+// Theme toggle handler
+(function() {
+  const btn = document.getElementById('themeToggle');
+  if (!btn) return;
+  btn.addEventListener('click', function() {
+    document.body.classList.toggle('light');
+    try {
+      localStorage.setItem('theme', document.body.classList.contains('light') ? 'light' : 'dark');
+    } catch (e) {}
+  });
+})();
+// Theme initialization
+(function() {
+  try {
+    const saved = localStorage.getItem('theme');
+    if (saved === 'light') {
+      document.body.classList.add('light');
+    }
+  } catch (e) {}
 })();
 </script>
 </html>

@@ -1171,6 +1171,29 @@ def run(days_ahead: int = 2, years_back: int = 2, reconcile_yesterday: bool = Tr
                         _run(["git", "add", p])
                 except Exception:
                     pass
+                # CRITICAL: Force-add essential CSV files that power the web app (predictions, edges, roster)
+                # These files are core data files that MUST be in git for Render to serve them
+                try:
+                    for d in pred_dates:
+                        # Predictions CSVs - game predictions with period breakdowns
+                        pred_file = root / "data" / "processed" / f"predictions_{d}.csv"
+                        if pred_file.exists():
+                            _run(["git", "add", "-f", str(pred_file)])
+                        # Edges CSVs - betting edges with EV calculations
+                        edges_file = root / "data" / "processed" / f"edges_{d}.csv"
+                        if edges_file.exists():
+                            _run(["git", "add", "-f", str(edges_file)])
+                        # Roster CSVs - player-team mappings
+                        roster_file = root / "data" / "processed" / f"roster_{d}.csv"
+                        if roster_file.exists():
+                            _run(["git", "add", "-f", str(roster_file)])
+                        # Props projections CSVs - NN player stat projections
+                        props_proj_file = root / "data" / "processed" / f"props_projections_all_{d}.csv"
+                        if props_proj_file.exists():
+                            _run(["git", "add", "-f", str(props_proj_file)])
+                    _vprint(verbose, f"[git] Force-added essential CSV files for: {', '.join(pred_dates)}")
+                except Exception as e:
+                    _vprint(verbose, f"[git] Warning: failed to force-add CSV files: {e}")
                 # Skip commit if no changes
                 status = _run(["git", "status", "--porcelain"]).stdout
                 if status.strip():

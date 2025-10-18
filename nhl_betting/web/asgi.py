@@ -52,8 +52,27 @@ def ensure_heavy_loaded(background: bool = True) -> bool:
 
 class WrapperASGI:
     async def __call__(self, scope, receive, send):
-        if scope.get("type") != "http":
-            # For non-http, try heavy if available, else 503
+        scope_type = scope.get("type")
+        if scope_type != "http":
+            # Minimal lifespan protocol support to avoid warnings from servers
+            if scope_type == "lifespan":
+                try:
+                    while True:
+                        message = await receive()
+                        mtype = message.get("type")
+                        if mtype == "lifespan.startup":
+                            await send({"type": "lifespan.startup.complete"})
+                        elif mtype == "lifespan.shutdown":
+                            await send({"type": "lifespan.shutdown.complete"})
+                            return
+                except Exception:
+                    # On error, signal failure to the server
+                    try:
+                        await send({"type": "lifespan.startup.failed", "message": "lifespan error"})
+                    except Exception:
+                        pass
+                    return
+            # For other non-http, try heavy if available, else 503
             if _HEAVY_APP is not None:
                 return await _HEAVY_APP(scope, receive, send)
             return await self._send_text(send, 503, b"Service warming up")

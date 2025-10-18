@@ -6656,16 +6656,16 @@ async def props_recommendations_page(
             for keys, g_all in grouped:
                 if isinstance(keys, tuple):
                     player = keys[0] if len(keys) > 0 else None
-                    team = keys[1] if len(keys) > 1 else None
+                    player_team = keys[1] if len(keys) > 1 else None
                 else:
-                    player = keys; team = None
+                    player = keys; player_team = None
                 # Clean team to avoid 'nan' string
                 team_clean = None
                 try:
-                    if team is not None and str(team).strip().lower() not in ('nan','none','null',''):
-                        team_clean = str(team).strip()
+                    if player_team is not None and str(player_team).strip().lower() not in ('nan','none','null',''):
+                        team_clean = str(player_team).strip()
                 except Exception:
-                    team_clean = team
+                    team_clean = player_team
                 # Prefer team from lines/stats; use roster_master only if missing or to add photo/position
                 if player and roster_master_map:
                     rm = roster_master_map.get(_norm_name(player))

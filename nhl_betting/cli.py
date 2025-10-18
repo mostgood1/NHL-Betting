@@ -695,9 +695,13 @@ def predict_core(
     else:
         print("Unknown odds_source. Use 'csv', 'oddsapi', or 'bovada'.")
     
-    # Load PERIOD_GOALS model for period-by-period predictions (lazy import to avoid DLL issues on web server)
+    # Load NN models for predictions (lazy import to avoid DLL issues on web server)
     period_model = None
     first_10min_model = None
+    # NEW: Load game outcome models (TOTAL_GOALS, MONEYLINE, GOAL_DIFF)
+    total_goals_nn = None
+    moneyline_nn = None
+    goal_diff_nn = None
     try:
         from .models.nn_games import NNGameModel  # Lazy import
         period_model = NNGameModel(model_type="PERIOD_GOALS", model_dir=MODEL_DIR / "nn_games")
@@ -708,9 +712,36 @@ def predict_core(
         # Check if EITHER PyTorch model OR ONNX session loaded
         if first_10min_model.model is None and first_10min_model.onnx_session is None:
             first_10min_model = None
-    except Exception:
+        
+        # NEW: Load game outcome models
+        total_goals_nn = NNGameModel(model_type="TOTAL_GOALS", model_dir=MODEL_DIR / "nn_games")
+        if total_goals_nn.model is None and total_goals_nn.onnx_session is None:
+            total_goals_nn = None
+        
+        moneyline_nn = NNGameModel(model_type="MONEYLINE", model_dir=MODEL_DIR / "nn_games")
+        if moneyline_nn.model is None and moneyline_nn.onnx_session is None:
+            moneyline_nn = None
+        
+        goal_diff_nn = NNGameModel(model_type="GOAL_DIFF", model_dir=MODEL_DIR / "nn_games")
+        if goal_diff_nn.model is None and goal_diff_nn.onnx_session is None:
+            goal_diff_nn = None
+            
+        # Log which models are available
+        models_loaded = []
+        if period_model: models_loaded.append("PERIOD_GOALS")
+        if first_10min_model: models_loaded.append("FIRST_10MIN")
+        if total_goals_nn: models_loaded.append("TOTAL_GOALS")
+        if moneyline_nn: models_loaded.append("MONEYLINE")
+        if goal_diff_nn: models_loaded.append("GOAL_DIFF")
+        if models_loaded:
+            print(f"[NN] Loaded models: {', '.join(models_loaded)}")
+    except Exception as e:
+        print(f"[warn] NN models not available: {e}")
         period_model = None
         first_10min_model = None
+        total_goals_nn = None
+        moneyline_nn = None
+        goal_diff_nn = None
     
     # Load historical games for computing recent form features
     historical_games_df = None
@@ -774,13 +805,12 @@ def predict_core(
                 continue
         except Exception:
             pass
-        p_home, p_away = elo.predict_moneyline_prob(g.home, g.away)
-        # Apply ML subgroup adjustment (home side bias): team/div/conf of home team
-        h_keys = team_keys(g.home)
-        ml_delta = get_adjustment(trends.ml_home, h_keys)
-        if ml_delta:
-            p_home = min(max(p_home + ml_delta, 0.01), 0.99)
-            p_away = 1.0 - p_home
+        # Get initial predictions from Elo (used as fallback if NN unavailable)
+        p_home_elo, p_away_elo = elo.predict_moneyline_prob(g.home, g.away)
+        
+        # Start with Elo predictions (will be overridden by NN if available)
+        p_home = p_home_elo
+        p_away = p_away_elo
         # Per-game total line: use odds total_line if available, else provided total_line
         per_game_total = total_line
         match_info = None  # store the matched odds row for later EV/edge calc
@@ -824,13 +854,20 @@ def predict_core(
                             per_game_total = float(val)
                     except Exception:
                         per_game_total = total_line
-        # Derive matchup-specific lambdas and probabilities
-        lam_h, lam_a = pois.lambdas_from_total_split(per_game_total, p_home)
+        
+        # Derive matchup-specific lambdas and probabilities using Poisson (fallback)
+        lam_h_poisson, lam_a_poisson = pois.lambdas_from_total_split(per_game_total, p_home)
         # Apply goals adjustments separately for home and away based on each team subgroup
         gh_delta = get_adjustment(trends.goals, team_keys(g.home))
         ga_delta = get_adjustment(trends.goals, team_keys(g.away))
-        lam_h = max(0.1, lam_h + gh_delta)
-        lam_a = max(0.1, lam_a + ga_delta)
+        lam_h_poisson = max(0.1, lam_h_poisson + gh_delta)
+        lam_a_poisson = max(0.1, lam_a_poisson + ga_delta)
+        
+        # Use Poisson as fallback for lambdas
+        lam_h = lam_h_poisson
+        lam_a = lam_a_poisson
+        
+        # Compute Poisson-based probabilities (used for puck line if no NN)
         p = pois.probs(total_line=per_game_total, lam_h=lam_h, lam_a=lam_a)
 
         # Optional: apply probability calibration if available
@@ -849,7 +886,9 @@ def predict_core(
             p_away_cal = float(p.get("away_ml"))
             p_over_cal = float(p.get("over"))
             p_under_cal = float(p.get("under"))
+        
         # Derived projections (used by UI): per-team goals, total and spread
+        # These will be overridden by NN if available
         proj_home_goals = float(lam_h)
         proj_away_goals = float(lam_a)
         model_total = float(lam_h + lam_a)
@@ -921,6 +960,51 @@ def predict_core(
                 team_last_game[g.away] = game_date
                 team_games_played[g.home] = home_gp + 1
                 team_games_played[g.away] = away_gp + 1
+                
+                # NEW: Use NN models to override Elo/Poisson predictions if available
+                if moneyline_nn is not None:
+                    try:
+                        # Get NN moneyline prediction (home win probability)
+                        p_home_nn = moneyline_nn.predict(home_abbr, away_abbr, game_features)
+                        if p_home_nn is not None:
+                            # Override Elo prediction
+                            p_home = float(p_home_nn)
+                            p_away = 1.0 - p_home
+                    except Exception as e:
+                        pass  # Fall back to Elo if NN fails
+                
+                if total_goals_nn is not None:
+                    try:
+                        # Get NN total goals prediction
+                        total_nn = total_goals_nn.predict(home_abbr, away_abbr, game_features)
+                        if total_nn is not None:
+                            model_total = float(total_nn)
+                    except Exception as e:
+                        pass  # Fall back to Poisson if NN fails
+                
+                if goal_diff_nn is not None:
+                    try:
+                        # Get NN goal differential prediction
+                        diff_nn = goal_diff_nn.predict(home_abbr, away_abbr, game_features)
+                        if diff_nn is not None:
+                            model_spread = float(diff_nn)
+                            # Derive per-team projections from total and differential
+                            proj_home_goals = (model_total / 2.0) + (model_spread / 2.0)
+                            proj_away_goals = (model_total / 2.0) - (model_spread / 2.0)
+                            # Update lambdas for Poisson probability calculations
+                            lam_h = proj_home_goals
+                            lam_a = proj_away_goals
+                            # Recompute Poisson probs with NN-derived lambdas
+                            p = pois.probs(total_line=per_game_total, lam_h=lam_h, lam_a=lam_a)
+                    except Exception as e:
+                        pass  # Fall back to Poisson if NN fails
+                
+                # Apply ML subgroup adjustment AFTER NN prediction (home side bias)
+                h_keys = team_keys(g.home)
+                ml_delta = get_adjustment(trends.ml_home, h_keys)
+                if ml_delta:
+                    p_home = min(max(p_home + ml_delta, 0.01), 0.99)
+                    p_away = 1.0 - p_home
                 
             except Exception as e:
                 # If feature computation fails, skip predictions

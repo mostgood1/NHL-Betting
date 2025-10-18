@@ -1,4 +1,16 @@
 import json
+
+# CRITICAL: Import onnxruntime and torch BEFORE numpy/pandas to avoid DLL conflicts
+# NumPy's MKL DLLs interfere with ONNX Runtime's pybind11 state initialization
+try:
+    import onnxruntime as _ort
+except ImportError:
+    pass  # Optional dependency
+try:
+    import torch as _torch
+except ImportError:
+    pass  # Optional dependency
+
 import numpy as np
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo

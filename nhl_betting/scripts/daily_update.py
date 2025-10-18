@@ -20,15 +20,20 @@ try:
 except Exception:
     pass
 
-import pandas as pd
-
+# CRITICAL: Import cli.py BEFORE pandas to avoid DLL conflicts with torch/onnx
+# cli.py imports torch/onnx first, then pandas. If we import pandas here first,
+# torch/onnx will fail to load later, disabling NN models.
 from nhl_betting.cli import predict_core, featurize, train
-from nhl_betting.data.nhl_api_web import NHLWebClient
-from nhl_betting.utils.io import RAW_DIR, PROC_DIR, save_df
-from nhl_betting.data.odds_api import OddsAPIClient, normalize_snapshot_to_rows
 from nhl_betting.cli import props_fetch_bovada as _props_fetch_bovada
 from nhl_betting.cli import props_predict as _props_predict
 from nhl_betting.cli import props_build_dataset as _props_build_dataset
+
+# NOW safe to import pandas (after cli.py has loaded torch/onnx)
+import pandas as pd
+
+from nhl_betting.data.nhl_api_web import NHLWebClient
+from nhl_betting.utils.io import RAW_DIR, PROC_DIR, save_df
+from nhl_betting.data.odds_api import OddsAPIClient, normalize_snapshot_to_rows
 from nhl_betting.data import player_props as props_data
 from nhl_betting.data.rosters import build_all_team_roster_snapshots
 from nhl_betting.data.collect import collect_player_game_stats

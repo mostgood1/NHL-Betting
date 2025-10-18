@@ -1996,6 +1996,7 @@ def props_recommendations(
     Reads data/props/player_props_lines/date=YYYY-MM-DD/*.parquet, computes p_over and EV for each OVER/UNDER pair
     using rolling-mean lambdas, and writes a denormalized recommendation list similar to NFL.
     """
+
     import os, time
     dbg = str(os.getenv("PROPS_DEBUG", "1")).strip().lower() in ("1","true","yes")
     def _dbg(msg: str):
@@ -2065,6 +2066,36 @@ def props_recommendations(
             return str(ab).upper() if ab else (str(t).strip().upper() if str(t).strip() else None)
         except Exception:
             return str(t).strip().upper() if isinstance(t, str) and t.strip() else None
+    
+    # Helper to create name variants for fuzzy matching (full name and abbreviated)
+    def _create_name_variants(name: str) -> list[str]:
+        """Create name variants for matching between full names (betting lines) and abbreviated names (projections)."""
+        name = (name or "").strip()
+        if not name:
+            return []
+        
+        # Normalize whitespace
+        norm = " ".join(name.split())
+        variants = [norm.lower()]
+        
+        # If abbreviated (e.g., "A. Levshunov"), keep as-is and without dot
+        if "." in norm:
+            variants.append(norm.replace(".", "").lower())
+        
+        # If full name (e.g., "Artyom Levshunov"), create abbreviated variant
+        parts = [p for p in norm.split() if p and not p.endswith(".")]
+        if len(parts) >= 2:
+            first, last = parts[0], parts[-1]
+            # Add "A. Levshunov" format
+            abbreviated = f"{first[0].upper()}. {last}"
+            variants.append(abbreviated.lower())
+            variants.append(abbreviated.replace(".", "").lower())
+            # Also add "A Levshunov" (no dot, space)
+            abbreviated_nodot = f"{first[0].upper()} {last}"
+            variants.append(abbreviated_nodot.lower())
+        
+        return list(set(variants))
+    
     player_team_map: dict[str, str] = {}
     try:
         if not lines.empty and {"player_name","team"}.issubset(lines.columns):
@@ -2079,7 +2110,9 @@ def props_recommendations(
             last_team = cur.groupby("player_name")["_team_abbr"].agg(lambda s: s.dropna().astype(str).iloc[-1] if len(s.dropna()) else None)
             for nm, tm in last_team.items():
                 if tm:
-                    player_team_map[_norm_name(nm).lower()] = str(tm)
+                    # Create variants for better matching
+                    for variant in _create_name_variants(_norm_name(nm)):
+                        player_team_map[variant.lower()] = str(tm)
         # Fallback: use historical player_game_stats.csv for last known team
         if True:
             from .utils.io import RAW_DIR as _RAW
@@ -2094,11 +2127,13 @@ def props_recommendations(
                     if "team" in pstats.columns:
                         last_teams = pstats.dropna(subset=["team"]).groupby("player")["team"].last()
                         for nm, tm in last_teams.items():
-                            key = _norm_name(nm).lower()
-                            if key and key not in player_team_map:
-                                ab = _abbr_team(tm)
-                                if ab:
-                                    player_team_map[key] = ab
+                            ab = _abbr_team(tm)
+                            if ab:
+                                # Create variants for better matching
+                                for variant in _create_name_variants(_norm_name(nm)):
+                                    key = variant.lower()
+                                    if key and key not in player_team_map:
+                                        player_team_map[key] = ab
                 except Exception:
                     pass
     except Exception:
@@ -2106,8 +2141,10 @@ def props_recommendations(
     # Enrich player_team_map with cached roster for the slate date if available (more authoritative)
     try:
         roster_cache = PROC_DIR / f"roster_{date}.csv"
+        _dbg(f"roster_cache path: {roster_cache}, exists={roster_cache.exists()}")
         if roster_cache.exists():
             _r = pd.read_csv(roster_cache)
+            _dbg(f"roster_cache rows: {len(_r) if _r is not None else 0}")
             if _r is not None and not _r.empty:
                 # Accept columns: full_name or player, and team (abbr)
                 name_col = "full_name" if "full_name" in _r.columns else ("player" if "player" in _r.columns else None)
@@ -2116,13 +2153,17 @@ def props_recommendations(
                 for cand in ("team", "team_abbr", "team_abbrev", "teamAbbrev", "team_abbreviation"):
                     if cand in _r.columns:
                         team_col = cand; break
+                _dbg(f"roster_cache name_col={name_col}, team_col={team_col}")
                 if name_col and team_col:
                     for _, rr in _r.dropna(subset=[name_col, team_col]).iterrows():
-                        nm = _norm_name(str(rr.get(name_col))).lower()
+                        nm = _norm_name(str(rr.get(name_col)))
                         tm = str(rr.get(team_col)).strip().upper()
                         if nm and tm:
-                            player_team_map[nm] = tm
-    except Exception:
+                            # Create variants for better matching
+                            for variant in _create_name_variants(nm):
+                                player_team_map[variant.lower()] = tm
+    except Exception as e:
+        _dbg(f"roster_cache error: {e}")
         pass
     # Enrich from roster_master.csv as an additional fallback
     try:
@@ -2137,12 +2178,18 @@ def props_recommendations(
                         team_col = cand; break
                 if name_col and team_col:
                     for _, rr in _rm.dropna(subset=[name_col, team_col]).iterrows():
-                        nm = _norm_name(str(rr.get(name_col))).lower()
+                        nm = _norm_name(str(rr.get(name_col)))
                         tm = str(rr.get(team_col)).strip().upper()
-                        if nm and tm and nm not in player_team_map:
-                            player_team_map[nm] = tm
+                        if nm and tm:
+                            # Create variants for better matching
+                            for variant in _create_name_variants(nm):
+                                key = variant.lower()
+                                if key not in player_team_map:
+                                    player_team_map[key] = tm
     except Exception:
         pass
+    _dbg(f"player_team_map has {len(player_team_map)} entries")
+    
     # Prefer precomputed per-player lambdas to avoid expensive history scans
     # data/processed/props_projections_all_{date}.csv: [date, player, team, position, market, proj_lambda]
     lam_map: dict[tuple[str, str], float] = {}
@@ -2153,10 +2200,15 @@ def props_recommendations(
             if _proj is not None and not _proj.empty and {"player","market","proj_lambda"}.issubset(_proj.columns):
                 for _, rr in _proj.iterrows():
                     try:
-                        key = (_norm_name(rr.get("player")).lower(), str(rr.get("market")).upper())
+                        player_name = _norm_name(rr.get("player"))
+                        mkt = str(rr.get("market")).upper()
                         val = float(rr.get("proj_lambda")) if pd.notna(rr.get("proj_lambda")) else None
-                        if key[0] and key[1] and val is not None:
-                            lam_map[key] = val
+                        
+                        if player_name and mkt and val is not None:
+                            # Create all name variants for better matching
+                            for variant in _create_name_variants(player_name):
+                                key = (variant.lower(), mkt)
+                                lam_map[key] = val
                     except Exception:
                         pass
     except Exception:
@@ -2235,8 +2287,10 @@ def props_recommendations(
     if "market" in work.columns:
         work["market"] = work["market"].astype(str).str.upper()
         msel = (market or "").strip()
+        _dbg(f"market parameter='{market}', msel='{msel}', will filter={bool(msel and msel.lower() not in ('all', ''))}")
         if msel and msel.lower() not in ("all", ""): 
             work = work.loc[work["market"] == msel.upper()].copy()
+            _dbg(f"filtered to market={msel.upper()}: {len(work)} rows")
     # Normalize player display and filter likely players
     work["player_display"] = work.apply(lambda r: _norm_player(r.get("player_name") or r.get("player")), axis=1)
     work = work.loc[work["player_display"].map(_looks_like_player)].copy()
@@ -2244,8 +2298,19 @@ def props_recommendations(
     # Parse numeric line and keep valid (preserve all columns using loc)
     work["line_num"] = pd.to_numeric(work.get("line"), errors="coerce")
     work = work.loc[work["line_num"].notna()].copy()
-    # Attach normalized name for join
-    work["player_norm"] = work["player_display"].astype(str).map(_norm_name).str.lower()
+    # Attach normalized name for join - use abbreviated variant preferentially for matching
+    def _norm_for_join(name: str) -> str:
+        """Normalize name for joining - try all variants and pick most compact (abbreviated if available)."""
+        variants = _create_name_variants(name)
+        if not variants:
+            return ""
+        # Prefer abbreviated format (shortest with a dot or single letter + space)
+        dot_variants = [v for v in variants if "." in v or (len(v.split()) == 2 and len(v.split()[0]) == 1)]
+        if dot_variants:
+            return min(dot_variants, key=len)
+        return min(variants, key=len)
+    
+    work["player_norm"] = work["player_display"].astype(str).map(_norm_for_join)
     # Build lambda DataFrame from lam_map for merge
     lam_df = pd.DataFrame([{"player_norm": k[0], "market": k[1], "proj_lambda": v} for k, v in lam_map.items()]) if lam_map else pd.DataFrame(columns=["player_norm","market","proj_lambda"])
     merged = work.merge(lam_df, on=["player_norm", "market"], how="left")
@@ -2342,7 +2407,10 @@ def props_recommendations(
         merged["_team_final"] = merged["_team_from_map"].fillna(merged["_team_from_line"])
         if slate_abbrs:
             # Strict: only include rows where resolved team is in tonight's slate
+            _dbg(f"before slate filter: {len(merged)} rows, slate teams: {sorted(slate_abbrs)}")
+            _dbg(f"_team_final values (unique): {sorted(merged['_team_final'].dropna().unique().tolist()[:20])}")
             merged = merged.loc[merged["_team_final"].isin(slate_abbrs)].copy()
+            _dbg(f"after slate team filter: {len(merged)} rows")
             # Further restrict to names present on roster for slate teams if we have such a set.
             # However, roster caches can be stale or wrong (e.g., fallback build). To avoid
             # dropping valid slate players, only apply this filter if it retains a healthy
@@ -2353,8 +2421,10 @@ def props_recommendations(
                     frac = float(msk.sum()) / float(len(msk)) if len(msk) else 0.0
                 except Exception:
                     frac = 0.0
+                _dbg(f"allowed_names filter: {msk.sum()}/{len(msk)} = {frac:.2%}")
                 if frac >= 0.6:  # keep filter only if it preserves at least 60% of rows
                     merged = merged.loc[msk].copy()
+                    _dbg(f"after allowed_names filter: {len(merged)} rows")
     except Exception:
         # If anything goes wrong, proceed without slate filter
         pass
@@ -2379,19 +2449,22 @@ def props_recommendations(
         out.loc[pos.index] = 1.0 + (pos / 100.0)
         out.loc[neg.index] = 1.0 + (100.0 / _np.abs(neg))
         return out
-    dec_over = _american_to_decimal_series(merged.get("over_price"))
-    dec_under = _american_to_decimal_series(merged.get("under_price"))
-    p_over_s = pd.to_numeric(merged["p_over_vec"], errors="coerce")
+    # Build vectorized output rows (only where we had lambda)
+    vec_out = merged[vec_mask].copy()
+    
+    # Compute EV on the filtered data
+    dec_over = _american_to_decimal_series(vec_out.get("over_price"))
+    dec_under = _american_to_decimal_series(vec_out.get("under_price"))
+    p_over_s = pd.to_numeric(vec_out["p_over_vec"], errors="coerce")
     ev_over_s = p_over_s * (dec_over - 1.0) - (1.0 - p_over_s)
     p_under_s = (1.0 - p_over_s).clip(lower=0.0, upper=1.0)
     ev_under_s = p_under_s * (dec_under - 1.0) - (1.0 - p_under_s)
     # Choose side with better EV, handling NaNs
     over_better = (ev_under_s.isna()) | (~ev_over_s.isna() & (ev_over_s >= ev_under_s))
     chosen_side = _np.where(over_better, "Over", "Under")
-    chosen_price = _np.where(over_better, merged.get("over_price"), merged.get("under_price"))
+    chosen_price = _np.where(over_better, vec_out.get("over_price"), vec_out.get("under_price"))
     chosen_ev = _np.where(over_better, ev_over_s, ev_under_s)
-    # Build vectorized output rows (only where we had lambda and EV is finite)
-    vec_out = merged[vec_mask].copy()
+    
     vec_out["side"] = chosen_side
     vec_out["ev"] = pd.to_numeric(chosen_ev, errors="coerce")
     vec_out = vec_out[vec_out["ev"].notna() & (vec_out["ev"].astype(float) >= float(min_ev))]

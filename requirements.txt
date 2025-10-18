@@ -16,6 +16,8 @@ pyarrow==17.0.0
 # Neural network and NPU acceleration
 torch>=2.0.0
 onnx>=1.14.0
-# Use onnxruntime-qnn for Qualcomm NPU support (Snapdragon X)
-# Falls back to CPU if QNN SDK not available
-onnxruntime-qnn==1.23.1
+# ONNX Runtime provider selection (platform-specific)
+# - Windows on ARM64: use QNN-enabled build for Snapdragon X NPU acceleration
+# - Everywhere else (Linux/macOS/Windows x86): use standard onnxruntime CPU/GPU providers
+onnxruntime-qnn==1.23.1; platform_system == "Windows" and platform_machine == "ARM64"
+onnxruntime==1.23.1; platform_system != "Windows" or platform_machine != "ARM64"

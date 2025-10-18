@@ -7013,11 +7013,21 @@ async def props_recommendations_page(
             'logos': logo_cnt,
             'positions': pos_cnt,
             'sample_players_no_photo': [c.get('player') for c in (cards or []) if c.get('photo','').startswith('data:image')][:10],
+            'filter_params': {
+                'team': team,
+                'game': game,
+                'market': market,
+                'min_ev': min_ev,
+                'top': top,
+                'all': all,
+            },
             **extra,
         })
 
     # Optional team/game filtering at the card level
     try:
+        # Debug logging to diagnose filtering issues
+        cards_before_filter = len(cards) if isinstance(cards, list) else 0
         if team or game:
             team_u = str(team or '').upper()
             game_pair = None
@@ -7037,6 +7047,11 @@ async def props_recommendations_page(
                 except Exception:
                     return True
             cards[:] = [c for c in (cards or []) if _keep(c)]
+        cards_after_filter = len(cards) if isinstance(cards, list) else 0
+        # If we filtered out cards, log it (visible in debug mode or server logs)
+        if cards_before_filter != cards_after_filter:
+            import logging
+            logging.warning(f"Props recommendations filtered: {cards_before_filter} -> {cards_after_filter} (team={team}, game={game})")
     except Exception:
         pass
     # Build slate games for dropdown

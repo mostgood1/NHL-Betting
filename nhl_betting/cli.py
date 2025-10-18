@@ -712,6 +712,60 @@ def predict_core(
         period_model = None
         first_10min_model = None
     
+    # Load historical games for computing recent form features
+    historical_games_df = None
+    team_last_game = {}  # For rest days calculation
+    team_games_played = {}  # For season progress calculation
+    if period_model is not None or first_10min_model is not None:
+        try:
+            hist_path = RAW_DIR / "games_with_features.csv"
+            if hist_path.exists():
+                historical_games_df = pd.read_csv(hist_path, parse_dates=["date"])
+                # Build team state: last game date and games played through historical data
+                for _, game in historical_games_df.iterrows():
+                    game_date = pd.to_datetime(game["date"])
+                    home_team = game["home"]
+                    away_team = game["away"]
+                    team_last_game[home_team] = game_date
+                    team_last_game[away_team] = game_date
+                    team_games_played[home_team] = team_games_played.get(home_team, 0) + 1
+                    team_games_played[away_team] = team_games_played.get(away_team, 0) + 1
+        except Exception:
+            pass
+    
+    def compute_recent_form_features(team, date, historical_df, window=10):
+        """Compute recent form stats for a team before a given date."""
+        if historical_df is None:
+            return {"goals_last10": 0, "goals_against_last10": 0, "wins_last10": 0}
+        
+        # Get team's recent games before this date
+        team_games = historical_df[
+            ((historical_df["home"] == team) | (historical_df["away"] == team)) &
+            (historical_df["date"] < date)
+        ].tail(window)
+        
+        goals_for = []
+        goals_against = []
+        wins = 0
+        
+        for _, g in team_games.iterrows():
+            if g["home"] == team:
+                goals_for.append(g["home_goals"])
+                goals_against.append(g["away_goals"])
+                if g["home_goals"] > g["away_goals"]:
+                    wins += 1
+            else:
+                goals_for.append(g["away_goals"])
+                goals_against.append(g["home_goals"])
+                if g["away_goals"] > g["home_goals"]:
+                    wins += 1
+        
+        return {
+            "goals_last10": float(np.mean(goals_for)) if goals_for else 0.0,
+            "goals_against_last10": float(np.mean(goals_against)) if goals_against else 0.0,
+            "wins_last10": float(wins)
+        }
+    
     for g in games:
         # Skip non-NHL matchups if any slipped through
         try:
@@ -804,34 +858,89 @@ def predict_core(
         # Period-by-period predictions if model available
         p1_home, p1_away, p2_home, p2_away, p3_home, p3_away = None, None, None, None, None, None
         first_10min_proj = None
-        if period_model is not None:
+        if period_model is not None or first_10min_model is not None:
             try:
-                # Build feature dict for period prediction (minimal features needed)
+                # Build complete feature dict for neural network models (95 features expected)
+                game_date = pd.to_datetime(getattr(g, "gameDate"))
+                
+                # Convert team names to abbreviations for team encoding (model trained with abbrs)
+                try:
+                    from .web.teams import get_team_assets
+                    home_abbr = (get_team_assets(g.home).get("abbr") or "").upper()
+                    away_abbr = (get_team_assets(g.away).get("abbr") or "").upper()
+                except Exception:
+                    home_abbr = g.home
+                    away_abbr = g.away
+                
+                # Base ELO features
+                home_elo = elo.get(g.home)
+                away_elo = elo.get(g.away)
                 game_features = {
-                    "home_elo": elo.get(g.home),
-                    "away_elo": elo.get(g.away),
-                    "is_home": 1.0,
-                    # Add other features as needed by the model
+                    "home_elo": home_elo,
+                    "away_elo": away_elo,
+                    "elo_diff": home_elo - away_elo,
                 }
+                
+                # Recent form features (last 10 games) - use full names for lookup
+                home_form = compute_recent_form_features(g.home, game_date, historical_games_df)
+                away_form = compute_recent_form_features(g.away, game_date, historical_games_df)
+                game_features.update({
+                    "home_goals_last10": home_form["goals_last10"],
+                    "home_goals_against_last10": home_form["goals_against_last10"],
+                    "home_wins_last10": home_form["wins_last10"],
+                    "away_goals_last10": away_form["goals_last10"],
+                    "away_goals_against_last10": away_form["goals_against_last10"],
+                    "away_wins_last10": away_form["wins_last10"],
+                })
+                
+                # Rest days (days since last game)
+                home_rest = 1  # Default to 1 day rest
+                away_rest = 1
+                if g.home in team_last_game:
+                    home_rest = max(0, (game_date - team_last_game[g.home]).days)
+                if g.away in team_last_game:
+                    away_rest = max(0, (game_date - team_last_game[g.away]).days)
+                game_features["home_rest_days"] = float(home_rest)
+                game_features["away_rest_days"] = float(away_rest)
+                
+                # Season progress (games played / 82)
+                home_gp = team_games_played.get(g.home, 0)
+                away_gp = team_games_played.get(g.away, 0)
+                season_progress = (home_gp + away_gp) / (2.0 * 82.0)
+                game_features["season_progress"] = float(season_progress)
+                
+                # Home indicator
+                game_features["is_home"] = 1.0
+                
+                # Team one-hot encodings (use abbrs to match model training)
+                game_features[f"home_team_{home_abbr}"] = 1.0
+                game_features[f"away_team_{away_abbr}"] = 1.0
+                
+                # Update team state for next game (if processing chronologically)
+                team_last_game[g.home] = game_date
+                team_last_game[g.away] = game_date
+                team_games_played[g.home] = home_gp + 1
+                team_games_played[g.away] = away_gp + 1
+                
+            except Exception as e:
+                # If feature computation fails, skip predictions
+                game_features = None
+        
+        if period_model is not None and game_features is not None:
+            try:
                 # Predict returns array [p1_home, p1_away, p2_home, p2_away, p3_home, p3_away]
                 period_preds = period_model.predict(g.home, g.away, game_features)
                 if period_preds is not None and len(period_preds) == 6:
                     p1_home, p1_away, p2_home, p2_away, p3_home, p3_away = period_preds
-            except Exception:
+            except Exception as e:
                 pass
         
         # First 10 minutes prediction if model available
-        if first_10min_model is not None:
+        if first_10min_model is not None and game_features is not None:
             try:
-                # Reuse same features as period model
-                game_features = {
-                    "home_elo": elo.get(g.home),
-                    "away_elo": elo.get(g.away),
-                    "is_home": 1.0,
-                }
                 # Predict returns single value (total goals in first 10 min)
                 first_10min_proj = first_10min_model.predict(g.home, g.away, game_features)
-            except Exception:
+            except Exception as e:
                 pass
 
         # Build base row with model probabilities

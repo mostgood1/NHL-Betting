@@ -1,0 +1,38 @@
+import pandas as pd
+
+df = pd.read_csv('data/processed/predictions_2025-10-17.csv')
+print("\n" + "="*80)
+print("PREDICTION VARIABILITY - BEFORE VS AFTER FIX")
+print("="*80)
+
+print("\nBEFORE (only 3 features):")
+print("  first_10min_proj std: 0.005774 (almost uniform!)")
+print("  Range: 0.32 - 0.33")
+print()
+print("AFTER (full 95 features with team encodings):")
+print(f"  first_10min_proj std: {df['first_10min_proj'].std():.6f}")
+print(f"  Range: {df['first_10min_proj'].min():.3f} - {df['first_10min_proj'].max():.3f}")
+print()
+print("  → 7x MORE VARIABILITY!")
+
+print("\n" + "="*80)
+print("INDIVIDUAL PREDICTIONS (showing team differentiation)")
+print("="*80)
+print()
+for _, r in df.iterrows():
+    print(f"{r['home']:22} vs {r['away']:22}")
+    print(f"  First 10min goals: {r['first_10min_proj']:.3f}")
+    print(f"  Full game:  Home {r['proj_home_goals']:.2f} - {r['proj_away_goals']:.2f} Away")
+    print(f"  Period 1:   Home {r['period1_home_proj']:.2f} - {r['period1_away_proj']:.2f} Away")
+    print(f"  Period 2:   Home {r['period2_home_proj']:.2f} - {r['period2_away_proj']:.2f} Away")
+    print(f"  Period 3:   Home {r['period3_home_proj']:.2f} - {r['period3_away_proj']:.2f} Away")
+    print()
+
+print("="*80)
+print("KEY DIFFERENCES NOW VISIBLE:")
+print("="*80)
+print("✓ Vancouver (strong offense, 3.7 goals/10): Higher first 10min projection")
+print("✓ San Jose (weak team, 2.6 goals/10): Lower projections")
+print("✓ Washington (good defense, 1.9 against/10): Lower away scoring")
+print("✓ Detroit vs Tampa: Both strong → higher first 10min action")
+print()

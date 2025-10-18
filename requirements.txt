@@ -16,7 +16,6 @@ pyarrow==17.0.0
 # Neural network and NPU acceleration
 torch>=2.0.0
 onnx>=1.14.0
-onnxruntime>=1.20.0
-# Note: For Qualcomm NPU support, install onnxruntime-qnn separately:
-#   Download from Qualcomm AI Engine Direct SDK (https://www.qualcomm.com/developer/software/neural-processing-sdk)
-#   Or wait for onnxruntime-qnn wheels to be available on PyPI
+# Use onnxruntime-qnn for Qualcomm NPU support (Snapdragon X)
+# Falls back to CPU if QNN SDK not available
+onnxruntime-qnn==1.23.1

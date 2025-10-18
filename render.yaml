@@ -8,7 +8,7 @@ services:
     numInstances: 1
     # Health is served by the lightweight ASGI wrapper and is very fast.
     healthCheckPath: /health
-    buildCommand: pip install -r requirements.txt
+  buildCommand: pip install --no-cache-dir -r requirements.txt
   # Use a lightweight ASGI wrapper and a single worker to keep memory within plan limits.
   startCommand: uvicorn nhl_betting.web.asgi:app --host 0.0.0.0 --port $PORT --workers 1 --log-level info
     envVars:
@@ -39,6 +39,9 @@ services:
         value: "1"
       - key: NUMEXPR_NUM_THREADS
         value: "1"
+      # Avoid pip hash enforcement in the Render environment
+      - key: PIP_REQUIRE_HASHES
+        value: "0"
       - key: WEB_DISABLE_GH_UPSERT
         value: "true"
       - key: REFRESH_CRON_TOKEN

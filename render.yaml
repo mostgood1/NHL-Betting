@@ -9,8 +9,8 @@ services:
     # Health is served by the lightweight ASGI wrapper and is very fast.
     healthCheckPath: /health
     buildCommand: pip install -r requirements.txt
-    # Use a lightweight ASGI wrapper and two workers to avoid health-check timeouts during warmups.
-    startCommand: uvicorn nhl_betting.web.asgi:app --host 0.0.0.0 --port $PORT --workers 2 --log-level info
+  # Use a lightweight ASGI wrapper and a single worker to keep memory within plan limits.
+  startCommand: uvicorn nhl_betting.web.asgi:app --host 0.0.0.0 --port $PORT --workers 1 --log-level info
     envVars:
       - key: ODDS_API_KEY
         sync: false
@@ -32,6 +32,13 @@ services:
         value: "8000"
       - key: CACHED_PROPS_TTL_SECONDS
         value: "300"
+      # Limit numeric/BLAS thread counts to reduce memory and context switching on small instances
+      - key: OMP_NUM_THREADS
+        value: "1"
+      - key: MKL_NUM_THREADS
+        value: "1"
+      - key: NUMEXPR_NUM_THREADS
+        value: "1"
       - key: WEB_DISABLE_GH_UPSERT
         value: "true"
       - key: REFRESH_CRON_TOKEN

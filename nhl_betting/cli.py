@@ -700,10 +700,12 @@ def predict_core(
     try:
         from .models.nn_games import NNGameModel  # Lazy import
         period_model = NNGameModel(model_type="PERIOD_GOALS", model_dir=MODEL_DIR / "nn_games")
-        if period_model.model is None:
+        # Check if EITHER PyTorch model OR ONNX session loaded
+        if period_model.model is None and period_model.onnx_session is None:
             period_model = None
         first_10min_model = NNGameModel(model_type="FIRST_10MIN", model_dir=MODEL_DIR / "nn_games")
-        if first_10min_model.model is None:
+        # Check if EITHER PyTorch model OR ONNX session loaded
+        if first_10min_model.model is None and first_10min_model.onnx_session is None:
             first_10min_model = None
     except Exception:
         period_model = None

@@ -7,5 +7,11 @@
   "tests/test_props_projections_history.py::test_projections_history_empty_ok": true,
   "tests/test_props_range.py::test_props_range_unauthorized": true,
   "tests/test_props_range.py::test_props_range_projections_mode": true,
-  "tests/test_props_recommendations.py::test_recommendations_etag_and_ev_consistency": true
+  "tests/test_props_recommendations.py::test_recommendations_etag_and_ev_consistency": true,
+  "tests/test_api_props_all.py": true,
+  "tests/test_props_history.py": true,
+  "tests/test_props_page.py": true,
+  "tests/test_props_projections_history.py": true,
+  "tests/test_props_range.py": true,
+  "tests/test_props_recommendations.py": true
 }

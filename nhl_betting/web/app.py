@@ -362,7 +362,10 @@ def _github_raw_read_csv(rel_path: str, timeout_sec: Optional[float] = None, att
         branch = os.getenv("GITHUB_BRANCH", "master").strip() or "master"
         # Normalize leading slashes
         rel = rel_path.lstrip("/")
-        url = f"https://raw.githubusercontent.com/{repo}/{branch}/{rel}"
+        # URL-encode path components (especially for date=YYYY-MM-DD patterns)
+        from urllib.parse import quote
+        rel_encoded = "/".join(quote(part, safe='') for part in rel.split("/"))
+        url = f"https://raw.githubusercontent.com/{repo}/{branch}/{rel_encoded}"
         # Tune network behavior to avoid tying up request workers
         if timeout_sec is None:
             timeout_sec = 2.0 if _is_public_host_env() else 7.0
@@ -401,7 +404,10 @@ def _github_raw_read_parquet(rel_path: str, timeout_sec: Optional[float] = None)
         repo = os.getenv("GITHUB_REPO", "mostgood1/NHL-Betting").strip() or "mostgood1/NHL-Betting"
         branch = os.getenv("GITHUB_BRANCH", "master").strip() or "master"
         rel = rel_path.lstrip("/")
-        url = f"https://raw.githubusercontent.com/{repo}/{branch}/{rel}"
+        # URL-encode path components (especially for date=YYYY-MM-DD patterns)
+        from urllib.parse import quote
+        rel_encoded = "/".join(quote(part, safe='') for part in rel.split("/"))
+        url = f"https://raw.githubusercontent.com/{repo}/{branch}/{rel_encoded}"
         if timeout_sec is None:
             timeout_sec = 3.0 if _is_public_host_env() else 15.0
         resp = requests.get(url, timeout=float(timeout_sec))

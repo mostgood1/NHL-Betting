@@ -8,13 +8,37 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
-import torch
-import torch.nn as nn
-import onnxruntime as ort
+
+# CRITICAL: Import torch/onnx with error handling to avoid DLL conflicts
+# If pandas/numpy are already loaded, torch may fail due to MKL DLL conflicts
+try:
+    import torch
+    import torch.nn as nn
+    _TORCH = torch
+    _NN = nn
+except (ImportError, OSError) as e:
+    print(f"[warn] PyTorch not available for props NN: {e}")
+    torch = None
+    _TORCH = None
+    _NN = None
+
+try:
+    import onnxruntime as ort
+    _ORT = ort
+except (ImportError, OSError) as e:
+    print(f"[warn] ONNX Runtime not available for props NN: {e}")
+    ort = None
+    _ORT = None
+
+# For type checking, import properly
+if TYPE_CHECKING:
+    import torch
+    import torch.nn as nn
+    import onnxruntime as ort
 
 
 @dataclass
@@ -44,42 +68,50 @@ class NNPropsConfig:
             self.hidden_dims = [64, 32]
 
 
-class PlayerPropsNN(nn.Module):
-    """Feedforward neural network for predicting player performance metrics.
-    
-    Inputs: recent game stats, team context, opponent strength, TOI, etc.
-    Output: Poisson lambda parameter (or direct count prediction)
-    """
-    
-    def __init__(self, input_dim: int, cfg: NNPropsConfig | None = None):
-        super().__init__()
-        self.cfg = cfg or NNPropsConfig()
+# Only define PlayerPropsNN if torch is available
+if _NN is not None:
+    class PlayerPropsNN(_NN.Module):
+        """Feedforward neural network for predicting player performance metrics.
         
-        layers = []
-        prev_dim = input_dim
+        Inputs: recent game stats, team context, opponent strength, TOI, etc.
+        Output: Poisson lambda parameter (or direct count prediction)
+        """
         
-        for hidden_dim in self.cfg.hidden_dims:
-            layers.append(nn.Linear(prev_dim, hidden_dim))
-            if self.cfg.activation == "relu":
-                layers.append(nn.ReLU())
-            elif self.cfg.activation == "gelu":
-                layers.append(nn.GELU())
-            elif self.cfg.activation == "elu":
-                layers.append(nn.ELU())
-            else:
-                layers.append(nn.ReLU())
-            layers.append(nn.Dropout(self.cfg.dropout))
-            prev_dim = hidden_dim
+        def __init__(self, input_dim: int, cfg: NNPropsConfig | None = None):
+            super().__init__()
+            self.cfg = cfg or NNPropsConfig()
+            
+            layers = []
+            prev_dim = input_dim
+            
+            for hidden_dim in self.cfg.hidden_dims:
+                layers.append(_NN.Linear(prev_dim, hidden_dim))
+                if self.cfg.activation == "relu":
+                    layers.append(_NN.ReLU())
+                elif self.cfg.activation == "gelu":
+                    layers.append(_NN.GELU())
+                elif self.cfg.activation == "elu":
+                    layers.append(_NN.ELU())
+                else:
+                    layers.append(_NN.ReLU())
+                layers.append(_NN.Dropout(self.cfg.dropout))
+                prev_dim = hidden_dim
+            
+            # Output layer: single value (lambda for Poisson)
+            layers.append(_NN.Linear(prev_dim, 1))
+            # Use softplus to ensure positive output (lambda > 0)
+            layers.append(_NN.Softplus())
+            
+            self.network = _NN.Sequential(*layers)
         
-        # Output layer: single value (lambda for Poisson)
-        layers.append(nn.Linear(prev_dim, 1))
-        # Use softplus to ensure positive output (lambda > 0)
-        layers.append(nn.Softplus())
-        
-        self.network = nn.Sequential(*layers)
-    
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.network(x).squeeze(-1)
+        def forward(self, x: "torch.Tensor") -> "torch.Tensor":
+            return self.network(x).squeeze(-1)
+else:
+    # Dummy class when torch is not available
+    class PlayerPropsNN:
+        """Dummy class when PyTorch is not available."""
+        def __init__(self, *args, **kwargs):
+            pass
 
 
 class NNPropsModel:
@@ -102,7 +134,7 @@ class NNPropsModel:
         self.use_npu = use_npu
         
         self.model: Optional[PlayerPropsNN] = None
-        self.onnx_session: Optional[ort.InferenceSession] = None
+        self.onnx_session: Optional[Any] = None  # ort.InferenceSession
         self.feature_columns: List[str] = []
         self.scaler_mean: Optional[np.ndarray] = None
         self.scaler_std: Optional[np.ndarray] = None
@@ -140,6 +172,9 @@ class NNPropsModel:
                 if not onnx_path.exists():
                     print(f"[warn] ONNX model not found for {self.market}, falling back to CPU")
                     self.use_npu = False
+                elif _ORT is None:
+                    print(f"[warn] ONNX Runtime not available, falling back to CPU")
+                    self.use_npu = False
                 else:
                     # QNN execution provider for Qualcomm NPU
                     qnn_sdk = os.environ.get("QNN_SDK_ROOT", r"C:\Qualcomm\QNN_SDK")
@@ -154,7 +189,7 @@ class NNPropsModel:
                         "CPUExecutionProvider",  # Fallback
                     ]
                     
-                    self.onnx_session = ort.InferenceSession(
+                    self.onnx_session = _ORT.InferenceSession(
                         str(onnx_path),
                         providers=providers,
                     )
@@ -169,9 +204,13 @@ class NNPropsModel:
                 model_path = self._get_model_path()
                 if not model_path.exists():
                     return False
+                
+                if _TORCH is None:
+                    print(f"[warn] PyTorch not available, cannot load model for {self.market}")
+                    return False
                     
                 self.model = PlayerPropsNN(input_dim, self.cfg)
-                self.model.load_state_dict(torch.load(model_path, weights_only=True))
+                self.model.load_state_dict(_TORCH.load(model_path, weights_only=True))
                 self.model.eval()
                 print(f"[cpu] {self.market} model loaded with PyTorch CPU")
                 return True

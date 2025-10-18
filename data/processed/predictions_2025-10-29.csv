@@ -1,0 +1,2 @@
+date,home,away,p_home_ml,p_away_ml,p_over,p_under,p_home_pl_-1.5,p_away_pl_+1.5,total_line_used,proj_home_goals,proj_away_goals,model_total,model_spread,pl_line_used,totals_pick,totals_edge_pts,ats_pick,ats_edge_pts,edge_over_pts,edge_under_pts,edge_home_pl_pts,edge_away_pl_pts,actual_home_goals,actual_away_goals,actual_total,venue,game_state
+2025-10-29T23:30:00Z,Columbus Blue Jackets,Toronto Maple Leafs,0.354,0.646,0.4034,0.4336,0.1371,0.8629,6.0,2.47,3.6,6.07,-1.13,1.5,Under,-0.07,away_+1.5,2.63,0.07,-0.07,-2.63,2.63,,,,Nationwide Arena,FUT

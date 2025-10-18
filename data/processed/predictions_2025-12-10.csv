@@ -1,0 +1,4 @@
+date,home,away,p_home_ml,p_away_ml,p_over,p_under,p_home_pl_-1.5,p_away_pl_+1.5,total_line_used,proj_home_goals,proj_away_goals,model_total,model_spread,pl_line_used,totals_pick,totals_edge_pts,ats_pick,ats_edge_pts,edge_over_pts,edge_under_pts,edge_home_pl_pts,edge_away_pl_pts,actual_home_goals,actual_away_goals,actual_total,venue,game_state
+2025-12-11T00:30:00Z,Chicago Blackhawks,New York Rangers,0.1894,0.8106,0.3986,0.4321,0.0446,0.9554,6.0,1.78,4.29,6.07,-2.52,1.5,Under,-0.07,away_+1.5,4.02,0.07,-0.07,-4.02,4.02,,,,United Center,FUT
+2025-12-11T01:30:00Z,Calgary Flames,Detroit Red Wings,0.5282,0.4718,0.4043,0.4338,0.3112,0.6888,6.0,3.2,2.87,6.07,0.33,1.5,Under,-0.07,away_+1.5,1.17,0.07,-0.07,-1.17,1.17,,,,Scotiabank Saddledome,FUT
+2025-12-11T03:00:00Z,Seattle Kraken,Los Angeles Kings,0.4779,0.5221,0.4044,0.4339,0.2535,0.7465,6.0,2.99,3.08,6.07,-0.09,1.5,Under,-0.07,away_+1.5,1.59,0.07,-0.07,-1.59,1.59,,,,Climate Pledge Arena,FUT

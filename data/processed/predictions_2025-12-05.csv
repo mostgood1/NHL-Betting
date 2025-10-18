@@ -1,0 +1,5 @@
+date,home,away,p_home_ml,p_away_ml,p_over,p_under,p_home_pl_-1.5,p_away_pl_+1.5,total_line_used,proj_home_goals,proj_away_goals,model_total,model_spread,pl_line_used,totals_pick,totals_edge_pts,ats_pick,ats_edge_pts,edge_over_pts,edge_under_pts,edge_home_pl_pts,edge_away_pl_pts,actual_home_goals,actual_away_goals,actual_total,venue,game_state
+2025-12-06T00:00:00Z,New Jersey Devils,Vegas Golden Knights,0.4688,0.5312,0.4044,0.4339,0.2436,0.7564,6.0,2.95,3.12,6.07,-0.17,1.5,Under,-0.07,away_+1.5,1.67,0.07,-0.07,-1.67,1.67,,,,Prudential Center,FUT
+2025-12-06T00:00:00Z,Winnipeg Jets,Buffalo Sabres,0.6416,0.3584,0.4031,0.4335,0.4561,0.5439,6.0,3.68,2.39,6.07,1.28,1.5,Under,-0.07,away_+1.5,0.22,0.07,-0.07,-0.22,0.22,,,,Canada Life Centre,FUT
+2025-12-06T01:00:00Z,Dallas Stars,San Jose Sharks,0.8968,0.1032,0.3918,0.4299,0.773,0.227,6.0,4.75,1.32,6.07,3.43,1.5,Under,-0.07,home_-1.5,1.93,0.07,-0.07,1.93,-1.93,,,,American Airlines Center,FUT
+2025-12-06T03:00:00Z,Anaheim Ducks,Washington Capitals,0.3852,0.6148,0.4038,0.4337,0.1626,0.8374,6.0,2.6,3.47,6.07,-0.87,1.5,Under,-0.07,away_+1.5,2.37,0.07,-0.07,-2.37,2.37,,,,Honda Center,FUT

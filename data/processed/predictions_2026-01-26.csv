@@ -1,0 +1,5 @@
+date,home,away,p_home_ml,p_away_ml,p_over,p_under,p_home_pl_-1.5,p_away_pl_+1.5,total_line_used,proj_home_goals,proj_away_goals,model_total,model_spread,pl_line_used,totals_pick,totals_edge_pts,ats_pick,ats_edge_pts,edge_over_pts,edge_under_pts,edge_home_pl_pts,edge_away_pl_pts,actual_home_goals,actual_away_goals,actual_total,venue,game_state
+2026-01-27T00:00:00Z,New York Rangers,Boston Bruins,0.6777,0.3223,0.4024,0.4333,0.5044,0.4956,6.0,3.83,2.24,6.07,1.59,1.5,Under,-0.07,home_-1.5,0.09,0.07,-0.07,0.09,-0.09,,,,Madison Square Garden,FUT
+2026-01-27T00:00:00Z,Philadelphia Flyers,New York Islanders,0.4648,0.5352,0.4044,0.4339,0.2393,0.7607,6.0,2.93,3.14,6.07,-0.2,1.5,Under,-0.07,away_+1.5,1.7,0.07,-0.07,-1.7,1.7,,,,Xfinity Mobile Arena,FUT
+2026-01-27T00:00:00Z,Columbus Blue Jackets,Los Angeles Kings,0.4135,0.5865,0.4041,0.4338,0.188,0.812,6.0,2.72,3.35,6.07,-0.63,1.5,Under,-0.07,away_+1.5,2.13,0.07,-0.07,-2.13,2.13,,,,Nationwide Arena,FUT
+2026-01-27T01:30:00Z,Edmonton Oilers,Anaheim Ducks,0.8645,0.1355,0.3942,0.4307,0.7391,0.2609,6.0,4.61,1.46,6.07,3.16,1.5,Under,-0.07,home_-1.5,1.66,0.07,-0.07,1.66,-1.66,,,,Rogers Place,FUT

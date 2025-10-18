@@ -1,0 +1,8 @@
+date,home,away,p_home_ml,p_away_ml,p_over,p_under,p_home_pl_-1.5,p_away_pl_+1.5,total_line_used,proj_home_goals,proj_away_goals,model_total,model_spread,pl_line_used,totals_pick,totals_edge_pts,ats_pick,ats_edge_pts,edge_over_pts,edge_under_pts,edge_home_pl_pts,edge_away_pl_pts,actual_home_goals,actual_away_goals,actual_total,venue,game_state
+2025-11-19T00:00:00Z,Toronto Maple Leafs,St. Louis Blues,0.6231,0.3769,0.4034,0.4336,0.4316,0.5684,6.0,3.6,2.47,6.07,1.13,1.5,Under,-0.07,away_+1.5,0.37,0.07,-0.07,-0.37,0.37,,,,Scotiabank Arena,FUT
+2025-11-19T00:00:00Z,Detroit Red Wings,Seattle Kraken,0.6549,0.3451,0.4029,0.4334,0.4739,0.5261,6.0,3.73,2.34,6.07,1.39,1.5,Under,-0.07,away_+1.5,0.11,0.07,-0.07,-0.11,0.11,,,,Little Caesars Arena,FUT
+2025-11-19T00:00:00Z,Tampa Bay Lightning,New Jersey Devils,0.6615,0.3385,0.4027,0.4334,0.4828,0.5172,6.0,3.76,2.31,6.07,1.45,1.5,Under,-0.07,away_+1.5,0.05,0.07,-0.07,-0.05,0.05,,,,Benchmark International Arena,FUT
+2025-11-19T01:00:00Z,Dallas Stars,New York Islanders,0.6895,0.3105,0.4021,0.4332,0.5202,0.4798,6.0,3.88,2.19,6.07,1.69,1.5,Under,-0.07,home_-1.5,0.19,0.07,-0.07,0.19,-0.19,,,,American Airlines Center,FUT
+2025-11-19T01:00:00Z,Winnipeg Jets,Columbus Blue Jackets,0.7842,0.2158,0.3988,0.4321,0.6442,0.3558,6.0,4.28,1.8,6.07,2.48,1.5,Under,-0.07,home_-1.5,0.98,0.07,-0.07,0.98,-0.98,,,,Canada Life Centre,FUT
+2025-11-19T01:30:00Z,Chicago Blackhawks,Calgary Flames,0.3792,0.6208,0.4038,0.4337,0.1575,0.8425,6.0,2.58,3.5,6.07,-0.92,1.5,Under,-0.07,away_+1.5,2.42,0.07,-0.07,-2.42,2.42,,,,United Center,FUT
+2025-11-19T03:00:00Z,Vegas Golden Knights,New York Rangers,0.4315,0.5685,0.4042,0.4338,0.2053,0.7947,6.0,2.8,3.28,6.07,-0.48,1.5,Under,-0.07,away_+1.5,1.98,0.07,-0.07,-1.98,1.98,,,,T-Mobile Arena,FUT

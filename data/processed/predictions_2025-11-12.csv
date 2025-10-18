@@ -1,0 +1,4 @@
+date,home,away,p_home_ml,p_away_ml,p_over,p_under,p_home_pl_-1.5,p_away_pl_+1.5,total_line_used,proj_home_goals,proj_away_goals,model_total,model_spread,pl_line_used,totals_pick,totals_edge_pts,ats_pick,ats_edge_pts,edge_over_pts,edge_under_pts,edge_home_pl_pts,edge_away_pl_pts,actual_home_goals,actual_away_goals,actual_total,venue,game_state
+2025-11-13T00:00:00Z,Tampa Bay Lightning,New York Rangers,0.424,0.576,0.4042,0.4338,0.198,0.802,6.0,2.76,3.31,6.07,-0.54,1.5,Under,-0.07,away_+1.5,2.04,0.07,-0.07,-2.04,2.04,,,,Benchmark International Arena,FUT
+2025-11-13T00:30:00Z,Philadelphia Flyers,Edmonton Oilers,0.3189,0.6811,0.4028,0.4334,0.1115,0.8885,6.0,2.32,3.75,6.07,-1.43,1.5,Under,-0.07,away_+1.5,2.93,0.07,-0.07,-2.93,2.93,,,,Xfinity Mobile Arena,FUT
+2025-11-13T02:30:00Z,Chicago Blackhawks,New Jersey Devils,0.3828,0.6172,0.4038,0.4337,0.1606,0.8394,6.0,2.59,3.48,6.07,-0.89,1.5,Under,-0.07,away_+1.5,2.39,0.07,-0.07,-2.39,2.39,,,,United Center,FUT

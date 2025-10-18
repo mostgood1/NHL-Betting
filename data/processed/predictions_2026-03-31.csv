@@ -1,0 +1,11 @@
+date,home,away,p_home_ml,p_away_ml,p_over,p_under,p_home_pl_-1.5,p_away_pl_+1.5,total_line_used,proj_home_goals,proj_away_goals,model_total,model_spread,pl_line_used,totals_pick,totals_edge_pts,ats_pick,ats_edge_pts,edge_over_pts,edge_under_pts,edge_home_pl_pts,edge_away_pl_pts,actual_home_goals,actual_away_goals,actual_total,venue,game_state
+2026-03-31T23:00:00Z,Boston Bruins,Dallas Stars,0.5047,0.4953,0.4044,0.4339,0.2836,0.7164,6.0,3.1,2.97,6.07,0.13,1.5,Under,-0.07,away_+1.5,1.37,0.07,-0.07,-1.37,1.37,,,,TD Garden,FUT
+2026-03-31T23:00:00Z,Buffalo Sabres,New York Islanders,0.5724,0.4276,0.404,0.4338,0.3657,0.6343,6.0,3.39,2.69,6.07,0.7,1.5,Under,-0.07,away_+1.5,0.8,0.07,-0.07,-0.8,0.8,,,,KeyBank Center,FUT
+2026-03-31T23:00:00Z,Tampa Bay Lightning,Montréal Canadiens,0.7478,0.2522,0.4003,0.4326,0.5975,0.4025,6.0,4.12,1.95,6.07,2.17,1.5,Under,-0.07,home_-1.5,0.67,0.07,-0.07,0.67,-0.67,,,,Benchmark International Arena,FUT
+2026-03-31T23:00:00Z,Florida Panthers,Ottawa Senators,0.7628,0.2372,0.3997,0.4324,0.6169,0.3831,6.0,4.19,1.89,6.07,2.3,1.5,Under,-0.07,home_-1.5,0.8,0.07,-0.07,0.8,-0.8,,,,Amerant Bank Arena,FUT
+2026-03-31T23:00:00Z,New York Rangers,New Jersey Devils,0.7797,0.2203,0.399,0.4322,0.6386,0.3614,6.0,4.26,1.81,6.07,2.44,1.5,Under,-0.07,home_-1.5,0.94,0.07,-0.07,0.94,-0.94,,,,Madison Square Garden,FUT
+2026-03-31T23:00:00Z,Pittsburgh Penguins,Detroit Red Wings,0.5545,0.4455,0.4042,0.4338,0.3433,0.6567,6.0,3.31,2.76,6.07,0.55,1.5,Under,-0.07,away_+1.5,0.95,0.07,-0.07,-0.95,0.95,,,,PPG Paints Arena,FUT
+2026-03-31T23:00:00Z,Washington Capitals,Philadelphia Flyers,0.6282,0.3718,0.4034,0.4336,0.4383,0.5617,6.0,3.62,2.45,6.07,1.17,1.5,Under,-0.07,away_+1.5,0.33,0.07,-0.07,-0.33,0.33,,,,Capital One Arena,FUT
+2026-03-31T23:30:00Z,Columbus Blue Jackets,Carolina Hurricanes,0.2607,0.7393,0.4013,0.4329,0.0763,0.9237,6.0,2.08,3.99,6.07,-1.92,1.5,Under,-0.07,away_+1.5,3.42,0.07,-0.07,-3.42,3.42,,,,Nationwide Arena,FUT
+2026-04-01T00:30:00Z,Chicago Blackhawks,Winnipeg Jets,0.2581,0.7419,0.4013,0.4329,0.0749,0.9251,6.0,2.07,4.01,6.07,-1.94,1.5,Under,-0.07,away_+1.5,3.44,0.07,-0.07,-3.44,3.44,,,,United Center,FUT
+2026-04-01T01:00:00Z,Edmonton Oilers,Seattle Kraken,0.7939,0.2061,0.3983,0.432,0.6563,0.3437,6.0,4.32,1.75,6.07,2.56,1.5,Under,-0.07,home_-1.5,1.06,0.07,-0.07,1.06,-1.06,,,,Rogers Place,FUT

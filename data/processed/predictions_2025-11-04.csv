@@ -1,0 +1,10 @@
+date,home,away,p_home_ml,p_away_ml,p_over,p_under,p_home_pl_-1.5,p_away_pl_+1.5,total_line_used,proj_home_goals,proj_away_goals,model_total,model_spread,pl_line_used,totals_pick,totals_edge_pts,ats_pick,ats_edge_pts,edge_over_pts,edge_under_pts,edge_home_pl_pts,edge_away_pl_pts,actual_home_goals,actual_away_goals,actual_total,venue,game_state
+2025-11-05T00:00:00Z,Montréal Canadiens,Philadelphia Flyers,0.505,0.495,0.4044,0.4339,0.2839,0.7161,6.0,3.1,2.97,6.07,0.14,1.5,Under,-0.07,away_+1.5,1.36,0.07,-0.07,-1.36,1.36,,,,Centre Bell,FUT
+2025-11-05T00:00:00Z,New York Islanders,Boston Bruins,0.5118,0.4882,0.4044,0.4339,0.2918,0.7082,6.0,3.13,2.94,6.07,0.19,1.5,Under,-0.07,away_+1.5,1.31,0.07,-0.07,-1.31,1.31,,,,UBS Arena,FUT
+2025-11-05T00:00:00Z,New York Rangers,Carolina Hurricanes,0.5885,0.4115,0.4039,0.4337,0.3864,0.6136,6.0,3.45,2.62,6.07,0.84,1.5,Under,-0.07,away_+1.5,0.66,0.07,-0.07,-0.66,0.66,,,,Madison Square Garden,FUT
+2025-11-05T01:00:00Z,Dallas Stars,Edmonton Oilers,0.5448,0.4552,0.4042,0.4338,0.3314,0.6686,6.0,3.27,2.8,6.07,0.47,1.5,Under,-0.07,away_+1.5,1.03,0.07,-0.07,-1.03,1.03,,,,American Airlines Center,FUT
+2025-11-05T01:00:00Z,Minnesota Wild,Nashville Predators,0.5012,0.4988,0.4044,0.4339,0.2796,0.7204,6.0,3.09,2.98,6.07,0.1,1.5,Under,-0.07,away_+1.5,1.4,0.07,-0.07,-1.4,1.4,,,,Grand Casino Arena,FUT
+2025-11-05T02:30:00Z,Colorado Avalanche,Tampa Bay Lightning,0.6491,0.3509,0.403,0.4334,0.4661,0.5339,6.0,3.71,2.36,6.07,1.35,1.5,Under,-0.07,away_+1.5,0.15,0.07,-0.07,-0.15,0.15,,,,Ball Arena,FUT
+2025-11-05T03:00:00Z,Vegas Golden Knights,Detroit Red Wings,0.6249,0.3751,0.4034,0.4336,0.434,0.566,6.0,3.61,2.46,6.07,1.14,1.5,Under,-0.07,away_+1.5,0.36,0.07,-0.07,-0.36,0.36,,,,T-Mobile Arena,FUT
+2025-11-05T03:00:00Z,Anaheim Ducks,Florida Panthers,0.1888,0.8112,0.3986,0.4321,0.0444,0.9556,6.0,1.78,4.3,6.07,-2.52,1.5,Under,-0.07,away_+1.5,4.02,0.07,-0.07,-4.02,4.02,,,,Honda Center,FUT
+2025-11-05T03:30:00Z,Los Angeles Kings,Winnipeg Jets,0.4807,0.5193,0.4044,0.4339,0.2566,0.7434,6.0,3.0,3.07,6.07,-0.07,1.5,Under,-0.07,away_+1.5,1.57,0.07,-0.07,-1.57,1.57,,,,Crypto.com Arena,FUT

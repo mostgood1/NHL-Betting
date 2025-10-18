@@ -1,0 +1,31 @@
+date,home,away,market,ev
+2025-09-28T22:00:00Z,Minnesota Wild,Chicago Blackhawks,ev_under,0.3256
+2025-09-28T19:00:00Z,New Jersey Devils,Washington Capitals,ev_home_pl_-1.5,0.2954
+2025-09-28T23:00:00Z,Carolina Hurricanes,Nashville Predators,ev_home_pl_-1.5,0.2381
+2025-09-28T19:00:00Z,Ottawa Senators,New Jersey Devils,ev_over,0.1991
+2025-09-28T23:00:00Z,Carolina Hurricanes,Nashville Predators,ev_home_ml,0.1978
+2025-09-28T19:00:00Z,New Jersey Devils,Washington Capitals,ev_home_ml,0.1846
+2025-09-28T23:00:00Z,Carolina Hurricanes,Nashville Predators,ev_under,0.1672
+2025-09-29T00:00:00Z,Edmonton Oilers,Vancouver Canucks,ev_away_ml,0.1622
+2025-09-29T00:00:00Z,Edmonton Oilers,Vancouver Canucks,ev_away_pl_+1.5,0.1439
+2025-09-28T22:00:00Z,Minnesota Wild,Chicago Blackhawks,ev_home_ml,0.044
+2025-09-28T19:00:00Z,Ottawa Senators,New Jersey Devils,ev_home_ml,0.0382
+2025-09-28T19:00:00Z,Ottawa Senators,New Jersey Devils,ev_home_pl_-1.5,0.0098
+2025-09-28T22:00:00Z,Minnesota Wild,Chicago Blackhawks,ev_away_pl_+1.5,-0.0022
+2025-09-28T19:00:00Z,New Jersey Devils,Washington Capitals,ev_over,-0.0557
+2025-09-29T00:00:00Z,Edmonton Oilers,Vancouver Canucks,ev_under,-0.0786
+2025-09-28T19:00:00Z,Ottawa Senators,New Jersey Devils,ev_away_pl_+1.5,-0.0866
+2025-09-28T22:00:00Z,Minnesota Wild,Chicago Blackhawks,ev_home_pl_-1.5,-0.1341
+2025-09-28T22:00:00Z,Minnesota Wild,Chicago Blackhawks,ev_away_ml,-0.1351
+2025-09-29T00:00:00Z,Edmonton Oilers,Vancouver Canucks,ev_home_ml,-0.1682
+2025-09-28T23:00:00Z,Carolina Hurricanes,Nashville Predators,ev_away_pl_+1.5,-0.2076
+2025-09-28T19:00:00Z,Ottawa Senators,New Jersey Devils,ev_away_ml,-0.2126
+2025-09-28T23:00:00Z,Carolina Hurricanes,Nashville Predators,ev_over,-0.2274
+2025-09-28T19:00:00Z,New Jersey Devils,Washington Capitals,ev_away_pl_+1.5,-0.2505
+2025-09-28T19:00:00Z,Ottawa Senators,New Jersey Devils,ev_under,-0.2592
+2025-09-29T00:00:00Z,Edmonton Oilers,Vancouver Canucks,ev_home_pl_-1.5,-0.3237
+2025-09-29T00:00:00Z,Edmonton Oilers,Vancouver Canucks,ev_over,-0.3244
+2025-09-28T19:00:00Z,New Jersey Devils,Washington Capitals,ev_under,-0.3395
+2025-09-28T22:00:00Z,Minnesota Wild,Chicago Blackhawks,ev_over,-0.3643
+2025-09-28T23:00:00Z,Carolina Hurricanes,Nashville Predators,ev_away_ml,-0.3762
+2025-09-28T19:00:00Z,New Jersey Devils,Washington Capitals,ev_away_ml,-0.392

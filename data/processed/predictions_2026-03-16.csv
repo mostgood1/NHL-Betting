@@ -1,0 +1,5 @@
+date,home,away,p_home_ml,p_away_ml,p_over,p_under,p_home_pl_-1.5,p_away_pl_+1.5,total_line_used,proj_home_goals,proj_away_goals,model_total,model_spread,pl_line_used,totals_pick,totals_edge_pts,ats_pick,ats_edge_pts,edge_over_pts,edge_under_pts,edge_home_pl_pts,edge_away_pl_pts,actual_home_goals,actual_away_goals,actual_total,venue,game_state
+2026-03-16T23:00:00Z,Detroit Red Wings,Calgary Flames,0.6137,0.3863,0.4036,0.4336,0.4192,0.5808,6.0,3.56,2.51,6.07,1.05,1.5,Under,-0.07,away_+1.5,0.45,0.07,-0.07,-0.45,0.45,,,,Little Caesars Arena,FUT
+2026-03-16T23:00:00Z,New Jersey Devils,Boston Bruins,0.442,0.558,0.4043,0.4338,0.2157,0.7843,6.0,2.84,3.23,6.07,-0.39,1.5,Under,-0.07,away_+1.5,1.89,0.07,-0.07,-1.89,1.89,,,,Prudential Center,FUT
+2026-03-16T23:00:00Z,New York Rangers,Los Angeles Kings,0.7409,0.2591,0.4005,0.4327,0.5886,0.4114,6.0,4.09,1.98,6.07,2.12,1.5,Under,-0.07,home_-1.5,0.62,0.07,-0.07,0.62,-0.62,,,,Madison Square Garden,FUT
+2026-03-17T01:30:00Z,Colorado Avalanche,Pittsburgh Penguins,0.706,0.294,0.4017,0.433,0.5424,0.4576,6.0,3.95,2.12,6.07,1.82,1.5,Under,-0.07,home_-1.5,0.32,0.07,-0.07,0.32,-0.32,,,,Ball Arena,FUT

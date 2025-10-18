@@ -1,0 +1,23 @@
+date,home,away,market,ev
+2025-09-22T00:00:00Z,Calgary Flames,Edmonton Oilers,ev_away_ml,0.8046
+2025-09-22T00:00:00Z,Calgary Flames,Edmonton Oilers,ev_away_pl_+1.5,0.5038
+2025-09-22T00:00:00Z,Edmonton Oilers,Calgary Flames,ev_home_pl_-1.5,0.3766
+2025-09-22T00:00:00Z,San Jose Sharks,Vegas Golden Knights,ev_away_ml,0.1909
+2025-09-21T21:00:00Z,Boston Bruins,Washington Capitals,ev_home_pl_-1.5,0.114
+2025-09-22T00:00:00Z,Edmonton Oilers,Calgary Flames,ev_home_ml,0.1103
+2025-09-22T00:00:00Z,San Jose Sharks,Vegas Golden Knights,ev_under,0.0294
+2025-09-21T21:00:00Z,Boston Bruins,Washington Capitals,ev_home_ml,0.0126
+2025-09-21T21:00:00Z,Boston Bruins,Washington Capitals,ev_over,-0.0323
+2025-09-22T00:00:00Z,Calgary Flames,Edmonton Oilers,ev_over,-0.038
+2025-09-22T00:00:00Z,Calgary Flames,Edmonton Oilers,ev_under,-0.0487
+2025-09-22T00:00:00Z,Edmonton Oilers,Calgary Flames,ev_over,-0.0506
+2025-09-22T00:00:00Z,Edmonton Oilers,Calgary Flames,ev_under,-0.0526
+2025-09-21T21:00:00Z,Boston Bruins,Washington Capitals,ev_under,-0.0632
+2025-09-22T00:00:00Z,San Jose Sharks,Vegas Golden Knights,ev_over,-0.1057
+2025-09-21T21:00:00Z,Boston Bruins,Washington Capitals,ev_away_ml,-0.1231
+2025-09-21T21:00:00Z,Boston Bruins,Washington Capitals,ev_away_pl_+1.5,-0.1414
+2025-09-22T00:00:00Z,Edmonton Oilers,Calgary Flames,ev_away_ml,-0.3372
+2025-09-22T00:00:00Z,Edmonton Oilers,Calgary Flames,ev_away_pl_+1.5,-0.3739
+2025-09-22T00:00:00Z,San Jose Sharks,Vegas Golden Knights,ev_home_ml,-0.4069
+2025-09-22T00:00:00Z,Calgary Flames,Edmonton Oilers,ev_home_ml,-0.4829
+2025-09-22T00:00:00Z,Calgary Flames,Edmonton Oilers,ev_home_pl_-1.5,-0.7074

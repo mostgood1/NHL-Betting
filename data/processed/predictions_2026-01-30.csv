@@ -1,0 +1,2 @@
+date,home,away,p_home_ml,p_away_ml,p_over,p_under,p_home_pl_-1.5,p_away_pl_+1.5,total_line_used,proj_home_goals,proj_away_goals,model_total,model_spread,pl_line_used,totals_pick,totals_edge_pts,ats_pick,ats_edge_pts,edge_over_pts,edge_under_pts,edge_home_pl_pts,edge_away_pl_pts,actual_home_goals,actual_away_goals,actual_total,venue,game_state
+2026-01-31T01:30:00Z,Chicago Blackhawks,Columbus Blue Jackets,0.4866,0.5134,0.4044,0.4339,0.2631,0.7369,6.0,3.03,3.05,6.07,-0.02,1.5,Under,-0.07,away_+1.5,1.52,0.07,-0.07,-1.52,1.52,,,,United Center,FUT

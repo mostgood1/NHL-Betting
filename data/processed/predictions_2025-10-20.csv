@@ -1,0 +1,6 @@
+date,home,away,p_home_ml,p_away_ml,p_over,p_under,p_home_pl_-1.5,p_away_pl_+1.5,total_line_used,proj_home_goals,proj_away_goals,model_total,model_spread,pl_line_used,totals_pick,totals_edge_pts,ats_pick,ats_edge_pts,edge_over_pts,edge_under_pts,edge_home_pl_pts,edge_away_pl_pts,actual_home_goals,actual_away_goals,actual_total,venue,game_state
+2025-10-20T23:00:00Z,New York Rangers,Minnesota Wild,0.7544,0.2456,0.4,0.4325,0.6062,0.3938,6.0,4.15,1.92,6.07,2.23,1.5,Under,-0.07,home_-1.5,0.73,0.07,-0.07,0.73,-0.73,,,,Madison Square Garden,FUT
+2025-10-20T23:00:00Z,Philadelphia Flyers,Seattle Kraken,0.5749,0.4251,0.404,0.4338,0.3689,0.6311,6.0,3.4,2.67,6.07,0.72,1.5,Under,-0.07,away_+1.5,0.78,0.07,-0.07,-0.78,0.78,,,,Xfinity Mobile Arena,FUT
+2025-10-20T23:30:00Z,Montréal Canadiens,Buffalo Sabres,0.3982,0.6018,0.404,0.4337,0.1741,0.8259,6.0,2.66,3.42,6.07,-0.76,1.5,Under,-0.07,away_+1.5,2.26,0.07,-0.07,-2.26,2.26,,,,Centre Bell,FUT
+2025-10-21T01:30:00Z,Calgary Flames,Winnipeg Jets,0.4316,0.5684,0.4042,0.4338,0.2053,0.7947,6.0,2.8,3.28,6.07,-0.48,1.5,Under,-0.07,away_+1.5,1.98,0.07,-0.07,-1.98,1.98,,,,Scotiabank Saddledome,FUT
+2025-10-21T02:00:00Z,Vegas Golden Knights,Carolina Hurricanes,0.4488,0.5512,0.4043,0.4338,0.2226,0.7774,6.0,2.87,3.2,6.07,-0.34,1.5,Under,-0.07,away_+1.5,1.84,0.07,-0.07,-1.84,1.84,,,,T-Mobile Arena,FUT

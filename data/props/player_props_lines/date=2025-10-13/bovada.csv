@@ -1,0 +1,6 @@
+date,player_id,player_name,team,market,line,over_price,under_price,book,first_seen_at,last_seen_at,is_current
+2025-10-13,,1.5,,BLOCKS,1.5,-200,150,bovada,2025-10-14T02:30:14.423612Z,2025-10-14T02:30:19.552878Z,True
+2025-10-13,,2.5,,BLOCKS,2.5,-110,-120,bovada,2025-10-14T02:30:14.423612Z,2025-10-14T02:30:19.552878Z,True
+2025-10-13,,Total Shots On Goal,,SOG,1.5,-105,-125,bovada,2025-10-14T02:30:14.423612Z,2025-10-14T02:30:19.552878Z,True
+2025-10-13,,Total Shots On Goal,,SOG,2.5,150,-200,bovada,2025-10-14T02:30:14.423612Z,2025-10-14T02:30:19.552878Z,True
+2025-10-13,,Total Shots On Goal,,SOG,3.5,130,-170,bovada,2025-10-14T02:30:14.423612Z,2025-10-14T02:30:19.552878Z,True

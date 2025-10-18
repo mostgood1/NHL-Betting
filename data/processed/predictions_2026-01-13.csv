@@ -1,0 +1,10 @@
+date,home,away,p_home_ml,p_away_ml,p_over,p_under,p_home_pl_-1.5,p_away_pl_+1.5,total_line_used,proj_home_goals,proj_away_goals,model_total,model_spread,pl_line_used,totals_pick,totals_edge_pts,ats_pick,ats_edge_pts,edge_over_pts,edge_under_pts,edge_home_pl_pts,edge_away_pl_pts,actual_home_goals,actual_away_goals,actual_total,venue,game_state
+2026-01-14T00:00:00Z,Ottawa Senators,Vancouver Canucks,0.4905,0.5095,0.4044,0.4339,0.2674,0.7326,6.0,3.04,3.03,6.07,0.01,1.5,Under,-0.07,away_+1.5,1.49,0.07,-0.07,-1.49,1.49,,,,Canadian Tire Centre,FUT
+2026-01-14T00:00:00Z,Pittsburgh Penguins,Tampa Bay Lightning,0.5067,0.4933,0.4044,0.4339,0.2858,0.7142,6.0,3.11,2.96,6.07,0.15,1.5,Under,-0.07,away_+1.5,1.35,0.07,-0.07,-1.35,1.35,,,,PPG Paints Arena,FUT
+2026-01-14T00:00:00Z,Washington Capitals,Montréal Canadiens,0.6883,0.3117,0.4021,0.4332,0.5187,0.4813,6.0,3.87,2.2,6.07,1.68,1.5,Under,-0.07,home_-1.5,0.18,0.07,-0.07,0.18,-0.18,,,,Capital One Arena,FUT
+2026-01-14T00:00:00Z,Columbus Blue Jackets,Calgary Flames,0.4623,0.5377,0.4044,0.4339,0.2367,0.7633,6.0,2.92,3.15,6.07,-0.22,1.5,Under,-0.07,away_+1.5,1.72,0.07,-0.07,-1.72,1.72,,,,Nationwide Arena,FUT
+2026-01-14T00:30:00Z,Boston Bruins,Detroit Red Wings,0.6499,0.3501,0.403,0.4334,0.4673,0.5327,6.0,3.71,2.36,6.07,1.35,1.5,Under,-0.07,away_+1.5,0.15,0.07,-0.07,-0.15,0.15,,,,TD Garden,FUT
+2026-01-14T00:30:00Z,St. Louis Blues,Carolina Hurricanes,0.409,0.591,0.4041,0.4338,0.1839,0.8161,6.0,2.7,3.37,6.07,-0.67,1.5,Under,-0.07,away_+1.5,2.17,0.07,-0.07,-2.17,2.17,,,,Enterprise Center,FUT
+2026-01-14T01:00:00Z,Nashville Predators,Edmonton Oilers,0.4538,0.5462,0.4043,0.4339,0.2277,0.7723,6.0,2.89,3.18,6.07,-0.29,1.5,Under,-0.07,away_+1.5,1.79,0.07,-0.07,-1.79,1.79,,,,Bridgestone Arena,FUT
+2026-01-14T01:00:00Z,Winnipeg Jets,New York Islanders,0.6424,0.3576,0.4031,0.4335,0.4573,0.5427,6.0,3.68,2.39,6.07,1.29,1.5,Under,-0.07,away_+1.5,0.21,0.07,-0.07,-0.21,0.21,,,,Canada Life Centre,FUT
+2026-01-14T03:00:00Z,Anaheim Ducks,Dallas Stars,0.2369,0.7631,0.4006,0.4327,0.0644,0.9356,6.0,1.98,4.09,6.07,-2.12,1.5,Under,-0.07,away_+1.5,3.62,0.07,-0.07,-3.62,3.62,,,,Honda Center,FUT

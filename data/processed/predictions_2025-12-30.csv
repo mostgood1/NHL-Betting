@@ -1,0 +1,6 @@
+date,home,away,p_home_ml,p_away_ml,p_over,p_under,p_home_pl_-1.5,p_away_pl_+1.5,total_line_used,proj_home_goals,proj_away_goals,model_total,model_spread,pl_line_used,totals_pick,totals_edge_pts,ats_pick,ats_edge_pts,edge_over_pts,edge_under_pts,edge_home_pl_pts,edge_away_pl_pts,actual_home_goals,actual_away_goals,actual_total,venue,game_state
+2025-12-31T00:00:00Z,Toronto Maple Leafs,New Jersey Devils,0.6799,0.3201,0.4023,0.4332,0.5074,0.4926,6.0,3.84,2.23,6.07,1.6,1.5,Under,-0.07,home_-1.5,0.1,0.07,-0.07,0.1,-0.1,,,,Scotiabank Arena,FUT
+2025-12-31T00:00:00Z,Florida Panthers,Montréal Canadiens,0.856,0.144,0.3948,0.4309,0.7297,0.2703,6.0,4.58,1.49,6.07,3.08,1.5,Under,-0.07,home_-1.5,1.58,0.07,-0.07,1.58,-1.58,,,,Amerant Bank Arena,FUT
+2025-12-31T00:00:00Z,Pittsburgh Penguins,Carolina Hurricanes,0.3782,0.6218,0.4038,0.4337,0.1567,0.8433,6.0,2.57,3.5,6.07,-0.93,1.5,Under,-0.07,away_+1.5,2.43,0.07,-0.07,-2.43,2.43,,,,PPG Paints Arena,FUT
+2025-12-31T01:30:00Z,Chicago Blackhawks,New York Islanders,0.3191,0.6809,0.4028,0.4334,0.1116,0.8884,6.0,2.32,3.75,6.07,-1.43,1.5,Under,-0.07,away_+1.5,2.93,0.07,-0.07,-2.93,2.93,,,,United Center,FUT
+2025-12-31T03:00:00Z,Vancouver Canucks,Philadelphia Flyers,0.7233,0.2767,0.4011,0.4329,0.5653,0.4347,6.0,4.02,2.05,6.07,1.97,1.5,Under,-0.07,home_-1.5,0.47,0.07,-0.07,0.47,-0.47,,,,Rogers Arena,FUT

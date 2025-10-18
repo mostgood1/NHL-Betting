@@ -1,0 +1,11 @@
+date,home,away,p_home_ml,p_away_ml,p_over,p_under,p_home_pl_-1.5,p_away_pl_+1.5,total_line_used,proj_home_goals,proj_away_goals,model_total,model_spread,pl_line_used,totals_pick,totals_edge_pts,ats_pick,ats_edge_pts,edge_over_pts,edge_under_pts,edge_home_pl_pts,edge_away_pl_pts,actual_home_goals,actual_away_goals,actual_total,venue,game_state
+2025-12-31T17:30:00Z,Washington Capitals,New York Rangers,0.3542,0.6458,0.4034,0.4336,0.1373,0.8627,6.0,2.47,3.6,6.07,-1.13,1.5,Under,-0.07,away_+1.5,2.63,0.07,-0.07,-2.63,2.63,,,,Capital One Arena,FUT
+2025-12-31T20:00:00Z,Vegas Golden Knights,Nashville Predators,0.5685,0.4315,0.4041,0.4338,0.3609,0.6391,6.0,3.37,2.7,6.07,0.67,1.5,Under,-0.07,away_+1.5,0.83,0.07,-0.07,-0.83,0.83,,,,T-Mobile Arena,FUT
+2025-12-31T21:00:00Z,Anaheim Ducks,Tampa Bay Lightning,0.3182,0.6818,0.4028,0.4334,0.1111,0.8889,6.0,2.32,3.75,6.07,-1.43,1.5,Under,-0.07,away_+1.5,2.93,0.07,-0.07,-2.93,2.93,,,,Honda Center,FUT
+2025-12-31T21:00:00Z,San Jose Sharks,Minnesota Wild,0.2813,0.7187,0.4019,0.4331,0.0878,0.9122,6.0,2.16,3.91,6.07,-1.74,1.5,Under,-0.07,away_+1.5,3.24,0.07,-0.07,-3.24,3.24,,,,SAP Center at San Jose,FUT
+2025-12-31T23:30:00Z,Detroit Red Wings,Winnipeg Jets,0.4749,0.5251,0.4044,0.4339,0.2502,0.7498,6.0,2.98,3.09,6.07,-0.12,1.5,Under,-0.07,away_+1.5,1.62,0.07,-0.07,-1.62,1.62,,,,Little Caesars Arena,FUT
+2026-01-01T00:00:00Z,Columbus Blue Jackets,New Jersey Devils,0.466,0.534,0.4044,0.4339,0.2406,0.7594,6.0,2.94,3.13,6.07,-0.19,1.5,Under,-0.07,away_+1.5,1.69,0.07,-0.07,-1.69,1.69,,,,Nationwide Arena,FUT
+2026-01-01T01:00:00Z,Dallas Stars,Buffalo Sabres,0.6887,0.3113,0.4021,0.4332,0.5192,0.4808,6.0,3.88,2.2,6.07,1.68,1.5,Under,-0.07,home_-1.5,0.18,0.07,-0.07,0.18,-0.18,,,,American Airlines Center,FUT
+2026-01-01T02:00:00Z,Colorado Avalanche,St. Louis Blues,0.6785,0.3215,0.4024,0.4332,0.5056,0.4944,6.0,3.83,2.24,6.07,1.59,1.5,Under,-0.07,home_-1.5,0.09,0.07,-0.07,0.09,-0.09,,,,Ball Arena,FUT
+2026-01-01T02:30:00Z,Calgary Flames,Philadelphia Flyers,0.611,0.389,0.4036,0.4336,0.4157,0.5843,6.0,3.55,2.52,6.07,1.03,1.5,Under,-0.07,away_+1.5,0.47,0.07,-0.07,-0.47,0.47,,,,Scotiabank Saddledome,FUT
+2026-01-01T02:30:00Z,Edmonton Oilers,Boston Bruins,0.6603,0.3397,0.4028,0.4334,0.4812,0.5188,6.0,3.76,2.32,6.07,1.44,1.5,Under,-0.07,away_+1.5,0.06,0.07,-0.07,-0.06,0.06,,,,Rogers Place,FUT

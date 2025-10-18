@@ -34,39 +34,49 @@ env/
 .vscode/
 
 # Data
-# Ignore everything under data by default
+## Ignore everything under data by default
 data/**
 !data/.gitkeep
+
+## Re-allow specific parent folders so allowlisted files below can be tracked
+!data/processed/
+!data/raw/
+!data/props/
 
 # Keep trained models (tracked artifacts)
 !data/models/
 !data/models/**
 
-# Do NOT track processed/raw daily outputs (they churn and cause conflicts)
-# Provide a minimal whitelist for empty dirs and optional stable summaries
+## Keep default ignore inside these folders, then selectively allow files
+data/processed/**
+data/raw/**
+data/props/**
+
+## Provide a minimal whitelist for empty dirs and optional stable summaries
 !data/processed/.gitkeep
 !data/raw/.gitkeep
-# Example whitelist: keep calibration summary if desired
+## Example whitelist: keep calibration summary if desired
 !data/processed/props_stats_calibration.json
 
-# Allow committing lightweight, CSV-backed props artifacts needed by the public web app
+## Allow committing lightweight, CSV-backed props artifacts needed by the public web app
 !data/processed/props_projections_*.csv
 !data/processed/props_projections_all_*.csv
 !data/processed/props_recommendations_*.csv
 !data/processed/props_recommendations_history.csv
 !data/processed/player_props_vs_actuals_*.csv
 
-# Also allow daily predictions/edges so web (Render) can use GitHub raw fallback
+## Also allow daily predictions/edges so web (Render) can use GitHub raw fallback
 !data/processed/predictions_*.csv
 !data/processed/edges_*.csv
 
-# Allow canonical player props lines so web can enrich with player_id/team locally
+## Allow canonical player props lines so web can enrich with player_id/team locally
+!data/props/player_props_lines/
 !data/props/player_props_lines/**
 
-# Allow player stats history used for enrichment
+## Allow player stats history used for enrichment
 !data/raw/player_game_stats.csv
 
-# Allow roster snapshots per date for enrichment on public deploys
+## Allow roster snapshots per date for enrichment on public deploys
 !data/processed/roster_*.csv
 !data/processed/roster_master.csv
 

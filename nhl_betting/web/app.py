@@ -5731,6 +5731,7 @@ async def api_cron_light_refresh(
 
 @app.get("/props/recommendations")
 async def props_recommendations_page(
+    request: Request,  # Add Request object to inspect raw request
     date: Optional[str] = Query(None),
     market: Optional[str] = Query(None),
     min_ev: float = Query(0.0),
@@ -5749,6 +5750,12 @@ async def props_recommendations_page(
     Reads cached CSV for the date; if missing, falls back to GitHub raw CSV. Groups rows by player+market
     into cards with ladders and attaches team assets. Supports basic filtering/sorting.
     """
+    # DEBUG: Log incoming team parameter
+    import logging
+    logging.warning(f"[DEBUG] Raw URL: {request.url}")
+    logging.warning(f"[DEBUG] Query params: {dict(request.query_params)}")
+    logging.warning(f"[DEBUG] Team parameter value: {repr(team)}")
+    
     date = date or _today_ymd()
     read_only_ui = _read_only(date)
     df = pd.DataFrame()

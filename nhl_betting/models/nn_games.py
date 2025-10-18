@@ -14,10 +14,35 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, Dict, List, Tuple
 
+# CRITICAL: Import onnxruntime and torch BEFORE numpy/pandas
+# NumPy's MKL DLLs can interfere with ONNX Runtime's DLL loading
+# This must be done at module level, not in try/except yet
+
+# Try to import ONNX Runtime first (before numpy loads MKL DLLs)
+try:
+    import onnxruntime as ort
+    ONNX_AVAILABLE = True
+    print(f"[info] ONNX Runtime available: {ort.__version__}")
+except Exception as e:
+    ONNX_AVAILABLE = False
+    ort = None
+    print(f"[warn] ONNX Runtime not available: {e}")
+
+# Try to import PyTorch
+try:
+    import torch
+    import torch.nn as nn
+    TORCH_AVAILABLE = True
+    print(f"[info] PyTorch available: {torch.__version__}")
+except Exception as e:
+    TORCH_AVAILABLE = False
+    torch = None
+    nn = None
+    print(f"[warn] PyTorch not available: {e}")
+
+# NOW import numpy/pandas (after onnx/torch are loaded)
 import numpy as np
 import pandas as pd
-import torch
-import torch.nn as nn
 
 
 @dataclass
@@ -51,90 +76,100 @@ class NNGamesConfig:
             self.hidden_dims = [128, 64, 32]
 
 
-class GameOutcomeNN(nn.Module):
-    """Neural network for game outcome prediction.
-    
-    Can be used for:
-    - Binary classification (win/loss)
-    - Regression (goal differential, total goals)
-    - Multi-output (win prob + total goals)
-    """
-    
-    def __init__(self, input_dim: int, output_dim: int, cfg: NNGamesConfig | None = None):
-        super().__init__()
-        self.cfg = cfg or NNGamesConfig()
-        self.output_dim = output_dim
+# Only define PyTorch model classes if torch is available
+if TORCH_AVAILABLE:
+    class GameOutcomeNN(nn.Module):
+        """Neural network for game outcome prediction.
         
-        layers = []
-        prev_dim = input_dim
+        Can be used for:
+        - Binary classification (win/loss)
+        - Regression (goal differential, total goals)
+        - Multi-output (win prob + total goals)
+        """
         
-        for hidden_dim in self.cfg.hidden_dims:
-            layers.append(nn.Linear(prev_dim, hidden_dim))
-            layers.append(nn.BatchNorm1d(hidden_dim))
+        def __init__(self, input_dim: int, output_dim: int, cfg: NNGamesConfig | None = None):
+            super().__init__()
+            self.cfg = cfg or NNGamesConfig()
+            self.output_dim = output_dim
             
-            if self.cfg.activation == "relu":
-                layers.append(nn.ReLU())
-            elif self.cfg.activation == "gelu":
-                layers.append(nn.GELU())
-            elif self.cfg.activation == "elu":
-                layers.append(nn.ELU())
-            else:
-                layers.append(nn.ReLU())
+            layers = []
+            prev_dim = input_dim
+            
+            for hidden_dim in self.cfg.hidden_dims:
+                layers.append(nn.Linear(prev_dim, hidden_dim))
+                layers.append(nn.BatchNorm1d(hidden_dim))
                 
-            layers.append(nn.Dropout(self.cfg.dropout))
-            prev_dim = hidden_dim
+                if self.cfg.activation == "relu":
+                    layers.append(nn.ReLU())
+                elif self.cfg.activation == "gelu":
+                    layers.append(nn.GELU())
+                elif self.cfg.activation == "elu":
+                    layers.append(nn.ELU())
+                else:
+                    layers.append(nn.ReLU())
+                    
+                layers.append(nn.Dropout(self.cfg.dropout))
+                prev_dim = hidden_dim
+            
+            # Output layer
+            layers.append(nn.Linear(prev_dim, output_dim))
+            
+            # Output activation depends on task
+            if self.cfg.task == "classification":
+                if output_dim == 1:
+                    layers.append(nn.Sigmoid())  # binary
+                else:
+                    layers.append(nn.Softmax(dim=-1))  # multiclass
+            elif self.cfg.task == "regression":
+                # No activation for regression (can be negative)
+                pass
+            
+            self.network = nn.Sequential(*layers)
         
-        # Output layer
-        layers.append(nn.Linear(prev_dim, output_dim))
-        
-        # Output activation depends on task
-        if self.cfg.task == "classification":
-            if output_dim == 1:
-                layers.append(nn.Sigmoid())  # binary
-            else:
-                layers.append(nn.Softmax(dim=-1))  # multiclass
-        elif self.cfg.task == "regression":
-            # No activation for regression (can be negative)
-            pass
-        
-        self.network = nn.Sequential(*layers)
-    
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        out = self.network(x)
-        if self.output_dim == 1:
-            return out.squeeze(-1)
-        return out
+        def forward(self, x: torch.Tensor) -> torch.Tensor:
+            out = self.network(x)
+            if self.output_dim == 1:
+                return out.squeeze(-1)
+            return out
 
 
-class PeriodGoalsNN(nn.Module):
-    """Neural network for predicting goals per period.
+    class PeriodGoalsNN(nn.Module):
+        """Neural network for predicting goals per period.
+        
+        Multi-output: [period1_home, period1_away, period2_home, period2_away, period3_home, period3_away]
+        """
+        
+        def __init__(self, input_dim: int, cfg: NNGamesConfig | None = None):
+            super().__init__()
+            self.cfg = cfg or NNGamesConfig()
+            
+            layers = []
+            prev_dim = input_dim
+            
+            for hidden_dim in self.cfg.hidden_dims:
+                layers.append(nn.Linear(prev_dim, hidden_dim))
+                layers.append(nn.BatchNorm1d(hidden_dim))
+                layers.append(nn.ReLU())
+                layers.append(nn.Dropout(self.cfg.dropout))
+                prev_dim = hidden_dim
+            
+            # Output: 6 values (3 periods × 2 teams), use softplus for positive output
+            layers.append(nn.Linear(prev_dim, 6))
+            layers.append(nn.Softplus())
+            
+            self.network = nn.Sequential(*layers)
+        
+        def forward(self, x: torch.Tensor) -> torch.Tensor:
+            return self.network(x)
+else:
+    # Dummy classes when torch is not available (ONNX-only mode)
+    class GameOutcomeNN:
+        def __init__(self, *args, **kwargs):
+            raise RuntimeError("PyTorch not available - use ONNX models instead")
     
-    Multi-output: [period1_home, period1_away, period2_home, period2_away, period3_home, period3_away]
-    """
-    
-    def __init__(self, input_dim: int, cfg: NNGamesConfig | None = None):
-        super().__init__()
-        self.cfg = cfg or NNGamesConfig()
-        
-        layers = []
-        prev_dim = input_dim
-        
-        for hidden_dim in self.cfg.hidden_dims:
-            layers.append(nn.Linear(prev_dim, hidden_dim))
-            layers.append(nn.BatchNorm1d(hidden_dim))
-            layers.append(nn.ReLU())
-            layers.append(nn.Dropout(self.cfg.dropout))
-            prev_dim = hidden_dim
-        
-        # Output: 6 values (3 periods × 2 teams), use softplus for positive output
-        layers.append(nn.Linear(prev_dim, 6))
-        layers.append(nn.Softplus())
-        
-        self.network = nn.Sequential(*layers)
-    
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.network(x)
-
+    class PeriodGoalsNN:
+        def __init__(self, *args, **kwargs):
+            raise RuntimeError("PyTorch not available - use ONNX models instead")
 
 class NNGameModel:
     """Wrapper for training and inference with game outcome neural networks.
@@ -159,11 +194,12 @@ class NNGameModel:
         self.model_dir.mkdir(parents=True, exist_ok=True)
         
         self.model = None
+        self.onnx_session = None  # ONNX Runtime session
         self.feature_columns = []
         self.scaler_mean = None
         self.scaler_std = None
         
-        # Try to load existing model
+        # Try to load existing model (ONNX first, then PyTorch)
         self._try_load()
     
     def _get_model_path(self) -> Path:
@@ -176,11 +212,12 @@ class NNGameModel:
         return self.model_dir / f"{self.model_type.lower()}_metadata.npz"
     
     def _try_load(self) -> bool:
-        """Load model weights and metadata if available."""
+        """Load model weights and metadata if available. Try ONNX first (works on Windows), then PyTorch."""
+        onnx_path = self._get_onnx_path()
         model_path = self._get_model_path()
         meta_path = self._get_metadata_path()
         
-        if not (model_path.exists() and meta_path.exists()):
+        if not meta_path.exists():
             return False
         
         try:
@@ -189,18 +226,39 @@ class NNGameModel:
             self.feature_columns = meta["feature_columns"].tolist()
             self.scaler_mean = meta["scaler_mean"]
             self.scaler_std = meta["scaler_std"]
-            input_dim = len(self.feature_columns)
             
-            # Determine output dimension and architecture
-            if self.model_type == "PERIOD_GOALS":
-                self.model = PeriodGoalsNN(input_dim, self.cfg)
-            else:
-                output_dim = self._get_output_dim()
-                self.model = GameOutcomeNN(input_dim, output_dim, self.cfg)
+            # Try ONNX first (works on Windows without PyTorch DLL issues)
+            if ONNX_AVAILABLE and onnx_path.exists():
+                try:
+                    self.onnx_session = ort.InferenceSession(
+                        str(onnx_path),
+                        providers=['CPUExecutionProvider']
+                    )
+                    print(f"[info] Loaded ONNX model for {self.model_type}")
+                    return True
+                except Exception as e:
+                    print(f"[warn] Failed to load ONNX model for {self.model_type}: {e}")
             
-            self.model.load_state_dict(torch.load(model_path, weights_only=True))
-            self.model.eval()
-            return True
+            # Fall back to PyTorch if available
+            if TORCH_AVAILABLE and model_path.exists():
+                try:
+                    input_dim = len(self.feature_columns)
+                    
+                    # Determine output dimension and architecture
+                    if self.model_type == "PERIOD_GOALS":
+                        self.model = PeriodGoalsNN(input_dim, self.cfg)
+                    else:
+                        output_dim = self._get_output_dim()
+                        self.model = GameOutcomeNN(input_dim, output_dim, self.cfg)
+                    
+                    self.model.load_state_dict(torch.load(model_path, weights_only=True))
+                    self.model.eval()
+                    print(f"[info] Loaded PyTorch model for {self.model_type}")
+                    return True
+                except Exception as e:
+                    print(f"[warn] Failed to load PyTorch model for {self.model_type}: {e}")
+            
+            return False
         except Exception as e:
             print(f"[warn] Failed to load NN model for {self.model_type}: {e}")
             return False
@@ -499,7 +557,7 @@ class NNGameModel:
         away_team: str,
         game_features: Dict[str, float],
     ) -> float | np.ndarray:
-        """Predict game outcome using the trained model.
+        """Predict game outcome using the trained model (ONNX or PyTorch).
         
         Args:
             home_team: Home team name
@@ -509,7 +567,7 @@ class NNGameModel:
         Returns:
             Prediction (float for single output, array for multi-output)
         """
-        if self.model is None:
+        if self.model is None and self.onnx_session is None:
             raise ValueError("Model not trained or loaded")
         
         # Add team encoding features if model was trained with them
@@ -525,13 +583,37 @@ class NNGameModel:
         # Normalize
         X_scaled = (X - self.scaler_mean) / self.scaler_std
         
-        # Inference
-        self.model.eval()
-        with torch.no_grad():
-            X_tensor = torch.FloatTensor(X_scaled).unsqueeze(0)
-            pred = self.model(X_tensor)
-            
-            if self.model_type == "PERIOD_GOALS":
-                return pred.squeeze(0).numpy()
-            else:
-                return pred.item()
+        # Use ONNX if available (preferred for Windows compatibility)
+        if self.onnx_session is not None:
+            try:
+                # ONNX Runtime inference
+                input_name = self.onnx_session.get_inputs()[0].name
+                output_name = self.onnx_session.get_outputs()[0].name
+                
+                # Reshape to (1, n_features) for batch dimension
+                X_input = X_scaled.reshape(1, -1)
+                
+                # Run inference
+                pred = self.onnx_session.run([output_name], {input_name: X_input})[0]
+                
+                if self.model_type == "PERIOD_GOALS":
+                    return pred.squeeze(0)  # Return 1D array of 6 values
+                else:
+                    return float(pred.squeeze())  # Return single value
+            except Exception as e:
+                print(f"[error] ONNX inference failed: {e}")
+                raise
+        
+        # Fall back to PyTorch if ONNX not available
+        if self.model is not None and TORCH_AVAILABLE:
+            self.model.eval()
+            with torch.no_grad():
+                X_tensor = torch.FloatTensor(X_scaled).unsqueeze(0)
+                pred = self.model(X_tensor)
+                
+                if self.model_type == "PERIOD_GOALS":
+                    return pred.squeeze(0).numpy()
+                else:
+                    return pred.item()
+        
+        raise ValueError("No model available for inference")

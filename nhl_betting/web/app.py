@@ -2107,8 +2107,9 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
                     df.to_csv(pred_path, index=False)
             except Exception:
                 pass
-    # If no games for requested date, first try alternate schedule source, then try to find the next available slate within 10 days
-    if df.empty:
+    # If no games for requested date, first try alternate schedule source (skip on read-only),
+    # then try to find the next available slate within 10 days (also skip on read-only)
+    if df.empty and not read_only:
         # Try using the NHL stats API as an alternate source for schedule
         try:
             # If stats API has games, generate predictions using that source
@@ -2126,8 +2127,9 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
         except Exception:
             pass
     # Only auto-forward to the next available slate for non-settled (today/future) dates.
+    # Skip on read-only public hosts to avoid heavy schedule scans.
     # For past (settled) dates, preserve the user's requested date even if there were no games.
-    if df.empty and not settled:
+    if df.empty and not settled and not read_only:
         try:
             client = NHLWebClient()
             base = pd.to_datetime(date)

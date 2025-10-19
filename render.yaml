@@ -51,6 +51,8 @@ services:
         value: "0"
       - key: WEB_DISABLE_GH_UPSERT
         value: "true"
+      - key: WEB_READ_ONLY_PREDICTIONS
+        value: "true"
       - key: REFRESH_CRON_TOKEN
         sync: false
       - key: PYTHON_VERSION

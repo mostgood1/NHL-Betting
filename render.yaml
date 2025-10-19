@@ -27,9 +27,9 @@ services:
       - key: WEB_DISABLE_ODDS_FETCH
         value: "true"
       - key: PROPS_PAGE_SIZE
-        value: "150"
+        value: "100"
       - key: PROPS_MAX_ROWS
-        value: "8000"
+        value: "2500"
       - key: CACHED_PROPS_TTL_SECONDS
         value: "300"
       # Limit numeric/BLAS thread counts to reduce memory and context switching on small instances

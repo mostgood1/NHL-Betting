@@ -119,6 +119,14 @@ class WrapperASGI:
                     top = int((q.get("top", ["0"])[0] or "0"))
                 except Exception:
                     top = 0
+                # Enforce page size cap from env
+                try:
+                    import os as _os
+                    cap_ps = int((_os.getenv("PROPS_PAGE_SIZE") or "0"))
+                    if cap_ps and page_size > cap_ps:
+                        page_size = cap_ps
+                except Exception:
+                    pass
                 # Default date fallback (UTC today)
                 if not date:
                     from datetime import datetime
@@ -147,6 +155,13 @@ class WrapperASGI:
                     rows = [r for r in rows if (r.get("market") or "").upper() == mu]
                 # Top cap
                 if top and top > 0:
+                    try:
+                        import os as _os
+                        cap_top = int((_os.getenv("PROPS_MAX_ROWS") or "0"))
+                        if cap_top > 0 and top > cap_top:
+                            top = cap_top
+                    except Exception:
+                        pass
                     rows = rows[: top]
                 filtered_rows = len(rows)
                 # Pagination
@@ -203,6 +218,14 @@ class WrapperASGI:
                     top = int((q.get("top", ["0"]) [0] or "0"))
                 except Exception:
                     top = 0
+                # Enforce page size cap from env
+                try:
+                    import os as _os
+                    cap_ps = int((_os.getenv("PROPS_PAGE_SIZE") or "0"))
+                    if cap_ps and page_size > cap_ps:
+                        page_size = cap_ps
+                except Exception:
+                    pass
                 if not date:
                     from datetime import datetime
                     date = datetime.utcnow().strftime("%Y-%m-%d")
@@ -253,6 +276,13 @@ class WrapperASGI:
                         pass
                 # Top cap
                 if top and top > 0:
+                    try:
+                        import os as _os
+                        cap_top = int((_os.getenv("PROPS_MAX_ROWS") or "0"))
+                        if cap_top > 0 and top > cap_top:
+                            top = cap_top
+                    except Exception:
+                        pass
                     rows = rows[: top]
                 filtered_rows = len(rows)
                 # Pagination

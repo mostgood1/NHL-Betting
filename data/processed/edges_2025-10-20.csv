@@ -1,0 +1,11 @@
+date,home,away,market,ev
+2025-10-21T01:30:00Z,Calgary Flames,Winnipeg Jets,ev_away_ml,0.3726
+2025-10-20T23:00:00Z,New York Rangers,Minnesota Wild,ev_home_ml,0.1137
+2025-10-21T02:00:00Z,Vegas Golden Knights,Carolina Hurricanes,ev_away_ml,0.091
+2025-10-20T23:00:00Z,Philadelphia Flyers,Seattle Kraken,ev_away_ml,-0.0093
+2025-10-20T23:30:00Z,Montréal Canadiens,Buffalo Sabres,ev_away_ml,-0.0349
+2025-10-20T23:30:00Z,Montréal Canadiens,Buffalo Sabres,ev_home_ml,-0.0706
+2025-10-20T23:00:00Z,Philadelphia Flyers,Seattle Kraken,ev_home_ml,-0.0944
+2025-10-21T02:00:00Z,Vegas Golden Knights,Carolina Hurricanes,ev_home_ml,-0.178
+2025-10-20T23:00:00Z,New York Rangers,Minnesota Wild,ev_away_ml,-0.2281
+2025-10-21T01:30:00Z,Calgary Flames,Winnipeg Jets,ev_home_ml,-0.5571

@@ -4319,6 +4319,13 @@ async def props_all_players_page(
         default_ps = 250
     if not page_size or page_size <= 0:
         page_size = default_ps
+    else:
+        try:
+            cap_ps = int(os.getenv('PROPS_PAGE_SIZE', '0'))
+            if cap_ps and page_size > cap_ps:
+                page_size = cap_ps
+        except Exception:
+            pass
     if page <= 0:
         page = 1
     cache_key = ("props_all_html", d_requested, str(team or '').upper(), str(game or '').upper(), str(market or '').upper(), sort or 'name', float(min_ev or 0), int(top), int(page), int(page_size), str(source or 'merged'))
@@ -4499,11 +4506,6 @@ async def props_all_players_page(
             col = 'ev'; ascending = (key == 'ev_asc')
         elif key in ('market','team','player','line','book'):
             col = key
-        if col and col in display_df.columns:
-            try:
-                display_df = display_df.sort_values(by=[col], ascending=ascending, na_position='last')
-            except Exception:
-                pass
         # Respect env cap to keep memory/render bounded (e.g., PROPS_MAX_ROWS=10000)
         try:
             env_cap = int(os.getenv('PROPS_MAX_ROWS', '0'))
@@ -4512,8 +4514,35 @@ async def props_all_players_page(
         effective_top = int(top) if (top and top > 0) else None
         if env_cap and (effective_top is None or env_cap < effective_top):
             effective_top = env_cap
-        if effective_top:
-            display_df = display_df.head(effective_top)
+        # Partial sort for numeric columns to avoid full-frame sort memory spikes
+        if col and col in display_df.columns and effective_top and col in ('proj_lambda','p_over','ev'):
+            try:
+                s = pd.to_numeric(display_df[col], errors='coerce')
+                k = min(len(display_df), int(effective_top))
+                if k > 0:
+                    if ascending:
+                        display_df = display_df.iloc[s.nsmallest(k).index]
+                    else:
+                        display_df = display_df.iloc[s.nlargest(k).index]
+                    # For consistent order on page, do a final small sort of the trimmed subset
+                    display_df = display_df.sort_values(by=[col], ascending=ascending, na_position='last')
+            except Exception:
+                # Fallback to full sort then head (existing behavior)
+                try:
+                    display_df = display_df.sort_values(by=[col], ascending=ascending, na_position='last')
+                except Exception:
+                    pass
+                if effective_top:
+                    display_df = display_df.head(effective_top)
+        else:
+            # Non-numeric sorts: keep behavior but apply cap after sort
+            if col and col in display_df.columns:
+                try:
+                    display_df = display_df.sort_values(by=[col], ascending=ascending, na_position='last')
+                except Exception:
+                    pass
+            if effective_top:
+                display_df = display_df.head(effective_top)
         filtered_rows = len(display_df)
         # Pagination slice
         if page_size:

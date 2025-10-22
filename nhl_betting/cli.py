@@ -896,7 +896,15 @@ def predict_core(
         
         # Period-by-period predictions if model available
         p1_home, p1_away, p2_home, p2_away, p3_home, p3_away = None, None, None, None, None, None
-        first_10min_proj = None
+        first_10min_proj = None  # Expected goals in first 10 minutes (lambda)
+        # Configurable knobs for first-10 projection
+        import os as _os
+        # Prefer the dedicated FIRST_10MIN model by default for predictiveness; allow override via env
+        _F10_FROM_P1 = str(_os.getenv("FIRST10_FROM_P1", "0")).lower() not in ("0", "false", "no")
+        # Calibrated defaults from PBP backtest (2023-24): use 0.55 and 0.15; still override via env if set
+        _F10_SCALE = float(_os.getenv("FIRST10_SCALE", "0.55"))  # fraction of P1 goals happening in first 10 min
+        # Fallback when P1 projections unavailable: share of total assigned to P1 (~35%) times 10/20 (=0.5)
+        _F10_TOTAL_SCALE = float(_os.getenv("FIRST10_TOTAL_SCALE", "0.15"))
         if period_model is not None or first_10min_model is not None:
             try:
                 # Build complete feature dict for neural network models (95 features expected)
@@ -1019,15 +1027,45 @@ def predict_core(
             except Exception as e:
                 pass
         
-        # First 10 minutes prediction if model available
+        # First 10 minutes projection
+        # Preferred: derive from P1 projections (more stable and better calibrated), then fall back to NN model, then total-based heuristic
+        _first10_from_p1_val = None
+        if (p1_home is not None) and (p1_away is not None):
+            try:
+                # Expected goals in first 10 = (expected goals in P1) * (10/20) ~= 0.5, tunable via FIRST10_SCALE
+                _first10_from_p1_val = max(0.0, (float(p1_home) + float(p1_away)) * _F10_SCALE)
+            except Exception:
+                _first10_from_p1_val = None
+
+        _first10_nn_val = None
         if first_10min_model is not None and game_features is not None:
             try:
-                # Predict returns single value (total goals in first 10 min)
-                first_10min_proj = first_10min_model.predict(g.home, g.away, game_features)
-            except Exception as e:
-                pass
+                # Predict returns single value (expected goals in first 10 min)
+                _first10_nn_val = float(first_10min_model.predict(g.home, g.away, game_features))
+            except Exception:
+                _first10_nn_val = None
+
+        # Choose value per preference
+        if _F10_FROM_P1 and (_first10_from_p1_val is not None):
+            first_10min_proj = _first10_from_p1_val
+        elif _first10_nn_val is not None:
+            first_10min_proj = _first10_nn_val
+        else:
+            # Heuristic fallback from total goals if nothing else available
+            try:
+                first_10min_proj = max(0.0, float(model_total) * _F10_TOTAL_SCALE)
+            except Exception:
+                first_10min_proj = None
 
         # Build base row with model probabilities
+        # Derive first-10 YES probability from lambda if available
+        _first10_prob = None
+        try:
+            if first_10min_proj is not None:
+                import math as _math
+                _first10_prob = 1.0 - _math.exp(-float(first_10min_proj))
+        except Exception:
+            _first10_prob = None
         row = {
             # Keep UTC ISO in 'date' for precision; add ET calendar day for grouping/UI
             "date": getattr(g, "gameDate"),
@@ -1046,8 +1084,9 @@ def predict_core(
             "period2_away_proj": round(float(p2_away), 2) if p2_away is not None else None,
             "period3_home_proj": round(float(p3_home), 2) if p3_home is not None else None,
             "period3_away_proj": round(float(p3_away), 2) if p3_away is not None else None,
-            # First 10 minutes projection
-            "first_10min_proj": round(float(first_10min_proj), 2) if first_10min_proj is not None else None,
+            # First 10 minutes projection (lambda) and probability
+            "first_10min_proj": round(float(first_10min_proj), 3) if first_10min_proj is not None else None,
+            "first_10min_prob": round(float(_first10_prob), 4) if _first10_prob is not None else None,
             "p_home_ml": p_home_cal,
             "p_away_ml": p_away_cal,
             "p_over": p_over_cal,
@@ -2273,6 +2312,48 @@ def props_recommendations(
             return False
         bad = ['total shots on goal', 'team total', 'first period', 'second period', 'third period']
         return (any(ch.isalpha() for ch in s) and not any(b in s for b in bad))
+    # Optionally load props probability calibration mapping (by market+line)
+    cal_map: dict[tuple[str, float], object] = {}
+    try:
+        import os as _os
+        if str(_os.getenv("SKIP_PROPS_CALIBRATION", "")).strip().lower() not in ("1","true","yes"):
+            from .utils.calibration import load_props_stats_calibration_map
+            # Prefer dated files if present; else generic
+            pref = PROC_DIR / "props_stats_calibration.json"
+            if pref.exists():
+                cal_map = load_props_stats_calibration_map(pref)
+            else:
+                # Fallback: latest *_stats_calibration_*.json by mtime
+                cands = sorted([p for p in PROC_DIR.glob("props_stats_calibration_*.json") if p.is_file()], key=lambda x: x.stat().st_mtime, reverse=True)
+                if cands:
+                    cal_map = load_props_stats_calibration_map(cands[0])
+    except Exception:
+        cal_map = {}
+    def _round_half(x: float) -> float:
+        try:
+            import math as _math
+            return _math.floor(x * 2.0 + 1e-6) / 2.0
+        except Exception:
+            return x
+    def _apply_calibrated(mkt: str, line: float, p: float) -> float:
+        try:
+            if not (0.0 <= float(p) <= 1.0):
+                return p
+        except Exception:
+            return p
+        key = (str(mkt or '').upper(), float(_round_half(float(line))))
+        cal = cal_map.get(key)
+        if not cal:
+            return float(p)
+        try:
+            # BinaryCalibration.apply expects numpy array; allow scalar via small array
+            import numpy as _np
+            arr = _np.asarray([float(p)], dtype=float)
+            out = cal.apply(arr)
+            return float(out[0]) if out is not None and len(out) > 0 else float(p)
+        except Exception:
+            return float(p)
+
     # Combine rows: lines contain over_price and under_price per (market,player,line,book)
     # Vectorized EV computation using precomputed lambdas; fallback row-wise for misses
     import numpy as _np
@@ -2438,7 +2519,33 @@ def props_recommendations(
         if sel.any():
             lam_arr = merged.loc[sel, "proj_lambda"].astype(float).values
             line_arr = _np.floor(merged.loc[sel, "line_num"].astype(float).values + 1e-9).astype(int)
-            p_over_vec.loc[sel] = _poisson.sf(line_arr, mu=lam_arr)
+            raw_p = _poisson.sf(line_arr, mu=lam_arr)
+            # Apply calibration per (market,line) if available
+            try:
+                if cal_map:
+                    # Vectorized through Python loop per unique line for this market
+                    idxs = merged.index[sel]
+                    lines_unique = sorted(set(merged.loc[sel, "line_num"].map(_round_half).astype(float).tolist()))
+                    for ln in lines_unique:
+                        sub = merged.loc[sel & (merged["line_num"].map(_round_half).astype(float) == float(ln))]
+                        if sub is None or sub.empty:
+                            continue
+                        key = (mkt, float(ln))
+                        cal = cal_map.get(key)
+                        if not cal:
+                            # Assign raw for this subgroup
+                            p_over_vec.loc[sub.index] = raw_p[[i for i, j in enumerate(idxs) if j in sub.index]]
+                            continue
+                        try:
+                            vals = raw_p[[i for i, j in enumerate(idxs) if j in sub.index]]
+                            out = cal.apply(_np.asarray(vals, dtype=float))
+                            p_over_vec.loc[sub.index] = out
+                        except Exception:
+                            p_over_vec.loc[sub.index] = raw_p[[i for i, j in enumerate(idxs) if j in sub.index]]
+                else:
+                    p_over_vec.loc[sel] = raw_p
+            except Exception:
+                p_over_vec.loc[sel] = raw_p
     merged["p_over_vec"] = p_over_vec
     # Vectorized EVs
     def _american_to_decimal_series(s: pd.Series) -> pd.Series:
@@ -2451,6 +2558,12 @@ def props_recommendations(
         return out
     # Build vectorized output rows (only where we had lambda)
     vec_out = merged[vec_mask].copy()
+    # Keep raw probability for diagnostics if calibration applied
+    try:
+        if cal_map and not vec_out.empty:
+            vec_out["p_over_raw"] = vec_out.get("p_over_vec")
+    except Exception:
+        pass
     
     # Compute EV on the filtered data
     dec_over = _american_to_decimal_series(vec_out.get("over_price"))
@@ -2518,6 +2631,11 @@ def props_recommendations(
         except Exception:
             pass
         lam, p_over = proj_and_prob(m, str(player), float(ln))
+        if p_over is not None:
+            try:
+                p_over = _apply_calibrated(m, float(ln), float(p_over)) if cal_map else p_over
+            except Exception:
+                pass
         if lam is None or p_over is None:
             continue
         ev_o = ev_unit(float(p_over), american_to_decimal(float(op))) if pd.notna(op) else None
@@ -4182,6 +4300,19 @@ def props_stats_calibration(
             p = g["p_over"].astype(float).values
             acc = float((y == (p >= 0.5)).mean())
             brier = float(np.mean((p - y) ** 2))
+            # Also fit simple temperature+bias calibration for this group
+            try:
+                from .utils.calibration import fit_temp_shift, BinaryCalibration
+                cal = fit_temp_shift(p, y, metric="brier")
+                cal_t = float(getattr(cal, 't', 1.0))
+                cal_b = float(getattr(cal, 'b', 0.0))
+                # Post-calibration Brier for reporting
+                p_cal = cal.apply(np.asarray(p, dtype=float))
+                brier_cal = float(np.mean((p_cal - y) ** 2))
+            except Exception:
+                cal_t = 1.0
+                cal_b = 0.0
+                brier_cal = brier
             # Calibration bins
             edges = make_bins(bins)
             inds = np.digitize(p, edges, right=True)
@@ -4201,6 +4332,7 @@ def props_stats_calibration(
                 "count": int(len(g)),
                 "accuracy": acc,
                 "brier": brier,
+                "calibration_params": {"t": cal_t, "b": cal_b, "brier_post": brier_cal},
                 "calibration": cal,
             })
         except Exception:

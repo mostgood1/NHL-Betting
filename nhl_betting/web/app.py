@@ -1103,7 +1103,7 @@ async def _recompute_edges_and_recommendations(date: str) -> None:
                 return float(s)
             except Exception:
                 return None
-        # Compute EVs if missing and odds present
+    # Compute EVs if missing and odds present
         def _ensure_ev(row: pd.Series, prob_key: str, odds_key: str, ev_key: str, edge_key: Optional[str] = None):
             try:
                 ev_present = (ev_key in row) and (row.get(ev_key) is not None) and not (isinstance(row.get(ev_key), float) and pd.isna(row.get(ev_key)))
@@ -1131,7 +1131,28 @@ async def _recompute_edges_and_recommendations(date: str) -> None:
                 if (p is not None) and (price is not None):
                     dec = american_to_decimal(price)
                     if dec is not None and _math.isfinite(dec):
-                        row[ev_key] = round(ev_unit(p, dec), 4)
+                        # For totals with integer lines, account for push probability in EV
+                        p_push = 0.0
+                        try:
+                            if prob_key in ("p_over", "p_under"):
+                                tl = row.get("total_line_used") if "total_line_used" in row else None
+                                if tl is None:
+                                    tl = row.get("close_total_line_used") if "close_total_line_used" in row else None
+                                mt = row.get("model_total") if "model_total" in row else None
+                                if tl is not None and mt is not None:
+                                    tl_f = float(tl); mt_f = float(mt)
+                                    # consider integer line within small epsilon
+                                    if _math.isfinite(tl_f) and _math.isfinite(mt_f) and abs(tl_f - round(tl_f)) < 1e-9:
+                                        k = int(round(tl_f))
+                                        # Poisson PMF at k with mean mt_f
+                                        # p(k) = e^-mu * mu^k / k!
+                                        from math import exp, factorial
+                                        p_push = float(exp(-mt_f) * (mt_f ** k) / factorial(k)) if k >= 0 else 0.0
+                        except Exception:
+                            p_push = 0.0
+                        # Win prob is p; loss prob excludes push if applicable
+                        p_loss = max(0.0, 1.0 - float(p) - float(p_push)) if prob_key in ("p_over", "p_under") else max(0.0, 1.0 - float(p))
+                        row[ev_key] = round(float(p) * (dec - 1.0) - p_loss, 4)
                         if edge_key:
                             # edge uses no-vig implied prob from two-way if counterpart present
                             # Infer counterpart odds/prob based on market key pattern
@@ -1142,6 +1163,16 @@ async def _recompute_edges_and_recommendations(date: str) -> None:
                                 ("p_under", "under_odds"): ("p_over", "over_odds"),
                                 ("p_home_pl_-1.5", "home_pl_-1.5_odds"): ("p_away_pl_+1.5", "away_pl_+1.5_odds"),
                                 ("p_away_pl_+1.5", "away_pl_+1.5_odds"): ("p_home_pl_-1.5", "home_pl_-1.5_odds"),
+                                # First 10 minutes Yes/No
+                                ("p_f10_yes", "f10_yes_odds"): ("p_f10_no", "f10_no_odds"),
+                                ("p_f10_no", "f10_no_odds"): ("p_f10_yes", "f10_yes_odds"),
+                                # Period totals Over/Under pairs
+                                ("p1_over_prob", "p1_over_odds"): ("p1_under_prob", "p1_under_odds"),
+                                ("p1_under_prob", "p1_under_odds"): ("p1_over_prob", "p1_over_odds"),
+                                ("p2_over_prob", "p2_over_odds"): ("p2_under_prob", "p2_under_odds"),
+                                ("p2_under_prob", "p2_under_odds"): ("p2_over_prob", "p2_over_odds"),
+                                ("p3_over_prob", "p3_over_odds"): ("p3_under_prob", "p3_under_odds"),
+                                ("p3_under_prob", "p3_under_odds"): ("p3_over_prob", "p3_over_odds"),
                             }
                             other = counterpart_map.get((prob_key, odds_key))
                             if other:
@@ -1179,20 +1210,89 @@ async def _recompute_edges_and_recommendations(date: str) -> None:
             except Exception:
                 return row
             return row
+        # Helpers for Poisson PMF/CDF for integer goals
+        from math import exp, factorial, floor
+        def _pois_pmf(mu: float, k: int) -> float:
+            try:
+                if k < 0 or mu < 0 or not _math.isfinite(mu):
+                    return 0.0
+                return float(exp(-mu) * (mu ** k) / factorial(k))
+            except Exception:
+                return 0.0
+        def _pois_cdf(mu: float, k: int) -> float:
+            try:
+                if k < 0:
+                    return 0.0
+                s = 0.0
+                for i in range(0, k + 1):
+                    s += _pois_pmf(mu, i)
+                return float(min(1.0, max(0.0, s)))
+            except Exception:
+                return 0.0
+
         # Apply to rows
         if not df.empty:
             for i, r in df.iterrows():
+                # First 10 minutes Yes/No probabilities
+                try:
+                    p_yes = None
+                    if "first_10min_prob" in r and pd.notna(r.get("first_10min_prob")):
+                        p_yes = float(r.get("first_10min_prob"))
+                    elif "first_10min_proj" in r and pd.notna(r.get("first_10min_proj")):
+                        lam10 = float(r.get("first_10min_proj"))
+                        if _math.isfinite(lam10) and lam10 >= 0:
+                            p_yes = 1.0 - exp(-lam10)
+                    if p_yes is not None:
+                        p_yes = max(0.0, min(1.0, float(p_yes)))
+                        r["p_f10_yes"] = p_yes
+                        r["p_f10_no"] = 1.0 - p_yes
+                except Exception:
+                    pass
+
+                # Period totals probabilities for P1..P3 if period projections and lines available
+                for pn in (1, 2, 3):
+                    try:
+                        hkey = f"period{pn}_home_proj"; akey = f"period{pn}_away_proj"
+                        lkey = f"p{pn}_total_line"
+                        if (hkey in r and akey in r and lkey in r and pd.notna(r.get(hkey)) and pd.notna(r.get(akey)) and pd.notna(r.get(lkey))):
+                            mu = float(r.get(hkey)) + float(r.get(akey))
+                            ln = float(r.get(lkey))
+                            if not (_math.isfinite(mu) and _math.isfinite(ln)):
+                                raise ValueError
+                            # Half lines vs integer lines
+                            if abs(ln - round(ln)) < 1e-9:
+                                k = int(round(ln))
+                                p_push = _pois_pmf(mu, k)
+                                p_under = _pois_cdf(mu, k - 1)
+                                p_over = max(0.0, 1.0 - _pois_cdf(mu, k))
+                            else:
+                                k = floor(ln)
+                                p_push = 0.0
+                                p_under = _pois_cdf(mu, k)
+                                p_over = max(0.0, 1.0 - p_under)
+                            r[f"p{pn}_over_prob"] = max(0.0, min(1.0, float(p_over)))
+                            r[f"p{pn}_under_prob"] = max(0.0, min(1.0, float(p_under)))
+                            # store push probability for UI if useful
+                            r[f"p{pn}_push_prob"] = max(0.0, min(1.0, float(p_push)))
+                    except Exception:
+                        continue
+
                 r = _ensure_ev(r, "p_home_ml", "home_ml_odds", "ev_home_ml", "edge_home_ml")
                 r = _ensure_ev(r, "p_away_ml", "away_ml_odds", "ev_away_ml", "edge_away_ml")
-            try:
-                COMMIT_SHORT = (_git_commit_hash() or '')[:12]
-            except Exception:
-                COMMIT_SHORT = ''
-
                 r = _ensure_ev(r, "p_over", "over_odds", "ev_over", "edge_over")
                 r = _ensure_ev(r, "p_under", "under_odds", "ev_under", "edge_under")
                 r = _ensure_ev(r, "p_home_pl_-1.5", "home_pl_-1.5_odds", "ev_home_pl_-1.5", "edge_home_pl_-1.5")
                 r = _ensure_ev(r, "p_away_pl_+1.5", "away_pl_+1.5_odds", "ev_away_pl_+1.5", "edge_away_pl_+1.5")
+                # First 10 minutes EVs
+                r = _ensure_ev(r, "p_f10_yes", "f10_yes_odds", "ev_f10_yes", "edge_f10_yes")
+                r = _ensure_ev(r, "p_f10_no", "f10_no_odds", "ev_f10_no", "edge_f10_no")
+                # Period totals EVs
+                r = _ensure_ev(r, "p1_over_prob", "p1_over_odds", "ev_p1_over", None)
+                r = _ensure_ev(r, "p1_under_prob", "p1_under_odds", "ev_p1_under", None)
+                r = _ensure_ev(r, "p2_over_prob", "p2_over_odds", "ev_p2_over", None)
+                r = _ensure_ev(r, "p2_under_prob", "p2_under_odds", "ev_p2_under", None)
+                r = _ensure_ev(r, "p3_over_prob", "p3_over_odds", "ev_p3_over", None)
+                r = _ensure_ev(r, "p3_under_prob", "p3_under_odds", "ev_p3_under", None)
                 df.iloc[i] = r
         # Persist predictions with updated EV/edge fields
         df.to_csv(pred_path, index=False)
@@ -2271,7 +2371,24 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
                     if (p is not None) and (price is not None):
                         dec = american_to_decimal(price)
                         if dec is not None and _math.isfinite(dec):
-                            row[ev_key] = round(ev_unit(p, dec), 4)
+                            # Adjust EV for totals with potential push on integer lines
+                            p_push = 0.0
+                            try:
+                                if p_key in ("p_over", "p_under"):
+                                    tl = row.get("total_line_used") if "total_line_used" in row else None
+                                    if tl is None:
+                                        tl = row.get("close_total_line_used") if "close_total_line_used" in row else None
+                                    mt = row.get("model_total") if "model_total" in row else None
+                                    if tl is not None and mt is not None:
+                                        tl_f = float(tl); mt_f = float(mt)
+                                        if _math.isfinite(tl_f) and _math.isfinite(mt_f) and abs(tl_f - round(tl_f)) < 1e-9:
+                                            k = int(round(tl_f))
+                                            from math import exp, factorial
+                                            p_push = float(exp(-mt_f) * (mt_f ** k) / factorial(k)) if k >= 0 else 0.0
+                            except Exception:
+                                p_push = 0.0
+                            p_loss = max(0.0, 1.0 - float(p) - float(p_push)) if p_key in ("p_over", "p_under") else max(0.0, 1.0 - float(p))
+                            row[ev_key] = round(float(p) * (dec - 1.0) - p_loss, 4)
                 except Exception:
                     return row
                 return row
@@ -2502,22 +2619,62 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
         except Exception:
             return None
     for r in rows:
-        # Candidates
+        # Compute model picks for ML, Totals, and Puck Line
+        try:
+            # Moneyline model pick
+            ph = float(r.get("p_home_ml")) if r.get("p_home_ml") is not None else None
+            pa = float(r.get("p_away_ml")) if r.get("p_away_ml") is not None else None
+            if ph is not None and pa is not None:
+                if ph >= pa:
+                    r["model_pick"] = "Home ML"
+                    r["model_pick_prob"] = ph
+                else:
+                    r["model_pick"] = "Away ML"
+                    r["model_pick_prob"] = pa
+        except Exception:
+            pass
+        try:
+            # Totals model pick
+            po = float(r.get("p_over")) if r.get("p_over") is not None else None
+            pu = float(r.get("p_under")) if r.get("p_under") is not None else None
+            if po is not None and pu is not None:
+                if po >= pu:
+                    r["model_pick_total"] = "Over"
+                    r["model_pick_total_prob"] = po
+                else:
+                    r["model_pick_total"] = "Under"
+                    r["model_pick_total_prob"] = pu
+        except Exception:
+            pass
+        try:
+            # Puck line model pick (-1.5 / +1.5)
+            php = float(r.get("p_home_pl_-1.5")) if r.get("p_home_pl_-1.5") is not None else None
+            pap = float(r.get("p_away_pl_+1.5")) if r.get("p_away_pl_+1.5") is not None else None
+            if php is not None and pap is not None:
+                if php >= pap:
+                    r["model_pick_pl"] = "Home -1.5"
+                    r["model_pick_pl_prob"] = php
+                else:
+                    r["model_pick_pl"] = "Away +1.5"
+                    r["model_pick_pl_prob"] = pap
+        except Exception:
+            pass
+        # Candidates aligned to model picks only (and EV must be positive to consider)
         cands = []
         ev_h = _to_float(r.get("ev_home_ml")); ev_a = _to_float(r.get("ev_away_ml"))
-        if ev_h is not None:
+        if r.get("model_pick") == "Home ML" and ev_h is not None and ev_h > 0:
             cands.append({"market": "moneyline", "bet": "home_ml", "label": "Home ML", "ev": ev_h, "odds": r.get("home_ml_odds"), "book": r.get("home_ml_book")})
-        if ev_a is not None:
+        if r.get("model_pick") == "Away ML" and ev_a is not None and ev_a > 0:
             cands.append({"market": "moneyline", "bet": "away_ml", "label": "Away ML", "ev": ev_a, "odds": r.get("away_ml_odds"), "book": r.get("away_ml_book")})
         ev_o = _to_float(r.get("ev_over")); ev_u = _to_float(r.get("ev_under"))
-        if ev_o is not None:
+        if r.get("model_pick_total") == "Over" and ev_o is not None and ev_o > 0:
             cands.append({"market": "totals", "bet": "over", "label": "Over", "ev": ev_o, "odds": r.get("over_odds"), "book": r.get("over_book")})
-        if ev_u is not None:
+        if r.get("model_pick_total") == "Under" and ev_u is not None and ev_u > 0:
             cands.append({"market": "totals", "bet": "under", "label": "Under", "ev": ev_u, "odds": r.get("under_odds"), "book": r.get("under_book")})
         ev_hpl = _to_float(r.get("ev_home_pl_-1.5")); ev_apl = _to_float(r.get("ev_away_pl_+1.5"))
-        if ev_hpl is not None:
+        if r.get("model_pick_pl") == "Home -1.5" and ev_hpl is not None and ev_hpl > 0:
             cands.append({"market": "puckline", "bet": "home_pl_-1.5", "label": "Home -1.5", "ev": ev_hpl, "odds": r.get("home_pl_-1.5_odds"), "book": r.get("home_pl_-1.5_book")})
-        if ev_apl is not None:
+        if r.get("model_pick_pl") == "Away +1.5" and ev_apl is not None and ev_apl > 0:
             cands.append({"market": "puckline", "bet": "away_pl_+1.5", "label": "Away +1.5", "ev": ev_apl, "odds": r.get("away_pl_+1.5_odds"), "book": r.get("away_pl_+1.5_book")})
         best = None
         if cands:
@@ -2568,19 +2725,10 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
             r["rec_result"] = rec_res
             r["rec_success"] = rec_ok
             r["rec_confidence"] = conf
-        # Add model pick (moneyline highest probability)
-        try:
-            ph = float(r.get("p_home_ml")) if r.get("p_home_ml") is not None else None
-            pa = float(r.get("p_away_ml")) if r.get("p_away_ml") is not None else None
-            if ph is not None and pa is not None:
-                if ph >= pa:
-                    r["model_pick"] = "Home ML"
-                    r["model_pick_prob"] = ph
-                else:
-                    r["model_pick"] = "Away ML"
-                    r["model_pick_prob"] = pa
-        except Exception:
-            pass
+        else:
+            # No aligned +EV recommendation
+            for k in ("rec_market","rec_bet","rec_label","rec_ev","rec_odds","rec_book","rec_result","rec_success","rec_confidence"):
+                r[k] = None
     # Load inferred odds as a tertiary display fallback (not persisted): inferred_odds_{date}.csv
     # In read-only mode, do not show inferred odds by default
     allow_inferred = os.getenv("WEB_ALLOW_INFERRED_ODDS", "").strip().lower() in ("1", "true", "yes")
@@ -2677,6 +2825,20 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
             r["disp_over_book"] = _fb(r.get("over_book"), r.get("close_over_book"))
             r["disp_under_book"] = _fb(r.get("under_book"), r.get("close_under_book"))
             r["disp_total_line_used"] = _fb(r.get("total_line_used"), r.get("close_total_line_used"))
+            # Estimate push probability for totals if we have an integer line and a model total
+            try:
+                p_push = None
+                tl = r.get("disp_total_line_used")
+                mt = r.get("model_total")
+                if tl is not None and mt is not None:
+                    tl_f = float(tl); mt_f = float(mt)
+                    if math.isfinite(tl_f) and math.isfinite(mt_f) and abs(tl_f - round(tl_f)) < 1e-9:
+                        k = int(round(tl_f))
+                        from math import exp, factorial
+                        p_push = float(exp(-mt_f) * (mt_f ** k) / factorial(k)) if k >= 0 else 0.0
+                r["p_push"] = p_push
+            except Exception:
+                r["p_push"] = r.get("p_push") if r.get("p_push") is not None else None
             # Inferred fallback for totals (line may remain unknown)
             if allow_inferred and not _has(r.get("disp_over_odds")):
                 v = inferred_map.get((hn, an, "over"))
@@ -9297,6 +9459,89 @@ async def odds_coverage(date: Optional[str] = Query(None)):
             payload = {"summary": {"date": date}, "rows": []}
     template = env.get_template("odds_coverage.html")
     html = template.render(summary=payload.get("summary", {}), rows=payload.get("rows", []))
+    return HTMLResponse(content=html)
+
+# -----------------------------------------------------------------------------
+# FIRST-10 evaluation summary (JSON + HTML)
+# -----------------------------------------------------------------------------
+
+def _read_first10_eval_local() -> Dict[str, Any]:
+    try:
+        p = PROC_DIR / "first10_eval.json"
+        if p.exists():
+            with open(p, "r", encoding="utf-8") as f:
+                return json.load(f)
+        # Fallback: attempt repo path (when running from project root)
+        p2 = Path("data/processed/first10_eval.json")
+        if p2.exists():
+            with open(p2, "r", encoding="utf-8") as f:
+                return json.load(f)
+    except Exception:
+        pass
+    return {}
+
+@app.get("/api/first10-eval")
+async def api_first10_eval():
+    """Return the compact first-10 evaluation JSON if available."""
+    data = _read_first10_eval_local()
+    if not data:
+        # Optional: try GitHub raw if on public host
+        try:
+            if _is_public_host_env():
+                url = os.getenv(
+                    "FIRST10_EVAL_URL",
+                    "https://raw.githubusercontent.com/mostgood1/NHL-Betting/master/data/processed/first10_eval.json",
+                )
+                r = requests.get(url, timeout=2.0)
+                if r.status_code == 200 and r.text:
+                    try:
+                        data = json.loads(r.text)
+                    except Exception:
+                        data = {}
+        except Exception:
+            data = {}
+    if not data:
+        return JSONResponse({"error": "not_found"}, status_code=404)
+    return JSONResponse(data)
+
+@app.get("/first10-eval")
+async def first10_eval_page():
+    data = _read_first10_eval_local()
+    if not data and _is_public_host_env():
+        try:
+            url = os.getenv(
+                "FIRST10_EVAL_URL",
+                "https://raw.githubusercontent.com/mostgood1/NHL-Betting/master/data/processed/first10_eval.json",
+            )
+            r = requests.get(url, timeout=2.0)
+            if r.status_code == 200 and r.text:
+                try:
+                    data = json.loads(r.text)
+                except Exception:
+                    data = {}
+        except Exception:
+            data = {}
+    # Shape defaults
+    start = data.get("start") if isinstance(data, dict) else None
+    end = data.get("end") if isinstance(data, dict) else None
+    samples = data.get("samples") if isinstance(data, dict) else None
+    p1_scale = data.get("p1_scale") if isinstance(data, dict) else None
+    total_scale = data.get("total_scale") if isinstance(data, dict) else None
+    brier = data.get("brier") if isinstance(data, dict) else None
+    logloss = data.get("logloss") if isinstance(data, dict) else None
+    calib = data.get("calibration") if isinstance(data, dict) else None
+
+    template = env.get_template("first10_eval.html")
+    html = template.render(
+        start=start,
+        end=end,
+        samples=samples,
+        p1_scale=p1_scale,
+        total_scale=total_scale,
+        brier=brier,
+        logloss=logloss,
+        calibration=calib or [],
+    )
     return HTMLResponse(content=html)
 
 

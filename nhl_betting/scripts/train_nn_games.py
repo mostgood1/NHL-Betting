@@ -19,6 +19,25 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+# CRITICAL: Import torch/onnxruntime BEFORE pandas/numpy to avoid DLL init conflicts on Windows
+try:
+    import torch  # type: ignore
+    _TORCH_OK = True
+    print(f"[info] PyTorch loaded: {torch.__version__}")
+except (ImportError, OSError) as e:
+    _TORCH_OK = False
+    torch = None  # type: ignore
+    print(f"[warn] PyTorch unavailable: {e}")
+
+try:
+    import onnxruntime  # type: ignore
+    _ONNX_OK = True
+    print(f"[info] ONNX Runtime loaded: {onnxruntime.__version__}")
+except (ImportError, OSError) as e:
+    _ONNX_OK = False
+    onnxruntime = None  # type: ignore
+    print(f"[warn] ONNX Runtime unavailable: {e}")
+
 import typer
 import pandas as pd
 from rich import print

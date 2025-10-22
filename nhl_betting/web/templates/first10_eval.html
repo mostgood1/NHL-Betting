@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NHL – First 10 Evaluation</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  <style>
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:8px 10px;border-bottom:1px solid #2a2a2a;text-align:left}
+    .muted{opacity:.85}
+    .bad{color:#f88}
+    .good{color:#8f8}
+    .summary{display:flex;gap:16px;flex-wrap:wrap;margin:8px 0 12px}
+    .card{border:1px solid #2a2a2a;border-radius:8px;padding:8px 12px}
+  </style>
+  <meta name="color-scheme" content="dark light" />
+  <link rel="icon" href="data:," />
+</head>
+<body>
+  <div class="container">
+    <div class="nav"><a href="/">Cards</a> | <a href="/recommendations">Recs</a> | <a href="/props">Props</a> | <a href="/props/recommendations">Props Recs</a> | <a href="/first10-eval">First10 Eval</a></div>
+    <h1>First 10 Minutes – Evaluation</h1>
+    <div class="muted">Backtest summary for first-10 scoring probability calibration.</div>
+
+    <div class="summary">
+      <div class="card">
+        <div class="muted">Window</div>
+        <div>{{ start or '—' }} → {{ end or '—' }}</div>
+      </div>
+      <div class="card">
+        <div class="muted">Samples</div>
+        <div>{{ samples or '—' }}</div>
+      </div>
+      <div class="card">
+        <div class="muted">Scales</div>
+        <div>P1={{ '%.2f' % p1_scale if p1_scale is not none else '—' }}, TOTAL={{ '%.2f' % total_scale if total_scale is not none else '—' }}</div>
+      </div>
+      <div class="card">
+        <div class="muted">Brier</div>
+        <div>{{ '%.3f' % brier if brier is not none else '—' }}</div>
+      </div>
+      <div class="card">
+        <div class="muted">LogLoss</div>
+        <div>{{ '%.3f' % logloss if logloss is not none else '—' }}</div>
+      </div>
+    </div>
+
+    <h3>Decile Calibration</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Decile</th>
+          <th>Mean Pred</th>
+          <th>Mean Obs</th>
+          <th>Count</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in calibration %}
+          <tr>
+            <td>{{ r.decile }}</td>
+            <td>{{ '%.3f' % r.mean_pred if r.mean_pred is not none else '—' }}</td>
+            <td>{{ '%.3f' % r.mean_obs if r.mean_obs is not none else '—' }}</td>
+            <td>{{ r.n }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</body>
+</html>

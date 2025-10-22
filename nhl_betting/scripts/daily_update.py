@@ -58,6 +58,199 @@ def _vprint(verbose: bool, *args, **kwargs):
         print(*args, **kwargs)
 
 
+def _collect_special_markets_oddsapi(date: str, preferred_bookmaker: str = "draftkings", verbose: bool = False) -> None:
+    """Fetch Goal in First 10 Minutes and Period Totals odds from OddsAPI and merge into predictions_{date}.csv.
+
+    Adds columns if available:
+      - f10_yes_odds, f10_no_odds
+      - p1_total_line, p1_over_odds, p1_under_odds
+      - p2_total_line, p2_over_odds, p2_under_odds
+      - p3_total_line, p3_over_odds, p3_under_odds
+
+    Notes:
+      - Requires ODDS_API_KEY in environment; otherwise no-ops.
+      - Uses current events/odds (not historical snapshot) and limits to a single preferred bookmaker.
+    """
+    # Load predictions file (must exist)
+    pred_path = PROC_DIR / f"predictions_{date}.csv"
+    if not pred_path.exists() or pred_path.stat().st_size == 0:
+        _vprint(verbose, f"[xtra] predictions_{date}.csv missing; skipping extra markets")
+        return
+    try:
+        df = pd.read_csv(pred_path)
+    except Exception:
+        _vprint(verbose, f"[xtra] failed to read predictions_{date}.csv; skipping")
+        return
+    if df is None or df.empty:
+        _vprint(verbose, f"[xtra] predictions_{date}.csv empty; skipping extra markets")
+        return
+    # Helper: normalize team names for matching
+    import re, unicodedata
+    def norm_team(s: str) -> str:
+        if s is None:
+            return ""
+        s = str(s)
+        s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode()
+        s = s.lower()
+        s = re.sub(r"[^a-z0-9]+", "", s)
+        return s
+    # Build index by normalized names for quick joins
+    df = df.copy()
+    df["home_norm"] = df["home"].apply(norm_team)
+    df["away_norm"] = df["away"].apply(norm_team)
+    # Prepare columns (ensure they exist)
+    for c in [
+        "f10_yes_odds","f10_no_odds",
+        "p1_total_line","p1_over_odds","p1_under_odds",
+        "p2_total_line","p2_over_odds","p2_under_odds",
+        "p3_total_line","p3_over_odds","p3_under_odds",
+    ]:
+        if c not in df.columns:
+            df[c] = pd.NA
+    # Set up Odds API client
+    try:
+        client = OddsAPIClient()
+    except Exception as e:
+        _vprint(verbose, f"[xtra] ODDS_API_KEY not set or client error: {e}")
+        return
+    # Determine ET day window -> ISO for list_events filtering
+    try:
+        dt0 = datetime.fromisoformat(f"{date}T00:00:00-05:00").astimezone(timezone.utc)
+    except Exception:
+        # fallback: naive UTC
+        dt0 = datetime.fromisoformat(f"{date}T00:00:00+00:00")
+    dt1 = dt0 + timedelta(days=1)
+    try:
+        events, _ = client.list_events(
+            sport="icehockey_nhl",
+            commence_from_iso=dt0.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            commence_to_iso=dt1.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        )
+    except Exception as e:
+        _vprint(verbose, f"[xtra] list_events failed: {e}")
+        return
+    if not events:
+        _vprint(verbose, f"[xtra] no NHL events for {date}")
+        return
+    def period_from_key(k: str) -> int | None:
+        ks = k.lower()
+        if "1st" in ks or "first" in ks or "1st_" in ks or "_1st" in ks: return 1
+        if "2nd" in ks or "second" in ks or "2nd_" in ks or "_2nd" in ks: return 2
+        if "3rd" in ks or "third" in ks or "3rd_" in ks or "_3rd" in ks: return 3
+        # Sometimes keys use digits like 'period_1_totals'
+        m = re.search(r"[^0-9]([123])[^0-9]", ks)
+        if m:
+            try: return int(m.group(1))
+            except Exception: return None
+        return None
+    def is_f10_key(k: str) -> bool:
+        ks = k.lower()
+        # cover common variants
+        return any(s in ks for s in ["first_10", "first10", "goal_in_first_10", "goalinfirst10", "giff"])
+    def is_period_totals_key(k: str) -> bool:
+        ks = k.lower()
+        return ("period" in ks) and ("total" in ks)
+    updated = 0
+    for ev in events:
+        try:
+            eid = ev.get("id")
+            home = ev.get("home_team"); away = ev.get("away_team")
+            if not (eid and home and away):
+                continue
+            hn = norm_team(home); an = norm_team(away)
+            # Check available markets for this event
+            try:
+                mkts, _ = client.event_markets("icehockey_nhl", eid, bookmakers=preferred_bookmaker)
+            except Exception:
+                mkts = []
+            if not mkts:
+                continue
+            keys = [m.get("key") for m in mkts if m and m.get("key")]
+            if not keys:
+                continue
+            fetch = []
+            # select F10 and period totals
+            for k in keys:
+                if is_f10_key(k) or is_period_totals_key(k):
+                    fetch.append(k)
+            if not fetch:
+                continue
+            # Retrieve odds for selected markets
+            try:
+                ev_odds, _ = client.event_odds(
+                    sport="icehockey_nhl",
+                    event_id=eid,
+                    markets=",".join(fetch),
+                    regions="us",
+                    bookmakers=preferred_bookmaker,
+                )
+            except Exception:
+                continue
+            if not ev_odds:
+                continue
+            # ev_odds is a list with one element per bookmaker (since we filtered); flatten markets
+            price_map: dict[str, any] = {}
+            try:
+                books = ev_odds[0].get("bookmakers", []) if isinstance(ev_odds, list) and ev_odds else []
+                mkts = books[0].get("markets", []) if books else []
+            except Exception:
+                mkts = []
+            for mkt in mkts:
+                mkey = str(mkt.get("key") or "").lower()
+                # Goal in first 10 minutes: expect Yes/No
+                if is_f10_key(mkey):
+                    for oc in mkt.get("outcomes", []) or []:
+                        nm = str(oc.get("name") or "").strip().lower()
+                        pr = oc.get("price")
+                        if nm in ("yes", "y", "goal"):
+                            price_map["f10_yes_odds"] = pr
+                        elif nm in ("no", "n", "no_goal", "nogoal"):
+                            price_map["f10_no_odds"] = pr
+                # Period totals: capture Over/Under and line, by period
+                if is_period_totals_key(mkey):
+                    pno = period_from_key(mkey)
+                    if pno is None:
+                        continue
+                    pt_key = f"p{pno}_total_line"; ov_key = f"p{pno}_over_odds"; un_key = f"p{pno}_under_odds"
+                    line = None
+                    for oc in mkt.get("outcomes", []) or []:
+                        nm = str(oc.get("name") or "").strip()
+                        pr = oc.get("price")
+                        pt = oc.get("point")
+                        if line is None and pt is not None:
+                            line = pt
+                        if nm.lower() == "over":
+                            price_map[ov_key] = pr
+                        elif nm.lower() == "under":
+                            price_map[un_key] = pr
+                    if line is not None:
+                        price_map[pt_key] = line
+            if not price_map:
+                continue
+            # Merge into predictions row
+            sel = (df["home_norm"] == hn) & (df["away_norm"] == an)
+            idx = df.index[sel]
+            if len(idx) == 0:
+                continue
+            for col, val in price_map.items():
+                try:
+                    df.at[idx[0], col] = val
+                except Exception:
+                    pass
+            updated += 1
+        except Exception:
+            continue
+    if updated > 0:
+        try:
+            save_df(df.drop(columns=["home_norm","away_norm"]), pred_path)
+        except Exception:
+            # fall back to safe write
+            df.drop(columns=["home_norm","away_norm"], errors="ignore").to_csv(pred_path, index=False)
+        _vprint(verbose, f"[xtra] merged extra markets for {updated} event(s)")
+    else:
+        _vprint(verbose, f"[xtra] no extra markets merged for {date}")
+
+
 def ensure_props_recs_history(dates: list[str], verbose: bool = False) -> None:
     """Append per-day recommendations into a rolling history CSV used by the web app.
 
@@ -449,6 +642,11 @@ def make_predictions(days_ahead: int = 2, verbose: bool = False) -> None:
                     _vprint(verbose, f"[predict] {d}: No eligible games; predictions not created")
         except Exception:
             pass
+        # Optionally collect extra markets (Goal in First 10 Minutes, Period Totals) from OddsAPI
+        try:
+            _collect_special_markets_oddsapi(d, preferred_bookmaker="draftkings", verbose=verbose)
+        except Exception as e:
+            _vprint(verbose, f"[predict] {d}: extra markets skipped: {e}")
 
 
 def collect_props_canonical(days_ahead: int = 1, verbose: bool = False) -> dict:

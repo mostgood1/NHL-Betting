@@ -174,8 +174,16 @@ def analyze_period_bets(
                     confidence="HIGH" if p1_under >= 0.65 else "MEDIUM"
                 ))
             
-            # First 10 minutes
-            first_10_prob = first_10min_goal_probability(p1_home, p1_away)
+            # First 10 minutes: prefer precomputed probability from predictions if present
+            first_10_prob = None
+            try:
+                _p = game.get("first_10min_prob")
+                if _p is not None and not (isinstance(_p, float) and np.isnan(_p)):
+                    first_10_prob = float(_p)
+            except Exception:
+                first_10_prob = None
+            if first_10_prob is None:
+                first_10_prob = first_10min_goal_probability(p1_home, p1_away)
             if first_10_prob >= min_prob:
                 bets.append(PeriodBet(
                     date=date,

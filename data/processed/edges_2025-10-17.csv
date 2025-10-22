@@ -1,21 +1,21 @@
 date,home,away,market,ev
-2025-10-17T23:00:00Z,Detroit Red Wings,Tampa Bay Lightning,ev_home_ml,0.4547
-2025-10-17T23:00:00Z,Washington Capitals,Minnesota Wild,ev_home_ml,0.3404
-2025-10-18T01:00:00Z,Utah Mammoth,San Jose Sharks,ev_under,0.2068
-2025-10-18T00:30:00Z,Chicago Blackhawks,Vancouver Canucks,ev_under,0.1972
-2025-10-18T01:00:00Z,Utah Mammoth,San Jose Sharks,ev_home_ml,0.1956
-2025-10-17T23:00:00Z,Detroit Red Wings,Tampa Bay Lightning,ev_over,0.1776
-2025-10-17T23:00:00Z,Washington Capitals,Minnesota Wild,ev_under,0.0893
-2025-10-18T00:30:00Z,Chicago Blackhawks,Vancouver Canucks,ev_away_ml,0.0649
-2025-10-17T23:00:00Z,Washington Capitals,Minnesota Wild,ev_home_pl_-1.5,-0.0211
-2025-10-18T01:00:00Z,Utah Mammoth,San Jose Sharks,ev_away_pl_+1.5,-0.0255
-2025-10-17T23:00:00Z,Washington Capitals,Minnesota Wild,ev_away_pl_+1.5,-0.0513
-2025-10-18T01:00:00Z,Utah Mammoth,San Jose Sharks,ev_home_pl_-1.5,-0.0598
-2025-10-17T23:00:00Z,Washington Capitals,Minnesota Wild,ev_over,-0.1565
-2025-10-18T00:30:00Z,Chicago Blackhawks,Vancouver Canucks,ev_home_ml,-0.1691
-2025-10-17T23:00:00Z,Detroit Red Wings,Tampa Bay Lightning,ev_under,-0.2229
-2025-10-18T00:30:00Z,Chicago Blackhawks,Vancouver Canucks,ev_over,-0.2331
-2025-10-18T01:00:00Z,Utah Mammoth,San Jose Sharks,ev_over,-0.3244
-2025-10-17T23:00:00Z,Detroit Red Wings,Tampa Bay Lightning,ev_away_ml,-0.3954
-2025-10-17T23:00:00Z,Washington Capitals,Minnesota Wild,ev_away_ml,-0.4765
-2025-10-18T01:00:00Z,Utah Mammoth,San Jose Sharks,ev_away_ml,-0.5842
+2025-10-17T23:00:00Z,Detroit Red Wings,Tampa Bay Lightning,ev_home_ml,0.7269
+2025-10-17T23:00:00Z,Washington Capitals,Minnesota Wild,ev_home_ml,0.4968
+2025-10-18T00:30:00Z,Chicago Blackhawks,Vancouver Canucks,ev_under,0.4082
+2025-10-18T00:30:00Z,Chicago Blackhawks,Vancouver Canucks,ev_away_ml,0.3832
+2025-10-18T01:00:00Z,Utah Mammoth,San Jose Sharks,ev_home_ml,0.2201
+2025-10-18T01:00:00Z,Utah Mammoth,San Jose Sharks,ev_under,0.2025
+2025-10-17T23:00:00Z,Washington Capitals,Minnesota Wild,ev_under,0.2
+2025-10-17T23:00:00Z,Detroit Red Wings,Tampa Bay Lightning,ev_under,0.1258
+2025-10-17T23:00:00Z,Washington Capitals,Minnesota Wild,ev_home_pl_-1.5,0.011
+2025-10-18T01:00:00Z,Utah Mammoth,San Jose Sharks,ev_away_pl_+1.5,-0.0383
+2025-10-18T01:00:00Z,Utah Mammoth,San Jose Sharks,ev_home_pl_-1.5,-0.0453
+2025-10-17T23:00:00Z,Washington Capitals,Minnesota Wild,ev_away_pl_+1.5,-0.0664
+2025-10-17T23:00:00Z,Detroit Red Wings,Tampa Bay Lightning,ev_over,-0.2363
+2025-10-17T23:00:00Z,Washington Capitals,Minnesota Wild,ev_over,-0.2537
+2025-10-18T01:00:00Z,Utah Mammoth,San Jose Sharks,ev_over,-0.3195
+2025-10-18T00:30:00Z,Chicago Blackhawks,Vancouver Canucks,ev_over,-0.4047
+2025-10-18T00:30:00Z,Chicago Blackhawks,Vancouver Canucks,ev_home_ml,-0.5605
+2025-10-17T23:00:00Z,Detroit Red Wings,Tampa Bay Lightning,ev_away_ml,-0.5901
+2025-10-18T01:00:00Z,Utah Mammoth,San Jose Sharks,ev_away_ml,-0.6404
+2025-10-17T23:00:00Z,Washington Capitals,Minnesota Wild,ev_away_ml,-0.6547

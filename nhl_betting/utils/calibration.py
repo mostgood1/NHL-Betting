@@ -106,3 +106,44 @@ def summarize_binary(y_true: np.ndarray, p_pred: np.ndarray) -> Dict[str, float]
         "brier": _brier(p, y),
         "acc": acc,
     }
+
+
+# ==== Props calibration helpers ====
+def load_props_stats_calibration_map(path: Path) -> Dict[tuple[str, float], BinaryCalibration]:
+    """Load props stats calibration JSON and return a mapping (market,line)->BinaryCalibration.
+
+    If multiple windows exist for a given (market,line), choose the one with lowest post-calibration Brier if available,
+    otherwise lowest pre-calibration Brier.
+    """
+    try:
+        import json as _json
+        if not path.exists() or path.stat().st_size <= 0:
+            return {}
+        with path.open("r", encoding="utf-8") as f:
+            data = _json.load(f)
+        groups = data.get("groups", []) or []
+        best: Dict[tuple[str, float], tuple[float, BinaryCalibration]] = {}
+        for g in groups:
+            try:
+                mkt = str(g.get("market") or "").upper()
+                line = float(g.get("line"))
+                brier = float(g.get("brier")) if g.get("brier") is not None else float("inf")
+                cp = g.get("calibration_params") or {}
+                t = float(cp.get("t", 1.0))
+                b = float(cp.get("b", 0.0))
+                brier_post = cp.get("brier_post")
+                score = float(brier_post) if brier_post is not None else brier
+                cal = BinaryCalibration(t=t, b=b)
+                key = (mkt, line)
+                prev = best.get(key)
+                if (prev is None) or (score < prev[0]):
+                    best[key] = (score, cal)
+            except Exception:
+                continue
+        # Flatten to calibration map
+        out: Dict[tuple[str, float], BinaryCalibration] = {}
+        for k, v in best.items():
+            out[k] = v[1]
+        return out
+    except Exception:
+        return {}

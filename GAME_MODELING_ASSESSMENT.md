@@ -80,6 +80,27 @@ lam_h, lam_a = pois.lambdas_from_total_split(per_game_total, p_home)
 # Example: 6.0 total * 0.83 = ~5.0 home, 6.0 * 0.17 = ~1.0 away
 ```
 
+## First 10 Minutes Probability (Calibration)
+
+We now compute the first-10 expected goals (lambda) primarily from the Period 1 projections for better calibration and variability:
+
+- lambda_10 = (P1_home + P1_away) × FIRST10_SCALE
+  - Default FIRST10_SCALE = 0.5 (assumes ~half of P1 scoring occurs in first 10 minutes)
+- Convert to probability using Poisson complement:
+  - P(YES) = 1 − exp(−lambda_10)
+
+Fallbacks:
+- If P1 projections are unavailable, use the dedicated FIRST_10MIN NN model output.
+- If neither is available, use heuristic from total goals:
+  - lambda_10 ≈ total_goals × FIRST10_TOTAL_SCALE (default 0.175)
+
+Environment knobs:
+- FIRST10_FROM_P1=1|0 to enable/disable using P1-derived lambda first
+- FIRST10_SCALE (default 0.5)
+- FIRST10_TOTAL_SCALE (default 0.175)
+
+These changes reduce clustering and produce realistic, varied probabilities typically in the 50–65% range for average matchups, higher for strong offenses or mismatches.
+
 The issue: **Poisson allocation is too aggressive when ML probability is extreme**.
 
 ## Recommendations

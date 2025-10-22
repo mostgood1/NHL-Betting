@@ -20,7 +20,7 @@
   .debug-date { font-size:0.65rem; color:#c33; margin-left:6px; }
   /* Period projections - Traditional line score table */
   .period-projections { margin: 12px 0; border: 1px solid var(--border, #243356); border-radius: 8px; background: var(--card-bg, #0f1530); overflow: hidden; }
-  .period-projections summary { cursor: pointer; padding: 10px 14px; font-weight: 600; font-size: 13px; color: var(--text, #cfe0ff); user-select: none; border-bottom: 1px solid var(--border, #243356); background: rgba(255,255,255,0.02); }
+  .period-projections summary { cursor: pointer; padding: 10px 14px; font-weight: 600; font-size: 13px; color: var(--text, #cfe0ff); -webkit-user-select: none; user-select: none; border-bottom: 1px solid var(--border, #243356); background: rgba(255,255,255,0.02); }
   .period-projections summary::-webkit-details-marker { display: none; }
   .period-projections[open] summary { background: rgba(255,255,255,0.04); }
   .line-score { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
@@ -211,9 +211,14 @@
             
             {# First 10 Minutes Goal Probability #}
             {% set first_10_proj = r.get('first_10min_proj') %}
-            {% if first_10_proj is not none and first_10_proj > 0 %}
+            {# Prefer explicit probability column when available; fallback to computing from lambda #}
+            {% set _prob_val = r.get('first_10min_prob') %}
+            {% if _prob_val is none and first_10_proj is not none %}
+              {% set _prob_val = 1 - (2.71828 ** (-first_10_proj)) %}
+            {% endif %}
+            {% if _prob_val is not none and _prob_val > 0 %}
             <div class="first-10min-indicator">
-              {% set prob_at_least_one = (1 - (2.71828 ** (-first_10_proj))) * 100 %}
+              {% set prob_at_least_one = _prob_val * 100 %}
               <div class="indicator-label">First 10 Min Goal Probability</div>
               <div class="indicator-value {% if prob_at_least_one >= 70 %}high{% elif prob_at_least_one >= 55 %}medium{% else %}low{% endif %}">
                 {{ '%.0f' % prob_at_least_one }}%
@@ -259,25 +264,34 @@
               <div class="chip title">Totals {{ '%.1f' % r.disp_total_line_used if r.disp_total_line_used is defined and r.disp_total_line_used is not none else '' }}</div>
               {% set ev_o = r.ev_over if 'ev_over' in r else None %}
               {% set ev_u = r.ev_under if 'ev_under' in r else None %}
-              <div class="chip {{ 'positive' if (ev_o is not none and ev_o > 0) else ('negative' if (ev_o is not none and ev_o < 0) else 'neutral') }}">
+              {% set is_model_over = (r.get('model_pick_total') == 'Over') %}
+              {% set is_model_under = (r.get('model_pick_total') == 'Under') %}
+              <div class="chip {{ 'positive' if (ev_o is not none and ev_o > 0) else ('negative' if (ev_o is not none and ev_o < 0) else 'neutral') }} {{ 'model-pick' if is_model_over else '' }}">
                 Over {% if r.disp_over_odds is defined and r.disp_over_odds is not none %}{{ r.disp_over_odds }}{% else %}—{% endif %}
                 · {{ '%.1f' % (100*r.p_over) }}%
                 {% if r.disp_over_odds is defined and r.disp_over_odds is not none %}
                 <span class="book-badge" title="{{ r.disp_over_book if (r.disp_over_book is string) else 'DraftKings' }}">{{ ((r.disp_over_book if (r.disp_over_book is string) else 'DK') | upper)[:2] }}</span>
                 {% endif %}
                 {% if ev_o is not none %}<span class="ev-badge {{ 'pos' if ev_o > 0 else ('neg' if ev_o < 0 else 'neu') }}">EV {{ ('+' if ev_o > 0 else '') ~ ('%.1f' % (100*ev_o)) }}%</span>{% endif %}
+                {% if is_model_over %}<span class="model-badge" title="Model pick">PICK</span>{% endif %}
               </div>
-              <div class="chip {{ 'positive' if (ev_u is not none and ev_u > 0) else ('negative' if (ev_u is not none and ev_u < 0) else 'neutral') }}">
+              <div class="chip {{ 'positive' if (ev_u is not none and ev_u > 0) else ('negative' if (ev_u is not none and ev_u < 0) else 'neutral') }} {{ 'model-pick' if is_model_under else '' }}">
                 Under {% if r.disp_under_odds is defined and r.disp_under_odds is not none %}{{ r.disp_under_odds }}{% else %}—{% endif %}
                 · {{ '%.1f' % (100*r.p_under) }}%
                 {% if r.disp_under_odds is defined and r.disp_under_odds is not none %}
                 <span class="book-badge" title="{{ r.disp_under_book if (r.disp_under_book is string) else 'DraftKings' }}">{{ ((r.disp_under_book if (r.disp_under_book is string) else 'DK') | upper)[:2] }}</span>
                 {% endif %}
                 {% if ev_u is not none %}<span class="ev-badge {{ 'pos' if ev_u > 0 else ('neg' if ev_u < 0 else 'neu') }}">EV {{ ('+' if ev_u > 0 else '') ~ ('%.1f' % (100*ev_u)) }}%</span>{% endif %}
+                {% if is_model_under %}<span class="model-badge" title="Model pick">PICK</span>{% endif %}
               </div>
               {% set pov = (r.get('p_over') or 0) %}
               {% set pun = (r.get('p_under') or 0) %}
-              {% set push = 1 - pov - pun %}
+              {% set ppush = r.get('p_push') %}
+              {% if ppush is none %}
+                {% set push = 1 - pov - pun %}
+              {% else %}
+                {% set push = ppush %}
+              {% endif %}
               {% if push < 0 %}{% set push = 0 %}{% endif %}
               <div class="chip neutral">Push · {{ '%.1f' % (100*push) }}%</div>
             </div>
@@ -285,26 +299,76 @@
               <div class="chip title">Puck Line</div>
               {% set ev_apl = r['ev_away_pl_+1.5'] if 'ev_away_pl_+1.5' in r else None %}
               {% set ev_hpl = r['ev_home_pl_-1.5'] if 'ev_home_pl_-1.5' in r else None %}
-              <div class="chip {{ 'positive' if (ev_apl is not none and ev_apl > 0) else ('negative' if (ev_apl is not none and ev_apl < 0) else 'neutral') }}">
+              {% set is_model_apl = (r.get('model_pick_pl') == 'Away +1.5') %}
+              {% set is_model_hpl = (r.get('model_pick_pl') == 'Home -1.5') %}
+              <div class="chip {{ 'positive' if (ev_apl is not none and ev_apl > 0) else ('negative' if (ev_apl is not none and ev_apl < 0) else 'neutral') }} {{ 'model-pick' if is_model_apl else '' }}">
                 Away +1.5 {% if r['disp_away_pl_+1.5_odds'] is defined and r['disp_away_pl_+1.5_odds'] is not none %}{{ r['disp_away_pl_+1.5_odds'] }}{% else %}—{% endif %}
                 · {{ '%.1f' % (100*r['p_away_pl_+1.5']) }}%
                 {% if r['disp_away_pl_+1.5_odds'] is defined and r['disp_away_pl_+1.5_odds'] is not none %}
                 <span class="book-badge" title="{{ r['disp_away_pl_+1.5_book'] if (r['disp_away_pl_+1.5_book'] is string) else 'DraftKings' }}">{{ ((r['disp_away_pl_+1.5_book'] if (r['disp_away_pl_+1.5_book'] is string) else 'DK') | upper)[:2] }}</span>
                 {% endif %}
                 {% if ev_apl is not none %}<span class="ev-badge {{ 'pos' if ev_apl > 0 else ('neg' if ev_apl < 0 else 'neu') }}">EV {{ ('+' if ev_apl > 0 else '') ~ ('%.1f' % (100*ev_apl)) }}%</span>{% endif %}
+                {% if is_model_apl %}<span class="model-badge" title="Model pick">PICK</span>{% endif %}
               </div>
-              <div class="chip {{ 'positive' if (ev_hpl is not none and ev_hpl > 0) else ('negative' if (ev_hpl is not none and ev_hpl < 0) else 'neutral') }}">
+              <div class="chip {{ 'positive' if (ev_hpl is not none and ev_hpl > 0) else ('negative' if (ev_hpl is not none and ev_hpl < 0) else 'neutral') }} {{ 'model-pick' if is_model_hpl else '' }}">
                 Home -1.5 {% if r['disp_home_pl_-1.5_odds'] is defined and r['disp_home_pl_-1.5_odds'] is not none %}{{ r['disp_home_pl_-1.5_odds'] }}{% else %}—{% endif %}
                 · {{ '%.1f' % (100*r['p_home_pl_-1.5']) }}%
                 {% if r['disp_home_pl_-1.5_odds'] is defined and r['disp_home_pl_-1.5_odds'] is not none %}
                 <span class="book-badge" title="{{ r['disp_home_pl_-1.5_book'] if (r['disp_home_pl_-1.5_book'] is string) else 'DraftKings' }}">{{ ((r['disp_home_pl_-1.5_book'] if (r['disp_home_pl_-1.5_book'] is string) else 'DK') | upper)[:2] }}</span>
                 {% endif %}
                 {% if ev_hpl is not none %}<span class="ev-badge {{ 'pos' if ev_hpl > 0 else ('neg' if ev_hpl < 0 else 'neu') }}">EV {{ ('+' if ev_hpl > 0 else '') ~ ('%.1f' % (100*ev_hpl)) }}%</span>{% endif %}
+                {% if is_model_hpl %}<span class="model-badge" title="Model pick">PICK</span>{% endif %}
               </div>
               {% if not has_any_odds %}
               <div class="chip neutral">No odds available yet</div>
               {% endif %}
             </div>
+            {# First 10 minutes market (Yes/No) if odds present #}
+            {% set has_f10 = (r.get('f10_yes_odds') is not none) or (r.get('f10_no_odds') is not none) %}
+            {% if has_f10 %}
+            <div class="row chips">
+              <div class="chip title">First 10 Minutes</div>
+              {% set p_yes = r.get('first_10min_prob') if r.get('first_10min_prob') is not none else (1 - (2.71828 ** (-(r.get('first_10min_proj') or 0)))) %}
+              {% set p_no = (1 - (p_yes or 0)) %}
+              {% set ev_yes = r.get('ev_f10_yes') %}
+              {% set ev_no = r.get('ev_f10_no') %}
+              <div class="chip {{ 'positive' if (ev_yes is not none and ev_yes > 0) else ('negative' if (ev_yes is not none and ev_yes < 0) else 'neutral') }}">
+                Yes {% if r.get('f10_yes_odds') is not none %}{{ r.get('f10_yes_odds') }}{% else %}—{% endif %}
+                · {{ '%.1f' % (100*(p_yes or 0)) }}%
+                {% if ev_yes is not none %}<span class="ev-badge {{ 'pos' if ev_yes > 0 else ('neg' if ev_yes < 0 else 'neu') }}">EV {{ ('+' if ev_yes > 0 else '') ~ ('%.1f' % (100*ev_yes)) }}%</span>{% endif %}
+              </div>
+              <div class="chip {{ 'positive' if (ev_no is not none and ev_no > 0) else ('negative' if (ev_no is not none and ev_no < 0) else 'neutral') }}">
+                No {% if r.get('f10_no_odds') is not none %}{{ r.get('f10_no_odds') }}{% else %}—{% endif %}
+                · {{ '%.1f' % (100*(p_no or 0)) }}%
+                {% if ev_no is not none %}<span class="ev-badge {{ 'pos' if ev_no > 0 else ('neg' if ev_no < 0 else 'neu') }}">EV {{ ('+' if ev_no > 0 else '') ~ ('%.1f' % (100*ev_no)) }}%</span>{% endif %}
+              </div>
+            </div>
+            {% endif %}
+
+            {# Period totals chips for P1..P3 when lines/odds exist #}
+            {% for pn in [1,2,3] %}
+              {% set line = r.get('p' ~ pn ~ '_total_line') %}
+              {% set has_pt = (line is not none) and ((r.get('p' ~ pn ~ '_over_odds') is not none) or (r.get('p' ~ pn ~ '_under_odds') is not none)) %}
+              {% if has_pt %}
+              <div class="row chips">
+                <div class="chip title">Period {{ pn }} Total {{ '%.1f' % line if line is not none else '' }}</div>
+                {% set pov = r.get('p' ~ pn ~ '_over_prob') %}
+                {% set pun = r.get('p' ~ pn ~ '_under_prob') %}
+                {% set evo = r.get('ev_p' ~ pn ~ '_over') %}
+                {% set evu = r.get('ev_p' ~ pn ~ '_under') %}
+                <div class="chip {{ 'positive' if (evo is not none and evo > 0) else ('negative' if (evo is not none and evo < 0) else 'neutral') }}">
+                  Over {% if r.get('p' ~ pn ~ '_over_odds') is not none %}{{ r.get('p' ~ pn ~ '_over_odds') }}{% else %}—{% endif %}
+                  · {{ '%.1f' % (100*(pov or 0)) }}%
+                  {% if evo is not none %}<span class="ev-badge {{ 'pos' if evo > 0 else ('neg' if evo < 0 else 'neu') }}">EV {{ ('+' if evo > 0 else '') ~ ('%.1f' % (100*evo)) }}%</span>{% endif %}
+                </div>
+                <div class="chip {{ 'positive' if (evu is not none and evu > 0) else ('negative' if (evu is not none and evu < 0) else 'neutral') }}">
+                  Under {% if r.get('p' ~ pn ~ '_under_odds') is not none %}{{ r.get('p' ~ pn ~ '_under_odds') }}{% else %}—{% endif %}
+                  · {{ '%.1f' % (100*(pun or 0)) }}%
+                  {% if evu is not none %}<span class="ev-badge {{ 'pos' if evu > 0 else ('neg' if evu < 0 else 'neu') }}">EV {{ ('+' if evu > 0 else '') ~ ('%.1f' % (100*evu)) }}%</span>{% endif %}
+                </div>
+              </div>
+              {% endif %}
+            {% endfor %}
             <div class="row details">
               <div class="detail-col">
                 <div>

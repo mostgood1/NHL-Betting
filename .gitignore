@@ -29,6 +29,22 @@ ENV/
 env/
 .env
 .env.*
+# common alternate venv names
+.venv-*/
+venv-*/
+
+# Python tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+pip-wheel-metadata/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# IDEs
+.idea/
+.vs/
 
 # VS Code
 .vscode/
@@ -83,3 +99,10 @@ data/props/**
 # OS files
 Thumbs.db
 .DS_Store
+
+# Binary wheels and logs
+*.whl
+*.log
+
+# pyenv
+.python-version

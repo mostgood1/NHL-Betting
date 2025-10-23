@@ -2,7 +2,7 @@ from __future__ import annotations
 """Player props collection & normalization (draft).
 
 Responsibilities:
-- Collect raw player prop lines from supported books (initial: Bovada).
+- Collect raw player prop lines from supported books (OddsAPI-only).
 - Normalize player names to player_id using roster snapshot mapping.
 - Combine OVER/UNDER rows into canonical line records.
 - Persist Parquet outputs for downstream modeling.
@@ -14,7 +14,6 @@ import os
 
 import pandas as pd
 
-from .bovada import BovadaClient
 from .odds_api import OddsAPIClient
 from . import rosters as _rosters
 from ..utils.io import RAW_DIR as _RAW_DIR
@@ -24,24 +23,13 @@ from ..web.teams import get_team_assets
 @dataclass
 class PropsCollectionConfig:
     output_root: str = "data/props"
-    # When source=="bovada", book is the fixed file label and book field for rows.
-    # When source=="oddsapi", book will come from the bookmaker key per row; file label is "oddsapi".
-    book: str = "bovada"
-    source: str = "bovada"  # bovada | oddsapi
+    # For OddsAPI, book will come from the bookmaker key per row; file label is "oddsapi".
+    book: str = "oddsapi"
+    source: str = "oddsapi"  # oddsapi
 
 
 def _utc_now_iso() -> str:
     return datetime.utcnow().isoformat() + "Z"
-
-
-def collect_bovada_props(date: str) -> pd.DataFrame:
-    client = BovadaClient()
-    raw = client.fetch_props_odds(date)
-    if raw.empty:
-        return raw
-    raw["date"] = date
-    raw["collected_at"] = _utc_now_iso()
-    return raw
 
 
 def collect_oddsapi_props(date: str) -> pd.DataFrame:
@@ -428,7 +416,7 @@ def write_props(df: pd.DataFrame, cfg: PropsCollectionConfig, date: str) -> str:
     out_dir = os.path.join(cfg.output_root, "player_props_lines", f"date={date}")
     os.makedirs(out_dir, exist_ok=True)
     # Use file label based on source
-    file_label = "bovada" if (cfg.source or "bovada").lower() == "bovada" else "oddsapi"
+    file_label = "oddsapi"
     pq_path = os.path.join(out_dir, f"{file_label}.parquet")
     try:
         # Use pyarrow engine explicitly for stability across environments
@@ -443,13 +431,8 @@ def write_props(df: pd.DataFrame, cfg: PropsCollectionConfig, date: str) -> str:
 
 def collect_and_write(date: str, roster_df: Optional[pd.DataFrame] = None, cfg: PropsCollectionConfig | None = None) -> Dict:
     cfg = cfg or PropsCollectionConfig()
-    source = (cfg.source or "bovada").lower()
-    if source == "bovada":
-        raw = collect_bovada_props(date)
-    elif source == "oddsapi":
-        raw = collect_oddsapi_props(date)
-    else:
-        raise ValueError(f"Unknown props source: {cfg.source}")
+    # OddsAPI-only
+    raw = collect_oddsapi_props(date)
     # If no roster_df provided, attempt to build one for reliable player_id/team mapping
     if roster_df is None:
         # Prefer unified processed roster caches for speed and stability

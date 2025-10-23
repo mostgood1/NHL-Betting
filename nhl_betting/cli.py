@@ -55,7 +55,6 @@ from .utils.odds import american_to_decimal, decimal_to_implied_prob, remove_vig
 from .data.collect import collect_player_game_stats
 from .models.props import SkaterShotsModel, GoalieSavesModel, SkaterGoalsModel, SkaterAssistsModel, SkaterPointsModel, SkaterBlocksModel
 from .data.odds_api import OddsAPIClient, normalize_snapshot_to_rows
-from .data.bovada import BovadaClient
 from .data import player_props as props_data
 from .data.rosters import build_all_team_roster_snapshots
 
@@ -666,34 +665,8 @@ def predict_core(
             except Exception as e:
                 print("Failed to fetch odds from The Odds API:", e)
                 odds_df = None
-    elif odds_source == "bovada":
-        try:
-            bc = BovadaClient()
-            df = bc.fetch_game_odds(date)
-            if df is not None and not df.empty:
-                # Normalize team keys
-                df["date"] = pd.to_datetime(df["date"], errors="coerce").dt.strftime("%Y-%m-%d")
-                df["home_norm"] = df["home"].apply(norm_team)
-                df["away_norm"] = df["away"].apply(norm_team)
-                # Map to NHL abbreviations for robust matching (handles 'LA Kings' vs 'Los Angeles Kings')
-                try:
-                    from .web.teams import get_team_assets as _assets
-                    def to_abbr(x):
-                        try:
-                            return (_assets(str(x)).get("abbr") or "").upper()
-                        except Exception:
-                            return ""
-                    df["home_abbr"] = df["home"].apply(to_abbr)
-                    df["away_abbr"] = df["away"].apply(to_abbr)
-                except Exception:
-                    df["home_abbr"] = ""
-                    df["away_abbr"] = ""
-                odds_df = df.copy()
-        except Exception as e:
-            print("Failed to fetch odds from Bovada:", e)
-            odds_df = None
     else:
-        print("Unknown odds_source. Use 'csv', 'oddsapi', or 'bovada'.")
+        print("Unknown odds_source. Use 'csv' or 'oddsapi'.")
     
     # Load NN models for predictions (lazy import to avoid DLL issues on web server)
     period_model = None
@@ -1321,7 +1294,7 @@ def predict(
     total_line: float = 6.0,
     odds_csv: Optional[str] = typer.Option(None, help="Path to odds CSV with columns: date,home,away,home_ml,away_ml,over,under,home_pl_-1.5,away_pl_+1.5 (American odds)"),
     source: str = typer.Option("web", help="Data source: 'web' (api-web.nhle.com), 'stats' (statsapi.web.nhl.com), or 'nhlpy' (nhl-api-py)"),
-    odds_source: str = typer.Option("bovada", help="Odds source: 'csv' (provide --odds-csv), 'oddsapi' (provide --snapshot), or 'bovada'"),
+    odds_source: str = typer.Option("oddsapi", help="Odds source: 'csv' (provide --odds-csv) or 'oddsapi' (provide --snapshot)"),
     snapshot: Optional[str] = typer.Option(None, help="When odds_source=oddsapi, ISO snapshot like 2024-03-01T12:00:00Z"),
     odds_regions: str = typer.Option("us", help="Odds API regions, e.g., us or us,us2"),
     odds_markets: str = typer.Option("h2h,totals,spreads", help="Odds API markets"),
@@ -1380,7 +1353,7 @@ def predict_range(
     start: str = typer.Argument(..., help="Start date YYYY-MM-DD"),
     end: str = typer.Argument(..., help="End date YYYY-MM-DD"),
     total_line: float = 6.0,
-    odds_source: str = typer.Option("bovada", help="Odds source: csv|oddsapi|bovada"),
+    odds_source: str = typer.Option("oddsapi", help="Odds source: csv|oddsapi"),
     bankroll: float = 0.0,
     kelly_fraction_part: float = 0.5,
 ):
@@ -3246,19 +3219,12 @@ def odds_fetch_bovada(
 
 @app.command()
 def daily_update(days_ahead: int = typer.Option(2, help="How many days ahead to update (including today)")):
-    """Refresh predictions with odds for today (+N days).
-
-    Tries Bovada, then The Odds API (preferring DraftKings), then ensures a predictions CSV exists.
-    """
+    """Refresh predictions with odds for today (+N days) using The Odds API; ensure CSV exists if odds missing."""
     from datetime import datetime, timedelta, timezone
     base = datetime.now(timezone.utc)
     for i in range(0, max(1, days_ahead)):
         d = (base + timedelta(days=i)).strftime("%Y-%m-%d")
         snapshot = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-        try:
-            predict_core(date=d, source="web", odds_source="bovada", snapshot=snapshot, odds_best=True)
-        except Exception:
-            pass
         try:
             predict_core(date=d, source="web", odds_source="oddsapi", snapshot=snapshot, odds_best=False, odds_bookmaker="draftkings")
         except Exception:
@@ -3280,7 +3246,7 @@ def build_range_core(
 ):
     """Core implementation to build predictions with odds for all dates with NHL games in [start, end].
 
-    Strategy per date: Bovada -> The Odds API -> ensure predictions exist without odds.
+    Strategy per date: The Odds API -> ensure predictions exist without odds.
     This function is safe to call from non-CLI contexts and expects plain Python types.
     """
     # Collect schedule once, then iterate unique dates with NHL vs NHL games
@@ -3326,21 +3292,16 @@ def build_range_core(
     for d in dates:
         snapshot = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         print(f"\n=== Building {d} ===")
-        try:
-            predict_core(date=d, source="web", odds_source="bovada", snapshot=snapshot, odds_best=True, bankroll=bankroll, kelly_fraction_part=kelly_fraction_part)
-        except Exception as e:
-            print("Bovada step failed:", e)
-        # If no odds present, try Odds API
+        # Try Odds API
         try:
             path = PROC_DIR / f"predictions_{d}.csv"
             df = pd.read_csv(path) if path.exists() else pd.DataFrame()
         except Exception:
             df = pd.DataFrame()
-        if df.empty or not any(c in df.columns and df[c].notna().any() for c in ["home_ml_odds","away_ml_odds","over_odds","under_odds"]):
-            try:
-                predict_core(date=d, source="web", odds_source="oddsapi", snapshot=snapshot, odds_best=False, odds_bookmaker="draftkings", bankroll=bankroll, kelly_fraction_part=kelly_fraction_part)
-            except Exception as e:
-                print("Odds API step failed:", e)
+        try:
+            predict_core(date=d, source="web", odds_source="oddsapi", snapshot=snapshot, odds_best=False, odds_bookmaker="draftkings", bankroll=bankroll, kelly_fraction_part=kelly_fraction_part)
+        except Exception as e:
+            print("Odds API step failed:", e)
         # Ensure file exists even without odds
         try:
             path = PROC_DIR / f"predictions_{d}.csv"

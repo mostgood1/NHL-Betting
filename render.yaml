@@ -8,9 +8,9 @@ services:
     numInstances: 1
     # Health is served by the lightweight ASGI wrapper and is very fast.
     healthCheckPath: /health
-  buildCommand: pip install --no-cache-dir -r requirements.txt
-  # Use a lightweight ASGI wrapper and a single worker to keep memory within plan limits.
-  startCommand: uvicorn nhl_betting.web.asgi:app --host 0.0.0.0 --port $PORT --workers 1 --log-level info
+    buildCommand: pip install --no-cache-dir -r requirements.txt
+    # Use a lightweight ASGI wrapper and a single worker to keep memory within plan limits.
+    startCommand: uvicorn nhl_betting.web.asgi:app --host 0.0.0.0 --port $PORT --workers 1 --log-level info
     envVars:
       - key: ODDS_API_KEY
         sync: false
@@ -57,59 +57,7 @@ services:
         sync: false
       - key: PYTHON_VERSION
         value: 3.11.9
+      # On deploy/restart, do one light odds refresh + edges recompute only
+      - key: WEB_ON_DEPLOY_REFRESH_EDGES
+        value: "1"
 
-  # Nightly maintenance: capture yesterday closings and write reconciliations (no server-side model runs).
-  - type: cron
-    name: nightly-core
-    schedule: "0 8 * * *" # 08:00 UTC (~03/04 ET)
-    runtime: image
-    image:
-      url: docker.io/curlimages/curl:8.11.0
-    dockerCommand: >
-      sh -lc '
-        f(){ url="$1"; for i in 1 2 3; do curl -fsS "$url" && return 0; echo "retry $i: $url"; sleep 5; done; return 0; };
-        # Capture closings only (no server-side retune)
-        f "https://nhl-betting.onrender.com/api/cron/capture-closing?date=yesterday&token=$REFRESH_CRON_TOKEN&async_run=1";
-        # Persist reconciliations for games and props (GET endpoints compute and write caches)
-        f "https://nhl-betting.onrender.com/api/reconciliation?date=yesterday";
-        f "https://nhl-betting.onrender.com/api/player-props-reconciliation?date=yesterday&refresh=1";
-      '
-    envVars:
-      - key: REFRESH_CRON_TOKEN
-        sync: false
-
-  # Daily: Recompute-only passes (no model runs). Optionally fill fresh Bovada odds lightly and recompute.
-  # Single light recompute cron (pruned duplicates). Adjust schedule as needed.
-  - type: cron
-    name: games-recompute
-    schedule: "30 18 * * *" # default 18:30 UTC (~14:30 ET)
-    runtime: image
-    image:
-      url: docker.io/curlimages/curl:8.11.0
-    dockerCommand: >
-      sh -lc 'curl -fsS "https://nhl-betting.onrender.com/api/refresh-odds-light?overwrite_prestart=1" || curl -fsS "https://nhl-betting.onrender.com/api/recompute-only" || true'
-
-  # Hourly props refresh: append/update recs from canonical lines + precomputed projections, skip started games
-  - type: cron
-    name: props-recs-hourly
-    schedule: "0 * * * *" # every hour at minute 0
-    runtime: image
-    image:
-      url: docker.io/curlimages/curl:8.11.0
-    dockerCommand: >
-      sh -lc 'curl -fsS -H "Authorization: Bearer $REFRESH_CRON_TOKEN" "https://nhl-betting.onrender.com/api/cron/light-refresh?min_ev=0&top=200" || true'
-    envVars:
-      - key: REFRESH_CRON_TOKEN
-        sync: false
-
-  # Daily: Props refresh disabled server-side (now produced locally by daily updater)
-
-  # Keepalive ping (lightweight) to reduce free plan cold start health check timeouts
-  - type: cron
-    name: keepalive-health
-    schedule: "*/5 * * * *" # every 5 minutes
-    runtime: image
-    image:
-      url: docker.io/curlimages/curl:8.11.0
-    dockerCommand: >
-      sh -lc 'curl -fsS "https://nhl-betting.onrender.com/warmup?async_run=1" >/dev/null 2>&1 || true; sleep 1; curl -fsS "https://nhl-betting.onrender.com/ready" >/dev/null 2>&1 || true; curl -fsS "https://nhl-betting.onrender.com/health" >/dev/null 2>&1 || true'

@@ -337,6 +337,23 @@ async def lifespan(app_: FastAPI):
             asyncio.create_task(_do_bootstrap())
     except Exception:
         pass
+    # On public host deploy/restart, optionally run a one-time light odds refresh + edges recompute
+    try:
+        if _is_public_host_env() and str(os.getenv("WEB_ON_DEPLOY_REFRESH_EDGES", "1")).strip().lower() in ("1","true","yes","on"):
+            d = _today_ymd()
+            async def _do_light_refresh():
+                try:
+                    # Best-effort inject Bovada odds without running models; allow prestart overwrite
+                    await asyncio.to_thread(_inject_bovada_odds_into_predictions, d, True)
+                except Exception:
+                    pass
+                try:
+                    await _recompute_edges_and_recommendations(d)
+                except Exception:
+                    pass
+            asyncio.create_task(_do_light_refresh())
+    except Exception:
+        pass
     yield
     # Shutdown phase (none currently)
 

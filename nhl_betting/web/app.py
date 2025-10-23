@@ -258,28 +258,32 @@ async def props_main(
     game: Optional[str] = Query(None, description="Filter by game as AWY@HOME (team abbreviations)"),
     team: Optional[str] = Query(None, description="Filter by team abbreviation"),
     market: Optional[str] = Query(None, description="Filter by market"),
-    sort: Optional[str] = Query("name", description="Sort by: name, team, market, lambda_desc, lambda_asc"),
-    top: int = Query(2000, description="Max rows to display"),
-    min_ev: float = Query(0.0, description="Minimum EV filter (over side)"),
-    nocache: int = Query(0, description="Bypass in-memory cache (1 = yes)"),
+    sort: Optional[str] = Query("ev_desc", description="Sort: ev_desc, ev_asc, p_over_desc, p_over_asc, lambda_desc, lambda_asc, name, team, market, line, book"),
+    top: int = Query(500, description="Max rows to display before pagination"),
+    min_ev: float = Query(0.0, description="Minimum EV filter (over/under best side)"),
     page: int = Query(1, description="Page number (1-based)"),
-    page_size: Optional[int] = Query(None, description="Rows per page (server-side pagination); defaults to PROPS_PAGE_SIZE env or 250"),
-    source: Optional[str] = Query(None, description="Data source: merged (default) or recs for recommendations only"),
+    page_size: Optional[int] = Query(None, description="Rows per page (defaults PROPS_PAGE_SIZE env or 250"),
 ):
-    # Delegate to the canonical renderer to ensure identical behavior
-    return await props_all_players_page(
+    """Default /props now renders the props recommendations GRID view (NBA-parity).
+
+    We reuse the existing recommendations page implementation in grid mode to avoid duplication.
+    """
+    return await props_recommendations_page(
         request=request,
         date=date,
-        game=game,
-        team=team,
         market=market,
-        sort=sort,
-        top=top,
         min_ev=min_ev,
-        nocache=nocache,
+        top=top,
+        sortBy=sort,
+        side="both",
+        team=team,
+        game=game,
+        all=0,
+        debug=0,
+        view="grid",
+        sort=sort,
         page=page,
         page_size=page_size,
-        source=source,
     )
 
 # Secondary explicit safeguard endpoint to validate redirect logic without colliding with /props.
@@ -6043,6 +6047,12 @@ async def props_recommendations_page(
     # When all=1 we bypass any top slicing
     all: Optional[int] = Query(0),
     debug: Optional[int] = Query(0, description="If 1, include debug comment with photo/team mapping counts"),
+    # New: grid/table view toggle (NBA-parity)
+    view: Optional[str] = Query(None, description="If 'grid', render a table view with pagination instead of cards"),
+    # Grid-only controls (kept optional):
+    sort: Optional[str] = Query(None, description="Grid sort: ev_desc, ev_asc, p_over_desc, p_over_asc, lambda_desc, lambda_asc, name, team, market, line, book"),
+    page: int = Query(1, description="Grid page number (1-based)"),
+    page_size: Optional[int] = Query(None, description="Grid rows per page (defaults PROPS_PAGE_SIZE)"),
 ):
     """Card-style props recommendations page.
 
@@ -6161,6 +6171,124 @@ async def props_recommendations_page(
     # If still empty, normally short-circuit render to avoid heavy enrichment on public hosts.
     # Allow a light fallback later when a specific team/game filter is provided.
     _empty_df_early = bool(df is None or df.empty)
+    if (view or '').lower() == 'grid':
+        # TABLE/GRID BRANCH: render a paginated grid like NBA props page using recommendations rows
+        # Resolve pagination defaults
+        try:
+            default_ps = int(os.getenv('PROPS_PAGE_SIZE', '250'))
+        except Exception:
+            default_ps = 250
+        if not page_size or page_size <= 0:
+            page_size = default_ps
+        if page <= 0:
+            page = 1
+        df_grid = df.copy() if df is not None else pd.DataFrame()
+        # Apply optional team/game filters for grid as well
+        try:
+            if team and 'team' in df_grid.columns:
+                df_grid = df_grid[df_grid['team'].astype(str).str.upper() == str(team).upper()]
+            if game and 'team' in df_grid.columns and '@' in str(game):
+                try:
+                    a, h = str(game).upper().split('@', 1)
+                    ab_set = {a.strip(), h.strip()}
+                    df_grid = df_grid[df_grid['team'].astype(str).str.upper().isin(ab_set)]
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        # Normalize columns for display/sort
+        try:
+            if 'proj' in df_grid.columns and 'proj_lambda' not in df_grid.columns:
+                df_grid.rename(columns={'proj':'proj_lambda'}, inplace=True)
+        except Exception:
+            pass
+        # Top cap (pre-pagination) + env cap
+        try:
+            env_cap = int(os.getenv('PROPS_MAX_ROWS', '0'))
+        except Exception:
+            env_cap = 0
+        effective_top = int(top) if (top and top > 0) else None
+        if env_cap and (effective_top is None or env_cap < effective_top):
+            effective_top = env_cap
+        # Sort handling for grid
+        try:
+            sort_key = (sort or sortBy or 'ev_desc').lower()
+        except Exception:
+            sort_key = 'ev_desc'
+        ascending = True
+        col = None
+        if sort_key in ('lambda_desc','lambda_asc'):
+            col = 'proj_lambda'; ascending = (sort_key == 'lambda_asc')
+        elif sort_key in ('p_over_desc','p_over_asc'):
+            col = 'p_over'; ascending = (sort_key == 'p_over_asc')
+        elif sort_key in ('ev_desc','ev_asc'):
+            col = 'ev'; ascending = (sort_key == 'ev_asc')
+        elif sort_key in ('market','team','name','player','line','book'):
+            # Accept 'name' alias for player
+            col = 'player' if sort_key in ('name','player') else sort_key
+        if col and col in df_grid.columns:
+            try:
+                df_grid = df_grid.sort_values(by=[col], ascending=ascending, na_position='last')
+            except Exception:
+                pass
+        if effective_top:
+            df_grid = df_grid.head(effective_top)
+        total_rows = 0 if df_grid is None or df_grid.empty else len(df_grid)
+        filtered_rows = total_rows
+        # Pagination slice
+        if total_rows and page_size:
+            total_pages = max(1, (filtered_rows + page_size - 1) // page_size)
+            if page > total_pages:
+                page = total_pages
+            start_idx = (page - 1) * page_size
+            end_idx = start_idx + page_size
+            df_grid = df_grid.iloc[start_idx:end_idx]
+        else:
+            total_pages = 1 if total_rows else 0
+        # Build teams and slate games for dropdowns
+        try:
+            teams = sorted({str(x).upper() for x in (df if df is not None else pd.DataFrame()).get('team', pd.Series(dtype=str)).dropna().unique().tolist() if str(x).strip()})
+        except Exception:
+            teams = []
+        games_options: list[str] = []
+        try:
+            client = NHLWebClient(); gms = client.schedule_day(date)
+            opts = []
+            for g in gms or []:
+                try:
+                    ha = get_team_assets(str(getattr(g, 'home', ''))) or {}
+                    aa = get_team_assets(str(getattr(g, 'away', ''))) or {}
+                    hab = (ha.get('abbr') or '').upper(); aab = (aa.get('abbr') or '').upper()
+                    if hab and aab: opts.append(f"{aab}@{hab}")
+                except Exception:
+                    continue
+            games_options = sorted(list({o for o in opts if o}))
+        except Exception:
+            games_options = []
+        # Conform row dicts
+        rows = _df_jsonsafe_records(df_grid) if (df_grid is not None and not df_grid.empty) else []
+        template = env.get_template("props_recommendations_grid.html")
+        html = template.render(
+            rows=rows,
+            market=market or "",
+            min_ev=min_ev,
+            top=top,
+            date=date,
+            team=team or "",
+            game=game or "",
+            teams=teams,
+            games=games_options,
+            sort=sort_key,
+            download_href=f"/props/recommendations.csv?date={date}",
+            page=page,
+            page_size=page_size,
+            total_rows=total_rows,
+            filtered_rows=filtered_rows,
+            total_pages=total_pages,
+            request=request,
+        )
+        return HTMLResponse(content=html)
+    # Cards branch continues below
     if _empty_df_early and not (team or game):
         template = env.get_template("props_recommendations.html")
         html = template.render(
@@ -7396,6 +7524,36 @@ async def props_recommendations_page(
         games=games_options,
     )
     return HTMLResponse(content=html)
+
+# Friendly alias for common misspelling: /props/recomendations -> cards view
+@app.get("/props/recomendations", include_in_schema=False)
+async def props_recommendations_alias(
+    request: Request,
+    date: Optional[str] = Query(None),
+    market: Optional[str] = Query(None),
+    min_ev: float = Query(0.0),
+    top: int = Query(500),
+    sortBy: Optional[str] = Query("ev_desc"),
+    side: Optional[str] = Query("both"),
+    team: Optional[str] = Query(None),
+    game: Optional[str] = Query(None),
+    all: Optional[int] = Query(0),
+    debug: Optional[int] = Query(0),
+):
+    # Delegate to the canonical cards view (no grid)
+    return await props_recommendations_page(
+        request=request,
+        date=date,
+        market=market,
+        min_ev=min_ev,
+        top=top,
+        sortBy=sortBy,
+        side=side,
+        team=team,
+        game=game,
+        all=all,
+        debug=debug,
+    )
 
 @app.get('/img/headshot/{player_id}.jpg')
 async def proxy_headshot(player_id: str):

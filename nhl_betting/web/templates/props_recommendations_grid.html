@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>NHL Betting - Player Props</title>
+  <title>NHL – Props Recommendations (Grid)</title>
   <link rel="stylesheet" href="/static/style.css" />
   <style>
     .table { width: 100%; border-collapse: collapse; }
@@ -18,11 +18,6 @@
     .controls label { font-size: 11px; color: #bbb; display:flex; flex-direction:column; gap:2px; }
     .controls button { background:#224488; color:#fff; border:1px solid #335599; border-radius:4px; padding:6px 12px; cursor:pointer; }
     .controls button:hover { background:#2d5ca8; }
-    .controls .spacer { flex: 1 1 auto; }
-    .th-sort { cursor: pointer; -webkit-user-select: none; user-select: none; white-space:nowrap; }
-    .th-sort .arrow { opacity:0.4; margin-left:3px; font-size:10px; }
-    .th-sort.active .arrow { opacity:1; color:#6aa3ff; }
-    .notice { margin:10px 0; padding:8px 12px; border:1px solid #2a3a7a; border-radius:8px; background:#0f1530; color:#cfe0ff; }
     .pager { display:flex; gap:4px; align-items:center; flex-wrap:wrap; }
     .pager-btn { padding:4px 8px; }
     .pager-stats { font-size:11px; color:#888; }
@@ -31,34 +26,27 @@
     .pager-size-input { width:70px; }
     .pager-jump-input { width:60px; }
     .json-link { font-size:11px; color:#6aa3ff; text-decoration:none; }
-    .source-toggle { display:flex; gap:6px; align-items:center; font-size:12px; }
-    .source-toggle a { padding:4px 6px; border:1px solid #333; border-radius:4px; text-decoration:none; color:#ccc; }
-    .source-toggle a.active { background:#204060; color:#fff; border-color:#2f5d8a; }
+    .th-sort { cursor: pointer; -webkit-user-select: none; user-select: none; white-space:nowrap; }
+    .th-sort .arrow { opacity:0.4; margin-left:3px; font-size:10px; }
+    .th-sort.active .arrow { opacity:1; color:#6aa3ff; }
     tbody tr:hover { background:#151515; }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
-      <h1>Player Props</h1>
+      <h1>Props Recommendations (Grid)</h1>
       <div class="meta" id="meta">{{ filtered_rows or total_rows or 0 }} rows{% if date %} • {{ date }}{% endif %}</div>
-      {% if notice %}
-      <div class="notice">{{ notice }}</div>
-      {% endif %}
       <div class="nav">
         <a href="/">Cards</a>
         <span> | </span>
         <a href="/recommendations">Recs</a>
         <span> | </span>
-  <a href="/props">Props</a>
+        <a href="/props">Props</a>
         <span> | </span>
-        <a href="/props/teams">Teams</a>
+        <a href="/props/recommendations">Props Recs (cards)</a>
         <span> | </span>
-  <a href="/props/recommendations">Props Recs</a>
-    <span> | </span>
-  <a href="/props/recommendations?view=grid">Props Recs (grid)</a>
-        <span> | </span>
-  <a id="dlcsv" href="{{ download_href or '/props/projections.csv' }}">Download CSV</a>
+        <a id="dlcsv" href="{{ download_href or '/props/recommendations.csv' }}">Download CSV</a>
       </div>
       <div class="controls">
         <label>Date (ET)
@@ -72,6 +60,7 @@
             <option value="GOALS" {{ 'selected' if (market or '')=='GOALS' else '' }}>Goals</option>
             <option value="ASSISTS" {{ 'selected' if (market or '')=='ASSISTS' else '' }}>Assists</option>
             <option value="POINTS" {{ 'selected' if (market or '')=='POINTS' else '' }}>Points</option>
+            <option value="BLOCKS" {{ 'selected' if (market or '')=='BLOCKS' else '' }}>Blocks</option>
           </select>
         </label>
         <label>Team
@@ -115,12 +104,6 @@
         <button onclick="shiftDate(-1)">Prev day</button>
         <button onclick="shiftDate(1)">Next day</button>
         <button onclick="resetFilters()">Reset</button>
-        <div class="source-toggle">
-          <span>Source:</span>
-          {% set is_recs = (source or '') == 'recs' %}
-          <a href="{{ request.url.path }}?{{ request.query_params|safe }}" class="{{ '' if is_recs else 'active' }}" onclick="event.preventDefault(); setSource('merged');">Merged</a>
-          <a href="{{ request.url.path }}?{{ request.query_params|safe }}" class="{{ 'active' if is_recs else '' }}" onclick="event.preventDefault(); setSource('recs');">Recs</a>
-        </div>
         {% if total_pages is defined and total_pages > 1 %}
         <div class="pager">
           <button class="pager-btn" onclick="changePage(-1)" {% if page <= 1 %}disabled{% endif %}>Prev</button>
@@ -134,7 +117,7 @@
             <input class="pager-jump-input" id="page_jump" type="number" min="1" max="{{ total_pages }}" />
           </label>
           <button class="pager-btn" onclick="jumpPage()">Go</button>
-          <a class="json-link" target="_blank" rel="noopener" href="/api/props/all.json?date={{ date }}&page={{ page }}&page_size={{ page_size }}{% if market %}&market={{ market }}{% endif %}{% if team %}&team={{ team }}{% endif %}{% if sort %}&sort={{ sort }}{% endif %}">JSON</a>
+          <a class="json-link" target="_blank" rel="noopener" href="/api/props/recommendations.json?date={{ date }}&page={{ page }}&page_size={{ page_size }}{% if market %}&market={{ market }}{% endif %}{% if team %}&team={{ team }}{% endif %}{% if sort %}&sort={{ sort }}{% endif %}{% if min_ev %}&min_ev={{ min_ev }}{% endif %}">JSON</a>
         </div>
         {% endif %}
       </div>
@@ -152,6 +135,8 @@
           <th>Over Price</th>
           <th>Under Price</th>
           <th class="th-sort" data-key="ev" onclick="toggleSort('ev')">EV<span class="arrow">⇅</span></th>
+          <th class="th-sort" data-key="book" onclick="setSort('book')">Book<span class="arrow">⇅</span></th>
+          <th>Side</th>
         </tr>
       </thead>
       <tbody>
@@ -161,19 +146,17 @@
             <td>{{ r.player }}</td>
             <td>{{ r.team if r.team is defined else '' }}</td>
             <td>{{ r.line if r.line is defined else '' }}</td>
-            <td>{% if r.proj_lambda is defined and r.proj_lambda is not none %}{{ '%.2f' % r.proj_lambda }}{% else %}-{% endif %}</td>
+            <td>{% if r.proj_lambda is defined and r.proj_lambda is not none %}{{ '%.2f' % r.proj_lambda }}{% elif r.proj is defined and r.proj is not none %}{{ '%.2f' % r.proj }}{% else %}-{% endif %}</td>
             <td>{% if r.p_over is defined and r.p_over is not none %}{{ '%.1f' % (r.p_over * 100) }}%{% else %}-{% endif %}</td>
             <td>{{ r.over_price if r.over_price is defined else '' }}</td>
             <td>{{ r.under_price if r.under_price is defined else '' }}</td>
-            {% set ev_val = r.ev_over if r.ev_over is defined and r.ev_over is not none else (r.ev if r.ev is defined else None) %}
+            {% set ev_val = r.ev if r.ev is defined else (r.ev_over if r.ev_over is defined else None) %}
             <td class="ev-cell {% if ev_val is not none and ev_val >= 0 %}ev-pos{% else %}ev-neg{% endif %}" data-ev="{{ ev_val if ev_val is not none else '' }}">
-              {% if r.ev_over is defined and r.ev_over is not none %}
-                {{ '%.3f' % r.ev_over }}
-              {% elif r.ev is defined and r.ev is not none %}
-                {{ '%.3f' % r.ev }}
-              {% else %}-{% endif %}
+              {% if ev_val is not none %}{{ '%.3f' % ev_val }}{% else %}-{% endif %}
               {% if ev_val is not none %}<div class="ev-bar"></div>{% endif %}
             </td>
+            <td>{{ r.book if r.book is defined else '' }}</td>
+            <td>{{ r.side if r.side is defined else '' }}</td>
           </tr>
         {% endfor %}
       </tbody>
@@ -202,7 +185,7 @@
       const top = document.getElementById('top').value || '50';
       const sort = document.getElementById('sort').value || 'ev_desc';
       const pageSizeInput = document.getElementById('page_size');
-  const source = window.localStorage.getItem('props_source') || "{{ (source or 'merged') }}";
+      params.set('view', 'grid');
       if (date) params.set('date', date); else params.delete('date');
       if (market) params.set('market', market); else params.delete('market');
       if (team) params.set('team', team); else params.delete('team');
@@ -211,7 +194,6 @@
       params.set('top', top);
       if (sort) params.set('sort', sort); else params.delete('sort');
       if (pageSizeInput) params.set('page_size', pageSizeInput.value || '250');
-      if (source && source !== 'merged') params.set('source', source); else params.delete('source');
       // Reset to first page on new filters
       params.delete('page');
       window.location.search = params.toString();
@@ -257,6 +239,7 @@
       let p = parseInt(params.get('page')||'1',10);
       p = p + delta;
       if (p < 1) p = 1;
+      params.set('view','grid');
       params.set('page', p);
       window.location.search = params.toString();
     }
@@ -266,30 +249,23 @@
       const val = parseInt(inp.value||'');
       if(!val || val < 1) return;
       const params = new URLSearchParams(window.location.search);
+      params.set('view','grid');
       params.set('page', val);
       window.location.search = params.toString();
     }
-    function setSource(mode){
-      try { window.localStorage.setItem('props_source', mode); } catch(e) {}
-      const params = new URLSearchParams(window.location.search);
-      if (mode && mode !== 'merged') params.set('source', mode); else params.delete('source');
-      params.delete('page');
-      window.location.search = params.toString();
-    }
-    // Highlight active sort header
+    // Highlight active sort header and draw EV bars
     (function(){
       const curSort = (new URLSearchParams(window.location.search)).get('sort') || '{{ sort }}';
       const map = {
         'ev_desc':'ev','ev_asc':'ev',
         'p_over_desc':'p_over','p_over_asc':'p_over',
         'lambda_desc':'lambda','lambda_asc':'lambda',
-        'name':'name','team':'team','market':'market','line':'line'
+        'name':'name','team':'team','market':'market','line':'line','book':'book'
       };
       const key = map[curSort];
       if(key){
         document.querySelectorAll('.th-sort').forEach(th=>{ if(th.dataset.key===key){ th.classList.add('active'); }});
       }
-      // EV color bars
       const cells = document.querySelectorAll('.ev-cell[data-ev]');
       let maxEv = 0;
       cells.forEach(c=>{ const v=parseFloat(c.getAttribute('data-ev')); if(!isNaN(v)) maxEv = Math.max(maxEv, Math.abs(v)); });

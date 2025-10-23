@@ -69,7 +69,7 @@
       {%- if i >= 0 -%}+{{ i }}{%- else -%}{{ i }}{%- endif -%}
     {%- else -%}—{%- endif -%}
   {%- endmacro %}
-  <div class="nav"><a href="/">Cards</a> | <a href="/recommendations">Recs</a> | <a href="/props">Props</a> | <a href="/props/recommendations">Props Recs</a> | <a href="/props/reconciliation">Props Recon</a> | <a href="/props/stats-calibration">Props Cal</a> | <button type="button" id="themeToggle" style="background:#243056;border:1px solid #384a7a;padding:6px 8px;border-radius:6px;color:#cfe0ff;cursor:pointer;">Toggle Theme</button></div>
+  <div class="nav"><a href="/">Cards</a> | <a href="/recommendations">Recs</a> | <a href="/props">Props</a> | <a href="/props/recommendations">Props Recs</a> | <a href="/props/recommendations?view=grid">Props Recs (grid)</a> | <a href="/props/reconciliation">Props Recon</a> | <a href="/props/stats-calibration">Props Cal</a> | <button type="button" id="themeToggle" style="background:#243056;border:1px solid #384a7a;padding:6px 8px;border-radius:6px;color:#cfe0ff;cursor:pointer;">Toggle Theme</button></div>
     <h1>Props Recommendations</h1>
     <form class="filters" onsubmit="applyFilters(); return false;">
       <label>Date <input id="date" type="date" value="{{ date }}" /></label>

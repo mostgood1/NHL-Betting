@@ -3187,16 +3187,9 @@ def odds_fetch_bovada(
     date: str = typer.Option(..., help="Slate date YYYY-MM-DD"),
     out_csv: str = typer.Option("", help="Optional output CSV path; defaults under data/raw/bovada_odds_YYYY-MM-DD.csv"),
 ):
-    """Fetch pre-match Bovada odds for moneyline/totals/puckline and save to CSV."""
-    bc = BovadaClient()
-    df = bc.fetch_game_odds(date)
-    if df is None or df.empty:
-        print("No Bovada odds found for", date)
-        return
-    out_path = Path(out_csv) if out_csv else (RAW_DIR / f"bovada_odds_{date}.csv")
-    save_df(df, out_path)
-    print(df.head())
-    print("Saved Bovada odds to", out_path)
+    """Deprecated: Bovada support removed. Use The Odds API-based commands instead."""
+    print("This command has been removed. Use oddsapi flows (predict, daily_update, closings) instead.")
+    raise typer.Exit(code=1)
 
 
 @app.command()
@@ -3303,7 +3296,7 @@ def build_range(
 ):
     """Build predictions with odds for all dates with NHL games in [start, end].
 
-    Strategy per date: Bovada -> The Odds API -> ensure predictions exist without odds.
+    Strategy per date: The Odds API -> ensure predictions exist without odds.
     """
     build_range_core(start=start, end=end, source=source, bankroll=bankroll, kelly_fraction_part=kelly_fraction_part)
 
@@ -3432,33 +3425,25 @@ def props_fetch_bovada(
     out_csv: str = typer.Option("", help="Optional output CSV path; defaults under data/raw/bovada_props_YYYY-MM-DD.csv"),
     over_only: bool = typer.Option(True, help="If true, write only OVER rows compatible with props_predict CLI"),
 ):
-    """Fetch Bovada player props (SOG/GOALS/SAVES) and save to CSV."""
-    bc = BovadaClient()
-    df = bc.fetch_props_odds(date)
-    if df is None or df.empty:
-        print("No Bovada props found for", date)
-        return
-    if over_only:
-        df = df[df["side"].str.upper() == "OVER"][['market','player','line','odds']]
-    out_path = Path(out_csv) if out_csv else (RAW_DIR / f"bovada_props_{date}.csv")
-    save_df(df, out_path)
-    print(df.head())
-    print("Saved Bovada props odds to", out_path)
+    """Deprecated: Bovada support removed. Use props-collect/props-fast with OddsAPI instead."""
+    print("This command has been removed. Use 'props-collect' or 'props-fast' (OddsAPI) instead.")
+    raise typer.Exit(code=1)
 
 
 @app.command()
 def props_collect(
     date: str = typer.Option(..., help="Slate date YYYY-MM-DD"),
     output_root: str = typer.Option("data/props", help="Output root directory for Parquet files"),
-    source: str = typer.Option("bovada", help="Source: bovada | oddsapi (requires ODDS_API_KEY)"),
+    source: str = typer.Option("oddsapi", help="Source: oddsapi (requires ODDS_API_KEY)"),
 ):
     """Collect & normalize player props and write canonical Parquet under data/props/player_props_lines/date=YYYY-MM-DD.
 
-    - bovada: scrape Bovada coupon JSON (SOG, GOALS, SAVES, ASSISTS, POINTS when available)
     - oddsapi: use The Odds API historical snapshot for player markets (requires ODDS_API_KEY)
     """
     src = source.lower().strip()
-    cfg = props_data.PropsCollectionConfig(output_root=output_root, book=("bovada" if src=="bovada" else "oddsapi"), source=src)
+    if src != "oddsapi":
+        print("Unsupported source. Only 'oddsapi' is supported now."); raise typer.Exit(code=1)
+    cfg = props_data.PropsCollectionConfig(output_root=output_root, book="oddsapi", source="oddsapi")
     # Optional: roster mapping could be passed; for now, None
     res = props_data.collect_and_write(date, roster_df=None, cfg=cfg)
     print(json.dumps(res, indent=2))
@@ -3472,30 +3457,21 @@ def props_backfill(
 ):
     """Backfill player props lines (SOG, GOALS, SAVES, ASSISTS, POINTS) by day and store Parquet partitions.
 
-    Strategy per day:
-    - Try Bovada first. If zero combined rows, fallback to The Odds API (requires ODDS_API_KEY).
+    Strategy per day: Use The Odds API only (requires ODDS_API_KEY).
     """
     from datetime import datetime, timedelta
     def to_dt(s: str) -> datetime:
         return datetime.strptime(s, "%Y-%m-%d")
     cur = to_dt(start)
     end_dt = to_dt(end)
-    cfg_b = props_data.PropsCollectionConfig(output_root=output_root, book="bovada", source="bovada")
     cfg_o = props_data.PropsCollectionConfig(output_root=output_root, book="oddsapi", source="oddsapi")
     total = 0
     days = 0
     while cur <= end_dt:
         d = cur.strftime("%Y-%m-%d")
         try:
-            res = props_data.collect_and_write(d, roster_df=None, cfg=cfg_b)
+            res = props_data.collect_and_write(d, roster_df=None, cfg=cfg_o)
             cnt = int(res.get("combined_count") or 0)
-            if cnt == 0:
-                # Fallback to Odds API
-                try:
-                    res2 = props_data.collect_and_write(d, roster_df=None, cfg=cfg_o)
-                    cnt = int(res2.get("combined_count") or 0)
-                except Exception as e2:
-                    print(f"[backfill] oddsapi fallback failed for {d}: {e2}")
             total += cnt
         except Exception as e:
             print(f"[backfill] {d} failed: {e}")

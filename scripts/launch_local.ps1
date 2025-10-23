@@ -12,6 +12,10 @@ $RepoRoot = Split-Path -Parent $ScriptDir
 
 Write-Host ("Repo root: {0}" -f $RepoRoot)
 
+# Ensure QNN env (optional) so ONNX Runtime can find QNN EP
+$NpuScript = Join-Path $RepoRoot "activate_npu.ps1"
+if (Test-Path $NpuScript) { . $NpuScript }
+
 # Ensure venv exists
 $VenvPath = Join-Path $RepoRoot ".venv"
 $Activate = Join-Path $VenvPath "Scripts/Activate.ps1"

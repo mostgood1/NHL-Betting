@@ -7,6 +7,12 @@ param(
 
 Write-Host "[pbp] Starting NHL PBP pipeline" -ForegroundColor Cyan
 
+# Resolve repo root and source NPU activation if present
+$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$RepoRoot = Split-Path -Parent $ScriptDir
+$NpuScript = Join-Path $RepoRoot "activate_npu.ps1"
+if (Test-Path $NpuScript) { . $NpuScript }
+
 # Ensure virtual env
 if (Test-Path .\.venv\Scripts\Activate.ps1) {
     . .\.venv\Scripts\Activate.ps1

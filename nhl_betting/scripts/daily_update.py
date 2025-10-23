@@ -1458,18 +1458,23 @@ def reconcile_props_date(date: str, flat_stake: float = 100.0, verbose: bool = F
         stats = pd.read_csv(stats_path)
     except Exception as e:
         return {"status": "stats-read-failed", "date": date, "error": str(e)}
-    # Normalize to ET calendar day for robust matching
-    def _to_et(s):
-        try:
-            dt = pd.to_datetime(s, utc=True)
-            return dt.tz_convert("America/New_York").strftime("%Y-%m-%d")
-        except Exception:
+    # Normalize to ET calendar day for robust matching (vectorized for speed)
+    # Avoid per-row apply() and format-guessing; coerce invalids to NaT
+    try:
+        dt_utc = pd.to_datetime(stats["date"], utc=True, errors="coerce")
+        stats["date_et"] = dt_utc.dt.tz_convert("America/New_York").dt.strftime("%Y-%m-%d")
+    except Exception:
+        # Robust fallback: attempt a best-effort parse using trimmed strings
+        def _to_et_fallback(s):
             try:
-                # Fallback parse
-                return pd.to_datetime(str(s)[:19]).tz_localize('UTC').tz_convert('America/New_York').strftime('%Y-%m-%d')
+                return pd.to_datetime(str(s)[:19], utc=True).tz_convert('America/New_York').strftime('%Y-%m-%d')
             except Exception:
-                return None
-    stats["date_et"] = stats["date"].apply(_to_et)
+                try:
+                    # Last resort: localize naive as UTC, then convert
+                    return pd.to_datetime(str(s)[:19]).tz_localize('UTC').tz_convert('America/New_York').strftime('%Y-%m-%d')
+                except Exception:
+                    return None
+        stats["date_et"] = stats["date"].map(_to_et_fallback)
     stats = stats[stats["date_et"] == date]
     # Extract/normalize player names in stats for matching
     import ast, re, unicodedata

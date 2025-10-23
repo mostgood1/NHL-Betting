@@ -244,15 +244,43 @@ def _nhl_season_code(d_ymd: Optional[str]) -> str:
         y = datetime.utcnow().year
         return f"{y}{y+1}"
 
-# Ultra-early minimal /props safeguard: if later handler fails, this ensures a redirect.
+"""
+Primary Player Props page.
+
+Historically this endpoint redirected to /props/all to avoid duplication during refactors.
+Now it renders the same table directly by delegating to props_all_players_page so the
+URL matches the NFL-Betting convention (/props) while preserving identical behavior.
+"""
 @app.get("/props", include_in_schema=False)
-async def _early_props_redirect(date: Optional[str] = None):  # type: ignore
-    try:
-        from fastapi.responses import RedirectResponse
-        q = f"?date={date}" if date else ""
-        return RedirectResponse(url=f"/props/all{q}", status_code=307)
-    except Exception:
-        return HTMLResponse("<h3>Temporary redirect failure</h3>", status_code=503)
+async def props_main(
+    request: Request,
+    date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD (ET)"),
+    game: Optional[str] = Query(None, description="Filter by game as AWY@HOME (team abbreviations)"),
+    team: Optional[str] = Query(None, description="Filter by team abbreviation"),
+    market: Optional[str] = Query(None, description="Filter by market"),
+    sort: Optional[str] = Query("name", description="Sort by: name, team, market, lambda_desc, lambda_asc"),
+    top: int = Query(2000, description="Max rows to display"),
+    min_ev: float = Query(0.0, description="Minimum EV filter (over side)"),
+    nocache: int = Query(0, description="Bypass in-memory cache (1 = yes)"),
+    page: int = Query(1, description="Page number (1-based)"),
+    page_size: Optional[int] = Query(None, description="Rows per page (server-side pagination); defaults to PROPS_PAGE_SIZE env or 250"),
+    source: Optional[str] = Query(None, description="Data source: merged (default) or recs for recommendations only"),
+):
+    # Delegate to the canonical renderer to ensure identical behavior
+    return await props_all_players_page(
+        request=request,
+        date=date,
+        game=game,
+        team=team,
+        market=market,
+        sort=sort,
+        top=top,
+        min_ev=min_ev,
+        nocache=nocache,
+        page=page,
+        page_size=page_size,
+        source=source,
+    )
 
 # Secondary explicit safeguard endpoint to validate redirect logic without colliding with /props.
 @app.get("/props-safeguard", include_in_schema=False)

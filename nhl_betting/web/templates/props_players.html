@@ -41,6 +41,7 @@
   <div class="container">
     <div class="header">
       <h1>Player Props</h1>
+      <div class="meta" id="meta">{{ filtered_rows or total_rows or 0 }} rows{% if date %} • {{ date }}{% endif %}</div>
       {% if notice %}
       <div class="notice">{{ notice }}</div>
       {% endif %}
@@ -109,6 +110,9 @@
           </select>
         </label>
         <button onclick="reloadPage()">Apply</button>
+        <button onclick="shiftDate(-1)">Prev day</button>
+        <button onclick="shiftDate(1)">Next day</button>
+        <button onclick="resetFilters()">Reset</button>
         <div class="source-toggle">
           <span>Source:</span>
           {% set is_recs = (source or '') == 'recs' %}
@@ -209,6 +213,28 @@
       // Reset to first page on new filters
       params.delete('page');
       window.location.search = params.toString();
+    }
+    function shiftDate(deltaDays){
+      try{
+        const inp = document.getElementById('date'); if(!inp||!inp.value) return;
+        const d = new Date(inp.value + 'T12:00:00');
+        d.setDate(d.getDate() + (parseInt(deltaDays)||0));
+        const y = d.getFullYear(); const m = String(d.getMonth()+1).padStart(2,'0'); const dd = String(d.getDate()).padStart(2,'0');
+        inp.value = `${y}-${m}-${dd}`;
+        reloadPage();
+      }catch(e){ /* ignore */ }
+    }
+    function resetFilters(){
+      try{
+        document.getElementById('market').value = '';
+        const teamSel = document.getElementById('team'); if(teamSel) teamSel.value='';
+        const gameSel = document.getElementById('game'); if(gameSel) gameSel.value='';
+        document.getElementById('min_ev').value = '0';
+        document.getElementById('top').value = '50';
+        document.getElementById('sort').value = 'ev_desc';
+        const ps = document.getElementById('page_size'); if(ps) ps.value = ps.getAttribute('value')||'250';
+        reloadPage();
+      }catch(e){ /* ignore */ }
     }
     function setSort(key){
       const map = { market: 'market', name: 'name', team: 'team', line: 'line', book: 'book' };

@@ -2970,30 +2970,42 @@ def props_project_all(
                     pass
         except Exception:
             pass
-    # Try live roster via Stats API only if still empty; on failure, fallback to historical roster enrichment
+    # Supplement roster with live Stats API rosters (union) to cover players without lines
     try:
         from .data.rosters import list_teams as _list_teams, fetch_current_roster as _fetch_current_roster
         teams = _list_teams()
         name_to_id = { str(t.get('name') or '').strip().lower(): int(t.get('id')) for t in teams }
         id_to_abbr = { int(t.get('id')): str(t.get('abbreviation') or '').upper() for t in teams }
+        rows_live = []
+        for nm in sorted(slate_team_names):
+            tid = name_to_id.get(str(nm).strip().lower())
+            if not tid:
+                continue
+            try:
+                players = _fetch_current_roster(tid)
+            except Exception:
+                players = []
+            for p in players:
+                rows_live.append({
+                    'player_id': p.player_id,
+                    'player': p.full_name,
+                    'position': p.position,
+                    'team': id_to_abbr.get(tid),
+                })
+        live_df = pd.DataFrame(rows_live)
         if roster_df.empty:
-            rows_live = []
-            for nm in sorted(slate_team_names):
-                tid = name_to_id.get(str(nm).strip().lower())
-                if not tid:
-                    continue
-                try:
-                    players = _fetch_current_roster(tid)
-                except Exception:
-                    players = []
-                for p in players:
-                    rows_live.append({
-                        'player_id': p.player_id,
-                        'player': p.full_name,
-                        'position': p.position,
-                        'team': id_to_abbr.get(tid),
-                    })
-            roster_df = pd.DataFrame(rows_live)
+            roster_df = live_df
+        else:
+            try:
+                roster_df = pd.concat([roster_df, live_df], ignore_index=True)
+                # Normalize and drop duplicates by player+team
+                if 'player' in roster_df.columns:
+                    roster_df['player'] = roster_df['player'].astype(str).str.strip()
+                if 'team' in roster_df.columns:
+                    roster_df['team'] = roster_df['team'].astype(str).str.upper()
+                roster_df = roster_df.drop_duplicates(subset=['player','team'])
+            except Exception:
+                pass
     except Exception:
         # Silently use historical fallback if live roster fetch fails
         try:

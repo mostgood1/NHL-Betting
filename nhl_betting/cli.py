@@ -380,7 +380,7 @@ def roster_master(date: Optional[str] = typer.Option(None, help="ET date YYYY-MM
             import pandas as _pd
             parts = []
             if date_dir is not None:
-                for name in ("bovada.parquet", "oddsapi.parquet", "bovada.csv", "oddsapi.csv"):
+                for name in ("oddsapi.parquet", "oddsapi.csv"):
                     p = date_dir / name
                     if p.exists():
                         try:
@@ -397,12 +397,12 @@ def roster_master(date: Optional[str] = typer.Option(None, help="ET date YYYY-MM
                 except Exception:
                     pass
                 for dtry in dates_try:
-                    for name in ("bovada.parquet", "oddsapi.parquet"):
+                    for name in ("oddsapi.parquet",):
                         rel = f"data/props/player_props_lines/date={dtry}/{name}"
                         gdf = _gh_raw_read_parquet(rel)
                         if gdf is not None and not gdf.empty:
                             parts.append(gdf)
-                    for name in ("bovada.csv", "oddsapi.csv"):
+                    for name in ("oddsapi.csv",):
                         rel = f"data/props/player_props_lines/date={dtry}/{name}"
                         gdf = _gh_raw_read_csv(rel)
                         if gdf is not None and not gdf.empty:
@@ -2015,11 +2015,10 @@ def props_recommendations(
         if dbg:
             print(f"[recs] {msg}", flush=True)
     from glob import glob
-    # Read canonical lines for date (OddsAPI-only by default; fallback to Bovada if empty/missing)
+    # Read canonical lines for date (OddsAPI-only)
     parts = []
     base = Path("data/props") / f"player_props_lines/date={date}"
     prefer = [base / "oddsapi.parquet", base / "oddsapi.csv"]
-    fb = [base / "bovada.parquet", base / "bovada.csv"]
     def _read_any(files):
         out = []
         for f in files:
@@ -2032,13 +2031,6 @@ def props_recommendations(
     t0 = time.monotonic()
     parts = _read_any(prefer)
     _dbg(f"read preferred parts: {[str(p) for p in prefer if p.exists()]} -> {sum((0 if p is None else len(p)) for p in parts)} rows")
-    # Optional override to include Bovada alongside OddsAPI
-    include_bovada = str(os.getenv("PROPS_INCLUDE_BOVADA", "")).strip().lower() in ("1","true","yes")
-    if (not parts) or (sum(len(p) for p in parts if p is not None) == 0):
-        parts = _read_any(fb)
-        _dbg(f"fallback read bovada parts: {[str(p) for p in fb if p.exists()]} -> {sum((0 if p is None else len(p)) for p in parts)} rows")
-    elif include_bovada:
-        parts.extend(_read_any(fb))
     if not parts:
         # Fast-fail: write empty output instead of aborting to avoid killing parent flows
         print("No props lines found for", date, "- writing empty recommendations")
@@ -2659,7 +2651,7 @@ def props_recommendations(
 @app.command(name="props-collect")
 def props_collect(
     date: str = typer.Option(..., help="Slate date YYYY-MM-DD (ET)"),
-    source: str = typer.Option("oddsapi", help="Source to collect: oddsapi|bovada"),
+    source: str = typer.Option("oddsapi", help="Source to collect: oddsapi"),
 ):
     """Collect player props lines for a date from a single source and write canonical Parquet/CSV.
 
@@ -2669,9 +2661,9 @@ def props_collect(
     from .data import player_props as _pp
     t0 = time.monotonic()
     src = source.strip().lower()
-    if src not in ("oddsapi","bovada"):
-        print("Invalid source; use oddsapi or bovada"); raise typer.Exit(code=1)
-    cfg = _pp.PropsCollectionConfig(output_root="data/props", book=src, source=src)
+    if src != "oddsapi":
+        print("Unsupported source. Only 'oddsapi' is supported now."); raise typer.Exit(code=1)
+    cfg = _pp.PropsCollectionConfig(output_root="data/props", book="oddsapi", source="oddsapi")
     res = _pp.collect_and_write(date, roster_df=None, cfg=cfg)
     dt = round(time.monotonic() - t0, 2)
     print(f"[collect:{src}] raw={res.get('raw_count')} combined={res.get('combined_count')} path={res.get('output_path')} ({dt}s)")
@@ -2684,7 +2676,7 @@ def props_verify(
     """Print counts for canonical lines files for the given date."""
     base = Path("data/props") / f"player_props_lines/date={date}"
     found = []
-    for fn in ("oddsapi.parquet","oddsapi.csv","bovada.parquet","bovada.csv"):
+    for fn in ("oddsapi.parquet","oddsapi.csv"):
         p = base / fn
         if p.exists():
             try:
@@ -2706,7 +2698,7 @@ def props_fast(
     top: int = typer.Option(400, help="Top N recommendations to keep"),
     market: str = typer.Option("", help="Optional market filter: SOG,SAVES,GOALS,ASSISTS,POINTS,BLOCKS"),
 ):
-    """Fast daily props pipeline: OddsAPI-only (Bovada fallback), projections_all, recommendations.
+    """Fast daily props pipeline: OddsAPI-only, projections_all, recommendations.
 
     Writes:
       - data/processed/props_projections_all_{date}.csv
@@ -2727,16 +2719,6 @@ def props_fast(
         timings['collect_oddsapi_sec'] = round(time.monotonic() - t1, 3)
     except Exception as e:
         print("[fast] oddsapi collection failed:", e)
-    # Fallback to Bovada iff OddsAPI had zero rows
-    if cnt == 0:
-        try:
-            t2 = time.monotonic()
-            cfg_bov = props_data.PropsCollectionConfig(output_root=str(base.parent.parent), book="bovada", source="bovada")
-            res2 = props_data.collect_and_write(date, roster_df=None, cfg=cfg_bov)
-            timings['collect_bovada_fallback_sec'] = round(time.monotonic() - t2, 3)
-            print(f"[fast] bovada fallback rows={int(res2.get('combined_count') or 0)} path={res2.get('output_path')}")
-        except Exception as e:
-            print("[fast] bovada fallback failed:", e)
     # Projections (all markets) — optional, default skip for speed unless forced
     import os as _os
     if str(_os.getenv("PROPS_SKIP_PROJECTIONS", "1")).strip().lower() not in ("1","true","yes"):

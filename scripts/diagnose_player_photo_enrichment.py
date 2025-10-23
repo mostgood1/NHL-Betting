@@ -30,7 +30,7 @@ def build_mapping(date: str):
     base = PROC_DIR.parent / 'props' / f'player_props_lines/date={date}'
     parts = []
     meta = []
-    for name in ("bovada.parquet","oddsapi.parquet","bovada.csv","oddsapi.csv"):
+    for name in ("oddsapi.parquet","oddsapi.csv"):
         p = base / name
         if not p.exists():
             continue

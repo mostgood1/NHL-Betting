@@ -24,7 +24,6 @@ from ..cli import predict_core, fetch as cli_fetch, train as cli_train
 from ..models.poisson import PoissonGoals
 from ..utils.io import save_df
 import asyncio
-from ..data.bovada import BovadaClient
 from ..data.odds_api import OddsAPIClient
 import base64
 import requests
@@ -354,6 +353,11 @@ async def lifespan(app_: FastAPI):
                         await _recompute_edges_and_recommendations(d)
                 except Exception:
                     pass
+                # Refresh props recommendations (function will skip if lines unchanged)
+                try:
+                    _ = _refresh_props_recommendations(d, min_ev=0.0, top=200)
+                except Exception:
+                    pass
             asyncio.create_task(_do_light_refresh())
     except Exception:
         pass
@@ -468,7 +472,7 @@ def _compute_props_projections(date: str, market: Optional[str] = None) -> pd.Da
         base = PROC_DIR.parent / "props" / f"player_props_lines/date={date}"
         parts = []
         # Prefer parquet, but fall back to CSV if parquet is unavailable
-        for name in ("bovada.parquet", "oddsapi.parquet"):
+        for name in ("oddsapi.parquet",):
             p = base / name
             if p.exists():
                 try:
@@ -476,7 +480,7 @@ def _compute_props_projections(date: str, market: Optional[str] = None) -> pd.Da
                 except Exception:
                     pass
         if not parts:
-            for name in ("bovada.csv", "oddsapi.csv"):
+            for name in ("oddsapi.csv",):
                 p = base / name
                 if p.exists():
                     try:
@@ -821,7 +825,7 @@ def _artifact_info_for_date(d: str) -> dict:
         info["props_projections_all"] = {"exists": proj_all.exists(), "rows": _rows_csv(proj_all), "mtime": _file_mtime_iso(proj_all)}
         # Canonical lines parquet by book
         lines_base = PROC_DIR.parent / "props" / f"player_props_lines/date={d}"
-        books = {"bovada": lines_base / "bovada.parquet", "oddsapi": lines_base / "oddsapi.parquet"}
+        books = {"oddsapi": lines_base / "oddsapi.parquet"}
         info["props_lines"] = {
             "path": str(lines_base),
             "exists": lines_base.exists(),
@@ -2162,25 +2166,13 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
     pred_path = PROC_DIR / f"predictions_{date}.csv"
     read_only = _read_only(date)
     if not pred_path.exists():
-        # Attempt Bovada first (skipped in read-only mode)
+        # Generate predictions using The Odds API (preferred), else CSV baseline
         snapshot = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         if (not settled) and (not read_only):
             try:
-                predict_core(date=date, source="web", odds_source="bovada", snapshot=snapshot, odds_best=True)
+                predict_core(date=date, source="web", odds_source="oddsapi", snapshot=snapshot, odds_best=False, odds_bookmaker="draftkings")
             except Exception:
                 pass
-            # Fallback to Odds API if no odds captured
-            if pred_path.exists():
-                try:
-                    tmp = _read_csv_fallback(pred_path)
-                except Exception:
-                    tmp = pd.DataFrame()
-                if not _has_any_odds_df(tmp):
-                    if (not settled) and (not read_only):
-                        try:
-                            predict_core(date=date, source="web", odds_source="oddsapi", snapshot=snapshot, odds_best=False, odds_bookmaker="draftkings")
-                        except Exception:
-                            pass
         # If file still doesn't exist, at least generate predictions without odds (allowed during live to show something)
         if (not pred_path.exists()) and (not read_only):
             try:
@@ -2201,7 +2193,7 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
                     pass
         except Exception:
             pass
-    # If predictions exist but odds are missing, try Bovada then Odds API to populate
+    # If predictions exist but odds are missing, try Odds API to populate
     # If odds are missing, attempt to populate even during live slates (safe: only adds odds fields)
     if pred_path.exists() and not _has_any_odds_df(df) and (not settled) and (not read_only):
         snapshot = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -2211,22 +2203,13 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
         except Exception:
             df_old = pd.DataFrame()
         try:
-            predict_core(date=date, source="web", odds_source="bovada", snapshot=snapshot, odds_best=True)
+            predict_core(date=date, source="web", odds_source="oddsapi", snapshot=snapshot, odds_best=False, odds_bookmaker="draftkings")
             df = _read_csv_fallback(pred_path)
             if not df_old.empty:
                 df = _merge_preserve_odds(df_old, df)
                 df.to_csv(pred_path, index=False)
         except Exception:
             pass
-        if not _has_any_odds_df(df):
-            try:
-                predict_core(date=date, source="web", odds_source="oddsapi", snapshot=snapshot, odds_best=False, odds_bookmaker="draftkings")
-                df = _read_csv_fallback(pred_path)
-                if not df_old.empty:
-                    df = _merge_preserve_odds(df_old, df)
-                    df.to_csv(pred_path, index=False)
-            except Exception:
-                pass
     # If no games for requested date, first try alternate schedule source (skip on read-only),
     # then try to find the next available slate within 10 days (also skip on read-only)
     if df.empty and not read_only:
@@ -2268,7 +2251,7 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
                 if elig:
                     snapshot = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
                     try:
-                        predict_core(date=d2, source="web", odds_source="bovada", snapshot=snapshot, odds_best=True)
+                        predict_core(date=d2, source="web", odds_source="oddsapi", snapshot=snapshot, odds_best=False, odds_bookmaker="draftkings")
                     except Exception:
                         pass
                     alt_path = PROC_DIR / f"predictions_{d2}.csv"
@@ -3416,7 +3399,7 @@ async def api_predictions(date: Optional[str] = Query(None)):
 
 @app.get("/api/debug/odds-match")
 async def api_debug_odds_match(date: Optional[str] = Query(None)):
-    """Debug endpoint: for each game on date, show how Bovada odds would match and what prices were found."""
+    """Debug endpoint: for each game on date, show how OddsAPI odds would match and what prices were found."""
     date = date or _today_ymd()
     path = PROC_DIR / f"predictions_{date}.csv"
     if not path.exists():
@@ -3424,12 +3407,53 @@ async def api_debug_odds_match(date: Optional[str] = Query(None)):
     df = pd.read_csv(path)
     if df.empty:
         return JSONResponse({"error": "Empty predictions file", "date": date}, status_code=400)
-    # Fetch fresh Bovada odds
+    # Fetch fresh OddsAPI odds
     try:
-        bc = BovadaClient()
-        odds = bc.fetch_game_odds(date)
-        if odds is None:
-            odds = pd.DataFrame()
+        client = OddsAPIClient()
+        events, _ = client.list_events("icehockey_nhl")
+        records = []
+        for ev in events or []:
+            data, _ = client.event_odds(
+                sport="icehockey_nhl",
+                event_id=str(ev.get("id")),
+                markets="h2h,totals,spreads",
+                regions="us",
+                bookmakers="draftkings",
+                odds_format="american",
+            )
+            # Pick first bookmaker
+            bks = data.get("bookmakers", []) if isinstance(data, dict) else []
+            if not bks:
+                continue
+            book = bks[0]
+            mkts = book.get("markets", []) or []
+            # Extract
+            row = {"home": ev.get("home_team"), "away": ev.get("away_team")}
+            for m in mkts:
+                key = m.get("key")
+                if key == "h2h":
+                    for oc in m.get("outcomes", []) or []:
+                        nm = str(oc.get("name") or "")
+                        if nm == row["home"]:
+                            row["home_ml"] = oc.get("price")
+                        elif nm == row["away"]:
+                            row["away_ml"] = oc.get("price")
+                elif key == "totals":
+                    for oc in m.get("outcomes", []) or []:
+                        if oc.get("name") == "Over":
+                            row["over"] = oc.get("price")
+                            row["total_line"] = oc.get("point")
+                        elif oc.get("name") == "Under":
+                            row["under"] = oc.get("price")
+                elif key == "spreads":
+                    for oc in m.get("outcomes", []) or []:
+                        pt = oc.get("point")
+                        if pt == -1.5 and oc.get("name") == row["home"]:
+                            row["home_pl_-1.5"] = oc.get("price")
+                        if pt == 1.5 and oc.get("name") == row["away"]:
+                            row["away_pl_+1.5"] = oc.get("price")
+            records.append(row)
+        odds = pd.DataFrame.from_records(records)
     except Exception:
         odds = pd.DataFrame()
     def norm_team(s: str) -> str:
@@ -3565,7 +3589,7 @@ async def api_player_props(
     try:
         base = PROC_DIR.parent / "props" / f"player_props_lines/date={date}"
         parts = []
-        for name in ("bovada.parquet", "oddsapi.parquet"):
+        for name in ("oddsapi.parquet",):
             p = base / name
             if p.exists():
                 try:
@@ -3633,7 +3657,7 @@ async def api_props_recommendations(
                 # Load canonical lines
                 base = PROC_DIR.parent / "props" / f"player_props_lines/date={date}"
                 parts = []
-                for name in ("bovada.parquet", "oddsapi.parquet"):
+                for name in ("oddsapi.parquet",):
                     p = base / name
                     if p.exists():
                         try:
@@ -3793,7 +3817,7 @@ async def api_player_props_reconciliation(
         # Load canonical lines
         base = PROC_DIR.parent / "props" / f"player_props_lines/date={date}"
         parts = []
-        for name in ("bovada.parquet", "oddsapi.parquet"):
+        for name in ("oddsapi.parquet",):
             p = base / name
             if p.exists():
                 try:
@@ -3849,9 +3873,9 @@ async def api_cron_props_collect(
     authorization: Optional[str] = Header(None, description="Authorization: Bearer <token> header (optional alternative to token query param)"),
     async_run: bool = Query(False, description="If true, queue work in background and return 202 immediately"),
 ):
-    """Secure endpoint to collect canonical player props lines (Parquet) for a date.
+    """Secure endpoint to collect canonical player props lines (Parquet, OddsAPI-only) for a date.
 
-    - Writes data/props/player_props_lines/date=YYYY-MM-DD/{bovada,oddsapi}.parquet
+    - Writes data/props/player_props_lines/date=YYYY-MM-DD/oddsapi.parquet
     - Best-effort upserts resulting Parquet files to GitHub
     """
     secret = os.getenv("REFRESH_CRON_TOKEN", "")
@@ -3877,7 +3901,7 @@ async def api_cron_props_collect(
         except Exception:
             step_timeout = 90
         from concurrent.futures import ThreadPoolExecutor, TimeoutError as _FutTimeout
-        for which, src in (("bovada", "bovada"), ("oddsapi", "oddsapi")):
+        for which, src in (("oddsapi", "oddsapi"),):
             try:
                 cfg = props_data.PropsCollectionConfig(output_root=str(PROC_DIR.parent / "props"), book=which, source=src)
                 try:
@@ -4075,13 +4099,13 @@ async def api_cron_props_recommendations(
                 step_timeout = 90
             from concurrent.futures import ThreadPoolExecutor, TimeoutError as _FutTimeout
             base_local = PROC_DIR.parent / "props" / f"player_props_lines/date={_d}"
-            need_collect_local = not ((base_local / "bovada.parquet").exists() or (base_local / "oddsapi.parquet").exists())
+            need_collect_local = not ((base_local / "oddsapi.parquet").exists())
             if need_collect_local:
                 try:
                     # Call the internal helper used by props-collect
                     from ..data import player_props as props_data
                     base_local.mkdir(parents=True, exist_ok=True)
-                    for which, src in (("bovada", "bovada"), ("oddsapi", "oddsapi")):
+                    for which, src in (("oddsapi", "oddsapi"),):
                         try:
                             cfg = props_data.PropsCollectionConfig(output_root=str(PROC_DIR.parent / "props"), book=which, source=src)
                             try:
@@ -4124,7 +4148,7 @@ async def api_cron_props_recommendations(
         # Load lines
         parts = []
         base = PROC_DIR.parent / "props" / f"player_props_lines/date={_d}"
-        for name in ("bovada.parquet", "oddsapi.parquet"):
+        for name in ("oddsapi.parquet",):
             p = base / name
             if p.exists():
                 try:
@@ -4328,8 +4352,8 @@ async def health_props(date: Optional[str] = Query(None, description="Slate date
         "recommendations_rows": _rows(rec_path),
         "projections_all_synthetic_like": (lambda: (lambda _df: (_looks_like_synthetic_props(_df) if _df is not None and not _df.empty else False))(_read_csv_fallback(proj_path)))(),
         # Lines presence for the date
-        "lines_present": (lambda: ( (PROC_DIR.parent/"props"/f"player_props_lines/date={d}").exists() and ( (PROC_DIR.parent/"props"/f"player_props_lines/date={d}/bovada.parquet").exists() or (PROC_DIR.parent/"props"/f"player_props_lines/date={d}/oddsapi.parquet").exists() ) ))(),
-        "lines_books": (lambda: [name for name,path in ( ("bovada", PROC_DIR.parent/"props"/f"player_props_lines/date={d}/bovada.parquet"), ("oddsapi", PROC_DIR.parent/"props"/f"player_props_lines/date={d}/oddsapi.parquet") ) if path.exists() ])(),
+    "lines_present": (lambda: ( (PROC_DIR.parent/"props"/f"player_props_lines/date={d}").exists() and (PROC_DIR.parent/"props"/f"player_props_lines/date={d}/oddsapi.parquet").exists() ))(),
+    "lines_books": (lambda: [name for name,path in ( ("oddsapi", PROC_DIR.parent/"props"/f"player_props_lines/date={d}/oddsapi.parquet"), ) if path.exists() ])(),
         "fast_mode": os.getenv('FAST_PROPS_TEST','0') == '1',
         "force_synthetic": os.getenv('PROPS_FORCE_SYNTHETIC','0') == '1',
         "no_compute": os.getenv('PROPS_NO_COMPUTE','0') == '1',
@@ -5069,7 +5093,7 @@ async def api_props_recommendations_json(
         try:
             base = PROC_DIR.parent / "props" / f"player_props_lines/date={d}"
             parts = []
-            for name in ("bovada.parquet", "oddsapi.parquet"):
+            for name in ("oddsapi.parquet",):
                 p = base / name
                 if p.exists():
                     try:
@@ -5559,172 +5583,8 @@ async def api_recompute_only(
 
 
 def _inject_bovada_odds_into_predictions(date: str, backfill: bool = False, skip_started: bool = True) -> Dict[str, Any]:
-    """Fetch Bovada odds and inject into predictions_{date}.csv without recomputing model probabilities.
-
-    If backfill=True, only fill missing odds; otherwise, overwrite existing odds for the slate.
-    Returns a small summary dict with counts.
-    """
-    from .teams import get_team_assets as _assets
-    # Ensure predictions file exists locally; if not, try GitHub raw and persist
-    pred_path = PROC_DIR / f"predictions_{date}.csv"
-    df = None
-    if pred_path.exists():
-        try:
-            df = _read_csv_fallback(pred_path)
-        except Exception:
-            df = pd.DataFrame()
-    if (df is None or df.empty):
-        try:
-            gh = _github_raw_read_csv(f"data/processed/predictions_{date}.csv")
-            if gh is not None and not gh.empty:
-                df = gh
-                try:
-                    df.to_csv(pred_path, index=False)
-                except Exception:
-                    pass
-        except Exception:
-            df = df
-    if df is None or df.empty:
-        return {"status": "no-predictions", "date": date}
-    # Fetch Bovada odds
-    try:
-        bc = BovadaClient()
-        odds = bc.fetch_game_odds(date)
-        if odds is None:
-            odds = pd.DataFrame()
-    except Exception:
-        odds = pd.DataFrame()
-    if odds is None or odds.empty:
-        return {"status": "no-odds", "date": date}
-    # Normalize odds keys for robust matching
-    import re, unicodedata
-    def norm_team(s: str) -> str:
-        if s is None:
-            return ""
-        s = str(s)
-        s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode()
-        s = s.lower()
-        s = re.sub(r"[^a-z0-9]+", "", s)
-        return s
-    odds = odds.copy()
-    odds["date"] = pd.to_datetime(odds["date"], errors="coerce").dt.strftime("%Y-%m-%d")
-    odds["home_norm"] = odds["home"].apply(norm_team)
-    odds["away_norm"] = odds["away"].apply(norm_team)
-    try:
-        def to_abbr(x):
-            try:
-                return (_assets(str(x)).get("abbr") or "").upper()
-            except Exception:
-                return ""
-        odds["home_abbr"] = odds["home"].apply(to_abbr)
-        odds["away_abbr"] = odds["away"].apply(to_abbr)
-    except Exception:
-        odds["home_abbr"] = ""
-        odds["away_abbr"] = ""
-    # Determine started games for the date (to optionally skip updates)
-    started_pairs: set[tuple[str, str]] = set()
-    if skip_started:
-        try:
-            wc = NHLWebClient()
-            games = wc.scoreboard(date) or []
-            for g in games:
-                st = str((g.get('gameState') or '')).upper()
-                # Consider any state containing LIVE/IN/PROGRESS or FINAL as started/closed for odds updates
-                if ("LIVE" in st) or ("IN" in st and "PROGRESS" in st) or ("FINAL" in st):
-                    ha = ((g.get('homeTeam') or {}).get('abbrev') or '').upper()
-                    aa = ((g.get('awayTeam') or {}).get('abbrev') or '').upper()
-                    if ha and aa:
-                        started_pairs.add((ha, aa))
-        except Exception:
-            started_pairs = started_pairs
-    # Build lookups
-    by_abbr = {}
-    by_norm = {}
-    for _, r in odds.iterrows():
-        k1 = (str(r.get("date") or date), str(r.get("home_abbr") or ""), str(r.get("away_abbr") or ""))
-        k2 = (str(r.get("date") or date), str(r.get("home_norm") or ""), str(r.get("away_norm") or ""))
-        by_abbr[k1] = r
-        by_norm[k2] = r
-    # Ensure destination columns exist
-    for c in [
-        "home_ml_odds","away_ml_odds","over_odds","under_odds","total_line_used",
-        "home_pl_-1.5_odds","away_pl_+1.5_odds",
-        "home_ml_book","away_ml_book","over_book","under_book","home_pl_-1.5_book","away_pl_+1.5_book",
-    ]:
-        if c not in df.columns:
-            df[c] = pd.NA
-    updated_rows = 0
-    updated_fields = 0
-    def set_val(idx, col, val):
-        nonlocal updated_fields
-        try:
-            cur = df.at[idx, col]
-            if backfill:
-                if pd.isna(cur) or cur is None or cur == "":
-                    df.at[idx, col] = val
-                    updated_fields += 1
-            else:
-                df.at[idx, col] = val
-                updated_fields += 1
-        except Exception:
-            pass
-    def date_key(x) -> str:
-        try:
-            return pd.to_datetime(x).strftime("%Y-%m-%d")
-        except Exception:
-            return date
-    for idx, r in df.iterrows():
-        dkey = date_key(r.get("date"))
-        home = str(r.get("home") or "")
-        away = str(r.get("away") or "")
-        try:
-            h_ab = (_assets(home).get("abbr") or "").upper()
-            a_ab = (_assets(away).get("abbr") or "").upper()
-        except Exception:
-            h_ab = a_ab = ""
-        # Skip rows for games that have started
-        if skip_started and h_ab and a_ab and (h_ab, a_ab) in started_pairs:
-            continue
-        h_n = norm_team(home)
-        a_n = norm_team(away)
-        m = by_abbr.get((dkey, h_ab, a_ab)) or by_norm.get((dkey, h_n, a_n))
-        if m is None:
-            continue
-        before_fields = updated_fields
-        # Map odds fields
-        def _to_float_or_none(v):
-            try:
-                return float(v)
-            except Exception:
-                return v
-        mapping = [
-            ("home_ml_odds", m.get("home_ml")),
-            ("away_ml_odds", m.get("away_ml")),
-            ("over_odds", m.get("over")),
-            ("under_odds", m.get("under")),
-            ("total_line_used", _to_float_or_none(m.get("total_line"))),
-            ("home_pl_-1.5_odds", m.get("home_pl_-1.5")),
-            ("away_pl_+1.5_odds", m.get("away_pl_+1.5")),
-            ("home_ml_book", m.get("home_ml_book")),
-            ("away_ml_book", m.get("away_ml_book")),
-            ("over_book", m.get("over_book")),
-            ("under_book", m.get("under_book")),
-            ("home_pl_-1.5_book", m.get("home_pl_-1.5_book")),
-            ("away_pl_+1.5_book", m.get("away_pl_+1.5_book")),
-        ]
-        for col, val in mapping:
-            if val is None or (isinstance(val, float) and pd.isna(val)):
-                continue
-            set_val(idx, col, val)
-        if updated_fields > before_fields:
-            updated_rows += 1
-    # Persist
-    df.to_csv(pred_path, index=False)
-    try:
-        _gh_upsert_file_if_configured(pred_path, f"web: update predictions with fresh Bovada odds for {date}")
-    except Exception:
-        pass
-    return {"status": "ok", "date": date, "updated_rows": int(updated_rows), "updated_fields": int(updated_fields)}
+    """Deprecated: Bovada odds injection removed (use _inject_oddsapi_odds_into_predictions instead)."""
+    return {"status": "removed", "date": date}
 
 
 def _inject_oddsapi_odds_into_predictions(date: str, backfill: bool = False, skip_started: bool = True, bookmaker: str = "draftkings") -> Dict[str, Any]:
@@ -6313,8 +6173,8 @@ async def props_recommendations_page(
         d_for_lines = date or _today_ymd()
         base = PROC_DIR.parent / "props" / f"player_props_lines/date={d_for_lines}"
         parts = []
-        # Prefer Parquet, then CSV fallback for canonical lines so we can enrich player/team metadata.
-        for name in ("bovada.parquet", "oddsapi.parquet", "bovada.csv", "oddsapi.csv"):
+        # Prefer Parquet, then CSV fallback (OddsAPI only) for canonical lines so we can enrich player/team metadata.
+        for name in ("oddsapi.parquet", "oddsapi.csv"):
             p = base / name
             if p.exists():
                 try:
@@ -6328,7 +6188,7 @@ async def props_recommendations_page(
         if not parts:
             # Try Parquet first (primary artifact), then CSV as a secondary option
             try:
-                for name in ("bovada.parquet", "oddsapi.parquet"):
+                for name in ("oddsapi.parquet",):
                     rel = f"data/props/player_props_lines/date={d_for_lines}/{name}"
                     gh_df = _github_raw_read_parquet(rel)
                     if gh_df is not None and not gh_df.empty:
@@ -6336,7 +6196,7 @@ async def props_recommendations_page(
             except Exception:
                 pass
             try:
-                for name in ("bovada.csv", "oddsapi.csv"):
+                for name in ("oddsapi.csv",):
                     rel = f"data/props/player_props_lines/date={d_for_lines}/{name}"
                     gh_df = _github_raw_read_csv(rel)
                     if gh_df is not None and not gh_df.empty:
@@ -6845,7 +6705,7 @@ async def props_recommendations_page(
                     d_for_lines = date or _today_ymd()
                     base = PROC_DIR.parent / "props" / f"player_props_lines/date={d_for_lines}"
                     _parts_fb = []
-                    for _nm in ("bovada.parquet","oddsapi.parquet","bovada.csv","oddsapi.csv"):
+                    for _nm in ("oddsapi.parquet","oddsapi.csv"):
                         _p = base / _nm
                         if _p.exists():
                             try:
@@ -6944,7 +6804,7 @@ async def props_recommendations_page(
                 d_for_lines = date or _today_ymd()
                 base = PROC_DIR.parent / "props" / f"player_props_lines/date={d_for_lines}"
                 parts_aug = []
-                for _nm in ("bovada.parquet","oddsapi.parquet","bovada.csv","oddsapi.csv"):
+                for _nm in ("oddsapi.parquet","oddsapi.csv"):
                     _p = base / _nm
                     if _p.exists():
                         try:
@@ -7369,7 +7229,7 @@ async def props_recommendations_page(
                 d_for_lines = date or _today_ymd()
                 base = PROC_DIR.parent / "props" / f"player_props_lines/date={d_for_lines}"
                 parts2 = []
-                for name in ("bovada.parquet", "oddsapi.parquet", "bovada.csv", "oddsapi.csv"):
+                for name in ("oddsapi.parquet", "oddsapi.csv"):
                     p2 = base / name
                     if p2.exists():
                         try:
@@ -7672,7 +7532,7 @@ def debug_props_photos(date: str = Query(default='today'), include_stats_sample:
         date = _today_ymd()
     base = PROC_DIR.parent / 'props' / f'player_props_lines/date={date}'
     dfs = []
-    for name in ('bovada.parquet','oddsapi.parquet','bovada.csv','oddsapi.csv'):
+    for name in ('oddsapi.parquet','oddsapi.csv'):
         p = base / name
         if p.exists():
             try:
@@ -7872,7 +7732,7 @@ async def api_cron_props_full(
             try:
                 # Load lines if exist
                 parts = []
-                for name in ("bovada.parquet", "oddsapi.parquet"):
+                for name in ("oddsapi.parquet",):
                     p = base / name
                     if p.exists():
                         try:
@@ -8195,229 +8055,7 @@ async def api_cron_props_fast(
     return JSONResponse({"ok": True, "date": d})
 
 
-@app.post("/api/cron/refresh-bovada")
-async def api_cron_refresh_bovada(
-    token: Optional[str] = Query(None, description="Bearer token; must match REFRESH_CRON_TOKEN env var"),
-    date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD; defaults to ET today"),
-    authorization: Optional[str] = Header(None, description="Authorization: Bearer <token> header (optional alternative to token query param)"),
-):
-    """Cron-friendly endpoint to backfill Bovada odds for the slate.
-
-    - Requires REFRESH_CRON_TOKEN env var (token must match).
-    - Defaults to today's ET date.
-    - Runs in backfill mode: fills missing odds without overwriting existing numbers.
-    """
-    secret = os.getenv("REFRESH_CRON_TOKEN", "")
-    # Prefer explicit token param; else, parse Bearer token from header if present
-    supplied = (token or "").strip()
-    if (not supplied) and authorization:
-        try:
-            auth = str(authorization)
-            if auth.lower().startswith("bearer "):
-                supplied = auth.split(" ", 1)[1].strip()
-        except Exception:
-            supplied = supplied
-    if not (secret and supplied and _const_time_eq(supplied, secret)):
-        return JSONResponse({"error": "unauthorized"}, status_code=401)
-    d = _normalize_date_param(date)
-    # Ensure models exist quickly; safe even if already present
-    try:
-        await _ensure_models(quick=True)
-    except Exception:
-        pass
-    # Reuse existing refresh logic in backfill mode
-    try:
-        # Use backfill to avoid clobbering existing values and overwrite_prestart to update pre-start games during the day
-        res = await api_refresh_odds(date=d, snapshot=None, bankroll=0.0, kelly_fraction_part=0.5, backfill=True, overwrite_prestart=True)
-
-        # Helper to collect Bovada player props and compute props recommendations for the date
-        def _refresh_bovada_props_and_recs(_d: str) -> dict:
-            summary: dict = {"date": _d}
-            try:
-                # Collect Bovada props into parquet with roster enrichment
-                from ..data import player_props as _pp
-                base_dir = PROC_DIR.parent / "props" / f"player_props_lines/date={_d}"
-                base_dir.mkdir(parents=True, exist_ok=True)
-                try:
-                    roster_df = _pp._build_roster_enrichment()
-                except Exception:
-                    roster_df = None
-                cfg = _pp.PropsCollectionConfig(output_root=str(PROC_DIR.parent / "props"), book="bovada", source="bovada")
-                props_res = _pp.collect_and_write(_d, roster_df=roster_df, cfg=cfg)
-                summary["props"] = props_res
-                # Upsert parquet to GitHub if created
-                try:
-                    pth = props_res.get("output_path") if isinstance(props_res, dict) else None
-                    if pth:
-                        rel = str(Path(pth)).replace("\\", "/")
-                        try:
-                            parts = rel.split("/")
-                            if "data" in parts:
-                                idx = parts.index("data")
-                                rel = "/".join(parts[idx:])
-                        except Exception:
-                            pass
-                        _gh_upsert_file_if_better_or_same(Path(pth), f"web: update props lines bovada for {_d}", rel_hint=rel)
-                except Exception:
-                    pass
-            except Exception as e:
-                summary["props_error"] = str(e)
-
-            # Compute props recommendations CSV using existing inline logic
-            try:
-                from ..models.props import SkaterShotsModel, GoalieSavesModel, SkaterGoalsModel
-                from ..models.props import SkaterAssistsModel, SkaterPointsModel, SkaterBlocksModel
-                from ..utils.io import RAW_DIR
-                import pandas as _pd
-                # Load canonical lines from any available book (bovada first, then oddsapi)
-                parts = []
-                base = PROC_DIR.parent / "props" / f"player_props_lines/date={_d}"
-                for name in ("bovada.parquet", "oddsapi.parquet"):
-                    p = base / name
-                    if p.exists():
-                        try:
-                            parts.append(pd.read_parquet(p))
-                        except Exception:
-                            pass
-                if not parts:
-                    summary["recommendations"] = {"rows": 0, "message": "no-lines"}
-                    return summary
-                lines_df = pd.concat(parts, ignore_index=True)
-                # Ensure stats history exists (best-effort)
-                stats_path = RAW_DIR / "player_game_stats.csv"
-                if not stats_path.exists():
-                    try:
-                        from datetime import datetime as _dt, timedelta as _td
-                        start = (_dt.strptime(_d, "%Y-%m-%d") - _td(days=365)).strftime("%Y-%m-%d")
-                        from ..data.collect import collect_player_game_stats as _collect_stats
-                        _collect_stats(start, _d, source="stats")
-                    except Exception:
-                        pass
-                hist = pd.read_csv(stats_path) if stats_path.exists() else pd.DataFrame()
-                shots = SkaterShotsModel(); saves = GoalieSavesModel(); goals = SkaterGoalsModel(); assists = SkaterAssistsModel(); points = SkaterPointsModel(); blocks = SkaterBlocksModel()
-                def _proj_prob(mk, player, ln):
-                    mk = (mk or '').upper()
-                    if mk == 'SOG':
-                        lam = shots.player_lambda(hist, player); return lam, shots.prob_over(lam, ln)
-                    if mk == 'SAVES':
-                        lam = saves.player_lambda(hist, player); return lam, saves.prob_over(lam, ln)
-                    if mk == 'GOALS':
-                        lam = goals.player_lambda(hist, player); return lam, goals.prob_over(lam, ln)
-                    if mk == 'ASSISTS':
-                        lam = assists.player_lambda(hist, player); return lam, assists.prob_over(lam, ln)
-                    if mk == 'POINTS':
-                        lam = points.player_lambda(hist, player); return lam, points.prob_over(lam, ln)
-                    if mk == 'BLOCKS':
-                        lam = blocks.player_lambda(hist, player); return lam, blocks.prob_over(lam, ln)
-                    return None, None
-                recs = []
-                for _, r in lines_df.iterrows():
-                    m = str(r.get('market') or '').upper()
-                    player = r.get('player_name') or r.get('player')
-                    if not player:
-                        continue
-                    try:
-                        ln = float(r.get('line'))
-                    except Exception:
-                        continue
-                    op = r.get('over_price'); up = r.get('under_price')
-                    if _pd.isna(op) and _pd.isna(up):
-                        continue
-                    lam, p_over = _proj_prob(m, str(player), ln)
-                    if lam is None or p_over is None:
-                        continue
-                    def _dec(a):
-                        try:
-                            a = float(a); return 1.0 + (a/100.0) if a > 0 else 1.0 + (100.0/abs(a))
-                        except Exception:
-                            return None
-                    ev_o = (p_over * (_dec(op)-1.0) - (1.0 - p_over)) if (op is not None and _dec(op) is not None) else None
-                    p_under = max(0.0, 1.0 - float(p_over))
-                    ev_u = (p_under * (_dec(up)-1.0) - (1.0 - p_under)) if (up is not None and _dec(up) is not None) else None
-                    side = None; price = None; ev = None
-                    if ev_o is not None or ev_u is not None:
-                        if (ev_u is None) or (ev_o is not None and ev_o >= ev_u):
-                            side = 'Over'; price = op; ev = ev_o
-                        else:
-                            side = 'Under'; price = up; ev = ev_u
-                    recs.append({
-                        'date': _d,
-                        'player': player,
-                        'team': r.get('team') or None,
-                        'market': m,
-                        'line': ln,
-                        'proj': float(lam) if lam is not None else None,
-                        'p_over': float(p_over) if p_over is not None else None,
-                        'over_price': op if _pd.notna(op) else None,
-                        'under_price': up if _pd.notna(up) else None,
-                        'book': r.get('book'),
-                        'side': side,
-                        'ev': float(ev) if ev is not None else None,
-                    })
-                df_recs = pd.DataFrame(recs)
-                if not df_recs.empty:
-                    try:
-                        df_recs.sort_values('ev', ascending=False, inplace=True)
-                    except Exception:
-                        pass
-                rec_path = PROC_DIR / f"props_recommendations_{_d}.csv"
-                try:
-                    save_df(df_recs, rec_path)
-                    summary["recommendations"] = {"rows": 0 if df_recs.empty else int(len(df_recs)), "path": str(rec_path)}
-                    try:
-                        _gh_upsert_file_if_better_or_same(rec_path, f"web: update props recommendations for {_d}")
-                    except Exception:
-                        pass
-                except Exception as _e2:
-                    summary["recommendations_error"] = str(_e2)
-            except Exception as _e:
-                summary["recommendations_error"] = str(_e)
-            return summary
-
-        # Normalize response in case it's a JSONResponse
-        if isinstance(res, JSONResponse):
-            try:
-                import json as _json
-                body = _json.loads(res.body)
-            except Exception:
-                body = {"status": "ok"}
-            # After refresh, attempt to capture closing for any FINAL games (idempotent)
-            try:
-                clo = _capture_closing_for_day(d)
-                body["closing"] = clo
-            except Exception:
-                pass
-            try:
-                body["settlement"] = _backfill_settlement_for_date(d)
-            except Exception:
-                pass
-            # New: refresh Bovada player props and compute props recommendations
-            try:
-                body["props_pipeline"] = _refresh_bovada_props_and_recs(d)
-            except Exception as _pe:
-                body["props_pipeline_error"] = str(_pe)
-            return JSONResponse({"ok": True, "date": d, "result": body})
-        # If non-JSONResponse path, still try closing capture
-        out = {"ok": True, "date": d, "result": res}
-        try:
-            clo = _capture_closing_for_day(d)
-            out["closing"] = clo
-        except Exception:
-            pass
-        try:
-            out["settlement"] = _backfill_settlement_for_date(d)
-        except Exception:
-            pass
-        # New: refresh Bovada player props and compute props recommendations
-        try:
-            out["props_pipeline"] = _refresh_bovada_props_and_recs(d)
-        except Exception as _pe2:
-            out["props_pipeline_error"] = str(_pe2)
-        return JSONResponse(out)
-    except Exception as e:
-        return JSONResponse({"ok": False, "date": d, "error": str(e)}, status_code=500)
-
-    # ---------------- End of api_cron_refresh_bovada -----------------
+    # (Bovada refresh endpoint removed; use /api/cron/light-refresh and /api/cron/props-collect instead.)
 
 # ---------------- Normalization & new props endpoints (module level) -----------------
 def _normalize_props_row_dict(r: dict) -> dict:
@@ -8439,7 +8077,7 @@ async def api_props_lines_json(
     d = _normalize_date_param(date)
     base = PROC_DIR.parent / 'props' / f'player_props_lines/date={d}'
     parts = []
-    for fname in ('bovada.parquet','oddsapi.parquet'):
+    for fname in ('oddsapi.parquet',):
         p = base / fname
         if p.exists():
             try:

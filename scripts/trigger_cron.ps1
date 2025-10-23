@@ -45,12 +45,12 @@ if ($StartDate -and $EndDate) {
 }
 
 foreach ($d in $dates) {
-  Write-Host "\nRefresh Bovada (backfill) for ${d}:" -ForegroundColor Cyan
-  $refreshUrl = "$BaseUrl/api/cron/refresh-bovada?date=$d"
+  Write-Host "\nLight odds refresh (OddsAPI) for ${d}:" -ForegroundColor Cyan
+  $refreshUrl = "$BaseUrl/api/cron/light-refresh?date=$d"
   Invoke-WebRequest -Uri $refreshUrl -Method POST -Headers $Headers | Select-Object -ExpandProperty Content
 
   if ($Closers) {
-  Write-Host "\nCapture Closers for ${d}:" -ForegroundColor Cyan
+    Write-Host "\nCapture Closers for ${d}:" -ForegroundColor Cyan
     $closersUrl = "$BaseUrl/api/cron/capture-closing?date=$d"
     Invoke-WebRequest -Uri $closersUrl -Method POST -Headers $Headers | Select-Object -ExpandProperty Content
   }

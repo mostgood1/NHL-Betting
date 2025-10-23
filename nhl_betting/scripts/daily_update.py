@@ -24,7 +24,6 @@ except Exception:
 # cli.py imports torch/onnx first, then pandas. If we import pandas here first,
 # torch/onnx will fail to load later, disabling NN models.
 from nhl_betting.cli import predict_core, featurize, train
-from nhl_betting.cli import props_fetch_bovada as _props_fetch_bovada
 from nhl_betting.cli import props_predict as _props_predict
 from nhl_betting.cli import props_build_dataset as _props_build_dataset
 
@@ -303,10 +302,10 @@ def build_player_props_vs_actuals(date: str, verbose: bool = False) -> None:
     Mirrors the logic in web endpoint /api/player-props-reconciliation but runs locally.
     """
     try:
-        # Load canonical lines parquet (bovada + oddsapi)
+        # Load canonical lines parquet (OddsAPI only)
         base = PROC_DIR.parent / "props" / f"player_props_lines/date={date}"
         parts = []
-        for name in ("bovada.parquet", "oddsapi.parquet"):
+        for name in ("oddsapi.parquet",):
             p = base / name
             if p.exists():
                 try:
@@ -618,13 +617,7 @@ def make_predictions(days_ahead: int = 2, verbose: bool = False) -> None:
     for i in range(0, horizon):
         d = _ymd(base + timedelta(days=i))
         snapshot = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-        # Try Bovada first
-        try:
-            predict_core(date=d, source="web", odds_source="bovada", snapshot=snapshot, odds_best=True)
-            _vprint(verbose, f"[predict] {d}: Bovada OK")
-        except Exception as e:
-            _vprint(verbose, f"[predict] {d}: Bovada failed: {e}")
-        # Fallback to Odds API (DK preferred)
+        # Use The Odds API (DK preferred for stability)
         try:
             predict_core(date=d, source="web", odds_source="oddsapi", snapshot=snapshot, odds_best=False, odds_bookmaker="draftkings")
             _vprint(verbose, f"[predict] {d}: OddsAPI OK")
@@ -653,8 +646,7 @@ def collect_props_canonical(days_ahead: int = 1, verbose: bool = False) -> dict:
     """Collect canonical player props Parquet partitions for yesterday and upcoming days.
 
     For each target date (yesterday ET and the next N-1 days including today when days_ahead>=1):
-      - Try Bovada props collection into data/props/player_props_lines/date=YYYY-MM-DD/bovada.parquet
-      - If zero combined rows, fallback to The Odds API (if ODDS_API_KEY configured)
+            - Collect from The Odds API into data/props/player_props_lines/date=YYYY-MM-DD/oddsapi.parquet
     Returns a summary dict with per-date counts.
     """
     base_et = _today_et()
@@ -670,7 +662,6 @@ def collect_props_canonical(days_ahead: int = 1, verbose: bool = False) -> dict:
         if d not in seen:
             seen.add(d); ordered.append(d)
     out = {"dates": ordered, "counts": {}, "paths": {}}
-    cfg_b = props_data.PropsCollectionConfig(output_root="data/props", book="bovada", source="bovada")
     cfg_o = props_data.PropsCollectionConfig(output_root="data/props", book="oddsapi", source="oddsapi")
     # Build roster snapshot once to aid player_id normalization (best-effort)
     roster_df = None
@@ -687,11 +678,8 @@ def collect_props_canonical(days_ahead: int = 1, verbose: bool = False) -> dict:
             _roster_master(date=_ymd(base_et))
     except Exception as e:
         _vprint(verbose, f"[props] roster master build skipped: {e}")
-    import os as _os
-    include_bovada = str(_os.environ.get("PROPS_INCLUDE_BOVADA", "")).strip().lower() in ("1","true","yes")
     for d in ordered:
-        # Prefer OddsAPI; optionally add Bovada fallback or include both via env
-        cnt_b, path_b = 0, None
+        # OddsAPI-only collection
         cnt_o, path_o = 0, None
         try:
             res_o = props_data.collect_and_write(d, roster_df=roster_df, cfg=cfg_o)
@@ -700,19 +688,10 @@ def collect_props_canonical(days_ahead: int = 1, verbose: bool = False) -> dict:
         except Exception as e_o:
             cnt_o, path_o = 0, None
             _vprint(verbose, f"[props] oddsapi failed for {d}: {e_o}")
-        # Fallback to Bovada only if OddsAPI empty OR explicitly included
-        if include_bovada or cnt_o == 0:
-            try:
-                res_b = props_data.collect_and_write(d, roster_df=roster_df, cfg=cfg_b)
-                cnt_b = int(res_b.get("combined_count") or 0)
-                path_b = res_b.get("output_path")
-            except Exception as e_b:
-                cnt_b, path_b = 0, None
-                _vprint(verbose, f"[props] bovada failed for {d}: {e_b}")
-        out["counts"][d] = {"bovada": cnt_b, "oddsapi": cnt_o, "combined": cnt_b + cnt_o}
-        out["paths"][d] = {"bovada": path_b, "oddsapi": path_o}
+        out["counts"][d] = {"oddsapi": cnt_o, "combined": cnt_o}
+        out["paths"][d] = {"oddsapi": path_o}
         if verbose:
-            _vprint(verbose, f"[props] {d}: bovada={cnt_b} oddsapi={cnt_o} total={cnt_b+cnt_o}")
+            _vprint(verbose, f"[props] {d}: oddsapi={cnt_o} total={cnt_o}")
     return out
 
 

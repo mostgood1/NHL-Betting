@@ -39,7 +39,7 @@ def load_lines(date: str) -> list[tuple[pathlib.Path, pd.DataFrame]]:
     out: list[tuple[pathlib.Path, pd.DataFrame]] = []
     if not base.exists():
         return out
-    for name in ("bovada.parquet","oddsapi.parquet","bovada.csv","oddsapi.csv"):
+    for name in ("oddsapi.parquet","oddsapi.csv"):
         p = base / name
         if not p.exists():
             continue

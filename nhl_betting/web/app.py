@@ -25,6 +25,7 @@ from ..models.poisson import PoissonGoals
 from ..utils.io import save_df
 import asyncio
 from ..data.bovada import BovadaClient
+from ..data.odds_api import OddsAPIClient
 import base64
 import requests
 from io import StringIO
@@ -343,12 +344,14 @@ async def lifespan(app_: FastAPI):
             d = _today_ymd()
             async def _do_light_refresh():
                 try:
-                    # Best-effort inject Bovada odds without running models; allow prestart overwrite
-                    await asyncio.to_thread(_inject_bovada_odds_into_predictions, d, True)
+                    # Best-effort inject OddsAPI odds without running models; allow prestart overwrite
+                    summary = await asyncio.to_thread(_inject_oddsapi_odds_into_predictions, d, True)
                 except Exception:
-                    pass
+                    summary = None
+                # Recompute only if odds changed
                 try:
-                    await _recompute_edges_and_recommendations(d)
+                    if isinstance(summary, dict) and int(summary.get("updated_fields") or 0) > 0:
+                        await _recompute_edges_and_recommendations(d)
                 except Exception:
                     pass
             asyncio.create_task(_do_light_refresh())
@@ -5499,9 +5502,9 @@ async def api_refresh_odds(
     backfill: bool = Query(False, description="If true, during live slates only fill missing odds without overwriting existing prices"),
     overwrite_prestart: bool = Query(False, description="If true, allow refresh even during live days and overwrite odds for games that have not started yet"),
 ):
-    """Refresh odds/predictions for a date. Tries Bovada, then Odds API; ensures predictions CSV exists; recomputes recs.
+    """Refresh odds/predictions for a date using The Odds API (no Bovada), then recompute recommendations.
 
-    This simplified implementation replaces a previously inlined version that was accidentally disrupted.
+    Ensures predictions CSV exists; runs predict_core with odds_source=oddsapi; then recomputes edges/recs.
     """
     date = date or _today_ymd()
     if not snapshot:
@@ -5517,22 +5520,11 @@ async def api_refresh_odds(
         await _ensure_models(quick=True)
     except Exception:
         pass
-    # Step 1: Bovada odds
+    # Step: Use Odds API (prefer a single bookmaker for stability)
     try:
-        predict_core(date=date, source="web", odds_source="bovada", snapshot=snapshot, odds_best=True, bankroll=bankroll, kelly_fraction_part=kelly_fraction_part)
+        predict_core(date=date, source="web", odds_source="oddsapi", snapshot=snapshot, odds_best=False, odds_bookmaker="draftkings", bankroll=bankroll, kelly_fraction_part=kelly_fraction_part)
     except Exception:
         pass
-    # Step 2: If still no odds, try Odds API (DK preferred)
-    try:
-        path = PROC_DIR / f"predictions_{date}.csv"
-        df = pd.read_csv(path) if path.exists() else pd.DataFrame()
-    except Exception:
-        df = pd.DataFrame()
-    if df.empty or not any(col in df.columns and df[col].notna().any() for col in ["home_ml_odds","away_ml_odds","over_odds","under_odds"]):
-        try:
-            predict_core(date=date, source="web", odds_source="oddsapi", snapshot=snapshot, odds_best=False, odds_bookmaker="draftkings", bankroll=bankroll, kelly_fraction_part=kelly_fraction_part)
-        except Exception:
-            pass
     # Ensure predictions file exists
     try:
         path = PROC_DIR / f"predictions_{date}.csv"
@@ -5735,6 +5727,192 @@ def _inject_bovada_odds_into_predictions(date: str, backfill: bool = False, skip
     return {"status": "ok", "date": date, "updated_rows": int(updated_rows), "updated_fields": int(updated_fields)}
 
 
+def _inject_oddsapi_odds_into_predictions(date: str, backfill: bool = False, skip_started: bool = True, bookmaker: str = "draftkings") -> Dict[str, Any]:
+    """Fetch The Odds API odds and inject into predictions_{date}.csv without running models.
+
+    Uses current event odds for markets h2h, totals, and spreads. Prefer a single bookmaker (default DraftKings)
+    for stability; could be extended to best-of-all. Returns a small summary with counts.
+    """
+    pred_path = PROC_DIR / f"predictions_{date}.csv"
+    if not pred_path.exists():
+        return {"status": "no-predictions", "date": date}
+    df = _read_csv_fallback(pred_path)
+    if df is None or df.empty:
+        return {"status": "empty", "date": date}
+    try:
+        client = OddsAPIClient()
+    except Exception as e:
+        return {"status": "no-oddsapi", "date": date, "error": str(e)}
+
+    import re, unicodedata
+    def norm_team(s: str) -> str:
+        if s is None:
+            return ""
+        s = str(s)
+        s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode()
+        s = s.lower()
+        s = re.sub(r"[^a-z0-9]+", "", s)
+        return s
+
+    from_zone = ZoneInfo("America/New_York")
+    # Compute UTC window for the slate date in ET
+    try:
+        d0_et = datetime.strptime(date, "%Y-%m-%d").replace(tzinfo=from_zone)
+        d1_et = d0_et + timedelta(days=1)
+        start_iso = d0_et.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        end_iso = d1_et.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    except Exception:
+        start_iso = end_iso = None
+
+    # List current events and fetch odds for each
+    try:
+        events, _ = client.list_events("icehockey_nhl", commence_from_iso=start_iso, commence_to_iso=end_iso)
+    except Exception:
+        events = []
+
+    records = []
+    for ev in events or []:
+        try:
+            eid = str(ev.get("id"))
+            # Filter to ET date match just in case
+            commence = ev.get("commence_time")
+            dkey = None
+            try:
+                dt_utc = datetime.fromisoformat(str(commence).replace("Z", "+00:00"))
+                dkey = dt_utc.astimezone(from_zone).strftime("%Y-%m-%d")
+            except Exception:
+                pass
+            if dkey and dkey != date:
+                continue
+            data, _ = client.event_odds(
+                sport="icehockey_nhl",
+                event_id=eid,
+                markets="h2h,totals,spreads",
+                regions="us",
+                bookmakers=bookmaker,
+                odds_format="american",
+            )
+            bks = data.get("bookmakers", []) if isinstance(data, dict) else []
+            if not bks:
+                continue
+            # Pick the requested bookmaker entry if present
+            book = next((b for b in bks if b.get("key") == bookmaker), bks[0])
+            markets = book.get("markets", [])
+            # Extract prices similar to data.odds_api._extract_prices_from_markets
+            def _extract_prices(markets):
+                out = {}
+                m_h2h = next((m for m in markets if m.get("key") == "h2h"), None)
+                if m_h2h:
+                    for oc in m_h2h.get("outcomes", []):
+                        nm = str(oc.get("name"))
+                        out[f"ml::{nm}"] = oc.get("price")
+                m_tot = next((m for m in markets if m.get("key") == "totals"), None)
+                if m_tot:
+                    pts = None
+                    for oc in m_tot.get("outcomes", []):
+                        if oc.get("name") in ("Over", "Under"):
+                            if pts is None:
+                                pts = oc.get("point")
+                            out[f"tot::{oc.get('name')}"] = oc.get("price")
+                            out["tot::point"] = pts
+                m_spr = next((m for m in markets if m.get("key") == "spreads"), None)
+                if m_spr:
+                    for oc in m_spr.get("outcomes", []):
+                        try:
+                            pt = float(oc.get("point"))
+                        except Exception:
+                            continue
+                        if abs(pt) == 1.5:
+                            out[f"pl::{oc.get('name')}::{pt}"] = oc.get("price")
+                return out
+            prices = _extract_prices(markets)
+            row = {
+                "home": ev.get("home_team"),
+                "away": ev.get("away_team"),
+                "home_ml": prices.get(f"ml::{ev.get('home_team')}") ,
+                "away_ml": prices.get(f"ml::{ev.get('away_team')}") ,
+                "over": prices.get("tot::Over"),
+                "under": prices.get("tot::Under"),
+                "total_line": prices.get("tot::point"),
+                "home_pl_-1.5": prices.get(f"pl::{ev.get('home_team')}::-1.5"),
+                "away_pl_+1.5": prices.get(f"pl::{ev.get('away_team')}::1.5"),
+                "home_ml_book": book.get("key"),
+                "away_ml_book": book.get("key"),
+                "over_book": book.get("key"),
+                "under_book": book.get("key"),
+                "home_pl_-1.5_book": book.get("key"),
+                "away_pl_+1.5_book": book.get("key"),
+            }
+            records.append(row)
+        except Exception:
+            continue
+    if not records:
+        return {"status": "no-odds", "date": date}
+
+    odds = pd.DataFrame.from_records(records)
+    odds["home_norm"] = odds["home"].apply(norm_team)
+    odds["away_norm"] = odds["away"].apply(norm_team)
+
+    # Prepare predictions frame for matching and update
+    updated_rows = 0
+    updated_fields = 0
+    df = df.copy()
+    df["home_norm"] = df["home"].apply(norm_team)
+    df["away_norm"] = df["away"].apply(norm_team)
+
+    # Optionally skip started games (based on date only here; deeper start-time aware logic omitted)
+    # We keep simple date gating; predictions typically align to slate date.
+
+    for idx, r in df.iterrows():
+        m = odds[(odds["home_norm"] == r.get("home_norm")) & (odds["away_norm"] == r.get("away_norm"))]
+        if m.empty:
+            # try reversed
+            m = odds[(odds["home_norm"] == r.get("away_norm")) & (odds["away_norm"] == r.get("home_norm"))]
+        if m.empty:
+            continue
+        o = m.iloc[0]
+        before = updated_fields
+        def set_val(dst, val):
+            nonlocal updated_fields
+            if val is None or (isinstance(val, float) and pd.isna(val)):
+                return
+            cur = df.at[idx, dst] if dst in df.columns else None
+            if backfill:
+                if cur is None or (isinstance(cur, float) and pd.isna(cur)):
+                    df.at[idx, dst] = val
+                    updated_fields += 1
+            else:
+                if str(cur) != str(val):
+                    df.at[idx, dst] = val
+                    updated_fields += 1
+        for col, val in [
+            ("home_ml_odds", o.get("home_ml")),
+            ("away_ml_odds", o.get("away_ml")),
+            ("over_odds", o.get("over")),
+            ("under_odds", o.get("under")),
+            ("total_line_used", o.get("total_line")),
+            ("home_pl_-1.5_odds", o.get("home_pl_-1.5")),
+            ("away_pl_+1.5_odds", o.get("away_pl_+1.5")),
+            ("home_ml_book", o.get("home_ml_book")),
+            ("away_ml_book", o.get("away_ml_book")),
+            ("over_book", o.get("over_book")),
+            ("under_book", o.get("under_book")),
+            ("home_pl_-1.5_book", o.get("home_pl_-1.5_book")),
+            ("away_pl_+1.5_book", o.get("away_pl_+1.5_book")),
+        ]:
+            set_val(col, val)
+        if updated_fields > before:
+            updated_rows += 1
+    # Persist if any updates
+    if updated_fields > 0:
+        df.to_csv(pred_path, index=False)
+        try:
+            _gh_upsert_file_if_configured(pred_path, f"web: update predictions with fresh OddsAPI odds for {date}")
+        except Exception:
+            pass
+    return {"status": "ok", "date": date, "updated_rows": int(updated_rows), "updated_fields": int(updated_fields)}
+
+
 @app.get("/api/refresh-odds-light")
 async def api_refresh_odds_light(
     date: Optional[str] = Query(None),
@@ -5744,8 +5922,8 @@ async def api_refresh_odds_light(
     """Lightweight odds refresh that DOES NOT run models.
 
     - Ensures predictions_{date}.csv exists locally (uses GitHub fallback if available)
-    - Fetches Bovada odds and injects into predictions file
-    - Recomputes EV/edges/recommendations from existing model probabilities
+    - Fetches The Odds API odds and injects into predictions file
+    - Recomputes EV/edges/recommendations from existing model probabilities ONLY if odds changed
     """
     d = date or _today_ymd()
     # Skip refresh during live slates unless explicitly allowed
@@ -5754,9 +5932,11 @@ async def api_refresh_odds_light(
             return JSONResponse({"status": "skipped-live", "date": d, "message": "Live games in progress; light odds refresh skipped."}, status_code=200)
     except Exception:
         pass
-    summary = _inject_bovada_odds_into_predictions(d, backfill=backfill)
+    summary = _inject_oddsapi_odds_into_predictions(d, backfill=backfill)
+    # Recompute only when odds actually changed
     try:
-        await _recompute_edges_and_recommendations(d)
+        if isinstance(summary, dict) and int(summary.get("updated_fields") or 0) > 0:
+            await _recompute_edges_and_recommendations(d)
     except Exception:
         pass
     return JSONResponse({"status": "ok", **(summary or { }), "date": d})
@@ -5773,17 +5953,19 @@ def _refresh_props_recommendations(date: str, min_ev: float = 0.0, top: int = 20
     import numpy as _np
     from scipy.stats import poisson as _poisson
     d = _normalize_date_param(date)
-    # Load canonical lines (parquet), prefer local; GH fallback allowed in cron
+    # Load canonical lines (ONLY OddsAPI), prefer local; GH fallback allowed in cron
     base = PROC_DIR.parent / "props" / f"player_props_lines/date={d}"
     parts = []
-    for fname in ("bovada.parquet","oddsapi.parquet"):
+    local_line_files = []
+    for fname in ("oddsapi.parquet",):
         p = base / fname
         if p.exists():
+            local_line_files.append(p)
             try:
                 parts.append(pd.read_parquet(p, engine="pyarrow"))
             except Exception:
                 pass
-        elif True:
+        else:
             try:
                 ghp = _github_raw_read_parquet(f"data/props/player_props_lines/date={d}/{fname}")
                 if ghp is not None and not ghp.empty:
@@ -5793,6 +5975,22 @@ def _refresh_props_recommendations(date: str, min_ev: float = 0.0, top: int = 20
     if not parts:
         return {"ok": False, "date": d, "reason": "no_lines"}
     lines = pd.concat(parts, ignore_index=True)
+    # Change detection: if local recommendations exist and line files are not newer, skip recompute
+    try:
+        rec_path = PROC_DIR / f"props_recommendations_{d}.csv"
+        if local_line_files and rec_path.exists():
+            import os as _os
+            mx = max(_os.path.getmtime(str(p)) for p in local_line_files)
+            rec_m = _os.path.getmtime(str(rec_path))
+            if rec_m >= mx:
+                try:
+                    old = _read_csv_fallback(rec_path)
+                    rows = int(len(old)) if old is not None and not old.empty else 0
+                except Exception:
+                    rows = 0
+                return {"ok": True, "date": d, "rows": rows, "skipped": True, "reason": "unchanged-lines"}
+    except Exception:
+        pass
     # Load projections_all
     proj = None
     try:
@@ -5923,16 +6121,19 @@ async def api_cron_light_refresh(
     except Exception:
         pass
     out = {"date": d}
-    # Update team odds from Bovada into predictions (best-effort)
+    # Update team odds from OddsAPI into predictions (best-effort)
     try:
-        out["odds"] = _inject_bovada_odds_into_predictions(d, backfill=True, skip_started=True)
+        out["odds"] = _inject_oddsapi_odds_into_predictions(d, backfill=True, skip_started=True)
     except Exception as e:
         out["odds"] = {"status": "error", "error": str(e)}
-    # Recompute edges/recommendations for team markets
+    # Recompute edges/recommendations for team markets only if odds changed and requested
     if int(do_edges) == 1:
         try:
-            await _recompute_edges_and_recommendations(d)
-            out["edges"] = {"ok": True}
+            if isinstance(out.get("odds"), dict) and int(out["odds"].get("updated_fields") or 0) > 0:
+                await _recompute_edges_and_recommendations(d)
+                out["edges"] = {"ok": True}
+            else:
+                out["edges"] = {"ok": True, "skipped": True, "reason": "unchanged-odds"}
         except Exception as e:
             out["edges"] = {"ok": False, "error": str(e)}
     # Refresh player props recommendations from canonical lines

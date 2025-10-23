@@ -5806,7 +5806,7 @@ async def api_refresh_odds_light(
 def _refresh_props_recommendations(date: str, min_ev: float = 0.0, top: int = 200) -> dict:
     """Recompute props_recommendations_{date}.csv from canonical lines + precomputed lambdas.
 
-    - Reads data/props/player_props_lines/date=YYYY-MM-DD/{bovada,oddsapi}.parquet (local first; GH raw fallback)
+    - Reads data/props/player_props_lines/date=YYYY-MM-DD/oddsapi.parquet (local first; GH raw fallback)
     - Reads data/processed/props_projections_all_{date}.csv (local first; GH raw fallback)
     - Computes EV vectorized (no history scans), writes CSV, upserts to GitHub
     """
@@ -7658,7 +7658,7 @@ async def api_cron_props_full(
 ):
     """Secure endpoint to run the full props pipeline for a date:
 
-    1) Collect canonical lines from Bovada and Odds API (with roster enrichment)
+    1) Collect canonical lines from The Odds API (with roster enrichment)
     2) Compute props projections CSV
     3) Compute props recommendations CSV
 
@@ -7680,7 +7680,7 @@ async def api_cron_props_full(
     if async_run:
         d_local = d
         def _run_full():
-            # Collect lines (bovada + oddsapi)
+            # Collect lines (oddsapi only)
             from ..data import player_props as props_data
             base = PROC_DIR.parent / "props" / f"player_props_lines/date={d_local}"
             base.mkdir(parents=True, exist_ok=True)
@@ -7689,7 +7689,7 @@ async def api_cron_props_full(
             except Exception:
                 step_timeout = 90
             from concurrent.futures import ThreadPoolExecutor, TimeoutError as _FutTimeout
-            for which, src in (("bovada", "bovada"), ("oddsapi", "oddsapi")):
+            for which, src in (("oddsapi", "oddsapi"),):
                 try:
                     cfg = props_data.PropsCollectionConfig(output_root=str(PROC_DIR.parent / "props"), book=which, source=src)
                     try:
@@ -8199,7 +8199,7 @@ async def api_props_projections_history_json(
         d = _normalize_date_param(date)
         base = PROC_DIR.parent / 'props' / f'player_props_lines/date={d}'
         parts = []
-        for fname in ('bovada.parquet','oddsapi.parquet'):
+        for fname in ('oddsapi.parquet',):
             p = base / fname
             if p.exists():
                 try:

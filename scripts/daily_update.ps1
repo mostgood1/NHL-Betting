@@ -11,6 +11,13 @@ Param(
 $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot = Split-Path -Parent $ScriptDir
+$NpuScript = Join-Path $RepoRoot "activate_npu.ps1"
+
+# Ensure QNN env (optional). Dot-source if available so QNN EP is found in this session.
+if (Test-Path $NpuScript) {
+  . $NpuScript
+}
+
 $Venv = Join-Path $RepoRoot ".venv"
 $Activate = Join-Path $Venv "Scripts/Activate.ps1"
 if (-not (Test-Path $Activate)) { python -m venv $Venv }

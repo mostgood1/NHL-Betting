@@ -6,7 +6,9 @@ Param(
   [switch]$BootstrapModels,
   [double]$TrendsDecay = 0.98,
   [switch]$ResetTrends,
-  [switch]$SkipProps
+  [switch]$SkipProps,
+  [switch]$SkipPropsProjections,
+  [switch]$SkipPropsCalibration
 )
 $ErrorActionPreference = "Stop"
 
@@ -32,6 +34,10 @@ if (-not (Test-Path $Activate)) { python -m venv $Venv }
 
 # Enable NPU-accelerated NN model precomputation for props
 $env:PROPS_PRECOMPUTE_ALL = "1"
+
+# Optional: allow callers to skip heavy props projections or calibration via switches
+if ($SkipPropsProjections) { $env:PROPS_SKIP_PROJECTIONS = '1' }
+if ($SkipPropsCalibration) { $env:SKIP_PROPS_CALIBRATION = '1' }
 
 # Ensure dependencies
 pip install -q -r (Join-Path $RepoRoot "requirements.txt")

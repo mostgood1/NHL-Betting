@@ -6067,6 +6067,13 @@ async def props_recommendations_page(
     
     date = date or _today_ymd()
     read_only_ui = _read_only(date)
+    # Local, early name normalizer for use before later helper definitions
+    def _norm_nm(x: str) -> str:
+        try:
+            s = str(x or "").strip()
+            return " ".join(s.split())
+        except Exception:
+            return str(x)
     df = pd.DataFrame()
     # Prefer local cache; otherwise try GitHub raw for today's file
     try:
@@ -6103,7 +6110,7 @@ async def props_recommendations_page(
         if proj_df is not None and not proj_df.empty and {'player','market','proj_lambda'}.issubset(set(proj_df.columns)):
             cols = ['player','market','proj_lambda'] + (["team"] if 'team' in proj_df.columns else [])
             tmp = proj_df.dropna(subset=['player','market'])[cols].copy()
-            tmp['player_norm'] = tmp['player'].astype(str).map(_norm_name)
+            tmp['player_norm'] = tmp['player'].astype(str).map(_norm_nm)
             tmp['market_u'] = tmp['market'].astype(str).str.upper()
             for _, rr in tmp.iterrows():
                 try:
@@ -7276,7 +7283,7 @@ async def props_recommendations_page(
                 # Inject projection-only markets (no lines) so the UI can show SOG/Goals/Assists/Points even without prices
                 try:
                     # First try direct normalized-name lookup
-                    pmap = proj_map.get(_norm_name(player), {}) if proj_map else {}
+                    pmap = proj_map.get(_norm_nm(player), {}) if proj_map else {}
                     # If not found, attempt last-name + team fallback
                     if (not pmap) and proj_map_by_last_team:
                         try:

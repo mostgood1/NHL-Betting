@@ -868,6 +868,21 @@ def archive_finals_for_date(date: str, verbose: bool = False) -> dict:
     for c in need_cols:
         if c not in df.columns:
             df[c] = pd.NA
+    # Set stable dtypes to avoid FutureWarnings when assigning string/bool into float columns
+    try:
+        if "winner_model" in df.columns:
+            df["winner_model"] = df["winner_model"].astype("object")
+        if "winner_correct" in df.columns:
+            # nullable boolean to allow NA
+            df["winner_correct"] = df["winner_correct"].astype("boolean")
+        if "result_total" in df.columns:
+            df["result_total"] = df["result_total"].astype("object")
+        if "result_ats" in df.columns:
+            df["result_ats"] = df["result_ats"].astype("object")
+        if "game_state" in df.columns:
+            df["game_state"] = df["game_state"].astype("object")
+    except Exception:
+        pass
     import math
     changed = 0
     for idx, r in df.iterrows():
@@ -1012,7 +1027,41 @@ def reconcile_date(date: str, bankroll: float = 1000.0, flat_stake: float = 100.
         price = r.get(close_key)
         if price is None or (isinstance(price, float) and pd.isna(price)):
             price = r.get(price_key)
-        res = r.get(result_field) if result_field else None
+        # Resolve result into win/loss/push when possible
+        res_raw = r.get(result_field) if result_field else None
+        res = None
+        try:
+            if market == "totals":
+                # result_total is Over/Under/Push
+                if isinstance(res_raw, str) and res_raw:
+                    rl = res_raw.strip().lower()
+                    if rl == "push":
+                        res = "push"
+                    elif bet == "over":
+                        res = "win" if rl == "over" else "loss"
+                    elif bet == "under":
+                        res = "win" if rl == "under" else "loss"
+            elif market == "puckline":
+                # result_ats is home_-1.5 or away_+1.5
+                if isinstance(res_raw, str) and res_raw:
+                    rl = res_raw.strip().lower()
+                    if bet == "home_pl_-1.5":
+                        res = "win" if rl == "home_-1.5" else "loss"
+                    elif bet == "away_pl_+1.5":
+                        res = "win" if rl == "away_+1.5" else "loss"
+            elif market == "moneyline":
+                # Use winner_actual vs sides; treat draw as push
+                wa = r.get("winner_actual")
+                if isinstance(wa, str) and wa:
+                    if wa.lower() == "draw":
+                        res = "push"
+                    else:
+                        if bet == "home_ml":
+                            res = "win" if wa == r.get("home") else "loss"
+                        elif bet == "away_ml":
+                            res = "win" if wa == r.get("away") else "loss"
+        except Exception:
+            res = res_raw if isinstance(res_raw, str) else None
         picks.append({
             "date": r.get("date"),
             "home": r.get("home"),
@@ -1021,7 +1070,7 @@ def reconcile_date(date: str, bankroll: float = 1000.0, flat_stake: float = 100.
             "bet": bet,
             "ev": evf,
             "price": price,
-            "result": res,
+            "result": res if res is not None else (res_raw if isinstance(res_raw, str) else None),
         })
     for _, r in df.iterrows():
         add_pick(r, "moneyline", "home_ml", "ev_home_ml", "home_ml_odds", None)
@@ -1095,7 +1144,8 @@ def reconcile_date(date: str, bankroll: float = 1000.0, flat_stake: float = 100.
         keys = ["date","home","away","market","bet"]
         if not log_df.empty:
             combined = pd.concat([log_df, rows_df], ignore_index=True)
-            combined = combined.drop_duplicates(subset=keys, keep="first")
+            # Keep the most recent (last) to allow corrections/updates when rerun
+            combined = combined.drop_duplicates(subset=keys, keep="last")
             combined.to_csv(log_path, index=False)
         else:
             rows_df.to_csv(log_path, index=False)

@@ -7286,6 +7286,18 @@ async def props_recommendations_page(
                                 pmap = proj_map_by_last_team.get((last, team_key), {})
                         except Exception:
                             pass
+                    # As a final fallback, try abbreviated forms like "J. Last" and dotless variant derived from full name
+                    if (not pmap) and proj_map and isinstance(player, str) and player.strip():
+                        try:
+                            parts = player.strip().split()
+                            if len(parts) >= 2:
+                                ini = parts[0][0].upper()
+                                last_tok = parts[-1]
+                                abbr = f"{ini}. {last_tok}"
+                                abbr_nodot = f"{ini} {last_tok}"
+                                pmap = proj_map.get(abbr, {}) or proj_map.get(abbr_nodot, {}) or {}
+                        except Exception:
+                            pass
                     have = { (m.get('market') or '').upper() for m in markets }
                     for m_add in ['SOG','GOALS','ASSISTS','POINTS','SAVES','BLOCKS']:
                         if (m_add not in have) and (m_add in pmap):

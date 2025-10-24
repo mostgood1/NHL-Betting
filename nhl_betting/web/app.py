@@ -6053,6 +6053,7 @@ async def props_recommendations_page(
     sort: Optional[str] = Query(None, description="Grid sort: ev_desc, ev_asc, p_over_desc, p_over_asc, lambda_desc, lambda_asc, name, team, market, line, book"),
     page: int = Query(1, description="Grid page number (1-based)"),
     page_size: Optional[int] = Query(None, description="Grid rows per page (defaults PROPS_PAGE_SIZE)"),
+    dedupe: Optional[int] = Query(1, description="When 1 (default), show one row per player/team/market/line choosing best EV then best price"),
 ):
     """Card-style props recommendations page.
 
@@ -6233,6 +6234,64 @@ async def props_recommendations_page(
         try:
             if 'proj' in df_grid.columns and 'proj_lambda' not in df_grid.columns:
                 df_grid.rename(columns={'proj':'proj_lambda'}, inplace=True)
+        except Exception:
+            pass
+        # Dedupe to one row per player/team/market/line using best EV, tie-breaker by price for chosen side
+        try:
+            if int(dedupe) == 1 and not df_grid.empty:
+                # Ensure numeric comparables
+                for c in ('ev','over_price','under_price','line','p_over'):
+                    if c in df_grid.columns:
+                        df_grid[c] = pd.to_numeric(df_grid[c], errors='coerce')
+                # Effective price for the side
+                def _eff_price(row):
+                    try:
+                        sd = str(row.get('side') or 'Over').lower()
+                        if sd == 'over':
+                            return row.get('over_price')
+                        else:
+                            return row.get('under_price')
+                    except Exception:
+                        return None
+                df_grid['_price_for_side'] = df_grid.apply(_eff_price, axis=1)
+                # Price score: higher is better; plus money outranks negatives; among negatives, closer to 0 is better
+                def _price_score(v):
+                    try:
+                        if v is None or (isinstance(v, float) and np.isnan(v)):
+                            return -1e9
+                        v = float(v)
+                        if v >= 100:
+                            return 1000.0 + v
+                        else:
+                            return 1000.0 - abs(v)
+                    except Exception:
+                        return -1e9
+                df_grid['_price_score'] = df_grid['_price_for_side'].apply(_price_score)
+                # EV rank: prefer higher EV; missing EV very low
+                def _ev_rank(v):
+                    try:
+                        if v is None or (isinstance(v, float) and np.isnan(v)):
+                            return -1e9
+                        return float(v)
+                    except Exception:
+                        return -1e9
+                df_grid['_ev_rank'] = df_grid['ev'].apply(_ev_rank) if 'ev' in df_grid.columns else (-1e9)
+                # Sorting so first in each group is the best
+                sort_cols = ['_ev_rank','_price_score']
+                df_grid = df_grid.sort_values(by=sort_cols, ascending=[False, False])
+                # Group key
+                grp_keys = [c for c in ['player','team','market','line'] if c in df_grid.columns]
+                if not grp_keys:
+                    grp_keys = [c for c in ['player','market'] if c in df_grid.columns]
+                # Drop duplicates keeping the best (first after sort)
+                df_grid = df_grid.drop_duplicates(subset=grp_keys, keep='first')
+                # Clean helper cols
+                for c in ['_price_for_side','_price_score','_ev_rank']:
+                    if c in df_grid.columns:
+                        try:
+                            df_grid.drop(columns=[c], inplace=True)
+                        except Exception:
+                            pass
         except Exception:
             pass
         # Top cap (pre-pagination) + env cap

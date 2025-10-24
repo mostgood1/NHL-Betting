@@ -6095,22 +6095,48 @@ async def props_recommendations_page(
     # Load model-only projections for all players/markets strictly from precomputed CSVs
     # Never compute on this page when running on a public host or when compute is disabled.
     proj_map = {}
+    # Auxiliary index: last name + team -> markets map, to bridge abbreviated/full-name mismatches
+    proj_map_by_last_team: dict[tuple[str, str], dict[str, float]] = {}
     try:
         proj_df = _read_all_players_projections(date)
         # Do NOT compute fallback here; page must remain read-only on public hosts.
         if proj_df is not None and not proj_df.empty and {'player','market','proj_lambda'}.issubset(set(proj_df.columns)):
-            tmp = proj_df.dropna(subset=['player','market'])[['player','market','proj_lambda']].copy()
+            cols = ['player','market','proj_lambda'] + (["team"] if 'team' in proj_df.columns else [])
+            tmp = proj_df.dropna(subset=['player','market'])[cols].copy()
             tmp['player_norm'] = tmp['player'].astype(str).map(_norm_name)
             tmp['market_u'] = tmp['market'].astype(str).str.upper()
             for _, rr in tmp.iterrows():
                 try:
                     nm = rr.get('player_norm'); mk = rr.get('market_u'); val = rr.get('proj_lambda')
                     if nm and mk and pd.notna(val):
-                        proj_map.setdefault(nm, {})[mk] = float(val)
+                        v = float(val)
+                        # Primary key: normalized name
+                        proj_map.setdefault(nm, {})[mk] = v
+                        # Dotless abbreviated variant (e.g., "J. Doe" -> "J Doe")
+                        try:
+                            if "." in str(nm):
+                                nm_nodot = str(nm).replace(".", "").strip()
+                                if nm_nodot:
+                                    proj_map.setdefault(nm_nodot, {}).setdefault(mk, v)
+                        except Exception:
+                            pass
+                        # Last-name + team index for robust lookup
+                        try:
+                            team_abbr = str(rr.get('team') or '').strip().upper()
+                            last = str(nm).split()[-1].lower() if str(nm).split() else ''
+                            if team_abbr and last:
+                                key = (last, team_abbr)
+                                d = proj_map_by_last_team.setdefault(key, {})
+                                # Prefer not to overwrite an existing value for same market
+                                if mk not in d:
+                                    d[mk] = v
+                        except Exception:
+                            pass
                 except Exception:
                     continue
     except Exception:
         proj_map = {}
+        proj_map_by_last_team = {}
     # Normalize column names from CLI outputs (which may use ev_over/proj_lambda)
     try:
         if df is not None and not df.empty:
@@ -7249,7 +7275,17 @@ async def props_recommendations_page(
                         })
                 # Inject projection-only markets (no lines) so the UI can show SOG/Goals/Assists/Points even without prices
                 try:
+                    # First try direct normalized-name lookup
                     pmap = proj_map.get(_norm_name(player), {}) if proj_map else {}
+                    # If not found, attempt last-name + team fallback
+                    if (not pmap) and proj_map_by_last_team:
+                        try:
+                            last = str(player).strip().split()[-1].lower() if str(player).strip() else ''
+                            team_key = str(team_eff or '').strip().upper()
+                            if last and team_key:
+                                pmap = proj_map_by_last_team.get((last, team_key), {})
+                        except Exception:
+                            pass
                     have = { (m.get('market') or '').upper() for m in markets }
                     for m_add in ['SOG','GOALS','ASSISTS','POINTS','SAVES','BLOCKS']:
                         if (m_add not in have) and (m_add in pmap):

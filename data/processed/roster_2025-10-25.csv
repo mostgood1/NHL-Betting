@@ -156,7 +156,6 @@ player_id,player,full_name,position,team_id,team_abbr,team_name,image_url
 8475343,Nic Dowd,Nic Dowd,F,,WSH,Washington Capitals,https://assets.nhle.com/mugs/nhl/20252026/WSH/8475343.png
 8479400,Pierre-Luc Dubois,Pierre-Luc Dubois,F,,WSH,Washington Capitals,https://assets.nhle.com/mugs/nhl/20252026/WSH/8479400.png
 8479520,Brandon Duhaime,Brandon Duhaime,F,,WSH,Washington Capitals,https://assets.nhle.com/mugs/nhl/20252026/WSH/8479520.png
-8483573,Ethen Frank,Ethen Frank,F,,WSH,Washington Capitals,https://assets.nhle.com/mugs/nhl/20252026/WSH/8483573.png
 8482148,Hendrix Lapierre,Hendrix Lapierre,F,,WSH,Washington Capitals,https://assets.nhle.com/mugs/nhl/20252026/WSH/8482148.png
 8484186,Ryan Leonard,Ryan Leonard,F,,WSH,Washington Capitals,https://assets.nhle.com/mugs/nhl/20252026/WSH/8484186.png
 8481580,Connor McMichael,Connor McMichael,F,,WSH,Washington Capitals,https://assets.nhle.com/mugs/nhl/20252026/WSH/8481580.png
@@ -420,6 +419,7 @@ player_id,player,full_name,position,team_id,team_abbr,team_name,image_url
 8479425,Filip Hronek,Filip Hronek,D,,VAN,Vancouver Canucks,https://assets.nhle.com/mugs/nhl/20252026/VAN/8479425.png
 8480800,Quinn Hughes,Quinn Hughes,D,,VAN,Vancouver Canucks,https://assets.nhle.com/mugs/nhl/20252026/VAN/8480800.png
 8480058,P.O Joseph,P.O Joseph,D,,VAN,Vancouver Canucks,https://assets.nhle.com/mugs/nhl/20252026/VAN/8480058.png
+8483768,Victor Mancini,Victor Mancini,D,,VAN,Vancouver Canucks,https://assets.nhle.com/mugs/nhl/20252026/VAN/8483768.png
 8474574,Tyler Myers,Tyler Myers,D,,VAN,Vancouver Canucks,https://assets.nhle.com/mugs/nhl/20252026/VAN/8474574.png
 8483678,Elias Pettersson,Elias Pettersson,D,,VAN,Vancouver Canucks,https://assets.nhle.com/mugs/nhl/20252026/VAN/8483678.png
 8477969,Marcus Pettersson,Marcus Pettersson,D,,VAN,Vancouver Canucks,https://assets.nhle.com/mugs/nhl/20252026/VAN/8477969.png
@@ -766,7 +766,6 @@ player_id,player,full_name,position,team_id,team_abbr,team_name,image_url
 8480028,Morgan Frost,Morgan Frost,F,,CGY,Calgary Flames,https://assets.nhle.com/mugs/nhl/20252026/CGY/8480028.png
 8484180,Samuel Honzek,Samuel Honzek,F,,CGY,Calgary Flames,https://assets.nhle.com/mugs/nhl/20252026/CGY/8484180.png
 8476456,Jonathan Huberdeau,Jonathan Huberdeau,F,,CGY,Calgary Flames,https://assets.nhle.com/mugs/nhl/20252026/CGY/8476456.png
-8478211,Dryden Hunt,Dryden Hunt,F,,CGY,Calgary Flames,https://assets.nhle.com/mugs/nhl/20252026/CGY/8478211.png
 8475172,Nazem Kadri,Nazem Kadri,F,,CGY,Calgary Flames,https://assets.nhle.com/mugs/nhl/20252026/CGY/8475172.png
 8477993,Justin Kirkland,Justin Kirkland,F,,CGY,Calgary Flames,https://assets.nhle.com/mugs/nhl/20252026/CGY/8477993.png
 8483609,Adam Klapka,Adam Klapka,F,,CGY,Calgary Flames,https://assets.nhle.com/mugs/nhl/20252026/CGY/8483609.png

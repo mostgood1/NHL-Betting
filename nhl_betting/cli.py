@@ -787,6 +787,7 @@ def predict_core(
         # Per-game total line: use odds total_line if available, else provided total_line
         per_game_total = total_line
         match_info = None  # store the matched odds row for later EV/edge calc
+        match_reversed = False  # whether matched odds row has home/away reversed vs schedule
         if odds_df is not None:
             # Use ET calendar day for matching (Bovada odds are keyed to ET date)
             key_date = iso_to_et_date(getattr(g, "gameDate")) or pd.to_datetime(g.gameDate).strftime("%Y-%m-%d")
@@ -819,7 +820,22 @@ def predict_core(
                 if m.empty:
                     m = odds_df[(odds_df["home_norm"] == g_away_n) & (odds_df["away_norm"] == g_home_n)]
             if not m.empty:
-                match_info = m.iloc[0].to_dict()
+                rec = m.iloc[0].to_dict()
+                # Detect if matched row sides align with schedule; if not, mark reversed
+                try:
+                    mh_abbr = str(rec.get("home_abbr") or "").upper()
+                    ma_abbr = str(rec.get("away_abbr") or "").upper()
+                    if mh_abbr and ma_abbr and g_home_abbr and g_away_abbr:
+                        match_reversed = not (mh_abbr == g_home_abbr and ma_abbr == g_away_abbr)
+                    else:
+                        # Fallback: compare normalized names
+                        mh_n = str(rec.get("home_norm") or "").strip()
+                        ma_n = str(rec.get("away_norm") or "").strip()
+                        match_reversed = not (mh_n == g_home_n and ma_n == g_away_n)
+                except Exception:
+                    match_reversed = False
+                rec["_reversed_vs_schedule"] = match_reversed
+                match_info = rec
                 if "total_line" in match_info:
                     val = match_info.get("total_line")
                     try:
@@ -1083,8 +1099,12 @@ def predict_core(
         if match_info is not None:
             # Moneyline
             if "home_ml" in match_info or "away_ml" in match_info:
-                dec_home = american_to_decimal(_f(match_info.get("home_ml"))) if match_info.get("home_ml") is not None else None
-                dec_away = american_to_decimal(_f(match_info.get("away_ml"))) if match_info.get("away_ml") is not None else None
+                # If matched odds row is reversed vs schedule, swap home/away mapping
+                _rev = bool(match_info.get("_reversed_vs_schedule"))
+                _home_ml_src = "away_ml" if _rev else "home_ml"
+                _away_ml_src = "home_ml" if _rev else "away_ml"
+                dec_home = american_to_decimal(_f(match_info.get(_home_ml_src))) if match_info.get(_home_ml_src) is not None else None
+                dec_away = american_to_decimal(_f(match_info.get(_away_ml_src))) if match_info.get(_away_ml_src) is not None else None
                 if dec_home is not None and dec_away is not None:
                     imp_h = decimal_to_implied_prob(dec_home)
                     imp_a = decimal_to_implied_prob(dec_away)
@@ -1093,12 +1113,15 @@ def predict_core(
                     row["ev_away_ml"] = round(ev_unit(row["p_away_ml"], dec_away), 4)
                     row["edge_home_ml"] = round(row["p_home_ml"] - nv_h, 4)
                     row["edge_away_ml"] = round(row["p_away_ml"] - nv_a, 4)
-                row["home_ml_odds"] = _f(match_info.get("home_ml")) if match_info.get("home_ml") is not None else None
-                row["away_ml_odds"] = _f(match_info.get("away_ml")) if match_info.get("away_ml") is not None else None
-                if match_info.get("home_ml_book") is not None:
-                    row["home_ml_book"] = match_info.get("home_ml_book")
-                if match_info.get("away_ml_book") is not None:
-                    row["away_ml_book"] = match_info.get("away_ml_book")
+                # Assign odds and books respecting reversal
+                row["home_ml_odds"] = _f(match_info.get(_home_ml_src)) if match_info.get(_home_ml_src) is not None else None
+                row["away_ml_odds"] = _f(match_info.get(_away_ml_src)) if match_info.get(_away_ml_src) is not None else None
+                _home_ml_book_src = ("away_ml_book" if _rev else "home_ml_book")
+                _away_ml_book_src = ("home_ml_book" if _rev else "away_ml_book")
+                if match_info.get(_home_ml_book_src) is not None:
+                    row["home_ml_book"] = match_info.get(_home_ml_book_src)
+                if match_info.get(_away_ml_book_src) is not None:
+                    row["away_ml_book"] = match_info.get(_away_ml_book_src)
                 if bankroll > 0 and dec_home is not None and dec_away is not None:
                     row["stake_home_ml"] = round(kelly_stake(row["p_home_ml"], dec_home, bankroll, kelly_fraction_part), 2)
                     row["stake_away_ml"] = round(kelly_stake(row["p_away_ml"], dec_away, bankroll, kelly_fraction_part), 2)
@@ -1127,25 +1150,29 @@ def predict_core(
 
             # Puck line (home -1.5 / away +1.5)
             if (match_info.get("home_pl_-1.5") is not None) and (match_info.get("away_pl_+1.5") is not None):
-                dec_hpl = american_to_decimal(_f(match_info.get("home_pl_-1.5")))
-                dec_apl = american_to_decimal(_f(match_info.get("away_pl_+1.5")))
-                if dec_hpl is not None and dec_apl is not None:
-                    imp_hpl = decimal_to_implied_prob(dec_hpl)
-                    imp_apl = decimal_to_implied_prob(dec_apl)
-                    nv_hpl, nv_apl = remove_vig_two_way(imp_hpl, imp_apl)
-                    row["ev_home_pl_-1.5"] = round(ev_unit(row["p_home_pl_-1.5"], dec_hpl), 4)
-                    row["ev_away_pl_+1.5"] = round(ev_unit(row["p_away_pl_+1.5"], dec_apl), 4)
-                    row["edge_home_pl_-1.5"] = round(row["p_home_pl_-1.5"] - nv_hpl, 4)
-                    row["edge_away_pl_+1.5"] = round(row["p_away_pl_+1.5"] - nv_apl, 4)
-                row["home_pl_-1.5_odds"] = _f(match_info.get("home_pl_-1.5"))
-                row["away_pl_+1.5_odds"] = _f(match_info.get("away_pl_+1.5"))
-                if match_info.get("home_pl_-1.5_book") is not None:
-                    row["home_pl_-1.5_book"] = match_info.get("home_pl_-1.5_book")
-                if match_info.get("away_pl_+1.5_book") is not None:
-                    row["away_pl_+1.5_book"] = match_info.get("away_pl_+1.5_book")
-                if bankroll > 0 and dec_hpl is not None and dec_apl is not None:
-                    row["stake_home_pl_-1.5"] = round(kelly_stake(row["p_home_pl_-1.5"], dec_hpl, bankroll, kelly_fraction_part), 2)
-                    row["stake_away_pl_+1.5"] = round(kelly_stake(row["p_away_pl_+1.5"], dec_apl, bankroll, kelly_fraction_part), 2)
+                _rev = bool(match_info.get("_reversed_vs_schedule"))
+                # If reversed vs schedule, we cannot reliably map -1.5 for schedule home from the flattened row.
+                # To avoid misleading prices, only compute/display PL EV/prices when sides align.
+                if not _rev:
+                    dec_hpl = american_to_decimal(_f(match_info.get("home_pl_-1.5")))
+                    dec_apl = american_to_decimal(_f(match_info.get("away_pl_+1.5")))
+                    if dec_hpl is not None and dec_apl is not None:
+                        imp_hpl = decimal_to_implied_prob(dec_hpl)
+                        imp_apl = decimal_to_implied_prob(dec_apl)
+                        nv_hpl, nv_apl = remove_vig_two_way(imp_hpl, imp_apl)
+                        row["ev_home_pl_-1.5"] = round(ev_unit(row["p_home_pl_-1.5"], dec_hpl), 4)
+                        row["ev_away_pl_+1.5"] = round(ev_unit(row["p_away_pl_+1.5"], dec_apl), 4)
+                        row["edge_home_pl_-1.5"] = round(row["p_home_pl_-1.5"] - nv_hpl, 4)
+                        row["edge_away_pl_+1.5"] = round(row["p_away_pl_+1.5"] - nv_apl, 4)
+                    row["home_pl_-1.5_odds"] = _f(match_info.get("home_pl_-1.5"))
+                    row["away_pl_+1.5_odds"] = _f(match_info.get("away_pl_+1.5"))
+                    if match_info.get("home_pl_-1.5_book") is not None:
+                        row["home_pl_-1.5_book"] = match_info.get("home_pl_-1.5_book")
+                    if match_info.get("away_pl_+1.5_book") is not None:
+                        row["away_pl_+1.5_book"] = match_info.get("away_pl_+1.5_book")
+                    if bankroll > 0 and dec_hpl is not None and dec_apl is not None:
+                        row["stake_home_pl_-1.5"] = round(kelly_stake(row["p_home_pl_-1.5"], dec_hpl, bankroll, kelly_fraction_part), 2)
+                        row["stake_away_pl_+1.5"] = round(kelly_stake(row["p_away_pl_+1.5"], dec_apl, bankroll, kelly_fraction_part), 2)
 
         rows.append(row)
     out = pd.DataFrame(rows)

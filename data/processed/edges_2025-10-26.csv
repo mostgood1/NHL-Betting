@@ -1,0 +1,41 @@
+date,home,away,market,ev
+2025-10-26T21:00:00Z,Tampa Bay Lightning,Vegas Golden Knights,ev_away_ml,0.3398
+2025-10-26T22:00:00Z,Winnipeg Jets,Utah Mammoth,ev_over,0.2348
+2025-10-26T22:00:00Z,Minnesota Wild,San Jose Sharks,ev_home_ml,0.1843
+2025-10-26T17:00:00Z,New Jersey Devils,Colorado Avalanche,ev_over,0.1783
+2025-10-26T21:00:00Z,Tampa Bay Lightning,Vegas Golden Knights,ev_over,0.1511
+2025-10-26T21:00:00Z,Tampa Bay Lightning,Vegas Golden Knights,ev_home_pl_-1.5,0.1391
+2025-10-26T22:00:00Z,Winnipeg Jets,Utah Mammoth,ev_away_ml,0.1094
+2025-10-27T00:00:00Z,Calgary Flames,New York Rangers,ev_over,0.0971
+2025-10-26T23:00:00Z,Nashville Predators,Dallas Stars,ev_away_ml,0.0837
+2025-10-26T22:00:00Z,Minnesota Wild,San Jose Sharks,ev_away_pl_+1.5,0.0624
+2025-10-27T00:00:00Z,Calgary Flames,New York Rangers,ev_away_ml,0.0431
+2025-10-26T22:00:00Z,Minnesota Wild,San Jose Sharks,ev_over,0.042
+2025-10-26T23:00:00Z,Nashville Predators,Dallas Stars,ev_over,0.0142
+2025-10-26T23:00:00Z,Chicago Blackhawks,Los Angeles Kings,ev_over,0.0134
+2025-10-26T23:00:00Z,Chicago Blackhawks,Los Angeles Kings,ev_away_ml,0.0076
+2025-10-26T17:00:00Z,New Jersey Devils,Colorado Avalanche,ev_away_ml,-0.0015
+2025-10-27T02:00:00Z,Vancouver Canucks,Edmonton Oilers,ev_home_ml,-0.0036
+2025-10-26T22:00:00Z,Winnipeg Jets,Utah Mammoth,ev_home_pl_-1.5,-0.027
+2025-10-26T17:00:00Z,New Jersey Devils,Colorado Avalanche,ev_away_pl_+1.5,-0.0307
+2025-10-27T02:00:00Z,Vancouver Canucks,Edmonton Oilers,ev_over,-0.04
+2025-10-27T02:00:00Z,Vancouver Canucks,Edmonton Oilers,ev_under,-0.0402
+2025-10-26T22:00:00Z,Winnipeg Jets,Utah Mammoth,ev_away_pl_+1.5,-0.0483
+2025-10-26T17:00:00Z,New Jersey Devils,Colorado Avalanche,ev_home_pl_-1.5,-0.0592
+2025-10-27T02:00:00Z,Vancouver Canucks,Edmonton Oilers,ev_away_ml,-0.0677
+2025-10-26T17:00:00Z,New Jersey Devils,Colorado Avalanche,ev_home_ml,-0.072
+2025-10-26T23:00:00Z,Nashville Predators,Dallas Stars,ev_under,-0.1038
+2025-10-26T23:00:00Z,Chicago Blackhawks,Los Angeles Kings,ev_under,-0.1056
+2025-10-26T23:00:00Z,Chicago Blackhawks,Los Angeles Kings,ev_home_ml,-0.107
+2025-10-26T22:00:00Z,Minnesota Wild,San Jose Sharks,ev_under,-0.115
+2025-10-26T21:00:00Z,Tampa Bay Lightning,Vegas Golden Knights,ev_away_pl_+1.5,-0.1207
+2025-10-27T00:00:00Z,Calgary Flames,New York Rangers,ev_home_ml,-0.1381
+2025-10-26T22:00:00Z,Winnipeg Jets,Utah Mammoth,ev_home_ml,-0.143
+2025-10-26T22:00:00Z,Minnesota Wild,San Jose Sharks,ev_home_pl_-1.5,-0.1715
+2025-10-27T00:00:00Z,Calgary Flames,New York Rangers,ev_under,-0.1968
+2025-10-26T21:00:00Z,Tampa Bay Lightning,Vegas Golden Knights,ev_under,-0.2005
+2025-10-26T23:00:00Z,Nashville Predators,Dallas Stars,ev_home_ml,-0.2087
+2025-10-26T17:00:00Z,New Jersey Devils,Colorado Avalanche,ev_under,-0.3086
+2025-10-26T22:00:00Z,Winnipeg Jets,Utah Mammoth,ev_under,-0.347
+2025-10-26T21:00:00Z,Tampa Bay Lightning,Vegas Golden Knights,ev_home_ml,-0.4308
+2025-10-26T22:00:00Z,Minnesota Wild,San Jose Sharks,ev_away_ml,-0.4867

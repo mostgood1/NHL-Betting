@@ -18,10 +18,23 @@ if (Test-Path $NpuScript) {
   . $NpuScript
 }
 
-$Venv = Join-Path $RepoRoot ".venv"
-$Activate = Join-Path $Venv "Scripts/Activate.ps1"
-if (-not (Test-Path $Activate)) { python -m venv $Venv }
-. $Activate
+# Ensure ARM64 venv and activate
+try {
+  $Ensure = Join-Path $RepoRoot 'ensure_arm64_venv.ps1'
+  if (Test-Path $Ensure) {
+    . $Ensure
+    $ok = Ensure-Arm64Venv -RepoRoot $RepoRoot -Activate
+    if (-not $ok) { Write-Warning '[ARM64] Proceeding with existing venv (may be x64); QNN EP likely unavailable.'; . (Join-Path $RepoRoot '.venv/Scripts/Activate.ps1') }
+  } else {
+    # Fallback: legacy behavior
+    $Venv = Join-Path $RepoRoot ".venv"
+    $Activate = Join-Path $Venv "Scripts/Activate.ps1"
+    if (-not (Test-Path $Activate)) { python -m venv $Venv }
+    . $Activate
+  }
+} catch {
+  Write-Warning "[ARM64] Failed to enforce ARM64 venv: $($_.Exception.Message)"; . (Join-Path $RepoRoot '.venv/Scripts/Activate.ps1')
+}
 pip install -q -r (Join-Path $RepoRoot "requirements.txt")
 # Run daily update workflow
 $argsList = @("-m", "nhl_betting.scripts.daily_update", "--days-ahead", "$DaysAhead", "--years-back", "$YearsBack")

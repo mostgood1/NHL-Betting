@@ -12,21 +12,12 @@ $RepoRoot = Split-Path -Parent $ScriptDir
 
 Write-Host ("Repo root: {0}" -f $RepoRoot)
 
-# Ensure QNN env (optional) so ONNX Runtime can find QNN EP
+# Ensure QNN env (enforces ARM64 venv) so ONNX Runtime can find QNN EP
 $NpuScript = Join-Path $RepoRoot "activate_npu.ps1"
-if (Test-Path $NpuScript) { . $NpuScript }
-
-# Ensure venv exists
-$VenvPath = Join-Path $RepoRoot ".venv"
-$Activate = Join-Path $VenvPath "Scripts/Activate.ps1"
-if (-not (Test-Path $Activate)) {
-    Write-Host "Creating virtual environment at $VenvPath" -ForegroundColor Cyan
-    python -m venv $VenvPath
+if (Test-Path $NpuScript) { . $NpuScript } else {
+    $Ensure = Join-Path $RepoRoot 'ensure_arm64_venv.ps1'
+    if (Test-Path $Ensure) { . $Ensure; $null = Ensure-Arm64Venv -RepoRoot $RepoRoot -Activate }
 }
-
-# Activate venv
-Write-Host "Activating virtual environment..." -ForegroundColor Cyan
-. $Activate
 
 # Install deps if needed
 $Req = Join-Path $RepoRoot "requirements.txt"

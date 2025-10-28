@@ -6,13 +6,12 @@ $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot = Split-Path -Parent $ScriptDir
 
-# Source QNN env if available
+# Source QNN env and enforce ARM64 venv (activate by default)
 $NpuScript = Join-Path $RepoRoot "activate_npu.ps1"
-if (Test-Path $NpuScript) { . $NpuScript }
-
-# Activate venv if available
-$Venv = Join-Path $RepoRoot ".venv\Scripts\Activate.ps1"
-if (Test-Path $Venv) { . $Venv }
+if (Test-Path $NpuScript) { . $NpuScript } else {
+  $Ensure = Join-Path $RepoRoot 'ensure_arm64_venv.ps1'
+  if (Test-Path $Ensure) { . $Ensure; $null = Ensure-Arm64Venv -RepoRoot $RepoRoot -Activate }
+}
 
 # Execute the provided command in this prepared session
 if ($Cmd -and $Cmd.Count -gt 0) {

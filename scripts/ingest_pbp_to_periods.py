@@ -34,7 +34,24 @@ def _load_pbp_frames() -> list[pd.DataFrame]:
         raise FileNotFoundError(f"No pbp_*.parquet files in {PBP_DIR}")
     dfs: list[pd.DataFrame] = []
     for f in files:
-        df = pd.read_parquet(f)
+        # Prefer pandas parquet readers; fallback to DuckDB on platforms without pyarrow/fastparquet
+        try:
+            df = pd.read_parquet(f)
+        except Exception:
+            try:
+                import duckdb  # type: ignore
+                con = duckdb.connect(database=':memory:')
+                # Use parquet_scan to read file, then fetch into pandas
+                df = con.execute("SELECT * FROM parquet_scan(?)", [str(f)]).fetch_df()
+                con.close()
+            except Exception as e:
+                # Skip unreadable/corrupt parquet files gracefully
+                warnings.warn(f"[ingest] Skipping unreadable parquet {f.name}: {e}")
+                continue
+        # Skip empty/no-column frames
+        if not isinstance(df, pd.DataFrame) or len(df.columns) == 0 or len(df) == 0:
+            warnings.warn(f"[ingest] Skipping empty parquet {f.name}")
+            continue
         dfs.append(df)
     return dfs
 
@@ -232,18 +249,36 @@ def main():
             bj = base.copy()
             bj["home"] = bj["home"].astype(str).str.upper()
             bj["away"] = bj["away"].astype(str).str.upper()
+            # Normalize base date
             try:
                 bj["date_only"] = pd.to_datetime(bj["date"]).dt.strftime("%Y-%m-%d")
             except Exception:
                 bj["date_only"] = bj["date"].astype(str).str.slice(0,10)
+            # Build season string like 20232024 for base
+            bj["season_str_base"] = bj["season"].astype(str)
+
+            # Normalize PBP frame keys
             p = periods.copy()
             p["home"] = p["home"].astype(str).str.upper()
             p["away"] = p["away"].astype(str).str.upper()
             p["game_date"] = p["game_date"].astype(str).str.slice(0,10)
+            # Derive composite season string (e.g., 20232024) from game_date in PBP
+            # Season starts in July: for months >= 7, season_start = year; else year-1
+            def _derive_season_str(date_str: str) -> str:
+                try:
+                    dt = pd.to_datetime(date_str)
+                    y = dt.year
+                    m = dt.month
+                    start = y if m >= 7 else (y - 1)
+                    return f"{start}{start+1}"
+                except Exception:
+                    return ""
+            p["season_str_pbp"] = p["game_date"].map(_derive_season_str)
+
             merged = bj.merge(
                 p,
-                left_on=["season","date_only","home","away"],
-                right_on=["season","game_date","home","away"],
+                left_on=["season_str_base","date_only","home","away"],
+                right_on=["season_str_pbp","game_date","home","away"],
                 how="left",
                 suffixes=("", "_pbp")
             )

@@ -25,17 +25,13 @@ if (-not (Test-PortFree $chosen)) {
 
 Write-Host "Using port $chosen" -ForegroundColor Green
 
-# Ensure NPU env is configured (best-effort)
-if (Test-Path .\activate_npu.ps1) {
-  . .\activate_npu.ps1
+# Ensure NPU env is configured and ARM64 venv is enforced/activated
+if (Test-Path .\activate_npu.ps1) { . .\activate_npu.ps1 }
+else {
+  # Fallback to enforce ARM64 venv directly
+  $Ensure = Join-Path (Get-Location) 'ensure_arm64_venv.ps1'
+  if (Test-Path $Ensure) { . $Ensure; $null = Ensure-Arm64Venv -RepoRoot (Get-Location) -Activate }
 }
-
-if (-not (Test-Path .\.venv\Scripts\Activate.ps1)) {
-  Write-Host "Virtual environment not found (.venv). Create it first." -ForegroundColor Red
-  exit 1
-}
-
-. .\.venv\Scripts\Activate.ps1
 
 $env:UVICORN_WORKERS = 1
 $env:PYTHONUNBUFFERED = 1

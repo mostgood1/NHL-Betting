@@ -7,17 +7,13 @@ param(
 
 Write-Host "[pbp] Starting NHL PBP pipeline" -ForegroundColor Cyan
 
-# Resolve repo root and source NPU activation if present
+# Resolve repo root and source NPU activation (enforces ARM64 venv) if present
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot = Split-Path -Parent $ScriptDir
 $NpuScript = Join-Path $RepoRoot "activate_npu.ps1"
-if (Test-Path $NpuScript) { . $NpuScript }
-
-# Ensure virtual env
-if (Test-Path .\.venv\Scripts\Activate.ps1) {
-    . .\.venv\Scripts\Activate.ps1
-} else {
-    Write-Warning "[pbp] Python venv not found at .\\.venv; continuing with system Python"
+if (Test-Path $NpuScript) { . $NpuScript } else {
+    $Ensure = Join-Path $RepoRoot 'ensure_arm64_venv.ps1'
+    if (Test-Path $Ensure) { . $Ensure; $null = Ensure-Arm64Venv -RepoRoot $RepoRoot -Activate }
 }
 
 # Check for Rscript

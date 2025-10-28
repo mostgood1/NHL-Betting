@@ -1,6 +1,6 @@
 # Test predictions generation in fresh Python process
 cd c:\Users\mostg\OneDrive\Coding\NHL-Betting
-.\.venv\Scripts\Activate.ps1
+if (Test-Path .\activate_npu.ps1) { . .\activate_npu.ps1 } else { if (Test-Path .\ensure_arm64_venv.ps1) { . .\ensure_arm64_venv.ps1; $null = Ensure-Arm64Venv -RepoRoot (Get-Location) -Activate } }
 
 Write-Host "========================================" -ForegroundColor Green
 Write-Host "Testing ONNX model loading..." -ForegroundColor Green

@@ -2049,11 +2049,33 @@ def props_recommendations(
     def _read_any(files):
         out = []
         for f in files:
-            if f.exists():
-                try:
-                    out.append(pd.read_parquet(f, engine="pyarrow") if f.suffix == ".parquet" else pd.read_csv(f))
-                except Exception:
-                    continue
+            if not f.exists():
+                continue
+            try:
+                if f.suffix == ".parquet":
+                    # Try pyarrow first; if unavailable (e.g., Windows ARM64), fall back to DuckDB
+                    try:
+                        df_pa = pd.read_parquet(f, engine="pyarrow")
+                        out.append(df_pa)
+                        _dbg(f"read parquet via pyarrow: {f}")
+                    except Exception as e_pa:
+                        try:
+                            import duckdb as _duckdb
+                            # Use forward slashes for cross-platform compatibility in SQL string
+                            f_posix = str(f).replace("\\\\", "/").replace("\\", "/")
+                            df_duck = _duckdb.query(f"SELECT * FROM read_parquet('{f_posix}')").df()
+                            out.append(df_duck)
+                            _dbg(f"read parquet via duckdb: {f} rows={len(df_duck)}")
+                        except Exception as e_duck:
+                            _dbg(f"failed to read parquet {f} via pyarrow ({e_pa}) and duckdb ({e_duck})")
+                            continue
+                else:
+                    df_csv = pd.read_csv(f)
+                    out.append(df_csv)
+                    _dbg(f"read csv: {f}")
+            except Exception as e:
+                _dbg(f"failed to read {f}: {e}")
+                continue
         return out
     t0 = time.monotonic()
     parts = _read_any(prefer)

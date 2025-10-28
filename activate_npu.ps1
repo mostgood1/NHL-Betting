@@ -9,20 +9,34 @@ Write-Host "  SDK Root: $env:QNN_SDK_ROOT" -ForegroundColor Yellow
 Write-Host "  NPU Libraries: C:\Qualcomm\QNN_SDK\lib\arm64x-windows-msvc" -ForegroundColor Yellow
 Write-Host ""
 Write-Host "Ready to use NPU!" -ForegroundColor Cyan
-Write-Host "  Use system Python for NPU operations:" -ForegroundColor Yellow
-Write-Host "  python -m nhl_betting.scripts.train_nn_props train-all --epochs 50" -ForegroundColor White
+Write-Host "  Python will be provided by the repo's ARM64 .venv (auto-activated below)." -ForegroundColor Yellow
 Write-Host ""
 
-# Ensure .venv is ARM64 so ONNX QNN EP can load (optional best-effort)
+# Enforce and activate ARM64 venv so it becomes the DEFAULT Python for this session
 try {
 	$RepoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 	$Ensure = Join-Path $RepoRoot 'ensure_arm64_venv.ps1'
 	if (Test-Path $Ensure) {
 		. $Ensure
-		$ok = Ensure-Arm64Venv -RepoRoot $RepoRoot
+	$ok = Ensure-Arm64Venv -RepoRoot $RepoRoot -Activate
 		if (-not $ok) {
-			Write-Warning "[ARM64] .venv is not ARM64; QNN EP may be unavailable in this session."
-			Write-Warning "         Install ARM64 Python and set ARM64_PYTHON env var if auto-detect fails."
+			# Fallback: try activating existing .venv and verify arch
+			$act = Join-Path $RepoRoot '.venv/Scripts/Activate.ps1'
+			if (Test-Path $act) { . $act }
+			$archCheck = "import platform, sys; print(sys.executable); print(platform.machine())"
+			$lines = python -c $archCheck 2>$null
+			if ($LASTEXITCODE -eq 0 -and $lines -match 'ARM') {
+				$ok = $true
+			} else {
+				Write-Warning "[ARM64] .venv is not ARM64; QNN EP may be unavailable in this session."
+				Write-Warning "         Install ARM64 Python and set ARM64_PYTHON env var if auto-detect fails."
+			}
+		}
+		if ($ok) {
+			# Show interpreter info for visibility
+			Write-Host "[venv] Activated: $((Join-Path $RepoRoot '.venv'))" -ForegroundColor Green
+			$py = "import platform, sys; print('[python]', sys.executable); print('[arch]', platform.machine())"
+			python -c $py | ForEach-Object { Write-Host $_ }
 		}
 	}
 } catch {

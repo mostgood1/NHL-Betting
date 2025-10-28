@@ -6076,7 +6076,7 @@ async def props_recommendations_page(
         except Exception:
             return str(x)
     df = pd.DataFrame()
-    # Prefer local cache; otherwise try GitHub raw for today's file
+    # Prefer local cache; otherwise try GitHub raw for today's file (even on public hosts with tight timeouts)
     try:
         path = PROC_DIR / f"props_recommendations_{date}.csv"
         local_rows = -1
@@ -6085,18 +6085,18 @@ async def props_recommendations_page(
             if df_local is not None and not df_local.empty:
                 local_rows = len(df_local)
                 df = df_local
-        # Attempt GitHub freshness upgrade if remote appears to have more rows (skip on public host)
+        # Attempt GitHub fallback/upgrade with conservative network behavior
         gh_df = None
-        if not _is_public_host_env():
-            try:
-                gh_df = _github_raw_read_csv(f"data/processed/props_recommendations_{date}.csv")
-            except Exception:
-                gh_df = None
-            if (df is None or df.empty) and gh_df is not None and not gh_df.empty:
-                df = gh_df
-            elif gh_df is not None and not gh_df.empty and local_rows > 0 and len(gh_df) > local_rows:
-                # Replace stale local snapshot with fresher remote copy (do not write to disk here)
-                df = gh_df
+        try:
+            gh_df = _github_raw_read_csv(f"data/processed/props_recommendations_{date}.csv")
+        except Exception:
+            gh_df = None
+        # If nothing local, take GitHub copy when available
+        if (df is None or df.empty) and gh_df is not None and not gh_df.empty:
+            df = gh_df
+        # If local exists but remote is larger, prefer fresher remote (do not persist here)
+        elif gh_df is not None and not gh_df.empty and local_rows > 0 and len(gh_df) > local_rows:
+            df = gh_df
     except Exception:
         df = pd.DataFrame()
 
@@ -6217,6 +6217,115 @@ async def props_recommendations_page(
         if page <= 0:
             page = 1
         df_grid = df.copy() if df is not None else pd.DataFrame()
+        # If grid is empty, perform a light in-memory compute from canonical lines + precomputed lambdas
+        # to avoid blank pages on public hosts when the CSV hasn't been produced yet.
+        try:
+            if df_grid is None or df_grid.empty:
+                # Load canonical lines (local first, then GitHub raw)
+                base = PROC_DIR.parent / "props" / f"player_props_lines/date={date}"
+                parts = []
+                for name in ("oddsapi.parquet",):
+                    p = base / name
+                    if p.exists():
+                        try:
+                            parts.append(pd.read_parquet(p, engine="pyarrow"))
+                        except Exception:
+                            pass
+                    else:
+                        try:
+                            gh_lines = _github_raw_read_parquet(f"data/props/player_props_lines/date={date}/{name}")
+                            if gh_lines is not None and not gh_lines.empty:
+                                parts.append(gh_lines)
+                        except Exception:
+                            pass
+                if parts:
+                    lines = pd.concat(parts, ignore_index=True)
+                    # Load projections_all (local or GitHub raw)
+                    proj = _read_all_players_projections(date)
+                    if proj is not None and not proj.empty and {"player","market","proj_lambda"}.issubset(set(proj.columns)):
+                        import numpy as _np
+                        from scipy.stats import poisson as _poisson
+                        # Build lambda map keyed by (player_norm, MARKET)
+                        def _norm_name2(x: str) -> str:
+                            try:
+                                s = str(x or "").strip(); return " ".join(s.split())
+                            except Exception:
+                                return str(x)
+                        lam_map = {}
+                        tmp = proj.dropna(subset=["player","market","proj_lambda"]).copy()
+                        tmp["player_norm"] = tmp["player"].astype(str).map(_norm_name2).str.lower()
+                        tmp["market_u"] = tmp["market"].astype(str).str.upper()
+                        for _, rr in tmp.iterrows():
+                            try:
+                                lam_map[(rr.get("player_norm"), rr.get("market_u"))] = float(rr.get("proj_lambda"))
+                            except Exception:
+                                continue
+                        # Prepare lines and merge lambdas
+                        cols = [c for c in ["market","player_name","player","team","line","over_price","under_price","book"] if c in lines.columns]
+                        work = lines[cols].copy()
+                        work["market"] = work.get("market").astype(str).str.upper()
+                        work["player_display"] = work.apply(lambda r: (r.get("player_name") or r.get("player") or ""), axis=1).astype(str).map(_norm_name2)
+                        work["player_norm"] = work["player_display"].str.lower()
+                        work["line_num"] = pd.to_numeric(work.get("line"), errors="coerce")
+                        work = work.loc[work["line_num"].notna()].copy()
+                        # Optional market filter early to reduce compute
+                        if market and "market" in work.columns:
+                            try:
+                                work = work[work["market"].astype(str).str.upper() == str(market).upper()]
+                            except Exception:
+                                pass
+                        ldf = pd.DataFrame([{"player_norm": k[0], "market": k[1], "proj_lambda": v} for k, v in lam_map.items()])
+                        merged = work.merge(ldf, on=["player_norm","market"], how="left")
+                        vec_mask = merged["proj_lambda"].notna()
+                        p_over_vec = pd.Series(_np.nan, index=merged.index)
+                        for mkt in ["SOG","SAVES","GOALS","ASSISTS","POINTS","BLOCKS"]:
+                            sel = vec_mask & (merged["market"] == mkt)
+                            if sel.any():
+                                lam_arr = merged.loc[sel, "proj_lambda"].astype(float).values
+                                line_arr = _np.floor(merged.loc[sel, "line_num"].astype(float).values + 1e-9).astype(int)
+                                p_over_vec.loc[sel] = _poisson.sf(line_arr, mu=lam_arr)
+                        def _american_to_decimal_series(s: pd.Series) -> pd.Series:
+                            s = pd.to_numeric(s, errors="coerce"); pos = s[s > 0]; neg = s[s <= 0]
+                            out = pd.Series(_np.nan, index=s.index)
+                            out.loc[pos.index] = 1.0 + (pos / 100.0)
+                            out.loc[neg.index] = 1.0 + (100.0 / _np.abs(neg))
+                            return out
+                        dec_over = _american_to_decimal_series(merged.get("over_price"))
+                        dec_under = _american_to_decimal_series(merged.get("under_price"))
+                        p_over_s = pd.to_numeric(p_over_vec, errors="coerce")
+                        ev_over_s = p_over_s * (dec_over - 1.0) - (1.0 - p_over_s)
+                        p_under_s = (1.0 - p_over_s).clip(lower=0.0, upper=1.0)
+                        ev_under_s = p_under_s * (dec_under - 1.0) - (1.0 - p_under_s)
+                        over_better = (ev_under_s.isna()) | (~ev_over_s.isna() & (ev_over_s >= ev_under_s))
+                        chosen_side = _np.where(over_better, "Over", "Under")
+                        chosen_ev = _np.where(over_better, ev_over_s, ev_under_s)
+                        out = merged.copy()
+                        out["side"] = chosen_side
+                        out["ev"] = pd.to_numeric(chosen_ev, errors="coerce")
+                        out = out[out["ev"].notna() & (out["ev"].astype(float) >= float(min_ev))]
+                        out = out.assign(
+                            date=date,
+                            player=lambda df__: df__["player_display"],
+                            market=lambda df__: df__["market"],
+                            line=lambda df__: df__["line_num"],
+                            proj=lambda df__: df__["proj_lambda"].astype(float).round(3),
+                            p_over=lambda df__: p_over_s.astype(float).round(4),
+                            over_price=lambda df__: df__.get("over_price"),
+                            under_price=lambda df__: df__.get("under_price"),
+                            book=lambda df__: df__.get("book"),
+                            team=lambda df__: df__.get("team"),
+                        )[["date","player","team","market","line","proj","p_over","over_price","under_price","book","side","ev"]]
+                        # Apply top cap before further grid slicing if provided
+                        try:
+                            eff_top = int(top) if (top and int(top) > 0) else None
+                        except Exception:
+                            eff_top = None
+                        if not out.empty and eff_top:
+                            out = out.sort_values("ev", ascending=False).head(eff_top)
+                        df_grid = out
+        except Exception:
+            # Non-fatal: keep df_grid empty
+            pass
         # Apply optional team/game filters for grid as well
         try:
             if team and 'team' in df_grid.columns:

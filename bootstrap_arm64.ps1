@@ -32,8 +32,8 @@ if (Test-Path $req) {
 # Install onnxruntime ARM64 wheel if present
 $wheel = Join-Path $RepoRoot 'onnxruntime-1.23.1-cp311-cp311-win_arm64.whl'
 if (Test-Path $wheel) {
-  # Suppress any output from uninstall attempts (package may not be installed)
-  pip uninstall -y onnxruntime onnxruntime-gpu *> $null
+  # Best-effort uninstall without redirection to avoid analyzer quirks
+  try { pip uninstall -y onnxruntime onnxruntime-gpu | Out-Null } catch {}
   pip install -q "$wheel"
 }
 

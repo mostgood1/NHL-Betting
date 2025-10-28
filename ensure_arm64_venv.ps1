@@ -79,13 +79,13 @@ function Install-Arm64Python {
     if (-not $wing) { Write-Warning '[ARM64] winget not available; cannot auto-install Python.'; return $false }
     # Prefer the PythonSoftwareFoundation package id; specify architecture arm64 and silent flags
     $args = @('install','--id','PythonSoftwareFoundation.Python.3.11','--accept-package-agreements','--accept-source-agreements','--silent','--architecture','arm64')
-    & winget @args | Out-Null
+  & winget @args 2>&1 | Out-Null
     Start-Sleep -Seconds 3
     $found = Find-Arm64Python
     if ($found) { Write-Host "[ARM64] Installed ARM64 Python at $found" -ForegroundColor Green; return $true }
     # Fallback id
     $args2 = @('install','--id','Python.Python.3.11','--accept-package-agreements','--accept-source-agreements','--silent','--architecture','arm64')
-    & winget @args2 | Out-Null
+  & winget @args2 2>&1 | Out-Null
     Start-Sleep -Seconds 3
     $found2 = Find-Arm64Python
     if ($found2) { Write-Host "[ARM64] Installed ARM64 Python at $found2" -ForegroundColor Green; return $true }
@@ -127,7 +127,7 @@ function Ensure-Arm64Venv {
       }
     }
     if (Test-Path $venv) { Write-Host '[ARM64] Recreating .venv with ARM64 Python…' -ForegroundColor Yellow; Remove-Item -Recurse -Force $venv }
-    & $armPy -m venv $venv
+  & $armPy -m venv $venv 2>&1 | Out-Null
     if ($LASTEXITCODE -ne 0) { throw 'Failed to create ARM64 venv' }
   }
   if ($Activate) {
@@ -139,7 +139,7 @@ function Ensure-Arm64Venv {
     # Ensure onnxruntime ARM64 if wheel present
     $wheel = Join-Path $RepoRoot 'onnxruntime-1.23.1-cp311-cp311-win_arm64.whl'
     if (Test-Path $wheel) {
-      pip uninstall -y onnxruntime onnxruntime-gpu 2>$null | Out-Null
+      pip uninstall -y onnxruntime onnxruntime-gpu 2>&1 | Out-Null
       pip install -q "$wheel"
     }
   }

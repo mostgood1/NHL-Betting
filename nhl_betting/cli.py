@@ -888,8 +888,8 @@ def predict_core(
         first_10min_proj = None  # Expected goals in first 10 minutes (lambda)
         # Configurable knobs for first-10 projection
         import os as _os
-        # Prefer the dedicated FIRST_10MIN model by default for predictiveness; allow override via env
-        _F10_FROM_P1 = str(_os.getenv("FIRST10_FROM_P1", "0")).lower() not in ("0", "false", "no")
+    # Prefer deriving FIRST_10MIN from Period 1 by default (more stable, PBP-calibrated); allow override via env
+    _F10_FROM_P1 = str(_os.getenv("FIRST10_FROM_P1", "1")).lower() not in ("0", "false", "no")
         # Calibrated defaults from PBP backtest (2023-24): use 0.55 and 0.15; still override via env if set
         _F10_SCALE = float(_os.getenv("FIRST10_SCALE", "0.55"))  # fraction of P1 goals happening in first 10 min
         # Fallback when P1 projections unavailable: share of total assigned to P1 (~35%) times 10/20 (=0.5)
@@ -1018,7 +1018,8 @@ def predict_core(
         
         # First 10 minutes projection
         # Preferred: derive from P1 projections (more stable and better calibrated), then fall back to NN model, then total-based heuristic
-        _first10_from_p1_val = None
+    _first10_from_p1_val = None
+    _first10_source = None
         if (p1_home is not None) and (p1_away is not None):
             try:
                 # Expected goals in first 10 = (expected goals in P1) * (10/20) ~= 0.5, tunable via FIRST10_SCALE
@@ -1037,12 +1038,15 @@ def predict_core(
         # Choose value per preference
         if _F10_FROM_P1 and (_first10_from_p1_val is not None):
             first_10min_proj = _first10_from_p1_val
+            _first10_source = "P1"
         elif _first10_nn_val is not None:
             first_10min_proj = _first10_nn_val
+            _first10_source = "NN"
         else:
             # Heuristic fallback from total goals if nothing else available
             try:
                 first_10min_proj = max(0.0, float(model_total) * _F10_TOTAL_SCALE)
+                _first10_source = "TOTAL_HEURISTIC"
             except Exception:
                 first_10min_proj = None
 
@@ -1076,6 +1080,7 @@ def predict_core(
             # First 10 minutes projection (lambda) and probability
             "first_10min_proj": round(float(first_10min_proj), 3) if first_10min_proj is not None else None,
             "first_10min_prob": round(float(_first10_prob), 4) if _first10_prob is not None else None,
+            "first_10min_source": _first10_source,
             "p_home_ml": p_home_cal,
             "p_away_ml": p_away_cal,
             "p_over": p_over_cal,

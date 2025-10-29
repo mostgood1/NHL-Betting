@@ -692,6 +692,55 @@ def collect_props_canonical(days_ahead: int = 1, verbose: bool = False) -> dict:
         out["paths"][d] = {"oddsapi": path_o}
         if verbose:
             _vprint(verbose, f"[props] {d}: oddsapi={cnt_o} total={cnt_o}")
+            # If nothing was collected, proactively diagnose market availability to surface root cause
+            if cnt_o == 0:
+                try:
+                    from nhl_betting.data.odds_api import OddsAPIClient
+                    client = OddsAPIClient()
+                    # Probe a narrow ET window for this date to find representative events
+                    try:
+                        dt_et = datetime.strptime(d, "%Y-%m-%d").replace(tzinfo=ZoneInfo("America/New_York"))
+                        dt_utc_start = dt_et.astimezone(timezone.utc) - timedelta(hours=5)
+                        dt_utc_end = dt_utc_start + timedelta(hours=33)
+                        f_iso = dt_utc_start.strftime("%Y-%m-%dT%H:%M:%SZ")
+                        t_iso = dt_utc_end.strftime("%Y-%m-%dT%H:%M:%SZ")
+                    except Exception:
+                        f_iso = f"{d}T00:00:00Z"; t_iso = f"{d}T23:59:59Z"
+                    events, _ = client.list_events("icehockey_nhl", commence_from_iso=f_iso, commence_to_iso=t_iso)
+                    _vprint(verbose, f"[props] {d}: events listed={len(events)}")
+                    if events:
+                        # Check a couple of events for any player_* market availability
+                        probe_books = ["draftkings", "fanduel", "pinnacle"]
+                        found_player_keys = set()
+                        checked = 0
+                        for ev in events[:2]:
+                            ev_id = str(ev.get("id")) if ev.get("id") else None
+                            if not ev_id:
+                                continue
+                            for bk in probe_books:
+                                try:
+                                    mkts, _ = client.event_markets("icehockey_nhl", ev_id, bookmakers=bk)
+                                except Exception:
+                                    continue
+                                # Normalize to list of market entries
+                                try:
+                                    bms = mkts.get("bookmakers", []) if isinstance(mkts, dict) else []
+                                    mlist = (bms[0].get("markets", []) if bms else [])
+                                except Exception:
+                                    mlist = []
+                                for m in mlist:
+                                    k = str(m.get("key") or "").lower()
+                                    if "player_" in k:
+                                        found_player_keys.add(k)
+                            checked += 1
+                            if checked >= 2:
+                                break
+                        if not found_player_keys:
+                            _vprint(verbose, f"[props] {d}: no player_* markets advertised by event_markets (books={','.join(probe_books)}). Your Odds API plan or selected regions/books may not include player props.")
+                        else:
+                            _vprint(verbose, f"[props] {d}: sample player markets available: {sorted(found_player_keys)[:5]}")
+                except Exception as _diag_e:
+                    _vprint(verbose, f"[props] {d}: diagnostics skipped: {_diag_e}")
     return out
 
 

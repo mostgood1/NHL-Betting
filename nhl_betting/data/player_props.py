@@ -47,9 +47,11 @@ def collect_oddsapi_props(date: str) -> pd.DataFrame:
     bk_pref = os.environ.get("PROPS_ODDSAPI_BOOKMAKERS", "fanduel,draftkings,pinnacle").strip()
     regions = os.environ.get("PROPS_ODDSAPI_REGIONS", "us").strip()
     max_workers = int(os.environ.get("PROPS_ODDSAPI_WORKERS", "6"))
-    # Include all supported NHL player markets from The Odds API
-    # Keys per OddsAPI docs: player_shots_on_goal, player_goals, player_assists, player_points, player_saves, player_blocks
-    markets = "player_shots_on_goal,player_goals,player_assists,player_points,player_saves,player_blocks"
+    # Include core NHL player markets with broad bookmaker support.
+    # Note: Some books return 422 for unsupported player markets; to maximize coverage
+    # and avoid per-event probing, we limit to the most reliable keys.
+    # Keys per OddsAPI docs commonly available: player_shots_on_goal, player_goals, player_assists, player_points
+    markets = "player_shots_on_goal,player_goals,player_assists,player_points"
     rows: List[Dict] = []
     # Map Odds API market keys to our canonical markets
     m_map = {
@@ -57,8 +59,9 @@ def collect_oddsapi_props(date: str) -> pd.DataFrame:
         "player_goals": "GOALS",
         "player_assists": "ASSISTS",
         "player_points": "POINTS",
-        "player_saves": "SAVES",
-        "player_blocks": "BLOCKS",
+    # Additional markets like goalie saves/blocks can be added when consistently supported by requested books.
+    # "player_saves": "SAVES",
+    # "player_blocks": "BLOCKS",
     }
     def _parse_event_markets(event_odds_obj: Dict):
         bks = event_odds_obj.get("bookmakers", [])

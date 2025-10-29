@@ -49,7 +49,6 @@ def _load_elo_config() -> EloConfig:
             return EloConfig()
     return EloConfig()
 
-from .models.poisson import PoissonGoals
 from .models.trends import TrendAdjustments, team_keys, get_adjustment
 from .utils.odds import american_to_decimal, decimal_to_implied_prob, remove_vig_two_way, ev_unit, kelly_stake
 from .data.collect import collect_player_game_stats
@@ -559,16 +558,22 @@ def predict_core(
     elo = Elo()
     elo = Elo(cfg=_load_elo_config()); elo.ratings = ratings
 
-    # Simple Poisson baseline (load base_mu if available)
+    # Load model configuration (sigma for normal approximations, etc.)
     base_mu = None
+    sigma_total = 1.9  # default std dev for total goals distribution
+    sigma_diff = 1.6   # default std dev for goal differential distribution
     cfg_path = MODEL_DIR / "config.json"
     if cfg_path.exists():
-        with open(cfg_path, "r", encoding="utf-8") as f:
-            try:
-                base_mu = float(json.load(f).get("base_mu", None))
-            except Exception:
-                base_mu = None
-    pois = PoissonGoals(base_mu=base_mu or 3.05)
+        try:
+            with cfg_path.open("r", encoding="utf-8") as f:
+                _cfg = json.load(f) or {}
+            base_mu = float(_cfg.get("base_mu", None)) if _cfg.get("base_mu") is not None else None
+            if _cfg.get("sigma_total") is not None:
+                sigma_total = float(_cfg.get("sigma_total"))
+            if _cfg.get("sigma_diff") is not None:
+                sigma_diff = float(_cfg.get("sigma_diff"))
+        except Exception:
+            pass
     # Load subgroup adjustments
     trends = TrendAdjustments.load()
 
@@ -843,53 +848,27 @@ def predict_core(
                             per_game_total = float(val)
                     except Exception:
                         per_game_total = total_line
-        
-        # Derive matchup-specific lambdas and probabilities using Poisson (fallback)
-        lam_h_poisson, lam_a_poisson = pois.lambdas_from_total_split(per_game_total, p_home)
-        # Apply goals adjustments separately for home and away based on each team subgroup
-        gh_delta = get_adjustment(trends.goals, team_keys(g.home))
-        ga_delta = get_adjustment(trends.goals, team_keys(g.away))
-        lam_h_poisson = max(0.1, lam_h_poisson + gh_delta)
-        lam_a_poisson = max(0.1, lam_a_poisson + ga_delta)
-        
-        # Use Poisson as fallback for lambdas
-        lam_h = lam_h_poisson
-        lam_a = lam_a_poisson
-        
-        # Compute Poisson-based probabilities (used for puck line if no NN)
-        p = pois.probs(total_line=per_game_total, lam_h=lam_h, lam_a=lam_a)
 
-        # Optional: apply probability calibration if available
-        try:
-            from .utils.calibration import load_calibration
-            cal_path = PROC_DIR / "model_calibration.json"
-            ml_cal, tot_cal = load_calibration(cal_path)
-            # moneyline: calibrate the stronger side, then derive the other by 1-p
-            p_home_cal = float(ml_cal.apply(np.array([p.get("home_ml", 0.5)]))[0])
-            p_away_cal = 1.0 - p_home_cal
-            # totals: calibrate over; under=1-over
-            p_over_cal = float(tot_cal.apply(np.array([p.get("over", 0.5)]))[0])
-            p_under_cal = 1.0 - p_over_cal
-        except Exception:
-            p_home_cal = float(p.get("home_ml"))
-            p_away_cal = float(p.get("away_ml"))
-            p_over_cal = float(p.get("over"))
-            p_under_cal = float(p.get("under"))
-        
-        # Derived projections (used by UI): per-team goals, total and spread
-        # These will be overridden by NN if available
-        proj_home_goals = float(lam_h)
-        proj_away_goals = float(lam_a)
-        model_total = float(lam_h + lam_a)
-        model_spread = float(lam_h - lam_a)
+        # Initialize projections from odds total and neutral spread (will be overridden by NN below)
+        model_total = float(per_game_total if per_game_total is not None else (2.0 * (base_mu or 3.05)))
+        model_spread = 0.0
+        # Split per-team projections equally for now; NN will refine
+        proj_home_goals = model_total / 2.0
+        proj_away_goals = model_total / 2.0
+
+        # Prepare placeholders for calibrated probabilities
+        p_home_cal = None
+        p_away_cal = None
+        p_over_cal = None
+        p_under_cal = None
         
         # Period-by-period predictions if model available
         p1_home, p1_away, p2_home, p2_away, p3_home, p3_away = None, None, None, None, None, None
         first_10min_proj = None  # Expected goals in first 10 minutes (lambda)
         # Configurable knobs for first-10 projection
         import os as _os
-    # Prefer deriving FIRST_10MIN from Period 1 by default (more stable, PBP-calibrated); allow override via env
-    _F10_FROM_P1 = str(_os.getenv("FIRST10_FROM_P1", "1")).lower() not in ("0", "false", "no")
+        # Prefer deriving FIRST_10MIN from Period 1 by default (more stable, PBP-calibrated); allow override via env
+        _F10_FROM_P1 = str(_os.getenv("FIRST10_FROM_P1", "1")).lower() not in ("0", "false", "no")
         # Calibrated defaults from PBP backtest (2023-24): use 0.55 and 0.15; still override via env if set
         _F10_SCALE = float(_os.getenv("FIRST10_SCALE", "0.55"))  # fraction of P1 goals happening in first 10 min
         # Fallback when P1 projections unavailable: share of total assigned to P1 (~35%) times 10/20 (=0.5)
@@ -958,7 +937,7 @@ def predict_core(
                 team_games_played[g.home] = home_gp + 1
                 team_games_played[g.away] = away_gp + 1
                 
-                # NEW: Use NN models to override Elo/Poisson predictions if available
+                # NEW: Use NN models to override Elo predictions if available
                 if moneyline_nn is not None:
                     try:
                         # Get NN moneyline prediction (home win probability)
@@ -967,7 +946,7 @@ def predict_core(
                             # Override Elo prediction
                             p_home = float(p_home_nn)
                             p_away = 1.0 - p_home
-                    except Exception as e:
+                    except Exception:
                         pass  # Fall back to Elo if NN fails
                 
                 if total_goals_nn is not None:
@@ -976,8 +955,8 @@ def predict_core(
                         total_nn = total_goals_nn.predict(home_abbr, away_abbr, game_features)
                         if total_nn is not None:
                             model_total = float(total_nn)
-                    except Exception as e:
-                        pass  # Fall back to Poisson if NN fails
+                    except Exception:
+                        pass  # Fall back to odds total if NN fails
                 
                 if goal_diff_nn is not None:
                     try:
@@ -988,13 +967,9 @@ def predict_core(
                             # Derive per-team projections from total and differential
                             proj_home_goals = (model_total / 2.0) + (model_spread / 2.0)
                             proj_away_goals = (model_total / 2.0) - (model_spread / 2.0)
-                            # Update lambdas for Poisson probability calculations
-                            lam_h = proj_home_goals
-                            lam_a = proj_away_goals
-                            # Recompute Poisson probs with NN-derived lambdas
-                            p = pois.probs(total_line=per_game_total, lam_h=lam_h, lam_a=lam_a)
-                    except Exception as e:
-                        pass  # Fall back to Poisson if NN fails
+                            # Projections now fully from NN
+                    except Exception:
+                        pass  # Fall back to neutral spread if NN fails
                 
                 # Apply ML subgroup adjustment AFTER NN prediction (home side bias)
                 h_keys = team_keys(g.home)
@@ -1003,23 +978,23 @@ def predict_core(
                     p_home = min(max(p_home + ml_delta, 0.01), 0.99)
                     p_away = 1.0 - p_home
                 
-            except Exception as e:
+            except Exception:
                 # If feature computation fails, skip predictions
                 game_features = None
-        
+
         if period_model is not None and game_features is not None:
             try:
                 # Predict returns array [p1_home, p1_away, p2_home, p2_away, p3_home, p3_away]
                 period_preds = period_model.predict(g.home, g.away, game_features)
                 if period_preds is not None and len(period_preds) == 6:
                     p1_home, p1_away, p2_home, p2_away, p3_home, p3_away = period_preds
-            except Exception as e:
+            except Exception:
                 pass
         
         # First 10 minutes projection
         # Preferred: derive from P1 projections (more stable and better calibrated), then fall back to NN model, then total-based heuristic
-    _first10_from_p1_val = None
-    _first10_source = None
+        _first10_from_p1_val = None
+        _first10_source = None
         if (p1_home is not None) and (p1_away is not None):
             try:
                 # Expected goals in first 10 = (expected goals in P1) * (10/20) ~= 0.5, tunable via FIRST10_SCALE
@@ -1050,7 +1025,6 @@ def predict_core(
             except Exception:
                 first_10min_proj = None
 
-        # Build base row with model probabilities
         # Derive first-10 YES probability from lambda if available
         _first10_prob = None
         try:
@@ -1059,6 +1033,51 @@ def predict_core(
                 _first10_prob = 1.0 - _math.exp(-float(first_10min_proj))
         except Exception:
             _first10_prob = None
+
+        # Compute betting probabilities from NN outputs using normal approximations (no Poisson)
+        import math as _math
+        # Moneyline: base on NN/Elo probability then calibrate if available
+        try:
+            from .utils.calibration import load_calibration as _load_cal
+            _cal_path = PROC_DIR / "model_calibration.json"
+            _ml_cal, _tot_cal = _load_cal(_cal_path)
+        except Exception:
+            _ml_cal, _tot_cal = None, None
+
+        # Calibrate ML prob if possible
+        try:
+            p_home_cal = float(_ml_cal.apply(np.array([p_home]))[0]) if _ml_cal is not None else float(p_home)
+            p_away_cal = 1.0 - p_home_cal
+        except Exception:
+            p_home_cal = float(p_home)
+            p_away_cal = 1.0 - p_home_cal
+
+        # Totals probability via normal approx with continuity correction for integer lines
+        try:
+            thr = float(per_game_total)
+            # continuity correction when total_line is an integer (e.g., 6.0 -> use 6.5)
+            if abs(thr - round(thr)) < 1e-6:
+                thr = thr + 0.5
+            z = (thr - model_total) / max(1e-6, sigma_total)
+            p_over_raw = 1.0 - (0.5 * (1.0 + _math.erf(z / (_math.sqrt(2.0)))))
+            # Calibrate totals prob if calibrator available
+            p_over_cal = float(_tot_cal.apply(np.array([p_over_raw]))[0]) if _tot_cal is not None else float(p_over_raw)
+            p_under_cal = 1.0 - p_over_cal
+        except Exception:
+            p_over_cal = None
+            p_under_cal = None
+
+        # Puckline (home -1.5) via normal approx on goal differential
+        try:
+            z_pl = (1.5 - model_spread) / max(1e-6, sigma_diff)
+            # P(home wins by >=2) = 1 - CDF(1.5)
+            p_home_pl = 1.0 - (0.5 * (1.0 + _math.erf(z_pl / (_math.sqrt(2.0)))))
+            p_away_pl = 1.0 - p_home_pl
+        except Exception:
+            p_home_pl = None
+            p_away_pl = None
+
+        # Build base row with model probabilities
         row = {
             # Keep UTC ISO in 'date' for precision; add ET calendar day for grouping/UI
             "date": getattr(g, "gameDate"),
@@ -1085,8 +1104,8 @@ def predict_core(
             "p_away_ml": p_away_cal,
             "p_over": p_over_cal,
             "p_under": p_under_cal,
-            "p_home_pl_-1.5": float(p.get("home_puckline_-1.5")),
-            "p_away_pl_+1.5": float(p.get("away_puckline_+1.5")),
+            "p_home_pl_-1.5": float(p_home_pl) if p_home_pl is not None else None,
+            "p_away_pl_+1.5": float(p_away_pl) if p_away_pl is not None else None,
         }
 
         # Helper to coerce odds to float
@@ -1335,6 +1354,14 @@ def predict(
     bankroll: float = typer.Option(0.0, help="Bankroll amount for Kelly sizing (0 to disable)"),
     kelly_fraction_part: float = typer.Option(0.5, help="Fraction of Kelly to bet (e.g., 0.5 = half-Kelly)"),
 ):
+    # Ensure we're running on ARM64 Python when available (helps ONNX QNN provider)
+    try:
+        import platform, sys as _sys
+        _arch = (platform.machine() or "").upper()
+        if "ARM" not in _arch:
+            print(f"[warn] Non-ARM64 Python detected: {_sys.executable} arch={_arch}. For best performance on this machine, use the repo's ARM64 .venv.")
+    except Exception:
+        pass
     predict_core(
         date=date,
         total_line=total_line,
@@ -1368,9 +1395,7 @@ def smoke():
     elo = Elo()
     elo.ratings = ratings
     p_home, p_away = elo.predict_moneyline_prob("Team A", "Team B")
-    pois = PoissonGoals()
-    p = pois.probs()
-    print({"p_home_ml": p_home, "p_over": p["over"]})
+    print({"p_home_ml": p_home})
     print("Smoke test complete.")
 
 

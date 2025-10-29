@@ -1355,6 +1355,18 @@ def run(days_ahead: int = 2, years_back: int = 2, reconcile_yesterday: bool = Tr
                     try:
                         if _normalize_recs_file(outp):
                             _vprint(verbose, f"[run] normalized columns in {outp.name}")
+                        # If the file exists but has 0 rows (e.g., ultra-small slate with no positive EV),
+                        # retry with a slight negative EV threshold to surface the best available angles.
+                        try:
+                            if outp.exists() and outp.stat().st_size > 0:
+                                _df = pd.read_csv(outp)
+                                if _df is not None and _df.empty:
+                                    _vprint(verbose, f"[run] {outp.name} empty; retrying with min_ev=-0.02…")
+                                    _call_typer_or_func_recs(_props_recs, date=d, min_ev=-0.02, top=200, market="")
+                                    # normalize again if needed
+                                    _normalize_recs_file(outp)
+                        except Exception:
+                            pass
                     except Exception:
                         pass
                     produced_artifacts.append(str(outp))

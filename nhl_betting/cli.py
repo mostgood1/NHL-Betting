@@ -2501,11 +2501,20 @@ def props_recommendations(
         # Prefer roster-based mapping (player_team_map) over line-provided team to avoid opponent/market mis-tags
         merged["_team_final"] = merged["_team_from_map"].fillna(merged["_team_from_line"])
         if slate_abbrs:
-            # Strict: only include rows where resolved team is in tonight's slate
+            # Strict: only include rows where resolved team is in tonight's slate, but add a safety fallback
             _dbg(f"before slate filter: {len(merged)} rows, slate teams: {sorted(slate_abbrs)}")
             _dbg(f"_team_final values (unique): {sorted(merged['_team_final'].dropna().unique().tolist()[:20])}")
+            pre_slate = merged.copy()
             merged = merged.loc[merged["_team_final"].isin(slate_abbrs)].copy()
             _dbg(f"after slate team filter: {len(merged)} rows")
+            # If the slate filter drops too many rows (e.g., name mapping gaps), skip it to avoid empty outputs
+            try:
+                kept_frac = float(len(merged)) / float(len(pre_slate)) if len(pre_slate) else 0.0
+            except Exception:
+                kept_frac = 0.0
+            if len(merged) == 0 or kept_frac < 0.3:
+                merged = pre_slate
+                _dbg("slate filter preserved <30% or zero rows; skipping slate filter for robustness")
             # Further restrict to names present on roster for slate teams if we have such a set.
             # However, roster caches can be stale or wrong (e.g., fallback build). To avoid
             # dropping valid slate players, only apply this filter if it retains a healthy

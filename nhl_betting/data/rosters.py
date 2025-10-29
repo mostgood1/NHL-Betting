@@ -20,9 +20,8 @@ import requests
 
 # Prefer primary Stats API host but keep alternates to survive DNS hiccups
 STATS_BASES = [
+    # Use the canonical Stats API host only; do not fall back to the deprecated statsapi.nhl.com
     "https://statsapi.web.nhl.com/api/v1",
-    # historical/alternate DNS entries sometimes used
-    "https://statsapi.nhl.com/api/v1",
 ]
 RATE_LIMIT_SLEEP = 0.35  # ~3 req/sec safety
 RECENT_GAMES = 10

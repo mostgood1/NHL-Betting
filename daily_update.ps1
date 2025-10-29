@@ -8,7 +8,8 @@ Param(
   [switch]$ResetTrends,
   [switch]$SkipProps,
   [switch]$SkipPropsProjections,
-  [switch]$SkipPropsCalibration
+  [switch]$SkipPropsCalibration,
+  [switch]$InstallDeps
 )
 $ErrorActionPreference = "Stop"
 
@@ -51,8 +52,18 @@ $env:PROPS_PRECOMPUTE_ALL = "1"
 if ($SkipPropsProjections) { $env:PROPS_SKIP_PROJECTIONS = '1' }
 if ($SkipPropsCalibration) { $env:SKIP_PROPS_CALIBRATION = '1' }
 
-# Ensure dependencies
-pip install -q -r (Join-Path $RepoRoot "requirements.txt")
+# Ensure dependencies (opt-in). Use -InstallDeps or DAILY_UPDATE_INSTALL_DEPS=1 to refresh deps.
+try {
+  $doInstall = $InstallDeps -or ("$env:DAILY_UPDATE_INSTALL_DEPS" -match '^(1|true|yes)$')
+  if ($doInstall) {
+    Write-Host "[deps] Installing requirements…" -ForegroundColor Cyan
+    pip install -q -r (Join-Path $RepoRoot "requirements.txt")
+  } else {
+    Write-Host "[deps] Skipping requirements install (use -InstallDeps to enable)." -ForegroundColor DarkGray
+  }
+} catch {
+  Write-Warning "[deps] Failed to install requirements: $($_.Exception.Message)"
+}
 
 # Build args and run
 $argsList = @("-m", "nhl_betting.scripts.daily_update", "--days-ahead", "$DaysAhead", "--years-back", "$YearsBack")

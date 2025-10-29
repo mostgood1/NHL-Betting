@@ -133,13 +133,15 @@ function Ensure-Arm64Venv {
   if ($Activate) {
     $act = Join-Path $venv 'Scripts/Activate.ps1'
     . $act
-    # Ensure base dependencies
+    # Optionally install base dependencies (opt-in via env to reduce activation noise)
     $req = Join-Path $RepoRoot 'requirements.txt'
-    if (Test-Path $req) { pip install -q -r $req }
-    # Ensure onnxruntime ARM64 if wheel present
+    if ($env:NPU_INSTALL_DEPS -eq '1' -and (Test-Path $req)) {
+      pip install -q -r $req
+    }
+    # Optionally install onnxruntime ARM64 wheel if present (opt-in)
     $wheel = Join-Path $RepoRoot 'onnxruntime-1.23.1-cp311-cp311-win_arm64.whl'
-    if (Test-Path $wheel) {
-  pip uninstall -y onnxruntime onnxruntime-gpu *> $null
+    if ($env:NPU_INSTALL_ONNX -eq '1' -and (Test-Path $wheel)) {
+      pip uninstall -y onnxruntime onnxruntime-gpu *> $null
       pip install -q "$wheel"
     }
   }

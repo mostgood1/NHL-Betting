@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, Tuple
 
+import math
 import numpy as np
 
 
@@ -48,8 +49,9 @@ class PoissonGoals:
         lam_a = lam_a if lam_a is not None else self.base_mu * self.cfg.away_attack
         i = np.arange(0, max_goals + 1)
         j = np.arange(0, max_goals + 1)
-        p_h = np.exp(-lam_h) * np.power(lam_h, i) / np.vectorize(np.math.factorial)(i)
-        p_a = np.exp(-lam_a) * np.power(lam_a, j) / np.vectorize(np.math.factorial)(j)
+        # Use Python's math.factorial (vectorized) to avoid numpy.math dependency issues
+        p_h = np.exp(-lam_h) * np.power(lam_h, i) / np.vectorize(math.factorial)(i)
+        p_a = np.exp(-lam_a) * np.power(lam_a, j) / np.vectorize(math.factorial)(j)
         return np.outer(p_h, p_a)
 
     def probs(self, total_line: float = 6.0, pline: float = -1.5, max_goals: int = 10, lam_h: float | None = None, lam_a: float | None = None) -> Dict[str, float]:

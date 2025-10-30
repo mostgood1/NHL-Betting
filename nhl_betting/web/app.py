@@ -6366,7 +6366,8 @@ async def props_recommendations_page(
                 # Price score: higher is better; plus money outranks negatives; among negatives, closer to 0 is better
                 def _price_score(v):
                     try:
-                        if v is None or (isinstance(v, float) and np.isnan(v)):
+                        # Use pandas isna to avoid relying on a global np import
+                        if v is None or pd.isna(v):
                             return -1e9
                         v = float(v)
                         if v >= 100:
@@ -6379,7 +6380,7 @@ async def props_recommendations_page(
                 # EV rank: prefer higher EV; missing EV very low
                 def _ev_rank(v):
                     try:
-                        if v is None or (isinstance(v, float) and np.isnan(v)):
+                        if v is None or pd.isna(v):
                             return -1e9
                         return float(v)
                     except Exception:

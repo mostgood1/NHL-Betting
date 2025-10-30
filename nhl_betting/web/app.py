@@ -1022,7 +1022,7 @@ def _compute_all_players_projections(date: str) -> pd.DataFrame:
         slate_names.add(str(g.away))
     slate_abbrs = set()
     for nm in slate_names:
-    ab = (get_team_assets(str(nm)).get('abbr') or '').upper()
+        ab = (get_team_assets(str(nm)).get('abbr') or '').upper()
         if ab:
             slate_abbrs.add(ab)
     # Try live roster; fallback to historical enrichment

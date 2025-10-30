@@ -9,7 +9,8 @@ Param(
   [switch]$SkipProps,
   [switch]$SkipPropsProjections,
   [switch]$SkipPropsCalibration,
-  [switch]$InstallDeps
+  [switch]$InstallDeps,
+  [switch]$RecomputeRecs
 )
 $ErrorActionPreference = "Stop"
 
@@ -77,6 +78,20 @@ python @argsList
 
 # Final status
 if (-not $Quiet) { Write-Host "[run] Daily update complete." }
+
+# Optional: recompute game recommendations for today and tomorrow using shared module
+if ($RecomputeRecs) {
+  try {
+    $today = (Get-Date).ToString('yyyy-MM-dd')
+    $tomorrow = (Get-Date).AddDays(1).ToString('yyyy-MM-dd')
+    if (-not $Quiet) { Write-Host "[recs] Recomputing recommendations for $today and $tomorrow…" -ForegroundColor Cyan }
+    python -c "from nhl_betting.core.recs_shared import recompute_edges_and_recommendations as R; R('$today', min_ev=0.0)" | Out-Null
+    python -c "from nhl_betting.core.recs_shared import recompute_edges_and_recommendations as R; R('$tomorrow', min_ev=0.0)" | Out-Null
+    if (-not $Quiet) { Write-Host "[recs] Done writing recommendations CSVs to data/processed." -ForegroundColor DarkGray }
+  } catch {
+    Write-Warning "[recs] Failed to recompute recommendations: $($_.Exception.Message)"
+  }
+}
 
 # Optional: push changes to git (models/predictions/reconciliations)
 try {

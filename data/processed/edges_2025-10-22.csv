@@ -2,16 +2,24 @@ date,home,away,market,ev
 2025-10-23T00:30:00Z,Calgary Flames,Montréal Canadiens,ev_under,0.5325
 2025-10-22T23:00:00Z,New Jersey Devils,Minnesota Wild,ev_home_ml,0.4739
 2025-10-23T00:30:00Z,Calgary Flames,Montréal Canadiens,ev_away_ml,0.3367
+2025-10-23T00:30:00Z,Calgary Flames,Montréal Canadiens,ev_away_pl_+1.5,0.2964
 2025-10-22T23:00:00Z,New Jersey Devils,Minnesota Wild,ev_under,0.2815
 2025-10-22T23:30:00Z,Buffalo Sabres,Detroit Red Wings,ev_home_ml,0.1987
 2025-10-22T23:30:00Z,Buffalo Sabres,Detroit Red Wings,ev_under,0.1585
 2025-10-22T23:30:00Z,Buffalo Sabres,Detroit Red Wings,ev_home_pl_-1.5,0.1047
+2025-10-22T23:30:00Z,Buffalo Sabres,Detroit Red Wings,ev_f10_yes,0.0221
+2025-10-22T23:00:00Z,New Jersey Devils,Minnesota Wild,ev_f10_yes,0.0058
 2025-10-22T23:00:00Z,New Jersey Devils,Minnesota Wild,ev_home_pl_-1.5,-0.0042
+2025-10-23T00:30:00Z,Calgary Flames,Montréal Canadiens,ev_f10_yes,-0.0212
 2025-10-22T23:00:00Z,New Jersey Devils,Minnesota Wild,ev_away_pl_+1.5,-0.0602
 2025-10-22T23:30:00Z,Buffalo Sabres,Detroit Red Wings,ev_away_pl_+1.5,-0.0987
 2025-10-22T23:30:00Z,Buffalo Sabres,Detroit Red Wings,ev_over,-0.2751
 2025-10-22T23:30:00Z,Buffalo Sabres,Detroit Red Wings,ev_away_ml,-0.2852
 2025-10-22T23:00:00Z,New Jersey Devils,Minnesota Wild,ev_over,-0.3104
+2025-10-23T00:30:00Z,Calgary Flames,Montréal Canadiens,ev_f10_no,-0.3121
+2025-10-22T23:00:00Z,New Jersey Devils,Minnesota Wild,ev_f10_no,-0.3391
+2025-10-22T23:30:00Z,Buffalo Sabres,Detroit Red Wings,ev_f10_no,-0.3554
+2025-10-23T00:30:00Z,Calgary Flames,Montréal Canadiens,ev_home_pl_-1.5,-0.3873
 2025-10-23T00:30:00Z,Calgary Flames,Montréal Canadiens,ev_home_ml,-0.4723
 2025-10-23T00:30:00Z,Calgary Flames,Montréal Canadiens,ev_over,-0.5456
 2025-10-22T23:00:00Z,New Jersey Devils,Minnesota Wild,ev_away_ml,-0.6719

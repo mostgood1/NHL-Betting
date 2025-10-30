@@ -1,19 +1,17 @@
 date,home,away,market,ev
-2025-09-22T23:00:00Z,Montréal Canadiens,Pittsburgh Penguins,ev_away_ml,0.4896
-2025-09-22T23:00:00Z,Columbus Blue Jackets,Buffalo Sabres,ev_away_ml,0.3277
-2025-09-22T23:00:00Z,Montréal Canadiens,Pittsburgh Penguins,ev_away_pl_+1.5,0.3115
-2025-09-22T23:00:00Z,Columbus Blue Jackets,Buffalo Sabres,ev_away_pl_+1.5,0.2408
-2025-09-22T23:00:00Z,Carolina Hurricanes,Tampa Bay Lightning,ev_home_pl_-1.5,0.1692
-2025-09-22T23:00:00Z,Columbus Blue Jackets,Buffalo Sabres,ev_under,0.0556
-2025-09-22T23:00:00Z,Carolina Hurricanes,Tampa Bay Lightning,ev_home_ml,0.0146
-2025-09-22T23:00:00Z,Montréal Canadiens,Pittsburgh Penguins,ev_under,-0.0312
-2025-09-22T23:00:00Z,Carolina Hurricanes,Tampa Bay Lightning,ev_under,-0.0338
-2025-09-22T23:00:00Z,Montréal Canadiens,Pittsburgh Penguins,ev_over,-0.058
-2025-09-22T23:00:00Z,Carolina Hurricanes,Tampa Bay Lightning,ev_over,-0.0654
-2025-09-22T23:00:00Z,Columbus Blue Jackets,Buffalo Sabres,ev_over,-0.1293
-2025-09-22T23:00:00Z,Carolina Hurricanes,Tampa Bay Lightning,ev_away_ml,-0.1544
-2025-09-22T23:00:00Z,Carolina Hurricanes,Tampa Bay Lightning,ev_away_pl_+1.5,-0.2179
-2025-09-22T23:00:00Z,Columbus Blue Jackets,Buffalo Sabres,ev_home_ml,-0.3301
-2025-09-22T23:00:00Z,Montréal Canadiens,Pittsburgh Penguins,ev_home_ml,-0.3432
-2025-09-22T23:00:00Z,Montréal Canadiens,Pittsburgh Penguins,ev_home_pl_-1.5,-0.5205
-2025-09-22T23:00:00Z,Columbus Blue Jackets,Buffalo Sabres,ev_home_pl_-1.5,-0.5421
+2025-09-23T02:00:00Z,Anaheim Ducks,Utah Mammoth,ev_away_pl_+1.5,0.6437
+2025-09-22T23:00:00Z,Columbus Blue Jackets,Buffalo Sabres,ev_away_pl_+1.5,0.5798
+2025-09-22T23:00:00Z,Montréal Canadiens,Pittsburgh Penguins,ev_away_pl_+1.5,0.5051
+2025-09-22T23:00:00Z,Carolina Hurricanes,Tampa Bay Lightning,ev_home_pl_-1.5,0.0009
+2025-09-22T23:00:00Z,Carolina Hurricanes,Tampa Bay Lightning,ev_away_pl_+1.5,-0.0918
+2025-09-22T23:00:00Z,Montréal Canadiens,Pittsburgh Penguins,ev_under,-0.1718
+2025-09-22T23:00:00Z,Columbus Blue Jackets,Buffalo Sabres,ev_under,-0.172
+2025-09-23T02:00:00Z,Anaheim Ducks,Utah Mammoth,ev_under,-0.1722
+2025-09-22T23:00:00Z,Carolina Hurricanes,Tampa Bay Lightning,ev_under,-0.1732
+2025-09-22T23:00:00Z,Montréal Canadiens,Pittsburgh Penguins,ev_over,-0.2282
+2025-09-22T23:00:00Z,Columbus Blue Jackets,Buffalo Sabres,ev_over,-0.2289
+2025-09-23T02:00:00Z,Anaheim Ducks,Utah Mammoth,ev_over,-0.2297
+2025-09-22T23:00:00Z,Carolina Hurricanes,Tampa Bay Lightning,ev_over,-0.2325
+2025-09-22T23:00:00Z,Montréal Canadiens,Pittsburgh Penguins,ev_home_pl_-1.5,-0.596
+2025-09-22T23:00:00Z,Columbus Blue Jackets,Buffalo Sabres,ev_home_pl_-1.5,-0.6707
+2025-09-23T02:00:00Z,Anaheim Ducks,Utah Mammoth,ev_home_pl_-1.5,-0.7346

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 from pathlib import Path
+import os
 from typing import Optional, List, Dict
 
 import pandas as pd
@@ -105,43 +106,44 @@ def recompute_edges_and_recommendations(date_str: str, min_ev: float = 0.0) -> L
     if "p_f10_away_allows" not in df.columns:
         df["p_f10_away_allows"] = pd.NA
     try:
+        # Optional early-window factor: convert period-1 goal rate to first-10 rate (default 10/20)
+        try:
+            _F10_EARLY_FACTOR = float(os.getenv("F10_EARLY_FACTOR", "0.5"))
+            if not math.isfinite(_F10_EARLY_FACTOR) or _F10_EARLY_FACTOR <= 0:
+                _F10_EARLY_FACTOR = 0.5
+        except Exception:
+            _F10_EARLY_FACTOR = 0.5
         for i, r in df.iterrows():
             p_yes = None
-            if pd.notna(r.get("first_10min_prob")):
-                p_yes = float(r.get("first_10min_prob"))
-            elif pd.notna(r.get("first_10min_proj")):
-                lam10 = float(r.get("first_10min_proj"))
-                if math.isfinite(lam10) and lam10 >= 0:
-                    p_yes = 1.0 - math.exp(-lam10)
+            # Team-driven estimate from period1 projections (preferred)
+            h1 = float(r.get("period1_home_proj")) if pd.notna(r.get("period1_home_proj")) else None
+            a1 = float(r.get("period1_away_proj")) if pd.notna(r.get("period1_away_proj")) else None
+            lam_h10 = lam_a10 = None
+            if h1 is not None and a1 is not None and (h1 >= 0 and a1 >= 0):
+                try:
+                    lam_h10 = _F10_EARLY_FACTOR * float(h1)
+                    lam_a10 = _F10_EARLY_FACTOR * float(a1)
+                    lam10 = lam_h10 + lam_a10
+                    if math.isfinite(lam10) and lam10 >= 0:
+                        p_yes = 1.0 - math.exp(-lam10)
+                except Exception:
+                    lam_h10 = lam_a10 = None
+            # Fallback to existing fields if team-driven unavailable
+            if p_yes is None:
+                if pd.notna(r.get("first_10min_prob")):
+                    p_yes = float(r.get("first_10min_prob"))
+                elif pd.notna(r.get("first_10min_proj")):
+                    lam10 = float(r.get("first_10min_proj"))
+                    if math.isfinite(lam10) and lam10 >= 0:
+                        p_yes = 1.0 - math.exp(-lam10)
             if p_yes is not None:
                 df.at[i, "p_f10_yes"] = max(0.0, min(1.0, float(p_yes)))
                 df.at[i, "p_f10_no"] = 1.0 - float(df.at[i, "p_f10_yes"]) if pd.notna(df.at[i, "p_f10_yes"]) else pd.NA
-            # Compute team-level split of first-10 lambda using period1 shares
-            lam10_total = None
-            if pd.notna(r.get("first_10min_proj")):
-                try:
-                    lam10_total = float(r.get("first_10min_proj"))
-                except Exception:
-                    lam10_total = None
-            if lam10_total is None and p_yes is not None and p_yes < 1.0:
-                try:
-                    lam10_total = -math.log(max(1e-12, 1.0 - float(p_yes)))
-                except Exception:
-                    lam10_total = None
-            try:
-                h1 = float(r.get("period1_home_proj")) if pd.notna(r.get("period1_home_proj")) else None
-                a1 = float(r.get("period1_away_proj")) if pd.notna(r.get("period1_away_proj")) else None
-            except Exception:
-                h1 = a1 = None
-            if lam10_total is not None and h1 is not None and a1 is not None and (h1 + a1) > 0:
-                share_h = h1 / (h1 + a1)
-                share_a = 1.0 - share_h
-                lam_h10 = lam10_total * share_h
-                lam_a10 = lam10_total * share_a
+            # Compute team-level first-10 score/allow from team-driven lambdas if available
+            if lam_h10 is not None and lam_a10 is not None:
                 try:
                     df.at[i, "p_f10_home_scores"] = max(0.0, min(1.0, 1.0 - math.exp(-lam_h10)))
                     df.at[i, "p_f10_away_scores"] = max(0.0, min(1.0, 1.0 - math.exp(-lam_a10)))
-                    # Allowing is the opponent scoring
                     df.at[i, "p_f10_home_allows"] = df.at[i, "p_f10_away_scores"]
                     df.at[i, "p_f10_away_allows"] = df.at[i, "p_f10_home_scores"]
                 except Exception:

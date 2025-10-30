@@ -1,17 +1,17 @@
-date,home,away,market,ev
-2025-10-08T00:00:00Z,New York Rangers,Pittsburgh Penguins,ev_away_ml,1.0127
-2025-10-07T21:00:00Z,Florida Panthers,Chicago Blackhawks,ev_under,0.3379
-2025-10-08T02:30:00Z,Los Angeles Kings,Colorado Avalanche,ev_under,0.3175
-2025-10-08T00:00:00Z,New York Rangers,Pittsburgh Penguins,ev_away_pl_+1.5,0.2054
-2025-10-08T02:30:00Z,Los Angeles Kings,Colorado Avalanche,ev_away_ml,0.1079
-2025-10-07T21:00:00Z,Florida Panthers,Chicago Blackhawks,ev_home_ml,0.0611
-2025-10-07T21:00:00Z,Florida Panthers,Chicago Blackhawks,ev_away_pl_+1.5,0.0376
-2025-10-08T00:00:00Z,New York Rangers,Pittsburgh Penguins,ev_over,-0.0367
-2025-10-08T00:00:00Z,New York Rangers,Pittsburgh Penguins,ev_under,-0.0542
-2025-10-07T21:00:00Z,Florida Panthers,Chicago Blackhawks,ev_home_pl_-1.5,-0.1312
-2025-10-08T02:30:00Z,Los Angeles Kings,Colorado Avalanche,ev_home_ml,-0.2046
-2025-10-07T21:00:00Z,Florida Panthers,Chicago Blackhawks,ev_away_ml,-0.2778
-2025-10-08T00:00:00Z,New York Rangers,Pittsburgh Penguins,ev_home_pl_-1.5,-0.3467
-2025-10-07T21:00:00Z,Florida Panthers,Chicago Blackhawks,ev_over,-0.4116
-2025-10-08T02:30:00Z,Los Angeles Kings,Colorado Avalanche,ev_over,-0.4235
-2025-10-08T00:00:00Z,New York Rangers,Pittsburgh Penguins,ev_home_ml,-0.5756
+date,home,away,market,ev
+2025-10-08T00:00:00Z,New York Rangers,Pittsburgh Penguins,ev_away_ml,1.0127
+2025-10-07T21:00:00Z,Florida Panthers,Chicago Blackhawks,ev_under,0.3379
+2025-10-08T02:30:00Z,Los Angeles Kings,Colorado Avalanche,ev_under,0.3175
+2025-10-08T00:00:00Z,New York Rangers,Pittsburgh Penguins,ev_away_pl_+1.5,0.2054
+2025-10-08T02:30:00Z,Los Angeles Kings,Colorado Avalanche,ev_away_ml,0.1079
+2025-10-07T21:00:00Z,Florida Panthers,Chicago Blackhawks,ev_home_ml,0.0611
+2025-10-07T21:00:00Z,Florida Panthers,Chicago Blackhawks,ev_away_pl_+1.5,0.0376
+2025-10-08T00:00:00Z,New York Rangers,Pittsburgh Penguins,ev_over,-0.0367
+2025-10-08T00:00:00Z,New York Rangers,Pittsburgh Penguins,ev_under,-0.0542
+2025-10-07T21:00:00Z,Florida Panthers,Chicago Blackhawks,ev_home_pl_-1.5,-0.1312
+2025-10-08T02:30:00Z,Los Angeles Kings,Colorado Avalanche,ev_home_ml,-0.2046
+2025-10-07T21:00:00Z,Florida Panthers,Chicago Blackhawks,ev_away_ml,-0.2778
+2025-10-08T00:00:00Z,New York Rangers,Pittsburgh Penguins,ev_home_pl_-1.5,-0.3467
+2025-10-07T21:00:00Z,Florida Panthers,Chicago Blackhawks,ev_over,-0.4116
+2025-10-08T02:30:00Z,Los Angeles Kings,Colorado Avalanche,ev_over,-0.4235
+2025-10-08T00:00:00Z,New York Rangers,Pittsburgh Penguins,ev_home_ml,-0.5756

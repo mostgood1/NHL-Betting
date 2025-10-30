@@ -1,7 +1,7 @@
 date,home,away,market,ev
-2025-10-02T23:00:00Z,Washington Capitals,Boston Bruins,ev_over,0.3855
-2025-10-02T23:00:00Z,Washington Capitals,Boston Bruins,ev_home_pl_-1.5,0.0159
-2025-10-02T23:00:00Z,Washington Capitals,Boston Bruins,ev_home_ml,-0.0062
-2025-10-02T23:00:00Z,Washington Capitals,Boston Bruins,ev_away_pl_+1.5,-0.0815
-2025-10-02T23:00:00Z,Washington Capitals,Boston Bruins,ev_away_ml,-0.1159
-2025-10-02T23:00:00Z,Washington Capitals,Boston Bruins,ev_under,-0.5023
+2025-10-02T23:00:00Z,Washington Capitals,Boston Bruins,ev_over,0.2135
+2025-10-02T23:00:00Z,Washington Capitals,Boston Bruins,ev_home_pl_-1.5,0.0688
+2025-10-02T23:00:00Z,Washington Capitals,Boston Bruins,ev_home_ml,0.0222
+2025-10-02T23:00:00Z,Washington Capitals,Boston Bruins,ev_away_pl_+1.5,-0.0654
+2025-10-02T23:00:00Z,Washington Capitals,Boston Bruins,ev_away_ml,-0.0747
+2025-10-02T23:00:00Z,Washington Capitals,Boston Bruins,ev_under,-0.5725

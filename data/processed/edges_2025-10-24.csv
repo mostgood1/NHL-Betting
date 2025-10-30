@@ -1,21 +1,23 @@
-date,home,away,market,ev
-2025-10-24T23:00:00Z,Buffalo Sabres,Toronto Maple Leafs,ev_home_ml,0.5398
-2025-10-24T23:00:00Z,New Jersey Devils,San Jose Sharks,ev_away_pl_+1.5,0.4114
-2025-10-24T23:00:00Z,Columbus Blue Jackets,Washington Capitals,ev_over,0.3827
-2025-10-25T00:00:00Z,Winnipeg Jets,Calgary Flames,ev_home_ml,0.2987
-2025-10-25T00:00:00Z,Winnipeg Jets,Calgary Flames,ev_home_pl_-1.5,0.2944
-2025-10-24T23:00:00Z,Buffalo Sabres,Toronto Maple Leafs,ev_over,0.2431
-2025-10-24T23:00:00Z,New Jersey Devils,San Jose Sharks,ev_over,0.2352
-2025-10-24T23:00:00Z,Columbus Blue Jackets,Washington Capitals,ev_away_ml,0.204
-2025-10-24T23:00:00Z,New Jersey Devils,San Jose Sharks,ev_home_ml,0.0732
-2025-10-25T00:00:00Z,Winnipeg Jets,Calgary Flames,ev_over,-0.0067
-2025-10-25T00:00:00Z,Winnipeg Jets,Calgary Flames,ev_under,-0.0826
-2025-10-25T00:00:00Z,Winnipeg Jets,Calgary Flames,ev_away_pl_+1.5,-0.2156
-2025-10-24T23:00:00Z,Buffalo Sabres,Toronto Maple Leafs,ev_under,-0.2781
-2025-10-24T23:00:00Z,New Jersey Devils,San Jose Sharks,ev_under,-0.2989
-2025-10-24T23:00:00Z,Columbus Blue Jackets,Washington Capitals,ev_home_ml,-0.305
-2025-10-24T23:00:00Z,Columbus Blue Jackets,Washington Capitals,ev_under,-0.384
-2025-10-24T23:00:00Z,New Jersey Devils,San Jose Sharks,ev_home_pl_-1.5,-0.3891
-2025-10-24T23:00:00Z,New Jersey Devils,San Jose Sharks,ev_away_ml,-0.3967
-2025-10-25T00:00:00Z,Winnipeg Jets,Calgary Flames,ev_away_ml,-0.4765
-2025-10-24T23:00:00Z,Buffalo Sabres,Toronto Maple Leafs,ev_away_ml,-0.528
+date,home,away,market,ev
+2025-10-24T23:00:00Z,Buffalo Sabres,Toronto Maple Leafs,ev_home_ml,0.5398
+2025-10-24T23:00:00Z,New Jersey Devils,San Jose Sharks,ev_away_pl_+1.5,0.4114
+2025-10-24T23:00:00Z,Columbus Blue Jackets,Washington Capitals,ev_over,0.3827
+2025-10-25T00:00:00Z,Winnipeg Jets,Calgary Flames,ev_home_ml,0.2987
+2025-10-25T00:00:00Z,Winnipeg Jets,Calgary Flames,ev_home_pl_-1.5,0.2944
+2025-10-24T23:00:00Z,Buffalo Sabres,Toronto Maple Leafs,ev_over,0.2431
+2025-10-24T23:00:00Z,New Jersey Devils,San Jose Sharks,ev_over,0.2352
+2025-10-24T23:00:00Z,Columbus Blue Jackets,Washington Capitals,ev_away_ml,0.204
+2025-10-24T23:00:00Z,New Jersey Devils,San Jose Sharks,ev_home_ml,0.0732
+2025-10-25T00:00:00Z,Winnipeg Jets,Calgary Flames,ev_over,-0.0067
+2025-10-24T23:00:00Z,Columbus Blue Jackets,Washington Capitals,ev_home_pl_-1.5,-0.0352
+2025-10-24T23:00:00Z,Columbus Blue Jackets,Washington Capitals,ev_away_pl_+1.5,-0.0607
+2025-10-25T00:00:00Z,Winnipeg Jets,Calgary Flames,ev_under,-0.0826
+2025-10-25T00:00:00Z,Winnipeg Jets,Calgary Flames,ev_away_pl_+1.5,-0.2156
+2025-10-24T23:00:00Z,Buffalo Sabres,Toronto Maple Leafs,ev_under,-0.2781
+2025-10-24T23:00:00Z,New Jersey Devils,San Jose Sharks,ev_under,-0.2989
+2025-10-24T23:00:00Z,Columbus Blue Jackets,Washington Capitals,ev_home_ml,-0.305
+2025-10-24T23:00:00Z,Columbus Blue Jackets,Washington Capitals,ev_under,-0.384
+2025-10-24T23:00:00Z,New Jersey Devils,San Jose Sharks,ev_home_pl_-1.5,-0.3891
+2025-10-24T23:00:00Z,New Jersey Devils,San Jose Sharks,ev_away_ml,-0.3967
+2025-10-25T00:00:00Z,Winnipeg Jets,Calgary Flames,ev_away_ml,-0.4765
+2025-10-24T23:00:00Z,Buffalo Sabres,Toronto Maple Leafs,ev_away_ml,-0.528

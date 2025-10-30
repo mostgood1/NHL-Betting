@@ -1,29 +1,29 @@
-date,home,away,market,ev
-2025-10-21T01:30:00Z,Calgary Flames,Winnipeg Jets,ev_under,0.3996
-2025-10-20T23:00:00Z,Philadelphia Flyers,Seattle Kraken,ev_under,0.3499
-2025-10-21T01:30:00Z,Calgary Flames,Winnipeg Jets,ev_away_ml,0.3055
-2025-10-20T23:30:00Z,Montréal Canadiens,Buffalo Sabres,ev_away_ml,0.296
-2025-10-20T23:00:00Z,New York Rangers,Minnesota Wild,ev_under,0.2482
-2025-10-21T02:00:00Z,Vegas Golden Knights,Carolina Hurricanes,ev_home_pl_-1.5,0.1667
-2025-10-20T23:30:00Z,Montréal Canadiens,Buffalo Sabres,ev_under,0.1579
-2025-10-20T23:00:00Z,New York Rangers,Minnesota Wild,ev_home_ml,0.1337
-2025-10-21T02:00:00Z,Vegas Golden Knights,Carolina Hurricanes,ev_away_ml,0.0427
-2025-10-20T23:00:00Z,Philadelphia Flyers,Seattle Kraken,ev_home_pl_-1.5,0.0126
-2025-10-20T23:30:00Z,Montréal Canadiens,Buffalo Sabres,ev_away_pl_+1.5,0.0098
-2025-10-20T23:00:00Z,Philadelphia Flyers,Seattle Kraken,ev_home_ml,0.003
-2025-10-20T23:00:00Z,New York Rangers,Minnesota Wild,ev_home_pl_-1.5,-0.0063
-2025-10-21T02:00:00Z,Vegas Golden Knights,Carolina Hurricanes,ev_under,-0.0221
-2025-10-20T23:00:00Z,New York Rangers,Minnesota Wild,ev_away_pl_+1.5,-0.059
-2025-10-21T02:00:00Z,Vegas Golden Knights,Carolina Hurricanes,ev_over,-0.0637
-2025-10-20T23:00:00Z,Philadelphia Flyers,Seattle Kraken,ev_away_pl_+1.5,-0.0662
-2025-10-20T23:00:00Z,Philadelphia Flyers,Seattle Kraken,ev_away_ml,-0.093
-2025-10-21T02:00:00Z,Vegas Golden Knights,Carolina Hurricanes,ev_home_ml,-0.1289
-2025-10-20T23:30:00Z,Montréal Canadiens,Buffalo Sabres,ev_home_pl_-1.5,-0.1326
-2025-10-21T02:00:00Z,Vegas Golden Knights,Carolina Hurricanes,ev_away_pl_+1.5,-0.1328
-2025-10-20T23:00:00Z,New York Rangers,Minnesota Wild,ev_away_ml,-0.2636
-2025-10-20T23:30:00Z,Montréal Canadiens,Buffalo Sabres,ev_over,-0.2744
-2025-10-20T23:30:00Z,Montréal Canadiens,Buffalo Sabres,ev_home_ml,-0.2938
-2025-10-20T23:00:00Z,New York Rangers,Minnesota Wild,ev_over,-0.3257
-2025-10-20T23:00:00Z,Philadelphia Flyers,Seattle Kraken,ev_over,-0.3964
-2025-10-21T01:30:00Z,Calgary Flames,Winnipeg Jets,ev_over,-0.4496
-2025-10-21T01:30:00Z,Calgary Flames,Winnipeg Jets,ev_home_ml,-0.5252
+date,home,away,market,ev
+2025-10-21T01:30:00Z,Calgary Flames,Winnipeg Jets,ev_under,0.3996
+2025-10-20T23:00:00Z,Philadelphia Flyers,Seattle Kraken,ev_under,0.3499
+2025-10-21T01:30:00Z,Calgary Flames,Winnipeg Jets,ev_away_ml,0.3055
+2025-10-20T23:30:00Z,Montréal Canadiens,Buffalo Sabres,ev_away_ml,0.296
+2025-10-20T23:00:00Z,New York Rangers,Minnesota Wild,ev_under,0.2482
+2025-10-21T02:00:00Z,Vegas Golden Knights,Carolina Hurricanes,ev_home_pl_-1.5,0.1667
+2025-10-20T23:30:00Z,Montréal Canadiens,Buffalo Sabres,ev_under,0.1579
+2025-10-20T23:00:00Z,New York Rangers,Minnesota Wild,ev_home_ml,0.1337
+2025-10-21T02:00:00Z,Vegas Golden Knights,Carolina Hurricanes,ev_away_ml,0.0427
+2025-10-20T23:00:00Z,Philadelphia Flyers,Seattle Kraken,ev_home_pl_-1.5,0.0126
+2025-10-20T23:30:00Z,Montréal Canadiens,Buffalo Sabres,ev_away_pl_+1.5,0.0098
+2025-10-20T23:00:00Z,Philadelphia Flyers,Seattle Kraken,ev_home_ml,0.003
+2025-10-20T23:00:00Z,New York Rangers,Minnesota Wild,ev_home_pl_-1.5,-0.0063
+2025-10-21T02:00:00Z,Vegas Golden Knights,Carolina Hurricanes,ev_under,-0.0221
+2025-10-20T23:00:00Z,New York Rangers,Minnesota Wild,ev_away_pl_+1.5,-0.059
+2025-10-21T02:00:00Z,Vegas Golden Knights,Carolina Hurricanes,ev_over,-0.0637
+2025-10-20T23:00:00Z,Philadelphia Flyers,Seattle Kraken,ev_away_pl_+1.5,-0.0662
+2025-10-20T23:00:00Z,Philadelphia Flyers,Seattle Kraken,ev_away_ml,-0.093
+2025-10-21T02:00:00Z,Vegas Golden Knights,Carolina Hurricanes,ev_home_ml,-0.1289
+2025-10-20T23:30:00Z,Montréal Canadiens,Buffalo Sabres,ev_home_pl_-1.5,-0.1326
+2025-10-21T02:00:00Z,Vegas Golden Knights,Carolina Hurricanes,ev_away_pl_+1.5,-0.1328
+2025-10-20T23:00:00Z,New York Rangers,Minnesota Wild,ev_away_ml,-0.2636
+2025-10-20T23:30:00Z,Montréal Canadiens,Buffalo Sabres,ev_over,-0.2744
+2025-10-20T23:30:00Z,Montréal Canadiens,Buffalo Sabres,ev_home_ml,-0.2938
+2025-10-20T23:00:00Z,New York Rangers,Minnesota Wild,ev_over,-0.3257
+2025-10-20T23:00:00Z,Philadelphia Flyers,Seattle Kraken,ev_over,-0.3964
+2025-10-21T01:30:00Z,Calgary Flames,Winnipeg Jets,ev_over,-0.4496
+2025-10-21T01:30:00Z,Calgary Flames,Winnipeg Jets,ev_home_ml,-0.5252

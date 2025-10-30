@@ -5168,40 +5168,140 @@ async def api_props_recommendations_history_json(
     # Extra defensive pass: ensure no non-finite floats slipped through
     try:
         import math as _math
-        for _r in rows:
-            for _k, _v in list(_r.items()):
-                if isinstance(_v, float) and not _math.isfinite(_v):
-                    _r[_k] = None
-    except Exception:
-        pass
-    try:
-        payload = {"date": d, "data": rows, "returned_rows": len(rows), "total_rows": total_rows, "lookback_days": days}
-        # Final deep sanitize
-        if '_json_sanitize' in globals():  # safety
-            payload = _json_sanitize(payload)
-        return JSONResponse(payload)
-    except Exception:
-        # Fallback: minimally safe payload
-        return JSONResponse({"date": d, "data": [], "returned_rows": 0, "total_rows": total_rows, "lookback_days": days})
-
-@app.get('/api/props/recommendations.json')
-async def api_props_recommendations_json(
-    request: Request,
-    date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD (ET)"),
-    market: Optional[str] = Query(None, description="Filter by market"),
-    team: Optional[str] = Query(None, description="Filter by team (if present in recs)"),
-    min_ev: float = Query(0.0, description="Minimum EV"),
-    sort: Optional[str] = Query("ev_desc", description="Sort: ev_desc, ev_asc, p_over_desc, p_over_asc, name, market, team"),
-    page: int = Query(1, description="Page number (1-based)"),
-    page_size: Optional[int] = Query(None, description="Rows per page (defaults PROPS_PAGE_SIZE)"),
-    top: int = Query(0, description="Optional max rows before pagination (0 = unlimited)"),
-):
-    """Paginated recommendations JSON endpoint (mirrors /api/props/all.json metadata)."""
-    d = _normalize_date_param(date)
-    try:
-        if os.getenv('FAST_PROPS_TEST','0') == '1':
-            default_ps = 10
-        else:
+        for _, r in df.iterrows():
+            # Moneyline (only recommend model-favored side)
+            if "moneyline" in f_markets:
+                try:
+                    ph = float(r.get("p_home_ml")) if pd.notna(r.get("p_home_ml")) else None
+                    pa = float(r.get("p_away_ml")) if pd.notna(r.get("p_away_ml")) else None
+                except Exception:
+                    ph, pa = None, None
+                if ph is not None and pa is not None:
+                    if ph > pa:
+                        add_rec(r, "moneyline", "home_ml", "p_home_ml", "ev_home_ml", "edge_home_ml", "home_ml_odds", "home_ml_book")
+                    elif pa > ph:
+                        add_rec(r, "moneyline", "away_ml", "p_away_ml", "ev_away_ml", "edge_away_ml", "away_ml_odds", "away_ml_book")
+                    else:
+                        # Tie-break by higher EV
+                        try:
+                            evh = float(r.get("ev_home_ml")) if pd.notna(r.get("ev_home_ml")) else None
+                        except Exception:
+                            evh = None
+                        try:
+                            eva = float(r.get("ev_away_ml")) if pd.notna(r.get("ev_away_ml")) else None
+                        except Exception:
+                            eva = None
+                        if (evh is not None) and (eva is not None):
+                            if evh >= eva:
+                                add_rec(r, "moneyline", "home_ml", "p_home_ml", "ev_home_ml", "edge_home_ml", "home_ml_odds", "home_ml_book")
+                            else:
+                                add_rec(r, "moneyline", "away_ml", "p_away_ml", "ev_away_ml", "edge_away_ml", "away_ml_odds", "away_ml_book")
+                # If probabilities invalid, do nothing (avoid recommending against model)
+            # Totals: never bet against model — pick side with higher probability; tie-break EV
+            if "totals" in f_markets:
+                try:
+                    po = float(r.get("p_over")) if pd.notna(r.get("p_over")) else None
+                    pu = float(r.get("p_under")) if pd.notna(r.get("p_under")) else None
+                except Exception:
+                    po, pu = None, None
+                if (po is not None) and (pu is not None):
+                    if po > pu:
+                        add_rec(r, "totals", "over", "p_over", "ev_over", "edge_over", "over_odds", "over_book")
+                    elif pu > po:
+                        add_rec(r, "totals", "under", "p_under", "ev_under", "edge_under", "under_odds", "under_book")
+                    else:
+                        try:
+                            evo = float(r.get("ev_over")) if pd.notna(r.get("ev_over")) else None
+                        except Exception:
+                            evo = None
+                        try:
+                            evu = float(r.get("ev_under")) if pd.notna(r.get("ev_under")) else None
+                        except Exception:
+                            evu = None
+                        if (evo is not None) and (evu is not None):
+                            if evo >= evu:
+                                add_rec(r, "totals", "over", "p_over", "ev_over", "edge_over", "over_odds", "over_book")
+                            else:
+                                add_rec(r, "totals", "under", "p_under", "ev_under", "edge_under", "under_odds", "under_book")
+            # Puck line: pick side with higher prob; tie-break EV
+            if "puckline" in f_markets:
+                try:
+                    php = float(r.get("p_home_pl_-1.5")) if pd.notna(r.get("p_home_pl_-1.5")) else None
+                    pap = float(r.get("p_away_pl_+1.5")) if pd.notna(r.get("p_away_pl_+1.5")) else None
+                except Exception:
+                    php, pap = None, None
+                if (php is not None) and (pap is not None):
+                    if php > pap:
+                        add_rec(r, "puckline", "home_pl_-1.5", "p_home_pl_-1.5", "ev_home_pl_-1.5", "edge_home_pl_-1.5", "home_pl_-1.5_odds", "home_pl_-1.5_book")
+                    elif pap > php:
+                        add_rec(r, "puckline", "away_pl_+1.5", "p_away_pl_+1.5", "ev_away_pl_+1.5", "edge_away_pl_+1.5", "away_pl_+1.5_odds", "away_pl_+1.5_book")
+                    else:
+                        try:
+                            evhpl = float(r.get("ev_home_pl_-1.5")) if pd.notna(r.get("ev_home_pl_-1.5")) else None
+                        except Exception:
+                            evhpl = None
+                        try:
+                            evapl = float(r.get("ev_away_pl_+1.5")) if pd.notna(r.get("ev_away_pl_+1.5")) else None
+                        except Exception:
+                            evapl = None
+                        if (evhpl is not None) and (evapl is not None):
+                            if evhpl >= evapl:
+                                add_rec(r, "puckline", "home_pl_-1.5", "p_home_pl_-1.5", "ev_home_pl_-1.5", "edge_home_pl_-1.5", "home_pl_-1.5_odds", "home_pl_-1.5_book")
+                            else:
+                                add_rec(r, "puckline", "away_pl_+1.5", "p_away_pl_+1.5", "ev_away_pl_+1.5", "edge_away_pl_+1.5", "away_pl_+1.5_odds", "away_pl_+1.5_book")
+            # First 10 minutes: pick yes/no by higher prob; tie-break EV
+            if "first10" in f_markets:
+                try:
+                    py = float(r.get("p_f10_yes")) if pd.notna(r.get("p_f10_yes")) else None
+                    pn = float(r.get("p_f10_no")) if pd.notna(r.get("p_f10_no")) else None
+                except Exception:
+                    py, pn = None, None
+                if (py is not None) and (pn is not None):
+                    if py > pn:
+                        add_rec(r, "first10", "f10_yes", "p_f10_yes", "ev_f10_yes", "edge_f10_yes", "f10_yes_odds", None)
+                    elif pn > py:
+                        add_rec(r, "first10", "f10_no", "p_f10_no", "ev_f10_no", "edge_f10_no", "f10_no_odds", None)
+                    else:
+                        try:
+                            evy = float(r.get("ev_f10_yes")) if pd.notna(r.get("ev_f10_yes")) else None
+                        except Exception:
+                            evy = None
+                        try:
+                            evn = float(r.get("ev_f10_no")) if pd.notna(r.get("ev_f10_no")) else None
+                        except Exception:
+                            evn = None
+                        if (evy is not None) and (evn is not None):
+                            if evy >= evn:
+                                add_rec(r, "first10", "f10_yes", "p_f10_yes", "ev_f10_yes", "edge_f10_yes", "f10_yes_odds", None)
+                            else:
+                                add_rec(r, "first10", "f10_no", "p_f10_no", "ev_f10_no", "edge_f10_no", "f10_no_odds", None)
+            # Period totals (P1..P3): pick side by higher prob; tie-break EV
+            if "periods" in f_markets:
+                for pn in (1, 2, 3):
+                    try:
+                        pov = float(r.get(f"p{pn}_over_prob")) if pd.notna(r.get(f"p{pn}_over_prob")) else None
+                        pun = float(r.get(f"p{pn}_under_prob")) if pd.notna(r.get(f"p{pn}_under_prob")) else None
+                    except Exception:
+                        pov, pun = None, None
+                    if (pov is not None) and (pun is not None):
+                        if pov > pun:
+                            add_rec(r, "periods", f"p{pn}_over", f"p{pn}_over_prob", f"ev_p{pn}_over", None, f"p{pn}_over_odds", None)
+                        elif pun > pov:
+                            add_rec(r, "periods", f"p{pn}_under", f"p{pn}_under_prob", f"ev_p{pn}_under", None, f"p{pn}_under_odds", None)
+                        else:
+                            try:
+                                evo = float(r.get(f"ev_p{pn}_over")) if pd.notna(r.get(f"ev_p{pn}_over")) else None
+                            except Exception:
+                                evo = None
+                            try:
+                                evu = float(r.get(f"ev_p{pn}_under")) if pd.notna(r.get(f"ev_p{pn}_under")) else None
+                            except Exception:
+                                evu = None
+                            if (evo is not None) and (evu is not None):
+                                if evo >= evu:
+                                    add_rec(r, "periods", f"p{pn}_over", f"p{pn}_over_prob", f"ev_p{pn}_over", None, f"p{pn}_over_odds", None)
+                                else:
+                                    add_rec(r, "periods", f"p{pn}_under", f"p{pn}_under_prob", f"ev_p{pn}_under", None, f"p{pn}_under_odds", None)
             default_ps = int(os.getenv('PROPS_PAGE_SIZE', '250'))
     except Exception:
         default_ps = 250

@@ -1,21 +1,57 @@
-date,home,away,market,bet,price,model_prob,ev,edge,book,result
-2025-10-11T23:00:00Z,Tampa Bay Lightning,New Jersey Devils,puckline,home_pl_-1.5,178.0,0.7623818569977592,1.1194,0.4173,bovada,
-2025-10-11T23:00:00Z,Pittsburgh Penguins,New York Rangers,moneyline,home_ml,122.0,0.89501866773078,0.9869,0.4607,bovada,
-2025-10-11T23:00:00Z,Florida Panthers,Ottawa Senators,puckline,home_pl_-1.5,175.0,0.7144849798964944,0.9648,0.3652,bovada,
-2025-10-11T17:30:00Z,Winnipeg Jets,Los Angeles Kings,puckline,home_pl_-1.5,210.0,0.5707520053389765,0.7693,0.2596,bovada,
-2025-10-12T02:00:00Z,Seattle Kraken,Vegas Golden Knights,moneyline,home_ml,140.0,0.7245040049927383,0.7388,0.3236,bovada,
-2025-10-11T23:00:00Z,Detroit Red Wings,Toronto Maple Leafs,moneyline,home_ml,127.0,0.7064924725978263,0.6037,0.2811,bovada,
-2025-10-12T02:00:00Z,San Jose Sharks,Anaheim Ducks,puckline,away_pl_+1.5,-110.0,0.8217623566607709,0.5688190445341991,,,
-2025-10-11T23:00:00Z,Tampa Bay Lightning,New Jersey Devils,moneyline,home_ml,-142.0,0.9012198125808792,0.5359,0.3355,bovada,
-2025-10-11T23:00:00Z,Chicago Blackhawks,Montréal Canadiens,puckline,away_pl_+1.5,-110.0,0.8025226412563047,0.5320886787620362,,,
-2025-10-12T00:00:00Z,Minnesota Wild,Columbus Blue Jackets,puckline,home_pl_-1.5,168.0,0.5640523172497116,0.5117,0.2044,bovada,
-2025-10-12T02:00:00Z,Edmonton Oilers,Vancouver Canucks,puckline,home_pl_-1.5,158.0,0.5737870626387442,0.4804,0.199,bovada,
-2025-10-11T23:00:00Z,Florida Panthers,Ottawa Senators,moneyline,home_ml,-145.0,0.8691885393496075,0.4686,0.2981,bovada,
-2025-10-11T23:00:00Z,Pittsburgh Penguins,New York Rangers,puckline,home_pl_-1.5,-110.0,0.738251672083315,0.4093895557954196,,,
-2025-10-11T23:00:00Z,Boston Bruins,Buffalo Sabres,puckline,home_pl_-1.5,220.0,0.4337719636187138,0.3881,0.1339,bovada,
-2025-10-11T17:30:00Z,Winnipeg Jets,Los Angeles Kings,totals,over,-110.0,0.725608685471666,0.3853,0.2256,bovada,
-2025-10-11T17:30:00Z,Winnipeg Jets,Los Angeles Kings,moneyline,home_ml,-125.0,0.7678495462387296,0.3821,0.2354,bovada,
-2025-10-11T23:00:00Z,New York Islanders,Washington Capitals,puckline,away_pl_+1.5,-110.0,0.7204796525701997,0.37546115490674503,,,
-2025-10-12T01:00:00Z,Colorado Avalanche,Dallas Stars,puckline,home_pl_-1.5,185.0,0.4814112226819841,0.372,0.1451,bovada,
-2025-10-12T00:00:00Z,Minnesota Wild,Columbus Blue Jackets,moneyline,home_ml,-150.0,0.7870586110001062,0.3118,0.2072,bovada,
-2025-10-11T20:00:00Z,Calgary Flames,St. Louis Blues,totals,over,-120.0,0.7145452835027125,0.31,0.1928,bovada,
+date,home,away,market,bet,prob,price,book,ev
+2025-10-12T00:00:00Z,Minnesota Wild,Columbus Blue Jackets,moneyline,away_ml,0.755092442928305,130.0,bovada,0.7367
+2025-10-11T23:00:00Z,Pittsburgh Penguins,New York Rangers,moneyline,home_ml,0.7362915684792437,122.0,bovada,0.6346
+2025-10-11T23:00:00Z,Boston Bruins,Buffalo Sabres,moneyline,away_ml,0.8014733687935097,-103.0,bovada,0.5796
+2025-10-11T23:00:00Z,Tampa Bay Lightning,New Jersey Devils,moneyline,away_ml,0.6921979869275956,122.0,bovada,0.5367
+2025-10-11T20:00:00Z,Calgary Flames,St. Louis Blues,totals,under,0.765173299008203,100.0,bovada,0.5303
+2025-10-12T02:00:00Z,San Jose Sharks,Anaheim Ducks,moneyline,away_ml,0.8135018294310216,-120.0,bovada,0.4914
+2025-10-12T02:00:00Z,San Jose Sharks,Anaheim Ducks,puckline,away_pl_+1.5,0.7617669445423209,-110.0,,0.4543
+2025-10-12T02:00:00Z,Edmonton Oilers,Vancouver Canucks,totals,under,0.7464219131902232,-108.0,bovada,0.4376
+2025-10-12T00:00:00Z,Nashville Predators,Utah Mammoth,moneyline,away_ml,0.783171518336354,-120.0,bovada,0.4358
+2025-10-11T23:00:00Z,Chicago Blackhawks,Montréal Canadiens,totals,under,0.7439542906391259,-108.0,bovada,0.4328
+2025-10-12T02:00:00Z,Seattle Kraken,Vegas Golden Knights,puckline,away_pl_+1.5,0.7455081612469643,-110.0,,0.4232
+2025-10-11T23:00:00Z,Detroit Red Wings,Toronto Maple Leafs,totals,under,0.7249797483600728,-105.0,bovada,0.4154
+2025-10-11T23:00:00Z,New York Islanders,Washington Capitals,puckline,away_pl_+1.5,0.7393437413938007,-110.0,,0.4115
+2025-10-12T01:00:00Z,Colorado Avalanche,Dallas Stars,totals,under,0.7051236322271841,100.0,bovada,0.4102
+2025-10-12T00:00:00Z,Nashville Predators,Utah Mammoth,puckline,away_pl_+1.5,0.7325537032941817,-110.0,,0.3985
+2025-10-11T23:00:00Z,Pittsburgh Penguins,New York Rangers,puckline,away_pl_+1.5,0.7323722813222511,-110.0,,0.3982
+2025-10-11T23:00:00Z,Detroit Red Wings,Toronto Maple Leafs,moneyline,home_ml,0.6108061412175542,127.0,bovada,0.3865
+2025-10-11T20:00:00Z,Calgary Flames,St. Louis Blues,puckline,away_pl_+1.5,0.7211708639756627,-110.0,,0.3768
+2025-10-12T02:00:00Z,Seattle Kraken,Vegas Golden Knights,totals,under,0.6971125634681159,-103.0,bovada,0.3739
+2025-10-12T02:00:00Z,San Jose Sharks,Anaheim Ducks,totals,under,0.6792235125930014,100.0,bovada,0.3584
+2025-10-11T23:00:00Z,Chicago Blackhawks,Montréal Canadiens,puckline,away_pl_+1.5,0.7041754095286425,-110.0,,0.3443
+2025-10-11T17:30:00Z,Winnipeg Jets,Los Angeles Kings,totals,under,0.6969891746429031,-110.0,bovada,0.3306
+2025-10-11T23:00:00Z,Florida Panthers,Ottawa Senators,totals,under,0.6481125172228717,-103.0,bovada,0.2773
+2025-10-12T00:00:00Z,Nashville Predators,Utah Mammoth,totals,under,0.6955395349106589,-120.0,bovada,0.2752
+2025-10-11T23:00:00Z,Boston Bruins,Buffalo Sabres,totals,under,0.6382661719230431,-108.0,bovada,0.2293
+2025-10-11T17:30:00Z,Winnipeg Jets,Los Angeles Kings,first10,f10_no,0.643,-110.0,,0.2275
+2025-10-11T17:30:00Z,Winnipeg Jets,Los Angeles Kings,moneyline,home_ml,0.6812430594181489,-125.0,bovada,0.2262
+2025-10-11T23:00:00Z,New York Islanders,Washington Capitals,first10,f10_no,0.6414,-110.0,,0.2245
+2025-10-11T23:00:00Z,Chicago Blackhawks,Montréal Canadiens,moneyline,away_ml,0.7162773659960822,-142.0,bovada,0.2207
+2025-10-11T23:00:00Z,Detroit Red Wings,Toronto Maple Leafs,puckline,away_pl_+1.5,0.6385479215759311,-110.0,,0.219
+2025-10-12T00:00:00Z,Minnesota Wild,Columbus Blue Jackets,totals,under,0.6071453405353813,100.0,bovada,0.2143
+2025-10-11T23:00:00Z,Boston Bruins,Buffalo Sabres,first10,f10_no,0.6334,-110.0,,0.2092
+2025-10-12T02:00:00Z,Seattle Kraken,Vegas Golden Knights,first10,f10_no,0.6322,-110.0,,0.2069
+2025-10-11T23:00:00Z,Carolina Hurricanes,Philadelphia Flyers,first10,f10_no,0.6248,-110.0,,0.1928
+2025-10-12T02:00:00Z,Seattle Kraken,Vegas Golden Knights,moneyline,away_ml,0.7406309759647269,-165.0,bovada,0.1895
+2025-10-12T00:00:00Z,Nashville Predators,Utah Mammoth,first10,f10_no,0.6204000000000001,-110.0,,0.1844
+2025-10-12T01:00:00Z,Colorado Avalanche,Dallas Stars,moneyline,home_ml,0.6836211146262526,-138.0,bovada,0.179
+2025-10-12T01:00:00Z,Colorado Avalanche,Dallas Stars,first10,f10_no,0.6174999999999999,-110.0,,0.1789
+2025-10-12T02:00:00Z,San Jose Sharks,Anaheim Ducks,first10,f10_no,0.6174999999999999,-110.0,,0.1789
+2025-10-11T23:00:00Z,Florida Panthers,Ottawa Senators,first10,f10_no,0.6174999999999999,-110.0,,0.1789
+2025-10-11T23:00:00Z,Detroit Red Wings,Toronto Maple Leafs,first10,f10_no,0.6143000000000001,-110.0,,0.1728
+2025-10-11T23:00:00Z,Chicago Blackhawks,Montréal Canadiens,first10,f10_no,0.6104,-110.0,,0.1653
+2025-10-12T00:00:00Z,Minnesota Wild,Columbus Blue Jackets,first10,f10_no,0.61,-110.0,,0.1645
+2025-10-11T20:00:00Z,Calgary Flames,St. Louis Blues,first10,f10_no,0.6097,-110.0,,0.164
+2025-10-11T23:00:00Z,Pittsburgh Penguins,New York Rangers,first10,f10_no,0.608,-110.0,,0.1607
+2025-10-11T23:00:00Z,Tampa Bay Lightning,New Jersey Devils,first10,f10_no,0.6038,-110.0,,0.1527
+2025-10-11T23:00:00Z,New York Islanders,Washington Capitals,moneyline,away_ml,0.6189606560997314,-117.0,bovada,0.148
+2025-10-11T23:00:00Z,Tampa Bay Lightning,New Jersey Devils,totals,under,0.5813228981380765,-105.0,bovada,0.135
+2025-10-12T02:00:00Z,Edmonton Oilers,Vancouver Canucks,first10,f10_no,0.5932999999999999,-110.0,,0.1327
+2025-10-11T23:00:00Z,Florida Panthers,Ottawa Senators,moneyline,home_ml,0.6364704166527636,-145.0,bovada,0.0754
+2025-10-11T20:00:00Z,Calgary Flames,St. Louis Blues,moneyline,away_ml,0.5849139289022888,-122.0,bovada,0.0644
+2025-10-11T23:00:00Z,Carolina Hurricanes,Philadelphia Flyers,puckline,away_pl_+1.5,0.5835971067228274,-122.0,bovada,0.062
+2025-10-11T23:00:00Z,Carolina Hurricanes,Philadelphia Flyers,moneyline,home_ml,0.7648990493886076,-260.0,bovada,0.0591
+2025-10-12T00:00:00Z,Minnesota Wild,Columbus Blue Jackets,puckline,away_pl_+1.5,0.6803169657510942,-198.0,bovada,0.0239
+2025-10-11T23:00:00Z,New York Islanders,Washington Capitals,totals,over,0.5394336752522644,-112.0,bovada,0.0211
+2025-10-12T02:00:00Z,Edmonton Oilers,Vancouver Canucks,puckline,away_pl_+1.5,0.6568006914666963,-183.0,bovada,0.0157

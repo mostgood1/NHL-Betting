@@ -1,21 +1,21 @@
-date,home,away,market,ev
-2025-10-19T23:00:00Z,Utah Mammoth,Boston Bruins,ev_under,0.413
-2025-10-19T19:00:00Z,Detroit Red Wings,Edmonton Oilers,ev_under,0.2888
-2025-10-19T16:30:00Z,Washington Capitals,Vancouver Canucks,ev_under,0.2399
-2025-10-19T19:00:00Z,Detroit Red Wings,Edmonton Oilers,ev_home_ml,0.2276
-2025-10-19T23:00:00Z,Chicago Blackhawks,Anaheim Ducks,ev_under,0.2067
-2025-10-19T23:00:00Z,Utah Mammoth,Boston Bruins,ev_home_ml,0.1423
-2025-10-19T23:00:00Z,Utah Mammoth,Boston Bruins,ev_away_pl_+1.5,0.1333
-2025-10-19T16:30:00Z,Washington Capitals,Vancouver Canucks,ev_home_ml,0.1265
-2025-10-19T23:00:00Z,Chicago Blackhawks,Anaheim Ducks,ev_away_ml,0.1101
-2025-10-19T16:30:00Z,Washington Capitals,Vancouver Canucks,ev_away_pl_+1.5,0.0946
-2025-10-19T23:00:00Z,Chicago Blackhawks,Anaheim Ducks,ev_home_ml,-0.2176
-2025-10-19T19:00:00Z,Detroit Red Wings,Edmonton Oilers,ev_away_ml,-0.2578
-2025-10-19T16:30:00Z,Washington Capitals,Vancouver Canucks,ev_home_pl_-1.5,-0.2648
-2025-10-19T23:00:00Z,Utah Mammoth,Boston Bruins,ev_home_pl_-1.5,-0.275
-2025-10-19T16:30:00Z,Washington Capitals,Vancouver Canucks,ev_away_ml,-0.2839
-2025-10-19T16:30:00Z,Washington Capitals,Vancouver Canucks,ev_over,-0.2887
-2025-10-19T23:00:00Z,Chicago Blackhawks,Anaheim Ducks,ev_over,-0.3435
-2025-10-19T23:00:00Z,Utah Mammoth,Boston Bruins,ev_away_ml,-0.4038
-2025-10-19T23:00:00Z,Utah Mammoth,Boston Bruins,ev_over,-0.4086
-2025-10-19T19:00:00Z,Detroit Red Wings,Edmonton Oilers,ev_over,-0.4297
+date,home,away,market,ev
+2025-10-19T23:00:00Z,Utah Mammoth,Boston Bruins,ev_under,0.413
+2025-10-19T19:00:00Z,Detroit Red Wings,Edmonton Oilers,ev_under,0.2888
+2025-10-19T16:30:00Z,Washington Capitals,Vancouver Canucks,ev_under,0.2399
+2025-10-19T19:00:00Z,Detroit Red Wings,Edmonton Oilers,ev_home_ml,0.2276
+2025-10-19T23:00:00Z,Chicago Blackhawks,Anaheim Ducks,ev_under,0.2067
+2025-10-19T23:00:00Z,Utah Mammoth,Boston Bruins,ev_home_ml,0.1423
+2025-10-19T23:00:00Z,Utah Mammoth,Boston Bruins,ev_away_pl_+1.5,0.1333
+2025-10-19T16:30:00Z,Washington Capitals,Vancouver Canucks,ev_home_ml,0.1265
+2025-10-19T23:00:00Z,Chicago Blackhawks,Anaheim Ducks,ev_away_ml,0.1101
+2025-10-19T16:30:00Z,Washington Capitals,Vancouver Canucks,ev_away_pl_+1.5,0.0946
+2025-10-19T23:00:00Z,Chicago Blackhawks,Anaheim Ducks,ev_home_ml,-0.2176
+2025-10-19T19:00:00Z,Detroit Red Wings,Edmonton Oilers,ev_away_ml,-0.2578
+2025-10-19T16:30:00Z,Washington Capitals,Vancouver Canucks,ev_home_pl_-1.5,-0.2648
+2025-10-19T23:00:00Z,Utah Mammoth,Boston Bruins,ev_home_pl_-1.5,-0.275
+2025-10-19T16:30:00Z,Washington Capitals,Vancouver Canucks,ev_away_ml,-0.2839
+2025-10-19T16:30:00Z,Washington Capitals,Vancouver Canucks,ev_over,-0.2887
+2025-10-19T23:00:00Z,Chicago Blackhawks,Anaheim Ducks,ev_over,-0.3435
+2025-10-19T23:00:00Z,Utah Mammoth,Boston Bruins,ev_away_ml,-0.4038
+2025-10-19T23:00:00Z,Utah Mammoth,Boston Bruins,ev_over,-0.4086
+2025-10-19T19:00:00Z,Detroit Red Wings,Edmonton Oilers,ev_over,-0.4297

@@ -51,12 +51,16 @@ def _price_with_fallback(row: pd.Series, market_key: str, odds_key: str) -> floa
         ck = close_map.get(odds_key)
         if ck and ck in row:
             price_val = _num(row.get(ck))
-    if price_val is None and market_key in ("totals", "puckline", "first10", "periods"):
-        price_val = -110.0
+    # Market-specific default American odds when price is missing
+    if price_val is None:
+        if market_key == "first10":
+            price_val = -150.0  # updated default for First-10 market
+        elif market_key in ("totals", "puckline", "periods"):
+            price_val = -110.0
     return price_val
 
 
-def _ensure_ev(row: pd.Series, prob_key: str, odds_key: str, ev_key: str) -> pd.Series:
+def _ensure_ev(row: pd.Series, prob_key: str, odds_key: str, ev_key: str, market_key: str = "") -> pd.Series:
     try:
         ev_present = (ev_key in row) and pd.notna(row.get(ev_key))
         if ev_present:
@@ -66,7 +70,7 @@ def _ensure_ev(row: pd.Series, prob_key: str, odds_key: str, ev_key: str) -> pd.
             pv = float(row.get(prob_key))
             if 0.0 <= pv <= 1.0 and math.isfinite(pv):
                 p = pv
-        price = _price_with_fallback(row, "", odds_key)
+        price = _price_with_fallback(row, market_key or "", odds_key)
         if (p is not None) and (price is not None):
             dec = _american_to_decimal(price)
             if dec is not None and math.isfinite(dec):
@@ -107,22 +111,22 @@ def recompute_edges_and_recommendations(date_str: str, min_ev: float = 0.0) -> L
         pass
     # Ensure EVs
     for i, r in df.iterrows():
-        def compute_and_assign(prob_key, odds_key, ev_key):
-            rr = _ensure_ev(r.copy(), prob_key, odds_key, ev_key)
+        def compute_and_assign(prob_key, odds_key, ev_key, market_key: str):
+            rr = _ensure_ev(r.copy(), prob_key, odds_key, ev_key, market_key)
             val = rr.get(ev_key)
             if val is not None and not (isinstance(val, float) and pd.isna(val)):
                 df.at[i, ev_key] = val
-        compute_and_assign("p_home_ml", "home_ml_odds", "ev_home_ml")
-        compute_and_assign("p_away_ml", "away_ml_odds", "ev_away_ml")
-        compute_and_assign("p_over", "over_odds", "ev_over")
-        compute_and_assign("p_under", "under_odds", "ev_under")
-        compute_and_assign("p_home_pl_-1.5", "home_pl_-1.5_odds", "ev_home_pl_-1.5")
-        compute_and_assign("p_away_pl_+1.5", "away_pl_+1.5_odds", "ev_away_pl_+1.5")
-        compute_and_assign("p_f10_yes", "f10_yes_odds", "ev_f10_yes")
-        compute_and_assign("p_f10_no", "f10_no_odds", "ev_f10_no")
+        compute_and_assign("p_home_ml", "home_ml_odds", "ev_home_ml", "moneyline")
+        compute_and_assign("p_away_ml", "away_ml_odds", "ev_away_ml", "moneyline")
+        compute_and_assign("p_over", "over_odds", "ev_over", "totals")
+        compute_and_assign("p_under", "under_odds", "ev_under", "totals")
+        compute_and_assign("p_home_pl_-1.5", "home_pl_-1.5_odds", "ev_home_pl_-1.5", "puckline")
+        compute_and_assign("p_away_pl_+1.5", "away_pl_+1.5_odds", "ev_away_pl_+1.5", "puckline")
+        compute_and_assign("p_f10_yes", "f10_yes_odds", "ev_f10_yes", "first10")
+        compute_and_assign("p_f10_no", "f10_no_odds", "ev_f10_no", "first10")
         for pn in (1, 2, 3):
-            compute_and_assign(f"p{pn}_over_prob", f"p{pn}_over_odds", f"ev_p{pn}_over")
-            compute_and_assign(f"p{pn}_under_prob", f"p{pn}_under_odds", f"ev_p{pn}_under")
+            compute_and_assign(f"p{pn}_over_prob", f"p{pn}_over_odds", f"ev_p{pn}_over", "periods")
+            compute_and_assign(f"p{pn}_under_prob", f"p{pn}_under_odds", f"ev_p{pn}_under", "periods")
     # Persist EVs
     df.to_csv(pred_path, index=False)
     # Edges

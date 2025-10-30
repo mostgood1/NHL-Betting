@@ -28,6 +28,38 @@ TEAM_ABBRS: list[str] = [
 ]
 
 
+def _current_season_code() -> int:
+    """Return season code as integer, e.g., 20252026 for the 2025-26 season."""
+    try:
+        from datetime import datetime as _dt
+        dt = _dt.utcnow()
+        start_year = dt.year if dt.month >= 7 else (dt.year - 1)
+        return int(f"{start_year}{start_year+1}")
+    except Exception:
+        # Fallback: conservative current year pairing
+        from datetime import datetime as _dt
+        y = _dt.utcnow().year
+        try:
+            return int(f"{y}{y+1}")
+        except Exception:
+            return 0
+
+
+def _alias_team_abbr(abbr: str) -> str:
+    """Handle relocations/renames for Web API lookups.
+
+    - From 2025-26 season onward, ARI -> UTA (Arizona Coyotes relocated to Utah).
+    """
+    try:
+        ab = str(abbr or "").upper()
+        season_code = _current_season_code()
+        if ab == "ARI" and season_code >= 20252026:
+            return "UTA"
+        return ab
+    except Exception:
+        return str(abbr or "").upper()
+
+
 @dataclass
 class RosterPlayer:
     player_id: int
@@ -88,7 +120,7 @@ def fetch_current_roster(team_abbr: str) -> List[RosterPlayer]:
 
     Endpoint: /v1/roster/{TEAM_ABBR}/current
     """
-    ab = str(team_abbr or "").upper()
+    ab = _alias_team_abbr(team_abbr)
     blob = _get_web(f"/roster/{ab}/current")
     # Collect any list-valued groups (forwards, defensemen, goalies, etc.)
     groups = [k for k, v in (blob or {}).items() if isinstance(v, list)]
@@ -274,8 +306,20 @@ def build_all_team_roster_snapshots() -> pd.DataFrame:
     This avoids any calls to statsapi.web.nhl.com and returns a simple, reliable
     frame for name->player_id/team enrichment in props workflows.
     """
-    frames: List[pd.DataFrame] = []
+    # Build the working team list with aliasing for current season to avoid defunct teams
+    season_code = _current_season_code()
+    abbrs = []
+    seen = set()
     for ab in TEAM_ABBRS:
+        try:
+            a = _alias_team_abbr(ab)
+            if a not in seen:
+                seen.add(a)
+                abbrs.append(a)
+        except Exception:
+            continue
+    frames: List[pd.DataFrame] = []
+    for ab in abbrs:
         try:
             frames.append(build_roster_snapshot(ab))
         except Exception as e:

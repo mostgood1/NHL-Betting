@@ -1308,13 +1308,56 @@ async def _recompute_edges_and_recommendations(date: str) -> None:
             for i, r in df.iterrows():
                 # First 10 minutes Yes/No probabilities
                 try:
+                    # Prefer existing p_f10_yes if present (computed upstream by shared core)
+                    if "p_f10_yes" in r and pd.notna(r.get("p_f10_yes")):
+                        try:
+                            py = float(r.get("p_f10_yes"))
+                            if 0.0 <= py <= 1.0 and _math.isfinite(py):
+                                r["p_f10_yes"] = py
+                                r["p_f10_no"] = 1.0 - py
+                                raise StopIteration  # skip further fallback computation
+                        except Exception:
+                            pass
+                    # Team-driven estimate from period1 projections with calibrated factor
                     p_yes = None
-                    if "first_10min_prob" in r and pd.notna(r.get("first_10min_prob")):
-                        p_yes = float(r.get("first_10min_prob"))
-                    elif "first_10min_proj" in r and pd.notna(r.get("first_10min_proj")):
-                        lam10 = float(r.get("first_10min_proj"))
+                    try:
+                        h1 = float(r.get("period1_home_proj")) if pd.notna(r.get("period1_home_proj")) else None
+                        a1 = float(r.get("period1_away_proj")) if pd.notna(r.get("period1_away_proj")) else None
+                    except Exception:
+                        h1 = a1 = None
+                    if h1 is not None and a1 is not None and (h1 >= 0 and a1 >= 0):
+                        # Resolve factor: env > calibration file > default 0.5
+                        f = None
+                        try:
+                            ev = os.getenv("F10_EARLY_FACTOR")
+                            if ev is not None:
+                                f = float(ev)
+                        except Exception:
+                            f = None
+                        if f is None or (not _math.isfinite(f)) or f <= 0:
+                            try:
+                                import json as _json
+                                _cal_path = PROC_DIR / "model_calibration.json"
+                                if _cal_path.exists():
+                                    _obj = _json.loads(_cal_path.read_text(encoding="utf-8"))
+                                    _f = _obj.get("f10_early_factor")
+                                    if _f is not None:
+                                        f = float(_f)
+                            except Exception:
+                                f = None
+                        if f is None or (not _math.isfinite(f)) or f <= 0:
+                            f = 0.5
+                        lam10 = f * (float(h1) + float(a1))
                         if _math.isfinite(lam10) and lam10 >= 0:
                             p_yes = 1.0 - exp(-lam10)
+                    # Fallback to legacy single-prob/proj fields if needed
+                    if p_yes is None:
+                        if "first_10min_prob" in r and pd.notna(r.get("first_10min_prob")):
+                            p_yes = float(r.get("first_10min_prob"))
+                        elif "first_10min_proj" in r and pd.notna(r.get("first_10min_proj")):
+                            lam10 = float(r.get("first_10min_proj"))
+                            if _math.isfinite(lam10) and lam10 >= 0:
+                                p_yes = 1.0 - exp(-lam10)
                     if p_yes is not None:
                         p_yes = max(0.0, min(1.0, float(p_yes)))
                         r["p_f10_yes"] = p_yes

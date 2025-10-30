@@ -1,15 +1,12 @@
 from __future__ import annotations
-"""Roster and usage inference utilities (draft).
+"""Roster and usage inference utilities.
 
-This module provides functions to:
-- Fetch current team rosters
-- Gather recent game TOI splits
-- Infer line slots (L1..L4, D1..D3) and special teams units (PP1/PP2, PK1/PK2)
-- Produce a projected TOI snapshot DataFrame suitable for prop modeling feature inputs.
+Primary behavior for daily props workflows: build a lightweight, reliable roster
+snapshot using the NHL Web API (api-web.nhle.com) only. This avoids any dependency
+on the deprecated/unreliable Stats API hosts.
 
-NOTE: Initial implementation uses NHL Stats API boxscore endpoints and
-heuristics over recent games. Future iterations may integrate shift-level
-data and external confirmed line sources.
+Functions retained for future usage inference (TOI, lines) remain, but the default
+snapshot builder no longer calls Stats API endpoints.
 """
 from dataclasses import dataclass
 from typing import Dict, List, Optional
@@ -18,14 +15,17 @@ import time
 import pandas as pd
 import requests
 
-# Prefer primary Stats API host but keep alternates to survive DNS hiccups
-STATS_BASES = [
-    # Use the canonical Stats API host only; do not fall back to the deprecated statsapi.nhl.com
-    "https://statsapi.web.nhl.com/api/v1",
-]
-RATE_LIMIT_SLEEP = 0.35  # ~3 req/sec safety
+# Web API base (canonical)
+WEB_BASE = "https://api-web.nhle.com/v1"
+RATE_LIMIT_SLEEP = 0.35  # ~3 req/sec safety for any HTTP calls here
 RECENT_GAMES = 10
 MIN_GAMES_FOR_CONFIDENCE = 3
+
+# Team abbreviations for the current league membership; used for roster fetch loop.
+# Mirrors scripts/fetch_roster_snapshot.py to ensure consistency and zero external dependencies.
+TEAM_ABBRS: list[str] = [
+    "ANA","ARI","BOS","BUF","CAR","CBJ","CGY","CHI","COL","DAL","DET","EDM","FLA","LAK","MIN","MTL","NJD","NSH","NYI","NYR","OTT","PHI","PIT","SJS","SEA","STL","TBL","TOR","UTA","VAN","VGK","WPG","WSH"
+]
 
 
 @dataclass
@@ -36,83 +36,98 @@ class RosterPlayer:
     team_id: int
 
 
-def _get(path: str, params: Optional[Dict] = None, retries: int = 3) -> Dict:
-    """GET helper with multi-base fallback and simple backoff.
-
-    Tries multiple Stats API base URLs to avoid transient DNS/host issues.
-    """
+def _get_web(path: str, params: Optional[Dict] = None, retries: int = 3) -> Dict:
+    """GET helper against the NHL Web API with simple backoff."""
     last_exc: Optional[Exception] = None
     for attempt in range(retries):
-        for base in STATS_BASES:
-            try:
-                time.sleep(RATE_LIMIT_SLEEP)
-                r = requests.get(f"{base}{path}", params=params, timeout=12)
-                r.raise_for_status()
-                return r.json()
-            except Exception as e:
-                last_exc = e
-                continue
-        # after cycling bases, back off and retry
-        time.sleep(min(5.0, RATE_LIMIT_SLEEP * (2 ** attempt)))
+        try:
+            time.sleep(RATE_LIMIT_SLEEP)
+            r = requests.get(f"{WEB_BASE}{path}", params=params, timeout=20)
+            r.raise_for_status()
+            return r.json()
+        except Exception as e:
+            last_exc = e
+            time.sleep(min(5.0, RATE_LIMIT_SLEEP * (2 ** attempt)))
+            continue
     if last_exc:
         raise last_exc
     raise RuntimeError("Unknown request error")
 
 
 def list_teams() -> List[Dict]:
-    return _get("/teams")["teams"]
+    """Return league teams using the NHL Web API.
+
+    Attempts to call /v1/teams. If unavailable, falls back to TEAM_ABBRS with minimal info.
+    """
+    try:
+        data = _get_web("/teams")
+        teams = data.get("teams") if isinstance(data, dict) else None
+        out: List[Dict] = []
+        if isinstance(teams, list) and teams:
+            for t in teams:
+                try:
+                    # Normalize common fields (best-effort)
+                    tid = t.get("id") or t.get("teamId")
+                    ab = t.get("abbrev") or t.get("abbreviation") or t.get("teamAbbrev")
+                    name = t.get("name") or t.get("fullName") or t.get("commonName")
+                    if isinstance(name, dict):
+                        name = name.get("default") or next((v for v in name.values() if isinstance(v, str)), None)
+                    out.append({"id": tid, "abbreviation": (ab or "").upper(), "name": name})
+                except Exception:
+                    continue
+        if out:
+            return out
+    except Exception:
+        pass
+    # Fallback: minimal team dicts from abbreviations only
+    return [{"id": None, "abbreviation": ab, "name": ab} for ab in TEAM_ABBRS]
 
 
-def fetch_current_roster(team_id: int) -> List[RosterPlayer]:
-    data = _get(f"/teams/{team_id}", params={"expand": "team.roster"})
-    roster_items = data["teams"][0]["roster"]["roster"]
+def fetch_current_roster(team_abbr: str) -> List[RosterPlayer]:
+    """Fetch current active roster using the NHL Web API for a team abbreviation.
+
+    Endpoint: /v1/roster/{TEAM_ABBR}/current
+    """
+    ab = str(team_abbr or "").upper()
+    blob = _get_web(f"/roster/{ab}/current")
+    # Collect any list-valued groups (forwards, defensemen, goalies, etc.)
+    groups = [k for k, v in (blob or {}).items() if isinstance(v, list)]
     players: List[RosterPlayer] = []
-    for p in roster_items:
-        person = p["person"]
-        pos = p["position"]["type"]  # e.g., Forward, Defenseman, Goalie
-        if pos.startswith("Forw"):  # Forward
-            norm = "F"
-        elif pos.startswith("Def"):  # Defenseman
-            norm = "D"
-        elif pos.startswith("Goal"):  # Goalie
-            norm = "G"
-        else:
-            norm = pos[:1]
-        players.append(
-            RosterPlayer(
-                player_id=int(person["id"]),
-                full_name=person["fullName"],
-                position=norm,
-                team_id=team_id,
-            )
-        )
+    for g in groups:
+        for p in (blob.get(g) or []):
+            try:
+                pid = p.get("playerId") or p.get("id")
+                fn = p.get("firstName"); ln = p.get("lastName")
+                first = fn.get("default") if isinstance(fn, dict) else fn
+                last = ln.get("default") if isinstance(ln, dict) else ln
+                full = (f"{first} {last}" if first and last else (first or last or "")).strip()
+                # Normalize position from group name
+                pos = None
+                gl = g.lower()
+                if 'forward' in gl:
+                    pos = 'F'
+                elif 'defense' in gl or 'defenc' in gl:
+                    pos = 'D'
+                elif 'goalie' in gl or 'goaltender' in gl:
+                    pos = 'G'
+                if pid and full:
+                    players.append(RosterPlayer(player_id=int(pid), full_name=full, position=pos or '', team_id=None))
+            except Exception:
+                continue
     return players
 
 
 def team_recent_game_pks(team_id: int, n: int = RECENT_GAMES) -> List[int]:
-    # Fetch schedule backwards day by day until we have n final games
-    # (Simpler initial approach; can be optimized using season ranges.)
-    games: List[int] = []
-    day_offset = 0
-    while len(games) < n and day_offset < 120:  # safeguard
-        # Look back one day
-        from datetime import datetime, timedelta
-        target_date = datetime.utcnow() - timedelta(days=day_offset)
-        date_str = target_date.strftime("%Y-%m-%d")
-        sched = _get("/schedule", params={"date": date_str, "teamId": team_id})
-        for d in sched.get("dates", []):
-            for g in d.get("games", []):
-                status = g.get("status", {}).get("detailedState", "")
-                if "Final" in status:
-                    games.append(int(g["gamePk"]))
-        day_offset += 1
-    # maintain chronological order oldest->newest
-    games = sorted(set(games))[-n:]
-    return games
+    """Deprecated: Stats API schedule lookup. Return empty list to avoid Stats API calls.
+
+    Callers needing recent games should migrate to nhl_api_web.NHLWebClient().
+    """
+    return []
 
 
 def fetch_boxscore(game_pk: int) -> Dict:
-    return _get(f"/game/{game_pk}/boxscore")
+    # Deprecated Stats API path; use nhl_api_web.NHLWebClient().boxscore instead.
+    return {}
 
 
 def build_usage_frame(team_id: int, game_pks: List[int]) -> pd.DataFrame:
@@ -241,36 +256,38 @@ def project_toi(lines_df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def build_roster_snapshot(team_id: int) -> pd.DataFrame:
-    roster = fetch_current_roster(team_id)
-    game_pks = team_recent_game_pks(team_id, n=RECENT_GAMES)
-    usage = build_usage_frame(team_id, game_pks)
-    lines = infer_lines(usage)
-    proj = project_toi(lines)
-    # Ensure all roster players included (even with 0 games)
-    base = pd.DataFrame([r.__dict__ for r in roster])
-    merged = base.merge(proj, on=["player_id", "full_name", "position"], how="left")
-    cols = [
-        "player_id","full_name","position","team_id","games_played","toi_avg","toi_pp_avg","toi_sh_avg","line_slot","pp_unit","pk_unit","proj_toi","proj_toi_pp","proj_toi_sh","starter_goalie","projected"
-    ]
-    for c in cols:
-        if c not in merged.columns:
-            merged[c] = None
-    return merged[cols]
+def build_roster_snapshot(team_abbr: str) -> pd.DataFrame:
+    """Build a minimal roster snapshot for a single team (Web API only).
+
+    Returns columns: full_name, player_id, team (abbr), position.
+    """
+    players = fetch_current_roster(team_abbr)
+    if not players:
+        return pd.DataFrame(columns=["full_name","player_id","team","position","team_id"])
+    rows = [{"full_name": p.full_name, "player_id": p.player_id, "team": str(team_abbr).upper(), "position": p.position, "team_id": None} for p in players]
+    return pd.DataFrame(rows)
 
 
 def build_all_team_roster_snapshots() -> pd.DataFrame:
-    teams = list_teams()
-    frames = []
-    for t in teams:
-        tid = int(t.get("id"))
+    """Build roster snapshot for all teams using Web API only.
+
+    This avoids any calls to statsapi.web.nhl.com and returns a simple, reliable
+    frame for name->player_id/team enrichment in props workflows.
+    """
+    frames: List[pd.DataFrame] = []
+    for ab in TEAM_ABBRS:
         try:
-            frames.append(build_roster_snapshot(tid))
+            frames.append(build_roster_snapshot(ab))
         except Exception as e:
-            print(f"[WARN] team {tid} roster snapshot failed: {e}")
+            print(f"[WARN] team {ab} roster snapshot failed: {e}")
+            continue
     if not frames:
-        return pd.DataFrame()
-    return pd.concat(frames, ignore_index=True)
+        return pd.DataFrame(columns=["full_name","player_id","team","position","team_id"])
+    # Ensure team_id column exists for downstream compatibility (may be None)
+    out = pd.concat(frames, ignore_index=True)
+    if 'team_id' not in out.columns:
+        out['team_id'] = None
+    return out
 
 
 __all__ = [

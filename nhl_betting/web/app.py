@@ -39,6 +39,11 @@ from ..models.props import (
     SkaterBlocksModel as _SkaterBlocksModel,
 )
 from ..web.teams import get_team_assets as _team_assets
+# Shared game recs/edges/settlement/reconciliation logic
+try:
+    from ..core.recs_shared import recompute_edges_and_recommendations as _recs_recompute_shared
+except Exception:
+    _recs_recompute_shared = None
 
 # Diagnostic: confirm import proceeds (helpful when local tests appear to hang)
 try:
@@ -382,7 +387,9 @@ async def lifespan(app_: FastAPI):
                 # Recompute only if odds changed
                 try:
                     if isinstance(summary, dict) and int(summary.get("updated_fields") or 0) > 0:
-                        await _recompute_edges_and_recommendations(d)
+                        if _recs_recompute_shared is not None:
+                            # Run shared recompute in a thread (I/O/CPU bound)
+                            await asyncio.to_thread(_recs_recompute_shared, d, 0.0)
                 except Exception:
                     pass
                 # Refresh props recommendations (function will skip if lines unchanged)
@@ -398,6 +405,119 @@ async def lifespan(app_: FastAPI):
 
 # Apply lifespan to app (FastAPI allows providing lifespan in constructor, but we retrofit here)
 app.router.lifespan_context = lifespan
+
+# ----------------------------------------------------------------------------------
+# Game recommendations/edges/reconciliation API (delegates to shared core module)
+# ----------------------------------------------------------------------------------
+@app.get("/api/game-recs/recompute")
+async def api_game_recs_recompute(
+    date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD (ET)"),
+    min_ev: float = Query(0.0, description="Minimum EV filter when generating recommendations"),
+):
+    try:
+        if _recs_recompute_shared is None:
+            return JSONResponse({"ok": False, "error": "shared_module_unavailable"}, status_code=500)
+        if not date:
+            return JSONResponse({"ok": False, "error": "date_required"}, status_code=400)
+        # Run compute off the event loop
+        recs = await asyncio.to_thread(_recs_recompute_shared, date, float(min_ev))
+        from ..utils.io import PROC_DIR as _PROC
+        rsp = {
+            "ok": True,
+            "date": date,
+            "count": len(recs) if isinstance(recs, list) else None,
+            "recommendations_csv": str((_PROC / f"recommendations_{date}.csv").resolve()),
+            "edges_csv": str((_PROC / f"edges_{date}.csv").resolve()),
+        }
+        return JSONResponse(rsp)
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/game-recs")
+async def api_game_recs(
+    date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD (ET)"),
+    min_ev: Optional[float] = Query(None, description="Optional EV filter applied to returned rows"),
+    top: Optional[int] = Query(None, description="Optional maximum rows returned, sorted by EV desc"),
+    compute: int = Query(0, description="If 1 and file missing, recompute first using shared module"),
+):
+    try:
+        if not date:
+            return JSONResponse({"ok": False, "error": "date_required"}, status_code=400)
+        from ..utils.io import PROC_DIR as _PROC
+        import pandas as _pd
+        p = _PROC / f"recommendations_{date}.csv"
+        if (not p.exists()) and compute == 1 and _recs_recompute_shared is not None:
+            await asyncio.to_thread(_recs_recompute_shared, date, 0.0)
+        if not p.exists():
+            return JSONResponse({"ok": True, "date": date, "rows": [], "count": 0})
+        df = _pd.read_csv(p)
+        if min_ev is not None:
+            try:
+                df = df[_pd.to_numeric(df["ev"], errors="coerce") >= float(min_ev)]
+            except Exception:
+                pass
+        try:
+            df = df.sort_values("ev", ascending=False)
+        except Exception:
+            pass
+        if top is not None and top > 0:
+            df = df.head(int(top))
+        return JSONResponse({"ok": True, "date": date, "count": int(len(df)), "rows": df.to_dict(orient="records")})
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/game-edges")
+async def api_game_edges(
+    date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD (ET)"),
+    top: Optional[int] = Query(None, description="Optional maximum rows returned, sorted by EV desc"),
+):
+    try:
+        if not date:
+            return JSONResponse({"ok": False, "error": "date_required"}, status_code=400)
+        from ..utils.io import PROC_DIR as _PROC
+        import pandas as _pd
+        p = _PROC / f"edges_{date}.csv"
+        if not p.exists():
+            return JSONResponse({"ok": True, "date": date, "rows": [], "count": 0})
+        df = _pd.read_csv(p)
+        try:
+            df = df.sort_values("ev", ascending=False)
+        except Exception:
+            pass
+        if top is not None and top > 0:
+            df = df.head(int(top))
+        return JSONResponse({"ok": True, "date": date, "count": int(len(df)), "rows": df.to_dict(orient="records")})
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/reconciliation")
+async def api_reconciliation(
+    date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD (ET)"),
+    compute: int = Query(0, description="If 1, attempt to compute reconciliation if missing"),
+):
+    try:
+        if not date:
+            return JSONResponse({"ok": False, "error": "date_required"}, status_code=400)
+        from ..utils.io import PROC_DIR as _PROC
+        p = _PROC / f"reconciliation_{date}.json"
+        if (not p.exists()) and compute == 1:
+            try:
+                # Try to backfill settlement then reconcile
+                from ..core.recs_shared import backfill_settlement_for_date as _bf, reconcile_extended as _rec
+                await asyncio.to_thread(_bf, date)
+                await asyncio.to_thread(_rec, date, 100.0)
+            except Exception:
+                pass
+        if not p.exists():
+            return JSONResponse({"ok": True, "date": date, "summary": None, "rows": []})
+        import json as _json
+        obj = _json.loads(p.read_text(encoding="utf-8"))
+        return JSONResponse({"ok": True, **obj})
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
 try:
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 except Exception:

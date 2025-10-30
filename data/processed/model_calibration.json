@@ -13,5 +13,17 @@
     "n_ml": 110,
     "n_totals": 96,
     "metric": "brier"
+  },
+  "f10_early_factor": 1.0000000000000004,
+  "meta_f10": {
+    "f10_early_factor": 1.0000000000000004,
+    "log_likelihood": -27.135242971375853,
+    "n": 166,
+    "brier": 0.022987200491209878,
+    "grid": {
+      "start": 0.1,
+      "stop": 1.0,
+      "step": 0.02
+    }
   }
 }

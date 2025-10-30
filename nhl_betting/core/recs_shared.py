@@ -107,11 +107,27 @@ def recompute_edges_and_recommendations(date_str: str, min_ev: float = 0.0) -> L
         df["p_f10_away_allows"] = pd.NA
     try:
         # Optional early-window factor: convert period-1 goal rate to first-10 rate (default 10/20)
+        # Precedence: env var > calibration file > default 0.5
+        _F10_EARLY_FACTOR = None
         try:
-            _F10_EARLY_FACTOR = float(os.getenv("F10_EARLY_FACTOR", "0.5"))
-            if not math.isfinite(_F10_EARLY_FACTOR) or _F10_EARLY_FACTOR <= 0:
-                _F10_EARLY_FACTOR = 0.5
+            _env_val = os.getenv("F10_EARLY_FACTOR")
+            if _env_val is not None:
+                _F10_EARLY_FACTOR = float(_env_val)
         except Exception:
+            _F10_EARLY_FACTOR = None
+        if _F10_EARLY_FACTOR is None or (not math.isfinite(_F10_EARLY_FACTOR)) or _F10_EARLY_FACTOR <= 0:
+            # Try calibration file
+            try:
+                import json as _json
+                _cal_path = PROC_DIR / "model_calibration.json"
+                if _cal_path.exists():
+                    _obj = _json.loads(_cal_path.read_text(encoding="utf-8"))
+                    _f_cal = _obj.get("f10_early_factor")
+                    if _f_cal is not None:
+                        _F10_EARLY_FACTOR = float(_f_cal)
+            except Exception:
+                _F10_EARLY_FACTOR = None
+        if _F10_EARLY_FACTOR is None or (not math.isfinite(_F10_EARLY_FACTOR)) or _F10_EARLY_FACTOR <= 0:
             _F10_EARLY_FACTOR = 0.5
         for i, r in df.iterrows():
             p_yes = None

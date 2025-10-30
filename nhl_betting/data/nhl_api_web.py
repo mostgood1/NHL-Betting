@@ -172,6 +172,13 @@ class NHLWebClient:
         """
         return self._get(f"/gamecenter/{int(gamePk)}/boxscore")
 
+    def play_by_play(self, gamePk: int) -> dict:
+        """Return the NHL Web API play-by-play payload for a given game.
+
+        Endpoint: /gamecenter/{gamePk}/play-by-play
+        """
+        return self._get(f"/gamecenter/{int(gamePk)}/play-by-play")
+
     def linescore(self, gamePk: int) -> dict:
         """Fetch live linescore for a game: period and clock when available.
 

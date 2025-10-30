@@ -1412,6 +1412,8 @@ def _backfill_settlement_for_date(date: str) -> dict:
     except Exception:
         pass
     backfilled = 0
+    # Cache PBP per gamePk to avoid repeated fetches
+    pbp_cache: dict[int, dict] = {}
     import math as _math
     def _num(x):
         try:
@@ -1428,7 +1430,9 @@ def _backfill_settlement_for_date(date: str) -> dict:
             hk = _abbr(r.get("home")); ak = _abbr(r.get("away"))
             g = sb_idx.get((hk, ak))
             fh = fa = None
+            game_pk = None
             if g:
+                game_pk = g.get("gamePk")
                 if g.get("home_goals") is not None:
                     fh = int(g.get("home_goals"))
                 if g.get("away_goals") is not None:
@@ -1476,6 +1480,96 @@ def _backfill_settlement_for_date(date: str) -> dict:
             mt = _num(r.get("model_total"))
             if mt is not None and pd.isna(r.get("total_diff")):
                 df.at[i, "total_diff"] = round(mt - actual_total, 2)
+            # First-10 and Period totals results via play-by-play (if we have gamePk)
+            try:
+                if game_pk is not None:
+                    if game_pk not in pbp_cache:
+                        try:
+                            pbp_cache[game_pk] = client.play_by_play(int(game_pk))
+                        except Exception:
+                            pbp_cache[game_pk] = {}
+                    pbp = pbp_cache.get(game_pk) or {}
+                    plays = pbp.get("plays") if isinstance(pbp, dict) else None
+                    # Count goals per period and detect first 10 minutes goal
+                    goals_by_period = {1: 0, 2: 0, 3: 0}
+                    first10_yes = False
+                    if isinstance(plays, list):
+                        for p_ in plays:
+                            try:
+                                tkey = (str(p_.get("typeDescKey") or p_.get("type")) or "").lower()
+                                if "goal" not in tkey:
+                                    continue
+                                # period number
+                                per = None
+                                try:
+                                    pdsc = p_.get("periodDescriptor") or {}
+                                    per = int(pdsc.get("number") or pdsc.get("period") or p_.get("period") or 0)
+                                except Exception:
+                                    per = int(p_.get("period") or 0)
+                                if per in goals_by_period:
+                                    goals_by_period[per] += 1
+                                # clock fields: timeRemaining or timeInPeriod
+                                tr = p_.get("timeRemaining") or p_.get("timeInPeriod") or p_.get("time")
+                                mm = ss = None
+                                if isinstance(tr, str) and ":" in tr:
+                                    parts = tr.split(":")
+                                    try:
+                                        mm = int(parts[0]); ss = int(parts[1])
+                                    except Exception:
+                                        mm, ss = None, None
+                                # Determine if goal occurred in first 10 minutes of P1
+                                if per == 1 and (mm is not None and ss is not None):
+                                    secs = mm * 60 + ss
+                                    # If timeRemaining-style (starts 20:00 -> down), first 10 means >= 10:00 remaining
+                                    # If timeInPeriod-style (starts 0:00 -> up), first 10 means <= 10:00 elapsed
+                                    # Heuristic: treat >= 600 as remaining, <= 600 as elapsed; in ambiguous case, mark yes if either indicates within window
+                                    if secs >= 600 or secs <= 600:
+                                        # Resolve better by checking key name when possible
+                                        key = "".join([k for k in ("timeRemaining" if p_.get("timeRemaining") else ("timeInPeriod" if p_.get("timeInPeriod") else ""))])
+                                        if key == "timeRemaining":
+                                            if secs >= 600:
+                                                first10_yes = True
+                                        elif key == "timeInPeriod":
+                                            if secs <= 600:
+                                                first10_yes = True
+                                        else:
+                                            # Fallback: count either condition
+                                            if secs >= 600 or secs <= 600:
+                                                # Only set True if clearly within first 10 mins; assume timeRemaining by default
+                                                if secs >= 600:
+                                                    first10_yes = True
+                            except Exception:
+                                continue
+                    # Write first-10 result if missing
+                    try:
+                        if pd.isna(r.get("result_first10")) or not r.get("result_first10"):
+                            df.at[i, "result_first10"] = "Yes" if first10_yes else "No"
+                    except Exception:
+                        pass
+                    # Period totals results for P1..P3 if lines exist
+                    for pn in (1, 2, 3):
+                        try:
+                            lkey1 = f"close_p{pn}_total_line"; lkey2 = f"p{pn}_total_line"
+                            ln = _num(r.get(lkey1)) if lkey1 in r else None
+                            if ln is None:
+                                ln = _num(r.get(lkey2)) if lkey2 in r else None
+                            if ln is None:
+                                continue
+                            actual_p = goals_by_period.get(pn)
+                            if actual_p is None:
+                                continue
+                            res_key = f"result_p{pn}_total"
+                            if pd.isna(r.get(res_key)) or not r.get(res_key):
+                                if abs(ln - round(ln)) < 1e-9 and int(round(ln)) == int(actual_p):
+                                    df.at[i, res_key] = "Push"
+                                elif float(actual_p) > float(ln):
+                                    df.at[i, res_key] = "Over"
+                                else:
+                                    df.at[i, res_key] = "Under"
+                        except Exception:
+                            continue
+            except Exception:
+                pass
             # pick correctness
             if r.get("totals_pick") and (r.get("result_total") or df.at[i, "result_total"]) and pd.isna(r.get("totals_pick_correct")):
                 rt = r.get("result_total") or df.at[i, "result_total"]
@@ -8994,7 +9088,7 @@ async def api_recommendations(
     date: Optional[str] = Query(None),
     min_ev: float = Query(0.0, description="Minimum EV threshold to include"),
     top: int = Query(20, description="Top N recommendations to return"),
-    markets: str = Query("all", description="Comma-separated filters: moneyline,totals,puckline"),
+    markets: str = Query("all", description="Comma-separated filters: moneyline,totals,puckline,first10,periods"),
     bankroll: float = Query(0.0, description="If > 0, compute Kelly stake using provided bankroll"),
     kelly_fraction_part: float = Query(0.5, description="Kelly fraction; used only if bankroll>0"),
 ):
@@ -9069,7 +9163,7 @@ async def api_recommendations(
             ck = close_map.get(odds_key)
             if ck and ck in row:
                 price_val = _num(row.get(ck))
-        if price_val is None and market_key in ("totals", "puckline"):
+        if price_val is None and market_key in ("totals", "puckline", "first10", "periods"):
             price_val = -110.0
         # Pull probability
         prob_val = None
@@ -9139,6 +9233,15 @@ async def api_recommendations(
             "total_line_used": total_line_used_val,
             "stake": None,
         }
+        # Optional Kelly stake if bankroll provided
+        try:
+            if bankroll and float(bankroll) > 0 and (prob_val is not None) and (price_val is not None):
+                from ..utils.odds import american_to_decimal, kelly_stake
+                dec = american_to_decimal(float(price_val))
+                st = kelly_stake(float(prob_val), float(dec), float(bankroll), float(kelly_fraction_part))
+                rec["stake"] = round(float(st), 2)
+        except Exception:
+            pass
         # Result mapping (if actuals exist)
         res = None
         try:
@@ -9171,15 +9274,27 @@ async def api_recommendations(
 
     # Market filters
     try:
-        f_markets = set([m.strip().lower() for m in str(markets).split(",")]) if markets and str(markets) != "all" else {"moneyline", "totals", "puckline"}
+        f_markets = set([m.strip().lower() for m in str(markets).split(",")]) if markets and str(markets) != "all" else {"moneyline", "totals", "puckline", "first10", "periods"}
     except Exception:
-        f_markets = {"moneyline", "totals", "puckline"}
+        f_markets = {"moneyline", "totals", "puckline", "first10", "periods"}
 
     for _, r in df.iterrows():
-        # Moneyline
+        # Moneyline (only recommend model-favored side)
         if "moneyline" in f_markets:
-            add_rec(r, "moneyline", "home_ml", "p_home_ml", "ev_home_ml", "edge_home_ml", "home_ml_odds", "home_ml_book")
-            add_rec(r, "moneyline", "away_ml", "p_away_ml", "ev_away_ml", "edge_away_ml", "away_ml_odds", "away_ml_book")
+            try:
+                ph = float(r.get("p_home_ml")) if pd.notna(r.get("p_home_ml")) else None
+                pa = float(r.get("p_away_ml")) if pd.notna(r.get("p_away_ml")) else None
+            except Exception:
+                ph, pa = None, None
+            if ph is not None and pa is not None:
+                if ph >= pa:
+                    add_rec(r, "moneyline", "home_ml", "p_home_ml", "ev_home_ml", "edge_home_ml", "home_ml_odds", "home_ml_book")
+                else:
+                    add_rec(r, "moneyline", "away_ml", "p_away_ml", "ev_away_ml", "edge_away_ml", "away_ml_odds", "away_ml_book")
+            else:
+                # If probabilities invalid, fall back to both (rare)
+                add_rec(r, "moneyline", "home_ml", "p_home_ml", "ev_home_ml", "edge_home_ml", "home_ml_odds", "home_ml_book")
+                add_rec(r, "moneyline", "away_ml", "p_away_ml", "ev_away_ml", "edge_away_ml", "away_ml_odds", "away_ml_book")
         # Totals
         if "totals" in f_markets:
             add_rec(r, "totals", "over", "p_over", "ev_over", "edge_over", "over_odds", "over_book")
@@ -9188,6 +9303,15 @@ async def api_recommendations(
         if "puckline" in f_markets:
             add_rec(r, "puckline", "home_pl_-1.5", "p_home_pl_-1.5", "ev_home_pl_-1.5", "edge_home_pl_-1.5", "home_pl_-1.5_odds", "home_pl_-1.5_book")
             add_rec(r, "puckline", "away_pl_+1.5", "p_away_pl_+1.5", "ev_away_pl_+1.5", "edge_away_pl_+1.5", "away_pl_+1.5_odds", "away_pl_+1.5_book")
+        # First 10 minutes (Yes/No)
+        if "first10" in f_markets:
+            add_rec(r, "first10", "f10_yes", "p_f10_yes", "ev_f10_yes", "edge_f10_yes", "f10_yes_odds", None)
+            add_rec(r, "first10", "f10_no", "p_f10_no", "ev_f10_no", "edge_f10_no", "f10_no_odds", None)
+        # Period totals (P1..P3 Over/Under)
+        if "periods" in f_markets:
+            for pn in (1, 2, 3):
+                add_rec(r, "periods", f"p{pn}_over", f"p{pn}_over_prob", f"ev_p{pn}_over", None, f"p{pn}_over_odds", None)
+                add_rec(r, "periods", f"p{pn}_under", f"p{pn}_under_prob", f"ev_p{pn}_under", None, f"p{pn}_under_odds", None)
 
     # Sort by EV and take top N
     recs_sorted = sorted(recs, key=lambda x: x["ev"], reverse=True)[: top if top and top > 0 else len(recs)]
@@ -9322,7 +9446,7 @@ async def recommendations(
         if sb == "price":
             return lambda x: x.get("price", -999)
         if sb == "bet":
-            order = {"moneyline": 0, "totals": 1, "puckline": 2}
+            order = {"moneyline": 0, "totals": 1, "first10": 2, "puckline": 3, "periods": 4}
             return lambda x: (
                 order.get((x.get("market") or "").lower(), 99),
                 str(x.get("bet") or "")
@@ -9387,7 +9511,16 @@ async def recommendations(
             except Exception:
                 stake = None
             if stake is None:
-                stake = 100.0  # flat stake assumption
+                # Confidence-based default staking when no bankroll provided
+                conf = (r.get("confidence") or "").lower()
+                if conf == "high":
+                    stake = 100.0
+                elif conf == "medium":
+                    stake = 50.0
+                elif conf == "low":
+                    stake = 25.0
+                else:
+                    stake = 0.0
             # Determine price; fallback -110 for spreads/totals when missing
             price = r.get("price")
             if price is None and r.get("market") in ("totals", "puckline"):
@@ -9597,6 +9730,19 @@ async def api_reconciliation(
             "ev": evf,
             "price": price,
             "result": res,
+            "winner_actual": r.get("winner_actual"),
+            "actual_total": r.get("actual_total"),
+            "total_line_used": r.get("close_total_line_used") if "close_total_line_used" in r else (r.get("total_line_used") if "total_line_used" in r else None),
+            "final_home_goals": r.get("final_home_goals"),
+            "final_away_goals": r.get("final_away_goals"),
+            # period results
+            "result_first10": r.get("result_first10"),
+            "result_p1_total": r.get("result_p1_total"),
+            "result_p2_total": r.get("result_p2_total"),
+            "result_p3_total": r.get("result_p3_total"),
+            "p1_total_line": r.get("p1_total_line"),
+            "p2_total_line": r.get("p2_total_line"),
+            "p3_total_line": r.get("p3_total_line"),
         })
 
     for _, r in df.iterrows():
@@ -9606,6 +9752,15 @@ async def api_reconciliation(
         add_pick(r, "totals", "under", "ev_under", "under_odds", "result_total")
         add_pick(r, "puckline", "home_pl_-1.5", "ev_home_pl_-1.5", "home_pl_-1.5_odds", "result_ats")
         add_pick(r, "puckline", "away_pl_+1.5", "ev_away_pl_+1.5", "away_pl_+1.5_odds", "result_ats")
+        # First-10 and Period totals (if EVs exist)
+        add_pick(r, "first10", "f10_yes", "ev_f10_yes", "f10_yes_odds", "result_first10")
+        add_pick(r, "first10", "f10_no", "ev_f10_no", "f10_no_odds", "result_first10")
+        add_pick(r, "periods", "p1_over", "ev_p1_over", "p1_over_odds", "result_p1_total")
+        add_pick(r, "periods", "p1_under", "ev_p1_under", "p1_under_odds", "result_p1_total")
+        add_pick(r, "periods", "p2_over", "ev_p2_over", "p2_over_odds", "result_p2_total")
+        add_pick(r, "periods", "p2_under", "ev_p2_under", "p2_under_odds", "result_p2_total")
+        add_pick(r, "periods", "p3_over", "ev_p3_over", "p3_over_odds", "result_p3_total")
+        add_pick(r, "periods", "p3_under", "ev_p3_under", "p3_under_odds", "result_p3_total")
 
     def american_to_decimal_local(american):
         if american is None or (isinstance(american, float) and pd.isna(american)):
@@ -9627,23 +9782,100 @@ async def api_reconciliation(
     for p in picks[: max(top, 0) if top else len(picks)]:
         stake = flat_stake
         dec = american_to_decimal_local(p.get("price")) if p.get("price") is not None else None
+        # Determine result mapping to Win/Loss/Push
+        rl = None
+        try:
+            mkt = (p.get("market") or "").lower()
+            bet = (p.get("bet") or "").lower()
+            if mkt == "moneyline":
+                wa = p.get("winner_actual")
+                if isinstance(wa, str):
+                    if bet == "home_ml":
+                        rl = "win" if wa == p.get("home") else "loss"
+                    elif bet == "away_ml":
+                        rl = "win" if wa == p.get("away") else "loss"
+            elif mkt == "totals":
+                # Use actual_total and total_line_used if available; else fall back to result string
+                at = p.get("actual_total")
+                tl = p.get("total_line_used")
+                if at is not None and tl is not None:
+                    try:
+                        atf = float(at); tlf = float(tl)
+                        if abs(tlf - round(tlf)) < 1e-9 and int(round(tlf)) == int(atf):
+                            rl = "push"
+                        elif bet == "over":
+                            rl = "win" if atf > tlf else "loss"
+                        elif bet == "under":
+                            rl = "win" if atf < tlf else "loss"
+                    except Exception:
+                        pass
+                if rl is None and isinstance(p.get("result"), str):
+                    want = "over" if bet == "over" else "under"
+                    rlow = p.get("result").lower()
+                    if rlow == "push":
+                        rl = "push"
+                    elif rlow == want:
+                        rl = "win"
+                    else:
+                        rl = "loss"
+            elif mkt == "puckline":
+                try:
+                    fh = float(p.get("final_home_goals")); fa = float(p.get("final_away_goals"))
+                    diff = fh - fa
+                    if bet == "home_pl_-1.5":
+                        rl = "win" if diff > 1.5 else "loss"
+                    elif bet == "away_pl_+1.5":
+                        rl = "win" if diff < -1.5 else ("loss" if diff >= -1.5 else None)
+                except Exception:
+                    pass
+            elif mkt == "first10":
+                rf = (p.get("result_first10") or "").lower()
+                if rf in ("yes", "no"):
+                    if bet == "f10_yes":
+                        rl = "win" if rf == "yes" else "loss"
+                    elif bet == "f10_no":
+                        rl = "win" if rf == "no" else "loss"
+            elif mkt == "periods":
+                # Determine period from bet name (p1_over, p2_under, etc.)
+                import re
+                m = re.match(r"p([123])_(over|under)", bet)
+                if m:
+                    pn = m.group(1); side = m.group(2)
+                    res_key = f"result_p{pn}_total"
+                    ln_key = f"p{pn}_total_line"
+                    rf = p.get(res_key)
+                    if isinstance(rf, str):
+                        rlow = rf.lower()
+                        if rlow == "push":
+                            rl = "push"
+                        elif rlow == side:
+                            rl = "win"
+                        else:
+                            rl = "loss"
+        except Exception:
+            rl = None
+
         res = p.get("result")
-        if isinstance(res, str):
-            rl = res.lower()
+        # Compute PnL if decided
+        if isinstance(rl, str):
             if rl == "push":
                 pushes += 1
                 rows.append({**p, "stake": stake, "payout": 0.0})
-                continue
-            if rl == "win":
+            elif rl == "win":
                 wins += 1
                 if dec:
                     pnl += stake * (dec - 1.0)
+                staked += stake
+                decided += 1
+                rows.append({**p, "stake": stake, "payout": (stake * (dec - 1.0)) if dec else None})
             elif rl == "loss":
                 losses += 1
                 pnl -= stake
-            decided += 1
-            staked += stake
-            rows.append({**p, "stake": stake, "payout": (stake * (dec - 1.0)) if (dec and rl == 'win') else (-stake if rl == 'loss' else 0.0)})
+                staked += stake
+                decided += 1
+                rows.append({**p, "stake": stake, "payout": -stake})
+            else:
+                rows.append({**p, "stake": stake, "payout": None})
         else:
             rows.append({**p, "stake": stake, "payout": None})
 

@@ -95,6 +95,15 @@ def recompute_edges_and_recommendations(date_str: str, min_ev: float = 0.0) -> L
         df["p_f10_yes"] = pd.NA
     if "p_f10_no" not in df.columns:
         df["p_f10_no"] = pd.NA
+    # Team-level First-10 scoring/allowing (derived) placeholders
+    if "p_f10_home_scores" not in df.columns:
+        df["p_f10_home_scores"] = pd.NA
+    if "p_f10_away_scores" not in df.columns:
+        df["p_f10_away_scores"] = pd.NA
+    if "p_f10_home_allows" not in df.columns:
+        df["p_f10_home_allows"] = pd.NA
+    if "p_f10_away_allows" not in df.columns:
+        df["p_f10_away_allows"] = pd.NA
     try:
         for i, r in df.iterrows():
             p_yes = None
@@ -107,6 +116,36 @@ def recompute_edges_and_recommendations(date_str: str, min_ev: float = 0.0) -> L
             if p_yes is not None:
                 df.at[i, "p_f10_yes"] = max(0.0, min(1.0, float(p_yes)))
                 df.at[i, "p_f10_no"] = 1.0 - float(df.at[i, "p_f10_yes"]) if pd.notna(df.at[i, "p_f10_yes"]) else pd.NA
+            # Compute team-level split of first-10 lambda using period1 shares
+            lam10_total = None
+            if pd.notna(r.get("first_10min_proj")):
+                try:
+                    lam10_total = float(r.get("first_10min_proj"))
+                except Exception:
+                    lam10_total = None
+            if lam10_total is None and p_yes is not None and p_yes < 1.0:
+                try:
+                    lam10_total = -math.log(max(1e-12, 1.0 - float(p_yes)))
+                except Exception:
+                    lam10_total = None
+            try:
+                h1 = float(r.get("period1_home_proj")) if pd.notna(r.get("period1_home_proj")) else None
+                a1 = float(r.get("period1_away_proj")) if pd.notna(r.get("period1_away_proj")) else None
+            except Exception:
+                h1 = a1 = None
+            if lam10_total is not None and h1 is not None and a1 is not None and (h1 + a1) > 0:
+                share_h = h1 / (h1 + a1)
+                share_a = 1.0 - share_h
+                lam_h10 = lam10_total * share_h
+                lam_a10 = lam10_total * share_a
+                try:
+                    df.at[i, "p_f10_home_scores"] = max(0.0, min(1.0, 1.0 - math.exp(-lam_h10)))
+                    df.at[i, "p_f10_away_scores"] = max(0.0, min(1.0, 1.0 - math.exp(-lam_a10)))
+                    # Allowing is the opponent scoring
+                    df.at[i, "p_f10_home_allows"] = df.at[i, "p_f10_away_scores"]
+                    df.at[i, "p_f10_away_allows"] = df.at[i, "p_f10_home_scores"]
+                except Exception:
+                    pass
     except Exception:
         pass
     # Ensure EVs

@@ -38,7 +38,7 @@ from ..models.props import (
     SkaterPointsModel as _SkaterPointsModel,
     SkaterBlocksModel as _SkaterBlocksModel,
 )
-from ..web.teams import get_team_assets as _team_assets
+# Use a single team assets import throughout
 # Shared game recs/edges/settlement/reconciliation logic
 try:
     from ..core.recs_shared import recompute_edges_and_recommendations as _recs_recompute_shared
@@ -1022,7 +1022,7 @@ def _compute_all_players_projections(date: str) -> pd.DataFrame:
         slate_names.add(str(g.away))
     slate_abbrs = set()
     for nm in slate_names:
-        ab = (_team_assets(str(nm)).get('abbr') or '').upper()
+    ab = (get_team_assets(str(nm)).get('abbr') or '').upper()
         if ab:
             slate_abbrs.add(ab)
     # Try live roster; fallback to historical enrichment
@@ -1057,7 +1057,7 @@ def _compute_all_players_projections(date: str) -> pd.DataFrame:
             return pd.DataFrame(columns=["date","player","team","position","market","proj_lambda"])
         def _to_abbr(x):
             try:
-                a = _team_assets(str(x)).get('abbr')
+                a = get_team_assets(str(x)).get('abbr')
                 return str(a).upper() if a else None
             except Exception:
                 return None

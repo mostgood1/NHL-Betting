@@ -150,7 +150,7 @@ def recompute_edges_and_recommendations(date_str: str, min_ev: float = 0.0) -> L
             _F10_EARLY_FACTOR = 0.55
         # Clamp to avoid extreme/unrealistic probabilities from overfitting
         _F10_EARLY_FACTOR = _clamp(_F10_EARLY_FACTOR)
-        # Optional team-rate blend configuration
+    # Optional team-rate blend configuration
         _F10_BLEND_ALPHA = None  # weight for P1-based estimate vs team-based
         _F10_BLEND_ENABLE = str(os.getenv("FIRST10_BLEND", "0")).lower() in ("1","true","yes")
         # Try calibration file for blend alpha
@@ -182,6 +182,13 @@ def recompute_edges_and_recommendations(date_str: str, min_ev: float = 0.0) -> L
                 _TEAM_RATES = _json.loads(_tr_path.read_text(encoding="utf-8")) if _tr_path.exists() else {}
             except Exception:
                 _TEAM_RATES = {}
+            # Load team scoring/allowing splits (optional)
+            try:
+                import json as _json
+                _spl_path = PROC_DIR / "first10_team_splits.json"
+                _TEAM_SPLITS = _json.loads(_spl_path.read_text(encoding="utf-8")) if _spl_path.exists() else {}
+            except Exception:
+                _TEAM_SPLITS = {}
             # Compute league baseline from team rates if available
             try:
                 _TEAM_LEAGUE_P = float(
@@ -205,6 +212,7 @@ def recompute_edges_and_recommendations(date_str: str, min_ev: float = 0.0) -> L
                 _PACE_EXP = 0.6
         else:
             _TEAM_RATES = {}
+            _TEAM_SPLITS = {}
             _TEAM_LEAGUE_P = 0.62
             _P1_MEAN_SUM = 2.0
             _PACE_EXP = 0.6
@@ -253,12 +261,22 @@ def recompute_edges_and_recommendations(date_str: str, min_ev: float = 0.0) -> L
             if _F10_BLEND_ENABLE:
                 try:
                     team_h = str(r.get("home") or ""); team_a = str(r.get("away") or "")
-                    th = float((_TEAM_RATES.get(team_h) or {}).get("yes_rate", 0.0)) if _TEAM_RATES else None
-                    ta = float((_TEAM_RATES.get(team_a) or {}).get("yes_rate", 0.0)) if _TEAM_RATES else None
-                    if th is not None and ta is not None and (0.0 <= th <= 1.0) and (0.0 <= ta <= 1.0):
-                        # Start with simple matchup prior from team rates
-                        p_team = max(0.0, min(1.0, 0.5 * (th + ta)))
-                        # Pace-adjust team prior using slate-average P1 sum as baseline
+                    # Prefer scoring/allowing splits if available
+                    hs = (_TEAM_SPLITS.get(team_h) or {}).get("scores_rate") if _TEAM_SPLITS else None
+                    ha = (_TEAM_SPLITS.get(team_h) or {}).get("allows_rate") if _TEAM_SPLITS else None
+                    as_ = (_TEAM_SPLITS.get(team_a) or {}).get("scores_rate") if _TEAM_SPLITS else None
+                    aa = (_TEAM_SPLITS.get(team_a) or {}).get("allows_rate") if _TEAM_SPLITS else None
+                    def _clip01(x):
+                        try:
+                            return max(0.0, min(1.0, float(x)))
+                        except Exception:
+                            return None
+                    hs = _clip01(hs); ha = _clip01(ha); as_ = _clip01(as_); aa = _clip01(aa)
+                    if all(v is not None for v in (hs, ha, as_, aa)):
+                        # Combine team score vs opponent allow: 1 - (1 - s)*(1 - a)
+                        p_home_score = 1.0 - (1.0 - hs) * (1.0 - aa)
+                        p_away_score = 1.0 - (1.0 - as_) * (1.0 - ha)
+                        # Pace adjustment toward league baseline
                         pace_ratio = None
                         try:
                             if (h1 is not None) and (a1 is not None) and (_P1_MEAN_SUM and _P1_MEAN_SUM > 0):
@@ -266,16 +284,48 @@ def recompute_edges_and_recommendations(date_str: str, min_ev: float = 0.0) -> L
                         except Exception:
                             pace_ratio = None
                         if pace_ratio is not None and math.isfinite(pace_ratio):
-                            # Soften extremes; keep within reasonable bounds
                             pace_ratio = max(0.7, min(1.3, pace_ratio))
-                            p_team = _TEAM_LEAGUE_P + (p_team - _TEAM_LEAGUE_P) * (pace_ratio ** _PACE_EXP)
-                            p_team = max(0.0, min(1.0, p_team))
-                        # If we also have a P1-based probability, blend on the logit scale to preserve contrast
+                            p_home_score = _TEAM_LEAGUE_P + (p_home_score - _TEAM_LEAGUE_P) * (pace_ratio ** _PACE_EXP)
+                            p_away_score = _TEAM_LEAGUE_P + (p_away_score - _TEAM_LEAGUE_P) * (pace_ratio ** _PACE_EXP)
+                            p_home_score = max(0.0, min(1.0, p_home_score))
+                            p_away_score = max(0.0, min(1.0, p_away_score))
+                        # Combine to overall yes
+                        p_team = 1.0 - (1.0 - p_home_score) * (1.0 - p_away_score)
+                        # Blend with P1 probability if available (logit blend)
                         if p_yes is not None:
                             p_lin = float(p_yes)
                             p_yes = _sigmoid(_F10_BLEND_ALPHA * _logit(p_lin) + (1.0 - _F10_BLEND_ALPHA) * _logit(p_team))
                         else:
                             p_yes = p_team
+                        # Expose component scores to CSV
+                        try:
+                            df.at[i, "p_f10_home_scores"] = p_home_score
+                            df.at[i, "p_f10_away_scores"] = p_away_score
+                            df.at[i, "p_f10_home_allows"] = 1.0 - (1.0 - ha)  # store raw allow proxy as rate
+                            df.at[i, "p_f10_away_allows"] = 1.0 - (1.0 - aa)
+                        except Exception:
+                            pass
+                    else:
+                        # Fallback to yes_rate average if splits missing
+                        th = float((_TEAM_RATES.get(team_h) or {}).get("yes_rate", 0.0)) if _TEAM_RATES else None
+                        ta = float((_TEAM_RATES.get(team_a) or {}).get("yes_rate", 0.0)) if _TEAM_RATES else None
+                        if th is not None and ta is not None and (0.0 <= th <= 1.0) and (0.0 <= ta <= 1.0):
+                            p_team = max(0.0, min(1.0, 0.5 * (th + ta)))
+                            pace_ratio = None
+                            try:
+                                if (h1 is not None) and (a1 is not None) and (_P1_MEAN_SUM and _P1_MEAN_SUM > 0):
+                                    pace_ratio = (float(h1) + float(a1)) / float(_P1_MEAN_SUM)
+                            except Exception:
+                                pace_ratio = None
+                            if pace_ratio is not None and math.isfinite(pace_ratio):
+                                pace_ratio = max(0.7, min(1.3, pace_ratio))
+                                p_team = _TEAM_LEAGUE_P + (p_team - _TEAM_LEAGUE_P) * (pace_ratio ** _PACE_EXP)
+                                p_team = max(0.0, min(1.0, p_team))
+                            if p_yes is not None:
+                                p_lin = float(p_yes)
+                                p_yes = _sigmoid(_F10_BLEND_ALPHA * _logit(p_lin) + (1.0 - _F10_BLEND_ALPHA) * _logit(p_team))
+                            else:
+                                p_yes = p_team
                 except Exception:
                     pass
             if p_yes is not None:
@@ -489,6 +539,11 @@ def backfill_settlement_for_date(date_str: str, *, force: bool = False) -> dict:
             continue
     pbp_cache: dict[int, dict] = {}
     backfilled = 0
+    # Ensure new columns exist
+    if "result_first10_home" not in df.columns:
+        df["result_first10_home"] = pd.NA
+    if "result_first10_away" not in df.columns:
+        df["result_first10_away"] = pd.NA
     for i, r in df.iterrows():
         try:
             hk = _abbr(r.get("home")); ak = _abbr(r.get("away"))
@@ -529,6 +584,8 @@ def backfill_settlement_for_date(date_str: str, *, force: bool = False) -> dict:
                 plays = pbp.get("plays") if isinstance(pbp, dict) else None
                 goals_by_period = {1: 0, 2: 0, 3: 0}
                 first10_yes = False
+                home_scored10 = False
+                away_scored10 = False
                 if isinstance(plays, list):
                     for p_ in plays:
                         try:
@@ -562,20 +619,134 @@ def backfill_settlement_for_date(date_str: str, *, force: bool = False) -> dict:
                                     if p_.get("timeRemaining") is not None:
                                         if secs >= 600:
                                             first10_yes = True
+                                            # attribute team if available
+                                            try:
+                                                # Pre-compute expected abbreviations
+                                                home_abbr = _abbr(r.get("home")); away_abbr = _abbr(r.get("away"))
+                                                tri = ""
+                                                tm = p_.get("team") or {}
+                                                tri = (tm.get("triCode") or tm.get("abbrev") or tm.get("abbreviation") or "").upper()
+                                                if not tri:
+                                                    tri = str(p_.get("teamAbbrev") or p_.get("teamTriCode") or "").upper()
+                                                if not tri:
+                                                    det = p_.get("details") or {}
+                                                    tri = str(det.get("eventOwnerAbbrev") or det.get("teamTriCode") or det.get("clubCode") or "").upper()
+                                                side = None
+                                                if not tri:
+                                                    det = p_.get("details") or {}
+                                                    side = (det.get("eventOwner") or det.get("owner") or p_.get("club") or "").lower()
+                                                if tri and home_abbr and tri == home_abbr:
+                                                    home_scored10 = True
+                                                elif tri and away_abbr and tri == away_abbr:
+                                                    away_scored10 = True
+                                                elif side in ("home", "h"):
+                                                    home_scored10 = True
+                                                elif side in ("away", "a"):
+                                                    away_scored10 = True
+                                            except Exception:
+                                                pass
                                     elif p_.get("timeInPeriod") is not None:
                                         if secs <= 600:
                                             first10_yes = True
+                                            try:
+                                                # Pre-compute expected abbreviations
+                                                home_abbr = _abbr(r.get("home")); away_abbr = _abbr(r.get("away"))
+                                                tri = ""
+                                                tm = p_.get("team") or {}
+                                                tri = (tm.get("triCode") or tm.get("abbrev") or tm.get("abbreviation") or "").upper()
+                                                if not tri:
+                                                    tri = str(p_.get("teamAbbrev") or p_.get("teamTriCode") or "").upper()
+                                                if not tri:
+                                                    det = p_.get("details") or {}
+                                                    tri = str(det.get("eventOwnerAbbrev") or det.get("teamTriCode") or det.get("clubCode") or "").upper()
+                                                side = None
+                                                if not tri:
+                                                    det = p_.get("details") or {}
+                                                    side = (det.get("eventOwner") or det.get("owner") or p_.get("club") or "").lower()
+                                                if tri and home_abbr and tri == home_abbr:
+                                                    home_scored10 = True
+                                                elif tri and away_abbr and tri == away_abbr:
+                                                    away_scored10 = True
+                                                elif side in ("home", "h"):
+                                                    home_scored10 = True
+                                                elif side in ("away", "a"):
+                                                    away_scored10 = True
+                                            except Exception:
+                                                pass
                                     else:
                                         # Assume elapsed clock if ambiguous
                                         if secs <= 600:
                                             first10_yes = True
+                                            try:
+                                                # Pre-compute expected abbreviations
+                                                home_abbr = _abbr(r.get("home")); away_abbr = _abbr(r.get("away"))
+                                                tri = ""
+                                                tm = p_.get("team") or {}
+                                                tri = (tm.get("triCode") or tm.get("abbrev") or tm.get("abbreviation") or "").upper()
+                                                if not tri:
+                                                    tri = str(p_.get("teamAbbrev") or p_.get("teamTriCode") or "").upper()
+                                                if not tri:
+                                                    det = p_.get("details") or {}
+                                                    tri = str(det.get("eventOwnerAbbrev") or det.get("teamTriCode") or det.get("clubCode") or "").upper()
+                                                side = None
+                                                if not tri:
+                                                    det = p_.get("details") or {}
+                                                    side = (det.get("eventOwner") or det.get("owner") or p_.get("club") or "").lower()
+                                                if tri and home_abbr and tri == home_abbr:
+                                                    home_scored10 = True
+                                                elif tri and away_abbr and tri == away_abbr:
+                                                    away_scored10 = True
+                                                elif side in ("home", "h"):
+                                                    home_scored10 = True
+                                                elif side in ("away", "a"):
+                                                    away_scored10 = True
+                                            except Exception:
+                                                pass
                                 except Exception:
                                     pass
                         except Exception:
                             continue
+                # Fallback attribution via NHL Stats API when first10 is true but team unknown
+                try:
+                    if first10_yes and (not home_scored10 and not away_scored10) and (game_pk is not None):
+                        import requests as _rq
+                        resp = _rq.get(f"https://statsapi.web.nhl.com/api/v1/game/{int(game_pk)}/feed/live", timeout=20)
+                        if resp.ok:
+                            js = resp.json() or {}
+                            plays_node = (js.get('liveData') or {}).get('plays') or {}
+                            all_plays = plays_node.get('allPlays') or []
+                            scoring_idxs = plays_node.get('scoringPlays') or []
+                            home_abbr = _abbr(r.get("home")); away_abbr = _abbr(r.get("away"))
+                            for idx in scoring_idxs:
+                                try:
+                                    ev = all_plays[idx] if isinstance(idx, int) and idx < len(all_plays) else None
+                                    if not ev:
+                                        continue
+                                    per = int((ev.get('about') or {}).get('period') or 0)
+                                    clk = str((ev.get('about') or {}).get('periodTime') or '')
+                                    mm = ss = None
+                                    if isinstance(clk, str) and ':' in clk:
+                                        parts = clk.split(':')
+                                        mm = int(parts[0]); ss = int(parts[1])
+                                    if per == 1 and (mm is not None and ss is not None) and (mm*60+ss) <= 600:
+                                        tri = ( (ev.get('team') or {}).get('triCode') or (ev.get('team') or {}).get('abbreviation') or '' ).upper()
+                                        if tri and home_abbr and tri == home_abbr:
+                                            home_scored10 = True
+                                        elif tri and away_abbr and tri == away_abbr:
+                                            away_scored10 = True
+                                        break
+                                except Exception:
+                                    continue
+                except Exception:
+                    pass
                 try:
                     if force or pd.isna(r.get("result_first10")) or not r.get("result_first10"):
                         df.at[i, "result_first10"] = "Yes" if first10_yes else "No"
+                    # Always update home/away first10 scorer flags when force or missing
+                    if force or pd.isna(r.get("result_first10_home")):
+                        df.at[i, "result_first10_home"] = "Yes" if home_scored10 else "No"
+                    if force or pd.isna(r.get("result_first10_away")):
+                        df.at[i, "result_first10_away"] = "Yes" if away_scored10 else "No"
                 except Exception:
                     pass
                 for pn in (1, 2, 3):

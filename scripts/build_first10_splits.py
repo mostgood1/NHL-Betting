@@ -33,14 +33,20 @@ def main(argv):
     args = _parse_args(argv)
     paths = sorted(glob.glob(str(PROC_DIR / 'predictions_*.csv')))
     frames = []
-    usecols = ['date','home','away','result_first10_home','result_first10_away']
+    usecols = ['date','date_et','home','away','result_first10_home','result_first10_away']
     for p in paths:
         try:
-            df = pd.read_csv(p, usecols=usecols)
+            df = pd.read_csv(p, usecols=[c for c in usecols if c])
+            # Normalize date to YYYY-MM-DD for filtering; prefer date_et if present
+            if 'date_et' in df.columns and df['date_et'].notna().any():
+                dser = df['date_et'].astype(str)
+            else:
+                dser = df['date'].astype(str).str.split('T').str[0]
+            df = df.assign(_date_str=dser)
             if args.start:
-                df = df[df['date'] >= args.start]
+                df = df[df['_date_str'] >= args.start]
             if args.end:
-                df = df[df['date'] <= args.end]
+                df = df[df['_date_str'] <= args.end]
             m_home = df['result_first10_home'].astype(str).str.lower().isin(['yes','no'])
             m_away = df['result_first10_away'].astype(str).str.lower().isin(['yes','no'])
             df = df[m_home & m_away].copy()
@@ -52,8 +58,9 @@ def main(argv):
         print('[warn] no rows for splits')
         return 0
     data = pd.concat(frames, ignore_index=True)
-    data = data.drop_duplicates(subset=['date','home','away'], keep='first')
-    data['_date'] = data['date'].apply(_to_date)
+    # Drop duplicates by normalized date/home/away
+    data = data.drop_duplicates(subset=['_date_str','home','away'], keep='first')
+    data['_date'] = data['_date_str'].apply(_to_date)
     current_start = _to_date(args.current_start) or date(datetime.today().year, 10, 7)
     last_start = date(current_start.year - 1, current_start.month, current_start.day)
     prev_start = date(current_start.year - 2, current_start.month, current_start.day)
@@ -68,9 +75,18 @@ def main(argv):
     data['y_away_scores'] = data['result_first10_away'].astype(str).str.lower().eq('yes').astype(int)
     # League means (weighted)
     sw = float(data['w'].sum())
-    league_scores = float((data['w'] * (data['y_home_scores'] | data['y_away_scores']).astype(int)).sum()) / sw if sw>0 else 0.62
-    league_home = float((data['w'] * data['y_home_scores']).sum()) / sw if sw>0 else 0.31
-    league_away = float((data['w'] * data['y_away_scores']).sum()) / sw if sw>0 else 0.31
+    if sw > 0:
+        try:
+            league_scores = float((data['w'] * (data['y_home_scores'] | data['y_away_scores']).astype(int)).sum()) / sw
+            league_home = float((data['w'] * data['y_home_scores']).sum()) / sw
+            league_away = float((data['w'] * data['y_away_scores']).sum()) / sw
+        except Exception:
+            league_scores = 0.62; league_home = 0.31; league_away = 0.31
+    else:
+        league_scores = 0.62; league_home = 0.31; league_away = 0.31
+    # Guard against degenerate zeros
+    if league_home <= 0.0 and league_away <= 0.0:
+        league_home, league_away = 0.31, 0.31
     k = float(args.prior_k)
     out = {}
     teams = pd.unique(pd.concat([data['home'], data['away']], ignore_index=True).dropna().astype(str))

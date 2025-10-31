@@ -340,6 +340,16 @@ def recompute_edges_and_recommendations(date_str: str, min_ev: float = 0.0) -> L
                     df.at[i, "p_f10_away_allows"] = df.at[i, "p_f10_home_scores"]
                 except Exception:
                     pass
+            # As a final consistency step, if component score rates are present, set p_f10_yes to their combined probability
+            try:
+                ph = float(df.at[i, "p_f10_home_scores"]) if pd.notna(df.at[i, "p_f10_home_scores"]) else None
+                pa = float(df.at[i, "p_f10_away_scores"]) if pd.notna(df.at[i, "p_f10_away_scores"]) else None
+                if ph is not None and pa is not None:
+                    pt = 1.0 - (1.0 - ph) * (1.0 - pa)
+                    df.at[i, "p_f10_yes"] = max(0.0, min(1.0, pt))
+                    df.at[i, "p_f10_no"] = 1.0 - df.at[i, "p_f10_yes"]
+            except Exception:
+                pass
     except Exception:
         pass
     # Ensure EVs

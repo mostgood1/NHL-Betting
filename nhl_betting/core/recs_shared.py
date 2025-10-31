@@ -182,8 +182,49 @@ def recompute_edges_and_recommendations(date_str: str, min_ev: float = 0.0) -> L
                 _TEAM_RATES = _json.loads(_tr_path.read_text(encoding="utf-8")) if _tr_path.exists() else {}
             except Exception:
                 _TEAM_RATES = {}
+            # Compute league baseline from team rates if available
+            try:
+                _TEAM_LEAGUE_P = float(
+                    sum(float((v or {}).get("yes_rate", 0.0)) for v in (_TEAM_RATES or {}).values())
+                ) / max(1.0, float(len(_TEAM_RATES))) if _TEAM_RATES else 0.62
+            except Exception:
+                _TEAM_LEAGUE_P = 0.62
+            # Estimate slate-average P1 sum to pace-adjust team prior
+            try:
+                s1 = pd.to_numeric(df.get("period1_home_proj"), errors="coerce")
+                s2 = pd.to_numeric(df.get("period1_away_proj"), errors="coerce")
+                sums = (s1.fillna(0.0) + s2.fillna(0.0))
+                sums = sums[sums > 0]
+                _P1_MEAN_SUM = float(sums.mean()) if len(sums) > 0 else 2.0
+            except Exception:
+                _P1_MEAN_SUM = 2.0
+            # Pace exponent (how strongly pace widens/narrows team prior)
+            try:
+                _PACE_EXP = float(os.getenv("F10_PACE_EXP", "0.6"))
+            except Exception:
+                _PACE_EXP = 0.6
         else:
             _TEAM_RATES = {}
+            _TEAM_LEAGUE_P = 0.62
+            _P1_MEAN_SUM = 2.0
+            _PACE_EXP = 0.6
+        # Logit helpers for smoother blending (prevents linear squashing around 0.5)
+        def _sigmoid(x: float) -> float:
+            try:
+                # Guard against overflow
+                if x > 20:
+                    return 1.0
+                if x < -20:
+                    return 0.0
+                return 1.0 / (1.0 + math.exp(-x))
+            except Exception:
+                return 0.5
+        def _logit(p: float, eps: float = 1e-6) -> float:
+            try:
+                pp = min(1.0 - eps, max(eps, float(p)))
+                return math.log(pp / (1.0 - pp))
+            except Exception:
+                return 0.0
         for i, r in df.iterrows():
             p_yes = None
             # Team-driven estimate from period1 projections (preferred)
@@ -215,9 +256,24 @@ def recompute_edges_and_recommendations(date_str: str, min_ev: float = 0.0) -> L
                     th = float((_TEAM_RATES.get(team_h) or {}).get("yes_rate", 0.0)) if _TEAM_RATES else None
                     ta = float((_TEAM_RATES.get(team_a) or {}).get("yes_rate", 0.0)) if _TEAM_RATES else None
                     if th is not None and ta is not None and (0.0 <= th <= 1.0) and (0.0 <= ta <= 1.0):
+                        # Start with simple matchup prior from team rates
                         p_team = max(0.0, min(1.0, 0.5 * (th + ta)))
+                        # Pace-adjust team prior using slate-average P1 sum as baseline
+                        pace_ratio = None
+                        try:
+                            if (h1 is not None) and (a1 is not None) and (_P1_MEAN_SUM and _P1_MEAN_SUM > 0):
+                                pace_ratio = (float(h1) + float(a1)) / float(_P1_MEAN_SUM)
+                        except Exception:
+                            pace_ratio = None
+                        if pace_ratio is not None and math.isfinite(pace_ratio):
+                            # Soften extremes; keep within reasonable bounds
+                            pace_ratio = max(0.7, min(1.3, pace_ratio))
+                            p_team = _TEAM_LEAGUE_P + (p_team - _TEAM_LEAGUE_P) * (pace_ratio ** _PACE_EXP)
+                            p_team = max(0.0, min(1.0, p_team))
+                        # If we also have a P1-based probability, blend on the logit scale to preserve contrast
                         if p_yes is not None:
-                            p_yes = float(_F10_BLEND_ALPHA) * float(p_yes) + (1.0 - float(_F10_BLEND_ALPHA)) * float(p_team)
+                            p_lin = float(p_yes)
+                            p_yes = _sigmoid(_F10_BLEND_ALPHA * _logit(p_lin) + (1.0 - _F10_BLEND_ALPHA) * _logit(p_team))
                         else:
                             p_yes = p_team
                 except Exception:

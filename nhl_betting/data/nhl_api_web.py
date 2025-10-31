@@ -5,9 +5,11 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 
+import os
 import requests
 
-BASE = "https://api-web.nhle.com/v1"
+# Allow overriding the NHL Web API base via env var (e.g., NHLE_BASE_URL=https://api-web.nhle.com/v1)
+DEFAULT_BASE = os.getenv("NHLE_BASE_URL", "https://api-web.nhle.com/v1").rstrip("/")
 
 
 @dataclass
@@ -32,15 +34,25 @@ def _team_name(team: Dict) -> str:
 
 
 class NHLWebClient:
-    def __init__(self, rate_limit_per_sec: float = 3.0):
+    def __init__(self, rate_limit_per_sec: float = 3.0, base_url: Optional[str] = None, timeout: float = 30.0):
         self.sleep = 1.0 / rate_limit_per_sec
+        self.base = (base_url or DEFAULT_BASE).rstrip("/")
+        self.timeout = float(timeout)
+        # Reuse a session to reduce connection overhead
+        self._session = requests.Session()
+        self._session.headers.update({
+            "User-Agent": "nhl-betting/1.0 (+https://github.com/mostgood1/NHL-Betting)",
+            "Accept": "application/json",
+        })
 
     def _get(self, path: str, params: Optional[Dict] = None, retries: int = 3) -> Dict:
         last_exc: Optional[Exception] = None
         for attempt in range(retries):
             try:
                 time.sleep(self.sleep)
-                r = requests.get(f"{BASE}{path}", params=params, timeout=30)
+                # Ensure single leading slash in path
+                url = f"{self.base}{path if path.startswith('/') else '/' + path}"
+                r = self._session.get(url, params=params, timeout=self.timeout)
                 r.raise_for_status()
                 return r.json()
             except Exception as e:

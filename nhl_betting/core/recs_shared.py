@@ -529,6 +529,8 @@ def backfill_settlement_for_date(date_str: str, *, force: bool = False) -> dict:
     if df.empty:
         return {"skipped": True, "reason": "empty_predictions"}
     client = NHLWebClient()
+    # Allow configuring which providers are attempted for attribution fallbacks
+    _provider_order = [s.strip().lower() for s in str(os.getenv("DATA_PROVIDER_ORDER", "nhle,stats,web")).split(",") if s.strip()]
     try:
         sb = client.scoreboard_day(date_str)
     except Exception:
@@ -718,7 +720,7 @@ def backfill_settlement_for_date(date_str: str, *, force: bool = False) -> dict:
                             continue
                 # Fallback attribution via NHL Stats API when first10 is true but team unknown
                 try:
-                    if first10_yes and (not home_scored10 and not away_scored10) and (game_pk is not None):
+                    if ("stats" in _provider_order) and first10_yes and (not home_scored10 and not away_scored10) and (game_pk is not None):
                         import requests as _rq
                         resp = _rq.get(f"https://statsapi.web.nhl.com/api/v1/game/{int(game_pk)}/feed/live", timeout=20)
                         if resp.ok:

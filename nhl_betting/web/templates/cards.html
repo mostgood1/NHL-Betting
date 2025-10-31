@@ -343,6 +343,22 @@
                 {% if ev_no is not none %}<span class="ev-badge {{ 'pos' if ev_no > 0 else ('neg' if ev_no < 0 else 'neu') }}">EV {{ ('+' if ev_no > 0 else '') ~ ('%.1f' % (100*ev_no)) }}%</span>{% endif %}
               </div>
             </div>
+            {# First-10 component splits: show how each side's scoring interacts with opponent allowing #}
+            {% set _hs = r.get('p_f10_home_scores') %}
+            {% set _aa = r.get('p_f10_away_allows') %}
+            {% set _as = r.get('p_f10_away_scores') %}
+            {% set _ha = r.get('p_f10_home_allows') %}
+            {% if _hs is not none and _aa is not none and _as is not none and _ha is not none %}
+            <div class="row chips">
+              <div class="chip title">First 10 splits</div>
+              <div class="chip neutral">
+                Home score vs Away allow · {{ '%.1f' % (100 * (1 - (1 - (_hs or 0)) * (1 - (_aa or 0)))) }}%
+              </div>
+              <div class="chip neutral">
+                Away score vs Home allow · {{ '%.1f' % (100 * (1 - (1 - (_as or 0)) * (1 - (_ha or 0)))) }}%
+              </div>
+            </div>
+            {% endif %}
             {% endif %}
 
             {# Period totals chips for P1..P3 when lines/odds exist #}

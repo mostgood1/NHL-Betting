@@ -107,16 +107,34 @@ def recompute_edges_and_recommendations(date_str: str, min_ev: float = 0.0) -> L
         df["p_f10_away_allows"] = pd.NA
     try:
         # Optional early-window factor: convert period-1 goal rate to first-10 rate (default 10/20)
-        # Precedence: env var > calibration file > default 0.5
+        # Precedence: env var > first10_eval.json (p1_scale) > model_calibration.json > default 0.55
+        def _clamp(v: float, lo: float = 0.35, hi: float = 0.7) -> float:
+            try:
+                return max(lo, min(hi, float(v)))
+            except Exception:
+                return v
         _F10_EARLY_FACTOR = None
+        # 1) Environment override
         try:
             _env_val = os.getenv("F10_EARLY_FACTOR")
             if _env_val is not None:
                 _F10_EARLY_FACTOR = float(_env_val)
         except Exception:
             _F10_EARLY_FACTOR = None
+        # 2) Data-driven evaluation file
         if _F10_EARLY_FACTOR is None or (not math.isfinite(_F10_EARLY_FACTOR)) or _F10_EARLY_FACTOR <= 0:
-            # Try calibration file
+            try:
+                import json as _json
+                _eval_path = PROC_DIR / "first10_eval.json"
+                if _eval_path.exists():
+                    _obj = _json.loads(_eval_path.read_text(encoding="utf-8"))
+                    _p1_scale = _obj.get("p1_scale")
+                    if _p1_scale is not None:
+                        _F10_EARLY_FACTOR = float(_p1_scale)
+            except Exception:
+                _F10_EARLY_FACTOR = None
+        # 3) Model calibration file fallback
+        if _F10_EARLY_FACTOR is None or (not math.isfinite(_F10_EARLY_FACTOR)) or _F10_EARLY_FACTOR <= 0:
             try:
                 import json as _json
                 _cal_path = PROC_DIR / "model_calibration.json"
@@ -127,8 +145,45 @@ def recompute_edges_and_recommendations(date_str: str, min_ev: float = 0.0) -> L
                         _F10_EARLY_FACTOR = float(_f_cal)
             except Exception:
                 _F10_EARLY_FACTOR = None
+        # 4) Sensible default
         if _F10_EARLY_FACTOR is None or (not math.isfinite(_F10_EARLY_FACTOR)) or _F10_EARLY_FACTOR <= 0:
-            _F10_EARLY_FACTOR = 0.5
+            _F10_EARLY_FACTOR = 0.55
+        # Clamp to avoid extreme/unrealistic probabilities from overfitting
+        _F10_EARLY_FACTOR = _clamp(_F10_EARLY_FACTOR)
+        # Optional team-rate blend configuration
+        _F10_BLEND_ALPHA = None  # weight for P1-based estimate vs team-based
+        _F10_BLEND_ENABLE = str(os.getenv("FIRST10_BLEND", "0")).lower() in ("1","true","yes")
+        # Try calibration file for blend alpha
+        if _F10_BLEND_ENABLE:
+            try:
+                import json as _json
+                _cal_path = PROC_DIR / "model_calibration.json"
+                if _cal_path.exists():
+                    _obj = _json.loads(_cal_path.read_text(encoding="utf-8"))
+                    _ba = _obj.get("f10_blend_alpha")
+                    if _ba is not None:
+                        _F10_BLEND_ALPHA = float(_ba)
+            except Exception:
+                _F10_BLEND_ALPHA = None
+            # Env override
+            try:
+                _ba_env = os.getenv("F10_BLEND_ALPHA")
+                if _ba_env is not None:
+                    _F10_BLEND_ALPHA = float(_ba_env)
+            except Exception:
+                pass
+            if _F10_BLEND_ALPHA is None or (not math.isfinite(_F10_BLEND_ALPHA)):
+                _F10_BLEND_ALPHA = 0.7
+            _F10_BLEND_ALPHA = max(0.0, min(1.0, _F10_BLEND_ALPHA))
+            # Load team rates
+            try:
+                import json as _json
+                _tr_path = PROC_DIR / "first10_team_rates.json"
+                _TEAM_RATES = _json.loads(_tr_path.read_text(encoding="utf-8")) if _tr_path.exists() else {}
+            except Exception:
+                _TEAM_RATES = {}
+        else:
+            _TEAM_RATES = {}
         for i, r in df.iterrows():
             p_yes = None
             # Team-driven estimate from period1 projections (preferred)
@@ -141,7 +196,8 @@ def recompute_edges_and_recommendations(date_str: str, min_ev: float = 0.0) -> L
                     lam_a10 = _F10_EARLY_FACTOR * float(a1)
                     lam10 = lam_h10 + lam_a10
                     if math.isfinite(lam10) and lam10 >= 0:
-                        p_yes = 1.0 - math.exp(-lam10)
+                        p_p1 = 1.0 - math.exp(-lam10)
+                        p_yes = p_p1
                 except Exception:
                     lam_h10 = lam_a10 = None
             # Fallback to existing fields if team-driven unavailable
@@ -152,6 +208,20 @@ def recompute_edges_and_recommendations(date_str: str, min_ev: float = 0.0) -> L
                     lam10 = float(r.get("first_10min_proj"))
                     if math.isfinite(lam10) and lam10 >= 0:
                         p_yes = 1.0 - math.exp(-lam10)
+            # Optional blend with team rates
+            if _F10_BLEND_ENABLE:
+                try:
+                    team_h = str(r.get("home") or ""); team_a = str(r.get("away") or "")
+                    th = float((_TEAM_RATES.get(team_h) or {}).get("yes_rate", 0.0)) if _TEAM_RATES else None
+                    ta = float((_TEAM_RATES.get(team_a) or {}).get("yes_rate", 0.0)) if _TEAM_RATES else None
+                    if th is not None and ta is not None and (0.0 <= th <= 1.0) and (0.0 <= ta <= 1.0):
+                        p_team = max(0.0, min(1.0, 0.5 * (th + ta)))
+                        if p_yes is not None:
+                            p_yes = float(_F10_BLEND_ALPHA) * float(p_yes) + (1.0 - float(_F10_BLEND_ALPHA)) * float(p_team)
+                        else:
+                            p_yes = p_team
+                except Exception:
+                    pass
             if p_yes is not None:
                 df.at[i, "p_f10_yes"] = max(0.0, min(1.0, float(p_yes)))
                 df.at[i, "p_f10_no"] = 1.0 - float(df.at[i, "p_f10_yes"]) if pd.notna(df.at[i, "p_f10_yes"]) else pd.NA
@@ -332,7 +402,7 @@ def recompute_edges_and_recommendations(date_str: str, min_ev: float = 0.0) -> L
     return recs
 
 
-def backfill_settlement_for_date(date_str: str) -> dict:
+def backfill_settlement_for_date(date_str: str, *, force: bool = False) -> dict:
     pred_csv_path = PROC_DIR / f"predictions_{date_str}.csv"
     if not pred_csv_path.exists():
         return {"skipped": True, "reason": "no_predictions"}
@@ -407,7 +477,8 @@ def backfill_settlement_for_date(date_str: str) -> dict:
                     for p_ in plays:
                         try:
                             tkey = (str(p_.get("typeDescKey") or p_.get("type")) or "").lower()
-                            if "goal" not in tkey:
+                            # Only treat actual scoring events as goals; do NOT match substrings like 'shot-on-goal'
+                            if tkey != "goal":
                                 continue
                             per = None
                             try:
@@ -427,12 +498,27 @@ def backfill_settlement_for_date(date_str: str) -> dict:
                                     mm, ss = None, None
                             if per == 1 and (mm is not None and ss is not None):
                                 secs = mm * 60 + ss
-                                if (p_.get("timeRemaining") and secs >= 600) or (p_.get("timeInPeriod") and secs <= 600) or (secs >= 600):
-                                    first10_yes = True
+                                # Use field semantics when available:
+                                # - timeRemaining: first 10 means remaining >= 600
+                                # - timeInPeriod: first 10 means elapsed <= 600
+                                # - time (unknown): assume elapsed clock
+                                try:
+                                    if p_.get("timeRemaining") is not None:
+                                        if secs >= 600:
+                                            first10_yes = True
+                                    elif p_.get("timeInPeriod") is not None:
+                                        if secs <= 600:
+                                            first10_yes = True
+                                    else:
+                                        # Assume elapsed clock if ambiguous
+                                        if secs <= 600:
+                                            first10_yes = True
+                                except Exception:
+                                    pass
                         except Exception:
                             continue
                 try:
-                    if pd.isna(r.get("result_first10")) or not r.get("result_first10"):
+                    if force or pd.isna(r.get("result_first10")) or not r.get("result_first10"):
                         df.at[i, "result_first10"] = "Yes" if first10_yes else "No"
                 except Exception:
                     pass

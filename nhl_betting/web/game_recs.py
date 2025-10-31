@@ -63,7 +63,14 @@ async def api_game_recs(
             await asyncio.to_thread(_recs_recompute_shared, date, 0.0)
         if not p.exists():
             return JSONResponse({"ok": True, "date": date, "rows": [], "count": 0})
-        df = pd.read_csv(p)
+        # Read recommendations CSV; handle empty file gracefully
+        try:
+            df = pd.read_csv(p)
+        except pd.errors.EmptyDataError:
+            return JSONResponse({"ok": True, "date": date, "rows": [], "count": 0})
+        except Exception:
+            # Any unexpected read error -> treat as no rows rather than 500
+            return JSONResponse({"ok": True, "date": date, "rows": [], "count": 0})
         if min_ev is not None:
             try:
                 df = df[pd.to_numeric(df["ev"], errors="coerce") >= float(min_ev)]
@@ -91,7 +98,12 @@ async def api_game_edges(
         p = PROC_DIR / f"edges_{date}.csv"
         if not p.exists():
             return JSONResponse({"ok": True, "date": date, "rows": [], "count": 0})
-        df = pd.read_csv(p)
+        try:
+            df = pd.read_csv(p)
+        except pd.errors.EmptyDataError:
+            return JSONResponse({"ok": True, "date": date, "rows": [], "count": 0})
+        except Exception:
+            return JSONResponse({"ok": True, "date": date, "rows": [], "count": 0})
         try:
             df = df.sort_values("ev", ascending=False)
         except Exception:

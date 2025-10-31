@@ -1201,6 +1201,18 @@ async def _recompute_edges_and_recommendations(date: str) -> None:
                     ck = close_map.get(odds_key)
                     if ck and (ck in row):
                         price = _num(row.get(ck))
+                # market-specific default odds if still missing
+                if price is None:
+                    if odds_key in ("f10_yes_odds", "f10_no_odds"):
+                        price = -150.0
+                    elif odds_key in (
+                        "over_odds", "under_odds",
+                        "home_pl_-1.5_odds", "away_pl_+1.5_odds",
+                        "p1_over_odds", "p1_under_odds",
+                        "p2_over_odds", "p2_under_odds",
+                        "p3_over_odds", "p3_under_odds",
+                    ):
+                        price = -110.0
                 if (p is not None) and (price is not None):
                     dec = american_to_decimal(price)
                     if dec is not None and _math.isfinite(dec):
@@ -1326,14 +1338,33 @@ async def _recompute_edges_and_recommendations(date: str) -> None:
                     except Exception:
                         h1 = a1 = None
                     if h1 is not None and a1 is not None and (h1 >= 0 and a1 >= 0):
-                        # Resolve factor: env > calibration file > default 0.5
+                        # Resolve factor: env > first10_eval.json (p1_scale) > model_calibration.json > default 0.55
+                        def _clamp(v: float, lo: float = 0.35, hi: float = 0.7) -> float:
+                            try:
+                                return max(lo, min(hi, float(v)))
+                            except Exception:
+                                return v
                         f = None
+                        # 1) Environment override
                         try:
                             ev = os.getenv("F10_EARLY_FACTOR")
                             if ev is not None:
                                 f = float(ev)
                         except Exception:
                             f = None
+                        # 2) Data-driven evaluation file
+                        if f is None or (not _math.isfinite(f)) or f <= 0:
+                            try:
+                                import json as _json
+                                _eval_path = PROC_DIR / "first10_eval.json"
+                                if _eval_path.exists():
+                                    _obj = _json.loads(_eval_path.read_text(encoding="utf-8"))
+                                    _p1_scale = _obj.get("p1_scale")
+                                    if _p1_scale is not None:
+                                        f = float(_p1_scale)
+                            except Exception:
+                                f = None
+                        # 3) Model calibration fallback
                         if f is None or (not _math.isfinite(f)) or f <= 0:
                             try:
                                 import json as _json
@@ -1345,8 +1376,11 @@ async def _recompute_edges_and_recommendations(date: str) -> None:
                                         f = float(_f)
                             except Exception:
                                 f = None
+                        # 4) Sensible default
                         if f is None or (not _math.isfinite(f)) or f <= 0:
-                            f = 0.5
+                            f = 0.55
+                        # Clamp to avoid extremes from overfitting
+                        f = _clamp(f)
                         lam10 = f * (float(h1) + float(a1))
                         if _math.isfinite(lam10) and lam10 >= 0:
                             p_yes = 1.0 - exp(-lam10)
@@ -1557,7 +1591,8 @@ def _backfill_settlement_for_date(date: str) -> dict:
                         for p_ in plays:
                             try:
                                 tkey = (str(p_.get("typeDescKey") or p_.get("type")) or "").lower()
-                                if "goal" not in tkey:
+                                # Only count actual scoring events; exclude 'shot-on-goal' etc.
+                                if tkey != "goal":
                                     continue
                                 # period number
                                 per = None
@@ -1580,24 +1615,19 @@ def _backfill_settlement_for_date(date: str) -> dict:
                                 # Determine if goal occurred in first 10 minutes of P1
                                 if per == 1 and (mm is not None and ss is not None):
                                     secs = mm * 60 + ss
-                                    # If timeRemaining-style (starts 20:00 -> down), first 10 means >= 10:00 remaining
-                                    # If timeInPeriod-style (starts 0:00 -> up), first 10 means <= 10:00 elapsed
-                                    # Heuristic: treat >= 600 as remaining, <= 600 as elapsed; in ambiguous case, mark yes if either indicates within window
-                                    if secs >= 600 or secs <= 600:
-                                        # Resolve better by checking key name when possible
-                                        key = "".join([k for k in ("timeRemaining" if p_.get("timeRemaining") else ("timeInPeriod" if p_.get("timeInPeriod") else ""))])
-                                        if key == "timeRemaining":
+                                    # Respect field semantics; if ambiguous 'time' is present, assume elapsed-time clock
+                                    try:
+                                        if p_.get("timeRemaining") is not None:
                                             if secs >= 600:
                                                 first10_yes = True
-                                        elif key == "timeInPeriod":
+                                        elif p_.get("timeInPeriod") is not None:
                                             if secs <= 600:
                                                 first10_yes = True
                                         else:
-                                            # Fallback: count either condition
-                                            if secs >= 600 or secs <= 600:
-                                                # Only set True if clearly within first 10 mins; assume timeRemaining by default
-                                                if secs >= 600:
-                                                    first10_yes = True
+                                            if secs <= 600:
+                                                first10_yes = True
+                                    except Exception:
+                                        pass
                             except Exception:
                                 continue
                     # Write first-10 result if missing
@@ -9333,8 +9363,12 @@ async def api_recommendations(
             ck = close_map.get(odds_key)
             if ck and ck in row:
                 price_val = _num(row.get(ck))
-        if price_val is None and market_key in ("totals", "puckline", "first10", "periods"):
-            price_val = -110.0
+        # Apply market-specific default odds when none present
+        if price_val is None:
+            if market_key == "first10":
+                price_val = -150.0
+            elif market_key in ("totals", "puckline", "periods"):
+                price_val = -110.0
         # Pull probability
         prob_val = None
         try:
@@ -9572,14 +9606,34 @@ async def recommendations(
             _backfill_settlement_for_date(date)
     except Exception:
         pass
-    # Build recommendations via API to share logic
-    recs = await api_recommendations(date=date, min_ev=min_ev, top=top, markets=markets, bankroll=bankroll, kelly_fraction_part=kelly_fraction_part)
+    # Build recommendations via API to share logic (be robust to missing predictions or error payloads)
+    recs = await api_recommendations(
+        date=date,
+        min_ev=min_ev,
+        top=top,
+        markets=markets,
+        bankroll=bankroll,
+        kelly_fraction_part=kelly_fraction_part,
+    )
     data = recs.body  # JSONResponse
+    error_message = None
     try:
+        status = getattr(recs, "status_code", 200)
         import json as _json
-        rows = _json.loads(data)
+        parsed = _json.loads(data)
+        # If API returned an error object (e.g., 404 no predictions), show empty rows instead of 500
+        if isinstance(parsed, list):
+            rows = parsed
+        else:
+            # Common shape: {"error": "...", "date": "YYYY-MM-DD"}
+            error_message = parsed.get("error") if isinstance(parsed, dict) else None
+            rows = []
+        # Treat non-200 as an error even if payload parsed
+        if status and int(status) >= 400 and not error_message:
+            error_message = "request_failed"
     except Exception:
         rows = []
+        error_message = "invalid_response"
     # Compute confidence groupings (NFL-style):
     # High (ev >= high_ev), Medium (med_ev <= ev < high_ev), Low (0 <= ev < med_ev), Other (ev < 0)
     EV_HIGH = float(high_ev)
@@ -9769,6 +9823,7 @@ async def recommendations(
         sort_by=sort_by,
         recon_summary=recon_summary,
         last_updates=_last_update_info(date),
+        error=error_message,
     )
     return HTMLResponse(content=html)
 

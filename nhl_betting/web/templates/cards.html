@@ -211,8 +211,8 @@
             
             {# First 10 Minutes Goal Probability #}
             {% set first_10_proj = r.get('first_10min_proj') %}
-            {# Prefer explicit probability column when available; fallback to computing from lambda #}
-            {% set _prob_val = r.get('first_10min_prob') %}
+            {# Prefer unified p_f10_yes when present; fallback to explicit prob or lambda #}
+            {% set _prob_val = r.get('p_f10_yes') if r.get('p_f10_yes') is not none else r.get('first_10min_prob') %}
             {% if _prob_val is none and first_10_proj is not none %}
               {% set _prob_val = 1 - (2.71828 ** (-first_10_proj)) %}
             {% endif %}
@@ -328,7 +328,7 @@
             {% if has_f10 %}
             <div class="row chips">
               <div class="chip title">First 10 Minutes</div>
-              {% set p_yes = r.get('first_10min_prob') if r.get('first_10min_prob') is not none else (1 - (2.71828 ** (-(r.get('first_10min_proj') or 0)))) %}
+              {% set p_yes = r.get('p_f10_yes') if r.get('p_f10_yes') is not none else (r.get('first_10min_prob') if r.get('first_10min_prob') is not none else (1 - (2.71828 ** (-(r.get('first_10min_proj') or 0))))) %}
               {% set p_no = (1 - (p_yes or 0)) %}
               {% set ev_yes = r.get('ev_f10_yes') %}
               {% set ev_no = r.get('ev_f10_no') %}

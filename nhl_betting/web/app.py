@@ -2612,8 +2612,18 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
                 v = r.get(k)
                 if _isnan(v):
                     r[k] = None
-            # Compute projections if missing/NaN and we have probabilities
+            # Compute projections if missing/NaN
             mt = r.get("model_total")
+            # 1) If team projections exist but model_total is missing, derive it directly
+            try:
+                phg = r.get("proj_home_goals"); pag = r.get("proj_away_goals")
+                if (mt is None or _isnan(mt)) and phg is not None and pag is not None and not _isnan(phg) and not _isnan(pag):
+                    r["model_total"] = round(float(phg) + float(pag), 2)
+                    r["model_spread"] = round(float(phg) - float(pag), 2)
+                    mt = r["model_total"]
+            except Exception:
+                pass
+            # 2) Otherwise, if we have ML probability and a totals line, back out Poisson lambdas
             ph = r.get("p_home_ml")
             if (mt is None or _isnan(mt)) and ph is not None and not _isnan(ph) and _pois_fb is not None:
                 try:

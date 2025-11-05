@@ -1,0 +1,19 @@
+date,home,away,market,ev
+2025-11-07T00:00:00Z,Buffalo Sabres,St. Louis Blues,ev_away_ml,0.4284
+2025-11-07T00:30:00Z,Pittsburgh Penguins,Washington Capitals,ev_away_ml,0.389
+2025-11-07T03:00:00Z,Los Angeles Kings,Florida Panthers,ev_home_ml,0.3719
+2025-11-07T03:00:00Z,Vegas Golden Knights,Tampa Bay Lightning,ev_home_ml,0.358
+2025-11-07T00:00:00Z,New Jersey Devils,Montréal Canadiens,ev_away_ml,0.278
+2025-11-07T01:00:00Z,Dallas Stars,Anaheim Ducks,ev_home_ml,0.1612
+2025-11-07T00:00:00Z,Boston Bruins,Ottawa Senators,ev_home_ml,0.0689
+2025-11-07T01:00:00Z,Nashville Predators,Philadelphia Flyers,ev_home_ml,0.0465
+2025-11-07T00:00:00Z,Carolina Hurricanes,Minnesota Wild,ev_away_ml,0.0243
+2025-11-07T00:00:00Z,Carolina Hurricanes,Minnesota Wild,ev_home_ml,-0.1041
+2025-11-07T01:00:00Z,Nashville Predators,Philadelphia Flyers,ev_away_ml,-0.1627
+2025-11-07T00:00:00Z,Boston Bruins,Ottawa Senators,ev_away_ml,-0.1693
+2025-11-07T00:00:00Z,New Jersey Devils,Montréal Canadiens,ev_home_ml,-0.2653
+2025-11-07T00:00:00Z,Buffalo Sabres,St. Louis Blues,ev_home_ml,-0.4123
+2025-11-07T01:00:00Z,Dallas Stars,Anaheim Ducks,ev_away_ml,-0.4189
+2025-11-07T00:30:00Z,Pittsburgh Penguins,Washington Capitals,ev_home_ml,-0.4769
+2025-11-07T03:00:00Z,Vegas Golden Knights,Tampa Bay Lightning,ev_away_ml,-0.5235
+2025-11-07T03:00:00Z,Los Angeles Kings,Florida Panthers,ev_away_ml,-0.5305

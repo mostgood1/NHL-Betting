@@ -1,0 +1,66 @@
+date,player,team,market,line,proj,p_over,over_price,under_price,book,side,ev,proj_lambda,ev_over
+2025-11-07,Zeev Buium,MIN,POINTS,0.5,0.9,0.5422,240,-310,pinnacle,Over,0.8433,0.9,0.8433
+2025-11-07,Zeev Buium,MIN,POINTS,0.5,0.9,0.5422,230,-320,draftkings,Over,0.7891,0.9,0.7891
+2025-11-07,Ryan Hartman,MIN,ASSISTS,0.5,0.45,0.3553,360,-577,pinnacle,Over,0.6343,0.45,0.6343
+2025-11-07,Ryan Hartman,MIN,ASSISTS,0.5,0.45,0.3553,340,-500,draftkings,Over,0.5632,0.45,0.5632
+2025-11-07,Vladimir Tarasenko,MIN,SOG,1.5,2.4,0.6916,120,-154,draftkings,Over,0.5214,2.4,0.5214
+2025-11-07,Vladimir Tarasenko,MIN,SOG,1.5,2.4,0.6916,119,-158,pinnacle,Over,0.5145,2.4,0.5145
+2025-11-07,Vladimir Tarasenko,MIN,SOG,1.5,2.4,0.6916,118,-154,fanduel,Over,0.5076,2.4,0.5076
+2025-11-07,Brock Faber,MIN,POINTS,0.5,0.9,0.5422,176,-234,draftkings,Over,0.4963,0.9,0.4963
+2025-11-07,Brock Faber,MIN,POINTS,0.5,0.9,0.5422,176,-242,pinnacle,Over,0.4963,0.9,0.4963
+2025-11-07,Zeev Buium,MIN,ASSISTS,0.5,0.45,0.3553,319,-493,pinnacle,Over,0.4886,0.45,0.4886
+2025-11-07,Jared Spurgeon,MIN,SOG,1.5,2.4,0.6916,112,-146,fanduel,Over,0.4661,2.4,0.4661
+2025-11-07,Marco Rossi,MIN,SOG,1.5,2.4,0.6916,110,-142,draftkings,Over,0.4523,2.4,0.4523
+2025-11-07,Kirill Kaprizov,MIN,SOG,2.5,2.4,0.394,-185,138,pinnacle,Under,0.4424,2.4,0.4424
+2025-11-07,Marco Rossi,MIN,SOG,1.5,2.4,0.6916,108,-144,pinnacle,Over,0.4384,2.4,0.4384
+2025-11-07,Marcus Johansson,MIN,SOG,1.5,2.4,0.6916,108,-140,fanduel,Over,0.4384,2.4,0.4384
+2025-11-07,Kirill Kaprizov,MIN,SOG,2.5,2.4,0.394,-175,135,draftkings,Under,0.4242,2.4,0.4242
+2025-11-07,Zeev Buium,MIN,ASSISTS,0.5,0.45,0.3553,300,-440,draftkings,Over,0.4211,0.45,0.4211
+2025-11-07,Jared Spurgeon,MIN,POINTS,0.5,0.9,0.5422,162,-220,pinnacle,Over,0.4204,0.9,0.4204
+2025-11-07,Marcus Johansson,MIN,SOG,1.5,2.4,0.6916,105,-135,draftkings,Over,0.4177,2.4,0.4177
+2025-11-07,Ryan Hartman,MIN,POINTS,0.5,0.9,0.5422,161,-219,pinnacle,Over,0.415,0.9,0.415
+2025-11-07,Marcus Johansson,MIN,SOG,1.5,2.4,0.6916,104,-138,pinnacle,Over,0.4108,2.4,0.4108
+2025-11-07,Ryan Hartman,MIN,POINTS,0.5,0.9,0.5422,160,-212,draftkings,Over,0.4096,0.9,0.4096
+2025-11-07,Jared Spurgeon,MIN,POINTS,0.5,0.9,0.5422,160,-212,draftkings,Over,0.4096,0.9,0.4096
+2025-11-07,Marco Rossi,MIN,SOG,1.5,2.4,0.6916,102,-132,fanduel,Over,0.3969,2.4,0.3969
+2025-11-07,Brock Faber,MIN,SOG,1.5,2.4,0.6916,-105,-125,draftkings,Over,0.3502,2.4,0.3502
+2025-11-07,Brock Faber,MIN,SOG,1.5,2.4,0.6916,-107,-124,pinnacle,Over,0.3379,2.4,0.3379
+2025-11-07,Marcus Johansson,MIN,POINTS,0.5,0.9,0.5422,140,-182,draftkings,Over,0.3012,0.9,0.3012
+2025-11-07,Brock Faber,MIN,SOG,1.5,2.4,0.6916,-114,-114,fanduel,Over,0.2982,2.4,0.2982
+2025-11-07,Marcus Johansson,MIN,POINTS,0.5,0.9,0.5422,139,-190,pinnacle,Over,0.2957,0.9,0.2957
+2025-11-07,Kirill Kaprizov,MIN,SOG,3.5,2.4,0.173,136,-178,fanduel,Under,0.2917,2.4,0.2917
+2025-11-07,Vladimir Tarasenko,MIN,GOALS,0.5,0.35,0.2746,370,-600,fanduel,Over,0.2908,0.35,0.2908
+2025-11-07,Matt Boldy,MIN,SOG,2.5,2.4,0.394,-149,112,pinnacle,Under,0.2848,2.4,0.2848
+2025-11-07,Vladimir Tarasenko,MIN,POINTS,0.5,0.9,0.5422,135,-175,draftkings,Over,0.2741,0.9,0.2741
+2025-11-07,Matt Boldy,MIN,SOG,2.5,2.4,0.394,-142,110,draftkings,Under,0.2727,2.4,0.2727
+2025-11-07,Matt Boldy,MIN,SOG,2.5,2.4,0.394,-144,110,fanduel,Under,0.2727,2.4,0.2727
+2025-11-07,Marco Rossi,MIN,GOALS,0.5,0.35,0.2746,360,-600,fanduel,Over,0.2634,0.35,0.2634
+2025-11-07,Brock Faber,MIN,ASSISTS,0.5,0.45,0.3553,255,-372,pinnacle,Over,0.2612,0.45,0.2612
+2025-11-07,Marcus Johansson,MIN,ASSISTS,0.5,0.45,0.3553,250,-380,pinnacle,Over,0.2435,0.45,0.2435
+2025-11-07,Marcus Johansson,MIN,ASSISTS,0.5,0.45,0.3553,250,-350,draftkings,Over,0.2435,0.45,0.2435
+2025-11-07,Vladimir Tarasenko,MIN,POINTS,0.5,0.9,0.5422,123,-148,pinnacle,Over,0.209,0.9,0.209
+2025-11-07,Kirill Kaprizov,MIN,POINTS,1.5,0.9,0.2022,160,-212,draftkings,Under,0.1741,0.9,0.1741
+2025-11-07,Brock Faber,MIN,ASSISTS,0.5,0.45,0.3553,230,-320,draftkings,Over,0.1724,0.45,0.1724
+2025-11-07,Vladimir Tarasenko,MIN,ASSISTS,0.5,0.45,0.3553,230,-320,draftkings,Over,0.1724,0.45,0.1724
+2025-11-07,Kirill Kaprizov,MIN,GOALS,0.5,0.35,0.2746,125,-165,fanduel,Under,0.165,0.35,0.165
+2025-11-07,Kirill Kaprizov,MIN,ASSISTS,0.5,0.45,0.3553,-105,-125,draftkings,Under,0.1605,0.45,0.1605
+2025-11-07,Kirill Kaprizov,MIN,ASSISTS,0.5,0.45,0.3553,-105,-126,pinnacle,Under,0.1564,0.45,0.1564
+2025-11-07,Kirill Kaprizov,MIN,POINTS,1.5,0.9,0.2022,169,-232,pinnacle,Under,0.1416,0.9,0.1416
+2025-11-07,Joel Eriksson Ek,MIN,SOG,2.5,2.4,0.394,-114,-114,fanduel,Under,0.1376,2.4,0.1376
+2025-11-07,Joel Eriksson Ek,MIN,SOG,2.5,2.4,0.394,-111,-119,pinnacle,Under,0.1153,2.4,0.1153
+2025-11-07,Joel Eriksson Ek,MIN,SOG,2.5,2.4,0.394,-110,-120,draftkings,Under,0.1111,2.4,0.1111
+2025-11-07,Vladimir Tarasenko,MIN,ASSISTS,0.5,0.45,0.3553,210,-270,pinnacle,Over,0.1014,0.45,0.1014
+2025-11-07,Jared Spurgeon,MIN,ASSISTS,0.5,0.45,0.3553,208,-293,pinnacle,Over,0.0943,0.45,0.0943
+2025-11-07,Marco Rossi,MIN,POINTS,0.5,0.9,0.5422,100,-130,draftkings,Over,0.0843,0.9,0.0843
+2025-11-07,Marco Rossi,MIN,POINTS,0.5,0.9,0.5422,-102,-130,pinnacle,Over,0.0737,0.9,0.0737
+2025-11-07,Ryan Hartman,MIN,SOG,1.5,2.4,0.6916,-182,140,draftkings,Over,0.0715,2.4,0.0715
+2025-11-07,Ryan Hartman,MIN,SOG,1.5,2.4,0.6916,-188,142,fanduel,Over,0.0594,2.4,0.0594
+2025-11-07,Jared Spurgeon,MIN,ASSISTS,0.5,0.45,0.3553,195,-265,draftkings,Over,0.0481,0.45,0.0481
+2025-11-07,Ryan Hartman,MIN,SOG,1.5,2.4,0.6916,-194,144,pinnacle,Over,0.048,2.4,0.048
+2025-11-07,Joel Eriksson Ek,MIN,GOALS,0.5,0.35,0.2746,280,-420,fanduel,Over,0.0437,0.35,0.0437
+2025-11-07,Matt Boldy,MIN,POINTS,0.5,0.9,0.5422,-167,125,pinnacle,Under,0.0302,0.9,0.0302
+2025-11-07,Joel Eriksson Ek,MIN,ASSISTS,0.5,0.45,0.3553,188,-261,pinnacle,Over,0.0232,0.45,0.0232
+2025-11-07,Matt Boldy,MIN,ASSISTS,0.5,0.45,0.3553,135,-175,draftkings,Under,0.0131,0.45,0.0131
+2025-11-07,Joel Eriksson Ek,MIN,ASSISTS,0.5,0.45,0.3553,185,-248,draftkings,Over,0.0126,0.45,0.0126
+2025-11-07,Matt Boldy,MIN,POINTS,0.5,0.9,0.5422,-154,120,draftkings,Under,0.0073,0.9,0.0073
+2025-11-07,Joel Eriksson Ek,MIN,POINTS,0.5,0.9,0.5422,-118,-112,pinnacle,Over,0.0016,0.9,0.0016

@@ -1,0 +1,21 @@
+date,home,away,market,ev
+2025-11-08T00:00:00Z,Detroit Red Wings,New York Rangers,ev_home_ml,0.4319
+2025-11-08T03:00:00Z,San Jose Sharks,Winnipeg Jets,ev_away_ml,0.3162
+2025-11-08T00:00:00Z,New York Islanders,Minnesota Wild,ev_home_ml,0.1527
+2025-11-08T00:00:00Z,Detroit Red Wings,New York Rangers,ev_over,0.1187
+2025-11-08T02:00:00Z,Calgary Flames,Chicago Blackhawks,ev_over,0.0759
+2025-11-08T00:00:00Z,New York Islanders,Minnesota Wild,ev_over,0.0263
+2025-11-08T00:00:00Z,New York Islanders,Minnesota Wild,ev_away_pl_+1.5,0.0194
+2025-11-08T02:00:00Z,Calgary Flames,Chicago Blackhawks,ev_away_ml,0.011
+2025-11-08T03:00:00Z,San Jose Sharks,Winnipeg Jets,ev_under,-0.0211
+2025-11-08T02:00:00Z,Calgary Flames,Chicago Blackhawks,ev_away_pl_+1.5,-0.0254
+2025-11-08T03:00:00Z,San Jose Sharks,Winnipeg Jets,ev_over,-0.0649
+2025-11-08T02:00:00Z,Calgary Flames,Chicago Blackhawks,ev_home_pl_-1.5,-0.0686
+2025-11-08T02:00:00Z,Calgary Flames,Chicago Blackhawks,ev_home_ml,-0.078
+2025-11-08T00:00:00Z,New York Islanders,Minnesota Wild,ev_under,-0.1217
+2025-11-08T00:00:00Z,New York Islanders,Minnesota Wild,ev_home_pl_-1.5,-0.1775
+2025-11-08T02:00:00Z,Calgary Flames,Chicago Blackhawks,ev_under,-0.1827
+2025-11-08T00:00:00Z,Detroit Red Wings,New York Rangers,ev_under,-0.2353
+2025-11-08T00:00:00Z,New York Islanders,Minnesota Wild,ev_away_ml,-0.2552
+2025-11-08T00:00:00Z,Detroit Red Wings,New York Rangers,ev_away_ml,-0.5228
+2025-11-08T03:00:00Z,San Jose Sharks,Winnipeg Jets,ev_home_ml,-0.6885

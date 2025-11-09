@@ -1,0 +1,25 @@
+date,home,away,market,ev
+2025-11-11T00:00:00Z,New Jersey Devils,New York Islanders,ev_away_pl_+1.5,0.22
+2025-11-11T03:00:00Z,Vegas Golden Knights,Florida Panthers,ev_home_ml,0.117
+2025-11-11T00:00:00Z,New York Rangers,Nashville Predators,ev_over,0.1071
+2025-11-11T01:30:00Z,Edmonton Oilers,Columbus Blue Jackets,ev_away_pl_+1.5,0.0938
+2025-11-11T00:00:00Z,New Jersey Devils,New York Islanders,ev_home_ml,0.0872
+2025-11-11T03:00:00Z,Vegas Golden Knights,Florida Panthers,ev_away_pl_+1.5,0.0811
+2025-11-11T00:00:00Z,New Jersey Devils,New York Islanders,ev_over,0.0469
+2025-11-11T01:30:00Z,Edmonton Oilers,Columbus Blue Jackets,ev_home_ml,0.0436
+2025-11-11T01:30:00Z,Edmonton Oilers,Columbus Blue Jackets,ev_under,0.0127
+2025-11-11T03:00:00Z,Vegas Golden Knights,Florida Panthers,ev_under,-0.016
+2025-11-11T00:00:00Z,New York Rangers,Nashville Predators,ev_home_ml,-0.0301
+2025-11-11T00:00:00Z,New York Rangers,Nashville Predators,ev_away_pl_+1.5,-0.0402
+2025-11-11T00:00:00Z,New York Rangers,Nashville Predators,ev_home_pl_-1.5,-0.0567
+2025-11-11T00:00:00Z,New York Rangers,Nashville Predators,ev_away_ml,-0.0677
+2025-11-11T03:00:00Z,Vegas Golden Knights,Florida Panthers,ev_over,-0.0871
+2025-11-11T01:30:00Z,Edmonton Oilers,Columbus Blue Jackets,ev_over,-0.1036
+2025-11-11T00:00:00Z,New Jersey Devils,New York Islanders,ev_under,-0.1243
+2025-11-11T01:30:00Z,Edmonton Oilers,Columbus Blue Jackets,ev_away_ml,-0.1904
+2025-11-11T00:00:00Z,New York Rangers,Nashville Predators,ev_under,-0.2291
+2025-11-11T01:30:00Z,Edmonton Oilers,Columbus Blue Jackets,ev_home_pl_-1.5,-0.2388
+2025-11-11T03:00:00Z,Vegas Golden Knights,Florida Panthers,ev_away_ml,-0.2518
+2025-11-11T03:00:00Z,Vegas Golden Knights,Florida Panthers,ev_home_pl_-1.5,-0.2662
+2025-11-11T00:00:00Z,New Jersey Devils,New York Islanders,ev_away_ml,-0.2734
+2025-11-11T00:00:00Z,New Jersey Devils,New York Islanders,ev_home_pl_-1.5,-0.4051

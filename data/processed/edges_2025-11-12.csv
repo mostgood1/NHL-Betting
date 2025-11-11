@@ -1,0 +1,9 @@
+date,home,away,market,ev
+2025-11-13T00:00:00Z,Tampa Bay Lightning,New York Rangers,ev_home_ml,0.1885
+2025-11-13T00:30:00Z,Philadelphia Flyers,Edmonton Oilers,ev_home_ml,-0.0059
+2025-11-13T02:00:00Z,Utah Mammoth,Buffalo Sabres,ev_away_ml,-0.0128
+2025-11-13T02:30:00Z,Chicago Blackhawks,New Jersey Devils,ev_away_ml,-0.0373
+2025-11-13T02:30:00Z,Chicago Blackhawks,New Jersey Devils,ev_home_ml,-0.0727
+2025-11-13T02:00:00Z,Utah Mammoth,Buffalo Sabres,ev_home_ml,-0.0764
+2025-11-13T00:30:00Z,Philadelphia Flyers,Edmonton Oilers,ev_away_ml,-0.0941
+2025-11-13T00:00:00Z,Tampa Bay Lightning,New York Rangers,ev_away_ml,-0.3837

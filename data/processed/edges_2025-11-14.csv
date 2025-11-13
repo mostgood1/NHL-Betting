@@ -1,0 +1,5 @@
+date,home,away,market,ev
+2025-11-14T19:00:00Z,Nashville Predators,Pittsburgh Penguins,ev_away_ml,0.2271
+2025-11-14T19:00:00Z,Nashville Predators,Pittsburgh Penguins,ev_under,-0.0012
+2025-11-14T19:00:00Z,Nashville Predators,Pittsburgh Penguins,ev_over,-0.0897
+2025-11-14T19:00:00Z,Nashville Predators,Pittsburgh Penguins,ev_home_ml,-0.318

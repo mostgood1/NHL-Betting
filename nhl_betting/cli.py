@@ -3129,6 +3129,15 @@ def props_project_all(
                 rows_fb.append({'player_id': rr.get('player_id'), 'player': nm, 'position': pos, 'team': ab})
             roster_df = pd.DataFrame(rows_fb)
     if roster_df.empty:
+        # Last-chance fallback: try loading cached roster directly if previous steps failed silently
+        try:
+            if roster_cache.exists():
+                tmp = pd.read_csv(roster_cache)
+                if not tmp.empty and {"player","team","position"}.issubset(tmp.columns):
+                    roster_df = tmp.copy()
+        except Exception:
+            pass
+    if roster_df.empty:
         print("No roster players found for slate. Writing empty projections file for fast exit.")
         out = pd.DataFrame(columns=["date","player","team","position","market","proj_lambda"])
         out_path = PROC_DIR / f"props_projections_all_{date}.csv"
@@ -3152,6 +3161,15 @@ def props_project_all(
                 pass
         return " ".join(x.split())
     # Models - use neural networks if requested
+    # Always initialize traditional models for per-player fallback
+    shots = SkaterShotsModel()
+    saves = GoalieSavesModel()
+    goals = SkaterGoalsModel()
+    assists = SkaterAssistsModel()
+    points = SkaterPointsModel()
+    blocks = SkaterBlocksModel()
+
+    # Optionally initialize NN models
     if use_nn:
         print(f"[nn] Using neural network models for projections (NPU-accelerated)...")
         from .models.nn_props import NNPropsModel
@@ -3161,7 +3179,7 @@ def props_project_all(
         nn_assists = NNPropsModel("ASSISTS", model_dir=MODEL_DIR / "nn_props", use_npu=True)
         nn_points = NNPropsModel("POINTS", model_dir=MODEL_DIR / "nn_props", use_npu=True)
         nn_blocks = NNPropsModel("BLOCKS", model_dir=MODEL_DIR / "nn_props", use_npu=True)
-        
+
         # Check if models loaded (either ONNX or PyTorch)
         models_loaded = all([
             nn_shots.onnx_session is not None or nn_shots.model is not None,
@@ -3171,21 +3189,10 @@ def props_project_all(
             nn_points.onnx_session is not None or nn_points.model is not None,
             nn_blocks.onnx_session is not None or nn_blocks.model is not None,
         ])
-        
+
         if not models_loaded:
-            print(f"[warn] Not all NN models loaded, falling back to traditional models")
-            use_nn = False  # Fallback
-        else:
-            print(f"[nn] All 6 neural network models loaded successfully")
-    
-    if not use_nn:
-        # Traditional rolling average models
-        shots = SkaterShotsModel()
-        saves = GoalieSavesModel()
-        goals = SkaterGoalsModel()
-        assists = SkaterAssistsModel()
-        points = SkaterPointsModel()
-        blocks = SkaterBlocksModel()
+            print(f"[warn] Not all NN models loaded, projections will fall back per-player to traditional models")
+            # Keep use_nn True to still try per-player; fallback will engage case-by-case
     # Conservative league-average fallbacks to avoid missing projections
     def _fallback_lambda(mk: str) -> float:
         m = (mk or '').upper()
@@ -3202,6 +3209,51 @@ def props_project_all(
         if m == 'BLOCKS':
             return 1.3
         return 1.0
+    # Helper: robust per-market lambda prediction with NN->traditional->fallback cascade
+    def _predict_lambda(market: str, player_name: str, team_abbr: str | None, is_goalie: bool) -> float:
+        mk = (market or '').upper()
+        lam = None
+        # Try NN first if enabled
+        if use_nn:
+            try:
+                if mk == 'SOG' and not is_goalie:
+                    lam = nn_shots.predict_lambda(hist, player_name, team_abbr)
+                elif mk == 'GOALS' and not is_goalie:
+                    lam = nn_goals.predict_lambda(hist, player_name, team_abbr)
+                elif mk == 'ASSISTS' and not is_goalie:
+                    lam = nn_assists.predict_lambda(hist, player_name, team_abbr)
+                elif mk == 'POINTS' and not is_goalie:
+                    lam = nn_points.predict_lambda(hist, player_name, team_abbr)
+                elif mk == 'BLOCKS' and not is_goalie:
+                    lam = nn_blocks.predict_lambda(hist, player_name, team_abbr)
+                elif mk == 'SAVES' and is_goalie:
+                    lam = nn_saves.predict_lambda(hist, player_name, team_abbr)
+            except Exception:
+                lam = None
+        # Traditional fallback
+        if lam is None:
+            try:
+                if mk == 'SOG' and not is_goalie:
+                    lam = shots.player_lambda(hist, player_name)
+                elif mk == 'GOALS' and not is_goalie:
+                    lam = goals.player_lambda(hist, player_name)
+                elif mk == 'ASSISTS' and not is_goalie:
+                    lam = assists.player_lambda(hist, player_name)
+                elif mk == 'POINTS' and not is_goalie:
+                    lam = points.player_lambda(hist, player_name)
+                elif mk == 'BLOCKS' and not is_goalie:
+                    lam = blocks.player_lambda(hist, player_name)
+                elif mk == 'SAVES' and is_goalie:
+                    lam = saves.player_lambda(hist, player_name)
+            except Exception:
+                lam = None
+        if lam is None:
+            lam = _fallback_lambda(mk)
+        try:
+            return float(lam)
+        except Exception:
+            return _fallback_lambda(mk)
+
     rows = []
     for _, r in roster_df.iterrows():
         player = _norm_player(r.get('player'))
@@ -3212,58 +3264,24 @@ def props_project_all(
         try:
             if pos == 'G':
                 if include_goalies:
-                    if use_nn:
-                        lam = nn_saves.predict_lambda(hist, player, team)
-                    else:
-                        lam = saves.player_lambda(hist, player)
-                    if lam is None:
-                        lam = _fallback_lambda('SAVES')
-                    rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'SAVES', 'proj_lambda': float(lam) if lam is not None else None})
+                    lam = _predict_lambda('SAVES', player, team, is_goalie=True)
+                    rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'SAVES', 'proj_lambda': lam})
             else:
                 # SOG
-                if use_nn:
-                    lam = nn_shots.predict_lambda(hist, player, team)
-                else:
-                    lam = shots.player_lambda(hist, player)
-                if lam is None:
-                    lam = _fallback_lambda('SOG')
-                rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'SOG', 'proj_lambda': float(lam) if lam is not None else None})
-                
+                lam = _predict_lambda('SOG', player, team, is_goalie=False)
+                rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'SOG', 'proj_lambda': lam})
                 # GOALS
-                if use_nn:
-                    lam = nn_goals.predict_lambda(hist, player, team)
-                else:
-                    lam = goals.player_lambda(hist, player)
-                if lam is None:
-                    lam = _fallback_lambda('GOALS')
-                rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'GOALS', 'proj_lambda': float(lam) if lam is not None else None})
-                
+                lam = _predict_lambda('GOALS', player, team, is_goalie=False)
+                rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'GOALS', 'proj_lambda': lam})
                 # ASSISTS
-                if use_nn:
-                    lam = nn_assists.predict_lambda(hist, player, team)
-                else:
-                    lam = assists.player_lambda(hist, player)
-                if lam is None:
-                    lam = _fallback_lambda('ASSISTS')
-                rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'ASSISTS', 'proj_lambda': float(lam) if lam is not None else None})
-                
+                lam = _predict_lambda('ASSISTS', player, team, is_goalie=False)
+                rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'ASSISTS', 'proj_lambda': lam})
                 # POINTS
-                if use_nn:
-                    lam = nn_points.predict_lambda(hist, player, team)
-                else:
-                    lam = points.player_lambda(hist, player)
-                if lam is None:
-                    lam = _fallback_lambda('POINTS')
-                rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'POINTS', 'proj_lambda': float(lam) if lam is not None else None})
-                
+                lam = _predict_lambda('POINTS', player, team, is_goalie=False)
+                rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'POINTS', 'proj_lambda': lam})
                 # BLOCKS
-                if use_nn:
-                    lam = nn_blocks.predict_lambda(hist, player, team)
-                else:
-                    lam = blocks.player_lambda(hist, player)
-                if lam is None:
-                    lam = _fallback_lambda('BLOCKS')
-                rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'BLOCKS', 'proj_lambda': float(lam) if lam is not None else None})
+                lam = _predict_lambda('BLOCKS', player, team, is_goalie=False)
+                rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'BLOCKS', 'proj_lambda': lam})
         except Exception:
             continue
     out = pd.DataFrame(rows)

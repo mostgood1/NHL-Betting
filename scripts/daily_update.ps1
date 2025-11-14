@@ -1,4 +1,4 @@
-Param(
+param(
   [int]$DaysAhead = 2,
   [int]$YearsBack = 2,
   [switch]$NoReconcile,

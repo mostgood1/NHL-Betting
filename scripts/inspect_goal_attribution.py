@@ -49,31 +49,30 @@ def inspect(date: str, team_filter: str | None = None):
                     'club': p.get('club'),
                 }
                 print('[web goal]', sample)
-        # Stats API fallback
+        # Stats REST fallback (modern)
         try:
             import requests
-            r = requests.get(f"https://statsapi.web.nhl.com/api/v1/game/{int(gid)}/feed/live", timeout=20)
+            r = requests.get(f"https://api.nhle.com/stats/rest/en/game/{int(gid)}/playbyplay", timeout=20)
             if r.ok:
                 js = r.json() or {}
-                plays_node = (js.get('liveData') or {}).get('plays') or {}
-                all_plays = plays_node.get('allPlays') or []
-                scoring_idxs = plays_node.get('scoringPlays') or []
+                plays = js.get('plays') or js.get('data') or []
                 count = 0
-                for idx in scoring_idxs:
-                    if not isinstance(idx, int) or idx >= len(all_plays):
+                for ev in plays:
+                    try:
+                        # Common fields in REST: periodDescriptor.number, timeInPeriod, teamAbbrev
+                        per = (ev.get('periodDescriptor') or {}).get('number') or ev.get('period')
+                        clk = ev.get('timeInPeriod') or ev.get('periodTime')
+                        tkey = (ev.get('teamAbbrev') or (ev.get('team') or {}).get('triCode') or (ev.get('team') or {}).get('abbreviation'))
+                        t = (str(ev.get('typeDescKey') or ev.get('type') or '').lower())
+                        if t == 'goal' and int(per or 0) == 1:
+                            count += 1
+                            print('[stats-rest goal]', {'period': per, 'timeInPeriod': clk, 'team': tkey})
+                            if count >= 3:
+                                break
+                    except Exception:
                         continue
-                    ev = all_plays[idx]
-                    about = ev.get('about') or {}
-                    per = about.get('period')
-                    clk = about.get('periodTime')
-                    tm = (ev.get('team') or {}).get('triCode') or (ev.get('team') or {}).get('abbreviation')
-                    if per == 1:
-                        count += 1
-                        print('[stats goal]', {'period': per, 'periodTime': clk, 'team': tm})
-                        if count >= 3:
-                            break
         except Exception as e:
-            print('[stats] error', e)
+            print('[stats-rest] error', e)
 
 
 def main(argv):

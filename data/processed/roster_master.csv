@@ -8,7 +8,6 @@ player_id,player,full_name,position,team_id,team_abbr,team_name,image_url
 8476455,Gabriel Landeskog,Gabriel Landeskog,F,,COL,Colorado Avalanche,https://assets.nhle.com/mugs/nhl/20252026/COL/8476455.png
 8477476,Artturi Lehkonen,Artturi Lehkonen,F,,COL,Colorado Avalanche,https://assets.nhle.com/mugs/nhl/20252026/COL/8477476.png
 8477492,Nathan MacKinnon,Nathan MacKinnon,F,,COL,Colorado Avalanche,https://assets.nhle.com/mugs/nhl/20252026/COL/8477492.png
-8482953,Taylor Makar,Taylor Makar,F,,COL,Colorado Avalanche,https://assets.nhle.com/mugs/nhl/20252026/COL/8482953.png
 8480039,Martin Necas,Martin Necas,F,,COL,Colorado Avalanche,https://assets.nhle.com/mugs/nhl/20252026/COL/8480039.png
 8475754,Brock Nelson,Brock Nelson,F,,COL,Colorado Avalanche,https://assets.nhle.com/mugs/nhl/20252026/COL/8475754.png
 8477501,Valeri Nichushkin,Valeri Nichushkin,F,,COL,Colorado Avalanche,https://assets.nhle.com/mugs/nhl/20252026/COL/8477501.png
@@ -33,6 +32,7 @@ player_id,player,full_name,position,team_id,team_abbr,team_name,image_url
 8480002,Nico Hischier,Nico Hischier,F,,NJD,New Jersey Devils,https://assets.nhle.com/mugs/nhl/20252026/NJD/8480002.png
 8481559,Jack Hughes,Jack Hughes,F,,NJD,New Jersey Devils,https://assets.nhle.com/mugs/nhl/20252026/NJD/8481559.png
 8477996,Juho Lammikko,Juho Lammikko,F,,NJD,New Jersey Devils,https://assets.nhle.com/mugs/nhl/20252026/NJD/8477996.png
+8481594,Nathan Légaré,Nathan Légaré,F,,NJD,New Jersey Devils,https://assets.nhle.com/mugs/nhl/20252026/NJD/8481594.png
 8479772,Zack MacEwen,Zack MacEwen,F,,NJD,New Jersey Devils,https://assets.nhle.com/mugs/nhl/20252026/NJD/8479772.png
 8483397,Marc McLaughlin,Marc McLaughlin,F,,NJD,New Jersey Devils,https://assets.nhle.com/mugs/nhl/20252026/NJD/8483397.png
 8478414,Timo Meier,Timo Meier,F,,NJD,New Jersey Devils,https://assets.nhle.com/mugs/nhl/20252026/NJD/8478414.png
@@ -128,6 +128,7 @@ player_id,player,full_name,position,team_id,team_abbr,team_name,image_url
 8482737,Zack Bolduc,Zack Bolduc,F,,MTL,Montréal Canadiens,https://assets.nhle.com/mugs/nhl/20252026/MTL/8482737.png
 8481540,Cole Caufield,Cole Caufield,F,,MTL,Montréal Canadiens,https://assets.nhle.com/mugs/nhl/20252026/MTL/8481540.png
 8481523,Kirby Dach,Kirby Dach,F,,MTL,Montréal Canadiens,https://assets.nhle.com/mugs/nhl/20252026/MTL/8481523.png
+8483728,Jared Davidson,Jared Davidson,F,,MTL,Montréal Canadiens,https://assets.nhle.com/mugs/nhl/20252026/MTL/8483728.png
 8484984,Ivan Demidov,Ivan Demidov,F,,MTL,Montréal Canadiens,https://assets.nhle.com/mugs/nhl/20252026/MTL/8484984.png
 8478133,Jake Evans,Jake Evans,F,,MTL,Montréal Canadiens,https://assets.nhle.com/mugs/nhl/20252026/MTL/8478133.png
 8475848,Brendan Gallagher,Brendan Gallagher,F,,MTL,Montréal Canadiens,https://assets.nhle.com/mugs/nhl/20252026/MTL/8475848.png
@@ -309,7 +310,6 @@ player_id,player,full_name,position,team_id,team_abbr,team_name,image_url
 8480855,Jack McBain,Jack McBain,F,,UTA,Utah Mammoth,https://assets.nhle.com/mugs/nhl/20252026/UTA/8480855.png
 8477070,Liam O'Brien,Liam O'Brien,F,,UTA,Utah Mammoth,https://assets.nhle.com/mugs/nhl/20252026/UTA/8477070.png
 8482175,JJ Peterka,JJ Peterka,F,,UTA,Utah Mammoth,https://assets.nhle.com/mugs/nhl/20252026/UTA/8482175.png
-8479291,Kevin Rooney,Kevin Rooney,F,,UTA,Utah Mammoth,https://assets.nhle.com/mugs/nhl/20252026/UTA/8479291.png
 8477951,Nick Schmaltz,Nick Schmaltz,F,,UTA,Utah Mammoth,https://assets.nhle.com/mugs/nhl/20252026/UTA/8477951.png
 8478831,Kevin Stenlund,Kevin Stenlund,F,,UTA,Utah Mammoth,https://assets.nhle.com/mugs/nhl/20252026/UTA/8478831.png
 8479293,Brandon Tanev,Brandon Tanev,F,,UTA,Utah Mammoth,https://assets.nhle.com/mugs/nhl/20252026/UTA/8479293.png
@@ -565,7 +565,7 @@ player_id,player,full_name,position,team_id,team_abbr,team_name,image_url
 8482166,Shakir Mukhamadullin,Shakir Mukhamadullin,D,,SJS,San Jose Sharks,https://assets.nhle.com/mugs/nhl/20252026/SJS/8482166.png
 8475200,Dmitry Orlov,Dmitry Orlov,D,,SJS,San Jose Sharks,https://assets.nhle.com/mugs/nhl/20252026/SJS/8475200.png
 8482137,Yaroslav Askarov,Yaroslav Askarov,G,,SJS,San Jose Sharks,https://assets.nhle.com/mugs/nhl/20252026/SJS/8482137.png
-8480819,Jakub Skarek,Jakub Skarek,G,,SJS,San Jose Sharks,https://assets.nhle.com/mugs/nhl/20252026/SJS/8480819.png
+8477968,Alex Nedeljkovic,Alex Nedeljkovic,G,,SJS,San Jose Sharks,https://assets.nhle.com/mugs/nhl/20252026/SJS/8477968.png
 8477416,Oliver Bjorkstrand,Oliver Bjorkstrand,F,,TBL,Tampa Bay Lightning,https://assets.nhle.com/mugs/nhl/20252026/TBL/8477416.png
 8478519,Anthony Cirelli,Anthony Cirelli,F,,TBL,Tampa Bay Lightning,https://assets.nhle.com/mugs/nhl/20252026/TBL/8478519.png
 8480876,Curtis Douglas,Curtis Douglas,F,,TBL,Tampa Bay Lightning,https://assets.nhle.com/mugs/nhl/20252026/TBL/8480876.png
@@ -593,6 +593,7 @@ player_id,player,full_name,position,team_id,team_abbr,team_name,image_url
 8477992,Jonas Johansson,Jonas Johansson,G,,TBL,Tampa Bay Lightning,https://assets.nhle.com/mugs/nhl/20252026/TBL/8477992.png
 8476883,Andrei Vasilevskiy,Andrei Vasilevskiy,G,,TBL,Tampa Bay Lightning,https://assets.nhle.com/mugs/nhl/20252026/TBL/8476883.png
 8478104,Sammy Blais,Sammy Blais,F,,TOR,Toronto Maple Leafs,https://assets.nhle.com/mugs/nhl/20252026/TOR/8478104.png
+8484158,Easton Cowan,Easton Cowan,F,,TOR,Toronto Maple Leafs,https://assets.nhle.com/mugs/nhl/20252026/TOR/8484158.png
 8477503,Max Domi,Max Domi,F,,TOR,Toronto Maple Leafs,https://assets.nhle.com/mugs/nhl/20252026/TOR/8477503.png
 8475714,Calle Jarnkrok,Calle Jarnkrok,F,,TOR,Toronto Maple Leafs,https://assets.nhle.com/mugs/nhl/20252026/TOR/8475714.png
 8478057,Dakota Joshua,Dakota Joshua,F,,TOR,Toronto Maple Leafs,https://assets.nhle.com/mugs/nhl/20252026/TOR/8478057.png
@@ -614,9 +615,9 @@ player_id,player,full_name,position,team_id,team_abbr,team_name,image_url
 8479026,Philippe Myers,Philippe Myers,D,,TOR,Toronto Maple Leafs,https://assets.nhle.com/mugs/nhl/20252026/TOR/8479026.png
 8476853,Morgan Rielly,Morgan Rielly,D,,TOR,Toronto Maple Leafs,https://assets.nhle.com/mugs/nhl/20252026/TOR/8476853.png
 8475690,Chris Tanev,Chris Tanev,D,,TOR,Toronto Maple Leafs,https://assets.nhle.com/mugs/nhl/20252026/TOR/8475690.png
-8482515,Artur Akhtyamov,Artur Akhtyamov,G,,TOR,Toronto Maple Leafs,https://assets.nhle.com/mugs/nhl/20252026/TOR/8482515.png
 8483710,Dennis Hildeby,Dennis Hildeby,G,,TOR,Toronto Maple Leafs,https://assets.nhle.com/mugs/nhl/20252026/TOR/8483710.png
 8476932,Anthony Stolarz,Anthony Stolarz,G,,TOR,Toronto Maple Leafs,https://assets.nhle.com/mugs/nhl/20252026/TOR/8476932.png
+8479361,Joseph Woll,Joseph Woll,G,,TOR,Toronto Maple Leafs,https://assets.nhle.com/mugs/nhl/20252026/TOR/8479361.png
 8481557,Matt Boldy,Matt Boldy,F,,MIN,Minnesota Wild,https://assets.nhle.com/mugs/nhl/20252026/MIN/8481557.png
 8478493,Joel Eriksson Ek,Joel Eriksson Ek,F,,MIN,Minnesota Wild,https://assets.nhle.com/mugs/nhl/20252026/MIN/8478493.png
 8475220,Marcus Foligno,Marcus Foligno,F,,MIN,Minnesota Wild,https://assets.nhle.com/mugs/nhl/20252026/MIN/8475220.png

@@ -65,7 +65,7 @@ def fetch(
     season: Optional[int] = typer.Option(None, help="Season start year, e.g., 2023"),
     start: Optional[str] = typer.Option(None, help="Start date YYYY-MM-DD"),
     end: Optional[str] = typer.Option(None, help="End date YYYY-MM-DD"),
-    source: str = typer.Option("web", help="Data source: 'web' (api-web.nhle.com), 'stats' (statsapi.web.nhl.com), or 'nhlpy' (nhl-api-py)"),
+    source: str = typer.Option("web", help="Data source: 'web' (api-web.nhle.com), 'stats' (api.nhle.com/stats/rest), or 'nhlpy' (nhl-api-py)"),
 ):
     """Fetch schedule and results into data/raw/games.csv"""
     # Choose client based on source
@@ -1344,7 +1344,7 @@ def predict(
     date: str = typer.Option(..., help="Slate date YYYY-MM-DD"),
     total_line: float = 6.0,
     odds_csv: Optional[str] = typer.Option(None, help="Path to odds CSV with columns: date,home,away,home_ml,away_ml,over,under,home_pl_-1.5,away_pl_+1.5 (American odds)"),
-    source: str = typer.Option("web", help="Data source: 'web' (api-web.nhle.com), 'stats' (statsapi.web.nhl.com), or 'nhlpy' (nhl-api-py)"),
+    source: str = typer.Option("web", help="Data source: 'web' (api-web.nhle.com), 'stats' (api.nhle.com/stats/rest), or 'nhlpy' (nhl-api-py)"),
     odds_source: str = typer.Option("oddsapi", help="Odds source: 'csv' (provide --odds-csv) or 'oddsapi' (provide --snapshot)"),
     snapshot: Optional[str] = typer.Option(None, help="When odds_source=oddsapi, ISO snapshot like 2024-03-01T12:00:00Z"),
     odds_regions: str = typer.Option("us", help="Odds API regions, e.g., us or us,us2"),
@@ -3210,9 +3210,10 @@ def props_project_all(
             return 1.3
         return 1.0
     # Helper: robust per-market lambda prediction with NN->traditional->fallback cascade
-    def _predict_lambda(market: str, player_name: str, team_abbr: str | None, is_goalie: bool) -> float:
+    def _predict_lambda(market: str, player_name: str, team_abbr: str | None, is_goalie: bool) -> tuple[float,str]:
         mk = (market or '').upper()
         lam = None
+        src = 'unknown'
         # Try NN first if enabled
         if use_nn:
             try:
@@ -3228,6 +3229,8 @@ def props_project_all(
                     lam = nn_blocks.predict_lambda(hist, player_name, team_abbr)
                 elif mk == 'SAVES' and is_goalie:
                     lam = nn_saves.predict_lambda(hist, player_name, team_abbr)
+                if lam is not None:
+                    src = 'nn'
             except Exception:
                 lam = None
         # Traditional fallback
@@ -3245,14 +3248,17 @@ def props_project_all(
                     lam = blocks.player_lambda(hist, player_name)
                 elif mk == 'SAVES' and is_goalie:
                     lam = saves.player_lambda(hist, player_name)
+                if lam is not None:
+                    src = 'trad'
             except Exception:
                 lam = None
         if lam is None:
             lam = _fallback_lambda(mk)
+            src = 'fallback'
         try:
-            return float(lam)
+            return float(lam), src
         except Exception:
-            return _fallback_lambda(mk)
+            return _fallback_lambda(mk), 'fallback'
 
     rows = []
     for _, r in roster_df.iterrows():
@@ -3264,27 +3270,61 @@ def props_project_all(
         try:
             if pos == 'G':
                 if include_goalies:
-                    lam = _predict_lambda('SAVES', player, team, is_goalie=True)
-                    rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'SAVES', 'proj_lambda': lam})
+                    lam, src = _predict_lambda('SAVES', player, team, is_goalie=True)
+                    rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'SAVES', 'proj_lambda': lam, 'source': src})
             else:
                 # SOG
-                lam = _predict_lambda('SOG', player, team, is_goalie=False)
-                rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'SOG', 'proj_lambda': lam})
+                lam, src = _predict_lambda('SOG', player, team, is_goalie=False)
+                rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'SOG', 'proj_lambda': lam, 'source': src})
                 # GOALS
-                lam = _predict_lambda('GOALS', player, team, is_goalie=False)
-                rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'GOALS', 'proj_lambda': lam})
+                lam, src = _predict_lambda('GOALS', player, team, is_goalie=False)
+                rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'GOALS', 'proj_lambda': lam, 'source': src})
                 # ASSISTS
-                lam = _predict_lambda('ASSISTS', player, team, is_goalie=False)
-                rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'ASSISTS', 'proj_lambda': lam})
+                lam, src = _predict_lambda('ASSISTS', player, team, is_goalie=False)
+                rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'ASSISTS', 'proj_lambda': lam, 'source': src})
                 # POINTS
-                lam = _predict_lambda('POINTS', player, team, is_goalie=False)
-                rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'POINTS', 'proj_lambda': lam})
+                lam, src = _predict_lambda('POINTS', player, team, is_goalie=False)
+                rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'POINTS', 'proj_lambda': lam, 'source': src})
                 # BLOCKS
-                lam = _predict_lambda('BLOCKS', player, team, is_goalie=False)
-                rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'BLOCKS', 'proj_lambda': lam})
+                lam, src = _predict_lambda('BLOCKS', player, team, is_goalie=False)
+                rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'BLOCKS', 'proj_lambda': lam, 'source': src})
         except Exception:
             continue
     out = pd.DataFrame(rows)
+    # Optional: apply per-player reconciliation bias if available for date
+    try:
+        bias_path = PROC_DIR / f"player_props_bias_{date}.csv"
+        if out is not None and not out.empty and bias_path.exists():
+            try:
+                bias = pd.read_csv(bias_path)
+            except Exception:
+                bias = pd.DataFrame()
+            if bias is not None and not bias.empty and {"player","market","bias"}.issubset(bias.columns):
+                # Normalize join keys
+                def _n(x: str) -> str:
+                    try:
+                        return " ".join(str(x or "").split())
+                    except Exception:
+                        return str(x)
+                b = bias.copy()
+                b["player"] = b["player"].astype(str).map(_n)
+                b["market"] = b["market"].astype(str).str.upper()
+                out["player"] = out["player"].astype(str).map(_n)
+                out["market"] = out["market"].astype(str).str.upper()
+                out = out.merge(b[["player","market","bias"]], on=["player","market"], how="left")
+                # Apply bounded bias multiplicatively
+                try:
+                    msk = out["bias"].notna()
+                    out.loc[msk, "proj_lambda"] = (out.loc[msk, "proj_lambda"].astype(float) * out.loc[msk, "bias"].astype(float)).clip(lower=0.0)
+                    out.loc[msk, "source"] = out.loc[msk, "source"].astype(str) + "+bias"
+                except Exception:
+                    pass
+                try:
+                    out = out.drop(columns=[c for c in ["bias"] if c in out.columns])
+                except Exception:
+                    pass
+    except Exception:
+        pass
     if not out.empty:
         # Final pass normalization on player column
         try:
@@ -3298,6 +3338,19 @@ def props_project_all(
     out_path = PROC_DIR / f"props_projections_all_{date}.csv"
     save_df(out, out_path)
     print(f"Wrote {out_path} with {0 if out is None or out.empty else len(out)} rows")
+    try:
+        if not out.empty and 'source' in out.columns:
+            summary = out.groupby(['market','source']).size().reset_index(name='count')
+            print('[summary] projection source counts:')
+            for _, rr in summary.iterrows():
+                print(f"  {rr['market']:<7} {rr['source']:<9} {rr['count']}")
+            # Basic dispersion stats per market for quick uniformity check
+            disp = out.groupby('market')['proj_lambda'].agg(['mean','std','min','max','count']).reset_index()
+            print('[dispersion] per-market lambda stats:')
+            for _, rr in disp.iterrows():
+                print(f"  {rr['market']:<7} mean={rr['mean']:.2f} std={rr['std']:.2f} min={rr['min']:.2f} max={rr['max']:.2f} n={int(rr['count'])}")
+    except Exception as e:
+        print('[warn] summary failed:', e)
 
 
 @app.command()

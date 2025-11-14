@@ -6,6 +6,7 @@
   <title>NHL Betting – Cards</title>
   <link rel="stylesheet" href="/static/style.css" />
   <style>
+  .indicator-splits { margin-top:6px; font-size:11px; line-height:1.4; }
     .row.head .period-pill { font-weight:600; padding:2px 6px; border-radius:12px; background:#222; color:#fff; font-size:0.75rem; letter-spacing:0.5px; }
     .row.head .time-left { font-size:0.75rem; color:#555; min-width:34px; text-align:center; }
     .row.head .period-pill.crit, .row.head .time-left.crit { background:#8b0000; color:#fff; }
@@ -226,7 +227,18 @@
                 <span class="hot-start">🔥 HOT START EXPECTED</span>
                 {% endif %}
               </div>
-              <div class="indicator-subtitle">Expected goals: {{ '%.2f' % first_10_proj }}</div>
+              <div class="indicator-subtitle">Expected goals (0-10m): {{ '%.2f' % first_10_proj }}</div>
+              {% set _hs = r.get('p_f10_home_scores') %}
+              {% set _ha = r.get('p_f10_home_allows') %}
+              {% set _as = r.get('p_f10_away_scores') %}
+              {% set _aa = r.get('p_f10_away_allows') %}
+              {% if _hs is not none and _ha is not none and _as is not none and _aa is not none %}
+              <div class="indicator-subtitle indicator-splits">
+                Home score {{ '%.0f' % (100*_hs) }}% · Home allow {{ '%.0f' % (100*_ha) }}%<br/>
+                Away score {{ '%.0f' % (100*_as) }}% · Away allow {{ '%.0f' % (100*_aa) }}%<br/>
+                Blend yes {{ '%.0f' % (100*(r.get('p_f10_yes') or _prob_val)) }}%
+              </div>
+              {% endif %}
             </div>
             {% endif %}
             {% endif %}

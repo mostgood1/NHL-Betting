@@ -11,6 +11,8 @@ from scipy.stats import poisson
 @dataclass
 class PropsConfig:
     window: int = 10
+    # Emphasize recent form: exponential decay with alpha (0=no weighting, 1=only last game)
+    recency_alpha: float = 0.3
 def _normalize_name(s: str) -> str:
     import unicodedata, re
     s = unicodedata.normalize("NFKD", str(s or "")).encode("ascii", "ignore").decode()
@@ -108,11 +110,21 @@ class SkaterShotsModel:
         # Coerce metric and drop missing
         pdf["shots"] = pd.to_numeric(pdf.get("shots"), errors="coerce")
         pdf = pdf.dropna(subset=["shots"]).copy()
-        # History (df) is already chronological per player; avoid re-sorting for speed
+        # History is already chronological; take last N and apply recency weighting
         pdf = pdf.tail(self.cfg.window)
         if pdf.empty:
             return 2.0
-        return float(pdf["shots"].mean())
+        vals = pdf["shots"].astype(float).values
+        if len(vals) == 1 or self.cfg.recency_alpha <= 0:
+            return float(vals.mean())
+        # Newest at end: build exponentially increasing weights
+        n = len(vals)
+        al = min(max(self.cfg.recency_alpha, 0.0), 0.99)
+        # weights: w_t = (1-alpha)^(n-1-t)
+        idx = np.arange(n)
+        w = (1.0 - al) ** (n - 1 - idx)
+        w = w / w.sum()
+        return float(np.dot(vals, w))
 
     def prob_over(self, lam: float, line: float, max_x: int = 15) -> float:
         # Use stable survival function to avoid factorial overflow
@@ -131,7 +143,12 @@ class GoalieSavesModel:
         pdf = pdf.tail(self.cfg.window)
         if pdf.empty:
             return 25.0
-        return float(pdf["saves"].mean())
+        vals = pdf["saves"].astype(float).values
+        if len(vals) == 1 or self.cfg.recency_alpha <= 0:
+            return float(vals.mean())
+        n = len(vals); al = min(max(self.cfg.recency_alpha, 0.0), 0.99)
+        w = (1.0 - al) ** (n - 1 - np.arange(n)); w = w / w.sum()
+        return float(np.dot(vals, w))
 
     def prob_over(self, lam: float, line: float, max_x: int = 60) -> float:
         threshold = int(np.floor(line + 1e-9))
@@ -149,7 +166,12 @@ class SkaterGoalsModel:
         pdf = pdf.tail(self.cfg.window)
         if pdf.empty:
             return 0.3
-        return float(pdf["goals"].mean())
+        vals = pdf["goals"].astype(float).values
+        if len(vals) == 1 or self.cfg.recency_alpha <= 0:
+            return float(vals.mean())
+        n = len(vals); al = min(max(self.cfg.recency_alpha, 0.0), 0.99)
+        w = (1.0 - al) ** (n - 1 - np.arange(n)); w = w / w.sum()
+        return float(np.dot(vals, w))
 
     def prob_over(self, lam: float, line: float, max_x: int = 5) -> float:
         threshold = int(np.floor(line + 1e-9))
@@ -167,7 +189,12 @@ class SkaterAssistsModel:
         pdf = pdf.tail(self.cfg.window)
         if pdf.empty:
             return 0.4
-        return float(pdf["assists"].mean())
+        vals = pdf["assists"].astype(float).values
+        if len(vals) == 1 or self.cfg.recency_alpha <= 0:
+            return float(vals.mean())
+        n = len(vals); al = min(max(self.cfg.recency_alpha, 0.0), 0.99)
+        w = (1.0 - al) ** (n - 1 - np.arange(n)); w = w / w.sum()
+        return float(np.dot(vals, w))
 
     def prob_over(self, lam: float, line: float, max_x: int = 5) -> float:
         threshold = int(np.floor(line + 1e-9))
@@ -187,8 +214,12 @@ class SkaterPointsModel:
         pdf = pdf.tail(self.cfg.window)
         if pdf.empty:
             return 0.7
-        pts = (pdf["goals"].astype(float) + pdf["assists"].astype(float))
-        return float(pts.mean())
+        pts = (pdf["goals"].astype(float) + pdf["assists"].astype(float)).values
+        if len(pts) == 1 or self.cfg.recency_alpha <= 0:
+            return float(np.mean(pts))
+        n = len(pts); al = min(max(self.cfg.recency_alpha, 0.0), 0.99)
+        w = (1.0 - al) ** (n - 1 - np.arange(n)); w = w / w.sum()
+        return float(np.dot(pts, w))
 
     def prob_over(self, lam: float, line: float, max_x: int = 8) -> float:
         threshold = int(np.floor(line + 1e-9))
@@ -206,7 +237,12 @@ class SkaterBlocksModel:
         pdf = pdf.tail(self.cfg.window)
         if pdf.empty:
             return 1.5
-        return float(pdf["blocked"].mean())
+        vals = pdf["blocked"].astype(float).values
+        if len(vals) == 1 or self.cfg.recency_alpha <= 0:
+            return float(vals.mean())
+        n = len(vals); al = min(max(self.cfg.recency_alpha, 0.0), 0.99)
+        w = (1.0 - al) ** (n - 1 - np.arange(n)); w = w / w.sum()
+        return float(np.dot(vals, w))
 
     def prob_over(self, lam: float, line: float, max_x: int = 15) -> float:
         threshold = int(np.floor(line + 1e-9))

@@ -104,7 +104,7 @@ if _NN is not None:
             
             self.network = _NN.Sequential(*layers)
         
-        def forward(self, x: "torch.Tensor") -> "torch.Tensor":
+        def forward(self, x: Any) -> Any:
             return self.network(x).squeeze(-1)
 else:
     # Dummy class when torch is not available
@@ -256,15 +256,41 @@ class NNPropsModel:
             
             df["player_name"] = df["player"].apply(parse_player_name)
         
-        # Filter to player rows
-        pdf = df[df["player_name"].astype(str).str.lower() == player.lower()].copy()
-        pdf = pdf[pdf["role"].astype(str).str.lower() == role.lower()].copy()
+        # Filter to player rows (robust to missing role column)
+        base = df[df["player_name"].astype(str).str.lower() == player.lower()].copy()
+
+        # Derive a normalized role if not present
+        def _norm_role(s: str) -> str:
+            s = str(s or "").strip().lower()
+            if not s:
+                return ""
+            if s in ("g", "goalie", "goaltender"):
+                return "goalie"
+            if s in ("skater", "s", "f", "d", "forward", "defense", "defenceman", "defenseman"):
+                return "skater"
+            return "skater" if s and not s.startswith("g") else "goalie"
+
+        if "role" in base.columns:
+            base["_role"] = base["role"].map(_norm_role)
+        elif "position" in base.columns:
+            base["_role"] = base["position"].map(_norm_role)
+        else:
+            base["_role"] = "skater"
+
+        pdf = base[base["_role"].astype(str).str.lower() == role.lower()].copy()
+        # If role filter eliminates all rows (e.g., missing/unknown), fall back to any rows for the player
+        if pdf.empty:
+            pdf = base.copy()
         
         if pdf.empty:
             return None
         
-        # Sort by date
-        pdf = pdf.sort_values("date")
+        # Sort by date when available
+        if "date" in pdf.columns:
+            try:
+                pdf = pdf.sort_values("date")
+            except Exception:
+                pass
         
         # Rolling features for target metric
         metric_col = self._get_metric_column()
@@ -304,7 +330,11 @@ class NNPropsModel:
         # Target
         features["target"] = pdf[metric_col].values
         
-        return features.iloc[self.cfg.window_games:]  # skip initial window
+        # If we don't yet have full window_games rows beyond the initial warm-up, fall back to using the latest row
+        post = features.iloc[self.cfg.window_games:]
+        if post.empty:
+            return features.tail(1)
+        return post  # skip initial window normally
     
     def _get_metric_column(self) -> str:
         """Map market to data column name."""
@@ -563,22 +593,86 @@ class NNPropsModel:
         
         role = "goalie" if self.market == "SAVES" else "skater"
         feats_df = self._prepare_features(df, player, role)
-        
+
+        # Fuzzy recovery: many betting line feeds abbreviate first names (e.g. "A. Levshunov").
+        # If direct match failed, attempt abbreviation expansion by matching last name and first initial.
+        if (feats_df is None or feats_df.empty) and isinstance(player, str) and "." in player:
+            try:
+                parts = player.replace(".", "").split()
+                if len(parts) >= 2:
+                    first_initial = parts[0][0].lower()
+                    last = parts[-1].lower()
+                    # Build candidate set from df player_name column if present
+                    if "player_name" not in df.columns and "player" in df.columns:
+                        # Construct player_name via simple normalization if training-time parse missing
+                        df = df.copy()
+                        df["player_name"] = df["player"].astype(str)
+                    if "player_name" in df.columns:
+                        cand = df[df["player_name"].astype(str).str.lower().str.endswith(last)]
+                        # Filter by first initial
+                        cand = cand[cand["player_name"].astype(str).str.lower().str.startswith(first_initial)]
+                        if not cand.empty:
+                            feats_df = self._prepare_features(cand, cand.iloc[0]["player_name"], role)
+            except Exception:
+                pass
+
+        # Fallback 2: last-name match across all players (optionally prefer matching team if provided)
+        if (feats_df is None or feats_df.empty) and isinstance(player, str):
+            try:
+                def _ascii(s: str) -> str:
+                    try:
+                        return s.encode('ascii', 'ignore').decode()
+                    except Exception:
+                        return s
+                tokens = _ascii(player).strip().split()
+                if len(tokens) >= 1:
+                    last = tokens[-1].lower()
+                    df2 = df.copy()
+                    if "player_name" not in df2.columns and "player" in df2.columns:
+                        df2["player_name"] = df2["player"].astype(str)
+                    if "player_name" in df2.columns:
+                        df2["_pn"] = df2["player_name"].astype(str)
+                        df2["_last"] = df2["_pn"].apply(lambda s: _ascii(s).split()[-1].lower() if isinstance(s, str) and s.strip() else "")
+                        cand = df2[df2["_last"] == last]
+                        if team is not None and "team" in cand.columns:
+                            # Prefer rows matching team string
+                            cand_team = cand[cand["team"].astype(str).str.upper() == str(team).upper()]
+                            if not cand_team.empty:
+                                cand = cand_team
+                        if not cand.empty:
+                            # Choose the most frequent player_name among candidates
+                            name_counts = cand["player_name"].astype(str).value_counts()
+                            best_name = name_counts.index[0]
+                            feats_df = self._prepare_features(df2, best_name, role)
+            except Exception:
+                pass
+
         if feats_df is None or feats_df.empty:
             return None
         
-        # Use most recent row features
+        # Use most recent row features and align strictly to trained feature_columns
         latest = feats_df.iloc[-1]
-        X = latest[[c for c in self.feature_columns if c in latest.index]].values
-        
-        # Handle missing team dummies
-        if len(X) < len(self.feature_columns):
-            X_full = np.zeros(len(self.feature_columns))
-            X_full[: len(X)] = X
-            X = X_full
+        X_full = np.zeros(len(self.feature_columns), dtype=np.float32)
+        if isinstance(latest, pd.Series):
+            for i, col in enumerate(self.feature_columns):
+                try:
+                    if col in latest.index:
+                        val = latest[col]
+                        if pd.notna(val):
+                            X_full[i] = float(val)
+                except Exception:
+                    continue
+        else:
+            # Defensive fallback
+            try:
+                arr = latest[self.feature_columns].to_numpy(dtype=np.float32)
+                if arr.shape[0] == len(self.feature_columns):
+                    X_full = arr
+            except Exception:
+                pass
         
         # Normalize
-        X_scaled = (X - self.scaler_mean) / self.scaler_std
+        X_scaled = (X_full - self.scaler_mean) / self.scaler_std
         
         # Inference
         if self.use_npu and self.onnx_session is not None:

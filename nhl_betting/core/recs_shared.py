@@ -718,30 +718,26 @@ def backfill_settlement_for_date(date_str: str, *, force: bool = False) -> dict:
                                     pass
                         except Exception:
                             continue
-                # Fallback attribution via NHL Stats API when first10 is true but team unknown
+                # Fallback attribution via NHL Stats REST when first10 is true but team unknown
                 try:
                     if ("stats" in _provider_order) and first10_yes and (not home_scored10 and not away_scored10) and (game_pk is not None):
                         import requests as _rq
-                        resp = _rq.get(f"https://statsapi.web.nhl.com/api/v1/game/{int(game_pk)}/feed/live", timeout=20)
+                        resp = _rq.get(f"https://api.nhle.com/stats/rest/en/game/{int(game_pk)}/playbyplay", timeout=20)
                         if resp.ok:
                             js = resp.json() or {}
-                            plays_node = (js.get('liveData') or {}).get('plays') or {}
-                            all_plays = plays_node.get('allPlays') or []
-                            scoring_idxs = plays_node.get('scoringPlays') or []
+                            plays = js.get('plays') or js.get('data') or []
                             home_abbr = _abbr(r.get("home")); away_abbr = _abbr(r.get("away"))
-                            for idx in scoring_idxs:
+                            for ev in plays:
                                 try:
-                                    ev = all_plays[idx] if isinstance(idx, int) and idx < len(all_plays) else None
-                                    if not ev:
-                                        continue
-                                    per = int((ev.get('about') or {}).get('period') or 0)
-                                    clk = str((ev.get('about') or {}).get('periodTime') or '')
+                                    t = (str(ev.get('typeDescKey') or ev.get('type') or '').lower())
+                                    per = int((ev.get('periodDescriptor') or {}).get('number') or (ev.get('period') or 0))
+                                    clk = str(ev.get('timeInPeriod') or ev.get('periodTime') or '')
                                     mm = ss = None
                                     if isinstance(clk, str) and ':' in clk:
                                         parts = clk.split(':')
                                         mm = int(parts[0]); ss = int(parts[1])
-                                    if per == 1 and (mm is not None and ss is not None) and (mm*60+ss) <= 600:
-                                        tri = ( (ev.get('team') or {}).get('triCode') or (ev.get('team') or {}).get('abbreviation') or '' ).upper()
+                                    if t == 'goal' and per == 1 and (mm is not None and ss is not None) and (mm*60+ss) <= 600:
+                                        tri = str(ev.get('teamAbbrev') or '').upper()
                                         if tri and home_abbr and tri == home_abbr:
                                             home_scored10 = True
                                         elif tri and away_abbr and tri == away_abbr:

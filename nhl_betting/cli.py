@@ -4182,6 +4182,1058 @@ def props_backtest(
 
 
 @app.command()
+def game_backtest_dc_anchor(
+    start: str = typer.Option(..., help="Start date YYYY-MM-DD (ET)"),
+    end: str = typer.Option(..., help="End date YYYY-MM-DD (ET)"),
+    stake: float = typer.Option(100.0, help="Flat stake per play for ROI calc"),
+    min_ev_ml: float = typer.Option(0.0, help="Minimum EV threshold for Moneyline plays"),
+    min_ev_totals: float = typer.Option(0.0, help="Minimum EV threshold for Totals plays"),
+    min_ev_pl: float = typer.Option(0.0, help="Minimum EV threshold for Puckline plays"),
+    min_ev_first10: float = typer.Option(0.0, help="Minimum EV threshold for First-10 plays"),
+    totals_temp: float = typer.Option(1.0, help="Temperature scaling for totals probs (>1 flattens toward 0.5)"),
+    use_close: bool = typer.Option(True, help="Prefer closing odds/lines when available"),
+    out_prefix: str = typer.Option("dc", help="Output filename prefix under data/processed/"),
+):
+    """Backtest game markets (Moneyline, Totals) using DC+market-anchored probabilities in predictions_{date}.csv.
+
+    For each day in [start, end]:
+      - Load data/processed/predictions_{date}.csv (populated by web layer)
+      - Ensure final scores are available; if missing, backfill from data/raw/games.csv by date_et+teams
+      - Use p_home_ml/p_away_ml and p_over/p_under (already DC+anchored) with preferred odds
+      - Compute EV and choose side if EV >= threshold
+      - Evaluate result; aggregate ROI by market and overall
+    Writes rows and summary to data/processed with a prefix.
+    """
+    from datetime import datetime as _dt, timedelta as _td
+    import json
+    import math
+    import numpy as np
+    import pandas as pd
+    from .utils.io import RAW_DIR, PROC_DIR
+    from .utils.odds import american_to_decimal
+
+    # Default totals_temp and EV gates from model_calibration.json if available and caller didn't override
+    try:
+        cal_path = PROC_DIR / "model_calibration.json"
+        if cal_path.exists() and abs(float(totals_temp) - 1.0) < 1e-9:
+            with open(cal_path, "r", encoding="utf-8") as f:
+                _obj = json.load(f) or {}
+            if _obj.get("totals_temp") is not None:
+                totals_temp = float(_obj["totals_temp"])  # use learned default
+            # EV gates: adopt learned thresholds only when caller left zero (meaning auto)
+            try:
+                if abs(float(min_ev_ml)) < 1e-12 and _obj.get("min_ev_ml") is not None:
+                    min_ev_ml = float(_obj.get("min_ev_ml"))
+                if abs(float(min_ev_totals)) < 1e-12 and _obj.get("min_ev_totals") is not None:
+                    min_ev_totals = float(_obj.get("min_ev_totals"))
+                if abs(float(min_ev_pl)) < 1e-12 and _obj.get("min_ev_pl") is not None:
+                    min_ev_pl = float(_obj.get("min_ev_pl"))
+                if abs(float(min_ev_first10)) < 1e-12 and _obj.get("min_ev_first10") is not None:
+                    min_ev_first10 = float(_obj.get("min_ev_first10"))
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    def _parse_date(s: str) -> _dt:
+        try:
+            return _dt.strptime(s, "%Y-%m-%d")
+        except Exception:
+            print("Invalid date format; use YYYY-MM-DD"); raise typer.Exit(code=1)
+
+    s_dt = _parse_date(start); e_dt = _parse_date(end)
+    if e_dt < s_dt:
+        s_dt, e_dt = e_dt, s_dt
+
+    # Load raw finals once (date_et, home, away, home_goals, away_goals)
+    games_path = RAW_DIR / "games.csv"
+    if not games_path.exists():
+        print("Missing data/raw/games.csv. Run data collection first.")
+        raise typer.Exit(code=1)
+    gdf = pd.read_csv(games_path)
+    # Normalize dates to YYYY-MM-DD
+    for col in ("date_et", "date"):
+        if col in gdf.columns:
+            gdf[col] = pd.to_datetime(gdf[col], errors="coerce").dt.strftime("%Y-%m-%d")
+    gdf = gdf.rename(columns={"home_goals": "final_home_goals", "away_goals": "final_away_goals"})
+    finals_idx = gdf[["date_et","home","away","final_home_goals","final_away_goals"]].copy()
+
+    def _num(v):
+        try:
+            if v is None:
+                return None
+            if isinstance(v, (int, float)):
+                f = float(v)
+                return f if math.isfinite(f) else None
+            s = str(v).strip().replace(",", "")
+            if s == "":
+                return None
+            return float(s)
+        except Exception:
+            return None
+
+    def _ev(p: float, american: float, p_push: float = 0.0) -> float | None:
+        try:
+            if p is None or american is None:
+                return None
+            dec = american_to_decimal(float(american))
+            if dec is None or not math.isfinite(dec):
+                return None
+            p = float(p); p_push = float(p_push)
+            if not (0.0 <= p <= 1.0):
+                return None
+            p_loss = max(0.0, 1.0 - p - p_push)
+            return float(round(p * (dec - 1.0) - p_loss, 4))
+        except Exception:
+            return None
+
+    rows = []
+    # helpers for totals temp scaling
+    def _sigmoid(x: float) -> float:
+        try:
+            return 1.0 / (1.0 + math.exp(-x))
+        except Exception:
+            return 0.5
+    def _logit(p: float) -> float:
+        p = min(max(p, 1e-9), 1 - 1e-9)
+        return math.log(p / (1.0 - p))
+    d = s_dt
+    while d <= e_dt:
+        day = d.strftime("%Y-%m-%d")
+        path = PROC_DIR / f"predictions_{day}.csv"
+        if not path.exists():
+            d += _td(days=1); continue
+        try:
+            df = pd.read_csv(path)
+        except Exception:
+            d += _td(days=1); continue
+        # Backfill finals if missing
+        need_finals = {"final_home_goals","final_away_goals"}
+        if not need_finals.issubset(df.columns) or df["final_home_goals"].isna().any() or df["final_away_goals"].isna().any():
+            try:
+                merged = df.merge(finals_idx, left_on=["date","home","away"], right_on=["date_et","home","away"], how="left", suffixes=("","_g"))
+                for col in ("final_home_goals","final_away_goals"):
+                    if col not in merged.columns or merged[col].isna().any():
+                        if f"{col}_g" in merged.columns:
+                            merged[col] = merged[col].fillna(merged[f"{col}_g"])  # prefer CSV finals
+                df = merged.drop(columns=[c for c in merged.columns if c.endswith("_g") or c=="date_et" or c=="date_y"], errors="ignore")
+            except Exception:
+                pass
+        # Evaluate ML and Totals
+        for _, r in df.iterrows():
+            home = r.get("home"); away = r.get("away")
+            # which odds to use
+            h_ml = _num(r.get("close_home_ml_odds")) if use_close else _num(r.get("home_ml_odds"))
+            a_ml = _num(r.get("close_away_ml_odds")) if use_close else _num(r.get("away_ml_odds"))
+            o_odds = _num(r.get("close_over_odds")) if use_close else _num(r.get("over_odds"))
+            u_odds = _num(r.get("close_under_odds")) if use_close else _num(r.get("under_odds"))
+            # probabilities (already DC+anchored by web layer)
+            ph = _num(r.get("p_home_ml")); pa = _num(r.get("p_away_ml"))
+            po = _num(r.get("p_over")); pu = _num(r.get("p_under"))
+            # ML best side
+            if ph is not None and pa is not None and h_ml is not None and a_ml is not None:
+                # choose side with greater EV
+                ev_h = _ev(ph, h_ml)
+                ev_a = _ev(pa, a_ml)
+                if ev_h is not None and ev_h >= min_ev_ml or ev_a is not None and ev_a >= min_ev_ml:
+                    if (ev_h or -999) >= (ev_a or -999):
+                        pick = "home_ml"; ev = ev_h; price = h_ml
+                        won = None
+                        try:
+                            if r.get("final_home_goals") is not None and r.get("final_away_goals") is not None:
+                                won = (float(r.get("final_home_goals")) > float(r.get("final_away_goals")))
+                        except Exception:
+                            won = None
+                    else:
+                        pick = "away_ml"; ev = ev_a; price = a_ml
+                        won = None
+                        try:
+                            if r.get("final_home_goals") is not None and r.get("final_away_goals") is not None:
+                                won = (float(r.get("final_home_goals")) < float(r.get("final_away_goals")))
+                        except Exception:
+                            won = None
+                    if ev is not None and ev >= min_ev_ml:
+                        # CLV metrics (open vs close)
+                        ml_open = _num(r.get("home_ml_odds")) if pick=="home_ml" else _num(r.get("away_ml_odds"))
+                        ml_close = _num(r.get("close_home_ml_odds")) if pick=="home_ml" else _num(r.get("close_away_ml_odds"))
+                        p_pick = float(ph if pick=="home_ml" else pa)
+                        ev_open = _ev(p_pick, ml_open) if ml_open is not None else None
+                        ev_close = _ev(p_pick, ml_close) if ml_close is not None else None
+                        def _imp(od):
+                            try:
+                                d = american_to_decimal(float(od)); return (1.0/d) if (d and d>0) else None
+                            except Exception:
+                                return None
+                        imp_open = _imp(ml_open); imp_close = _imp(ml_close)
+                        rows.append({
+                            "date": day, "home": home, "away": away, "market": "moneyline", "pick": pick,
+                            "prob": float(ph if pick=="home_ml" else pa), "odds": price, "ev": ev,
+                            "won": won, "stake": stake if won is not None else 0.0,
+                            "payout": (stake* (american_to_decimal(price)-1.0)) if won else (0.0 if won is None else -stake),
+                            "open_odds": ml_open, "close_odds": ml_close,
+                            "clv_ev_delta": (None if (ev_open is None or ev_close is None) else round(ev_close - ev_open, 4)),
+                            "clv_implied_delta": (None if (imp_open is None or imp_close is None) else round(imp_close - imp_open, 6)),
+                        })
+            # Totals best side (with push prob when integer line)
+            tl = r.get("close_total_line_used") if use_close else r.get("total_line_used")
+            tl_val = _num(tl)
+            p_push = 0.0
+            if tl_val is not None and abs(tl_val - round(tl_val)) < 1e-9:
+                try:
+                    k = int(round(tl_val))
+                    mt = _num(r.get("model_total"))
+                    if mt is None:
+                        mt = _num(r.get("proj_home_goals"))
+                        mt = (mt or 0.0) + (_num(r.get("proj_away_goals")) or 0.0)
+                    if mt is not None and math.isfinite(mt) and k >= 0:
+                        from math import exp, factorial
+                        p_push = float(exp(-mt) * (mt ** k) / factorial(k))
+                except Exception:
+                    p_push = 0.0
+            if po is not None and pu is not None and (o_odds is not None and u_odds is not None):
+                # Optional totals temperature scaling (around 0.5), respecting push mass on integer lines
+                if totals_temp is not None and abs(float(totals_temp) - 1.0) > 1e-6:
+                    try:
+                        T = max(0.5, min(3.0, float(totals_temp)))
+                        if tl_val is not None and abs(tl_val - round(tl_val)) < 1e-9:
+                            S = max(1e-9, 1.0 - float(p_push))
+                            if S > 0:
+                                po_c = min(max(po / S, 1e-9), 1 - 1e-9)
+                                lo = _logit(po_c) / T
+                                po = _sigmoid(lo) * S
+                                pu = max(0.0, S - po)
+                        else:
+                            lo = _logit(po) / T
+                            po = _sigmoid(lo)
+                            pu = max(0.0, 1.0 - po)
+                    except Exception:
+                        pass
+                ev_o = _ev(po, o_odds, p_push)
+                ev_u = _ev(pu, u_odds, p_push)
+                if ev_o is not None and ev_o >= min_ev_totals or ev_u is not None and ev_u >= min_ev_totals:
+                    if (ev_o or -999) >= (ev_u or -999):
+                        pick = "over"; ev = ev_o; price = o_odds
+                    else:
+                        pick = "under"; ev = ev_u; price = u_odds
+                    won = None
+                    try:
+                        if r.get("final_home_goals") is not None and r.get("final_away_goals") is not None and tl_val is not None:
+                            at = float(r.get("final_home_goals")) + float(r.get("final_away_goals"))
+                            if abs(at - tl_val) < 1e-9:
+                                won = None  # push, ignore for PnL
+                            else:
+                                won = (at > tl_val) if pick=="over" else (at < tl_val)
+                    except Exception:
+                        won = None
+                    if ev is not None and ev >= min_ev_totals:
+                        # CLV metrics for totals: open/close odds and lines; EV delta uses corresponding push mass
+                        to_open = _num(r.get("over_odds")) if pick=="over" else _num(r.get("under_odds"))
+                        to_close = _num(r.get("close_over_odds")) if pick=="over" else _num(r.get("close_under_odds"))
+                        tl_open = _num(r.get("total_line_used"))
+                        tl_close = _num(r.get("close_total_line_used"))
+                        # compute push mass for open/close lines
+                        def _p_push_at_line(mu_tot: float, line: float | None) -> float:
+                            try:
+                                if line is None or not math.isfinite(line):
+                                    return 0.0
+                                if abs(line - round(line)) < 1e-9:
+                                    k = int(round(line))
+                                    from math import exp, factorial
+                                    return float(exp(-mu_tot) * (mu_tot ** k) / factorial(k)) if k >= 0 else 0.0
+                                return 0.0
+                            except Exception:
+                                return 0.0
+                        mu_tot = None
+                        try:
+                            mt = _num(r.get("model_total"))
+                            if mt is None:
+                                mt = (_num(r.get("proj_home_goals")) or 0.0) + (_num(r.get("proj_away_goals")) or 0.0)
+                            mu_tot = float(mt) if mt is not None else None
+                        except Exception:
+                            mu_tot = None
+                        p_push_open = _p_push_at_line(mu_tot, tl_open) if mu_tot is not None else 0.0
+                        p_push_close = _p_push_at_line(mu_tot, tl_close) if mu_tot is not None else 0.0
+                        p_pick = float(po if pick=="over" else pu)
+                        ev_open = _ev(p_pick, to_open, p_push_open) if to_open is not None else None
+                        ev_close = _ev(p_pick, to_close, p_push_close) if to_close is not None else None
+                        def _imp(od):
+                            try:
+                                d = american_to_decimal(float(od)); return (1.0/d) if (d and d>0) else None
+                            except Exception:
+                                return None
+                        imp_open = _imp(to_open); imp_close = _imp(to_close)
+                        rows.append({
+                            "date": day, "home": home, "away": away, "market": "totals", "pick": pick,
+                            "prob": float(po if pick=="over" else pu), "odds": price, "line": tl_val, "ev": ev,
+                            "won": won, "stake": stake if won is not None else 0.0,
+                            "payout": (stake* (american_to_decimal(price)-1.0)) if won else (0.0 if won is None else -stake),
+                            "open_odds": to_open, "close_odds": to_close, "open_line": tl_open, "close_line": tl_close,
+                            "clv_ev_delta": (None if (ev_open is None or ev_close is None) else round(ev_close - ev_open, 4)),
+                            "clv_implied_delta": (None if (imp_open is None or imp_close is None) else round(imp_close - imp_open, 6)),
+                        })
+            # Puckline (-1.5 home, +1.5 away)
+            try:
+                php = _num(r.get("p_home_pl_-1.5")); pap = _num(r.get("p_away_pl_+1.5"))
+            except Exception:
+                php = pap = None
+            hpl_odds = _num(r.get("close_home_pl_-1.5_odds")) if use_close else _num(r.get("home_pl_-1.5_odds"))
+            apl_odds = _num(r.get("close_away_pl_+1.5_odds")) if use_close else _num(r.get("away_pl_+1.5_odds"))
+            if php is not None and pap is not None and (hpl_odds is not None and apl_odds is not None):
+                ev_hpl = _ev(php, hpl_odds)
+                ev_apl = _ev(pap, apl_odds)
+                if (ev_hpl is not None and ev_hpl >= min_ev_pl) or (ev_apl is not None and ev_apl >= min_ev_pl):
+                    if (ev_hpl or -999) >= (ev_apl or -999):
+                        pick = "home_-1.5"; ev = ev_hpl; price = hpl_odds; p_pick = php; line = -1.5
+                    else:
+                        pick = "away_+1.5"; ev = ev_apl; price = apl_odds; p_pick = pap; line = 1.5
+                    won = None
+                    try:
+                        if r.get("final_home_goals") is not None and r.get("final_away_goals") is not None:
+                            diff = float(r.get("final_home_goals")) - float(r.get("final_away_goals"))
+                            won = (diff > 1.5) if pick == "home_-1.5" else (diff < 1.5)
+                    except Exception:
+                        won = None
+                    if ev is not None and ev >= min_ev_pl:
+                        # CLV: open vs close odds only
+                        pl_open = _num(r.get("home_pl_-1.5_odds")) if pick=="home_-1.5" else _num(r.get("away_pl_+1.5_odds"))
+                        pl_close = _num(r.get("close_home_pl_-1.5_odds")) if pick=="home_-1.5" else _num(r.get("close_away_pl_+1.5_odds"))
+                        ev_open = _ev(p_pick, pl_open) if pl_open is not None else None
+                        ev_close = _ev(p_pick, pl_close) if pl_close is not None else None
+                        def _imp2(od):
+                            try:
+                                d = american_to_decimal(float(od)); return (1.0/d) if (d and d>0) else None
+                            except Exception:
+                                return None
+                        imp_open = _imp2(pl_open); imp_close = _imp2(pl_close)
+                        rows.append({
+                            "date": day, "home": home, "away": away, "market": "puckline", "pick": pick,
+                            "prob": float(p_pick), "odds": price, "line": line, "ev": ev,
+                            "won": won, "stake": stake if won is not None else 0.0,
+                            "payout": (stake* (american_to_decimal(price)-1.0)) if won else (0.0 if won is None else -stake),
+                            "open_odds": pl_open, "close_odds": pl_close,
+                            "clv_ev_delta": (None if (ev_open is None or ev_close is None) else round(ev_close - ev_open, 4)),
+                            "clv_implied_delta": (None if (imp_open is None or imp_close is None) else round(imp_close - imp_open, 6)),
+                        })
+            # First-10 Yes/No
+            try:
+                p_yes = _num(r.get("p_f10_yes")); p_no = _num(r.get("p_f10_no"))
+            except Exception:
+                p_yes = p_no = None
+            y_odds = _num(r.get("close_f10_yes_odds")) if use_close else _num(r.get("f10_yes_odds"))
+            n_odds = _num(r.get("close_f10_no_odds")) if use_close else _num(r.get("f10_no_odds"))
+            if p_yes is not None and p_no is not None and (y_odds is not None and n_odds is not None):
+                ev_yes = _ev(p_yes, y_odds)
+                ev_no = _ev(p_no, n_odds)
+                if (ev_yes is not None and ev_yes >= min_ev_first10) or (ev_no is not None and ev_no >= min_ev_first10):
+                    if (ev_yes or -999) >= (ev_no or -999):
+                        pick = "f10_yes"; ev = ev_yes; price = y_odds; p_pick = p_yes
+                    else:
+                        pick = "f10_no"; ev = ev_no; price = n_odds; p_pick = p_no
+                    won = None
+                    try:
+                        rf = r.get("result_first10")
+                        if isinstance(rf, str) and rf:
+                            won = (rf.strip().lower() == ("yes" if pick=="f10_yes" else "no"))
+                    except Exception:
+                        won = None
+                    if ev is not None and ev >= min_ev_first10:
+                        # CLV odds only
+                        f_open = _num(r.get("f10_yes_odds")) if pick=="f10_yes" else _num(r.get("f10_no_odds"))
+                        f_close = _num(r.get("close_f10_yes_odds")) if pick=="f10_yes" else _num(r.get("close_f10_no_odds"))
+                        ev_open = _ev(p_pick, f_open) if f_open is not None else None
+                        ev_close = _ev(p_pick, f_close) if f_close is not None else None
+                        def _imp3(od):
+                            try:
+                                d = american_to_decimal(float(od)); return (1.0/d) if (d and d>0) else None
+                            except Exception:
+                                return None
+                        imp_open = _imp3(f_open); imp_close = _imp3(f_close)
+                        rows.append({
+                            "date": day, "home": home, "away": away, "market": "first10", "pick": pick,
+                            "prob": float(p_pick), "odds": price, "ev": ev,
+                            "won": won, "stake": stake if won is not None else 0.0,
+                            "payout": (stake* (american_to_decimal(price)-1.0)) if won else (0.0 if won is None else -stake),
+                            "open_odds": f_open, "close_odds": f_close,
+                            "clv_ev_delta": (None if (ev_open is None or ev_close is None) else round(ev_close - ev_open, 4)),
+                            "clv_implied_delta": (None if (imp_open is None or imp_close is None) else round(imp_close - imp_open, 6)),
+                        })
+        d += _td(days=1)
+
+    if not rows:
+        print("No rows generated in range.")
+        return
+    rdf = pd.DataFrame(rows)
+    # Summaries
+    def _summ(df):
+        st = float(df["stake"].fillna(0).sum()); pnl = float(df["payout"].fillna(0).sum())
+        roi = (pnl / st) if st > 0 else None
+        n = int(len(df))
+        decided = int(df[~df["won"].isna()].shape[0])
+        acc = None
+        try:
+            acc = float(df.dropna(subset=["won"]).assign(w=lambda x: x["won"].astype(bool)).w.mean()) if decided>0 else None
+        except Exception:
+            acc = None
+        # CLV summaries
+        clv_ev_mean = None; clv_ev_pos = None; clv_imp_mean = None
+        try:
+            if "clv_ev_delta" in df.columns:
+                ce = pd.to_numeric(df["clv_ev_delta"], errors="coerce").dropna()
+                if not ce.empty:
+                    clv_ev_mean = float(round(ce.mean(), 6))
+                    clv_ev_pos = float(round((ce > 0).mean(), 6))
+        except Exception:
+            pass
+        try:
+            if "clv_implied_delta" in df.columns:
+                ci = pd.to_numeric(df["clv_implied_delta"], errors="coerce").dropna()
+                if not ci.empty:
+                    clv_imp_mean = float(round(ci.mean(), 6))
+        except Exception:
+            pass
+        return {
+            "n": n, "decided": decided, "staked": st, "pnl": pnl, "roi": roi, "acc": acc,
+            "clv_ev_delta_mean": clv_ev_mean, "clv_ev_delta_pos_rate": clv_ev_pos,
+            "clv_implied_delta_mean": clv_imp_mean,
+        }
+
+    overall = _summ(rdf)
+    by_market = {k: _summ(g) for k, g in rdf.groupby("market")}
+
+    pref = (out_prefix.strip() + "_") if out_prefix.strip() else ""
+    rows_path = PROC_DIR / f"{pref}games_backtest_rows_{start}_to_{end}.csv"
+    summ_path = PROC_DIR / f"{pref}games_backtest_summary_{start}_to_{end}.json"
+    rdf.to_csv(rows_path, index=False)
+    with open(summ_path, "w", encoding="utf-8") as f:
+        json.dump({"overall": overall, "by_market": by_market}, f, indent=2)
+    print(json.dumps({"overall": overall, "by_market": by_market}, indent=2))
+    print(f"Saved rows to {rows_path} and summary to {summ_path}")
+
+
+@app.command()
+def game_calibration(
+    start: str = typer.Option(..., help="Start date YYYY-MM-DD (ET)"),
+    end: str = typer.Option(..., help="End date YYYY-MM-DD (ET)"),
+    bins: int = typer.Option(10, help="Number of probability bins for calibration"),
+    use_close: bool = typer.Option(True, help="Prefer closing lines/odds if available for totals"),
+    out_json: Optional[str] = typer.Option(None, help="Optional explicit output path for JSON; default under processed"),
+):
+    """Calibration for ML and Totals probabilities written in predictions CSVs.
+
+    Outputs expected vs observed win rates per probability bin for:
+      - Moneyline: p_home_ml
+      - Totals: p_over and p_under separately (excluding pushes)
+    """
+    from datetime import datetime as _dt, timedelta as _td
+    import json
+    import math
+    import numpy as np
+    import pandas as pd
+    from .utils.io import RAW_DIR, PROC_DIR
+
+    # Parse dates
+    try:
+        s_dt = _dt.strptime(start, "%Y-%m-%d"); e_dt = _dt.strptime(end, "%Y-%m-%d")
+    except Exception:
+        print("Invalid date format; use YYYY-MM-DD"); raise typer.Exit(code=1)
+    if e_dt < s_dt:
+        s_dt, e_dt = e_dt, s_dt
+
+    # finals lookup
+    games_path = RAW_DIR / "games.csv"
+    if not games_path.exists():
+        print("Missing data/raw/games.csv. Run data collection first.")
+        raise typer.Exit(code=1)
+    gdf = pd.read_csv(games_path)
+    for col in ("date_et","date"):
+        if col in gdf.columns:
+            gdf[col] = pd.to_datetime(gdf[col], errors="coerce").dt.strftime("%Y-%m-%d")
+    finals = gdf.rename(columns={"home_goals":"final_home_goals","away_goals":"final_away_goals"})[["date_et","home","away","final_home_goals","final_away_goals"]]
+
+    ml_rows = []
+    to_rows = []
+    d = s_dt
+    while d <= e_dt:
+        day = d.strftime("%Y-%m-%d")
+        path = PROC_DIR / f"predictions_{day}.csv"
+        if not path.exists():
+            d += _td(days=1); continue
+        try:
+            df = pd.read_csv(path)
+        except Exception:
+            d += _td(days=1); continue
+        # Join finals if missing
+        if ("final_home_goals" not in df.columns) or df["final_home_goals"].isna().any():
+            try:
+                df = df.merge(finals, left_on=["date","home","away"], right_on=["date_et","home","away"], how="left", suffixes=("","_g"))
+                for col in ("final_home_goals","final_away_goals"):
+                    if col not in df.columns or df[col].isna().any():
+                        if f"{col}_g" in df.columns:
+                            df[col] = df[col].fillna(df[f"{col}_g"])  # prefer joined finals
+                df = df.drop(columns=[c for c in df.columns if c.endswith("_g") or c=="date_et_y" or c=="date_et"], errors="ignore")
+            except Exception:
+                pass
+        # ML calibration
+        try:
+            sub = df.dropna(subset=["p_home_ml","final_home_goals","final_away_goals"]).copy()
+            if not sub.empty:
+                sub["y_home"] = (sub["final_home_goals"].astype(float) > sub["final_away_goals"].astype(float)).astype(int)
+                sub["p"] = sub["p_home_ml"].astype(float).clip(1e-6, 1-1e-6)
+                sub["date"] = day
+                ml_rows.append(sub[["date","home","away","p","y_home"]])
+        except Exception:
+            pass
+        # Totals calibration (exclude pushes, bin p_over and p_under separately)
+        try:
+            tl_col = "close_total_line_used" if use_close else "total_line_used"
+            sub2 = df.dropna(subset=["p_over","p_under",tl_col,"final_home_goals","final_away_goals"]).copy()
+            if not sub2.empty:
+                sub2["line"] = sub2[tl_col].astype(float)
+                sub2["at"] = sub2["final_home_goals"].astype(float) + sub2["final_away_goals"].astype(float)
+                # exclude pushes (at == line when integer)
+                def _is_push(row):
+                    try:
+                        ln = float(row["line"]); at = float(row["at"]) 
+                        return abs(ln - round(ln)) < 1e-9 and abs(at - ln) < 1e-9
+                    except Exception:
+                        return False
+                sub2 = sub2[~sub2.apply(_is_push, axis=1)]
+                if not sub2.empty:
+                    # over side
+                    o = sub2.copy()
+                    o["p"] = o["p_over"].astype(float).clip(1e-6, 1-1e-6)
+                    o["y"] = (o["at"] > o["line"]).astype(int)
+                    o["side"] = "over"
+                    # under side
+                    u = sub2.copy()
+                    u["p"] = u["p_under"].astype(float).clip(1e-6, 1-1e-6)
+                    u["y"] = (u["at"] < u["line"]).astype(int)
+                    u["side"] = "under"
+                    to_rows.append(o[["p","y","side"]])
+                    to_rows.append(u[["p","y","side"]])
+        except Exception:
+            pass
+        d += _td(days=1)
+
+    res = {"range": {"start": start, "end": end}, "ml": {}, "totals": {}}
+    if ml_rows:
+        mld = pd.concat(ml_rows, ignore_index=True)
+        try:
+            q = pd.qcut(mld["p"], q=bins, duplicates="drop")
+            ml_bins = mld.assign(bin=q.astype(str)).groupby("bin").apply(lambda g: pd.Series({
+                "n": int(len(g)), "mean_p": float(g["p"].mean()), "obs": float(g["y_home"].mean())
+            })).reset_index().to_dict(orient="records")
+        except Exception:
+            # fallback: equal-width bins
+            edges = np.linspace(0.0, 1.0, num=bins+1)
+            mld["bin"] = pd.cut(mld["p"], bins=edges, include_lowest=True).astype(str)
+            ml_bins = mld.groupby("bin").apply(lambda g: pd.Series({
+                "n": int(len(g)), "mean_p": float(g["p"].mean()), "obs": float(g["y_home"].mean())
+            })).reset_index().to_dict(orient="records")
+        res["ml"] = {"bins": ml_bins, "n": int(len(mld))}
+    if to_rows:
+        tod = pd.concat(to_rows, ignore_index=True)
+        out = {}
+        for side, g in tod.groupby("side"):
+            try:
+                q = pd.qcut(g["p"], q=bins, duplicates="drop")
+                bins_list = g.assign(bin=q.astype(str)).groupby("bin").apply(lambda s: pd.Series({
+                    "n": int(len(s)), "mean_p": float(s["p"].mean()), "obs": float(s["y"].mean())
+                })).reset_index().to_dict(orient="records")
+            except Exception:
+                edges = np.linspace(0.0, 1.0, num=bins+1)
+                gg = g.copy(); gg["bin"] = pd.cut(gg["p"], bins=edges, include_lowest=True).astype(str)
+                bins_list = gg.groupby("bin").apply(lambda s: pd.Series({
+                    "n": int(len(s)), "mean_p": float(s["p"].mean()), "obs": float(s["y"].mean())
+                })).reset_index().to_dict(orient="records")
+            out[side] = {"bins": bins_list, "n": int(len(g))}
+        res["totals"] = out
+
+    # Write JSON
+    if out_json:
+        out_path = Path(out_json)
+    else:
+        out_path = PROC_DIR / f"game_calibration_{start}_{end}.json"
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    with out_path.open("w", encoding="utf-8") as f:
+        json.dump(res, f, indent=2)
+    print(json.dumps({k: v if k=="range" else {"n": (v.get("n") if isinstance(v, dict) else None)} for k, v in res.items()}, indent=2))
+    print(f"Wrote -> {out_path}")
+
+
+@app.command()
+def game_learn_ev_gates(
+    start: str = typer.Option(..., help="Start date YYYY-MM-DD (ET)"),
+    end: str = typer.Option(..., help="End date YYYY-MM-DD (ET)"),
+    use_close: bool = typer.Option(True, help="Use closing odds/lines to compute EV and result"),
+    out_json: Optional[str] = typer.Option(None, help="Output JSON file (default: data/processed/model_calibration.json)")
+):
+    """Learn per-market minimum EV thresholds to maximize ROI using predictions CSVs.
+
+    Markets: moneyline, totals (others can be added later). For each day in [start,end],
+    read predictions_{date}.csv, build candidate picks by choosing the best side per market,
+    then sweep EV thresholds and select the threshold with maximum ROI.
+    """
+    import math, json
+    from datetime import datetime as _dt, timedelta as _td
+    import pandas as pd
+    from .utils.io import PROC_DIR
+
+    # Parse dates
+    try:
+        s_dt = _dt.strptime(start, "%Y-%m-%d"); e_dt = _dt.strptime(end, "%Y-%m-%d")
+    except Exception:
+        print("Invalid date format; use YYYY-MM-DD"); raise typer.Exit(code=1)
+    if e_dt < s_dt:
+        s_dt, e_dt = e_dt, s_dt
+
+    def _num(v):
+        try:
+            if v is None: return None
+            f = float(v); return f if math.isfinite(f) else None
+        except Exception:
+            return None
+
+    def _dec(american: float | None):
+        try:
+            if american is None: return None
+            a = float(american)
+            return 1.0 + (a/100.0) if a > 0 else 1.0 + (100.0/abs(a))
+        except Exception:
+            return None
+
+    rows = []
+    d = s_dt
+    while d <= e_dt:
+        day = d.strftime('%Y-%m-%d')
+        p = PROC_DIR / f"predictions_{day}.csv"
+        if not p.exists():
+            d += _td(days=1); continue
+        try:
+            df = pd.read_csv(p)
+        except Exception:
+            d += _td(days=1); continue
+        for _, r in df.iterrows():
+            # Moneyline pick
+            ph = _num(r.get('p_home_ml')); pa = _num(r.get('p_away_ml'))
+            if ph is not None and pa is not None:
+                # choose higher EV side, compute EV with chosen price (open/close)
+                h_od = _num(r.get('close_home_ml_odds') if use_close else r.get('home_ml_odds'))
+                a_od = _num(r.get('close_away_ml_odds') if use_close else r.get('away_ml_odds'))
+                def _ev(p, od):
+                    dec = _dec(od); return (p * (dec-1.0) - (1.0 - p)) if (p is not None and dec is not None) else None
+                ev_h = _ev(ph, h_od); ev_a = _ev(pa, a_od)
+                if ev_h is not None or ev_a is not None:
+                    if (ev_h or -999) >= (ev_a or -999):
+                        pick='home_ml'; ev=ev_h; price=h_od
+                    else:
+                        pick='away_ml'; ev=ev_a; price=a_od
+                    # outcome
+                    try:
+                        fh=_num(r.get('final_home_goals')); fa=_num(r.get('final_away_goals'))
+                        won=None
+                        if fh is not None and fa is not None:
+                            won = (fh>fa) if pick=='home_ml' else (fh<fa)
+                    except Exception:
+                        won=None
+                    rows.append({'date': day,'market':'moneyline','pick':pick,'ev':ev,'price':price,'won':won})
+            # Totals pick
+            po = _num(r.get('p_over')); pu = _num(r.get('p_under'))
+            tl = _num(r.get('close_total_line_used') if use_close else r.get('total_line_used'))
+            if po is not None and pu is not None:
+                o_od = _num(r.get('close_over_odds') if use_close else r.get('over_odds'))
+                u_od = _num(r.get('close_under_odds') if use_close else r.get('under_odds'))
+                def _ev_to(p, od):
+                    dec=_dec(od); return (p*(dec-1.0) - (1.0 - p)) if (p is not None and dec is not None) else None
+                ev_o=_ev_to(po, o_od); ev_u=_ev_to(pu, u_od)
+                if ev_o is not None or ev_u is not None:
+                    if (ev_o or -999) >= (ev_u or -999):
+                        pick='over'; ev=ev_o; price=o_od
+                    else:
+                        pick='under'; ev=ev_u; price=u_od
+                    # outcome (push ignored)
+                    won=None
+                    try:
+                        fh=_num(r.get('final_home_goals')); fa=_num(r.get('final_away_goals'))
+                        if fh is not None and fa is not None and tl is not None:
+                            at=fh+fa; 
+                            if abs(tl - round(tl)) < 1e-9 and int(round(tl)) == int(at):
+                                won=None
+                            else:
+                                won = (at>tl) if pick=='over' else (at<tl)
+                    except Exception:
+                        won=None
+                    rows.append({'date': day,'market':'totals','pick':pick,'ev':ev,'price':price,'won':won})
+            # Puckline pick (+/-1.5)
+            try:
+                phc = _num(r.get('p_home_pl_-1.5')); pac = _num(r.get('p_away_pl_+1.5'))
+            except Exception:
+                phc = pac = None
+            if phc is not None and pac is not None:
+                hpl = _num(r.get('close_home_pl_-1.5_odds') if use_close else r.get('home_pl_-1.5_odds'))
+                apl = _num(r.get('close_away_pl_+1.5_odds') if use_close else r.get('away_pl_+1.5_odds'))
+                def _ev_pl(p, od):
+                    dec=_dec(od); return (p*(dec-1.0) - (1.0 - p)) if (p is not None and dec is not None) else None
+                ev_h = _ev_pl(phc, hpl); ev_a = _ev_pl(pac, apl)
+                if ev_h is not None or ev_a is not None:
+                    if (ev_h or -999) >= (ev_a or -999):
+                        pick='home_-1.5'; ev=ev_h; price=hpl
+                    else:
+                        pick='away_+1.5'; ev=ev_a; price=apl
+                    won=None
+                    try:
+                        fh=_num(r.get('final_home_goals')); fa=_num(r.get('final_away_goals'))
+                        if fh is not None and fa is not None:
+                            diff = (fh - fa)
+                            won = (diff > 1.5) if pick=='home_-1.5' else (diff < 1.5)
+                    except Exception:
+                        won=None
+                    rows.append({'date': day,'market':'puckline','pick':pick,'ev':ev,'price':price,'won':won})
+            # First-10 pick (Yes/No)
+            try:
+                py = _num(r.get('p_f10_yes')); pn = _num(r.get('p_f10_no'))
+            except Exception:
+                py = pn = None
+            if py is not None and pn is not None:
+                y_od = _num(r.get('close_f10_yes_odds') if use_close else r.get('f10_yes_odds'))
+                n_od = _num(r.get('close_f10_no_odds') if use_close else r.get('f10_no_odds'))
+                def _ev_f10(p, od):
+                    dec=_dec(od); return (p*(dec-1.0) - (1.0 - p)) if (p is not None and dec is not None) else None
+                ev_y = _ev_f10(py, y_od); ev_n = _ev_f10(pn, n_od)
+                if ev_y is not None or ev_n is not None:
+                    if (ev_y or -999) >= (ev_n or -999):
+                        pick='f10_yes'; ev=ev_y; price=y_od
+                    else:
+                        pick='f10_no'; ev=ev_n; price=n_od
+                    won=None
+                    try:
+                        rf = r.get('result_first10')
+                        if isinstance(rf, str) and rf:
+                            won = (rf.strip().lower()==('yes' if pick=='f10_yes' else 'no'))
+                    except Exception:
+                        won=None
+                    rows.append({'date': day,'market':'first10','pick':pick,'ev':ev,'price':price,'won':won})
+        d += _td(days=1)
+
+    if not rows:
+        print('No candidate rows in range.'); return
+    rdf = pd.DataFrame(rows)
+    # Sweep thresholds 0.00..0.10 step 0.005
+    def best_thresh(sub: pd.DataFrame) -> float:
+        if sub.empty: return 0.0
+        # pandas.np was removed; use numpy directly
+        thresholds = [round(x,3) for x in list(np.arange(0.0, 0.1001, 0.005))]
+        best_t = 0.0; best_roi = -1e9; best_staked = 0.0
+        for t in thresholds:
+            g = sub[pd.to_numeric(sub['ev'], errors='coerce') >= t]
+            if g.empty: continue
+            # stake=100 flat; payouts require decimal
+            def _decx(od):
+                return 1.0 + (float(od)/100.0) if float(od) > 0 else 1.0 + (100.0/abs(float(od)))
+            staked = 100.0 * g['won'].notna().sum()
+            pnl = 0.0
+            for _, rr in g.iterrows():
+                if pd.isna(rr.get('won')):
+                    continue
+                if bool(rr.get('won')):
+                    pnl += 100.0 * (_decx(rr.get('price')) - 1.0)
+                else:
+                    pnl -= 100.0
+            roi = (pnl/staked) if staked>0 else -1e9
+            # prefer higher staked when ROI ties
+            if (roi > best_roi) or (abs(roi - best_roi) < 1e-9 and staked > best_staked):
+                best_roi = roi; best_t = t; best_staked = staked
+        return float(best_t)
+
+    ml_t = best_thresh(rdf[rdf['market']=='moneyline'])
+    to_t = best_thresh(rdf[rdf['market']=='totals'])
+    pl_t = best_thresh(rdf[rdf['market']=='puckline']) if 'puckline' in set(rdf['market'].unique()) else 0.0
+    f10_t = best_thresh(rdf[rdf['market']=='first10']) if 'first10' in set(rdf['market'].unique()) else 0.0
+
+    # Write into model_calibration.json (merge with existing)
+    cal_path = Path(out_json) if out_json else PROC_DIR / 'model_calibration.json'
+    cal_path.parent.mkdir(parents=True, exist_ok=True)
+    obj = {}
+    if cal_path.exists():
+        try:
+            with open(cal_path, 'r', encoding='utf-8') as f:
+                obj = json.load(f) or {}
+        except Exception:
+            obj = {}
+    obj['min_ev_ml'] = float(ml_t)
+    obj['min_ev_totals'] = float(to_t)
+    obj['min_ev_pl'] = float(pl_t)
+    obj['min_ev_first10'] = float(f10_t)
+    obj['ev_gates_last_learned_utc'] = _dt.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
+    obj['ev_gates_range'] = {'start': start, 'end': end}
+    with open(cal_path, 'w', encoding='utf-8') as f:
+        json.dump(obj, f, indent=2)
+    print({"min_ev_ml": ml_t, "min_ev_totals": to_t, "min_ev_pl": pl_t, "min_ev_first10": f10_t, "path": str(cal_path)})
+
+
+@app.command()
+def game_auto_calibrate(
+    start: Optional[str] = typer.Option(None, help="Start date YYYY-MM-DD (ET); default = season to date"),
+    end: Optional[str] = typer.Option(None, help="End date YYYY-MM-DD (ET); default = today"),
+    use_close: bool = typer.Option(True, help="Prefer closing lines/odds when available for market implied probs"),
+    out_json: Optional[str] = typer.Option(None, help="Write calibration to this JSON path; default data/processed/model_calibration.json"),
+):
+    """Automatically calibrate team-level model hyperparameters from historical predictions and outcomes.
+
+    Learns and persists:
+      - dc_rho: Dixon–Coles low-score correlation (by maximizing exact score likelihood)
+      - market_anchor_w_ml: blend weight toward no‑vig market for Moneyline (minimizes log loss)
+      - market_anchor_w_totals: blend weight toward no‑vig market for Totals (minimizes log loss)
+      - totals_temp: temperature scaling T (>1 flattens toward 0.5) for Totals (minimizes log loss)
+
+    Output JSON is read by the web layer; environment toggles are no longer needed.
+    """
+    import math, json
+    from datetime import datetime as _dt, timedelta as _td
+    import numpy as np
+    import pandas as pd
+    from .utils.io import RAW_DIR, PROC_DIR
+    from .utils.odds import american_to_decimal, remove_vig_two_way
+    from .models.dixon_coles import dc_score_matrix
+
+    # Date range defaults: season to date in ET
+    def _et_today() -> str:
+        try:
+            from zoneinfo import ZoneInfo as _Z
+            return _dt.now(_Z("America/New_York")).strftime("%Y-%m-%d")
+        except Exception:
+            return _dt.utcnow().strftime("%Y-%m-%d")
+    end = end or _et_today()
+    # Derive season start from RAW games if no start given
+    if not start:
+        gpath = RAW_DIR / "games.csv"
+        if gpath.exists():
+            try:
+                gdf = pd.read_csv(gpath)
+                # choose first ET date of current season boundary (July separation)
+                gdf["date_et"] = pd.to_datetime(gdf.get("date_et") or gdf.get("date"), errors="coerce").dt.tz_localize(None)
+                # pick rows within the season containing 'end'
+                e_dt = _dt.strptime(end, "%Y-%m-%d")
+                season_start_year = e_dt.year if e_dt.month >= 7 else (e_dt.year - 1)
+                season_start = _dt(season_start_year, 9, 1)
+                start = season_start.strftime("%Y-%m-%d")
+            except Exception:
+                start = end
+        else:
+            start = end
+
+    def _parse_date(s: str) -> _dt:
+        return _dt.strptime(s, "%Y-%m-%d")
+
+    s_dt = _parse_date(start); e_dt = _parse_date(end)
+    if e_dt < s_dt:
+        s_dt, e_dt = e_dt, s_dt
+
+    # Collect datasets
+    ml_samples = []  # (p_model, p_mkt_home, y_home)
+    to_samples = []  # (p_model_over, p_mkt_over, y_over, line, actual_total)
+    dc_samples = []  # (lam_h, lam_a, fh, fa)
+
+    # Finals lookup
+    games_path = RAW_DIR / "games.csv"
+    finals_idx = None
+    if games_path.exists():
+        try:
+            gdf = pd.read_csv(games_path)
+            for col in ("date_et","date"):
+                if col in gdf.columns:
+                    gdf[col] = pd.to_datetime(gdf[col], errors="coerce").dt.strftime("%Y-%m-%d")
+            finals_idx = gdf.rename(columns={"home_goals":"final_home_goals","away_goals":"final_away_goals"})[["date_et","home","away","final_home_goals","final_away_goals"]]
+        except Exception:
+            finals_idx = None
+
+    def _num(v):
+        try:
+            if v is None: return None
+            if isinstance(v, (int, float)):
+                f = float(v); return f if math.isfinite(f) else None
+            s = str(v).strip();
+            if s == "": return None
+            return float(s)
+        except Exception:
+            return None
+
+    d = s_dt
+    while d <= e_dt:
+        day = d.strftime("%Y-%m-%d")
+        p = PROC_DIR / f"predictions_{day}.csv"
+        if not p.exists():
+            d += _td(days=1); continue
+        try:
+            df = pd.read_csv(p)
+        except Exception:
+            d += _td(days=1); continue
+        # Join finals if missing
+        if finals_idx is not None and ("final_home_goals" not in df.columns or df["final_home_goals"].isna().any()):
+            try:
+                df = df.merge(finals_idx, left_on=["date","home","away"], right_on=["date_et","home","away"], how="left", suffixes=("","_g"))
+                for col in ("final_home_goals","final_away_goals"):
+                    if col not in df.columns or df[col].isna().any():
+                        if f"{col}_g" in df.columns:
+                            df[col] = df[col].fillna(df[f"{col}_g"])  # prefer joined finals
+                df = df.drop(columns=[c for c in df.columns if c.endswith("_g") or c=="date_et"], errors="ignore")
+            except Exception:
+                pass
+        # ML samples
+        for _, r in df.iterrows():
+            try:
+                ph_mod = _num(r.get("p_home_ml_model"))
+                # market implied (no‑vig) from odds
+                if use_close:
+                    odds_h = _num(r.get("close_home_ml_odds")); odds_a = _num(r.get("close_away_ml_odds"))
+                else:
+                    odds_h = _num(r.get("home_ml_odds")); odds_a = _num(r.get("away_ml_odds"))
+                p_mkt = None
+                if odds_h is not None and odds_a is not None:
+                    a = american_to_decimal(odds_h); b = american_to_decimal(odds_a)
+                    if a and b and a>1 and b>1:
+                        # no-vig pair
+                        inv_a = 1.0 / a; inv_b = 1.0 / b; s = inv_a + inv_b
+                        if s > 0:
+                            p_mkt = inv_a / s  # home
+                y_home = None
+                if r.get("final_home_goals") is not None and r.get("final_away_goals") is not None:
+                    y_home = 1 if float(r.get("final_home_goals")) > float(r.get("final_away_goals")) else 0
+                if ph_mod is not None and p_mkt is not None and y_home is not None:
+                    ml_samples.append((float(ph_mod), float(p_mkt), int(y_home)))
+            except Exception:
+                continue
+        # Totals samples
+        for _, r in df.iterrows():
+            try:
+                po_mod = _num(r.get("p_over_model")); pu_mod = _num(r.get("p_under_model"))
+                if use_close:
+                    o_odds = _num(r.get("close_over_odds")); u_odds = _num(r.get("close_under_odds"))
+                    tl = _num(r.get("close_total_line_used"))
+                else:
+                    o_odds = _num(r.get("over_odds")); u_odds = _num(r.get("under_odds"))
+                    tl = _num(r.get("total_line_used"))
+                # no‑vig implied pair (may be None if odds missing)
+                p_mkt_over = p_mkt_under = None
+                if o_odds is not None and u_odds is not None:
+                    try:
+                        # convert to decimal, then remove-vig on two-sided
+                        a = american_to_decimal(o_odds); b = american_to_decimal(u_odds)
+                        if a and b and a>1 and b>1:
+                            inv_a = 1.0 / a; inv_b = 1.0 / b; s = inv_a + inv_b
+                            if s > 0:
+                                p_mkt_over = inv_a / s; p_mkt_under = inv_b / s
+                    except Exception:
+                        pass
+                # observed outcome excluding pushes
+                y_over = None
+                if r.get("final_home_goals") is not None and r.get("final_away_goals") is not None and tl is not None:
+                    at = float(r.get("final_home_goals")) + float(r.get("final_away_goals"))
+                    if not (abs(tl - round(tl)) < 1e-9 and abs(at - tl) < 1e-9):
+                        y_over = 1 if at > tl else 0
+                if po_mod is not None and p_mkt_over is not None and y_over is not None:
+                    to_samples.append((float(po_mod), float(p_mkt_over), int(y_over), float(tl), float(at)))
+            except Exception:
+                continue
+        # DC rho samples
+        for _, r in df.iterrows():
+            try:
+                lam_h = _num(r.get("proj_home_goals")); lam_a = _num(r.get("proj_away_goals"))
+                fh = _num(r.get("final_home_goals")); fa = _num(r.get("final_away_goals"))
+                if lam_h is not None and lam_a is not None and fh is not None and fa is not None:
+                    dc_samples.append((float(lam_h), float(lam_a), int(round(fh)), int(round(fa))))
+            except Exception:
+                continue
+        d += _td(days=1)
+
+    # Optimization helpers
+    def _fit_anchor(samples):
+        # samples: list of (p_mod, p_mkt, y)
+        if not samples:
+            return 0.25  # sensible default
+        ps_mod = np.array([s[0] for s in samples], dtype=float)
+        ps_mkt = np.array([s[1] for s in samples], dtype=float)
+        ys = np.array([s[2] for s in samples], dtype=int)
+        def nll(w):
+            w = float(w)
+            p = np.clip((1.0 - w) * ps_mod + w * ps_mkt, 1e-9, 1 - 1e-9)
+            return float(- (ys * np.log(p) + (1 - ys) * np.log(1 - p)).sum())
+        grid = np.linspace(0.0, 1.0, 51)
+        vals = [nll(w) for w in grid]
+        w0 = float(grid[int(np.argmin(vals))])
+        return w0
+
+    def _fit_totals_temp(samples, w_totals):
+        # samples: list of (p_mod_over, p_mkt_over, y_over, line, actual_total)
+        if not samples:
+            return 1.0
+        ps_mod = np.array([s[0] for s in samples], dtype=float)
+        ps_mkt = np.array([s[1] for s in samples], dtype=float)
+        ys = np.array([s[2] for s in samples], dtype=int)
+        lines = np.array([s[3] for s in samples], dtype=float)
+        ats = np.array([s[4] for s in samples], dtype=float)
+        def _sigmoid(x): return 1.0 / (1.0 + np.exp(-x))
+        def _logit(p):
+            p = np.clip(p, 1e-9, 1 - 1e-9)
+            return np.log(p / (1.0 - p))
+        def nll(T):
+            T = float(max(0.5, min(3.0, T)))
+            # Blend then temperature-scale around 0.5; exclude pushes already
+            p_blend = (1.0 - w_totals) * ps_mod + w_totals * ps_mkt
+            lo = _logit(p_blend) / T
+            p_t = _sigmoid(lo)
+            p_t = np.clip(p_t, 1e-9, 1 - 1e-9)
+            return float(- (ys * np.log(p_t) + (1 - ys) * np.log(1 - p_t)).sum())
+        grid = np.linspace(0.8, 1.6, 41)
+        vals = [nll(T) for T in grid]
+        T0 = float(grid[int(np.argmin(vals))])
+        return T0
+
+    def _fit_dc_rho(samples):
+        # samples: list of (lam_h, lam_a, fh, fa)
+        if not samples:
+            return -0.05
+        rhos = np.linspace(-0.2, 0.2, 41)
+        def nll(rho):
+            ll = 0.0
+            for (lh, la, fh, fa) in samples:
+                try:
+                    mat = dc_score_matrix(lh, la, rho=rho, max_goals=10)
+                    p = float(mat[fh if fh<=10 else 10, fa if fa<=10 else 10])
+                    p = max(p, 1e-12)
+                    ll -= math.log(p)
+                except Exception:
+                    continue
+            return float(ll)
+        vals = [nll(r) for r in rhos]
+        rho0 = float(rhos[int(np.argmin(vals))])
+        return rho0
+
+    w_ml = _fit_anchor(ml_samples)
+    w_tot = _fit_anchor([(pm, pk, y) for (pm, pk, y, _, _) in to_samples])
+    T = _fit_totals_temp(to_samples, w_tot)
+    rho = _fit_dc_rho(dc_samples)
+
+    # Write calibration JSON
+    out_path = Path(out_json) if out_json else PROC_DIR / "model_calibration.json"
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    obj = {
+        "last_calibrated_utc": _dt.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "range": {"start": start, "end": end},
+        "dc_rho": float(rho),
+        # Back-compat generic key (use ML weight)
+        "market_anchor_w": float(w_ml),
+        "market_anchor_w_ml": float(w_ml),
+        "market_anchor_w_totals": float(w_tot),
+        "totals_temp": float(T),
+    }
+    with out_path.open("w", encoding="utf-8") as f:
+        json.dump(obj, f, indent=2)
+    print(json.dumps({k: obj[k] for k in ("dc_rho","market_anchor_w_ml","market_anchor_w_totals","totals_temp")}, indent=2))
+    print(f"Wrote calibration -> {out_path}")
+
+
+@app.command()
 def props_stats_backfill(
     start: str = typer.Option(..., help="Start date YYYY-MM-DD (ET)"),
     end: str = typer.Option(..., help="End date YYYY-MM-DD (ET)"),

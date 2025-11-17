@@ -22,6 +22,12 @@ from ..data.nhl_api import NHLClient as NHLStatsClient
 from .teams import get_team_assets
 from ..cli import predict_core, fetch as cli_fetch, train as cli_train
 from ..models.poisson import PoissonGoals
+from ..models.dixon_coles import dc_market_probs
+from ..utils.market_anchor import (
+    implied_pair_from_american,
+    implied_pair_from_two_sided,
+    blend_probability,
+)
 from ..utils.io import save_df
 import asyncio
 from ..data.odds_api import OddsAPIClient
@@ -2673,6 +2679,225 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
                         v = r.get(k)
                         if _isnan(v):
                             r[k] = None
+        # After projection fallback, compute Dixon–Coles probabilities and apply market anchoring
+        try:
+            import os
+            from ..utils.odds import american_to_decimal, decimal_to_implied_prob, remove_vig_two_way
+        except Exception:
+            os = None
+        # Resolve config (model-driven): read model_calibration.json, then env, else defaults
+        dc_rho = -0.05
+        anchor_w_ml = 0.25
+        anchor_w_totals = 0.25
+        totals_temp = 1.0  # temperature scaling for totals (pushed toward 0.5 when >1)
+        # JSON first (authoritative)
+        try:
+            import json as _json
+            if 'PROC_DIR' in globals():
+                _cal_path = PROC_DIR / "model_calibration.json"
+                if _cal_path.exists():
+                    _obj = _json.loads(_cal_path.read_text(encoding="utf-8"))
+                    if _obj.get("dc_rho") is not None:
+                        dc_rho = float(_obj.get("dc_rho"))
+                    # per-market weights with fallback to generic key
+                    if _obj.get("market_anchor_w_ml") is not None:
+                        anchor_w_ml = float(_obj.get("market_anchor_w_ml"))
+                    elif _obj.get("market_anchor_w") is not None:
+                        anchor_w_ml = float(_obj.get("market_anchor_w"))
+                    if _obj.get("market_anchor_w_totals") is not None:
+                        anchor_w_totals = float(_obj.get("market_anchor_w_totals"))
+                    elif _obj.get("market_anchor_w") is not None:
+                        anchor_w_totals = float(_obj.get("market_anchor_w"))
+                    if _obj.get("totals_temp") is not None:
+                        totals_temp = float(_obj.get("totals_temp"))
+        except Exception:
+            pass
+        # Env second (dev overrides)
+        try:
+            if os is not None:
+                er = os.getenv("DC_RHO")
+                if er is not None:
+                    dc_rho = float(er)
+                ew_ml = os.getenv("MARKET_ANCHOR_W_ML")
+                ew_to = os.getenv("MARKET_ANCHOR_W_TOTALS")
+                ew_generic = os.getenv("MARKET_ANCHOR_W")
+                if ew_ml is not None:
+                    anchor_w_ml = float(ew_ml)
+                elif ew_generic is not None:
+                    anchor_w_ml = float(ew_generic)
+                if ew_to is not None:
+                    anchor_w_totals = float(ew_to)
+                elif ew_generic is not None:
+                    anchor_w_totals = float(ew_generic)
+                et = os.getenv("TOTALS_TEMP")
+                if et is not None:
+                    totals_temp = float(et)
+        except Exception:
+            pass
+        # Sanitize
+        try:
+            dc_rho = max(-0.2, min(0.2, float(dc_rho)))
+        except Exception:
+            dc_rho = -0.05
+        try:
+            anchor_w_ml = max(0.0, min(1.0, float(anchor_w_ml)))
+        except Exception:
+            anchor_w_ml = 0.25
+        try:
+            anchor_w_totals = max(0.0, min(1.0, float(anchor_w_totals)))
+        except Exception:
+            anchor_w_totals = 0.25
+        try:
+            totals_temp = max(0.5, min(3.0, float(totals_temp)))
+        except Exception:
+            totals_temp = 1.0
+
+        # Helpers for EV recompute
+        def _num2(v):
+            try:
+                if v is None:
+                    return None
+                if isinstance(v, (int, float)):
+                    fv = float(v)
+                    return fv if _math.isfinite(fv) else None
+                s = str(v).strip().replace(",", "")
+                if s == "":
+                    return None
+                return float(s)
+            except Exception:
+                return None
+        def _ev_from_prob(p: float, american_odds: float, p_push: float = 0.0) -> float | None:
+            try:
+                if p is None or american_odds is None:
+                    return None
+                dec = american_to_decimal(float(american_odds))
+                if dec is None or not _math.isfinite(dec):
+                    return None
+                p_win = float(p)
+                if not (0.0 <= p_win <= 1.0):
+                    return None
+                p_loss = max(0.0, 1.0 - p_win - float(p_push))
+                return round(p_win * (dec - 1.0) - p_loss, 4)
+            except Exception:
+                return None
+
+        # Compute for each row
+        for r in rows:
+            try:
+                # Establish lambdas if available
+                lam_h = lam_a = None
+                phg = r.get("proj_home_goals"); pag = r.get("proj_away_goals")
+                if phg is not None and pag is not None:
+                    lam_h = float(phg); lam_a = float(pag)
+                else:
+                    # derive from total line and ML prob if possible
+                    tl = r.get("total_line_used") or r.get("close_total_line_used")
+                    ph = r.get("p_home_ml")
+                    if _pois_fb is not None and tl is not None and ph is not None:
+                        lam_h, lam_a = _pois_fb.lambdas_from_total_split(float(tl), float(ph))
+                if lam_h is None or lam_a is None or not (_math.isfinite(lam_h) and _math.isfinite(lam_a)):
+                    continue
+                # Use DC to get market probabilities
+                tl = r.get("total_line_used") or r.get("close_total_line_used")
+                tl_val = float(tl) if tl is not None and _math.isfinite(_num2(tl)) else 6.0
+                probs = dc_market_probs(lam_h, lam_a, total_line=tl_val, rho=dc_rho, max_goals=10)
+                # Raw model probabilities
+                r["p_home_ml_model"] = float(probs["home_ml"]) if "home_ml" in probs else None
+                r["p_away_ml_model"] = float(probs["away_ml"]) if "away_ml" in probs else None
+                r["p_over_model"] = float(probs["over"]) if "over" in probs else None
+                r["p_under_model"] = float(probs["under"]) if "under" in probs else None
+                r["p_home_pl_-1.5_model"] = float(probs["home_puckline_-1.5"]) if "home_puckline_-1.5" in probs else None
+                r["p_away_pl_+1.5_model"] = float(probs["away_puckline_+1.5"]) if "away_puckline_+1.5" in probs else None
+                # Market-implied (no-vig) where available
+                # Moneyline
+                nv_pair = implied_pair_from_american(r.get("home_ml_odds"), r.get("away_ml_odds")) or \
+                          implied_pair_from_american(r.get("close_home_ml_odds"), r.get("close_away_ml_odds"))
+                p_mkt_home = nv_pair[0] if nv_pair else None
+                p_mkt_away = nv_pair[1] if nv_pair else None
+                # Totals
+                nv_tot = implied_pair_from_two_sided(r.get("over_odds"), r.get("under_odds")) or \
+                         implied_pair_from_two_sided(r.get("close_over_odds"), r.get("close_under_odds"))
+                p_mkt_over = nv_tot[0] if nv_tot else None
+                p_mkt_under = nv_tot[1] if nv_tot else None
+                # Puckline
+                nv_pl = implied_pair_from_two_sided(r.get("home_pl_-1.5_odds"), r.get("away_pl_+1.5_odds")) or \
+                        implied_pair_from_two_sided(r.get("close_home_pl_-1.5_odds"), r.get("close_away_pl_+1.5_odds"))
+                p_mkt_hpl = nv_pl[0] if nv_pl else None
+                p_mkt_apl = nv_pl[1] if nv_pl else None
+                # Blend toward market (per-market weights)
+                def _set_prob(key: str, p_model: float, p_market: float | None, w_market: float):
+                    try:
+                        p = blend_probability(p_model, p_market, w_market=w_market)
+                        r[key] = float(max(0.0, min(1.0, p)))
+                    except Exception:
+                        r[key] = p_model
+                if r.get("p_home_ml_model") is not None:
+                    _set_prob("p_home_ml", r["p_home_ml_model"], p_mkt_home, anchor_w_ml)
+                if r.get("p_away_ml_model") is not None:
+                    _set_prob("p_away_ml", r["p_away_ml_model"], p_mkt_away, anchor_w_ml)
+                if r.get("p_over_model") is not None:
+                    _set_prob("p_over", r["p_over_model"], p_mkt_over, anchor_w_totals)
+                if r.get("p_under_model") is not None:
+                    _set_prob("p_under", r["p_under_model"], p_mkt_under, anchor_w_totals)
+                if r.get("p_home_pl_-1.5_model") is not None:
+                    _set_prob("p_home_pl_-1.5", r["p_home_pl_-1.5_model"], p_mkt_hpl, anchor_w_ml)
+                if r.get("p_away_pl_+1.5_model") is not None:
+                    _set_prob("p_away_pl_+1.5", r["p_away_pl_+1.5_model"], p_mkt_apl, anchor_w_ml)
+
+                # Optional totals temperature scaling around 0.5 (logit-space)
+                try:
+                    if totals_temp and abs(totals_temp - 1.0) > 1e-6:
+                        def _sigmoid(x: float) -> float:
+                            try:
+                                return 1.0 / (1.0 + _math.exp(-x))
+                            except Exception:
+                                return 0.5
+                        def _logit(p: float) -> float:
+                            p = min(max(p, 1e-9), 1 - 1e-9)
+                            return _math.log(p / (1.0 - p))
+                        # For integer lines, scale conditional on non-push probability mass
+                        if tl_val is not None and abs(tl_val - round(tl_val)) < 1e-9:
+                            S = max(1e-9, 1.0 - float(p_push))
+                            po = float(r.get("p_over")) if r.get("p_over") is not None else None
+                            pu = float(r.get("p_under")) if r.get("p_under") is not None else None
+                            if po is not None and pu is not None and S > 0:
+                                po_c = min(max(po / S, 1e-9), 1 - 1e-9)
+                                lo = _logit(po_c) / float(totals_temp)
+                                po_adj_c = _sigmoid(lo)
+                                po_adj = float(po_adj_c * S)
+                                r["p_over"] = po_adj
+                                r["p_under"] = max(0.0, S - po_adj)
+                        else:
+                            po = float(r.get("p_over")) if r.get("p_over") is not None else None
+                            if po is not None:
+                                lo = _logit(po) / float(totals_temp)
+                                r["p_over"] = _sigmoid(lo)
+                                r["p_under"] = max(0.0, 1.0 - float(r["p_over"]))
+                except Exception:
+                    pass
+
+                # Recompute EVs using updated probabilities when odds are present
+                # Totals push for integer lines
+                p_push = 0.0
+                try:
+                    if tl_val is not None and abs(tl_val - round(tl_val)) < 1e-9:
+                        k = int(round(tl_val))
+                        from math import exp, factorial
+                        mu_tot = float(lam_h + lam_a)
+                        p_push = float(exp(-mu_tot) * (mu_tot ** k) / factorial(k)) if k >= 0 else 0.0
+                except Exception:
+                    p_push = 0.0
+                # ML
+                r["ev_home_ml"] = _ev_from_prob(r.get("p_home_ml"), _num2(r.get("home_ml_odds") or r.get("close_home_ml_odds")))
+                r["ev_away_ml"] = _ev_from_prob(r.get("p_away_ml"), _num2(r.get("away_ml_odds") or r.get("close_away_ml_odds")))
+                # Totals
+                r["ev_over"] = _ev_from_prob(r.get("p_over"), _num2(r.get("over_odds") or r.get("close_over_odds")), p_push)
+                r["ev_under"] = _ev_from_prob(r.get("p_under"), _num2(r.get("under_odds") or r.get("close_under_odds")), p_push)
+                # Puckline
+                r["ev_home_pl_-1.5"] = _ev_from_prob(r.get("p_home_pl_-1.5"), _num2(r.get("home_pl_-1.5_odds") or r.get("close_home_pl_-1.5_odds")))
+                r["ev_away_pl_+1.5"] = _ev_from_prob(r.get("p_away_pl_+1.5"), _num2(r.get("away_pl_+1.5_odds") or r.get("close_away_pl_+1.5_odds")))
+            except Exception:
+                continue
     # For settled slates, mark rows as FINAL to avoid relying on live scoreboard
     if settled:
         try:

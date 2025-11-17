@@ -379,6 +379,32 @@ def recompute_edges_and_recommendations(date_str: str, min_ev: float = 0.0) -> L
         edges = edges.sort_values("ev", ascending=False)
         edges_path = PROC_DIR / f"edges_{date_str}.csv"
         edges.to_csv(edges_path, index=False)
+    # Load per-market EV thresholds from calibration (if available)
+    try:
+        import json as _json
+        _cal_path = PROC_DIR / "model_calibration.json"
+        _EV_THRESH = {
+            "moneyline": float(min_ev),
+            "totals": float(min_ev),
+            "puckline": float(min_ev),
+            "first10": float(min_ev),
+            "periods": float(min_ev),
+        }
+        if _cal_path.exists():
+            _obj = _json.loads(_cal_path.read_text(encoding="utf-8"))
+            if _obj.get("min_ev_ml") is not None:
+                _EV_THRESH["moneyline"] = float(_obj.get("min_ev_ml"))
+            if _obj.get("min_ev_totals") is not None:
+                _EV_THRESH["totals"] = float(_obj.get("min_ev_totals"))
+            if _obj.get("min_ev_pl") is not None:
+                _EV_THRESH["puckline"] = float(_obj.get("min_ev_pl"))
+            if _obj.get("min_ev_first10") is not None:
+                _EV_THRESH["first10"] = float(_obj.get("min_ev_first10"))
+            if _obj.get("min_ev_periods") is not None:
+                _EV_THRESH["periods"] = float(_obj.get("min_ev_periods"))
+    except Exception:
+        _EV_THRESH = {k: float(min_ev) for k in ("moneyline","totals","puckline","first10","periods")}
+
     # Recommendations (never against model; tie-break EV)
     recs: list[dict] = []
     def _ev(row: pd.Series, market: str, prob_key: str, odds_key: str, ev_key: str) -> float | None:
@@ -403,7 +429,8 @@ def recompute_edges_and_recommendations(date_str: str, min_ev: float = 0.0) -> L
         return p * (dec - 1.0) - (1.0 - p)
     def _add(row, market, bet, prob_key, ev_key, odds_key, book_key=None):
         evv = _ev(row, market, prob_key, odds_key, ev_key)
-        if evv is None or evv < float(min_ev):
+        thr = float(_EV_THRESH.get(market, float(min_ev)))
+        if evv is None or evv < thr:
             return
         price = _price_with_fallback(row, market, odds_key)
         try:

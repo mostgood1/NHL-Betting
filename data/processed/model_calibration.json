@@ -1,37 +1,21 @@
 {
-  "moneyline": {
-    "t": 1.0000000000000002,
-    "b": -0.1
-  },
-  "totals": {
-    "t": 1.5000000000000007,
-    "b": 0.15
-  },
-  "meta": {
+  "last_calibrated_utc": "2025-11-17T00:42:09Z",
+  "range": {
     "start": "2025-10-07",
-    "end": "2025-10-22",
-    "n_ml": 110,
-    "n_totals": 96,
-    "metric": "brier"
+    "end": "2025-11-16"
   },
-  "f10_early_factor": 1.0000000000000004,
-  "meta_f10": {
-    "f10_early_factor": 1.0000000000000004,
-    "log_likelihood": -27.135242971375853,
-    "n": 166,
-    "brier": 0.022987200491209878,
-    "grid": {
-      "start": 0.1,
-      "stop": 1.0,
-      "step": 0.02
-    }
+  "dc_rho": 0.2,
+  "market_anchor_w": 0.25,
+  "market_anchor_w_ml": 0.25,
+  "market_anchor_w_totals": 0.25,
+  "totals_temp": 1.0,
+  "min_ev_ml": 0.055,
+  "min_ev_totals": 0.075,
+  "ev_gates_last_learned_utc": "2025-11-17T01:09:52Z",
+  "ev_gates_range": {
+    "start": "2025-10-07",
+    "end": "2025-11-16"
   },
-  "f10_blend_alpha": 0.65,
-  "meta_f10_blend": {
-    "start": "2023-10-01",
-    "end": "2025-10-31",
-    "alpha": 0.65,
-    "logloss": 0.6611815446366106,
-    "brier": 0.23431187223637992
-  }
+  "min_ev_pl": 0.095,
+  "min_ev_first10": 0.0
 }

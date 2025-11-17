@@ -9,6 +9,7 @@ Param(
   [switch]$SkipProps,
   [switch]$SkipPropsProjections,
   [switch]$SkipPropsCalibration,
+  [switch]$SkipGameCalibration,
   [switch]$InstallDeps,
   [switch]$RecomputeRecs
 )
@@ -78,6 +79,37 @@ python @argsList
 
 # Final status
 if (-not $Quiet) { Write-Host "[run] Daily update complete." }
+
+# Automatically calibrate game model parameters (dc_rho, market anchor weights, totals temp)
+if (-not $SkipGameCalibration) {
+  try {
+    # Determine current season start (ET): July boundary, start from Sep 1 for safety
+    $now = Get-Date
+    $seasonStartYear = if ($now.Month -ge 7) { $now.Year } else { $now.Year - 1 }
+    $start = [datetime]::new($seasonStartYear, 9, 1).ToString('yyyy-MM-dd')
+    $end = (Get-Date).ToString('yyyy-MM-dd')
+    if (-not $Quiet) { Write-Host "[cal] Auto-calibrating games $start..$end" -ForegroundColor Cyan }
+    python -m nhl_betting.cli game-auto-calibrate --start $start --end $end | Out-Null
+    if (-not $Quiet) { Write-Host "[cal] Wrote calibration to data/processed/model_calibration.json" -ForegroundColor DarkGray }
+  } catch {
+    Write-Warning "[cal] Game auto-calibration failed: $($_.Exception.Message)"
+  }
+}
+
+# Automatically learn per-market EV gates (ML & Totals) and persist
+if (-not $SkipGameCalibration) {
+  try {
+    $now = Get-Date
+    $seasonStartYear = if ($now.Month -ge 7) { $now.Year } else { $now.Year - 1 }
+    $start = [datetime]::new($seasonStartYear, 9, 1).ToString('yyyy-MM-dd')
+    $end = (Get-Date).ToString('yyyy-MM-dd')
+    if (-not $Quiet) { Write-Host "[cal] Learning EV gates $start..$end" -ForegroundColor Cyan }
+    python -m nhl_betting.cli game-learn-ev-gates --start $start --end $end | Out-Null
+    if (-not $Quiet) { Write-Host "[cal] Updated min_ev_* thresholds in model_calibration.json" -ForegroundColor DarkGray }
+  } catch {
+    Write-Warning "[cal] EV gate learning failed: $($_.Exception.Message)"
+  }
+}
 
 # Optional: recompute game recommendations for today and tomorrow using shared module
 if ($RecomputeRecs) {

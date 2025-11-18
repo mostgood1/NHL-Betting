@@ -59,3 +59,13 @@ if ($Postgame) {
   Write-Host "[daily_update] Running postgame for $PostgameDate …"
   python -m nhl_betting.cli props-postgame --date $PostgameDate --stats-source $PostgameStatsSource --window $PostgameWindow --stake $PostgameStake
 }
+
+# Write rolling performance monitor JSON for dashboards (non-fatal)
+try {
+  $wd = 30
+  Write-Host "[daily_update] Generating game_daily_monitor for last $wd days …"
+  python -m nhl_betting.cli game-daily-monitor --window-days $wd
+  Write-Host "[daily_update] Monitor written to data/processed/game_daily_monitor.json"
+} catch {
+  Write-Warning "[daily_update] game_daily_monitor failed: $($_.Exception.Message)"
+}

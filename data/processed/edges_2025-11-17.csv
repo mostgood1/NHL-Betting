@@ -1,9 +1,11 @@
 date,home,away,market,ev
 2025-11-18T00:00:00Z,Florida Panthers,Vancouver Canucks,ev_away_ml,0.9353
+2025-11-18T03:00:00Z,Anaheim Ducks,Utah Mammoth,ev_away_pl_+1.5,0.55
 2025-11-18T00:00:00Z,Boston Bruins,Carolina Hurricanes,ev_home_ml,0.448
 2025-11-18T00:00:00Z,Florida Panthers,Vancouver Canucks,ev_away_pl_+1.5,0.2763
 2025-11-18T00:00:00Z,Buffalo Sabres,Edmonton Oilers,ev_under,0.2114
 2025-11-18T00:00:00Z,Washington Capitals,Los Angeles Kings,ev_over,0.1754
+2025-11-18T03:00:00Z,Anaheim Ducks,Utah Mammoth,ev_f10_yes,0.1269
 2025-11-18T03:00:00Z,Anaheim Ducks,Utah Mammoth,ev_under,0.1263
 2025-11-18T03:00:00Z,Anaheim Ducks,Utah Mammoth,ev_home_ml,0.092
 2025-11-18T00:00:00Z,Washington Capitals,Los Angeles Kings,ev_away_pl_+1.5,0.0909
@@ -29,3 +31,5 @@ date,home,away,market,ev
 2025-11-18T00:00:00Z,Boston Bruins,Carolina Hurricanes,ev_away_ml,-0.3454
 2025-11-18T00:00:00Z,Florida Panthers,Vancouver Canucks,ev_home_pl_-1.5,-0.3672
 2025-11-18T00:00:00Z,Florida Panthers,Vancouver Canucks,ev_home_ml,-0.45
+2025-11-18T03:00:00Z,Anaheim Ducks,Utah Mammoth,ev_f10_no,-0.4603
+2025-11-18T03:00:00Z,Anaheim Ducks,Utah Mammoth,ev_home_pl_-1.5,-0.6409

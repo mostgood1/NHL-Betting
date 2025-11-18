@@ -4190,6 +4190,7 @@ def game_backtest_dc_anchor(
     min_ev_totals: float = typer.Option(0.0, help="Minimum EV threshold for Totals plays"),
     min_ev_pl: float = typer.Option(0.0, help="Minimum EV threshold for Puckline plays"),
     min_ev_first10: float = typer.Option(0.0, help="Minimum EV threshold for First-10 plays"),
+    min_ev_periods: float = typer.Option(0.0, help="Minimum EV threshold for Period totals (P1/P2/P3)"),
     totals_temp: float = typer.Option(1.0, help="Temperature scaling for totals probs (>1 flattens toward 0.5)"),
     use_close: bool = typer.Option(True, help="Prefer closing odds/lines when available"),
     out_prefix: str = typer.Option("dc", help="Output filename prefix under data/processed/"),
@@ -4230,6 +4231,8 @@ def game_backtest_dc_anchor(
                     min_ev_pl = float(_obj.get("min_ev_pl"))
                 if abs(float(min_ev_first10)) < 1e-12 and _obj.get("min_ev_first10") is not None:
                     min_ev_first10 = float(_obj.get("min_ev_first10"))
+                if abs(float(min_ev_periods)) < 1e-12 and _obj.get("min_ev_periods") is not None:
+                    min_ev_periods = float(_obj.get("min_ev_periods"))
             except Exception:
                 pass
     except Exception:
@@ -4471,6 +4474,86 @@ def game_backtest_dc_anchor(
                             "clv_ev_delta": (None if (ev_open is None or ev_close is None) else round(ev_close - ev_open, 4)),
                             "clv_implied_delta": (None if (imp_open is None or imp_close is None) else round(imp_close - imp_open, 6)),
                         })
+            # Period totals P1..P3
+            for pn in (1, 2, 3):
+                try:
+                    p_over_key = f"p{pn}_over_prob"; p_under_key = f"p{pn}_under_prob"; p_push_key = f"p{pn}_push_prob"
+                    line_key = f"close_p{pn}_total_line" if use_close else f"p{pn}_total_line"
+                    over_odds = _num(r.get(f"close_p{pn}_over_odds")) if use_close else _num(r.get(f"p{pn}_over_odds"))
+                    under_odds = _num(r.get(f"close_p{pn}_under_odds")) if use_close else _num(r.get(f"p{pn}_under_odds"))
+                    po = _num(r.get(p_over_key)); pu = _num(r.get(p_under_key)); ln = _num(r.get(line_key))
+                    if po is None or pu is None or ln is None or over_odds is None or under_odds is None:
+                        continue
+                    # push probability if provided; else approximate via Poisson with period projections
+                    p_push = _num(r.get(p_push_key))
+                    if p_push is None:
+                        try:
+                            mu = _num(r.get(f"period{pn}_home_proj"))
+                            mu = (mu or 0.0) + (_num(r.get(f"period{pn}_away_proj")) or 0.0)
+                            if mu is not None and abs(ln - round(ln)) < 1e-9:
+                                from math import exp, factorial
+                                k = int(round(ln)); p_push = float(exp(-mu) * (mu ** k) / factorial(k)) if k >= 0 else 0.0
+                            else:
+                                p_push = 0.0
+                        except Exception:
+                            p_push = 0.0
+                    ev_o = _ev(po, over_odds, p_push)
+                    ev_u = _ev(pu, under_odds, p_push)
+                    if (ev_o is not None and ev_o >= min_ev_periods) or (ev_u is not None and ev_u >= min_ev_periods):
+                        if (ev_o or -999) >= (ev_u or -999):
+                            pick = f"p{pn}_over"; ev = ev_o; price = over_odds; p_pick = po
+                        else:
+                            pick = f"p{pn}_under"; ev = ev_u; price = under_odds; p_pick = pu
+                        won = None
+                        # use precomputed result if available
+                        res_key = f"result_p{pn}_total"
+                        rk = r.get(res_key)
+                        if isinstance(rk, str) and rk:
+                            if rk == "Push": won = None
+                            elif rk == "Over": won = (pick.endswith("over"))
+                            elif rk == "Under": won = (pick.endswith("under"))
+                        if ev is not None and ev >= min_ev_periods:
+                            # CLV: open/close odds and line
+                            o_open = _num(r.get(f"p{pn}_over_odds")); o_close = _num(r.get(f"close_p{pn}_over_odds"))
+                            u_open = _num(r.get(f"p{pn}_under_odds")); u_close = _num(r.get(f"close_p{pn}_under_odds"))
+                            l_open = _num(r.get(f"p{pn}_total_line")); l_close = _num(r.get(f"close_p{pn}_total_line"))
+                            # push mass at open/close
+                            def _p_push(mu_tot: float|None, line_val: float|None) -> float:
+                                try:
+                                    if mu_tot is None or line_val is None: return 0.0
+                                    if abs(line_val - round(line_val)) < 1e-9:
+                                        from math import exp, factorial
+                                        k = int(round(line_val)); return float(exp(-mu_tot) * (mu_tot ** k) / factorial(k)) if k>=0 else 0.0
+                                    return 0.0
+                                except Exception: return 0.0
+                            mu_tot = None
+                            try:
+                                mu_tot = (_num(r.get(f"period{pn}_home_proj")) or 0.0) + (_num(r.get(f"period{pn}_away_proj")) or 0.0)
+                            except Exception:
+                                mu_tot = None
+                            ppo = _p_push(mu_tot, l_open); ppc = _p_push(mu_tot, l_close)
+                            ev_open = _ev(p_pick, o_open if pick.endswith("over") else u_open, ppo) if (o_open or u_open) is not None else None
+                            ev_close = _ev(p_pick, o_close if pick.endswith("over") else u_close, ppc) if (o_close or u_close) is not None else None
+                            def _impX(od):
+                                try:
+                                    d = american_to_decimal(float(od)); return (1.0/d) if (d and d>0) else None
+                                except Exception:
+                                    return None
+                            imp_open = _impX(o_open if pick.endswith("over") else u_open)
+                            imp_close = _impX(o_close if pick.endswith("over") else u_close)
+                            rows.append({
+                                "date": day, "home": home, "away": away, "market": "periods", "pick": pick,
+                                "prob": float(p_pick), "odds": price, "line": ln, "ev": ev,
+                                "won": won, "stake": stake if won is not None else 0.0,
+                                "payout": (stake* (american_to_decimal(price)-1.0)) if won else (0.0 if won is None else -stake),
+                                "open_odds": (o_open if pick.endswith("over") else u_open),
+                                "close_odds": (o_close if pick.endswith("over") else u_close),
+                                "open_line": l_open, "close_line": l_close,
+                                "clv_ev_delta": (None if (ev_open is None or ev_close is None) else round(ev_close - ev_open, 4)),
+                                "clv_implied_delta": (None if (imp_open is None or imp_close is None) else round(imp_close - imp_open, 6)),
+                            })
+                except Exception:
+                    continue
             # Puckline (-1.5 home, +1.5 away)
             try:
                 php = _num(r.get("p_home_pl_-1.5")); pap = _num(r.get("p_away_pl_+1.5"))
@@ -4949,6 +5032,7 @@ def game_learn_ev_gates(
     to_t = best_thresh(rdf[rdf['market']=='totals'])
     pl_t = best_thresh(rdf[rdf['market']=='puckline']) if 'puckline' in set(rdf['market'].unique()) else 0.0
     f10_t = best_thresh(rdf[rdf['market']=='first10']) if 'first10' in set(rdf['market'].unique()) else 0.0
+    per_t = best_thresh(rdf[rdf['market']=='periods']) if 'periods' in set(rdf['market'].unique()) else 0.0
 
     # Write into model_calibration.json (merge with existing)
     cal_path = Path(out_json) if out_json else PROC_DIR / 'model_calibration.json'
@@ -4964,11 +5048,410 @@ def game_learn_ev_gates(
     obj['min_ev_totals'] = float(to_t)
     obj['min_ev_pl'] = float(pl_t)
     obj['min_ev_first10'] = float(f10_t)
+    obj['min_ev_periods'] = float(per_t)
     obj['ev_gates_last_learned_utc'] = _dt.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
     obj['ev_gates_range'] = {'start': start, 'end': end}
     with open(cal_path, 'w', encoding='utf-8') as f:
         json.dump(obj, f, indent=2)
-    print({"min_ev_ml": ml_t, "min_ev_totals": to_t, "min_ev_pl": pl_t, "min_ev_first10": f10_t, "path": str(cal_path)})
+    print({"min_ev_ml": ml_t, "min_ev_totals": to_t, "min_ev_pl": pl_t, "min_ev_first10": f10_t, "min_ev_periods": per_t, "path": str(cal_path)})
+
+@app.command()
+def game_daily_monitor(
+    window_days: int = typer.Option(30, help="Lookback window in days ending today (ET)"),
+    use_close: bool = typer.Option(True, help="Prefer closing odds/lines when available"),
+    out_json: str = typer.Option("", help="Optional output path; default data/processed/game_daily_monitor.json"),
+):
+    """Summarize recent ROI, accuracy, and gate thresholds across markets for a rolling window.
+
+    Markets: moneyline, totals, puckline, first10. Uses predictions_{date}.csv and applies
+    EV gates from model_calibration.json when present. Outputs per-market and overall:
+      n, decided, staked, pnl, roi, acc.
+    """
+    from datetime import datetime as _dt, timedelta as _td
+    import json, math
+    import pandas as pd
+    from .utils.io import PROC_DIR
+    from .utils.odds import american_to_decimal
+
+    today = _dt.utcnow().strftime('%Y-%m-%d')
+    end_dt = _dt.strptime(today, '%Y-%m-%d')
+    start_dt = end_dt - _td(days=int(window_days) - 1)
+
+    gates = {"min_ev_ml":0.0,"min_ev_totals":0.0,"min_ev_pl":0.0,"min_ev_first10":0.0,"min_ev_periods":0.0}
+    cal_path = PROC_DIR / 'model_calibration.json'
+    if cal_path.exists():
+        try:
+            with cal_path.open('r', encoding='utf-8') as f:
+                obj = json.load(f) or {}
+            for k in list(gates.keys()):
+                if obj.get(k) is not None:
+                    gates[k] = float(obj.get(k))
+        except Exception:
+            pass
+
+    def _num(v):
+        try:
+            if v is None: return None
+            f = float(v); return f if math.isfinite(f) else None
+        except Exception: return None
+
+    def _ev(p: float, american: float) -> float | None:
+        try:
+            if p is None or american is None: return None
+            dec = american_to_decimal(float(american))
+            if dec is None or not math.isfinite(dec): return None
+            p = float(p)
+            if not (0.0 <= p <= 1.0): return None
+            return round(p*(dec-1.0) - (1.0 - p), 4)
+        except Exception: return None
+
+    plays = []
+    d = start_dt
+    while d <= end_dt:
+        day = d.strftime('%Y-%m-%d')
+        p = PROC_DIR / f'predictions_{day}.csv'
+        if not p.exists():
+            d += _td(days=1); continue
+        try:
+            df = pd.read_csv(p)
+        except Exception:
+            d += _td(days=1); continue
+        for _, r in df.iterrows():
+            fh = _num(r.get('final_home_goals')); fa = _num(r.get('final_away_goals'))
+            # Moneyline
+            ph = _num(r.get('p_home_ml')); pa = _num(r.get('p_away_ml'))
+            h_od = _num(r.get('close_home_ml_odds')) if use_close else _num(r.get('home_ml_odds'))
+            a_od = _num(r.get('close_away_ml_odds')) if use_close else _num(r.get('away_ml_odds'))
+            if ph is not None and pa is not None and h_od is not None and a_od is not None:
+                ev_h = _ev(ph, h_od); ev_a = _ev(pa, a_od)
+                if (ev_h is not None and ev_h >= gates['min_ev_ml']) or (ev_a is not None and ev_a >= gates['min_ev_ml']):
+                    if (ev_h or -999) >= (ev_a or -999): pick='home_ml'; ev=ev_h; price=h_od; p_pick=ph; won=(fh>fa) if (fh is not None and fa is not None) else None
+                    else: pick='away_ml'; ev=ev_a; price=a_od; p_pick=pa; won=(fa>fh) if (fh is not None and fa is not None) else None
+                    if ev is not None and ev >= gates['min_ev_ml']:
+                        plays.append({'date':day,'market':'moneyline','ev':ev,'odds':price,'won':won,'prob':p_pick})
+            # Totals
+            po = _num(r.get('p_over')); pu = _num(r.get('p_under'))
+            o_od = _num(r.get('close_over_odds')) if use_close else _num(r.get('over_odds'))
+            u_od = _num(r.get('close_under_odds')) if use_close else _num(r.get('under_odds'))
+            tl = _num(r.get('close_total_line_used')) if use_close else _num(r.get('total_line_used'))
+            if po is not None and pu is not None and o_od is not None and u_od is not None and tl is not None:
+                ev_o=_ev(po,o_od); ev_u=_ev(pu,u_od)
+                if (ev_o is not None and ev_o >= gates['min_ev_totals']) or (ev_u is not None and ev_u >= gates['min_ev_totals']):
+                    if (ev_o or -999) >= (ev_u or -999): pick='over'; ev=ev_o; price=o_od; p_pick=po
+                    else: pick='under'; ev=ev_u; price=u_od; p_pick=pu
+                    won=None
+                    if fh is not None and fa is not None:
+                        at = fh+fa
+                        if abs(tl - round(tl)) < 1e-9 and abs(at - tl) < 1e-9: won=None
+                        else: won = (at>tl) if pick=='over' else (at<tl)
+                    if ev is not None and ev >= gates['min_ev_totals']:
+                        plays.append({'date':day,'market':'totals','ev':ev,'odds':price,'won':won,'prob':p_pick})
+            # Puckline
+            php = _num(r.get('p_home_pl_-1.5')); pap = _num(r.get('p_away_pl_+1.5'))
+            hpl = _num(r.get('close_home_pl_-1.5_odds')) if use_close else _num(r.get('home_pl_-1.5_odds'))
+            apl = _num(r.get('close_away_pl_+1.5_odds')) if use_close else _num(r.get('away_pl_+1.5_odds'))
+            if php is not None and pap is not None and hpl is not None and apl is not None:
+                ev_hpl=_ev(php,hpl); ev_apl=_ev(pap,apl)
+                if (ev_hpl is not None and ev_hpl >= gates['min_ev_pl']) or (ev_apl is not None and ev_apl >= gates['min_ev_pl']):
+                    if (ev_hpl or -999) >= (ev_apl or -999): pick='home_-1.5'; ev=ev_hpl; price=hpl; p_pick=php
+                    else: pick='away_+1.5'; ev=ev_apl; price=apl; p_pick=pap
+                    won=None
+                    if fh is not None and fa is not None:
+                        diff = fh - fa; won = (diff>1.5) if pick=='home_-1.5' else (diff<1.5)
+                    if ev is not None and ev >= gates['min_ev_pl']:
+                        plays.append({'date':day,'market':'puckline','ev':ev,'odds':price,'won':won,'prob':p_pick})
+            # First10
+            py = _num(r.get('p_f10_yes')); pn = _num(r.get('p_f10_no'))
+            y_od = _num(r.get('close_f10_yes_odds')) if use_close else _num(r.get('f10_yes_odds'))
+            n_od = _num(r.get('close_f10_no_odds')) if use_close else _num(r.get('f10_no_odds'))
+            rf = str(r.get('result_first10') or '').strip().lower()
+            if py is not None and pn is not None and y_od is not None and n_od is not None:
+                ev_y=_ev(py,y_od); ev_n=_ev(pn,n_od)
+                if (ev_y is not None and ev_y >= gates['min_ev_first10']) or (ev_n is not None and ev_n >= gates['min_ev_first10']):
+                    if (ev_y or -999) >= (ev_n or -999): pick='f10_yes'; ev=ev_y; price=y_od; p_pick=py
+                    else: pick='f10_no'; ev=ev_n; price=n_od; p_pick=pn
+                    won=None
+                    if rf in ('yes','no'): won = (rf == ('yes' if pick=='f10_yes' else 'no'))
+                    if ev is not None and ev >= gates['min_ev_first10']:
+                        plays.append({'date':day,'market':'first10','ev':ev,'odds':price,'won':won,'prob':p_pick})
+            # Period totals P1..P3
+            for pn_ in (1,2,3):
+                po = _num(r.get(f'p{pn_}_over_prob')); pu = _num(r.get(f'p{pn_}_under_prob'))
+                o_od = _num(r.get(f'close_p{pn_}_over_odds')) if use_close else _num(r.get(f'p{pn_}_over_odds'))
+                u_od = _num(r.get(f'close_p{pn_}_under_odds')) if use_close else _num(r.get(f'p{pn_}_under_odds'))
+                ln = _num(r.get(f'close_p{pn_}_total_line')) if use_close else _num(r.get(f'p{pn_}_total_line'))
+                rk = str(r.get(f'result_p{pn_}_total') or '')
+                if po is not None and pu is not None and o_od is not None and u_od is not None and ln is not None:
+                    ev_o=_ev(po,o_od); ev_u=_ev(pu,u_od)
+                    if (ev_o is not None and ev_o >= gates['min_ev_periods']) or (ev_u is not None and ev_u >= gates['min_ev_periods']):
+                        if (ev_o or -999) >= (ev_u or -999): pick='over'; ev=ev_o; price=o_od; p_pick=po
+                        else: pick='under'; ev=ev_u; price=u_od; p_pick=pu
+                        won=None
+                        if rk in ('Over','Under','Push'):
+                            if rk=='Push': won=None
+                            else: won = (rk==('Over' if pick=='over' else 'Under'))
+                        if ev is not None and ev >= gates['min_ev_periods']:
+                            plays.append({'date':day,'market':'periods','ev':ev,'odds':price,'won':won,'prob':p_pick})
+        d += _td(days=1)
+
+    if not plays:
+        print('{"empty": true}'); return
+    pdf = pd.DataFrame(plays)
+    def _summ(sub: pd.DataFrame) -> dict:
+        st = 100.0 * sub['won'].notna().sum(); pnl=0.0
+        for _, rr in sub.iterrows():
+            if rr.get('won') is None: continue
+            dec = american_to_decimal(rr.get('odds'))
+            if rr.get('won'): pnl += 100.0 * (dec - 1.0)
+            else: pnl -= 100.0
+        roi = (pnl/st) if st>0 else None
+        acc = None
+        try:
+            acc = float(sub.dropna(subset=['won']).assign(w=lambda x: x['won'].astype(bool)).w.mean()) if sub.dropna(subset=['won']).shape[0] else None
+        except Exception: acc=None
+        return {"n": int(len(sub)), "decided": int(sub['won'].notna().sum()), "staked": st, "pnl": pnl, "roi": roi, "acc": acc}
+    markets = {m: _summ(g) for m, g in pdf.groupby('market')}
+    overall = _summ(pdf)
+    out_obj = {"range": {"start": start_dt.strftime('%Y-%m-%d'), "end": end_dt.strftime('%Y-%m-%d')}, "gates": gates, "markets": markets, "overall": overall}
+    out_path = Path(out_json) if out_json else PROC_DIR / 'game_daily_monitor.json'
+    try:
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        with out_path.open('w', encoding='utf-8') as f:
+            json.dump(out_obj, f, indent=2)
+    except Exception:
+        pass
+    print(json.dumps(out_obj, indent=2))
+
+@app.command()
+def game_recompute_edges(
+    date: Optional[str] = typer.Option(None, help="Slate date YYYY-MM-DD (ET); default = today (ET)"),
+    write_recommendations: bool = typer.Option(False, help="If true, also regenerate recommendations_{date}.csv using existing logic"),
+):
+    """Recompute EVs/edges for team markets from predictions_{date}.csv and write edges_{date}.csv.
+
+    - Reads data/processed/predictions_{date}.csv
+    - Ensures EV fields exist for: ML (home/away), Totals (over/under with push), PL (-1.5/+1.5), First10 (Yes/No), Period totals (P1..P3 Over/Under)
+    - Writes back updated predictions and edges long-form CSV
+    """
+    import math
+    import json
+    import pandas as pd
+    from datetime import datetime as _dt
+    from .utils.io import PROC_DIR, save_df
+    from .utils.odds import american_to_decimal, decimal_to_implied_prob, remove_vig_two_way
+
+    def _today_et() -> str:
+        try:
+            from zoneinfo import ZoneInfo as _Z
+            return _dt.now(_Z("America/New_York")).strftime("%Y-%m-%d")
+        except Exception:
+            return _dt.utcnow().strftime("%Y-%m-%d")
+
+    d = date or _today_et()
+    pred_path = PROC_DIR / f"predictions_{d}.csv"
+    if not pred_path.exists():
+        print(json.dumps({"ok": False, "date": d, "reason": "no_predictions"})); return
+    try:
+        df = pd.read_csv(pred_path)
+    except Exception as e:
+        print(json.dumps({"ok": False, "date": d, "reason": "read_failed", "error": str(e)})); return
+    if df is None or df.empty:
+        print(json.dumps({"ok": False, "date": d, "reason": "empty"})); return
+
+    def _num(v):
+        try:
+            if v is None: return None
+            if isinstance(v, (int, float)):
+                f = float(v)
+                return f if math.isfinite(f) else None
+            s = str(v).strip().replace(',', '')
+            if s == '': return None
+            f = float(s)
+            return f if math.isfinite(f) else None
+        except Exception:
+            return None
+
+    # Poisson helpers
+    from math import exp, factorial, floor
+    def _pois_pmf(mu: float, k: int) -> float:
+        try:
+            if k < 0 or mu is None or not math.isfinite(mu) or mu < 0: return 0.0
+            return float(exp(-mu) * (mu ** k) / factorial(k))
+        except Exception:
+            return 0.0
+    def _pois_cdf(mu: float, k: int) -> float:
+        try:
+            if k < 0: return 0.0
+            s = 0.0
+            for i in range(0, k+1): s += _pois_pmf(mu, i)
+            return float(min(1.0, max(0.0, s)))
+        except Exception:
+            return 0.0
+
+    # Compute First10 prob if missing, and Period totals probs
+    for i, r in df.iterrows():
+        # First 10 min Yes/No from period1 projections or legacy fields
+        try:
+            if pd.isna(r.get('p_f10_yes')):
+                p_yes = None
+                h1 = _num(r.get('period1_home_proj')); a1 = _num(r.get('period1_away_proj'))
+                if h1 is not None and a1 is not None and h1>=0 and a1>=0:
+                    # Resolve factor from calibration or default 0.55
+                    f = 0.55
+                    try:
+                        cal = json.load(open(PROC_DIR / 'model_calibration.json', 'r', encoding='utf-8'))
+                        if cal.get('f10_early_factor') is not None:
+                            f = float(cal.get('f10_early_factor'))
+                    except Exception:
+                        pass
+                    lam10 = f * (h1 + a1)
+                    if math.isfinite(lam10) and lam10 >= 0:
+                        p_yes = 1.0 - exp(-lam10)
+            if p_yes is None:
+                p10 = _num(r.get('first_10min_prob'))
+                if p10 is not None: p_yes = p10
+                else:
+                    lam = _num(r.get('first_10min_proj'))
+                    if lam is not None and lam>=0: p_yes = 1.0 - exp(-lam)
+            if p_yes is not None:
+                df.at[i, 'p_f10_yes'] = max(0.0, min(1.0, float(p_yes)))
+                df.at[i, 'p_f10_no'] = 1.0 - float(df.at[i, 'p_f10_yes'])
+        except Exception:
+            pass
+        # Period totals probabilities P1..P3 given projections and lines
+        for pn in (1,2,3):
+            try:
+                mu = _num(r.get(f'period{pn}_home_proj'))
+                mu2 = _num(r.get(f'period{pn}_away_proj'))
+                ln = _num(r.get(f'p{pn}_total_line'))
+                if mu is None or mu2 is None or ln is None: continue
+                tot = mu + mu2
+                if not math.isfinite(tot): continue
+                if abs(ln - round(ln)) < 1e-9:
+                    k = int(round(ln)); p_push = _pois_pmf(tot, k)
+                    p_under = _pois_cdf(tot, k-1); p_over = max(0.0, 1.0 - _pois_cdf(tot, k))
+                else:
+                    k = floor(ln); p_push = 0.0
+                    p_under = _pois_cdf(tot, k); p_over = max(0.0, 1.0 - p_under)
+                df.at[i, f'p{pn}_over_prob'] = max(0.0, min(1.0, float(p_over)))
+                df.at[i, f'p{pn}_under_prob'] = max(0.0, min(1.0, float(p_under)))
+                df.at[i, f'p{pn}_push_prob'] = max(0.0, min(1.0, float(p_push)))
+            except Exception:
+                continue
+
+    # EV ensuring utility
+    def _ensure_ev(row: pd.Series, prob_key: str, odds_key: str, ev_key: str, edge_key: Optional[str] = None) -> pd.Series:
+        try:
+            ev_present = (ev_key in row) and (row.get(ev_key) is not None) and not (isinstance(row.get(ev_key), float) and pd.isna(row.get(ev_key)))
+            if ev_present and (edge_key is None or (edge_key in row and pd.notna(row.get(edge_key)))):
+                return row
+            p = None
+            if prob_key in row and pd.notna(row.get(prob_key)):
+                p = float(row.get(prob_key))
+                if not (0.0 <= p <= 1.0) or not math.isfinite(p): p = None
+            price = _num(row.get(odds_key)) if odds_key in row else None
+            if price is None:
+                close_map = {
+                    'home_ml_odds': 'close_home_ml_odds', 'away_ml_odds': 'close_away_ml_odds',
+                    'over_odds': 'close_over_odds', 'under_odds': 'close_under_odds',
+                    'home_pl_-1.5_odds': 'close_home_pl_-1.5_odds', 'away_pl_+1.5_odds': 'close_away_pl_+1.5_odds',
+                }
+                ck = close_map.get(odds_key)
+                if ck and (ck in row): price = _num(row.get(ck))
+            if price is None:
+                if odds_key in ('f10_yes_odds','f10_no_odds'): price = -150.0
+                elif odds_key in ('over_odds','under_odds','home_pl_-1.5_odds','away_pl_+1.5_odds','p1_over_odds','p1_under_odds','p2_over_odds','p2_under_odds','p3_over_odds','p3_under_odds'):
+                    price = -110.0
+            if (p is not None) and (price is not None):
+                dec = american_to_decimal(price)
+                if dec is not None and math.isfinite(dec):
+                    p_push = 0.0
+                    try:
+                        if prob_key in ('p_over','p_under'):
+                            tl = row.get('total_line_used') if 'total_line_used' in row else None
+                            if tl is None: tl = row.get('close_total_line_used') if 'close_total_line_used' in row else None
+                            mt = row.get('model_total') if 'model_total' in row else None
+                            if tl is not None and mt is not None:
+                                tl_f = float(tl); mt_f = float(mt)
+                                if math.isfinite(tl_f) and math.isfinite(mt_f) and abs(tl_f - round(tl_f)) < 1e-9:
+                                    k = int(round(tl_f)); p_push = float(exp(-mt_f) * (mt_f ** k) / factorial(k)) if k >= 0 else 0.0
+                    except Exception:
+                        p_push = 0.0
+                    p_loss = max(0.0, 1.0 - float(p) - float(p_push)) if prob_key in ('p_over','p_under') else max(0.0, 1.0 - float(p))
+                    row[ev_key] = round(float(p) * (dec - 1.0) - p_loss, 4)
+                    if edge_key:
+                        counterpart_map = {
+                            ('p_home_ml','home_ml_odds'): ('p_away_ml','away_ml_odds'), ('p_away_ml','away_ml_odds'): ('p_home_ml','home_ml_odds'),
+                            ('p_over','over_odds'): ('p_under','under_odds'), ('p_under','under_odds'): ('p_over','over_odds'),
+                            ('p_home_pl_-1.5','home_pl_-1.5_odds'): ('p_away_pl_+1.5','away_pl_+1.5_odds'), ('p_away_pl_+1.5','away_pl_+1.5_odds'): ('p_home_pl_-1.5','home_pl_-1.5_odds'),
+                            ('p_f10_yes','f10_yes_odds'): ('p_f10_no','f10_no_odds'), ('p_f10_no','f10_no_odds'): ('p_f10_yes','f10_yes_odds'),
+                            ('p1_over_prob','p1_over_odds'): ('p1_under_prob','p1_under_odds'), ('p1_under_prob','p1_under_odds'): ('p1_over_prob','p1_over_odds'),
+                            ('p2_over_prob','p2_over_odds'): ('p2_under_prob','p2_under_odds'), ('p2_under_prob','p2_under_odds'): ('p2_over_prob','p2_over_odds'),
+                            ('p3_over_prob','p3_over_odds'): ('p3_under_prob','p3_under_odds'), ('p3_under_prob','p3_under_odds'): ('p3_over_prob','p3_over_odds'),
+                        }
+                        other = counterpart_map.get((prob_key, odds_key))
+                        if other:
+                            p2 = None
+                            if other[0] in row and pd.notna(row.get(other[0])):
+                                try:
+                                    p2 = float(row.get(other[0]));
+                                    if not (0.0 <= p2 <= 1.0) or not math.isfinite(p2): p2 = None
+                                except Exception:
+                                    p2 = None
+                            price2 = _num(row.get(other[1])) if other[1] in row else None
+                            if price2 is not None:
+                                dec1 = american_to_decimal(price); dec2 = american_to_decimal(price2)
+                                if dec1 is not None and dec2 is not None:
+                                    imp1 = decimal_to_implied_prob(dec1); imp2 = decimal_to_implied_prob(dec2)
+                                    nv1, nv2 = remove_vig_two_way(imp1, imp2)
+                                    nv = nv1 if prob_key in ('p_home_ml','p_over','p_home_pl_-1.5') else nv2
+                                    row[edge_key] = round(p - nv, 4)
+        except Exception:
+            return row
+        return row
+
+    # Apply EV/edge computation across rows
+    for i, r in df.iterrows():
+        r = _ensure_ev(r, 'p_home_ml', 'home_ml_odds', 'ev_home_ml', 'edge_home_ml')
+        r = _ensure_ev(r, 'p_away_ml', 'away_ml_odds', 'ev_away_ml', 'edge_away_ml')
+        r = _ensure_ev(r, 'p_over', 'over_odds', 'ev_over', 'edge_over')
+        r = _ensure_ev(r, 'p_under', 'under_odds', 'ev_under', 'edge_under')
+        r = _ensure_ev(r, 'p_home_pl_-1.5', 'home_pl_-1.5_odds', 'ev_home_pl_-1.5', 'edge_home_pl_-1.5')
+        r = _ensure_ev(r, 'p_away_pl_+1.5', 'away_pl_+1.5_odds', 'ev_away_pl_+1.5', 'edge_away_pl_+1.5')
+        r = _ensure_ev(r, 'p_f10_yes', 'f10_yes_odds', 'ev_f10_yes', 'edge_f10_yes')
+        r = _ensure_ev(r, 'p_f10_no', 'f10_no_odds', 'ev_f10_no', 'edge_f10_no')
+        r = _ensure_ev(r, 'p1_over_prob', 'p1_over_odds', 'ev_p1_over', None)
+        r = _ensure_ev(r, 'p1_under_prob', 'p1_under_odds', 'ev_p1_under', None)
+        r = _ensure_ev(r, 'p2_over_prob', 'p2_over_odds', 'ev_p2_over', None)
+        r = _ensure_ev(r, 'p2_under_prob', 'p2_under_odds', 'ev_p2_under', None)
+        r = _ensure_ev(r, 'p3_over_prob', 'p3_over_odds', 'ev_p3_over', None)
+        r = _ensure_ev(r, 'p3_under_prob', 'p3_under_odds', 'ev_p3_under', None)
+    df.loc[i, r.index] = r
+
+    # Persist predictions and edges
+    save_df(df, pred_path)
+    try:
+        ev_cols = [c for c in df.columns if c.startswith('ev_')]
+        if ev_cols:
+            edges = df.melt(id_vars=['date','home','away'], value_vars=ev_cols, var_name='market', value_name='ev').dropna()
+            edges = edges.sort_values('ev', ascending=False)
+            edges_path = PROC_DIR / f"edges_{d}.csv"
+            save_df(edges, edges_path)
+    except Exception:
+        pass
+
+    # Optional: regenerate recommendations via existing CLI endpoint wrapper
+    if write_recommendations:
+        try:
+            # Call the existing recommendations command if present
+            try:
+                props_recommendations.callback(date=d, min_ev=0.0, top=1000)
+            except Exception:
+                pass
+        except Exception:
+            pass
+
+    print(json.dumps({"ok": True, "date": d, "predictions": str(pred_path), "edges": str(PROC_DIR / f'edges_{d}.csv')}))
 
 
 @app.command()

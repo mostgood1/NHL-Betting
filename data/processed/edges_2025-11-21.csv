@@ -1,0 +1,21 @@
+date,home,away,market,ev
+2025-11-22T01:00:00Z,Winnipeg Jets,Carolina Hurricanes,ev_home_ml,0.6149
+2025-11-22T00:00:00Z,Buffalo Sabres,Chicago Blackhawks,ev_away_ml,0.3135
+2025-11-22T00:00:00Z,Pittsburgh Penguins,Minnesota Wild,ev_home_ml,0.1683
+2025-11-22T03:30:00Z,Los Angeles Kings,Boston Bruins,ev_over,0.1674
+2025-11-22T03:30:00Z,Los Angeles Kings,Boston Bruins,ev_away_pl_+1.5,0.1292
+2025-11-22T01:00:00Z,Winnipeg Jets,Carolina Hurricanes,ev_over,0.1088
+2025-11-22T00:00:00Z,Buffalo Sabres,Chicago Blackhawks,ev_away_pl_+1.5,0.0943
+2025-11-22T03:30:00Z,Los Angeles Kings,Boston Bruins,ev_home_ml,0.0604
+2025-11-22T00:00:00Z,Pittsburgh Penguins,Minnesota Wild,ev_under,0.003
+2025-11-22T00:00:00Z,Buffalo Sabres,Chicago Blackhawks,ev_over,-0.028
+2025-11-22T00:00:00Z,Buffalo Sabres,Chicago Blackhawks,ev_under,-0.0637
+2025-11-22T00:00:00Z,Pittsburgh Penguins,Minnesota Wild,ev_over,-0.1087
+2025-11-22T03:30:00Z,Los Angeles Kings,Boston Bruins,ev_away_ml,-0.2189
+2025-11-22T01:00:00Z,Winnipeg Jets,Carolina Hurricanes,ev_under,-0.2334
+2025-11-22T00:00:00Z,Pittsburgh Penguins,Minnesota Wild,ev_away_ml,-0.2376
+2025-11-22T00:00:00Z,Buffalo Sabres,Chicago Blackhawks,ev_home_pl_-1.5,-0.2479
+2025-11-22T00:00:00Z,Buffalo Sabres,Chicago Blackhawks,ev_home_ml,-0.2571
+2025-11-22T03:30:00Z,Los Angeles Kings,Boston Bruins,ev_under,-0.2668
+2025-11-22T03:30:00Z,Los Angeles Kings,Boston Bruins,ev_home_pl_-1.5,-0.3015
+2025-11-22T01:00:00Z,Winnipeg Jets,Carolina Hurricanes,ev_away_ml,-0.6151

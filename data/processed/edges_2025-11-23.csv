@@ -1,31 +1,31 @@
 date,home,away,market,ev
-2025-11-24T02:00:00Z,Vancouver Canucks,Calgary Flames,ev_away_ml,0.4754
-2025-11-23T18:00:00Z,Buffalo Sabres,Carolina Hurricanes,ev_home_ml,0.4117
-2025-11-24T01:00:00Z,San Jose Sharks,Boston Bruins,ev_away_ml,0.3172
-2025-11-23T22:00:00Z,New York Islanders,Seattle Kraken,ev_away_ml,0.3023
-2025-11-24T00:00:00Z,Chicago Blackhawks,Colorado Avalanche,ev_away_ml,0.2927
-2025-11-23T21:00:00Z,Winnipeg Jets,Minnesota Wild,ev_home_pl_-1.5,0.2803
-2025-11-23T22:00:00Z,New York Islanders,Seattle Kraken,ev_away_pl_+1.5,0.1628
-2025-11-24T02:00:00Z,Vancouver Canucks,Calgary Flames,ev_over,0.1501
-2025-11-23T22:00:00Z,New York Islanders,Seattle Kraken,ev_over,0.1432
-2025-11-24T00:00:00Z,Chicago Blackhawks,Colorado Avalanche,ev_under,0.1337
-2025-11-24T01:00:00Z,San Jose Sharks,Boston Bruins,ev_under,0.1033
-2025-11-23T21:00:00Z,Winnipeg Jets,Minnesota Wild,ev_over,0.0806
-2025-11-23T18:00:00Z,Buffalo Sabres,Carolina Hurricanes,ev_under,0.0582
-2025-11-23T21:00:00Z,Winnipeg Jets,Minnesota Wild,ev_away_ml,0.0393
-2025-11-24T02:00:00Z,Vancouver Canucks,Calgary Flames,ev_home_pl_-1.5,0.01
-2025-11-24T02:00:00Z,Vancouver Canucks,Calgary Flames,ev_away_pl_+1.5,-0.072
-2025-11-23T21:00:00Z,Winnipeg Jets,Minnesota Wild,ev_home_ml,-0.1126
-2025-11-23T18:00:00Z,Buffalo Sabres,Carolina Hurricanes,ev_over,-0.1526
-2025-11-23T21:00:00Z,Winnipeg Jets,Minnesota Wild,ev_away_pl_+1.5,-0.1877
-2025-11-23T21:00:00Z,Winnipeg Jets,Minnesota Wild,ev_under,-0.1885
-2025-11-24T01:00:00Z,San Jose Sharks,Boston Bruins,ev_over,-0.2036
-2025-11-24T00:00:00Z,Chicago Blackhawks,Colorado Avalanche,ev_over,-0.2246
-2025-11-24T02:00:00Z,Vancouver Canucks,Calgary Flames,ev_under,-0.2598
-2025-11-23T22:00:00Z,New York Islanders,Seattle Kraken,ev_under,-0.2654
-2025-11-23T22:00:00Z,New York Islanders,Seattle Kraken,ev_home_ml,-0.2665
-2025-11-23T18:00:00Z,Buffalo Sabres,Carolina Hurricanes,ev_away_ml,-0.334
-2025-11-23T22:00:00Z,New York Islanders,Seattle Kraken,ev_home_pl_-1.5,-0.3517
-2025-11-24T02:00:00Z,Vancouver Canucks,Calgary Flames,ev_home_ml,-0.3938
-2025-11-24T01:00:00Z,San Jose Sharks,Boston Bruins,ev_home_ml,-0.5004
-2025-11-24T00:00:00Z,Chicago Blackhawks,Colorado Avalanche,ev_home_ml,-0.6459
+2025-11-23T22:00:00Z,New York Islanders,Seattle Kraken,ev_away_ml,0.5154
+2025-11-23T18:00:00Z,Buffalo Sabres,Carolina Hurricanes,ev_home_ml,0.2361
+2025-11-23T21:00:00Z,Winnipeg Jets,Minnesota Wild,ev_home_pl_-1.5,0.2174
+2025-11-23T21:00:00Z,Winnipeg Jets,Minnesota Wild,ev_home_ml,0.2166
+2025-11-24T01:00:00Z,San Jose Sharks,Boston Bruins,ev_away_ml,0.1776
+2025-11-23T22:00:00Z,New York Islanders,Seattle Kraken,ev_away_pl_+1.5,0.1432
+2025-11-23T22:00:00Z,New York Islanders,Seattle Kraken,ev_over,0.135
+2025-11-23T21:00:00Z,Winnipeg Jets,Minnesota Wild,ev_over,0.1174
+2025-11-24T00:00:00Z,Chicago Blackhawks,Colorado Avalanche,ev_under,0.1119
+2025-11-24T02:00:00Z,Vancouver Canucks,Calgary Flames,ev_home_pl_-1.5,0.1093
+2025-11-24T02:00:00Z,Vancouver Canucks,Calgary Flames,ev_over,0.1089
+2025-11-23T18:00:00Z,Buffalo Sabres,Carolina Hurricanes,ev_under,0.0805
+2025-11-24T01:00:00Z,San Jose Sharks,Boston Bruins,ev_under,0.0685
+2025-11-24T02:00:00Z,Vancouver Canucks,Calgary Flames,ev_home_ml,-0.0187
+2025-11-24T00:00:00Z,Chicago Blackhawks,Colorado Avalanche,ev_home_ml,-0.0273
+2025-11-24T00:00:00Z,Chicago Blackhawks,Colorado Avalanche,ev_away_ml,-0.0484
+2025-11-24T02:00:00Z,Vancouver Canucks,Calgary Flames,ev_away_ml,-0.0667
+2025-11-24T02:00:00Z,Vancouver Canucks,Calgary Flames,ev_away_pl_+1.5,-0.1192
+2025-11-23T21:00:00Z,Winnipeg Jets,Minnesota Wild,ev_away_pl_+1.5,-0.1675
+2025-11-24T01:00:00Z,San Jose Sharks,Boston Bruins,ev_over,-0.1683
+2025-11-23T18:00:00Z,Buffalo Sabres,Carolina Hurricanes,ev_over,-0.1714
+2025-11-23T18:00:00Z,Buffalo Sabres,Carolina Hurricanes,ev_away_ml,-0.2022
+2025-11-24T00:00:00Z,Chicago Blackhawks,Colorado Avalanche,ev_over,-0.2088
+2025-11-23T21:00:00Z,Winnipeg Jets,Minnesota Wild,ev_under,-0.2226
+2025-11-24T02:00:00Z,Vancouver Canucks,Calgary Flames,ev_under,-0.2233
+2025-11-23T22:00:00Z,New York Islanders,Seattle Kraken,ev_under,-0.2553
+2025-11-24T01:00:00Z,San Jose Sharks,Boston Bruins,ev_home_ml,-0.2977
+2025-11-23T22:00:00Z,New York Islanders,Seattle Kraken,ev_home_pl_-1.5,-0.3374
+2025-11-23T21:00:00Z,Winnipeg Jets,Minnesota Wild,ev_away_ml,-0.344
+2025-11-23T22:00:00Z,New York Islanders,Seattle Kraken,ev_home_ml,-0.4063

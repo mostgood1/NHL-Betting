@@ -1,0 +1,55 @@
+date,home,away,market,ev
+2025-11-30T03:00:00Z,Vegas Golden Knights,San Jose Sharks,ev_away_ml,0.6972
+2025-11-30T01:00:00Z,St. Louis Blues,Utah Mammoth,ev_away_ml,0.4928
+2025-11-30T03:00:00Z,Los Angeles Kings,Vancouver Canucks,ev_away_pl_+1.5,0.1864
+2025-11-29T21:00:00Z,Seattle Kraken,Edmonton Oilers,ev_away_ml,0.1826
+2025-11-30T00:00:00Z,Pittsburgh Penguins,Toronto Maple Leafs,ev_away_ml,0.1278
+2025-11-30T00:00:00Z,Nashville Predators,Winnipeg Jets,ev_away_ml,0.1219
+2025-11-30T01:00:00Z,Minnesota Wild,Buffalo Sabres,ev_away_pl_+1.5,0.1197
+2025-11-30T03:00:00Z,Los Angeles Kings,Vancouver Canucks,ev_under,0.1069
+2025-11-29T20:00:00Z,Colorado Avalanche,Montréal Canadiens,ev_away_ml,0.103
+2025-11-30T00:00:00Z,Boston Bruins,Detroit Red Wings,ev_over,0.0942
+2025-11-30T01:00:00Z,St. Louis Blues,Utah Mammoth,ev_away_pl_+1.5,0.0868
+2025-11-29T19:00:00Z,New York Rangers,Tampa Bay Lightning,ev_away_ml,0.0698
+2025-11-29T21:00:00Z,Seattle Kraken,Edmonton Oilers,ev_under,0.0676
+2025-11-30T00:00:00Z,New Jersey Devils,Philadelphia Flyers,ev_away_pl_+1.5,0.0667
+2025-11-30T00:00:00Z,New Jersey Devils,Philadelphia Flyers,ev_over,0.0569
+2025-11-29T20:00:00Z,Colorado Avalanche,Montréal Canadiens,ev_away_pl_+1.5,0.0468
+2025-11-30T01:00:00Z,Minnesota Wild,Buffalo Sabres,ev_under,0.0362
+2025-11-30T01:00:00Z,St. Louis Blues,Utah Mammoth,ev_over,0.0224
+2025-11-29T19:00:00Z,New York Rangers,Tampa Bay Lightning,ev_under,0.0214
+2025-11-30T00:00:00Z,Nashville Predators,Winnipeg Jets,ev_over,0.0161
+2025-11-30T03:00:00Z,Los Angeles Kings,Vancouver Canucks,ev_away_ml,0.0093
+2025-11-30T00:00:00Z,Boston Bruins,Detroit Red Wings,ev_home_ml,-0.0135
+2025-11-30T00:00:00Z,Pittsburgh Penguins,Toronto Maple Leafs,ev_under,-0.0171
+2025-11-30T00:00:00Z,New Jersey Devils,Philadelphia Flyers,ev_home_ml,-0.0199
+2025-11-29T20:00:00Z,Colorado Avalanche,Montréal Canadiens,ev_under,-0.0247
+2025-11-30T01:00:00Z,Minnesota Wild,Buffalo Sabres,ev_away_ml,-0.0302
+2025-11-29T19:00:00Z,New York Rangers,Tampa Bay Lightning,ev_away_pl_+1.5,-0.0415
+2025-11-29T19:00:00Z,New York Rangers,Tampa Bay Lightning,ev_home_pl_-1.5,-0.0421
+2025-11-30T01:00:00Z,Minnesota Wild,Buffalo Sabres,ev_home_ml,-0.0486
+2025-11-29T20:00:00Z,Colorado Avalanche,Montréal Canadiens,ev_over,-0.0639
+2025-11-30T00:00:00Z,Pittsburgh Penguins,Toronto Maple Leafs,ev_over,-0.0666
+2025-11-30T00:00:00Z,New Jersey Devils,Philadelphia Flyers,ev_away_ml,-0.0702
+2025-11-30T00:00:00Z,Boston Bruins,Detroit Red Wings,ev_away_ml,-0.0709
+2025-11-30T03:00:00Z,Los Angeles Kings,Vancouver Canucks,ev_home_ml,-0.0742
+2025-11-30T00:00:00Z,Nashville Predators,Winnipeg Jets,ev_under,-0.106
+2025-11-29T19:00:00Z,New York Rangers,Tampa Bay Lightning,ev_over,-0.1132
+2025-11-30T01:00:00Z,St. Louis Blues,Utah Mammoth,ev_under,-0.1136
+2025-11-29T20:00:00Z,Colorado Avalanche,Montréal Canadiens,ev_home_ml,-0.12
+2025-11-30T01:00:00Z,Minnesota Wild,Buffalo Sabres,ev_over,-0.1299
+2025-11-30T00:00:00Z,New Jersey Devils,Philadelphia Flyers,ev_under,-0.1593
+2025-11-29T19:00:00Z,New York Rangers,Tampa Bay Lightning,ev_home_ml,-0.1607
+2025-11-29T20:00:00Z,Colorado Avalanche,Montréal Canadiens,ev_home_pl_-1.5,-0.1634
+2025-11-29T21:00:00Z,Seattle Kraken,Edmonton Oilers,ev_over,-0.1672
+2025-11-30T00:00:00Z,Boston Bruins,Detroit Red Wings,ev_under,-0.2052
+2025-11-30T03:00:00Z,Los Angeles Kings,Vancouver Canucks,ev_over,-0.2075
+2025-11-30T00:00:00Z,Nashville Predators,Winnipeg Jets,ev_home_ml,-0.2277
+2025-11-30T00:00:00Z,New Jersey Devils,Philadelphia Flyers,ev_home_pl_-1.5,-0.2357
+2025-11-30T00:00:00Z,Pittsburgh Penguins,Toronto Maple Leafs,ev_home_ml,-0.2387
+2025-11-30T01:00:00Z,St. Louis Blues,Utah Mammoth,ev_home_pl_-1.5,-0.3153
+2025-11-30T01:00:00Z,Minnesota Wild,Buffalo Sabres,ev_home_pl_-1.5,-0.332
+2025-11-30T03:00:00Z,Vegas Golden Knights,San Jose Sharks,ev_home_ml,-0.3449
+2025-11-29T21:00:00Z,Seattle Kraken,Edmonton Oilers,ev_home_ml,-0.3656
+2025-11-30T03:00:00Z,Los Angeles Kings,Vancouver Canucks,ev_home_pl_-1.5,-0.3998
+2025-11-30T01:00:00Z,St. Louis Blues,Utah Mammoth,ev_home_ml,-0.5107

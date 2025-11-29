@@ -10,6 +10,7 @@ date,home,away,market,ev
 2025-11-29T01:00:00Z,Chicago Blackhawks,Nashville Predators,ev_over,0.1829
 2025-11-28T21:00:00Z,Florida Panthers,Calgary Flames,ev_over,0.1682
 2025-11-28T22:00:00Z,Carolina Hurricanes,Winnipeg Jets,ev_away_pl_+1.5,0.1366
+2025-11-29T01:00:00Z,Dallas Stars,Utah Mammoth,ev_f10_yes,0.1358
 2025-11-28T21:00:00Z,New York Islanders,Philadelphia Flyers,ev_away_ml,0.1332
 2025-11-29T00:00:00Z,Columbus Blue Jackets,Pittsburgh Penguins,ev_away_ml,0.1332
 2025-11-28T21:00:00Z,Vegas Golden Knights,Montréal Canadiens,ev_away_pl_+1.5,0.1144
@@ -52,8 +53,8 @@ date,home,away,market,ev
 2025-11-28T22:00:00Z,Washington Capitals,Toronto Maple Leafs,ev_over,-0.1664
 2025-11-29T01:00:00Z,Dallas Stars,Utah Mammoth,ev_home_pl_-1.5,-0.1699
 2025-11-28T20:30:00Z,Minnesota Wild,Colorado Avalanche,ev_over,-0.1727
-2025-11-28T21:00:00Z,New York Islanders,Philadelphia Flyers,ev_home_ml,-0.1736
 2025-11-29T00:00:00Z,Columbus Blue Jackets,Pittsburgh Penguins,ev_home_ml,-0.1736
+2025-11-28T21:00:00Z,New York Islanders,Philadelphia Flyers,ev_home_ml,-0.1736
 2025-11-28T21:00:00Z,Vegas Golden Knights,Montréal Canadiens,ev_over,-0.1745
 2025-11-28T21:00:00Z,New York Islanders,Philadelphia Flyers,ev_under,-0.1762
 2025-11-29T01:00:00Z,Dallas Stars,Utah Mammoth,ev_under,-0.1868
@@ -73,3 +74,4 @@ date,home,away,market,ev
 2025-11-28T21:00:00Z,Anaheim Ducks,Los Angeles Kings,ev_home_ml,-0.4241
 2025-11-28T21:00:00Z,San Jose Sharks,Vancouver Canucks,ev_home_ml,-0.4336
 2025-11-28T22:00:00Z,Washington Capitals,Toronto Maple Leafs,ev_home_pl_-1.5,-0.4562
+2025-11-29T01:00:00Z,Dallas Stars,Utah Mammoth,ev_f10_no,-0.4691

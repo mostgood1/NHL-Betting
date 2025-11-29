@@ -54,6 +54,46 @@ $argsList = @("-m", "nhl_betting.scripts.daily_update", "--days-ahead", "$DaysAh
 if ($NoReconcile) { $argsList += "--no-reconcile" }
 python @argsList
 
+# After core daily update, recompute edges for today and forward DaysAhead-1 days
+try {
+  $base = Get-Date
+  for ($i = 0; $i -lt $DaysAhead; $i++) {
+    $d = $base.AddDays($i).ToString('yyyy-MM-dd')
+    Write-Host "[daily_update] Recomputing team market edges for $d …" -ForegroundColor Cyan
+    python -m nhl_betting.cli game-recompute-edges --date $d
+  }
+} catch {
+  Write-Warning "[daily_update] game-recompute-edges failed: $($_.Exception.Message)"
+}
+
+# Adaptive gate re-learn: if last learn older than 5 days OR 30-day overall ROI < -0.08
+try {
+  $calPath = Join-Path $RepoRoot 'data/processed/model_calibration.json'
+  $monitorPath = Join-Path $RepoRoot 'data/processed/game_daily_monitor.json'
+  $needLearn = $false
+  $today = (Get-Date).ToString('yyyy-MM-dd')
+  if (Test-Path $calPath) {
+    $cal = Get-Content $calPath | ConvertFrom-Json
+    if ($cal.ev_gates_last_learned_utc) {
+      $last = [DateTime]::Parse($cal.ev_gates_last_learned_utc)
+      if ((Get-Date) - $last -gt [TimeSpan]::FromDays(5)) { $needLearn = $true }
+    } else { $needLearn = $true }
+  } else { $needLearn = $true }
+  if (Test-Path $monitorPath) {
+    $mon = Get-Content $monitorPath | ConvertFrom-Json
+    if ($mon.overall -and $mon.overall.roi -lt -0.08) { $needLearn = $true }
+  }
+  if ($needLearn) {
+    $seasonStart = if ((Get-Date).Month -ge 9) { "$(Get-Date).Year-09-01" } else { "$(Get-Date).AddYears(-1).Year-09-01" }
+    Write-Host "[daily_update] EV gate re-learn triggered (seasonStart=$seasonStart -> today)" -ForegroundColor Magenta
+    python -m nhl_betting.cli game-learn-ev-gates --start $seasonStart --end $today
+  } else {
+    Write-Host "[daily_update] EV gate re-learn skipped (recent & stable)" -ForegroundColor DarkGreen
+  }
+} catch {
+  Write-Warning "[daily_update] adaptive gate re-learn failed: $($_.Exception.Message)"
+}
+
 # Optionally run postgame pipeline after daily update
 if ($Postgame) {
   Write-Host "[daily_update] Running postgame for $PostgameDate …"
@@ -68,4 +108,13 @@ try {
   Write-Host "[daily_update] Monitor written to data/processed/game_daily_monitor.json"
 } catch {
   Write-Warning "[daily_update] game_daily_monitor failed: $($_.Exception.Message)"
+}
+
+# Generate anomaly alerts from latest monitor
+try {
+  Write-Host "[daily_update] Generating anomaly alerts …" -ForegroundColor Yellow
+  python -m nhl_betting.cli game-monitor-anomalies
+  Write-Host "[daily_update] Alerts written under data/processed/monitor_alerts_*.json"
+} catch {
+  Write-Warning "[daily_update] game-monitor-anomalies failed: $($_.Exception.Message)"
 }

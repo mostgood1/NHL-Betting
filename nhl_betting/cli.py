@@ -4849,7 +4849,9 @@ def game_learn_ev_gates(
     start: str = typer.Option(..., help="Start date YYYY-MM-DD (ET)"),
     end: str = typer.Option(..., help="End date YYYY-MM-DD (ET)"),
     use_close: bool = typer.Option(True, help="Use closing odds/lines to compute EV and result"),
-    out_json: Optional[str] = typer.Option(None, help="Output JSON file (default: data/processed/model_calibration.json)")
+    out_json: Optional[str] = typer.Option(None, help="Output JSON file (default: data/processed/model_calibration.json)"),
+    alpha: float = typer.Option(0.35, help="Smoothing factor 0..1 for gate updates (EMA): new = old*(1-alpha) + alpha*learned"),
+    min_change: float = typer.Option(0.005, help="Minimum absolute change required to update a gate; else keep old"),
 ):
     """Learn per-market minimum EV thresholds to maximize ROI using predictions CSVs.
 
@@ -5044,16 +5046,29 @@ def game_learn_ev_gates(
                 obj = json.load(f) or {}
         except Exception:
             obj = {}
-    obj['min_ev_ml'] = float(ml_t)
-    obj['min_ev_totals'] = float(to_t)
-    obj['min_ev_pl'] = float(pl_t)
-    obj['min_ev_first10'] = float(f10_t)
-    obj['min_ev_periods'] = float(per_t)
+    # Smoothing helper
+    def _smooth(old_val: float | None, learned: float) -> float:
+        try:
+            a = max(0.0, min(1.0, float(alpha)))
+            mc = max(0.0, float(min_change))
+            ov = float(old_val) if (old_val is not None) else learned
+            # Only update if change exceeds min_change
+            if abs(learned - ov) < mc:
+                return float(ov)
+            return float(ov*(1.0 - a) + learned*a)
+        except Exception:
+            return float(learned)
+
+    obj['min_ev_ml'] = _smooth(obj.get('min_ev_ml'), float(ml_t))
+    obj['min_ev_totals'] = _smooth(obj.get('min_ev_totals'), float(to_t))
+    obj['min_ev_pl'] = _smooth(obj.get('min_ev_pl'), float(pl_t))
+    obj['min_ev_first10'] = _smooth(obj.get('min_ev_first10'), float(f10_t))
+    obj['min_ev_periods'] = _smooth(obj.get('min_ev_periods'), float(per_t))
     obj['ev_gates_last_learned_utc'] = _dt.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
     obj['ev_gates_range'] = {'start': start, 'end': end}
     with open(cal_path, 'w', encoding='utf-8') as f:
         json.dump(obj, f, indent=2)
-    print({"min_ev_ml": ml_t, "min_ev_totals": to_t, "min_ev_pl": pl_t, "min_ev_first10": f10_t, "min_ev_periods": per_t, "path": str(cal_path)})
+    print({"min_ev_ml": obj['min_ev_ml'], "min_ev_totals": obj['min_ev_totals'], "min_ev_pl": obj['min_ev_pl'], "min_ev_first10": obj['min_ev_first10'], "min_ev_periods": obj['min_ev_periods'], "path": str(cal_path), "alpha": alpha, "min_change": min_change})
 
 @app.command()
 def game_daily_monitor(
@@ -5061,14 +5076,16 @@ def game_daily_monitor(
     use_close: bool = typer.Option(True, help="Prefer closing odds/lines when available"),
     out_json: str = typer.Option("", help="Optional output path; default data/processed/game_daily_monitor.json"),
 ):
-    """Summarize recent ROI, accuracy, and gate thresholds across markets for a rolling window.
+    """Summarize recent performance (ROI, accuracy, volatility, CLV) and gate thresholds.
 
-    Markets: moneyline, totals, puckline, first10. Uses predictions_{date}.csv and applies
-    EV gates from model_calibration.json when present. Outputs per-market and overall:
-      n, decided, staked, pnl, roi, acc.
+    Markets: moneyline, totals, puckline, first10, periods (P1..P3 grouped).
+    Sources: predictions_{date}.csv for each day in lookback.
+    EV gating: min_ev_* thresholds from model_calibration.json.
+    Metrics per market: n, decided, staked, pnl, roi, acc, ret_std, clv_mean/med/std.
     """
     from datetime import datetime as _dt, timedelta as _td
-    import json, math
+    from pathlib import Path
+    import json, math, statistics as _stats
     import pandas as pd
     from .utils.io import PROC_DIR
     from .utils.odds import american_to_decimal
@@ -5081,9 +5098,8 @@ def game_daily_monitor(
     cal_path = PROC_DIR / 'model_calibration.json'
     if cal_path.exists():
         try:
-            with cal_path.open('r', encoding='utf-8') as f:
-                obj = json.load(f) or {}
-            for k in list(gates.keys()):
+            obj = json.load(open(cal_path, 'r', encoding='utf-8')) or {}
+            for k in gates:
                 if obj.get(k) is not None:
                     gates[k] = float(obj.get(k))
         except Exception:
@@ -5092,8 +5108,10 @@ def game_daily_monitor(
     def _num(v):
         try:
             if v is None: return None
-            f = float(v); return f if math.isfinite(f) else None
-        except Exception: return None
+            f = float(v)
+            return f if math.isfinite(f) else None
+        except Exception:
+            return None
 
     def _ev(p: float, american: float) -> float | None:
         try:
@@ -5103,17 +5121,18 @@ def game_daily_monitor(
             p = float(p)
             if not (0.0 <= p <= 1.0): return None
             return round(p*(dec-1.0) - (1.0 - p), 4)
-        except Exception: return None
+        except Exception:
+            return None
 
     plays = []
     d = start_dt
     while d <= end_dt:
         day = d.strftime('%Y-%m-%d')
-        p = PROC_DIR / f'predictions_{day}.csv'
-        if not p.exists():
+        pred_path = PROC_DIR / f'predictions_{day}.csv'
+        if not pred_path.exists():
             d += _td(days=1); continue
         try:
-            df = pd.read_csv(p)
+            df = pd.read_csv(pred_path)
         except Exception:
             d += _td(days=1); continue
         for _, r in df.iterrows():
@@ -5125,10 +5144,15 @@ def game_daily_monitor(
             if ph is not None and pa is not None and h_od is not None and a_od is not None:
                 ev_h = _ev(ph, h_od); ev_a = _ev(pa, a_od)
                 if (ev_h is not None and ev_h >= gates['min_ev_ml']) or (ev_a is not None and ev_a >= gates['min_ev_ml']):
-                    if (ev_h or -999) >= (ev_a or -999): pick='home_ml'; ev=ev_h; price=h_od; p_pick=ph; won=(fh>fa) if (fh is not None and fa is not None) else None
-                    else: pick='away_ml'; ev=ev_a; price=a_od; p_pick=pa; won=(fa>fh) if (fh is not None and fa is not None) else None
+                    if (ev_h or -999) >= (ev_a or -999): pick='home_ml'; ev=ev_h; price=h_od; p_pick=ph; won=(fh>fa) if (fh is not None and fa is not None) else None; close_price=_num(r.get('close_home_ml_odds'))
+                    else: pick='away_ml'; ev=ev_a; price=a_od; p_pick=pa; won=(fa>fh) if (fh is not None and fa is not None) else None; close_price=_num(r.get('close_away_ml_odds'))
                     if ev is not None and ev >= gates['min_ev_ml']:
-                        plays.append({'date':day,'market':'moneyline','ev':ev,'odds':price,'won':won,'prob':p_pick})
+                        clv=None
+                        if close_price is not None:
+                            dec_cp = american_to_decimal(close_price)
+                            if dec_cp is not None and math.isfinite(dec_cp):
+                                imp_cp = 1.0/dec_cp; clv = round(p_pick - imp_cp,4)
+                        plays.append({'date':day,'market':'moneyline','ev':ev,'odds':price,'won':won,'prob':p_pick,'close_odds':close_price,'clv':clv})
             # Totals
             po = _num(r.get('p_over')); pu = _num(r.get('p_under'))
             o_od = _num(r.get('close_over_odds')) if use_close else _num(r.get('over_odds'))
@@ -5137,15 +5161,20 @@ def game_daily_monitor(
             if po is not None and pu is not None and o_od is not None and u_od is not None and tl is not None:
                 ev_o=_ev(po,o_od); ev_u=_ev(pu,u_od)
                 if (ev_o is not None and ev_o >= gates['min_ev_totals']) or (ev_u is not None and ev_u >= gates['min_ev_totals']):
-                    if (ev_o or -999) >= (ev_u or -999): pick='over'; ev=ev_o; price=o_od; p_pick=po
-                    else: pick='under'; ev=ev_u; price=u_od; p_pick=pu
+                    if (ev_o or -999) >= (ev_u or -999): pick='over'; ev=ev_o; price=o_od; p_pick=po; close_price=_num(r.get('close_over_odds'))
+                    else: pick='under'; ev=ev_u; price=u_od; p_pick=pu; close_price=_num(r.get('close_under_odds'))
                     won=None
                     if fh is not None and fa is not None:
                         at = fh+fa
                         if abs(tl - round(tl)) < 1e-9 and abs(at - tl) < 1e-9: won=None
                         else: won = (at>tl) if pick=='over' else (at<tl)
                     if ev is not None and ev >= gates['min_ev_totals']:
-                        plays.append({'date':day,'market':'totals','ev':ev,'odds':price,'won':won,'prob':p_pick})
+                        clv=None
+                        if close_price is not None:
+                            dec_cp = american_to_decimal(close_price)
+                            if dec_cp is not None and math.isfinite(dec_cp):
+                                imp_cp = 1.0/dec_cp; clv = round(p_pick - imp_cp,4)
+                        plays.append({'date':day,'market':'totals','ev':ev,'odds':price,'won':won,'prob':p_pick,'close_odds':close_price,'clv':clv})
             # Puckline
             php = _num(r.get('p_home_pl_-1.5')); pap = _num(r.get('p_away_pl_+1.5'))
             hpl = _num(r.get('close_home_pl_-1.5_odds')) if use_close else _num(r.get('home_pl_-1.5_odds'))
@@ -5153,13 +5182,17 @@ def game_daily_monitor(
             if php is not None and pap is not None and hpl is not None and apl is not None:
                 ev_hpl=_ev(php,hpl); ev_apl=_ev(pap,apl)
                 if (ev_hpl is not None and ev_hpl >= gates['min_ev_pl']) or (ev_apl is not None and ev_apl >= gates['min_ev_pl']):
-                    if (ev_hpl or -999) >= (ev_apl or -999): pick='home_-1.5'; ev=ev_hpl; price=hpl; p_pick=php
-                    else: pick='away_+1.5'; ev=ev_apl; price=apl; p_pick=pap
-                    won=None
+                    if (ev_hpl or -999) >= (ev_apl or -999): pick='home_-1.5'; ev=ev_hpl; price=hpl; p_pick=php; won=None; close_price=_num(r.get('close_home_pl_-1.5_odds'))
+                    else: pick='away_+1.5'; ev=ev_apl; price=apl; p_pick=pap; won=None; close_price=_num(r.get('close_away_pl_+1.5_odds'))
                     if fh is not None and fa is not None:
                         diff = fh - fa; won = (diff>1.5) if pick=='home_-1.5' else (diff<1.5)
                     if ev is not None and ev >= gates['min_ev_pl']:
-                        plays.append({'date':day,'market':'puckline','ev':ev,'odds':price,'won':won,'prob':p_pick})
+                        clv=None
+                        if close_price is not None:
+                            dec_cp = american_to_decimal(close_price)
+                            if dec_cp is not None and math.isfinite(dec_cp):
+                                imp_cp = 1.0/dec_cp; clv = round(p_pick - imp_cp,4)
+                        plays.append({'date':day,'market':'puckline','ev':ev,'odds':price,'won':won,'prob':p_pick,'close_odds':close_price,'clv':clv})
             # First10
             py = _num(r.get('p_f10_yes')); pn = _num(r.get('p_f10_no'))
             y_od = _num(r.get('close_f10_yes_odds')) if use_close else _num(r.get('f10_yes_odds'))
@@ -5168,48 +5201,70 @@ def game_daily_monitor(
             if py is not None and pn is not None and y_od is not None and n_od is not None:
                 ev_y=_ev(py,y_od); ev_n=_ev(pn,n_od)
                 if (ev_y is not None and ev_y >= gates['min_ev_first10']) or (ev_n is not None and ev_n >= gates['min_ev_first10']):
-                    if (ev_y or -999) >= (ev_n or -999): pick='f10_yes'; ev=ev_y; price=y_od; p_pick=py
-                    else: pick='f10_no'; ev=ev_n; price=n_od; p_pick=pn
+                    if (ev_y or -999) >= (ev_n or -999): pick='f10_yes'; ev=ev_y; price=y_od; p_pick=py; close_price=_num(r.get('close_f10_yes_odds'))
+                    else: pick='f10_no'; ev=ev_n; price=n_od; p_pick=pn; close_price=_num(r.get('close_f10_no_odds'))
                     won=None
                     if rf in ('yes','no'): won = (rf == ('yes' if pick=='f10_yes' else 'no'))
                     if ev is not None and ev >= gates['min_ev_first10']:
-                        plays.append({'date':day,'market':'first10','ev':ev,'odds':price,'won':won,'prob':p_pick})
-            # Period totals P1..P3
+                        clv=None
+                        if close_price is not None:
+                            dec_cp = american_to_decimal(close_price)
+                            if dec_cp is not None and math.isfinite(dec_cp):
+                                imp_cp = 1.0/dec_cp; clv = round(p_pick - imp_cp,4)
+                        plays.append({'date':day,'market':'first10','ev':ev,'odds':price,'won':won,'prob':p_pick,'close_odds':close_price,'clv':clv})
+            # Period totals (aggregate P1..P3 as one market label 'periods')
             for pn_ in (1,2,3):
                 po = _num(r.get(f'p{pn_}_over_prob')); pu = _num(r.get(f'p{pn_}_under_prob'))
                 o_od = _num(r.get(f'close_p{pn_}_over_odds')) if use_close else _num(r.get(f'p{pn_}_over_odds'))
                 u_od = _num(r.get(f'close_p{pn_}_under_odds')) if use_close else _num(r.get(f'p{pn_}_under_odds'))
                 ln = _num(r.get(f'close_p{pn_}_total_line')) if use_close else _num(r.get(f'p{pn_}_total_line'))
                 rk = str(r.get(f'result_p{pn_}_total') or '')
-                if po is not None and pu is not None and o_od is not None and u_od is not None and ln is not None:
-                    ev_o=_ev(po,o_od); ev_u=_ev(pu,u_od)
-                    if (ev_o is not None and ev_o >= gates['min_ev_periods']) or (ev_u is not None and ev_u >= gates['min_ev_periods']):
-                        if (ev_o or -999) >= (ev_u or -999): pick='over'; ev=ev_o; price=o_od; p_pick=po
-                        else: pick='under'; ev=ev_u; price=u_od; p_pick=pu
-                        won=None
-                        if rk in ('Over','Under','Push'):
-                            if rk=='Push': won=None
-                            else: won = (rk==('Over' if pick=='over' else 'Under'))
-                        if ev is not None and ev >= gates['min_ev_periods']:
-                            plays.append({'date':day,'market':'periods','ev':ev,'odds':price,'won':won,'prob':p_pick})
+                if po is None or pu is None or o_od is None or u_od is None or ln is None: continue
+                ev_o=_ev(po,o_od); ev_u=_ev(pu,u_od)
+                if (ev_o is not None and ev_o >= gates['min_ev_periods']) or (ev_u is not None and ev_u >= gates['min_ev_periods']):
+                    if (ev_o or -999) >= (ev_u or -999): pick='over'; ev=ev_o; price=o_od; p_pick=po; close_price=_num(r.get(f'close_p{pn_}_over_odds'))
+                    else: pick='under'; ev=ev_u; price=u_od; p_pick=pu; close_price=_num(r.get(f'close_p{pn_}_under_odds'))
+                    won=None
+                    if rk in ('Over','Under','Push'):
+                        if rk=='Push': won=None
+                        else: won = (rk==('Over' if pick=='over' else 'Under'))
+                    if ev is not None and ev >= gates['min_ev_periods']:
+                        clv=None
+                        if close_price is not None:
+                            dec_cp = american_to_decimal(close_price)
+                            if dec_cp is not None and math.isfinite(dec_cp):
+                                imp_cp = 1.0/dec_cp; clv = round(p_pick - imp_cp,4)
+                        plays.append({'date':day,'market':'periods','ev':ev,'odds':price,'won':won,'prob':p_pick,'close_odds':close_price,'clv':clv})
         d += _td(days=1)
 
     if not plays:
         print('{"empty": true}'); return
     pdf = pd.DataFrame(plays)
+
     def _summ(sub: pd.DataFrame) -> dict:
-        st = 100.0 * sub['won'].notna().sum(); pnl=0.0
+        st = 100.0 * sub['won'].notna().sum(); pnl=0.0; rets=[]; clvs=[]
         for _, rr in sub.iterrows():
             if rr.get('won') is None: continue
             dec = american_to_decimal(rr.get('odds'))
-            if rr.get('won'): pnl += 100.0 * (dec - 1.0)
-            else: pnl -= 100.0
+            if dec is None or not math.isfinite(dec): continue
+            ret = (dec - 1.0) if rr.get('won') else -1.0
+            rets.append(ret)
+            pnl += (100.0 * (dec - 1.0)) if rr.get('won') else -100.0
+            c = rr.get('clv');
+            if c is not None: clvs.append(c)
         roi = (pnl/st) if st>0 else None
         acc = None
         try:
-            acc = float(sub.dropna(subset=['won']).assign(w=lambda x: x['won'].astype(bool)).w.mean()) if sub.dropna(subset=['won']).shape[0] else None
+            decided = sub.dropna(subset=['won'])
+            acc = float(decided['won'].astype(bool).mean()) if decided.shape[0] else None
         except Exception: acc=None
-        return {"n": int(len(sub)), "decided": int(sub['won'].notna().sum()), "staked": st, "pnl": pnl, "roi": roi, "acc": acc}
+        ret_std = round(_stats.pstdev(rets),4) if len(rets)>1 else None
+        clv_mean = round(sum(clvs)/len(clvs),4) if clvs else None
+        clv_med = round(sorted(clvs)[len(clvs)//2],4) if clvs else None
+        clv_std = round(_stats.pstdev(clvs),4) if len(clvs)>1 else None
+        return {"n": int(len(sub)), "decided": int(sub['won'].notna().sum()), "staked": st, "pnl": pnl, "roi": roi, "acc": acc,
+                "ret_std": ret_std, "clv_mean": clv_mean, "clv_med": clv_med, "clv_std": clv_std}
+
     markets = {m: _summ(g) for m, g in pdf.groupby('market')}
     overall = _summ(pdf)
     out_obj = {"range": {"start": start_dt.strftime('%Y-%m-%d'), "end": end_dt.strftime('%Y-%m-%d')}, "gates": gates, "markets": markets, "overall": overall}
@@ -5221,6 +5276,54 @@ def game_daily_monitor(
     except Exception:
         pass
     print(json.dumps(out_obj, indent=2))
+
+@app.command()
+def game_monitor_anomalies(
+    monitor_json: str = typer.Option("", help="Path to existing game_daily_monitor.json; default = processed dir"),
+    out_json: str = typer.Option("", help="Output alerts path; default = data/processed/monitor_alerts_{today}.json"),
+    roi_drop: float = typer.Option(-0.10, help="Overall ROI anomaly threshold"),
+    market_roi_drop: float = typer.Option(-0.20, help="Per-market ROI anomaly threshold"),
+    clv_floor: float = typer.Option(0.05, help="CLV mean floor; below -> anomaly"),
+    acc_floor_ml: float = typer.Option(0.44, help="Moneyline accuracy floor"),
+    acc_floor_pl: float = typer.Option(0.54, help="Puckline accuracy floor"),
+):
+    """Detect performance anomalies from the latest game_daily_monitor metrics and write alerts JSON."""
+    import json, math
+    from datetime import datetime as _dt
+    from pathlib import Path
+    from .utils.io import PROC_DIR
+    today = _dt.utcnow().strftime('%Y-%m-%d')
+    mon_path = Path(monitor_json) if monitor_json else PROC_DIR / 'game_daily_monitor.json'
+    if not mon_path.exists():
+        print(json.dumps({"ok": False, "reason": "monitor_missing", "path": str(mon_path)})); return
+    try:
+        data = json.loads(mon_path.read_text(encoding='utf-8'))
+    except Exception as e:
+        print(json.dumps({"ok": False, "reason": "read_error", "error": str(e)})); return
+    anomalies = []
+    overall = data.get('overall') or {}
+    o_roi = overall.get('roi')
+    if isinstance(o_roi, (int,float)) and math.isfinite(o_roi) and o_roi < roi_drop:
+        anomalies.append({"scope":"overall","type":"roi_drop","value":o_roi,"threshold":roi_drop})
+    markets = data.get('markets') or {}
+    for mk, stats in markets.items():
+        if not isinstance(stats, dict): continue
+        m_roi = stats.get('roi'); m_acc = stats.get('acc'); m_clv = stats.get('clv_mean')
+        if isinstance(m_roi,(int,float)) and math.isfinite(m_roi) and m_roi < market_roi_drop:
+            anomalies.append({"scope":mk,"type":"roi_drop","value":m_roi,"threshold":market_roi_drop})
+        if mk == 'moneyline' and isinstance(m_acc,(int,float)) and math.isfinite(m_acc) and m_acc < acc_floor_ml:
+            anomalies.append({"scope":mk,"type":"accuracy_low","value":m_acc,"threshold":acc_floor_ml})
+        if mk == 'puckline' and isinstance(m_acc,(int,float)) and math.isfinite(m_acc) and m_acc < acc_floor_pl:
+            anomalies.append({"scope":mk,"type":"accuracy_low","value":m_acc,"threshold":acc_floor_pl})
+        if isinstance(m_clv,(int,float)) and math.isfinite(m_clv) and m_clv < clv_floor:
+            anomalies.append({"scope":mk,"type":"clv_low","value":m_clv,"threshold":clv_floor})
+    out_path = Path(out_json) if out_json else PROC_DIR / f'monitor_alerts_{today}.json'
+    alert_obj = {"date": today, "source": str(mon_path), "anomalies": anomalies, "counts": {"total": len(anomalies)}}
+    try:
+        out_path.write_text(json.dumps(alert_obj, indent=2), encoding='utf-8')
+    except Exception:
+        pass
+    print(json.dumps({"ok": True, "alerts_path": str(out_path), "anomalies": anomalies}))
 
 @app.command()
 def game_recompute_edges(

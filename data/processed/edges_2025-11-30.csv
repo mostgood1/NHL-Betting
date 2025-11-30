@@ -1,21 +1,21 @@
 date,home,away,market,ev
-2025-11-30T18:00:00Z,New York Islanders,Washington Capitals,ev_away_ml,0.3763
-2025-11-30T22:00:00Z,Carolina Hurricanes,Calgary Flames,ev_away_ml,0.2997
-2025-11-30T23:00:00Z,Dallas Stars,Ottawa Senators,ev_home_ml,0.2201
-2025-11-30T18:00:00Z,New York Islanders,Washington Capitals,ev_under,0.1415
-2025-11-30T20:30:00Z,Chicago Blackhawks,Anaheim Ducks,ev_away_ml,0.1412
-2025-11-30T23:00:00Z,Dallas Stars,Ottawa Senators,ev_over,0.0907
-2025-11-30T22:00:00Z,Carolina Hurricanes,Calgary Flames,ev_over,0.0843
-2025-11-30T20:30:00Z,Chicago Blackhawks,Anaheim Ducks,ev_under,0.0792
-2025-11-30T22:00:00Z,Carolina Hurricanes,Calgary Flames,ev_away_pl_+1.5,0.0701
-2025-11-30T23:00:00Z,Dallas Stars,Ottawa Senators,ev_away_pl_+1.5,0.039
-2025-11-30T22:00:00Z,Carolina Hurricanes,Calgary Flames,ev_home_pl_-1.5,-0.1651
-2025-11-30T20:30:00Z,Chicago Blackhawks,Anaheim Ducks,ev_over,-0.1701
-2025-11-30T23:00:00Z,Dallas Stars,Ottawa Senators,ev_home_pl_-1.5,-0.1855
-2025-11-30T23:00:00Z,Dallas Stars,Ottawa Senators,ev_under,-0.1921
-2025-11-30T22:00:00Z,Carolina Hurricanes,Calgary Flames,ev_under,-0.193
-2025-11-30T22:00:00Z,Carolina Hurricanes,Calgary Flames,ev_home_ml,-0.1966
-2025-11-30T20:30:00Z,Chicago Blackhawks,Anaheim Ducks,ev_home_ml,-0.2497
-2025-11-30T18:00:00Z,New York Islanders,Washington Capitals,ev_over,-0.2549
-2025-11-30T23:00:00Z,Dallas Stars,Ottawa Senators,ev_away_ml,-0.391
-2025-11-30T18:00:00Z,New York Islanders,Washington Capitals,ev_home_ml,-0.5174
+2025-11-30T18:00:00Z,New York Islanders,Washington Capitals,ev_away_ml,0.351
+2025-11-30T22:00:00Z,Carolina Hurricanes,Calgary Flames,ev_away_ml,0.3021
+2025-11-30T20:30:00Z,Chicago Blackhawks,Anaheim Ducks,ev_away_ml,0.2371
+2025-11-30T23:00:00Z,Dallas Stars,Ottawa Senators,ev_home_ml,0.1472
+2025-11-30T20:30:00Z,Chicago Blackhawks,Anaheim Ducks,ev_under,0.1036
+2025-11-30T23:00:00Z,Dallas Stars,Ottawa Senators,ev_over,0.072
+2025-11-30T22:00:00Z,Carolina Hurricanes,Calgary Flames,ev_away_pl_+1.5,0.0303
+2025-11-30T23:00:00Z,Dallas Stars,Ottawa Senators,ev_away_pl_+1.5,0.0186
+2025-11-30T22:00:00Z,Carolina Hurricanes,Calgary Flames,ev_under,0.0174
+2025-11-30T18:00:00Z,New York Islanders,Washington Capitals,ev_over,-0.0231
+2025-11-30T18:00:00Z,New York Islanders,Washington Capitals,ev_under,-0.0609
+2025-11-30T22:00:00Z,Carolina Hurricanes,Calgary Flames,ev_over,-0.1107
+2025-11-30T22:00:00Z,Carolina Hurricanes,Calgary Flames,ev_home_pl_-1.5,-0.1234
+2025-11-30T23:00:00Z,Dallas Stars,Ottawa Senators,ev_home_pl_-1.5,-0.1553
+2025-11-30T23:00:00Z,Dallas Stars,Ottawa Senators,ev_under,-0.1724
+2025-11-30T20:30:00Z,Chicago Blackhawks,Anaheim Ducks,ev_over,-0.1872
+2025-11-30T22:00:00Z,Carolina Hurricanes,Calgary Flames,ev_home_ml,-0.1977
+2025-11-30T23:00:00Z,Dallas Stars,Ottawa Senators,ev_away_ml,-0.2809
+2025-11-30T20:30:00Z,Chicago Blackhawks,Anaheim Ducks,ev_home_ml,-0.3589
+2025-11-30T18:00:00Z,New York Islanders,Washington Capitals,ev_home_ml,-0.5036

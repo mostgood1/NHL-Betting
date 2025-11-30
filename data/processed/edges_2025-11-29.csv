@@ -11,6 +11,7 @@ date,home,away,market,ev
 2025-11-30T01:00:00Z,Minnesota Wild,Buffalo Sabres,ev_away_pl_+1.5,0.12
 2025-11-30T03:00:00Z,Vegas Golden Knights,San Jose Sharks,ev_under,0.1156
 2025-11-30T00:00:00Z,Nashville Predators,Winnipeg Jets,ev_under,0.109
+2025-11-30T03:00:00Z,Los Angeles Kings,Vancouver Canucks,ev_f10_yes,0.1027
 2025-11-30T03:00:00Z,Los Angeles Kings,Vancouver Canucks,ev_under,0.1001
 2025-11-30T00:00:00Z,Nashville Predators,Winnipeg Jets,ev_home_ml,0.0905
 2025-11-29T19:00:00Z,New York Rangers,Tampa Bay Lightning,ev_away_ml,0.0879
@@ -55,3 +56,4 @@ date,home,away,market,ev
 2025-11-30T03:00:00Z,Vegas Golden Knights,San Jose Sharks,ev_home_pl_-1.5,-0.3849
 2025-11-30T01:00:00Z,Minnesota Wild,Buffalo Sabres,ev_away_ml,-0.4263
 2025-11-30T03:00:00Z,Los Angeles Kings,Vancouver Canucks,ev_home_pl_-1.5,-0.4315
+2025-11-30T03:00:00Z,Los Angeles Kings,Vancouver Canucks,ev_f10_no,-0.436

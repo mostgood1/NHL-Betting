@@ -1,27 +1,29 @@
 date,home,away,market,ev
-2025-12-02T00:00:00Z,Philadelphia Flyers,Pittsburgh Penguins,ev_over,0.1895
-2025-12-02T00:00:00Z,New Jersey Devils,Columbus Blue Jackets,ev_away_ml,0.1783
-2025-12-02T00:00:00Z,Philadelphia Flyers,Pittsburgh Penguins,ev_away_pl_+1.5,0.1092
-2025-12-02T00:00:00Z,New Jersey Devils,Columbus Blue Jackets,ev_away_pl_+1.5,0.078
-2025-12-02T01:00:00Z,St. Louis Blues,Anaheim Ducks,ev_home_ml,0.0434
-2025-12-02T03:00:00Z,San Jose Sharks,Utah Mammoth,ev_home_ml,0.0426
-2025-12-02T03:00:00Z,San Jose Sharks,Utah Mammoth,ev_under,0.0353
-2025-12-02T00:30:00Z,Buffalo Sabres,Winnipeg Jets,ev_under,0.0297
-2025-12-02T00:30:00Z,Buffalo Sabres,Winnipeg Jets,ev_away_ml,0.0137
-2025-12-02T01:00:00Z,St. Louis Blues,Anaheim Ducks,ev_over,0.0047
-2025-12-02T00:00:00Z,New Jersey Devils,Columbus Blue Jackets,ev_under,-0.012
-2025-12-02T01:00:00Z,St. Louis Blues,Anaheim Ducks,ev_home_pl_-1.5,-0.0279
-2025-12-02T00:00:00Z,Philadelphia Flyers,Pittsburgh Penguins,ev_away_ml,-0.0322
-2025-12-02T00:00:00Z,Philadelphia Flyers,Pittsburgh Penguins,ev_home_ml,-0.0471
-2025-12-02T01:00:00Z,St. Louis Blues,Anaheim Ducks,ev_away_pl_+1.5,-0.0477
-2025-12-02T00:00:00Z,New Jersey Devils,Columbus Blue Jackets,ev_over,-0.0727
-2025-12-02T01:00:00Z,St. Louis Blues,Anaheim Ducks,ev_under,-0.0951
-2025-12-02T03:00:00Z,San Jose Sharks,Utah Mammoth,ev_away_ml,-0.1006
-2025-12-02T00:30:00Z,Buffalo Sabres,Winnipeg Jets,ev_home_ml,-0.1046
-2025-12-02T00:30:00Z,Buffalo Sabres,Winnipeg Jets,ev_over,-0.1233
-2025-12-02T03:00:00Z,San Jose Sharks,Utah Mammoth,ev_over,-0.1288
-2025-12-02T01:00:00Z,St. Louis Blues,Anaheim Ducks,ev_away_ml,-0.1469
-2025-12-02T00:00:00Z,New Jersey Devils,Columbus Blue Jackets,ev_home_ml,-0.1977
-2025-12-02T00:00:00Z,New Jersey Devils,Columbus Blue Jackets,ev_home_pl_-1.5,-0.2509
-2025-12-02T00:00:00Z,Philadelphia Flyers,Pittsburgh Penguins,ev_under,-0.2976
-2025-12-02T00:00:00Z,Philadelphia Flyers,Pittsburgh Penguins,ev_home_pl_-1.5,-0.3057
+2025-12-02T00:00:00Z,Philadelphia Flyers,Pittsburgh Penguins,ev_home_ml,0.2486
+2025-12-02T01:00:00Z,St. Louis Blues,Anaheim Ducks,ev_home_ml,0.213
+2025-12-02T00:00:00Z,Philadelphia Flyers,Pittsburgh Penguins,ev_over,0.1479
+2025-12-02T01:00:00Z,St. Louis Blues,Anaheim Ducks,ev_under,0.1292
+2025-12-02T03:00:00Z,San Jose Sharks,Utah Mammoth,ev_over,0.1008
+2025-12-02T00:30:00Z,Buffalo Sabres,Winnipeg Jets,ev_away_pl_+1.5,0.0769
+2025-12-02T00:00:00Z,Philadelphia Flyers,Pittsburgh Penguins,ev_away_pl_+1.5,0.0751
+2025-12-02T00:00:00Z,New Jersey Devils,Columbus Blue Jackets,ev_away_pl_+1.5,0.0656
+2025-12-02T03:00:00Z,San Jose Sharks,Utah Mammoth,ev_home_ml,0.0652
+2025-12-02T00:00:00Z,New Jersey Devils,Columbus Blue Jackets,ev_home_ml,0.0517
+2025-12-02T00:30:00Z,Buffalo Sabres,Winnipeg Jets,ev_under,0.011
+2025-12-02T00:30:00Z,Buffalo Sabres,Winnipeg Jets,ev_home_ml,0.0067
+2025-12-02T01:00:00Z,St. Louis Blues,Anaheim Ducks,ev_away_pl_+1.5,-0.0241
+2025-12-02T00:00:00Z,New Jersey Devils,Columbus Blue Jackets,ev_under,-0.0279
+2025-12-02T00:00:00Z,New Jersey Devils,Columbus Blue Jackets,ev_over,-0.055
+2025-12-02T01:00:00Z,St. Louis Blues,Anaheim Ducks,ev_home_pl_-1.5,-0.0718
+2025-12-02T00:30:00Z,Buffalo Sabres,Winnipeg Jets,ev_away_ml,-0.099
+2025-12-02T00:30:00Z,Buffalo Sabres,Winnipeg Jets,ev_over,-0.1014
+2025-12-02T03:00:00Z,San Jose Sharks,Utah Mammoth,ev_away_ml,-0.1127
+2025-12-02T00:00:00Z,New Jersey Devils,Columbus Blue Jackets,ev_away_ml,-0.1659
+2025-12-02T03:00:00Z,San Jose Sharks,Utah Mammoth,ev_under,-0.2066
+2025-12-02T00:00:00Z,New Jersey Devils,Columbus Blue Jackets,ev_home_pl_-1.5,-0.2339
+2025-12-02T01:00:00Z,St. Louis Blues,Anaheim Ducks,ev_over,-0.236
+2025-12-02T00:00:00Z,Philadelphia Flyers,Pittsburgh Penguins,ev_under,-0.2625
+2025-12-02T00:00:00Z,Philadelphia Flyers,Pittsburgh Penguins,ev_home_pl_-1.5,-0.2636
+2025-12-02T00:30:00Z,Buffalo Sabres,Winnipeg Jets,ev_home_pl_-1.5,-0.3059
+2025-12-02T00:00:00Z,Philadelphia Flyers,Pittsburgh Penguins,ev_away_ml,-0.395
+2025-12-02T01:00:00Z,St. Louis Blues,Anaheim Ducks,ev_away_ml,-0.3959

@@ -1,0 +1,25 @@
+date,home,away,market,ev
+2025-12-04T00:00:00Z,New Jersey Devils,Dallas Stars,ev_away_ml,0.285
+2025-12-04T03:00:00Z,San Jose Sharks,Washington Capitals,ev_away_ml,0.2835
+2025-12-04T03:00:00Z,Anaheim Ducks,Utah Mammoth,ev_away_ml,0.2182
+2025-12-04T00:30:00Z,Montréal Canadiens,Winnipeg Jets,ev_away_ml,0.148
+2025-12-04T03:00:00Z,Anaheim Ducks,Utah Mammoth,ev_under,0.1459
+2025-12-04T00:00:00Z,New Jersey Devils,Dallas Stars,ev_away_pl_+1.5,0.1389
+2025-12-04T00:30:00Z,Philadelphia Flyers,Buffalo Sabres,ev_home_ml,0.1186
+2025-12-04T03:00:00Z,San Jose Sharks,Washington Capitals,ev_under,0.1166
+2025-12-04T03:00:00Z,Anaheim Ducks,Utah Mammoth,ev_away_pl_+1.5,0.0815
+2025-12-04T00:00:00Z,New Jersey Devils,Dallas Stars,ev_over,0.0801
+2025-12-04T00:30:00Z,Montréal Canadiens,Winnipeg Jets,ev_under,0.0074
+2025-12-04T00:30:00Z,Philadelphia Flyers,Buffalo Sabres,ev_over,-0.0301
+2025-12-04T00:30:00Z,Philadelphia Flyers,Buffalo Sabres,ev_under,-0.0479
+2025-12-04T00:30:00Z,Montréal Canadiens,Winnipeg Jets,ev_over,-0.0974
+2025-12-04T00:00:00Z,New Jersey Devils,Dallas Stars,ev_under,-0.182
+2025-12-04T00:30:00Z,Philadelphia Flyers,Buffalo Sabres,ev_away_ml,-0.2095
+2025-12-04T03:00:00Z,San Jose Sharks,Washington Capitals,ev_over,-0.2254
+2025-12-04T03:00:00Z,Anaheim Ducks,Utah Mammoth,ev_over,-0.2277
+2025-12-04T00:30:00Z,Montréal Canadiens,Winnipeg Jets,ev_home_ml,-0.2524
+2025-12-04T03:00:00Z,Anaheim Ducks,Utah Mammoth,ev_home_ml,-0.3044
+2025-12-04T03:00:00Z,Anaheim Ducks,Utah Mammoth,ev_home_pl_-1.5,-0.3254
+2025-12-04T00:00:00Z,New Jersey Devils,Dallas Stars,ev_home_ml,-0.3609
+2025-12-04T00:00:00Z,New Jersey Devils,Dallas Stars,ev_home_pl_-1.5,-0.4313
+2025-12-04T03:00:00Z,San Jose Sharks,Washington Capitals,ev_home_ml,-0.4944

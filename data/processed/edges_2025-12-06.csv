@@ -1,5 +1,6 @@
 date,home,away,market,ev
 2025-12-07T00:00:00Z,Carolina Hurricanes,Nashville Predators,ev_away_ml,0.5092
+2025-12-07T03:00:00Z,Seattle Kraken,Detroit Red Wings,ev_away_pl_+1.5,0.4296
 2025-12-07T03:00:00Z,Vancouver Canucks,Minnesota Wild,ev_home_ml,0.3714
 2025-12-07T00:00:00Z,Tampa Bay Lightning,New York Islanders,ev_away_ml,0.3032
 2025-12-07T03:00:00Z,Edmonton Oilers,Winnipeg Jets,ev_away_pl_+1.5,0.257
@@ -15,6 +16,7 @@ date,home,away,market,ev
 2025-12-07T03:00:00Z,Edmonton Oilers,Winnipeg Jets,ev_under,0.1351
 2025-12-07T03:00:00Z,Seattle Kraken,Detroit Red Wings,ev_over,0.1121
 2025-12-07T00:00:00Z,Calgary Flames,Utah Mammoth,ev_over,0.1059
+2025-12-07T03:00:00Z,Seattle Kraken,Detroit Red Wings,ev_f10_yes,0.1027
 2025-12-07T03:00:00Z,Seattle Kraken,Detroit Red Wings,ev_home_ml,0.0903
 2025-12-07T00:00:00Z,Calgary Flames,Utah Mammoth,ev_away_pl_+1.5,0.0818
 2025-12-07T00:00:00Z,Toronto Maple Leafs,Montréal Canadiens,ev_away_ml,0.0728
@@ -63,3 +65,5 @@ date,home,away,market,ev
 2025-12-07T03:00:00Z,Vancouver Canucks,Minnesota Wild,ev_away_ml,-0.3502
 2025-12-07T03:00:00Z,Edmonton Oilers,Winnipeg Jets,ev_away_ml,-0.4144
 2025-12-07T03:00:00Z,Edmonton Oilers,Winnipeg Jets,ev_home_pl_-1.5,-0.4226
+2025-12-07T03:00:00Z,Seattle Kraken,Detroit Red Wings,ev_f10_no,-0.436
+2025-12-07T03:00:00Z,Seattle Kraken,Detroit Red Wings,ev_home_pl_-1.5,-0.5206

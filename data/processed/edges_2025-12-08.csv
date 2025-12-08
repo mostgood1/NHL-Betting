@@ -1,0 +1,25 @@
+date,home,away,market,ev
+2025-12-09T02:00:00Z,Calgary Flames,Buffalo Sabres,ev_home_ml,0.4349
+2025-12-09T03:00:00Z,Vancouver Canucks,Detroit Red Wings,ev_home_ml,0.3045
+2025-12-09T03:00:00Z,Seattle Kraken,Minnesota Wild,ev_over,0.2279
+2025-12-09T00:30:00Z,Toronto Maple Leafs,Tampa Bay Lightning,ev_home_ml,0.1805
+2025-12-09T03:00:00Z,Vancouver Canucks,Detroit Red Wings,ev_under,0.1414
+2025-12-09T00:30:00Z,Toronto Maple Leafs,Tampa Bay Lightning,ev_under,0.1153
+2025-12-09T02:00:00Z,Utah Mammoth,Los Angeles Kings,ev_over,0.1078
+2025-12-09T02:00:00Z,Utah Mammoth,Los Angeles Kings,ev_home_ml,0.1035
+2025-12-09T03:00:00Z,Seattle Kraken,Minnesota Wild,ev_home_ml,0.1014
+2025-12-09T02:00:00Z,Utah Mammoth,Los Angeles Kings,ev_away_pl_+1.5,0.0605
+2025-12-09T02:00:00Z,Calgary Flames,Buffalo Sabres,ev_under,0.0127
+2025-12-09T02:00:00Z,Calgary Flames,Buffalo Sabres,ev_home_pl_-1.5,-0.0255
+2025-12-09T02:00:00Z,Calgary Flames,Buffalo Sabres,ev_away_pl_+1.5,-0.0469
+2025-12-09T02:00:00Z,Calgary Flames,Buffalo Sabres,ev_over,-0.105
+2025-12-09T03:00:00Z,Seattle Kraken,Minnesota Wild,ev_away_ml,-0.1552
+2025-12-09T02:00:00Z,Utah Mammoth,Los Angeles Kings,ev_under,-0.186
+2025-12-09T02:00:00Z,Utah Mammoth,Los Angeles Kings,ev_away_ml,-0.1968
+2025-12-09T00:30:00Z,Toronto Maple Leafs,Tampa Bay Lightning,ev_over,-0.2033
+2025-12-09T03:00:00Z,Vancouver Canucks,Detroit Red Wings,ev_over,-0.2234
+2025-12-09T00:30:00Z,Toronto Maple Leafs,Tampa Bay Lightning,ev_away_ml,-0.2253
+2025-12-09T02:00:00Z,Utah Mammoth,Los Angeles Kings,ev_home_pl_-1.5,-0.2763
+2025-12-09T03:00:00Z,Seattle Kraken,Minnesota Wild,ev_under,-0.3063
+2025-12-09T03:00:00Z,Vancouver Canucks,Detroit Red Wings,ev_away_ml,-0.3454
+2025-12-09T02:00:00Z,Calgary Flames,Buffalo Sabres,ev_away_ml,-0.5258

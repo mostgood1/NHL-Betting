@@ -1,0 +1,5 @@
+date,home,away,market,ev
+2025-12-13T01:00:00Z,St. Louis Blues,Chicago Blackhawks,ev_away_ml,-0.0354
+2025-12-13T02:00:00Z,Utah Mammoth,Seattle Kraken,ev_away_ml,-0.0453
+2025-12-13T02:00:00Z,Utah Mammoth,Seattle Kraken,ev_home_ml,-0.054
+2025-12-13T01:00:00Z,St. Louis Blues,Chicago Blackhawks,ev_home_ml,-0.0631

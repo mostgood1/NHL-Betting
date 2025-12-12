@@ -1,0 +1,27 @@
+date,home,away,market,ev
+2025-12-13T17:30:00Z,New Jersey Devils,Anaheim Ducks,ev_away_ml,0.3592
+2025-12-13T20:00:00Z,Pittsburgh Penguins,San Jose Sharks,ev_away_ml,0.3392
+2025-12-14T00:00:00Z,New York Rangers,Montréal Canadiens,ev_away_ml,0.2678
+2025-12-14T02:00:00Z,Colorado Avalanche,Nashville Predators,ev_away_ml,0.2035
+2025-12-14T03:00:00Z,Los Angeles Kings,Calgary Flames,ev_away_ml,0.1455
+2025-12-14T01:00:00Z,Chicago Blackhawks,Detroit Red Wings,ev_away_ml,0.1349
+2025-12-13T19:00:00Z,Minnesota Wild,Ottawa Senators,ev_home_ml,0.1011
+2025-12-14T00:00:00Z,Philadelphia Flyers,Carolina Hurricanes,ev_away_ml,0.0493
+2025-12-14T00:00:00Z,Columbus Blue Jackets,Vegas Golden Knights,ev_home_ml,0.0418
+2025-12-14T00:00:00Z,Winnipeg Jets,Washington Capitals,ev_away_ml,0.04
+2025-12-13T20:30:00Z,New York Islanders,Tampa Bay Lightning,ev_away_ml,0.0017
+2025-12-14T01:00:00Z,Dallas Stars,Florida Panthers,ev_home_ml,-0.0118
+2025-12-14T00:00:00Z,Toronto Maple Leafs,Edmonton Oilers,ev_away_ml,-0.0124
+2025-12-14T00:00:00Z,Toronto Maple Leafs,Edmonton Oilers,ev_home_ml,-0.0897
+2025-12-13T20:30:00Z,New York Islanders,Tampa Bay Lightning,ev_home_ml,-0.1089
+2025-12-14T00:00:00Z,Columbus Blue Jackets,Vegas Golden Knights,ev_away_ml,-0.1165
+2025-12-14T01:00:00Z,Dallas Stars,Florida Panthers,ev_away_ml,-0.133
+2025-12-14T02:00:00Z,Colorado Avalanche,Nashville Predators,ev_home_ml,-0.1414
+2025-12-14T00:00:00Z,Winnipeg Jets,Washington Capitals,ev_home_ml,-0.1449
+2025-12-14T03:00:00Z,Los Angeles Kings,Calgary Flames,ev_home_ml,-0.1608
+2025-12-14T00:00:00Z,Philadelphia Flyers,Carolina Hurricanes,ev_home_ml,-0.1776
+2025-12-13T19:00:00Z,Minnesota Wild,Ottawa Senators,ev_away_ml,-0.2456
+2025-12-14T00:00:00Z,New York Rangers,Montréal Canadiens,ev_home_ml,-0.2484
+2025-12-14T01:00:00Z,Chicago Blackhawks,Detroit Red Wings,ev_home_ml,-0.2492
+2025-12-13T20:00:00Z,Pittsburgh Penguins,San Jose Sharks,ev_home_ml,-0.2726
+2025-12-13T17:30:00Z,New Jersey Devils,Anaheim Ducks,ev_home_ml,-0.3526

@@ -1,11 +1,27 @@
 date,home,away,market,ev
-2025-12-18T01:00:00Z,Nashville Predators,Carolina Hurricanes,ev_home_ml,0.6475
-2025-12-18T00:30:00Z,Detroit Red Wings,Utah Mammoth,ev_away_ml,0.0143
-2025-12-18T00:00:00Z,Florida Panthers,Los Angeles Kings,ev_home_ml,0.0084
-2025-12-18T03:00:00Z,Vegas Golden Knights,New Jersey Devils,ev_home_ml,-0.0029
-2025-12-18T01:00:00Z,St. Louis Blues,Winnipeg Jets,ev_home_ml,-0.0142
-2025-12-18T01:00:00Z,St. Louis Blues,Winnipeg Jets,ev_away_ml,-0.0904
-2025-12-18T00:30:00Z,Detroit Red Wings,Utah Mammoth,ev_home_ml,-0.1032
-2025-12-18T00:00:00Z,Florida Panthers,Los Angeles Kings,ev_away_ml,-0.1211
-2025-12-18T03:00:00Z,Vegas Golden Knights,New Jersey Devils,ev_away_ml,-0.1281
-2025-12-18T01:00:00Z,Nashville Predators,Carolina Hurricanes,ev_away_ml,-0.5481
+2025-12-18T01:00:00Z,Nashville Predators,Carolina Hurricanes,ev_home_ml,0.7876
+2025-12-18T03:00:00Z,Vegas Golden Knights,New Jersey Devils,ev_over,0.1905
+2025-12-18T00:30:00Z,Detroit Red Wings,Utah Mammoth,ev_home_ml,0.1553
+2025-12-18T00:00:00Z,Florida Panthers,Los Angeles Kings,ev_home_ml,0.1531
+2025-12-18T01:00:00Z,St. Louis Blues,Winnipeg Jets,ev_over,0.1336
+2025-12-18T01:00:00Z,St. Louis Blues,Winnipeg Jets,ev_home_ml,0.1288
+2025-12-18T03:00:00Z,Vegas Golden Knights,New Jersey Devils,ev_away_pl_+1.5,0.1139
+2025-12-18T00:00:00Z,Florida Panthers,Los Angeles Kings,ev_over,0.1109
+2025-12-18T00:30:00Z,Detroit Red Wings,Utah Mammoth,ev_away_pl_+1.5,0.0751
+2025-12-18T01:00:00Z,Nashville Predators,Carolina Hurricanes,ev_under,0.0245
+2025-12-18T00:00:00Z,Florida Panthers,Los Angeles Kings,ev_away_pl_+1.5,0.0174
+2025-12-18T03:00:00Z,Vegas Golden Knights,New Jersey Devils,ev_home_ml,0.0087
+2025-12-18T00:30:00Z,Detroit Red Wings,Utah Mammoth,ev_under,0.0055
+2025-12-18T00:30:00Z,Detroit Red Wings,Utah Mammoth,ev_over,-0.0951
+2025-12-18T01:00:00Z,Nashville Predators,Carolina Hurricanes,ev_over,-0.1195
+2025-12-18T03:00:00Z,Vegas Golden Knights,New Jersey Devils,ev_away_ml,-0.1232
+2025-12-18T00:00:00Z,Florida Panthers,Los Angeles Kings,ev_home_pl_-1.5,-0.1528
+2025-12-18T01:00:00Z,St. Louis Blues,Winnipeg Jets,ev_away_ml,-0.1687
+2025-12-18T00:00:00Z,Florida Panthers,Los Angeles Kings,ev_under,-0.2118
+2025-12-18T01:00:00Z,St. Louis Blues,Winnipeg Jets,ev_under,-0.2275
+2025-12-18T00:30:00Z,Detroit Red Wings,Utah Mammoth,ev_away_ml,-0.2657
+2025-12-18T03:00:00Z,Vegas Golden Knights,New Jersey Devils,ev_under,-0.2705
+2025-12-18T03:00:00Z,Vegas Golden Knights,New Jersey Devils,ev_home_pl_-1.5,-0.2773
+2025-12-18T00:30:00Z,Detroit Red Wings,Utah Mammoth,ev_home_pl_-1.5,-0.2832
+2025-12-18T00:00:00Z,Florida Panthers,Los Angeles Kings,ev_away_ml,-0.2885
+2025-12-18T01:00:00Z,Nashville Predators,Carolina Hurricanes,ev_away_ml,-0.5567

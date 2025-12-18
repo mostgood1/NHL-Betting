@@ -1,0 +1,29 @@
+date,home,away,market,ev
+2025-12-20T03:00:00Z,Anaheim Ducks,Dallas Stars,ev_away_ml,0.4761
+2025-12-20T03:00:00Z,Anaheim Ducks,Dallas Stars,ev_away_pl_+1.5,0.2064
+2025-12-20T02:00:00Z,Colorado Avalanche,Winnipeg Jets,ev_away_pl_+1.5,0.1696
+2025-12-20T00:00:00Z,New York Islanders,Vancouver Canucks,ev_away_ml,0.164
+2025-12-20T00:00:00Z,New York Islanders,Vancouver Canucks,ev_away_pl_+1.5,0.1573
+2025-12-20T00:00:00Z,Florida Panthers,Carolina Hurricanes,ev_home_ml,0.142
+2025-12-20T00:00:00Z,New York Islanders,Vancouver Canucks,ev_over,0.1299
+2025-12-20T02:00:00Z,Utah Mammoth,New Jersey Devils,ev_away_ml,0.1182
+2025-12-20T02:00:00Z,Colorado Avalanche,Winnipeg Jets,ev_away_ml,0.0988
+2025-12-20T02:00:00Z,Utah Mammoth,New Jersey Devils,ev_away_pl_+1.5,0.0863
+2025-12-20T03:00:00Z,Anaheim Ducks,Dallas Stars,ev_under,0.0806
+2025-12-20T00:00:00Z,Florida Panthers,Carolina Hurricanes,ev_over,0.07
+2025-12-20T02:00:00Z,Utah Mammoth,New Jersey Devils,ev_over,0.0634
+2025-12-20T02:00:00Z,Colorado Avalanche,Winnipeg Jets,ev_under,-0.0168
+2025-12-20T02:00:00Z,Colorado Avalanche,Winnipeg Jets,ev_over,-0.0862
+2025-12-20T02:00:00Z,Colorado Avalanche,Winnipeg Jets,ev_home_ml,-0.1144
+2025-12-20T02:00:00Z,Utah Mammoth,New Jersey Devils,ev_home_ml,-0.1668
+2025-12-20T02:00:00Z,Utah Mammoth,New Jersey Devils,ev_under,-0.1683
+2025-12-20T00:00:00Z,Florida Panthers,Carolina Hurricanes,ev_under,-0.1686
+2025-12-20T00:00:00Z,New York Islanders,Vancouver Canucks,ev_home_ml,-0.1974
+2025-12-20T03:00:00Z,Anaheim Ducks,Dallas Stars,ev_over,-0.1988
+2025-12-20T00:00:00Z,Florida Panthers,Carolina Hurricanes,ev_away_ml,-0.224
+2025-12-20T00:00:00Z,New York Islanders,Vancouver Canucks,ev_under,-0.2369
+2025-12-20T02:00:00Z,Utah Mammoth,New Jersey Devils,ev_home_pl_-1.5,-0.2967
+2025-12-20T02:00:00Z,Colorado Avalanche,Winnipeg Jets,ev_home_pl_-1.5,-0.3177
+2025-12-20T00:00:00Z,New York Islanders,Vancouver Canucks,ev_home_pl_-1.5,-0.4214
+2025-12-20T03:00:00Z,Anaheim Ducks,Dallas Stars,ev_home_ml,-0.5198
+2025-12-20T03:00:00Z,Anaheim Ducks,Dallas Stars,ev_home_pl_-1.5,-0.588

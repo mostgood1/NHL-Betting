@@ -1,55 +1,53 @@
 date,home,away,market,ev
-2025-12-19T00:00:00Z,Washington Capitals,Toronto Maple Leafs,ev_away_ml,0.4415
-2025-12-19T00:00:00Z,Boston Bruins,Edmonton Oilers,ev_home_ml,0.3699
-2025-12-19T02:00:00Z,Calgary Flames,Seattle Kraken,ev_over,0.2648
-2025-12-19T00:00:00Z,Washington Capitals,Toronto Maple Leafs,ev_away_pl_+1.5,0.2427
-2025-12-19T00:00:00Z,Montréal Canadiens,Chicago Blackhawks,ev_away_pl_+1.5,0.2034
-2025-12-19T01:00:00Z,St. Louis Blues,New York Rangers,ev_over,0.2027
-2025-12-19T00:00:00Z,Montréal Canadiens,Chicago Blackhawks,ev_over,0.196
-2025-12-19T03:00:00Z,San Jose Sharks,Dallas Stars,ev_over,0.1908
-2025-12-19T00:00:00Z,Ottawa Senators,Pittsburgh Penguins,ev_over,0.1876
-2025-12-19T00:00:00Z,Ottawa Senators,Pittsburgh Penguins,ev_away_pl_+1.5,0.1831
-2025-12-19T00:00:00Z,Tampa Bay Lightning,Los Angeles Kings,ev_over,0.1638
-2025-12-19T00:30:00Z,Buffalo Sabres,Philadelphia Flyers,ev_over,0.1417
-2025-12-19T02:00:00Z,Calgary Flames,Seattle Kraken,ev_away_pl_+1.5,0.1353
-2025-12-19T00:00:00Z,Columbus Blue Jackets,Minnesota Wild,ev_home_ml,0.1167
-2025-12-19T00:30:00Z,Buffalo Sabres,Philadelphia Flyers,ev_home_ml,0.1157
-2025-12-19T00:00:00Z,Montréal Canadiens,Chicago Blackhawks,ev_away_ml,0.106
-2025-12-19T00:00:00Z,Tampa Bay Lightning,Los Angeles Kings,ev_away_pl_+1.5,0.1029
-2025-12-19T01:00:00Z,St. Louis Blues,New York Rangers,ev_away_ml,0.0896
-2025-12-19T00:00:00Z,Washington Capitals,Toronto Maple Leafs,ev_over,0.084
-2025-12-19T00:00:00Z,Boston Bruins,Edmonton Oilers,ev_under,0.0608
-2025-12-19T00:00:00Z,Tampa Bay Lightning,Los Angeles Kings,ev_away_ml,0.0518
-2025-12-19T00:00:00Z,Columbus Blue Jackets,Minnesota Wild,ev_under,0.0384
-2025-12-19T00:00:00Z,Ottawa Senators,Pittsburgh Penguins,ev_away_ml,0.037
-2025-12-19T02:00:00Z,Calgary Flames,Seattle Kraken,ev_away_ml,0.0337
-2025-12-19T03:00:00Z,San Jose Sharks,Dallas Stars,ev_away_ml,0.0089
-2025-12-19T00:30:00Z,Buffalo Sabres,Philadelphia Flyers,ev_away_pl_+1.5,0.0063
-2025-12-19T00:00:00Z,Columbus Blue Jackets,Minnesota Wild,ev_home_pl_-1.5,-0.0355
-2025-12-19T00:00:00Z,Columbus Blue Jackets,Minnesota Wild,ev_away_pl_+1.5,-0.0441
-2025-12-19T00:00:00Z,Ottawa Senators,Pittsburgh Penguins,ev_home_ml,-0.0884
-2025-12-19T02:00:00Z,Calgary Flames,Seattle Kraken,ev_home_ml,-0.0902
-2025-12-19T00:00:00Z,Tampa Bay Lightning,Los Angeles Kings,ev_home_ml,-0.0974
-2025-12-19T00:00:00Z,Montréal Canadiens,Chicago Blackhawks,ev_home_ml,-0.1216
-2025-12-19T00:00:00Z,Columbus Blue Jackets,Minnesota Wild,ev_over,-0.1326
-2025-12-19T00:30:00Z,Buffalo Sabres,Philadelphia Flyers,ev_home_pl_-1.5,-0.134
-2025-12-19T03:00:00Z,San Jose Sharks,Dallas Stars,ev_home_ml,-0.1366
-2025-12-19T00:00:00Z,Boston Bruins,Edmonton Oilers,ev_over,-0.1641
-2025-12-19T00:00:00Z,Washington Capitals,Toronto Maple Leafs,ev_under,-0.1926
-2025-12-19T01:00:00Z,St. Louis Blues,New York Rangers,ev_home_ml,-0.1932
-2025-12-19T00:00:00Z,Columbus Blue Jackets,Minnesota Wild,ev_away_ml,-0.2076
-2025-12-19T00:30:00Z,Buffalo Sabres,Philadelphia Flyers,ev_away_ml,-0.2316
-2025-12-19T00:00:00Z,Tampa Bay Lightning,Los Angeles Kings,ev_home_pl_-1.5,-0.2418
-2025-12-19T01:00:00Z,St. Louis Blues,New York Rangers,ev_under,-0.2691
-2025-12-19T00:00:00Z,Tampa Bay Lightning,Los Angeles Kings,ev_under,-0.2696
-2025-12-19T00:30:00Z,Buffalo Sabres,Philadelphia Flyers,ev_under,-0.2738
-2025-12-19T00:00:00Z,Ottawa Senators,Pittsburgh Penguins,ev_under,-0.3096
-2025-12-19T02:00:00Z,Calgary Flames,Seattle Kraken,ev_home_pl_-1.5,-0.3099
-2025-12-19T03:00:00Z,San Jose Sharks,Dallas Stars,ev_under,-0.3134
-2025-12-19T00:00:00Z,Montréal Canadiens,Chicago Blackhawks,ev_under,-0.3196
-2025-12-19T00:00:00Z,Montréal Canadiens,Chicago Blackhawks,ev_home_pl_-1.5,-0.3394
-2025-12-19T00:00:00Z,Ottawa Senators,Pittsburgh Penguins,ev_home_pl_-1.5,-0.3541
-2025-12-19T00:00:00Z,Boston Bruins,Edmonton Oilers,ev_away_ml,-0.3569
-2025-12-19T02:00:00Z,Calgary Flames,Seattle Kraken,ev_under,-0.3684
-2025-12-19T00:00:00Z,Washington Capitals,Toronto Maple Leafs,ev_home_ml,-0.3706
-2025-12-19T00:00:00Z,Washington Capitals,Toronto Maple Leafs,ev_home_pl_-1.5,-0.4875
+2025-12-19T00:00:00Z,Washington Capitals,Toronto Maple Leafs,ev_away_ml,0.4005
+2025-12-19T00:00:00Z,Tampa Bay Lightning,Los Angeles Kings,ev_away_ml,0.3341
+2025-12-19T00:00:00Z,Montréal Canadiens,Chicago Blackhawks,ev_away_ml,0.2919
+2025-12-19T00:00:00Z,Ottawa Senators,Pittsburgh Penguins,ev_away_ml,0.2431
+2025-12-19T00:00:00Z,Montréal Canadiens,Chicago Blackhawks,ev_over,0.2394
+2025-12-19T02:00:00Z,Calgary Flames,Seattle Kraken,ev_over,0.231
+2025-12-19T02:00:00Z,Calgary Flames,Seattle Kraken,ev_away_ml,0.2305
+2025-12-19T01:00:00Z,St. Louis Blues,New York Rangers,ev_over,0.2076
+2025-12-19T00:00:00Z,Washington Capitals,Toronto Maple Leafs,ev_away_pl_+1.5,0.1766
+2025-12-19T03:00:00Z,San Jose Sharks,Dallas Stars,ev_over,0.1716
+2025-12-19T00:00:00Z,Columbus Blue Jackets,Minnesota Wild,ev_home_ml,0.1698
+2025-12-19T00:00:00Z,Tampa Bay Lightning,Los Angeles Kings,ev_over,0.1654
+2025-12-19T03:00:00Z,San Jose Sharks,Dallas Stars,ev_away_ml,0.1528
+2025-12-19T00:00:00Z,Boston Bruins,Edmonton Oilers,ev_under,0.1258
+2025-12-19T00:00:00Z,Washington Capitals,Toronto Maple Leafs,ev_over,0.1209
+2025-12-19T00:00:00Z,Ottawa Senators,Pittsburgh Penguins,ev_away_pl_+1.5,0.1187
+2025-12-19T00:00:00Z,Boston Bruins,Edmonton Oilers,ev_home_ml,0.1164
+2025-12-19T02:00:00Z,Calgary Flames,Seattle Kraken,ev_away_pl_+1.5,0.1012
+2025-12-19T00:00:00Z,Montréal Canadiens,Chicago Blackhawks,ev_away_pl_+1.5,0.0863
+2025-12-19T00:00:00Z,Tampa Bay Lightning,Los Angeles Kings,ev_away_pl_+1.5,0.0827
+2025-12-19T01:00:00Z,St. Louis Blues,New York Rangers,ev_away_ml,0.0754
+2025-12-19T00:00:00Z,Columbus Blue Jackets,Minnesota Wild,ev_under,0.068
+2025-12-19T00:30:00Z,Buffalo Sabres,Philadelphia Flyers,ev_away_pl_+1.5,0.0231
+2025-12-19T00:30:00Z,Buffalo Sabres,Philadelphia Flyers,ev_away_ml,0.0116
+2025-12-19T00:00:00Z,Ottawa Senators,Pittsburgh Penguins,ev_under,-0.0034
+2025-12-19T00:30:00Z,Buffalo Sabres,Philadelphia Flyers,ev_over,-0.0225
+2025-12-19T00:30:00Z,Buffalo Sabres,Philadelphia Flyers,ev_under,-0.0543
+2025-12-19T00:30:00Z,Buffalo Sabres,Philadelphia Flyers,ev_home_ml,-0.0794
+2025-12-19T00:00:00Z,Ottawa Senators,Pittsburgh Penguins,ev_over,-0.0884
+2025-12-19T00:30:00Z,Buffalo Sabres,Philadelphia Flyers,ev_home_pl_-1.5,-0.1638
+2025-12-19T00:00:00Z,Columbus Blue Jackets,Minnesota Wild,ev_over,-0.1656
+2025-12-19T00:00:00Z,Boston Bruins,Edmonton Oilers,ev_away_ml,-0.1674
+2025-12-19T01:00:00Z,St. Louis Blues,New York Rangers,ev_home_ml,-0.1882
+2025-12-19T02:00:00Z,Calgary Flames,Seattle Kraken,ev_home_ml,-0.2193
+2025-12-19T00:00:00Z,Tampa Bay Lightning,Los Angeles Kings,ev_home_pl_-1.5,-0.2199
+2025-12-19T00:00:00Z,Ottawa Senators,Pittsburgh Penguins,ev_home_ml,-0.2259
+2025-12-19T00:00:00Z,Boston Bruins,Edmonton Oilers,ev_over,-0.2264
+2025-12-19T00:00:00Z,Washington Capitals,Toronto Maple Leafs,ev_under,-0.2266
+2025-12-19T00:00:00Z,Columbus Blue Jackets,Minnesota Wild,ev_away_ml,-0.239
+2025-12-19T00:00:00Z,Montréal Canadiens,Chicago Blackhawks,ev_home_ml,-0.243
+2025-12-19T00:00:00Z,Montréal Canadiens,Chicago Blackhawks,ev_home_pl_-1.5,-0.2437
+2025-12-19T00:00:00Z,Tampa Bay Lightning,Los Angeles Kings,ev_home_ml,-0.2595
+2025-12-19T00:00:00Z,Tampa Bay Lightning,Los Angeles Kings,ev_under,-0.2713
+2025-12-19T01:00:00Z,St. Louis Blues,New York Rangers,ev_under,-0.2737
+2025-12-19T02:00:00Z,Calgary Flames,Seattle Kraken,ev_home_pl_-1.5,-0.2756
+2025-12-19T00:00:00Z,Ottawa Senators,Pittsburgh Penguins,ev_home_pl_-1.5,-0.2979
+2025-12-19T03:00:00Z,San Jose Sharks,Dallas Stars,ev_under,-0.3003
+2025-12-19T02:00:00Z,Calgary Flames,Seattle Kraken,ev_under,-0.3466
+2025-12-19T00:00:00Z,Montréal Canadiens,Chicago Blackhawks,ev_under,-0.352
+2025-12-19T00:00:00Z,Washington Capitals,Toronto Maple Leafs,ev_home_ml,-0.3566
+2025-12-19T03:00:00Z,San Jose Sharks,Dallas Stars,ev_home_ml,-0.3921
+2025-12-19T00:00:00Z,Washington Capitals,Toronto Maple Leafs,ev_home_pl_-1.5,-0.4352

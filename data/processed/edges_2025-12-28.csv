@@ -1,0 +1,27 @@
+date,home,away,market,ev
+2025-12-28T22:00:00Z,Tampa Bay Lightning,Montréal Canadiens,ev_over,0.1941
+2025-12-29T01:00:00Z,Seattle Kraken,Philadelphia Flyers,ev_over,0.1862
+2025-12-28T22:00:00Z,Columbus Blue Jackets,New York Islanders,ev_over,0.1745
+2025-12-29T00:00:00Z,Chicago Blackhawks,Pittsburgh Penguins,ev_away_ml,0.1552
+2025-12-28T22:00:00Z,Columbus Blue Jackets,New York Islanders,ev_away_ml,0.1246
+2025-12-29T00:00:00Z,Detroit Red Wings,Toronto Maple Leafs,ev_away_ml,0.1109
+2025-12-29T01:00:00Z,Seattle Kraken,Philadelphia Flyers,ev_away_ml,0.0978
+2025-12-28T22:00:00Z,Columbus Blue Jackets,New York Islanders,ev_away_pl_+1.5,0.0564
+2025-12-29T00:00:00Z,Detroit Red Wings,Toronto Maple Leafs,ev_under,0.0228
+2025-12-29T00:00:00Z,Detroit Red Wings,Toronto Maple Leafs,ev_away_pl_+1.5,0.0074
+2025-12-29T00:00:00Z,Chicago Blackhawks,Pittsburgh Penguins,ev_over,-0.0233
+2025-12-28T22:00:00Z,Tampa Bay Lightning,Montréal Canadiens,ev_away_pl_+1.5,-0.0391
+2025-12-28T22:00:00Z,Tampa Bay Lightning,Montréal Canadiens,ev_home_ml,-0.0394
+2025-12-28T22:00:00Z,Tampa Bay Lightning,Montréal Canadiens,ev_away_ml,-0.043
+2025-12-28T22:00:00Z,Tampa Bay Lightning,Montréal Canadiens,ev_home_pl_-1.5,-0.0438
+2025-12-29T00:00:00Z,Chicago Blackhawks,Pittsburgh Penguins,ev_under,-0.0537
+2025-12-29T00:00:00Z,Detroit Red Wings,Toronto Maple Leafs,ev_over,-0.1158
+2025-12-29T00:00:00Z,Detroit Red Wings,Toronto Maple Leafs,ev_home_pl_-1.5,-0.1338
+2025-12-29T00:00:00Z,Detroit Red Wings,Toronto Maple Leafs,ev_home_ml,-0.1629
+2025-12-28T22:00:00Z,Columbus Blue Jackets,New York Islanders,ev_home_ml,-0.167
+2025-12-29T01:00:00Z,Seattle Kraken,Philadelphia Flyers,ev_home_ml,-0.203
+2025-12-28T22:00:00Z,Columbus Blue Jackets,New York Islanders,ev_home_pl_-1.5,-0.217
+2025-12-29T01:00:00Z,Seattle Kraken,Philadelphia Flyers,ev_under,-0.2863
+2025-12-28T22:00:00Z,Columbus Blue Jackets,New York Islanders,ev_under,-0.3039
+2025-12-28T22:00:00Z,Tampa Bay Lightning,Montréal Canadiens,ev_under,-0.328
+2025-12-29T00:00:00Z,Chicago Blackhawks,Pittsburgh Penguins,ev_home_ml,-0.3402

@@ -1,5 +1,6 @@
 date,home,away,market,ev
 2025-12-28T00:00:00Z,New Jersey Devils,Washington Capitals,ev_away_ml,0.5979
+2025-12-28T03:00:00Z,Vegas Golden Knights,Colorado Avalanche,ev_away_pl_+1.5,0.3605
 2025-12-28T03:00:00Z,Vegas Golden Knights,Colorado Avalanche,ev_home_ml,0.3326
 2025-12-27T23:00:00Z,New York Islanders,New York Rangers,ev_away_ml,0.3094
 2025-12-27T23:00:00Z,New York Islanders,New York Rangers,ev_over,0.2667
@@ -11,8 +12,8 @@ date,home,away,market,ev
 2025-12-28T03:00:00Z,Calgary Flames,Edmonton Oilers,ev_under,0.1506
 2025-12-28T01:00:00Z,St. Louis Blues,Nashville Predators,ev_over,0.1498
 2025-12-28T03:00:00Z,Vancouver Canucks,San Jose Sharks,ev_away_ml,0.1113
-2025-12-28T02:00:00Z,Los Angeles Kings,Anaheim Ducks,ev_under,0.1105
 2025-12-28T00:00:00Z,Buffalo Sabres,Boston Bruins,ev_away_pl_+1.5,0.1105
+2025-12-28T02:00:00Z,Los Angeles Kings,Anaheim Ducks,ev_under,0.1105
 2025-12-28T02:00:00Z,Los Angeles Kings,Anaheim Ducks,ev_away_ml,0.1023
 2025-12-28T01:00:00Z,Dallas Stars,Chicago Blackhawks,ev_away_ml,0.1007
 2025-12-27T23:00:00Z,New York Islanders,New York Rangers,ev_away_pl_+1.5,0.0927
@@ -22,6 +23,7 @@ date,home,away,market,ev
 2025-12-28T00:00:00Z,Winnipeg Jets,Minnesota Wild,ev_over,0.07
 2025-12-28T00:00:00Z,Carolina Hurricanes,Detroit Red Wings,ev_away_pl_+1.5,0.0678
 2025-12-28T00:00:00Z,Winnipeg Jets,Minnesota Wild,ev_home_ml,0.0654
+2025-12-28T03:00:00Z,Vegas Golden Knights,Colorado Avalanche,ev_f10_yes,0.044
 2025-12-28T00:00:00Z,Buffalo Sabres,Boston Bruins,ev_under,0.0416
 2025-12-28T00:00:00Z,Toronto Maple Leafs,Ottawa Senators,ev_under,0.0356
 2025-12-28T03:00:00Z,Vancouver Canucks,San Jose Sharks,ev_home_pl_-1.5,0.031
@@ -65,5 +67,7 @@ date,home,away,market,ev
 2025-12-28T00:00:00Z,Buffalo Sabres,Boston Bruins,ev_home_pl_-1.5,-0.3316
 2025-12-27T23:00:00Z,New York Islanders,New York Rangers,ev_under,-0.3434
 2025-12-27T23:00:00Z,New York Islanders,New York Rangers,ev_home_pl_-1.5,-0.3618
+2025-12-28T03:00:00Z,Vegas Golden Knights,Colorado Avalanche,ev_f10_no,-0.3773
 2025-12-27T23:00:00Z,New York Islanders,New York Rangers,ev_home_ml,-0.4003
+2025-12-28T03:00:00Z,Vegas Golden Knights,Colorado Avalanche,ev_home_pl_-1.5,-0.4514
 2025-12-28T00:00:00Z,New Jersey Devils,Washington Capitals,ev_home_ml,-0.6314

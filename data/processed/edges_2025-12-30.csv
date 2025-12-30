@@ -1,23 +1,23 @@
 date,home,away,market,ev
-2025-12-31T00:00:00Z,Toronto Maple Leafs,New Jersey Devils,ev_home_ml,0.4966
-2025-12-31T03:00:00Z,Vancouver Canucks,Philadelphia Flyers,ev_home_ml,0.3864
-2025-12-31T03:00:00Z,Vancouver Canucks,Philadelphia Flyers,ev_over,0.2229
+2025-12-31T01:30:00Z,Chicago Blackhawks,New York Islanders,ev_away_ml,0.3034
+2025-12-31T00:00:00Z,Toronto Maple Leafs,New Jersey Devils,ev_home_ml,0.2475
+2025-12-31T03:00:00Z,Vancouver Canucks,Philadelphia Flyers,ev_over,0.2181
+2025-12-31T00:00:00Z,Toronto Maple Leafs,New Jersey Devils,ev_over,0.1697
 2025-12-31T01:30:00Z,Chicago Blackhawks,New York Islanders,ev_over,0.1633
-2025-12-31T00:00:00Z,Florida Panthers,Montréal Canadiens,ev_home_ml,0.1494
-2025-12-31T01:30:00Z,Chicago Blackhawks,New York Islanders,ev_away_ml,0.1347
-2025-12-31T00:00:00Z,Pittsburgh Penguins,Carolina Hurricanes,ev_home_ml,0.0352
-2025-12-31T00:00:00Z,Florida Panthers,Montréal Canadiens,ev_under,0.0001
-2025-12-31T00:00:00Z,Pittsburgh Penguins,Carolina Hurricanes,ev_under,-0.0245
-2025-12-31T00:00:00Z,Florida Panthers,Montréal Canadiens,ev_away_pl_+1.5,-0.0267
-2025-12-31T00:00:00Z,Toronto Maple Leafs,New Jersey Devils,ev_under,-0.0317
-2025-12-31T00:00:00Z,Toronto Maple Leafs,New Jersey Devils,ev_over,-0.0504
-2025-12-31T00:00:00Z,Pittsburgh Penguins,Carolina Hurricanes,ev_over,-0.0593
-2025-12-31T00:00:00Z,Florida Panthers,Montréal Canadiens,ev_home_pl_-1.5,-0.0672
-2025-12-31T00:00:00Z,Florida Panthers,Montréal Canadiens,ev_over,-0.0871
-2025-12-31T00:00:00Z,Pittsburgh Penguins,Carolina Hurricanes,ev_away_ml,-0.109
-2025-12-31T01:30:00Z,Chicago Blackhawks,New York Islanders,ev_home_ml,-0.2647
+2025-12-31T00:00:00Z,Pittsburgh Penguins,Carolina Hurricanes,ev_away_ml,0.0717
+2025-12-31T00:00:00Z,Pittsburgh Penguins,Carolina Hurricanes,ev_under,0.0514
+2025-12-31T00:00:00Z,Florida Panthers,Montréal Canadiens,ev_home_ml,0.0505
+2025-12-31T00:00:00Z,Florida Panthers,Montréal Canadiens,ev_under,0.0443
+2025-12-31T03:00:00Z,Vancouver Canucks,Philadelphia Flyers,ev_home_ml,0.0197
+2025-12-31T00:00:00Z,Florida Panthers,Montréal Canadiens,ev_home_pl_-1.5,-0.0114
+2025-12-31T00:00:00Z,Florida Panthers,Montréal Canadiens,ev_away_pl_+1.5,-0.0563
+2025-12-31T03:00:00Z,Vancouver Canucks,Philadelphia Flyers,ev_away_ml,-0.0898
+2025-12-31T00:00:00Z,Florida Panthers,Montréal Canadiens,ev_over,-0.1391
+2025-12-31T00:00:00Z,Pittsburgh Penguins,Carolina Hurricanes,ev_over,-0.1456
+2025-12-31T00:00:00Z,Florida Panthers,Montréal Canadiens,ev_away_ml,-0.1464
+2025-12-31T00:00:00Z,Pittsburgh Penguins,Carolina Hurricanes,ev_home_ml,-0.172
+2025-12-31T00:00:00Z,Toronto Maple Leafs,New Jersey Devils,ev_away_ml,-0.274
 2025-12-31T01:30:00Z,Chicago Blackhawks,New York Islanders,ev_under,-0.2748
-2025-12-31T00:00:00Z,Florida Panthers,Montréal Canadiens,ev_away_ml,-0.2965
-2025-12-31T03:00:00Z,Vancouver Canucks,Philadelphia Flyers,ev_under,-0.3014
-2025-12-31T03:00:00Z,Vancouver Canucks,Philadelphia Flyers,ev_away_ml,-0.3988
-2025-12-31T00:00:00Z,Toronto Maple Leafs,New Jersey Devils,ev_away_ml,-0.5875
+2025-12-31T00:00:00Z,Toronto Maple Leafs,New Jersey Devils,ev_under,-0.2821
+2025-12-31T03:00:00Z,Vancouver Canucks,Philadelphia Flyers,ev_under,-0.2969
+2025-12-31T01:30:00Z,Chicago Blackhawks,New York Islanders,ev_home_ml,-0.4825

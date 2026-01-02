@@ -1,4 +1,5 @@
 date,home,away,market,ev
+2026-01-02T03:00:00Z,Seattle Kraken,Nashville Predators,ev_away_pl_+1.5,0.2835
 2026-01-02T01:30:00Z,Chicago Blackhawks,Dallas Stars,ev_away_ml,0.2402
 2026-01-02T00:00:00Z,Pittsburgh Penguins,Detroit Red Wings,ev_away_ml,0.2372
 2026-01-01T20:00:00Z,New York Islanders,Utah Mammoth,ev_over,0.1767
@@ -11,6 +12,7 @@ date,home,away,market,ev
 2026-01-02T00:00:00Z,Toronto Maple Leafs,Winnipeg Jets,ev_home_ml,0.0963
 2026-01-01T20:00:00Z,New York Islanders,Utah Mammoth,ev_away_ml,0.0914
 2026-01-02T00:00:00Z,Carolina Hurricanes,Montréal Canadiens,ev_away_pl_+1.5,0.0726
+2026-01-02T03:00:00Z,Seattle Kraken,Nashville Predators,ev_f10_yes,0.0708
 2026-01-02T00:00:00Z,Carolina Hurricanes,Montréal Canadiens,ev_away_ml,0.0593
 2026-01-02T00:00:00Z,Los Angeles Kings,Tampa Bay Lightning,ev_home_ml,0.0459
 2026-01-01T18:00:00Z,Ottawa Senators,Washington Capitals,ev_over,0.0329
@@ -39,5 +41,7 @@ date,home,away,market,ev
 2026-01-02T03:00:00Z,Seattle Kraken,Nashville Predators,ev_under,-0.2739
 2026-01-01T20:00:00Z,New York Islanders,Utah Mammoth,ev_under,-0.2901
 2026-01-02T00:00:00Z,Toronto Maple Leafs,Winnipeg Jets,ev_home_pl_-1.5,-0.3548
+2026-01-02T03:00:00Z,Seattle Kraken,Nashville Predators,ev_home_pl_-1.5,-0.3744
+2026-01-02T03:00:00Z,Seattle Kraken,Nashville Predators,ev_f10_no,-0.4041
 2026-01-02T00:00:00Z,Pittsburgh Penguins,Detroit Red Wings,ev_home_pl_-1.5,-0.4637
 2026-01-02T01:30:00Z,Chicago Blackhawks,Dallas Stars,ev_home_ml,-0.5048

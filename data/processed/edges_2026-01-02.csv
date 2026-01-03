@@ -1,9 +1,11 @@
 date,home,away,market,ev
+2026-01-03T03:30:00Z,Anaheim Ducks,Minnesota Wild,ev_away_pl_+1.5,0.6176
 2026-01-02T20:00:00Z,St. Louis Blues,Vegas Golden Knights,ev_home_ml,0.1866
 2026-01-03T01:00:00Z,Florida Panthers,New York Rangers,ev_over,0.1479
 2026-01-03T03:30:00Z,Anaheim Ducks,Minnesota Wild,ev_under,0.1245
 2026-01-03T03:30:00Z,Vancouver Canucks,Seattle Kraken,ev_over,0.1211
 2026-01-02T20:00:00Z,St. Louis Blues,Vegas Golden Knights,ev_over,0.0824
+2026-01-03T03:30:00Z,Anaheim Ducks,Minnesota Wild,ev_f10_yes,0.0336
 2026-01-03T01:00:00Z,Florida Panthers,New York Rangers,ev_away_pl_+1.5,0.0247
 2026-01-03T03:30:00Z,Vancouver Canucks,Seattle Kraken,ev_away_pl_+1.5,0.0072
 2026-01-03T03:30:00Z,Anaheim Ducks,Minnesota Wild,ev_away_ml,0.0056
@@ -19,3 +21,5 @@ date,home,away,market,ev
 2026-01-03T03:30:00Z,Anaheim Ducks,Minnesota Wild,ev_over,-0.2219
 2026-01-03T03:30:00Z,Vancouver Canucks,Seattle Kraken,ev_under,-0.2245
 2026-01-03T01:00:00Z,Florida Panthers,New York Rangers,ev_under,-0.2464
+2026-01-03T03:30:00Z,Anaheim Ducks,Minnesota Wild,ev_f10_no,-0.3669
+2026-01-03T03:30:00Z,Anaheim Ducks,Minnesota Wild,ev_home_pl_-1.5,-0.7085

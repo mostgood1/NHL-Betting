@@ -1,0 +1,11 @@
+date,home,away,market,ev
+2026-01-06T00:00:00Z,Washington Capitals,Anaheim Ducks,ev_away_ml,0.2774
+2026-01-06T02:30:00Z,Calgary Flames,Seattle Kraken,ev_away_ml,0.2001
+2026-01-06T00:00:00Z,New York Rangers,Utah Mammoth,ev_away_ml,0.1962
+2026-01-06T00:30:00Z,Ottawa Senators,Detroit Red Wings,ev_home_ml,0.1181
+2026-01-06T03:30:00Z,Los Angeles Kings,Minnesota Wild,ev_home_ml,0.098
+2026-01-06T03:30:00Z,Los Angeles Kings,Minnesota Wild,ev_away_ml,-0.2041
+2026-01-06T02:30:00Z,Calgary Flames,Seattle Kraken,ev_home_ml,-0.2247
+2026-01-06T00:00:00Z,Washington Capitals,Anaheim Ducks,ev_home_ml,-0.2544
+2026-01-06T00:00:00Z,New York Rangers,Utah Mammoth,ev_home_ml,-0.2632
+2026-01-06T00:30:00Z,Ottawa Senators,Detroit Red Wings,ev_away_ml,-0.2647

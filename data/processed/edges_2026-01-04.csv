@@ -1,25 +1,25 @@
 date,home,away,market,ev
-2026-01-05T00:00:00Z,New Jersey Devils,Carolina Hurricanes,ev_away_ml,0.3578
-2026-01-05T00:00:00Z,Chicago Blackhawks,Vegas Golden Knights,ev_home_ml,0.3325
-2026-01-04T19:00:00Z,Dallas Stars,Montréal Canadiens,ev_away_pl_+1.5,0.2215
-2026-01-05T00:00:00Z,Chicago Blackhawks,Vegas Golden Knights,ev_over,0.1438
-2026-01-04T19:00:00Z,Dallas Stars,Montréal Canadiens,ev_away_ml,0.1404
-2026-01-04T22:00:00Z,Florida Panthers,Colorado Avalanche,ev_under,0.1249
-2026-01-04T22:00:00Z,Florida Panthers,Colorado Avalanche,ev_away_ml,0.0967
-2026-01-04T20:00:00Z,Columbus Blue Jackets,Pittsburgh Penguins,ev_away_ml,0.0754
-2026-01-04T20:00:00Z,Columbus Blue Jackets,Pittsburgh Penguins,ev_away_pl_+1.5,0.0628
-2026-01-05T00:00:00Z,New Jersey Devils,Carolina Hurricanes,ev_under,0.0515
-2026-01-04T20:00:00Z,Columbus Blue Jackets,Pittsburgh Penguins,ev_under,0.029
-2026-01-04T19:00:00Z,Dallas Stars,Montréal Canadiens,ev_under,0.0242
-2026-01-04T20:00:00Z,Columbus Blue Jackets,Pittsburgh Penguins,ev_over,-0.1158
-2026-01-04T19:00:00Z,Dallas Stars,Montréal Canadiens,ev_over,-0.1191
-2026-01-04T19:00:00Z,Dallas Stars,Montréal Canadiens,ev_home_ml,-0.1354
-2026-01-04T20:00:00Z,Columbus Blue Jackets,Pittsburgh Penguins,ev_home_ml,-0.1368
-2026-01-05T00:00:00Z,New Jersey Devils,Carolina Hurricanes,ev_over,-0.1471
-2026-01-04T22:00:00Z,Florida Panthers,Colorado Avalanche,ev_home_ml,-0.1964
-2026-01-05T00:00:00Z,Chicago Blackhawks,Vegas Golden Knights,ev_away_ml,-0.2053
-2026-01-04T22:00:00Z,Florida Panthers,Colorado Avalanche,ev_over,-0.2272
-2026-01-04T20:00:00Z,Columbus Blue Jackets,Pittsburgh Penguins,ev_home_pl_-1.5,-0.2481
-2026-01-05T00:00:00Z,Chicago Blackhawks,Vegas Golden Knights,ev_under,-0.2661
-2026-01-04T19:00:00Z,Dallas Stars,Montréal Canadiens,ev_home_pl_-1.5,-0.3768
-2026-01-05T00:00:00Z,New Jersey Devils,Carolina Hurricanes,ev_home_ml,-0.4812
+2026-01-05T00:00:00Z,Chicago Blackhawks,Vegas Golden Knights,ev_home_ml,0.3455
+2026-01-04T19:00:00Z,Dallas Stars,Montréal Canadiens,ev_away_pl_+1.5,0.2145
+2026-01-05T00:00:00Z,New Jersey Devils,Carolina Hurricanes,ev_away_ml,0.1703
+2026-01-04T22:00:00Z,Florida Panthers,Colorado Avalanche,ev_under,0.1488
+2026-01-04T19:00:00Z,Dallas Stars,Montréal Canadiens,ev_under,0.111
+2026-01-04T19:00:00Z,Dallas Stars,Montréal Canadiens,ev_away_ml,0.0953
+2026-01-04T20:00:00Z,Columbus Blue Jackets,Pittsburgh Penguins,ev_under,0.0643
+2026-01-04T20:00:00Z,Columbus Blue Jackets,Pittsburgh Penguins,ev_away_pl_+1.5,0.0614
+2026-01-04T20:00:00Z,Columbus Blue Jackets,Pittsburgh Penguins,ev_home_ml,0.0529
+2026-01-05T00:00:00Z,New Jersey Devils,Carolina Hurricanes,ev_under,0.0084
+2026-01-05T00:00:00Z,Chicago Blackhawks,Vegas Golden Knights,ev_under,-0.0157
+2026-01-04T22:00:00Z,Florida Panthers,Colorado Avalanche,ev_home_ml,-0.039
+2026-01-04T22:00:00Z,Florida Panthers,Colorado Avalanche,ev_away_ml,-0.0404
+2026-01-05T00:00:00Z,Chicago Blackhawks,Vegas Golden Knights,ev_over,-0.0711
+2026-01-05T00:00:00Z,New Jersey Devils,Carolina Hurricanes,ev_over,-0.0969
+2026-01-04T19:00:00Z,Dallas Stars,Montréal Canadiens,ev_home_ml,-0.1157
+2026-01-04T20:00:00Z,Columbus Blue Jackets,Pittsburgh Penguins,ev_over,-0.1391
+2026-01-04T20:00:00Z,Columbus Blue Jackets,Pittsburgh Penguins,ev_away_ml,-0.1491
+2026-01-04T19:00:00Z,Dallas Stars,Montréal Canadiens,ev_over,-0.2045
+2026-01-05T00:00:00Z,Chicago Blackhawks,Vegas Golden Knights,ev_away_ml,-0.211
+2026-01-04T20:00:00Z,Columbus Blue Jackets,Pittsburgh Penguins,ev_home_pl_-1.5,-0.2454
+2026-01-04T22:00:00Z,Florida Panthers,Colorado Avalanche,ev_over,-0.2473
+2026-01-05T00:00:00Z,New Jersey Devils,Carolina Hurricanes,ev_home_ml,-0.2766
+2026-01-04T19:00:00Z,Dallas Stars,Montréal Canadiens,ev_home_pl_-1.5,-0.3678

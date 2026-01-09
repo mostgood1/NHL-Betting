@@ -1,4 +1,5 @@
 date,home,away,market,ev
+2026-01-09T03:00:00Z,Seattle Kraken,Minnesota Wild,ev_away_pl_+1.5,0.4874
 2026-01-09T00:00:00Z,New York Rangers,Buffalo Sabres,ev_home_ml,0.349
 2026-01-09T01:00:00Z,Nashville Predators,New York Islanders,ev_home_ml,0.2589
 2026-01-09T00:00:00Z,Carolina Hurricanes,Anaheim Ducks,ev_under,0.2052
@@ -16,6 +17,7 @@ date,home,away,market,ev
 2026-01-09T00:00:00Z,Philadelphia Flyers,Toronto Maple Leafs,ev_away_ml,0.0696
 2026-01-09T00:00:00Z,Philadelphia Flyers,Toronto Maple Leafs,ev_away_pl_+1.5,0.0689
 2026-01-09T00:00:00Z,Pittsburgh Penguins,New Jersey Devils,ev_away_pl_+1.5,0.0687
+2026-01-09T03:00:00Z,Seattle Kraken,Minnesota Wild,ev_f10_yes,0.0508
 2026-01-09T01:00:00Z,Nashville Predators,New York Islanders,ev_away_pl_+1.5,0.0464
 2026-01-09T03:00:00Z,Seattle Kraken,Minnesota Wild,ev_under,0.0458
 2026-01-09T00:00:00Z,Montréal Canadiens,Florida Panthers,ev_under,0.0421
@@ -44,8 +46,8 @@ date,home,away,market,ev
 2026-01-09T00:00:00Z,Boston Bruins,Calgary Flames,ev_over,-0.1274
 2026-01-09T00:00:00Z,Montréal Canadiens,Florida Panthers,ev_over,-0.1411
 2026-01-09T03:00:00Z,Seattle Kraken,Minnesota Wild,ev_over,-0.1456
-2026-01-09T00:00:00Z,Philadelphia Flyers,Toronto Maple Leafs,ev_home_ml,-0.1471
 2026-01-09T03:00:00Z,Vegas Golden Knights,Columbus Blue Jackets,ev_home_pl_-1.5,-0.1471
+2026-01-09T00:00:00Z,Philadelphia Flyers,Toronto Maple Leafs,ev_home_ml,-0.1471
 2026-01-09T01:00:00Z,Nashville Predators,New York Islanders,ev_under,-0.1832
 2026-01-09T00:00:00Z,Philadelphia Flyers,Toronto Maple Leafs,ev_under,-0.1833
 2026-01-09T03:00:00Z,Vegas Golden Knights,Columbus Blue Jackets,ev_home_ml,-0.188
@@ -62,4 +64,6 @@ date,home,away,market,ev
 2026-01-09T00:00:00Z,Boston Bruins,Calgary Flames,ev_away_ml,-0.3142
 2026-01-09T00:00:00Z,Detroit Red Wings,Vancouver Canucks,ev_home_pl_-1.5,-0.32
 2026-01-09T01:00:00Z,Nashville Predators,New York Islanders,ev_away_ml,-0.3623
+2026-01-09T03:00:00Z,Seattle Kraken,Minnesota Wild,ev_f10_no,-0.3841
 2026-01-09T00:00:00Z,New York Rangers,Buffalo Sabres,ev_away_ml,-0.3845
+2026-01-09T03:00:00Z,Seattle Kraken,Minnesota Wild,ev_home_pl_-1.5,-0.5783

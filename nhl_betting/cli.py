@@ -1465,6 +1465,9 @@ def game_simulate(
     odds_regions: str = typer.Option("us", help="Odds API regions"),
     odds_markets: str = typer.Option("h2h,totals,spreads", help="Odds markets to fetch"),
     n_sims: int = typer.Option(20000, help="Monte Carlo samples"),
+    sim_overdispersion_k: float = typer.Option(0.0, help="Gamma-Poisson overdispersion k (0=off)"),
+    sim_shared_k: float = typer.Option(0.0, help="Shared pace Gamma k (correlation; 0=off)"),
+    sim_empty_net_p: float = typer.Option(0.0, help="Empty-net extra goal probability when leading by 1 (0=off)"),
 ):
     """Run Monte Carlo simulations for the given slate, producing probabilities from NN outputs.
 
@@ -1572,7 +1575,12 @@ def game_simulate(
         tot_line_cals = {}
 
     from .models.simulator import simulate_from_period_lambdas, simulate_from_totals_diff, SimConfig
-    sim_cfg = SimConfig(n_sims=int(n_sims))
+    sim_cfg = SimConfig(
+        n_sims=int(n_sims),
+        overdispersion_k=(sim_overdispersion_k if sim_overdispersion_k and sim_overdispersion_k > 0 else None),
+        shared_k=(sim_shared_k if sim_shared_k and sim_shared_k > 0 else None),
+        empty_net_p=(sim_empty_net_p if sim_empty_net_p and sim_empty_net_p > 0 else None),
+    )
 
     rows = []
     for g in games:
@@ -1720,6 +1728,10 @@ def game_backtest_sim(
     end: str = typer.Option(..., help="End date YYYY-MM-DD (ET)"),
     n_sims: int = typer.Option(20000, help="Monte Carlo samples per game"),
     use_calibrated: bool = typer.Option(True, help="Use calibrated probabilities if available"),
+    prefer_simulations: bool = typer.Option(False, help="Prefer precomputed simulations_{date}.csv over inline predictions"),
+    sim_overdispersion_k: float = typer.Option(0.0, help="Gamma-Poisson overdispersion k (0=off)"),
+    sim_shared_k: float = typer.Option(0.0, help="Shared pace Gamma k (correlation; 0=off)"),
+    sim_empty_net_p: float = typer.Option(0.0, help="Empty-net extra goal probability when leading by 1 (0=off)"),
 ):
     """Backtest simulation probabilities vs outcomes over a date range using predictions files.
 
@@ -1735,7 +1747,13 @@ def game_backtest_sim(
     tot_y: List[int] = []; tot_p: List[float] = []; tot_p_cal: List[float] = []
     pl_y: List[int] = []; pl_p: List[float] = []; pl_p_cal: List[float] = []
     from .models.simulator import simulate_from_period_lambdas, simulate_from_totals_diff, SimConfig
-    sim_cfg = SimConfig(n_sims=int(n_sims), random_state=123)
+    sim_cfg = SimConfig(
+        n_sims=int(n_sims),
+        random_state=123,
+        overdispersion_k=(sim_overdispersion_k if sim_overdispersion_k and sim_overdispersion_k > 0 else None),
+        shared_k=(sim_shared_k if sim_shared_k and sim_shared_k > 0 else None),
+        empty_net_p=(sim_empty_net_p if sim_empty_net_p and sim_empty_net_p > 0 else None),
+    )
     # Load simulation calibration if present
     sim_cal_path = PROC_DIR / "sim_calibration.json"
     sim_ml_cal = sim_tot_cal = sim_pl_cal = None
@@ -1755,7 +1773,7 @@ def game_backtest_sim(
         pred_path = PROC_DIR / f"predictions_{d}.csv"
         use_df = None
         use_mode = None  # 'pred' or 'sim'
-        if pred_path.exists() and getattr(pred_path.stat(), "st_size", 0) > 0:
+        if (not prefer_simulations) and pred_path.exists() and getattr(pred_path.stat(), "st_size", 0) > 0:
             try:
                 use_df = pd.read_csv(pred_path)
                 use_mode = 'pred'
@@ -2012,6 +2030,10 @@ def game_backtest_sim_thresholds(
     start: str = typer.Option(..., help="Start date YYYY-MM-DD (ET)"),
     end: str = typer.Option(..., help="End date YYYY-MM-DD (ET)"),
     thresholds: str = typer.Option("0.50,0.55,0.60,0.62,0.65,0.70", help="Comma-separated thresholds to evaluate"),
+    prefer_simulations: bool = typer.Option(False, help="Prefer precomputed simulations_{date}.csv over inline predictions"),
+    sim_overdispersion_k: float = typer.Option(0.0, help="Gamma-Poisson overdispersion k (0=off)"),
+    sim_shared_k: float = typer.Option(0.0, help="Shared pace Gamma k (correlation; 0=off)"),
+    sim_empty_net_p: float = typer.Option(0.0, help="Empty-net extra goal probability when leading by 1 (0=off)"),
 ):
     """Evaluate accuracy vs decision thresholds for ML, Totals, and Puckline using calibrated simulation probabilities.
 
@@ -2037,7 +2059,13 @@ def game_backtest_sim_thresholds(
         pass
 
     from .models.simulator import simulate_from_period_lambdas, simulate_from_totals_diff, SimConfig
-    sim_cfg = SimConfig(n_sims=8000, random_state=123)  # moderate samples for speed
+    sim_cfg = SimConfig(
+        n_sims=8000,
+        random_state=123,
+        overdispersion_k=(sim_overdispersion_k if sim_overdispersion_k and sim_overdispersion_k > 0 else None),
+        shared_k=(sim_shared_k if sim_shared_k and sim_shared_k > 0 else None),
+        empty_net_p=(sim_empty_net_p if sim_empty_net_p and sim_empty_net_p > 0 else None),
+    )  # moderate samples for speed
 
     # Accumulators per threshold
     acc_ml = {t: {"correct": 0, "total": 0} for t in thrs}
@@ -2050,7 +2078,7 @@ def game_backtest_sim_thresholds(
         # choose source
         use_df = None; use_mode = None
         pred_path = PROC_DIR / f"predictions_{d}.csv"
-        if pred_path.exists() and getattr(pred_path.stat(), "st_size", 0) > 0:
+        if (not prefer_simulations) and pred_path.exists() and getattr(pred_path.stat(), "st_size", 0) > 0:
             try:
                 use_df = pd.read_csv(pred_path); use_mode = 'pred'
             except Exception:

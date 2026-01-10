@@ -11,6 +11,16 @@ class SimConfig:
     n_sims: int = 20000
     max_goals_period: int = 10  # cap for safety when using matrix methods
     random_state: Optional[int] = 42
+    # Overdispersion control (Gamma-Poisson mixture). When set, simulates
+    # Negative Binomial-like goals by sampling team-specific lambda from Gamma(k, scale=mean/k).
+    # Larger k -> lower dispersion; k=None or k<=0 -> standard Poisson.
+    overdispersion_k: Optional[float] = None
+    # Shared pace correlation: when set (>0), apply a game-level Gamma(shared_k, scale=1/shared_k)
+    # multiplier (mean=1) to both team lambdas to induce positive correlation in scoring.
+    shared_k: Optional[float] = None
+    # Empty-net behavior: probability that a team leading by exactly 1 goal scores an additional
+    # late empty-net goal, converting a 1-goal win into 2+. Applied post-simulation.
+    empty_net_p: Optional[float] = None
 
 
 def _rng(seed: Optional[int]) -> np.random.Generator:
@@ -63,12 +73,54 @@ def simulate_from_period_lambdas(
     hp = np.maximum(hp, 0.0)
     ap = np.maximum(ap, 0.0)
 
-    # Draw Poisson samples for each period, shape (n, 3)
-    h_samples = np.column_stack([g.poisson(lam=max(0.0, float(hp[i])), size=n) for i in range(3)])
-    a_samples = np.column_stack([g.poisson(lam=max(0.0, float(ap[i])), size=n) for i in range(3)])
+    # Draw goals per period; optionally apply shared pace (correlation) and overdispersion
+    # Shared multiplier per simulation (mean=1) induces positive correlation in team scoring.
+    if cfg.shared_k is not None and float(cfg.shared_k) > 0.0:
+        shared = g.gamma(shape=float(cfg.shared_k), scale=1.0 / float(cfg.shared_k), size=n)
+    else:
+        shared = np.ones(n, dtype=np.float64)
+
+    if cfg.overdispersion_k is not None and float(cfg.overdispersion_k) > 0.0:
+        k = float(cfg.overdispersion_k)
+        h_samples = np.empty((n, 3), dtype=np.int64)
+        a_samples = np.empty((n, 3), dtype=np.int64)
+        for i in range(3):
+            lam_h = max(0.0, float(hp[i])) * shared
+            lam_a = max(0.0, float(ap[i])) * shared
+            # Vectorized Gamma-Poisson mixture; zeros where lambda <= 0
+            gamma_h = g.gamma(shape=k, scale=np.clip(lam_h, 0.0, None) / k, size=n)
+            h_samples[:, i] = g.poisson(lam=np.clip(gamma_h, 0.0, None))
+            gamma_a = g.gamma(shape=k, scale=np.clip(lam_a, 0.0, None) / k, size=n)
+            a_samples[:, i] = g.poisson(lam=np.clip(gamma_a, 0.0, None))
+    else:
+        # Standard Poisson per period with optional shared multiplier
+        h_samples = np.column_stack([
+            g.poisson(lam=np.clip(max(0.0, float(hp[i])) * shared, 0.0, None), size=n) for i in range(3)
+        ])
+        a_samples = np.column_stack([
+            g.poisson(lam=np.clip(max(0.0, float(ap[i])) * shared, 0.0, None), size=n) for i in range(3)
+        ])
 
     home_goals = h_samples.sum(axis=1)
     away_goals = a_samples.sum(axis=1)
+    # Optional empty-net adjustment: if leading by exactly 1, add 1 goal with probability empty_net_p
+    try:
+        if cfg.empty_net_p is not None and float(cfg.empty_net_p) > 0.0:
+            p_en = float(cfg.empty_net_p)
+            # Home leads by 1
+            mask_h = (home_goals - away_goals) == 1
+            if np.any(mask_h):
+                add_h = g.binomial(n=1, p=p_en, size=int(mask_h.sum()))
+                idx_h = np.where(mask_h)[0]
+                home_goals[idx_h] += add_h
+            # Away leads by 1
+            mask_a = (away_goals - home_goals) == 1
+            if np.any(mask_a):
+                add_a = g.binomial(n=1, p=p_en, size=int(mask_a.sum()))
+                idx_a = np.where(mask_a)[0]
+                away_goals[idx_a] += add_a
+    except Exception:
+        pass
     diff = home_goals - away_goals
     total = home_goals + away_goals
 
@@ -118,8 +170,45 @@ def simulate_from_totals_diff(
     g = _rng(cfg.random_state)
     n = int(cfg.n_sims)
 
-    home_goals = g.poisson(lam=lh, size=n)
-    away_goals = g.poisson(lam=la, size=n)
+    # Optional shared multiplier (correlated pace)
+    if cfg.shared_k is not None and float(cfg.shared_k) > 0.0:
+        shared = g.gamma(shape=float(cfg.shared_k), scale=1.0 / float(cfg.shared_k), size=n)
+    else:
+        shared = np.ones(n, dtype=np.float64)
+
+    # Optionally apply overdispersion via Gamma-Poisson mixture
+    if cfg.overdispersion_k is not None and float(cfg.overdispersion_k) > 0.0:
+        k = float(cfg.overdispersion_k)
+        if lh > 0:
+            gamma_h = g.gamma(shape=k, scale=(lh * shared) / k, size=n)
+            home_goals = g.poisson(lam=np.clip(gamma_h, 0.0, None))
+        else:
+            home_goals = np.zeros(n, dtype=np.int64)
+        if la > 0:
+            gamma_a = g.gamma(shape=k, scale=(la * shared) / k, size=n)
+            away_goals = g.poisson(lam=np.clip(gamma_a, 0.0, None))
+        else:
+            away_goals = np.zeros(n, dtype=np.int64)
+    else:
+        home_goals = g.poisson(lam=np.clip(lh * shared, 0.0, None), size=n)
+        away_goals = g.poisson(lam=np.clip(la * shared, 0.0, None), size=n)
+
+    # Optional empty-net adjustment
+    try:
+        if cfg.empty_net_p is not None and float(cfg.empty_net_p) > 0.0:
+            p_en = float(cfg.empty_net_p)
+            mask_h = (home_goals - away_goals) == 1
+            if np.any(mask_h):
+                add_h = g.binomial(n=1, p=p_en, size=int(mask_h.sum()))
+                idx_h = np.where(mask_h)[0]
+                home_goals[idx_h] += add_h
+            mask_a = (away_goals - home_goals) == 1
+            if np.any(mask_a):
+                add_a = g.binomial(n=1, p=p_en, size=int(mask_a.sum()))
+                idx_a = np.where(mask_a)[0]
+                away_goals[idx_a] += add_a
+    except Exception:
+        pass
     diff = home_goals - away_goals
     total = home_goals + away_goals
 

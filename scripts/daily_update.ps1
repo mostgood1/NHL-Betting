@@ -1,24 +1,26 @@
-param(
-  [int]$DaysAhead = 2  [int]$YearsBack = 2,
+Param (
+  [int]$DaysAhead = 2,
+  [int]$YearsBack = 2,
   [switch]$NoReconcile,
-  [switch]$Postgame,              # If set, also run postgame (stats backfill -> props reconciliation -> backtest)
-  [string]$PostgameDate = "yesterday",  # Date for postgame step ("yesterday" | "today" | YYYY-MM-DD)
+  [switch]$Postgame,
+  [string]$PostgameDate = "yesterday",
   [string]$PostgameStatsSource = "stats",
   [int]$PostgameWindow = 10,
   [double]$PostgameStake = 100,
-  [switch]$PBPBackfill,           # If set, try to fill true PBP-derived period counts for recent games
-  [int]$PBPDaysBack = 7,          # Look back window for PBP web backfill
-  [switch]$SimulateGames,         # If set, run game simulations for today..DaysAhead
-  [int]$SimSamples = 20000        # Monte Carlo samples per game
-  ,
-  [switch]$BacktestSimulations,   # If set, run rolling 30-day backtest for sim probabilities
-  [int]$BacktestWindowDays = 30
-  ,
-  [switch]$SimRecommendations,    # If set, emit threshold-gated picks from simulations for slate(s)
-  [switch]$SimIncludeTotals = $false,
+  [switch]$PBPBackfill,
+  [int]$PBPDaysBack = 7,
+  [switch]$SimulateGames,
+  [int]$SimSamples = 20000,
+  [double]$SimOverK = 2.0,
+  [double]$SimSharedK = 3.0,
+  [double]$SimEmptyNetP = 0.18,
+  [switch]$BacktestSimulations,
+  [int]$BacktestWindowDays = 30,
+  [switch]$SimRecommendations,
+  [switch]$SimIncludeTotals,
   [double]$SimMLThr = 0.65,
   [double]$SimTotThr = 0.55,
-  [double]$SimPLThr = 0.60
+  [double]$SimPLThr = 0.62
 )
 $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -29,6 +31,9 @@ $NpuScript = Join-Path $RepoRoot "activate_npu.ps1"
 if (Test-Path $NpuScript) {
   . $NpuScript
 }
+
+# Defaults for optional params if not bound
+if (-not $PSBoundParameters.ContainsKey('SimIncludeTotals')) { $SimIncludeTotals = $false }
 
 # Ensure ARM64 venv and activate
 try {
@@ -83,7 +88,10 @@ if ($SimulateGames) {
     for ($i = 0; $i -lt $DaysAhead; $i++) {
       $d = $base.AddDays($i).ToString('yyyy-MM-dd')
       Write-Host "[daily_update] Simulating games for $d (n=$SimSamples) …" -ForegroundColor Yellow
-      python -m nhl_betting.cli game-simulate --date $d --n-sims $SimSamples
+      $ovArg = if ($SimOverK -gt 0) { "--sim-overdispersion-k $SimOverK" } else { "" }
+      $shArg = if ($SimSharedK -gt 0) { "--sim-shared-k $SimSharedK" } else { "" }
+      $enArg = if ($SimEmptyNetP -gt 0) { "--sim-empty-net-p $SimEmptyNetP" } else { "" }
+      python -m nhl_betting.cli game-simulate --date $d --n-sims $SimSamples $ovArg $shArg $enArg
     }
   } catch {
     Write-Warning "[daily_update] game-simulate failed: $($_.Exception.Message)"

@@ -1,22 +1,22 @@
 {
-  "last_calibrated_utc": "2025-11-17T00:42:09Z",
+  "last_calibrated_utc": "2026-01-10T00:53:09Z",
   "range": {
-    "start": "2025-10-07",
-    "end": "2025-11-16"
+    "start": "2025-09-01",
+    "end": "2026-01-09"
   },
   "dc_rho": 0.2,
   "market_anchor_w": 0.25,
   "market_anchor_w_ml": 0.25,
   "market_anchor_w_totals": 0.25,
   "totals_temp": 1.0,
-  "min_ev_ml": 0.055,
-  "min_ev_totals": 0.095125,
-  "ev_gates_last_learned_utc": "2025-11-28T23:37:04Z",
-  "ev_gates_range": {
-    "start": "2025-10-30",
-    "end": "2025-11-28"
-  },
-  "min_ev_pl": 0.0017499999999999998,
+  "min_ev_ml": 0.095,
+  "min_ev_totals": 0.1,
+  "min_ev_pl": 0.005,
   "min_ev_first10": 0.0,
-  "min_ev_periods": 0.0
+  "min_ev_periods": 0.0,
+  "ev_gates_last_learned_utc": "2026-01-10T00:53:13Z",
+  "ev_gates_range": {
+    "start": "2025-09-01",
+    "end": "2026-01-09"
+  }
 }

@@ -16,7 +16,7 @@ import numpy as np
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 
 import pandas as pd
 import typer
@@ -1034,8 +1034,13 @@ def predict_core(
         except Exception:
             _first10_prob = None
 
-        # Compute betting probabilities from NN outputs using normal approximations (no Poisson)
+        # Compute betting probabilities; prefer Monte Carlo simulation from model outputs
         import math as _math
+        try:
+            from .models.simulator import simulate_from_period_lambdas, simulate_from_totals_diff, SimConfig
+            _sim_available = True
+        except Exception:
+            _sim_available = False
         # Moneyline: base on NN/Elo probability then calibrate if available
         try:
             from .utils.calibration import load_calibration as _load_cal
@@ -1052,30 +1057,76 @@ def predict_core(
             p_home_cal = float(p_home)
             p_away_cal = 1.0 - p_home_cal
 
-        # Totals probability via normal approx with continuity correction for integer lines
-        try:
-            thr = float(per_game_total)
-            # continuity correction when total_line is an integer (e.g., 6.0 -> use 6.5)
-            if abs(thr - round(thr)) < 1e-6:
-                thr = thr + 0.5
-            z = (thr - model_total) / max(1e-6, sigma_total)
-            p_over_raw = 1.0 - (0.5 * (1.0 + _math.erf(z / (_math.sqrt(2.0)))))
-            # Calibrate totals prob if calibrator available
-            p_over_cal = float(_tot_cal.apply(np.array([p_over_raw]))[0]) if _tot_cal is not None else float(p_over_raw)
-            p_under_cal = 1.0 - p_over_cal
-        except Exception:
-            p_over_cal = None
-            p_under_cal = None
-
-        # Puckline (home -1.5) via normal approx on goal differential
-        try:
-            z_pl = (1.5 - model_spread) / max(1e-6, sigma_diff)
-            # P(home wins by >=2) = 1 - CDF(1.5)
-            p_home_pl = 1.0 - (0.5 * (1.0 + _math.erf(z_pl / (_math.sqrt(2.0)))))
-            p_away_pl = 1.0 - p_home_pl
-        except Exception:
-            p_home_pl = None
-            p_away_pl = None
+        # Totals & puckline probabilities via simulation (fallback to normal approx if simulation unavailable)
+        if _sim_available:
+            try:
+                sim_cfg = SimConfig(n_sims=int(_os.getenv("SIM_N_SIMS", "20000")))  # uses default seed for reproducibility
+                if (p1_home is not None) and (p1_away is not None) and (p2_home is not None) and (p2_away is not None) and (p3_home is not None) and (p3_away is not None):
+                    sim = simulate_from_period_lambdas(
+                        home_periods=[float(p1_home), float(p2_home), float(p3_home)],
+                        away_periods=[float(p1_away), float(p2_away), float(p3_away)],
+                        total_line=per_game_total,
+                        puck_line=-1.5,
+                        cfg=sim_cfg,
+                    )
+                else:
+                    sim = simulate_from_totals_diff(
+                        total_mean=float(model_total),
+                        diff_mean=float(model_spread),
+                        total_line=per_game_total,
+                        puck_line=-1.5,
+                        cfg=sim_cfg,
+                    )
+                # Calibrate totals prob if calibrator available
+                if sim.get("over") is not None and not np.isnan(sim["over"]):
+                    p_over_raw = float(sim["over"])  # Monte Carlo estimate
+                    p_over_cal = float(_tot_cal.apply(np.array([p_over_raw]))[0]) if _tot_cal is not None else p_over_raw
+                    p_under_cal = 1.0 - p_over_cal
+                else:
+                    p_over_cal, p_under_cal = None, None
+                # Puck line from simulation
+                p_home_pl = float(sim.get("home_puckline_-1.5")) if sim.get("home_puckline_-1.5") is not None else None
+                p_away_pl = float(sim.get("away_puckline_+1.5")) if sim.get("away_puckline_+1.5") is not None else None
+            except Exception:
+                # Fallback to normal approximations if simulation fails
+                try:
+                    thr = float(per_game_total)
+                    if abs(thr - round(thr)) < 1e-6:
+                        thr = thr + 0.5
+                    z = (thr - model_total) / max(1e-6, sigma_total)
+                    p_over_raw = 1.0 - (0.5 * (1.0 + _math.erf(z / (_math.sqrt(2.0)))))
+                    p_over_cal = float(_tot_cal.apply(np.array([p_over_raw]))[0]) if _tot_cal is not None else float(p_over_raw)
+                    p_under_cal = 1.0 - p_over_cal
+                except Exception:
+                    p_over_cal = None
+                    p_under_cal = None
+                try:
+                    z_pl = (1.5 - model_spread) / max(1e-6, sigma_diff)
+                    p_home_pl = 1.0 - (0.5 * (1.0 + _math.erf(z_pl / (_math.sqrt(2.0)))))
+                    p_away_pl = 1.0 - p_home_pl
+                except Exception:
+                    p_home_pl = None
+                    p_away_pl = None
+        else:
+            # No simulator available: keep normal approximations
+            try:
+                thr = float(per_game_total)
+                if abs(thr - round(thr)) < 1e-6:
+                    thr = thr + 0.5
+                z = (thr - model_total) / max(1e-6, sigma_total)
+                p_over_raw = 1.0 - (0.5 * (1.0 + _math.erf(z / (_math.sqrt(2.0)))))
+                p_over_cal = float(_tot_cal.apply(np.array([p_over_raw]))[0]) if _tot_cal is not None else float(p_over_raw)
+                p_under_cal = 1.0 - p_over_cal
+            except Exception:
+                p_over_cal = None
+                p_under_cal = None
+            try:
+                z_pl = (1.5 - model_spread) / max(1e-6, sigma_diff)
+                p_home_pl = 1.0 - (0.5 * (1.0 + _math.erf(z_pl / (_math.sqrt(2.0)))))
+                p_away_pl = 1.0 - p_home_pl
+            except Exception:
+                p_home_pl = None
+                p_away_pl = None
 
         # Build base row with model probabilities
         row = {
@@ -1403,6 +1454,788 @@ def smoke():
 def collect_props(start: str = typer.Option(...), end: str = typer.Option(...), source: str = typer.Option("stats", help="Source for schedule/boxscores: web | stats | nhlpy")):
     df = collect_player_game_stats(start, end, source=source)
     print(f"Collected {len(df)} player-game rows into data/raw/player_game_stats.csv")
+
+
+@app.command(name="game-simulate")
+def game_simulate(
+    date: str = typer.Option(..., help="Slate date YYYY-MM-DD (ET)"),
+    odds_source: str = typer.Option("oddsapi", help="Odds source: 'csv' or 'oddsapi'"),
+    odds_csv: Optional[str] = typer.Option(None, help="When odds_source=csv, path to odds CSV"),
+    snapshot: Optional[str] = typer.Option(None, help="When odds_source=oddsapi, ISO snapshot like 2025-12-01T12:00:00Z"),
+    odds_regions: str = typer.Option("us", help="Odds API regions"),
+    odds_markets: str = typer.Option("h2h,totals,spreads", help="Odds markets to fetch"),
+    n_sims: int = typer.Option(20000, help="Monte Carlo samples"),
+):
+    """Run Monte Carlo simulations for the given slate, producing probabilities from NN outputs.
+
+    Writes data/processed/simulations_{date}.csv
+    """
+    # Load schedule for date and ratings
+    source = "web"
+    client = NHLWebClient() if source == "web" else NHLClient()
+    games = client.schedule_range(date, date)
+    # Load ratings
+    ratings_path = MODEL_DIR / "elo_ratings.json"
+    if not ratings_path.exists():
+        print("No ratings found. Run 'train' first.")
+        raise typer.Exit(code=1)
+    with open(ratings_path, "r", encoding="utf-8") as f:
+        ratings = json.load(f)
+    elo = Elo(cfg=_load_elo_config()); elo.ratings = ratings
+    # Config
+    cfg_path = MODEL_DIR / "config.json"
+    base_mu = None
+    try:
+        if cfg_path.exists():
+            _cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+            base_mu = float(_cfg.get("base_mu", None)) if _cfg.get("base_mu") is not None else None
+    except Exception:
+        base_mu = None
+
+    # Odds (for total_line)
+    odds_df = None
+    def norm_team(s: str) -> str:
+        import re, unicodedata
+        s = unicodedata.normalize("NFKD", str(s)).encode("ascii", "ignore").decode().lower()
+        s = re.sub(r"[^a-z0-9]+", "", s)
+        return s
+    if (odds_source or "oddsapi").lower() == "csv":
+        if odds_csv and Path(odds_csv).exists():
+            odds_df = pd.read_csv(odds_csv)
+            odds_df["date"] = pd.to_datetime(odds_df["date"], errors="coerce").dt.strftime("%Y-%m-%d")
+            odds_df["home_norm"] = odds_df["home"].apply(norm_team)
+            odds_df["away_norm"] = odds_df["away"].apply(norm_team)
+    else:
+        try:
+            from .data.odds_api import OddsAPIClient
+            _client = OddsAPIClient()
+            iso_date = pd.to_datetime(date).strftime("%Y-%m-%d")
+            snap = snapshot
+            df = _client.flat_snapshot(iso_date, regions=odds_regions, markets=odds_markets, snapshot_iso=snap, best=False)
+            df["home_norm"] = df["home"].apply(norm_team)
+            df["away_norm"] = df["away"].apply(norm_team)
+            odds_df = df
+        except Exception as e:
+            print("Failed to fetch odds from The Odds API:", e)
+            odds_df = None
+
+    # NN models
+    try:
+        from .models.nn_games import NNGameModel
+        period_model = NNGameModel(model_type="PERIOD_GOALS", model_dir=MODEL_DIR / "nn_games")
+        if period_model.model is None and period_model.onnx_session is None:
+            period_model = None
+        total_goals_nn = NNGameModel(model_type="TOTAL_GOALS", model_dir=MODEL_DIR / "nn_games")
+        if total_goals_nn.model is None and total_goals_nn.onnx_session is None:
+            total_goals_nn = None
+        goal_diff_nn = NNGameModel(model_type="GOAL_DIFF", model_dir=MODEL_DIR / "nn_games")
+        if goal_diff_nn.model is None and goal_diff_nn.onnx_session is None:
+            goal_diff_nn = None
+    except Exception as e:
+        print(f"[warn] NN models not available: {e}")
+        period_model = None; total_goals_nn = None; goal_diff_nn = None
+
+    # Calibration for totals
+    try:
+        from .utils.calibration import load_calibration as _load_cal
+        _ml_cal, _tot_cal = _load_cal(PROC_DIR / "model_calibration.json")
+    except Exception:
+        _ml_cal, _tot_cal = None, None
+    # Optional simulation-specific calibration (moneyline/totals/puckline)
+    sim_cal_path = PROC_DIR / "sim_calibration.json"
+    sim_ml_cal = sim_tot_cal = sim_pl_cal = None
+    try:
+        if sim_cal_path.exists() and sim_cal_path.stat().st_size > 0:
+            obj = json.loads(sim_cal_path.read_text(encoding="utf-8"))
+            def _mk(o):
+                from .utils.calibration import BinaryCalibration
+                return BinaryCalibration(float(o.get("t", 1.0)), float(o.get("b", 0.0)))
+            if obj.get("moneyline"): sim_ml_cal = _mk(obj["moneyline"])
+            if obj.get("totals"): sim_tot_cal = _mk(obj["totals"])
+            if obj.get("puckline"): sim_pl_cal = _mk(obj["puckline"])
+    except Exception:
+        pass
+    # Optional per-total-line calibrations
+    sim_cal_line_path = PROC_DIR / "sim_calibration_per_line.json"
+    tot_line_cals: Dict[float, Any] = {}
+    try:
+        if sim_cal_line_path.exists() and getattr(sim_cal_line_path.stat(), "st_size", 0) > 0:
+            obj = json.loads(sim_cal_line_path.read_text(encoding="utf-8"))
+            from .utils.calibration import BinaryCalibration
+            for k, v in (obj.get("totals", {}) or {}).items():
+                try:
+                    line = float(k)
+                    tot_line_cals[line] = BinaryCalibration(float(v.get("t", 1.0)), float(v.get("b", 0.0)))
+                except Exception:
+                    continue
+    except Exception:
+        tot_line_cals = {}
+
+    from .models.simulator import simulate_from_period_lambdas, simulate_from_totals_diff, SimConfig
+    sim_cfg = SimConfig(n_sims=int(n_sims))
+
+    rows = []
+    for g in games:
+        # Get total_line if available
+        per_game_total = 2.0 * (base_mu or 3.05)
+        match_info = None
+        if odds_df is not None:
+            try:
+                key_date = pd.to_datetime(g.gameDate).strftime("%Y-%m-%d")
+                m = odds_df[(odds_df["date"] == key_date) & (odds_df["home_norm"] == norm_team(g.home)) & (odds_df["away_norm"] == norm_team(g.away))]
+                if m.empty:
+                    m = odds_df[(odds_df["home_norm"] == norm_team(g.home)) & (odds_df["away_norm"] == norm_team(g.away))]
+                if not m.empty:
+                    rec = m.iloc[0].to_dict(); match_info = rec
+                    if "total_line" in rec and pd.notna(rec.get("total_line")):
+                        per_game_total = float(rec.get("total_line"))
+            except Exception:
+                pass
+
+        # Build features and NN predictions
+        p1_home = p1_away = p2_home = p2_away = p3_home = p3_away = None
+        model_total = float(per_game_total)
+        model_spread = 0.0
+        try:
+            game_date = pd.to_datetime(g.gameDate)
+            try:
+                from .web.teams import get_team_assets
+                home_abbr = (get_team_assets(g.home).get("abbr") or "").upper()
+                away_abbr = (get_team_assets(g.away).get("abbr") or "").upper()
+            except Exception:
+                home_abbr = g.home; away_abbr = g.away
+            home_elo = elo.get(g.home); away_elo = elo.get(g.away)
+            game_features = {
+                "home_elo": home_elo,
+                "away_elo": away_elo,
+                "elo_diff": home_elo - away_elo,
+                "home_rest_days": 1.0,
+                "away_rest_days": 1.0,
+                "season_progress": 0.5,
+                "is_home": 1.0,
+            }
+            game_features[f"home_team_{home_abbr}"] = 1.0
+            game_features[f"away_team_{away_abbr}"] = 1.0
+            if period_model is not None:
+                try:
+                    arr = period_model.predict(g.home, g.away, game_features)
+                    if arr is not None and len(arr) == 6:
+                        p1_home, p1_away, p2_home, p2_away, p3_home, p3_away = [float(x) for x in arr]
+                except Exception:
+                    pass
+            if total_goals_nn is not None:
+                try:
+                    model_total = float(total_goals_nn.predict(home_abbr, away_abbr, game_features))
+                except Exception:
+                    pass
+            if goal_diff_nn is not None:
+                try:
+                    model_spread = float(goal_diff_nn.predict(home_abbr, away_abbr, game_features))
+                except Exception:
+                    pass
+        except Exception:
+            game_features = None
+
+        # Run simulation
+        sim = None
+        if (p1_home is not None) and (p1_away is not None) and (p2_home is not None) and (p2_away is not None) and (p3_home is not None) and (p3_away is not None):
+            sim = simulate_from_period_lambdas(
+                home_periods=[p1_home, p2_home, p3_home],
+                away_periods=[p1_away, p2_away, p3_away],
+                total_line=per_game_total,
+                puck_line=-1.5,
+                cfg=sim_cfg,
+            )
+        else:
+            sim = simulate_from_totals_diff(
+                total_mean=model_total,
+                diff_mean=model_spread,
+                total_line=per_game_total,
+                puck_line=-1.5,
+                cfg=sim_cfg,
+            )
+
+        # Calibrate totals and puckline/moneyline if available
+        p_over_cal = None; p_under_cal = None
+        try:
+            p_over_raw = float(sim.get("over"))
+            # prefer simulation calibration if present
+            if tot_line_cals and (per_game_total in tot_line_cals):
+                p_over_cal = float(tot_line_cals[per_game_total].apply(np.array([p_over_raw]))[0])
+            elif sim_tot_cal is not None:
+                p_over_cal = float(sim_tot_cal.apply(np.array([p_over_raw]))[0])
+            elif _tot_cal is not None:
+                p_over_cal = float(_tot_cal.apply(np.array([p_over_raw]))[0])
+            else:
+                p_over_cal = p_over_raw
+            p_under_cal = 1.0 - p_over_cal
+        except Exception:
+            pass
+
+        p_ml_cal = None
+        try:
+            p_ml_raw = float(sim.get("home_ml"))
+            p_ml_cal = float(sim_ml_cal.apply(np.array([p_ml_raw]))[0]) if sim_ml_cal is not None else p_ml_raw
+        except Exception:
+            pass
+
+        p_pl_cal = None
+        try:
+            p_pl_raw = float(sim.get("home_puckline_-1.5"))
+            p_pl_cal = float(sim_pl_cal.apply(np.array([p_pl_raw]))[0]) if sim_pl_cal is not None else p_pl_raw
+        except Exception:
+            pass
+
+        rows.append({
+            "date": g.gameDate,
+            "date_et": pd.to_datetime(g.gameDate).tz_convert("America/New_York").strftime("%Y-%m-%d") if hasattr(pd.Timestamp(g.gameDate), 'tz_convert') else pd.to_datetime(g.gameDate).strftime("%Y-%m-%d"),
+            "home": g.home,
+            "away": g.away,
+            "total_line_used": float(per_game_total),
+            "model_total": float(model_total),
+            "model_spread": float(model_spread),
+            "p_home_ml_sim": float(sim.get("home_ml")),
+            "p_away_ml_sim": float(sim.get("away_ml")),
+            "p_over_sim": float(sim.get("over")) if sim.get("over") is not None else None,
+            "p_under_sim": float(sim.get("under")) if sim.get("under") is not None else None,
+            "p_over_sim_cal": float(p_over_cal) if p_over_cal is not None else None,
+            "p_under_sim_cal": float(p_under_cal) if p_under_cal is not None else None,
+            "p_home_pl_-1.5_sim": float(sim.get("home_puckline_-1.5")) if sim.get("home_puckline_-1.5") is not None else None,
+            "p_away_pl_+1.5_sim": float(sim.get("away_puckline_+1.5")) if sim.get("away_puckline_+1.5") is not None else None,
+            "p_home_ml_sim_cal": float(p_ml_cal) if p_ml_cal is not None else None,
+            "p_home_pl_-1.5_sim_cal": float(p_pl_cal) if p_pl_cal is not None else None,
+            "n_sims": int(n_sims),
+        })
+
+    out = pd.DataFrame(rows)
+    out_path = PROC_DIR / f"simulations_{date}.csv"
+    save_df(out, out_path)
+    print(out.head())
+    print(f"Saved simulations to {out_path}")
+
+
+@app.command(name="game-backtest-sim")
+def game_backtest_sim(
+    start: str = typer.Option(..., help="Start date YYYY-MM-DD (ET)"),
+    end: str = typer.Option(..., help="End date YYYY-MM-DD (ET)"),
+    n_sims: int = typer.Option(20000, help="Monte Carlo samples per game"),
+    use_calibrated: bool = typer.Option(True, help="Use calibrated probabilities if available"),
+):
+    """Backtest simulation probabilities vs outcomes over a date range using predictions files.
+
+    Reads data/processed/predictions_{date}.csv for each date and uses period projections or totals/diff to simulate ML/PL/Totals.
+    Joins actual results from data/raw/games.csv.
+    """
+    from datetime import datetime as _dt, timedelta as _td
+    # Load actuals
+    games_raw = load_df(RAW_DIR / "games.csv")
+    games_raw["date_et"] = pd.to_datetime(games_raw["date"], utc=True).dt.tz_convert("America/New_York").dt.strftime("%Y-%m-%d")
+    # Metrics accumulators
+    ml_y: List[int] = []; ml_p: List[float] = []; ml_p_cal: List[float] = []
+    tot_y: List[int] = []; tot_p: List[float] = []; tot_p_cal: List[float] = []
+    pl_y: List[int] = []; pl_p: List[float] = []; pl_p_cal: List[float] = []
+    from .models.simulator import simulate_from_period_lambdas, simulate_from_totals_diff, SimConfig
+    sim_cfg = SimConfig(n_sims=int(n_sims), random_state=123)
+    # Load simulation calibration if present
+    sim_cal_path = PROC_DIR / "sim_calibration.json"
+    sim_ml_cal = sim_tot_cal = sim_pl_cal = None
+    try:
+        if use_calibrated and sim_cal_path.exists() and getattr(sim_cal_path.stat(), "st_size", 0) > 0:
+            obj = json.loads(sim_cal_path.read_text(encoding="utf-8"))
+            from .utils.calibration import BinaryCalibration as _BC
+            if obj.get("moneyline"): sim_ml_cal = _BC(float(obj["moneyline"].get("t", 1.0)), float(obj["moneyline"].get("b", 0.0)))
+            if obj.get("totals"): sim_tot_cal = _BC(float(obj["totals"].get("t", 1.0)), float(obj["totals"].get("b", 0.0)))
+            if obj.get("puckline"): sim_pl_cal = _BC(float(obj["puckline"].get("t", 1.0)), float(obj["puckline"].get("b", 0.0)))
+    except Exception:
+        pass
+    cur = _dt.strptime(start, "%Y-%m-%d")
+    end_dt = _dt.strptime(end, "%Y-%m-%d")
+    while cur <= end_dt:
+        d = cur.strftime("%Y-%m-%d")
+        pred_path = PROC_DIR / f"predictions_{d}.csv"
+        use_df = None
+        use_mode = None  # 'pred' or 'sim'
+        if pred_path.exists() and getattr(pred_path.stat(), "st_size", 0) > 0:
+            try:
+                use_df = pd.read_csv(pred_path)
+                use_mode = 'pred'
+            except Exception:
+                use_df = None
+        if use_df is None:
+            sim_path = PROC_DIR / f"simulations_{d}.csv"
+            if sim_path.exists() and getattr(sim_path.stat(), "st_size", 0) > 0:
+                try:
+                    use_df = pd.read_csv(sim_path)
+                    use_mode = 'sim'
+                except Exception:
+                    use_df = None
+        if use_df is None:
+            cur += _td(days=1)
+            continue
+
+        for _, r in use_df.iterrows():
+            # actuals
+            try:
+                sub = games_raw[(games_raw["date_et"] == str(r.get("date_et"))) & (games_raw["home"] == r.get("home")) & (games_raw["away"] == r.get("away"))]
+                if sub.empty:
+                    continue
+                ah = int(sub.iloc[0]["home_goals"]); aa = int(sub.iloc[0]["away_goals"]); atot = ah + aa; adiff = ah - aa
+            except Exception:
+                continue
+
+            if use_mode == 'pred':
+                # simulate from predictions row
+                try:
+                    if pd.notna(r.get("period1_home_proj")) and pd.notna(r.get("period1_away_proj")) and pd.notna(r.get("period2_home_proj")) and pd.notna(r.get("period2_away_proj")) and pd.notna(r.get("period3_home_proj")) and pd.notna(r.get("period3_away_proj")):
+                        sim = simulate_from_period_lambdas(
+                            home_periods=[float(r.get("period1_home_proj")), float(r.get("period2_home_proj")), float(r.get("period3_home_proj"))],
+                            away_periods=[float(r.get("period1_away_proj")), float(r.get("period2_away_proj")), float(r.get("period3_away_proj"))],
+                            total_line=float(r.get("total_line_used")),
+                            puck_line=-1.5,
+                            cfg=sim_cfg,
+                        )
+                    else:
+                        sim = simulate_from_totals_diff(
+                            total_mean=float(r.get("model_total")),
+                            diff_mean=float(r.get("model_spread")),
+                            total_line=float(r.get("total_line_used")),
+                            puck_line=-1.5,
+                            cfg=sim_cfg,
+                        )
+                except Exception:
+                    continue
+                p_ml = float(sim.get("home_ml", np.nan))
+                p_over = float(sim.get("over", np.nan))
+                p_pl = float(sim.get("home_puckline_-1.5", np.nan))
+                # apply calibration if available
+                p_ml_cal_row = p_ml
+                p_over_cal_row = p_over
+                p_pl_cal_row = p_pl
+                try:
+                    if use_calibrated and sim_ml_cal is not None:
+                        p_ml_cal_row = float(sim_ml_cal.apply(np.array([p_ml]))[0])
+                    if use_calibrated and sim_tot_cal is not None:
+                        p_over_cal_row = float(sim_tot_cal.apply(np.array([p_over]))[0])
+                    if use_calibrated and sim_pl_cal is not None:
+                        p_pl_cal_row = float(sim_pl_cal.apply(np.array([p_pl]))[0])
+                except Exception:
+                    pass
+            else:
+                # use precomputed simulations probabilities
+                p_ml = float(r.get("p_home_ml_sim", np.nan))
+                p_over = float(r.get("p_over_sim", np.nan))
+                p_pl = float(r.get("p_home_pl_-1.5_sim", np.nan))
+                p_ml_cal_row = float(r.get("p_home_ml_sim_cal", p_ml))
+                p_over_cal_row = float(r.get("p_over_sim_cal", p_over))
+                p_pl_cal_row = float(r.get("p_home_pl_-1.5_sim_cal", p_pl))
+
+            # record ML
+            ml_y.append(1 if ah > aa else 0)
+            ml_p.append(p_ml)
+            if use_calibrated: ml_p_cal.append(p_ml_cal_row)
+            # record totals (exclude pushes)
+            try:
+                # prefer closing total line if present
+                line_val = r.get("close_total_line_used")
+                if line_val is None or (isinstance(line_val, float) and np.isnan(line_val)):
+                    line_val = r.get("total_line_used")
+                line = float(line_val)
+                if atot != line:
+                    tot_y.append(1 if atot > line else 0)
+                    tot_p.append(p_over)
+                    if use_calibrated: tot_p_cal.append(p_over_cal_row)
+            except Exception:
+                pass
+            # record puck line
+            pl_y.append(1 if adiff > 1.5 else 0)
+            pl_p.append(p_pl)
+            if use_calibrated: pl_p_cal.append(p_pl_cal_row)
+        cur += _td(days=1)
+    # Summaries
+    def _brier(y, p):
+        if not y or not p: return None
+        arr_y = np.array(y, dtype=np.float32); arr_p = np.array(p, dtype=np.float32)
+        return float(np.mean((arr_p - arr_y) ** 2))
+    def _accuracy(y, p):
+        if not y or not p: return None
+        return float(np.mean(((np.array(p) >= 0.5).astype(int) == np.array(y).astype(int))))
+    res = {
+        "range": {"start": start, "end": end},
+        "moneyline_raw": {"n": len(ml_y), "brier": _brier(ml_y, ml_p), "accuracy": _accuracy(ml_y, ml_p)},
+        "totals_raw": {"n": len(tot_y), "brier": _brier(tot_y, tot_p), "accuracy": _accuracy(tot_y, tot_p)},
+        "puckline_raw": {"n": len(pl_y), "brier": _brier(pl_y, pl_p), "accuracy": _accuracy(pl_y, pl_p)},
+    }
+    if use_calibrated and ml_p_cal and tot_p_cal and pl_p_cal:
+        res.update({
+            "moneyline_cal": {"n": len(ml_y), "brier": _brier(ml_y, ml_p_cal), "accuracy": _accuracy(ml_y, ml_p_cal)},
+            "totals_cal": {"n": len(tot_y), "brier": _brier(tot_y, tot_p_cal), "accuracy": _accuracy(tot_y, tot_p_cal)},
+            "puckline_cal": {"n": len(pl_y), "brier": _brier(pl_y, pl_p_cal), "accuracy": _accuracy(pl_y, pl_p_cal)},
+        })
+    out_path = PROC_DIR / f"sim_backtest_{start}_to_{end}.json"
+    with out_path.open("w", encoding="utf-8") as f:
+        json.dump(res, f, indent=2)
+    print(res)
+    print(f"Saved backtest to {out_path}")
+
+
+@app.command(name="game-calibrate-sim")
+def game_calibrate_sim(
+    start: str = typer.Option(..., help="Start date YYYY-MM-DD (ET)"),
+    end: str = typer.Option(..., help="End date YYYY-MM-DD (ET)"),
+    metric: str = typer.Option("brier", help="Calibration metric: 'brier' or 'logloss'"),
+):
+    """Fit simple temperature+bias calibrations for moneyline, totals, and puckline from simulated probabilities.
+
+    Saves calibrations to data/processed/sim_calibration.json
+    """
+    from .utils.calibration import fit_temp_shift
+    # Collect probabilities and outcomes by market
+    ml_p: List[float] = []; ml_y: List[int] = []
+    tot_p: List[float] = []; tot_y: List[int] = []
+    pl_p: List[float] = []; pl_y: List[int] = []
+    # Load actuals
+    games_raw = load_df(RAW_DIR / "games.csv")
+    games_raw["date_et"] = pd.to_datetime(games_raw["date"], utc=True).dt.tz_convert("America/New_York").dt.strftime("%Y-%m-%d")
+    from datetime import datetime as _dt, timedelta as _td
+    cur = _dt.strptime(start, "%Y-%m-%d"); end_dt = _dt.strptime(end, "%Y-%m-%d")
+    while cur <= end_dt:
+        d = cur.strftime("%Y-%m-%d")
+        sim_path = PROC_DIR / f"simulations_{d}.csv"
+        if not (sim_path.exists() and getattr(sim_path.stat(), "st_size", 0) > 0):
+            cur += _td(days=1)
+            continue
+        try:
+            df = pd.read_csv(sim_path)
+        except Exception:
+            cur += _td(days=1)
+            continue
+        for _, r in df.iterrows():
+            try:
+                sub = games_raw[(games_raw["date_et"] == str(r.get("date_et"))) & (games_raw["home"] == r.get("home")) & (games_raw["away"] == r.get("away"))]
+                if sub.empty:
+                    continue
+                ah = int(sub.iloc[0]["home_goals"]); aa = int(sub.iloc[0]["away_goals"]); atot = ah + aa; adiff = ah - aa
+                # ML
+                ml_p.append(float(r.get("p_home_ml_sim", np.nan)))
+                ml_y.append(1 if ah > aa else 0)
+                # Totals (exclude pushes)
+                line = float(r.get("total_line_used"))
+                if atot != line:
+                    tot_p.append(float(r.get("p_over_sim", np.nan)))
+                    tot_y.append(1 if atot > line else 0)
+                # Puckline
+                pl_p.append(float(r.get("p_home_pl_-1.5_sim", np.nan)))
+                pl_y.append(1 if adiff > 1.5 else 0)
+            except Exception:
+                continue
+        cur += _td(days=1)
+    # Fit calibrations
+    ml_cal = fit_temp_shift(ml_p, ml_y, metric=("logloss" if metric=="logloss" else "brier"))
+    tot_cal = fit_temp_shift(tot_p, tot_y, metric=("logloss" if metric=="logloss" else "brier"))
+    pl_cal = fit_temp_shift(pl_p, pl_y, metric=("logloss" if metric=="logloss" else "brier"))
+    out = {
+        "moneyline": {"t": ml_cal.t, "b": ml_cal.b},
+        "totals": {"t": tot_cal.t, "b": tot_cal.b},
+        "puckline": {"t": pl_cal.t, "b": pl_cal.b},
+        "meta": {"start": start, "end": end, "metric": metric}
+    }
+    out_path = PROC_DIR / "sim_calibration.json"
+    with out_path.open("w", encoding="utf-8") as f:
+        json.dump(out, f, indent=2)
+    print(out)
+    print(f"Saved simulation calibration to {out_path}")
+
+
+@app.command(name="game-calibrate-sim-per-line")
+def game_calibrate_sim_per_line(
+    start: str = typer.Option(..., help="Start date YYYY-MM-DD (ET)"),
+    end: str = typer.Option(..., help="End date YYYY-MM-DD (ET)"),
+):
+    """Fit per-total-line calibrations for simulated Over/Under probabilities and save mapping.
+
+    Output: data/processed/sim_calibration_per_line.json with {totals: {line: {t,b}}}
+    """
+    # Load actuals
+    games_raw = load_df(RAW_DIR / "games.csv")
+    games_raw["date_et"] = pd.to_datetime(games_raw["date"], utc=True).dt.tz_convert("America/New_York").dt.strftime("%Y-%m-%d")
+    from datetime import datetime as _dt, timedelta as _td
+    cur = _dt.strptime(start, "%Y-%m-%d"); end_dt = _dt.strptime(end, "%Y-%m-%d")
+    # Collect by line
+    buckets: Dict[float, Dict[str, list]] = {}
+    while cur <= end_dt:
+        d = cur.strftime("%Y-%m-%d")
+        sim_path = PROC_DIR / f"simulations_{d}.csv"
+        if not (sim_path.exists() and getattr(sim_path.stat(), "st_size", 0) > 0):
+            cur += _td(days=1); continue
+        try:
+            df = pd.read_csv(sim_path)
+        except Exception:
+            cur += _td(days=1); continue
+        for _, r in df.iterrows():
+            try:
+                sub = games_raw[(games_raw["date_et"] == str(r.get("date_et"))) & (games_raw["home"] == r.get("home")) & (games_raw["away"] == r.get("away"))]
+                if sub.empty: continue
+                ah = int(sub.iloc[0]["home_goals"]); aa = int(sub.iloc[0]["away_goals"]); atot = ah + aa
+                # prefer closing line if present
+                line_val = r.get("close_total_line_used")
+                if line_val is None or (isinstance(line_val, float) and np.isnan(line_val)):
+                    line_val = r.get("total_line_used")
+                line = float(line_val)
+                if atot == line: continue
+                p_over = float(r.get("p_over_sim", np.nan))
+                if np.isnan(p_over): continue
+                b = buckets.setdefault(line, {"p": [], "y": []})
+                b["p"].append(p_over)
+                b["y"].append(1 if atot > line else 0)
+            except Exception:
+                continue
+        cur += _td(days=1)
+    # Fit per-line
+    from .utils.calibration import fit_temp_shift
+    out_map: Dict[str, Dict[str, float]] = {}
+    for line, data in buckets.items():
+        try:
+            cal = fit_temp_shift(data["p"], data["y"], metric="brier")
+            out_map[str(line)] = {"t": cal.t, "b": cal.b}
+        except Exception:
+            continue
+    out = {"totals": out_map, "meta": {"start": start, "end": end}}
+    out_path = PROC_DIR / "sim_calibration_per_line.json"
+    with out_path.open("w", encoding="utf-8") as f:
+        json.dump(out, f, indent=2)
+    print(out)
+    print(f"Saved per-line simulation calibration to {out_path}")
+
+
+@app.command(name="game-backtest-sim-thresholds")
+def game_backtest_sim_thresholds(
+    start: str = typer.Option(..., help="Start date YYYY-MM-DD (ET)"),
+    end: str = typer.Option(..., help="End date YYYY-MM-DD (ET)"),
+    thresholds: str = typer.Option("0.50,0.55,0.60,0.62,0.65,0.70", help="Comma-separated thresholds to evaluate"),
+):
+    """Evaluate accuracy vs decision thresholds for ML, Totals, and Puckline using calibrated simulation probabilities.
+
+    If predictions_{date}.csv exist, simulates calibrated probabilities inline; otherwise reads simulations_{date}.csv calibrated fields.
+    Outputs JSON summary with accuracy and coverage per threshold.
+    """
+    from datetime import datetime as _dt, timedelta as _td
+    thrs = [float(x) for x in thresholds.split(",") if x.strip()]
+    # Load actuals
+    games_raw = load_df(RAW_DIR / "games.csv")
+    games_raw["date_et"] = pd.to_datetime(games_raw["date"], utc=True).dt.tz_convert("America/New_York").dt.strftime("%Y-%m-%d")
+    # Load simulation calibration
+    sim_cal_path = PROC_DIR / "sim_calibration.json"
+    sim_ml_cal = sim_tot_cal = sim_pl_cal = None
+    try:
+        if sim_cal_path.exists() and getattr(sim_cal_path.stat(), "st_size", 0) > 0:
+            obj = json.loads(sim_cal_path.read_text(encoding="utf-8"))
+            from .utils.calibration import BinaryCalibration as _BC
+            if obj.get("moneyline"): sim_ml_cal = _BC(float(obj["moneyline"].get("t", 1.0)), float(obj["moneyline"].get("b", 0.0)))
+            if obj.get("totals"): sim_tot_cal = _BC(float(obj["totals"].get("t", 1.0)), float(obj["totals"].get("b", 0.0)))
+            if obj.get("puckline"): sim_pl_cal = _BC(float(obj["puckline"].get("t", 1.0)), float(obj["puckline"].get("b", 0.0)))
+    except Exception:
+        pass
+
+    from .models.simulator import simulate_from_period_lambdas, simulate_from_totals_diff, SimConfig
+    sim_cfg = SimConfig(n_sims=8000, random_state=123)  # moderate samples for speed
+
+    # Accumulators per threshold
+    acc_ml = {t: {"correct": 0, "total": 0} for t in thrs}
+    acc_tot = {t: {"correct": 0, "total": 0} for t in thrs}
+    acc_pl = {t: {"correct": 0, "total": 0} for t in thrs}
+
+    cur = _dt.strptime(start, "%Y-%m-%d"); end_dt = _dt.strptime(end, "%Y-%m-%d")
+    while cur <= end_dt:
+        d = cur.strftime("%Y-%m-%d")
+        # choose source
+        use_df = None; use_mode = None
+        pred_path = PROC_DIR / f"predictions_{d}.csv"
+        if pred_path.exists() and getattr(pred_path.stat(), "st_size", 0) > 0:
+            try:
+                use_df = pd.read_csv(pred_path); use_mode = 'pred'
+            except Exception:
+                use_df = None
+        if use_df is None:
+            sim_path = PROC_DIR / f"simulations_{d}.csv"
+            if sim_path.exists() and getattr(sim_path.stat(), "st_size", 0) > 0:
+                try:
+                    use_df = pd.read_csv(sim_path); use_mode = 'sim'
+                except Exception:
+                    use_df = None
+        if use_df is None:
+            cur += _td(days=1); continue
+
+        for _, r in use_df.iterrows():
+            # actuals
+            try:
+                sub = games_raw[(games_raw["date_et"] == str(r.get("date_et"))) & (games_raw["home"] == r.get("home")) & (games_raw["away"] == r.get("away"))]
+                if sub.empty: continue
+                ah = int(sub.iloc[0]["home_goals"]); aa = int(sub.iloc[0]["away_goals"]); atot = ah + aa; adiff = ah - aa
+                line_val = r.get("close_total_line_used")
+                if line_val is None or (isinstance(line_val, float) and np.isnan(line_val)):
+                    line_val = r.get("total_line_used")
+                line = float(line_val)
+            except Exception:
+                continue
+
+            # calibrated probabilities
+            if use_mode == 'pred':
+                try:
+                    if pd.notna(r.get("period1_home_proj")) and pd.notna(r.get("period1_away_proj")) and pd.notna(r.get("period2_home_proj")) and pd.notna(r.get("period2_away_proj")) and pd.notna(r.get("period3_home_proj")) and pd.notna(r.get("period3_away_proj")):
+                        sim = simulate_from_period_lambdas(
+                            home_periods=[float(r.get("period1_home_proj")), float(r.get("period2_home_proj")), float(r.get("period3_home_proj"))],
+                            away_periods=[float(r.get("period1_away_proj")), float(r.get("period2_away_proj")), float(r.get("period3_away_proj"))],
+                            total_line=line,
+                            puck_line=-1.5,
+                            cfg=sim_cfg,
+                        )
+                    else:
+                        sim = simulate_from_totals_diff(
+                            total_mean=float(r.get("model_total")),
+                            diff_mean=float(r.get("model_spread")),
+                            total_line=line,
+                            puck_line=-1.5,
+                            cfg=sim_cfg,
+                        )
+                except Exception:
+                    continue
+                p_ml = float(sim.get("home_ml", np.nan))
+                p_over = float(sim.get("over", np.nan))
+                p_pl = float(sim.get("home_puckline_-1.5", np.nan))
+            else:
+                p_ml = float(r.get("p_home_ml_sim", np.nan))
+                p_over = float(r.get("p_over_sim", np.nan))
+                p_pl = float(r.get("p_home_pl_-1.5_sim", np.nan))
+
+            # apply calibration
+            try:
+                if sim_ml_cal is not None: p_ml = float(sim_ml_cal.apply(np.array([p_ml]))[0])
+                # apply per-line totals calibration if available
+                # load per-line cal map locally
+                tot_line_map = {}
+                try:
+                    obj = json.loads((PROC_DIR / "sim_calibration_per_line.json").read_text(encoding="utf-8"))
+                    tot_line_map = obj.get("totals", {}) or {}
+                except Exception:
+                    tot_line_map = {}
+                if str(line) in tot_line_map:
+                    from .utils.calibration import BinaryCalibration
+                    c = tot_line_map[str(line)]
+                    cal = BinaryCalibration(float(c.get("t", 1.0)), float(c.get("b", 0.0)))
+                    p_over = float(cal.apply(np.array([p_over]))[0])
+                elif sim_tot_cal is not None:
+                    p_over = float(sim_tot_cal.apply(np.array([p_over]))[0])
+                if sim_pl_cal is not None: p_pl = float(sim_pl_cal.apply(np.array([p_pl]))[0])
+            except Exception:
+                pass
+
+            # evaluate thresholds
+            for t in thrs:
+                # ML: pick side only if confident
+                if not np.isnan(p_ml):
+                    if p_ml >= t or (1 - p_ml) >= t:
+                        acc_ml[t]["total"] += 1
+                        pick_home = p_ml >= t
+                        correct = (ah > aa) if pick_home else (aa > ah)
+                        acc_ml[t]["correct"] += 1 if correct else 0
+                # Totals: choose side if confident (avoid pushes)
+                if not np.isnan(p_over) and atot != line:
+                    p_under = 1.0 - p_over
+                    if p_over >= t or p_under >= t:
+                        acc_tot[t]["total"] += 1
+                        pick_over = p_over >= t
+                        correct = (atot > line) if pick_over else (atot < line)
+                        acc_tot[t]["correct"] += 1 if correct else 0
+                # Puckline: home -1.5 or away +1.5 if confident
+                if not np.isnan(p_pl):
+                    p_away_pl = 1.0 - p_pl
+                    if p_pl >= t or p_away_pl >= t:
+                        acc_pl[t]["total"] += 1
+                        pick_home_pl = p_pl >= t
+                        correct = (adiff > 1.5) if pick_home_pl else (adiff < 1.5)
+                        acc_pl[t]["correct"] += 1 if correct else 0
+        cur += _td(days=1)
+
+    # summarize
+    def _summ(d):
+        return {"n": d["total"], "acc": (float(d["correct"]) / max(1, d["total"]))}
+    res = {
+        "range": {"start": start, "end": end},
+        "thresholds": thrs,
+        "moneyline": {str(t): _summ(acc_ml[t]) for t in thrs},
+        "totals": {str(t): _summ(acc_tot[t]) for t in thrs},
+        "puckline": {str(t): _summ(acc_pl[t]) for t in thrs},
+    }
+    out_path = PROC_DIR / f"sim_thresholds_{start}_to_{end}.json"
+    with out_path.open("w", encoding="utf-8") as f:
+        json.dump(res, f, indent=2)
+    print(res)
+    print(f"Saved thresholds summary to {out_path}")
+
+
+@app.command(name="game-recommendations-sim")
+def game_recommendations_sim(
+    date: str = typer.Option(..., help="Slate date YYYY-MM-DD (ET)"),
+    include_ml: bool = typer.Option(True, help="Include moneyline picks"),
+    include_totals: bool = typer.Option(False, help="Include totals picks (over/under)"),
+    include_puckline: bool = typer.Option(True, help="Include puckline picks"),
+    ml_thr: float = typer.Option(0.65, help="Threshold for ML confidence"),
+    tot_thr: float = typer.Option(0.55, help="Threshold for totals confidence"),
+    pl_thr: float = typer.Option(0.60, help="Threshold for puckline confidence"),
+):
+    """Emit threshold-gated recommendations from simulations_{date}.csv using calibrated probabilities if present.
+
+    Writes data/processed/sim_picks_{date}.csv
+    """
+    path = PROC_DIR / f"simulations_{date}.csv"
+    if not (path.exists() and getattr(path.stat(), "st_size", 0) > 0):
+        print(f"Missing {path}; run game-simulate first.")
+        raise typer.Exit(code=1)
+    df = pd.read_csv(path)
+    out_rows = []
+    def _safe_float(v, dflt=np.nan):
+        try:
+            return float(v)
+        except Exception:
+            return dflt
+    for _, r in df.iterrows():
+        home = str(r.get("home")); away = str(r.get("away"))
+        line_val = r.get("close_total_line_used")
+        if line_val is None or (isinstance(line_val, float) and np.isnan(line_val)):
+            line_val = r.get("total_line_used")
+        total_line = _safe_float(line_val)
+        # ML
+        if include_ml:
+            p_home = _safe_float(r.get("p_home_ml_sim_cal", r.get("p_home_ml_sim")))
+            if not np.isnan(p_home):
+                if p_home >= ml_thr:
+                    out_rows.append({"date": date, "home": home, "away": away, "market": "ML", "side": "HOME", "line": None, "prob": p_home, "threshold": ml_thr})
+                elif (1 - p_home) >= ml_thr:
+                    out_rows.append({"date": date, "home": home, "away": away, "market": "ML", "side": "AWAY", "line": None, "prob": 1 - p_home, "threshold": ml_thr})
+        # Totals
+        if include_totals and total_line is not None and not np.isnan(total_line):
+            p_over = _safe_float(r.get("p_over_sim_cal", r.get("p_over_sim")))
+            if not np.isnan(p_over):
+                p_under = 1.0 - p_over
+                if p_over >= tot_thr:
+                    out_rows.append({"date": date, "home": home, "away": away, "market": "TOTALS", "side": "OVER", "line": total_line, "prob": p_over, "threshold": tot_thr})
+                elif p_under >= tot_thr:
+                    out_rows.append({"date": date, "home": home, "away": away, "market": "TOTALS", "side": "UNDER", "line": total_line, "prob": p_under, "threshold": tot_thr})
+        # Puckline
+        if include_puckline:
+            p_home_pl = _safe_float(r.get("p_home_pl_-1.5_sim_cal", r.get("p_home_pl_-1.5_sim")))
+            if not np.isnan(p_home_pl):
+                p_away_pl = 1.0 - p_home_pl
+                if p_home_pl >= pl_thr:
+                    out_rows.append({"date": date, "home": home, "away": away, "market": "PUCKLINE", "side": "HOME -1.5", "line": -1.5, "prob": p_home_pl, "threshold": pl_thr})
+                elif p_away_pl >= pl_thr:
+                    out_rows.append({"date": date, "home": home, "away": away, "market": "PUCKLINE", "side": "AWAY +1.5", "line": +1.5, "prob": p_away_pl, "threshold": pl_thr})
+
+    out_df = pd.DataFrame(out_rows)
+    out_path = PROC_DIR / f"sim_picks_{date}.csv"
+    save_df(out_df, out_path)
+    print(out_df.head())
+    print(f"Saved recommendations to {out_path}")
 
 
 @app.command()

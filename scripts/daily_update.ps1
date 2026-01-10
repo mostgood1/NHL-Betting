@@ -1,6 +1,5 @@
 param(
-  [int]$DaysAhead = 2,
-  [int]$YearsBack = 2,
+  [int]$DaysAhead = 2  [int]$YearsBack = 2,
   [switch]$NoReconcile,
   [switch]$Postgame,              # If set, also run postgame (stats backfill -> props reconciliation -> backtest)
   [string]$PostgameDate = "yesterday",  # Date for postgame step ("yesterday" | "today" | YYYY-MM-DD)
@@ -8,7 +7,18 @@ param(
   [int]$PostgameWindow = 10,
   [double]$PostgameStake = 100,
   [switch]$PBPBackfill,           # If set, try to fill true PBP-derived period counts for recent games
-  [int]$PBPDaysBack = 7           # Look back window for PBP web backfill
+  [int]$PBPDaysBack = 7,          # Look back window for PBP web backfill
+  [switch]$SimulateGames,         # If set, run game simulations for today..DaysAhead
+  [int]$SimSamples = 20000        # Monte Carlo samples per game
+  ,
+  [switch]$BacktestSimulations,   # If set, run rolling 30-day backtest for sim probabilities
+  [int]$BacktestWindowDays = 30
+  ,
+  [switch]$SimRecommendations,    # If set, emit threshold-gated picks from simulations for slate(s)
+  [switch]$SimIncludeTotals = $false,
+  [double]$SimMLThr = 0.65,
+  [double]$SimTotThr = 0.55,
+  [double]$SimPLThr = 0.60
 )
 $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -64,6 +74,49 @@ try {
   }
 } catch {
   Write-Warning "[daily_update] game-recompute-edges failed: $($_.Exception.Message)"
+}
+
+# Optional: run game simulations (ML/PL/Totals) driven by NN outputs
+if ($SimulateGames) {
+  try {
+    $base = Get-Date
+    for ($i = 0; $i -lt $DaysAhead; $i++) {
+      $d = $base.AddDays($i).ToString('yyyy-MM-dd')
+      Write-Host "[daily_update] Simulating games for $d (n=$SimSamples) …" -ForegroundColor Yellow
+      python -m nhl_betting.cli game-simulate --date $d --n-sims $SimSamples
+    }
+  } catch {
+    Write-Warning "[daily_update] game-simulate failed: $($_.Exception.Message)"
+  }
+}
+
+# Optional: generate threshold-based recommendations from simulations
+if ($SimRecommendations) {
+  try {
+    $base = Get-Date
+    for ($i = 0; $i -lt $DaysAhead; $i++) {
+      $d = $base.AddDays($i).ToString('yyyy-MM-dd')
+      $totFlag = if ($SimIncludeTotals) { "--include-totals" } else { "--no-include-totals" }
+      Write-Host "[daily_update] Generating sim recommendations for $d (ML>=$SimMLThr, PL>=$SimPLThr, Tot>=$SimTotThr, includeTotals=$SimIncludeTotals) …" -ForegroundColor Cyan
+      python -m nhl_betting.cli game-recommendations-sim --date $d --include-ml --include-puckline $totFlag --ml-thr $SimMLThr --tot-thr $SimTotThr --pl-thr $SimPLThr
+    }
+    Write-Host "[daily_update] Sim picks written to data/processed/sim_picks_YYYY-MM-DD.csv"
+  } catch {
+    Write-Warning "[daily_update] game-recommendations-sim failed: $($_.Exception.Message)"
+  }
+}
+
+# Optional: run rolling backtest over last BacktestWindowDays (non-fatal)
+if ($BacktestSimulations) {
+  try {
+    $end = (Get-Date).ToString('yyyy-MM-dd')
+    $start = (Get-Date).AddDays(-1 * [int]$BacktestWindowDays).ToString('yyyy-MM-dd')
+    Write-Host "[daily_update] Backtesting simulations $start..$end …" -ForegroundColor Yellow
+    python -m nhl_betting.cli game-backtest-sim --start $start --end $end --n-sims 6000 --use-calibrated
+    Write-Host "[daily_update] Backtest written to data/processed/sim_backtest_${start}_to_${end}.json"
+  } catch {
+    Write-Warning "[daily_update] game-backtest-sim failed: $($_.Exception.Message)"
+  }
 }
 
 # Adaptive gate re-learn: if last learn older than 5 days OR 30-day overall ROI < -0.08

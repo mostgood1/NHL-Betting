@@ -49,6 +49,24 @@ if (-not $PSBoundParameters.ContainsKey('SimIncludeTotals')) { $SimIncludeTotals
 # Enable PBP backfill by default unless explicitly disabled
 if (-not $PSBoundParameters.ContainsKey('PBPBackfill')) { $PBPBackfill = $true }
 
+# Optional: load tuned totals multipliers from config if present and not overridden
+try {
+  $cfgPath = Join-Path $RepoRoot 'data/processed/totals_multipliers_config.json'
+  if (Test-Path $cfgPath) {
+    $cfg = Get-Content $cfgPath | ConvertFrom-Json
+    if ($cfg.best) {
+      if (-not $PSBoundParameters.ContainsKey('TotalsRefsGamma') -and $cfg.best.totals_refs_gamma) { $TotalsRefsGamma = [double]$cfg.best.totals_refs_gamma }
+      if (-not $PSBoundParameters.ContainsKey('TotalsXGGamma') -and $cfg.best.totals_xg_gamma) { $TotalsXGGamma = [double]$cfg.best.totals_xg_gamma }
+      if (-not $PSBoundParameters.ContainsKey('TotalsPenaltyGamma') -and $cfg.best.totals_penalty_gamma) { $TotalsPenaltyGamma = [double]$cfg.best.totals_penalty_gamma }
+      if (-not $PSBoundParameters.ContainsKey('TotalsGoalieFormGamma') -and $cfg.best.totals_goalie_form_gamma) { $TotalsGoalieFormGamma = [double]$cfg.best.totals_goalie_form_gamma }
+      if (-not $PSBoundParameters.ContainsKey('TotalsRollingPaceGamma') -and $cfg.best.totals_rolling_pace_gamma) { $TotalsRollingPaceGamma = [double]$cfg.best.totals_rolling_pace_gamma }
+      if (-not $PSBoundParameters.ContainsKey('TotalsFatigueBeta') -and $cfg.best.totals_fatigue_beta) { $TotalsFatigueBeta = [double]$cfg.best.totals_fatigue_beta }
+    }
+  }
+} catch {
+  Write-Warning "[daily_update] Failed to load totals_multipliers_config: $($_.Exception.Message)"
+}
+
 # Ensure ARM64 venv and activate
 try {
   $Ensure = Join-Path $RepoRoot 'ensure_arm64_venv.ps1'

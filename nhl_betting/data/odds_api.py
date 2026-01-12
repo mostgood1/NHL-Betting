@@ -171,6 +171,71 @@ class OddsAPIClient:
             params["bookmakers"] = bookmakers
         return self._get(f"/sports/{sport}/events/{event_id}/markets", params)
 
+    def flat_snapshot(
+        self,
+        iso_date: str,
+        regions: str = "us",
+        markets: str = "h2h,totals,spreads",
+        snapshot_iso: Optional[str] = None,
+        odds_format: str = "american",
+        bookmaker: Optional[str] = None,
+        best: bool = False,
+    ) -> pd.DataFrame:
+        """
+        Convenience: fetch odds (historical if snapshot_iso provided, else current),
+        and return a normalized DataFrame via normalize_snapshot_to_rows.
+
+        - Tries regular season sport key first, then preseason fallback
+        - Supports best-of-all-bookmakers aggregation when best=True
+        """
+        sport_keys = ["icehockey_nhl", "icehockey_nhl_preseason"]
+        df = pd.DataFrame([])
+        # Historical snapshot path
+        if snapshot_iso:
+            for sk in sport_keys:
+                try:
+                    snap, _ = self.historical_odds_snapshot(
+                        sport=sk,
+                        snapshot_iso=snapshot_iso,
+                        regions=regions,
+                        markets=markets,
+                        odds_format=odds_format,
+                    )
+                    tmp = normalize_snapshot_to_rows(snap, bookmaker=bookmaker, best_of_all=best)
+                    if tmp is not None and not tmp.empty:
+                        df = tmp
+                        break
+                except Exception:
+                    continue
+        # Current odds fallback
+        if df is None or df.empty:
+            import requests as _rq
+            base = ODDS_API_BASE
+            params = {
+                "apiKey": self.api_key,
+                "regions": regions,
+                "markets": markets,
+                "oddsFormat": odds_format,
+                "dateFormat": "iso",
+            }
+            for sk in sport_keys:
+                try:
+                    url = f"{base}/sports/{sk}/odds"
+                    r = _rq.get(url, params=params, timeout=40)
+                    if r.ok:
+                        tmp = normalize_snapshot_to_rows(r.json(), bookmaker=bookmaker, best_of_all=best)
+                        if tmp is not None and not tmp.empty:
+                            df = tmp
+                            break
+                except Exception:
+                    continue
+        if df is not None and not df.empty:
+            try:
+                df["date"] = pd.to_datetime(df["date"], errors="coerce").dt.strftime("%Y-%m-%d")
+            except Exception:
+                pass
+        return df
+
 
 def _pick_bookmaker(bookmakers: List[Dict], preferred: Optional[str]) -> Optional[Dict]:
     if not bookmakers:

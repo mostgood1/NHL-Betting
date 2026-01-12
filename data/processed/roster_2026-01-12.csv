@@ -1,6 +1,7 @@
 player,position,team
 Brent Burns,F,COL
 Corey Perry,F,LAK
+Jordan Staal,F,CAR
 James van Riemsdyk,F,DET
 Patrick Kane,F,DET
 Drew Doughty,F,LAK
@@ -42,6 +43,7 @@ Nathan MacKinnon,F,COL
 Darnell Nurse,F,EDM
 Valeri Nichushkin,F,COL
 Max Domi,F,TOR
+Frederick Gaudreau,F,SEA
 Aaron Ekblad,F,FLA
 Sam Reinhart,F,FLA
 Leon Draisaitl,F,EDM
@@ -52,12 +54,14 @@ Kevin Fiala,F,LAK
 Dylan Larkin,F,DET
 Travis Sanheim,F,PHI
 Alex Tuch,F,BUF
+Kasperi Kapanen,F,EDM
 Jared McCann,F,SEA
 Adrian Kempe,F,LAK
 Ryan Donato,F,CHI
 Christian Dvorak,F,PHI
 Warren Foegele,F,LAK
 Brayden Point,F,TBL
+Victor Olofsson,F,COL
 Darren Raddysh,F,TBL
 Connor McDavid,F,EDM
 Vince Dunn,F,SEA
@@ -99,6 +103,7 @@ Kiefer Sherwood,F,VAN
 Quinn Hughes,F,MIN
 Ryan McLeod,F,BUF
 Evan Bouchard,F,EDM
+K'Andre Miller,F,CAR
 Andrei Svechnikov,F,CAR
 Rasmus Dahlin,F,BUF
 Noah Dobson,F,MTL
@@ -142,6 +147,7 @@ Juraj Slafkovsky,F,MTL
 Andrei Kuzmenko,F,LAK
 Connor Bedard,F,CHI
 Zach Benson,F,BUF
+Tom Willander,F,VAN
 Matvei Michkov,F,PHI
 Emmitt Finnie,F,DET
 Artyom Levshunov,F,CHI

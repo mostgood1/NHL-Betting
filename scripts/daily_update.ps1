@@ -25,6 +25,7 @@ Param (
   [double]$TotalsXGGamma = 0.00,
   [double]$TotalsRefsGamma = 0.00,
   [double]$TotalsGoalieFormGamma = 0.00,
+  [switch]$InstallDeps,
   [switch]$BacktestSimulations,
   [int]$BacktestWindowDays = 30,
   [switch]$SimRecommendations,
@@ -65,7 +66,12 @@ try {
 } catch {
   Write-Warning "[ARM64] Failed to enforce ARM64 venv: $($_.Exception.Message)"; . (Join-Path $RepoRoot '.venv/Scripts/Activate.ps1')
 }
-pip install -q -r (Join-Path $RepoRoot "requirements.txt")
+if ($InstallDeps) {
+  Write-Host "[deps] Installing Python dependencies from requirements.txt …" -ForegroundColor DarkGray
+  pip install -q -r (Join-Path $RepoRoot "requirements.txt")
+} else {
+  Write-Host "[deps] Skipping pip install (use -InstallDeps to enable)" -ForegroundColor DarkGray
+}
 # Optional: lightweight PBP backfill via NHL Web API for recent days (true period splits)
 if ($PBPBackfill) {
   try {

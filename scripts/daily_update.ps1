@@ -14,6 +14,15 @@ Param (
   [double]$SimOverK = 2.0,
   [double]$SimSharedK = 3.0,
   [double]$SimEmptyNetP = 0.18,
+  [double]$SimEmptyNetTwoGoalScale = 0.30,
+  [double]$TotalsPaceAlpha = 0.15,
+  [double]$TotalsGoalieBeta = 0.10,
+  [double]$TotalsFatigueBeta = 0.08,
+  [double]$TotalsRollingPaceGamma = 0.10,
+  [double]$TotalsPPGamma = 0.00,
+  [double]$TotalsPKBeta = 0.00,
+  [double]$TotalsPenaltyGamma = 0.08,
+  [double]$TotalsXGGamma = 0.00,
   [switch]$BacktestSimulations,
   [int]$BacktestWindowDays = 30,
   [switch]$SimRecommendations,
@@ -91,7 +100,17 @@ if ($SimulateGames) {
       $ovArg = if ($SimOverK -gt 0) { "--sim-overdispersion-k $SimOverK" } else { "" }
       $shArg = if ($SimSharedK -gt 0) { "--sim-shared-k $SimSharedK" } else { "" }
       $enArg = if ($SimEmptyNetP -gt 0) { "--sim-empty-net-p $SimEmptyNetP" } else { "" }
-      python -m nhl_betting.cli game-simulate --date $d --n-sims $SimSamples $ovArg $shArg $enArg
+      $en2Arg = if ($SimEmptyNetTwoGoalScale -gt 0) { "--sim-empty-net-two-goal-scale $SimEmptyNetTwoGoalScale" } else { "" }
+      $tpArg = if ($TotalsPaceAlpha -gt 0) { "--totals-pace-alpha $TotalsPaceAlpha" } else { "" }
+      $tgArg = if ($TotalsGoalieBeta -gt 0) { "--totals-goalie-beta $TotalsGoalieBeta" } else { "" }
+      $tfArg = if ($TotalsFatigueBeta -gt 0) { "--totals-fatigue-beta $TotalsFatigueBeta" } else { "" }
+      $ppArg = if ($TotalsPPGamma -gt 0) { "--totals-pp-gamma $TotalsPPGamma" } else { "" }
+      $pkArg = if ($TotalsPKBeta -gt 0) { "--totals-pk-beta $TotalsPKBeta" } else { "" }
+      $penArg = if ($TotalsPenaltyGamma -gt 0) { "--totals-penalty-gamma $TotalsPenaltyGamma" } else { "" }
+      $xgArg = if ($TotalsXGGamma -gt 0) { "--totals-xg-gamma $TotalsXGGamma" } else { "" }
+      Write-Host "[daily_update] Totals adj: pace=$TotalsPaceAlpha xg=$TotalsXGGamma goalie=$TotalsGoalieBeta fatigue=$TotalsFatigueBeta roll=$TotalsRollingPaceGamma pp=$TotalsPPGamma pk=$TotalsPKBeta pen=$TotalsPenaltyGamma en2=$SimEmptyNetTwoGoalScale" -ForegroundColor DarkCyan
+      $trArg = if ($TotalsRollingPaceGamma -gt 0) { "--totals-rolling-pace-gamma $TotalsRollingPaceGamma" } else { "" }
+      python -m nhl_betting.cli game-simulate --date $d --n-sims $SimSamples $ovArg $shArg $enArg $en2Arg $tpArg $tgArg $tfArg $trArg $ppArg $pkArg $penArg $xgArg
     }
   } catch {
     Write-Warning "[daily_update] game-simulate failed: $($_.Exception.Message)"
@@ -120,7 +139,20 @@ if ($BacktestSimulations) {
     $end = (Get-Date).ToString('yyyy-MM-dd')
     $start = (Get-Date).AddDays(-1 * [int]$BacktestWindowDays).ToString('yyyy-MM-dd')
     Write-Host "[daily_update] Backtesting simulations $start..$end …" -ForegroundColor Yellow
-    python -m nhl_betting.cli game-backtest-sim --start $start --end $end --n-sims 6000 --use-calibrated
+    $ovArg = if ($SimOverK -gt 0) { "--sim-overdispersion-k $SimOverK" } else { "" }
+    $shArg = if ($SimSharedK -gt 0) { "--sim-shared-k $SimSharedK" } else { "" }
+    $enArg = if ($SimEmptyNetP -gt 0) { "--sim-empty-net-p $SimEmptyNetP" } else { "" }
+    $en2Arg = if ($SimEmptyNetTwoGoalScale -gt 0) { "--sim-empty-net-two-goal-scale $SimEmptyNetTwoGoalScale" } else { "" }
+    $tpArg = if ($TotalsPaceAlpha -gt 0) { "--totals-pace-alpha $TotalsPaceAlpha" } else { "" }
+    $tgArg = if ($TotalsGoalieBeta -gt 0) { "--totals-goalie-beta $TotalsGoalieBeta" } else { "" }
+    $tfArg = if ($TotalsFatigueBeta -gt 0) { "--totals-fatigue-beta $TotalsFatigueBeta" } else { "" }
+    Write-Host "[daily_update] Backtest totals adj: pace=$TotalsPaceAlpha goalie=$TotalsGoalieBeta fatigue=$TotalsFatigueBeta roll=$TotalsRollingPaceGamma pp=$TotalsPPGamma pk=$TotalsPKBeta" -ForegroundColor DarkCyan
+    $trArg = if ($TotalsRollingPaceGamma -gt 0) { "--totals-rolling-pace-gamma $TotalsRollingPaceGamma" } else { "" }
+    $ppArg = if ($TotalsPPGamma -gt 0) { "--totals-pp-gamma $TotalsPPGamma" } else { "" }
+    $pkArg = if ($TotalsPKBeta -gt 0) { "--totals-pk-beta $TotalsPKBeta" } else { "" }
+    $penArg = if ($TotalsPenaltyGamma -gt 0) { "--totals-penalty-gamma $TotalsPenaltyGamma" } else { "" }
+    $xgArg = if ($TotalsXGGamma -gt 0) { "--totals-xg-gamma $TotalsXGGamma" } else { "" }
+    python -m nhl_betting.cli game-backtest-sim --start $start --end $end --n-sims 6000 --use-calibrated $ovArg $shArg $enArg $en2Arg $tpArg $tgArg $tfArg $trArg $ppArg $pkArg $penArg $xgArg
     Write-Host "[daily_update] Backtest written to data/processed/sim_backtest_${start}_to_${end}.json"
   } catch {
     Write-Warning "[daily_update] game-backtest-sim failed: $($_.Exception.Message)"

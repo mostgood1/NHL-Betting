@@ -237,9 +237,7 @@ def roster_master(date: Optional[str] = typer.Option(None, help="ET date YYYY-MM
     Writes data/processed/roster_{date}.csv and data/processed/roster_master.csv
     """
     from .web.teams import get_team_assets as _assets
-    d = date
-    if not d:
-        d = datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
+    d = datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
     season = _season_code_for_date(d)
     rows = []
     built_via_web_api = False
@@ -252,7 +250,7 @@ def roster_master(date: Optional[str] = typer.Option(None, help="ET date YYYY-MM
             for i in range(retries):
                 try:
                     r = requests.get(f"{BASE}{path}", params=params, timeout=timeout)
-                    if r.status_code == 200:
+                    if r.ok:
                         return r.json()
                 except Exception as e:
                     last = e
@@ -1468,6 +1466,15 @@ def game_simulate(
     sim_overdispersion_k: float = typer.Option(0.0, help="Gamma-Poisson overdispersion k (0=off)"),
     sim_shared_k: float = typer.Option(0.0, help="Shared pace Gamma k (correlation; 0=off)"),
     sim_empty_net_p: float = typer.Option(0.0, help="Empty-net extra goal probability when leading by 1 (0=off)"),
+    sim_empty_net_two_goal_scale: float = typer.Option(0.0, help="Scale factor for empty-net probability when leading by 2 (0=off)"),
+    totals_pace_alpha: float = typer.Option(0.0, help="Strength of SOG-based pace adjustment for totals (0=off)"),
+    totals_goalie_beta: float = typer.Option(0.0, help="Strength of goalie SAVES-based defensive adjustment (0=off)"),
+    totals_fatigue_beta: float = typer.Option(0.0, help="Strength of fatigue (B2B) offensive reduction (0=off)"),
+    totals_rolling_pace_gamma: float = typer.Option(0.0, help="Strength of rolling team goals pace adjustment (last 10; 0=off)"),
+    totals_pp_gamma: float = typer.Option(0.0, help="Strength of PP offense adjustment from team PP% (0=off)"),
+    totals_pk_beta: float = typer.Option(0.0, help="Strength of PK defensive adjustment from team PK% (applied to opponent; 0=off)"),
+    totals_penalty_gamma: float = typer.Option(0.0, help="Strength of penalty exposure adjustment from team committed/drawn rates (0=off)"),
+    totals_xg_gamma: float = typer.Option(0.0, help="Strength of expected-goals (xGF/60) pace adjustment (0=off)"),
 ):
     """Run Monte Carlo simulations for the given slate, producing probabilities from NN outputs.
 
@@ -1580,9 +1587,51 @@ def game_simulate(
         overdispersion_k=(sim_overdispersion_k if sim_overdispersion_k and sim_overdispersion_k > 0 else None),
         shared_k=(sim_shared_k if sim_shared_k and sim_shared_k > 0 else None),
         empty_net_p=(sim_empty_net_p if sim_empty_net_p and sim_empty_net_p > 0 else None),
+        empty_net_two_goal_scale=(sim_empty_net_two_goal_scale if sim_empty_net_two_goal_scale and sim_empty_net_two_goal_scale > 0 else None),
     )
 
+    # Load props projections for feature-driven totals adjustments (optional)
+    props_df = None
+    try:
+        props_path = PROC_DIR / f"props_projections_all_{date}.csv"
+        if props_path.exists() and getattr(props_path.stat(), "st_size", 0) > 0:
+            props_df = pd.read_csv(props_path)
+    except Exception:
+        props_df = None
+
     rows = []
+    # Load games for rest-day calculation
+    games_raw = None
+    try:
+        games_raw = load_df(RAW_DIR / "games.csv")
+        games_raw["date_et"] = pd.to_datetime(games_raw["date_et"], errors="coerce")
+    except Exception:
+        games_raw = None
+
+    # Optional team special teams
+    team_st: Optional[Dict[str, Dict[str, float]]] = None
+    try:
+        from .data.team_stats import load_team_special_teams
+        team_st = load_team_special_teams(date)
+    except Exception:
+        team_st = None
+    # Optional team penalty rates
+    team_pr: Optional[Dict[str, Dict[str, float]]] = None
+    try:
+        if totals_penalty_gamma > 0.0:
+            from .data.penalty_rates import load_team_penalty_rates
+            team_pr = load_team_penalty_rates(date)
+    except Exception:
+        team_pr = None
+    # Optional team expected goals rates
+    team_xg: Optional[Dict[str, Dict[str, float]]] = None
+    try:
+        if totals_xg_gamma > 0.0:
+            from .data.team_xg import load_team_xg
+            team_xg = load_team_xg(date)
+    except Exception:
+        team_xg = None
+
     for g in games:
         # Get total_line if available
         per_game_total = 2.0 * (base_mu or 3.05)
@@ -1644,20 +1693,281 @@ def game_simulate(
         except Exception:
             game_features = None
 
+        # Derive pace, goalie defensive, fatigue, and rolling pace multipliers (optional)
+        pace_mult_home = pace_mult_away = 1.0
+        goalie_def_home = goalie_def_away = 1.0
+        fatigue_mult_home = fatigue_mult_away = 1.0
+        roll_mult_home = roll_mult_away = 1.0
+        pp_mult_home = pp_mult_away = 1.0
+        pk_mult_home_def = pk_mult_away_def = 1.0
+        pen_mult_home = pen_mult_away = 1.0
+        xg_mult_home = xg_mult_away = 1.0
+        # Special teams: PP/PK adjustments
+        try:
+            if team_st is not None and (totals_pp_gamma > 0.0 or totals_pk_beta > 0.0):
+                # Abbreviations
+                try:
+                    from .web.teams import get_team_assets
+                    h_abbr = (get_team_assets(g.home).get("abbr") or "").upper()
+                    a_abbr = (get_team_assets(g.away).get("abbr") or "").upper()
+                except Exception:
+                    h_abbr = str(g.home).upper(); a_abbr = str(g.away).upper()
+                # Baselines
+                vals = list((team_st or {}).values())
+                pp_base = float(np.mean([v.get("pp_pct", 0.2) for v in vals])) if vals else 0.2
+                pk_base = float(np.mean([v.get("pk_pct", 0.8) for v in vals])) if vals else 0.8
+                th = (team_st or {}).get(h_abbr) or {}
+                ta = (team_st or {}).get(a_abbr) or {}
+                h_pp = float(th.get("pp_pct", pp_base)); a_pp = float(ta.get("pp_pct", pp_base))
+                h_pk = float(th.get("pk_pct", pk_base)); a_pk = float(ta.get("pk_pct", pk_base))
+                if totals_pp_gamma > 0.0 and pp_base > 0.0:
+                    pp_mult_home = float(np.clip(1.0 + totals_pp_gamma * ((h_pp - pp_base) / pp_base), 0.85, 1.20))
+                    pp_mult_away = float(np.clip(1.0 + totals_pp_gamma * ((a_pp - pp_base) / pp_base), 0.85, 1.20))
+                if totals_pk_beta > 0.0 and pk_base > 0.0:
+                    pk_mult_home_def = float(np.clip(1.0 - totals_pk_beta * ((h_pk - pk_base) / pk_base), 0.80, 1.15))
+                    pk_mult_away_def = float(np.clip(1.0 - totals_pk_beta * ((a_pk - pk_base) / pk_base), 0.80, 1.15))
+        except Exception:
+            pass
+        # Penalty exposure adjustment (committed/drawn per 60)
+        try:
+            if team_pr is not None and totals_penalty_gamma > 0.0:
+                from .web.teams import get_team_assets
+                try:
+                    h_abbr = (get_team_assets(g.home).get("abbr") or "").upper()
+                    a_abbr = (get_team_assets(g.away).get("abbr") or "").upper()
+                except Exception:
+                    h_abbr = str(g.home).upper(); a_abbr = str(g.away).upper()
+                vals = list(team_pr.values())
+                # Baseline exposure ~ avg committed + avg drawn
+                c_base = float(np.nanmean([v.get("committed_per60") for v in vals])) if vals else None
+                d_base = float(np.nanmean([v.get("drawn_per60") for v in vals])) if vals else None
+                base_exp = (c_base or 0.0) + (d_base or 0.0)
+                th = team_pr.get(h_abbr) or {}
+                ta = team_pr.get(a_abbr) or {}
+                exp_h = float((th.get("drawn_per60") or 0.0) + (ta.get("committed_per60") or 0.0))
+                exp_a = float((ta.get("drawn_per60") or 0.0) + (th.get("committed_per60") or 0.0))
+                if base_exp > 0.0:
+                    pen_mult_home = float(np.clip(1.0 + totals_penalty_gamma * ((exp_h - base_exp) / base_exp), 0.85, 1.20))
+                    pen_mult_away = float(np.clip(1.0 + totals_penalty_gamma * ((exp_a - base_exp) / base_exp), 0.85, 1.20))
+        except Exception:
+            pass
+        # Expected goals pace adjustment (xGF/60)
+        try:
+            if team_xg is not None and totals_xg_gamma > 0.0:
+                from .web.teams import get_team_assets
+                try:
+                    h_abbr = (get_team_assets(g.home).get("abbr") or "").upper()
+                    a_abbr = (get_team_assets(g.away).get("abbr") or "").upper()
+                except Exception:
+                    h_abbr = str(g.home).upper(); a_abbr = str(g.away).upper()
+                vals = [v.get("xgf60") for v in team_xg.values() if v.get("xgf60")]
+                base_xg = float(np.nanmean(vals)) if vals else None
+                th = team_xg.get(h_abbr) or {}
+                ta = team_xg.get(a_abbr) or {}
+                xg_h = float(th.get("xgf60")) if th.get("xgf60") else None
+                xg_a = float(ta.get("xgf60")) if ta.get("xgf60") else None
+                if base_xg and base_xg > 0.0:
+                    if xg_h:
+                        xg_mult_home = float(np.clip(1.0 + totals_xg_gamma * ((xg_h - base_xg) / base_xg), 0.85, 1.20))
+                    if xg_a:
+                        xg_mult_away = float(np.clip(1.0 + totals_xg_gamma * ((xg_a - base_xg) / base_xg), 0.85, 1.20))
+        except Exception:
+            pass
+        # Fatigue: reduce offense on back-to-backs
+        try:
+            if games_raw is not None and totals_fatigue_beta > 0.0:
+                d_et = pd.to_datetime(g.gameDate, utc=True).tz_convert("America/New_York").normalize()
+                sub_home = games_raw[(games_raw["date_et"] < d_et) & ((games_raw["home"] == g.home) | (games_raw["away"] == g.home))]
+                sub_away = games_raw[(games_raw["date_et"] < d_et) & ((games_raw["home"] == g.away) | (games_raw["away"] == g.away))]
+                prev_home = pd.to_datetime(sub_home["date_et"].max()) if not sub_home.empty else None
+                prev_away = pd.to_datetime(sub_away["date_et"].max()) if not sub_away.empty else None
+                if prev_home is not None:
+                    rd = int((d_et - prev_home.normalize()).days)
+                    if rd == 1:
+                        fatigue_mult_home = float(np.clip(1.0 - totals_fatigue_beta, 0.8, 1.0))
+                if prev_away is not None:
+                    rd = int((d_et - prev_away.normalize()).days)
+                    if rd == 1:
+                        fatigue_mult_away = float(np.clip(1.0 - totals_fatigue_beta, 0.8, 1.0))
+        except Exception:
+            pass
+        # Rolling pace: last 10 games goals per game vs baseline
+        try:
+            if games_raw is not None and totals_rolling_pace_gamma > 0.0:
+                d_et = pd.to_datetime(g.gameDate, utc=True).tz_convert("America/New_York").normalize()
+                base_per_team = float(base_mu) if base_mu is not None else 3.05
+                # Home team
+                sub_h = games_raw[(games_raw["date_et"] < d_et) & ((games_raw["home"] == g.home) | (games_raw["away"] == g.home))].copy()
+                sub_h.sort_values("date_et", inplace=True)
+                if not sub_h.empty:
+                    # compute team goals per game regardless of home/away
+                    sub_h["team_goals"] = np.where(sub_h["home"] == g.home, sub_h["home_goals"], sub_h["away_goals"])
+                    last_h = sub_h.tail(10)
+                    gpg_h = float(last_h["team_goals"].mean()) if len(last_h) > 0 else None
+                    if gpg_h and gpg_h > 0.0 and base_per_team > 0.0:
+                        roll_mult_home = float(np.clip(1.0 + totals_rolling_pace_gamma * ((gpg_h - base_per_team) / base_per_team), 0.8, 1.2))
+                # Away team
+                sub_a = games_raw[(games_raw["date_et"] < d_et) & ((games_raw["home"] == g.away) | (games_raw["away"] == g.away))].copy()
+                sub_a.sort_values("date_et", inplace=True)
+                if not sub_a.empty:
+                    sub_a["team_goals"] = np.where(sub_a["home"] == g.away, sub_a["home_goals"], sub_a["away_goals"])
+                    last_a = sub_a.tail(10)
+                    gpg_a = float(last_a["team_goals"].mean()) if len(last_a) > 0 else None
+                    if gpg_a and gpg_a > 0.0 and base_per_team > 0.0:
+                        roll_mult_away = float(np.clip(1.0 + totals_rolling_pace_gamma * ((gpg_a - base_per_team) / base_per_team), 0.8, 1.2))
+        except Exception:
+            pass
+        try:
+            if props_df is not None and (totals_pace_alpha > 0.0 or totals_goalie_beta > 0.0):
+                # Normalize team keys
+                try:
+                    from .web.teams import get_team_assets
+                    home_abbr = (get_team_assets(g.home).get("abbr") or "").upper()
+                    away_abbr = (get_team_assets(g.away).get("abbr") or "").upper()
+                except Exception:
+                    home_abbr = str(g.home).upper(); away_abbr = str(g.away).upper()
+                df = props_df.copy()
+                # Robust column names
+                mcol = "market"; tcol = "team"; lcol = next((c for c in ["proj_lambda", "lambda"] if c in df.columns), None)
+                # Compute baselines across slate for SOG and SAVES
+                sog_baseline = None; saves_baseline = None
+                try:
+                    sog_baseline = float(df[df[mcol] == "SOG"][lcol].mean()) if lcol and (lcol in df.columns) else None
+                except Exception:
+                    sog_baseline = None
+                try:
+                    saves_baseline = float(df[df[mcol] == "SAVES"][lcol].mean()) if lcol and (lcol in df.columns) else None
+                except Exception:
+                    saves_baseline = None
+                # Team aggregates
+                home_sog = away_sog = None
+                home_goalie_saves = away_goalie_saves = None
+                try:
+                    if lcol and (lcol in df.columns) and tcol in df.columns and mcol in df.columns:
+                        home_sog = float(df[(df[mcol] == "SOG") & (df[tcol].str.upper() == home_abbr)][lcol].sum())
+                        away_sog = float(df[(df[mcol] == "SOG") & (df[tcol].str.upper() == away_abbr)][lcol].sum())
+                        # For goalie saves, use max per team to proxy starter strength
+                        h_g = df[(df[mcol] == "SAVES") & (df[tcol].str.upper() == home_abbr)][lcol]
+                        a_g = df[(df[mcol] == "SAVES") & (df[tcol].str.upper() == away_abbr)][lcol]
+                        home_goalie_saves = float(h_g.max()) if len(h_g) else None
+                        away_goalie_saves = float(a_g.max()) if len(a_g) else None
+                        # Starter gating: infer certainty from distribution of team SAVES props
+                        def _starter_cert(series: pd.Series) -> float:
+                            try:
+                                vals = sorted([float(x) for x in series.dropna().tolist()], reverse=True)
+                                if len(vals) == 0:
+                                    return 0.25
+                                if len(vals) == 1:
+                                    return 1.0
+                                top, second = vals[0], vals[1]
+                                return (1.0 if (top - second) >= 2.0 else 0.5)
+                            except Exception:
+                                return 0.25
+                        starter_cert_home = _starter_cert(h_g)
+                        starter_cert_away = _starter_cert(a_g)
+                    else:
+                        starter_cert_home = 0.25; starter_cert_away = 0.25
+                except Exception:
+                    starter_cert_home = 0.25; starter_cert_away = 0.25
+                # Pace multipliers from SOG totals
+                try:
+                    if totals_pace_alpha > 0.0 and sog_baseline and sog_baseline > 0.0 and home_sog and away_sog:
+                        pace_mult_home = float(np.clip(1.0 + totals_pace_alpha * ((home_sog - sog_baseline) / sog_baseline), 0.7, 1.3))
+                        pace_mult_away = float(np.clip(1.0 + totals_pace_alpha * ((away_sog - sog_baseline) / sog_baseline), 0.7, 1.3))
+                except Exception:
+                    pass
+                # Goalie defensive multipliers (reductions applied to opponent scoring)
+                try:
+                    if totals_goalie_beta > 0.0 and saves_baseline and saves_baseline > 0.0:
+                        # Apply starter gating by scaling effect with certainty
+                        b_home = float(totals_goalie_beta * (starter_cert_home if 'starter_cert_home' in locals() else 0.25))
+                        b_away = float(totals_goalie_beta * (starter_cert_away if 'starter_cert_away' in locals() else 0.25))
+                        if home_goalie_saves:
+                            goalie_def_home = float(np.clip(1.0 - b_home * ((home_goalie_saves - saves_baseline) / saves_baseline), 0.7, 1.2))
+                        if away_goalie_saves:
+                            goalie_def_away = float(np.clip(1.0 - b_away * ((away_goalie_saves - saves_baseline) / saves_baseline), 0.7, 1.2))
+                        # Recent form adjustment: use last-5 days props 'SAVES' top goalie per team
+                        try:
+                            base_recent = None
+                            h_recent = None; a_recent = None
+                            prev_dates = []
+                            try:
+                                d0 = pd.to_datetime(date)
+                                for k in range(1, 6):
+                                    prev_dates.append((d0 - pd.Timedelta(days=k)).strftime('%Y-%m-%d'))
+                            except Exception:
+                                prev_dates = []
+                            if prev_dates:
+                                vals_all = []
+                                vals_h = []; vals_a = []
+                                for dd in prev_dates:
+                                    p_path = PROC_DIR / f"props_projections_all_{dd}.csv"
+                                    if p_path.exists() and getattr(p_path.stat(), 'st_size', 0) > 0:
+                                        try:
+                                            p_df = pd.read_csv(p_path)
+                                            if mcol in p_df.columns and tcol in p_df.columns:
+                                                # all teams baseline
+                                                ss = p_df[p_df[mcol] == 'SAVES']
+                                                if lcol and (lcol in ss.columns) and not ss.empty:
+                                                    vals_all.extend([float(x) for x in ss[lcol].dropna().tolist()])
+                                                # per-team top goalie proxy
+                                                h_ser = p_df[(p_df[mcol] == 'SAVES') & (p_df[tcol].str.upper() == home_abbr)][lcol] if lcol in p_df.columns else None
+                                                a_ser = p_df[(p_df[mcol] == 'SAVES') & (p_df[tcol].str.upper() == away_abbr)][lcol] if lcol in p_df.columns else None
+                                                if h_ser is not None and len(h_ser):
+                                                    vals_h.append(float(h_ser.max()))
+                                                if a_ser is not None and len(a_ser):
+                                                    vals_a.append(float(a_ser.max()))
+                                        except Exception:
+                                            pass
+                                if vals_all:
+                                    base_recent = float(np.mean(vals_all))
+                                if vals_h:
+                                    h_recent = float(np.mean(vals_h))
+                                if vals_a:
+                                    a_recent = float(np.mean(vals_a))
+                            # Apply recent form as additional scaling
+                            beta_r = float(totals_goalie_beta * 0.5)
+                            if beta_r > 0.0 and base_recent and base_recent > 0.0:
+                                if h_recent:
+                                    rec_mult_home = float(np.clip(1.0 - beta_r * ((h_recent - base_recent) / base_recent), 0.75, 1.20))
+                                    goalie_def_home = float(np.clip(goalie_def_home * rec_mult_home, 0.65, 1.25))
+                                if a_recent:
+                                    rec_mult_away = float(np.clip(1.0 - beta_r * ((a_recent - base_recent) / base_recent), 0.75, 1.20))
+                                    goalie_def_away = float(np.clip(goalie_def_away * rec_mult_away, 0.65, 1.25))
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
         # Run simulation
         sim = None
         if (p1_home is not None) and (p1_away is not None) and (p2_home is not None) and (p2_away is not None) and (p3_home is not None) and (p3_away is not None):
+            # Apply pace + goalie defensive multipliers per team if enabled
+            h_periods = [max(0.0, float(x)) * pace_mult_home * xg_mult_home * goalie_def_away * fatigue_mult_home * roll_mult_home * pp_mult_home * pk_mult_away_def * pen_mult_home for x in [p1_home, p2_home, p3_home]]
+            a_periods = [max(0.0, float(x)) * pace_mult_away * xg_mult_away * goalie_def_home * fatigue_mult_away * roll_mult_away * pp_mult_away * pk_mult_home_def * pen_mult_away for x in [p1_away, p2_away, p3_away]]
             sim = simulate_from_period_lambdas(
-                home_periods=[p1_home, p2_home, p3_home],
-                away_periods=[p1_away, p2_away, p3_away],
+                home_periods=h_periods,
+                away_periods=a_periods,
                 total_line=per_game_total,
                 puck_line=-1.5,
                 cfg=sim_cfg,
             )
         else:
+            # Derive team lambdas and adjust by pace + goalie defensive factors
+            try:
+                from .models.simulator import derive_team_lambdas
+                lh, la = derive_team_lambdas(float(model_total), float(model_spread))
+                lh_adj = float(np.clip(lh * pace_mult_home * xg_mult_home * goalie_def_away * fatigue_mult_home * roll_mult_home * pp_mult_home * pk_mult_away_def * pen_mult_home, 0.05, 8.0))
+                la_adj = float(np.clip(la * pace_mult_away * xg_mult_away * goalie_def_home * fatigue_mult_away * roll_mult_away * pp_mult_away * pk_mult_home_def * pen_mult_away, 0.05, 8.0))
+                adj_total = lh_adj + la_adj
+                adj_diff = lh_adj - la_adj
+            except Exception:
+                adj_total = float(model_total); adj_diff = float(model_spread)
             sim = simulate_from_totals_diff(
-                total_mean=model_total,
-                diff_mean=model_spread,
+                total_mean=adj_total,
+                diff_mean=adj_diff,
                 total_line=per_game_total,
                 puck_line=-1.5,
                 cfg=sim_cfg,
@@ -1702,6 +2012,10 @@ def game_simulate(
             "total_line_used": float(per_game_total),
             "model_total": float(model_total),
             "model_spread": float(model_spread),
+            "pace_mult_home": float(pace_mult_home),
+            "pace_mult_away": float(pace_mult_away),
+            "goalie_def_home": float(goalie_def_home),
+            "goalie_def_away": float(goalie_def_away),
             "p_home_ml_sim": float(sim.get("home_ml")),
             "p_away_ml_sim": float(sim.get("away_ml")),
             "p_over_sim": float(sim.get("over")) if sim.get("over") is not None else None,
@@ -1732,6 +2046,15 @@ def game_backtest_sim(
     sim_overdispersion_k: float = typer.Option(0.0, help="Gamma-Poisson overdispersion k (0=off)"),
     sim_shared_k: float = typer.Option(0.0, help="Shared pace Gamma k (correlation; 0=off)"),
     sim_empty_net_p: float = typer.Option(0.0, help="Empty-net extra goal probability when leading by 1 (0=off)"),
+    sim_empty_net_two_goal_scale: float = typer.Option(0.0, help="Scale factor for empty-net probability when leading by 2 (0=off)"),
+    totals_pace_alpha: float = typer.Option(0.0, help="Strength of SOG-based pace adjustment for totals (0=off)"),
+    totals_goalie_beta: float = typer.Option(0.0, help="Strength of goalie SAVES-based defensive adjustment (0=off)"),
+    totals_fatigue_beta: float = typer.Option(0.0, help="Strength of fatigue (B2B) offensive reduction (0=off)"),
+    totals_rolling_pace_gamma: float = typer.Option(0.0, help="Strength of rolling team goals pace adjustment (last 10; 0=off)"),
+    totals_pp_gamma: float = typer.Option(0.0, help="Strength of PP offense adjustment from team PP% (0=off)"),
+    totals_pk_beta: float = typer.Option(0.0, help="Strength of PK defensive adjustment from team PK% (applied to opponent; 0=off)"),
+    totals_penalty_gamma: float = typer.Option(0.0, help="Strength of penalty exposure adjustment from team committed/drawn rates (0=off)"),
+    totals_xg_gamma: float = typer.Option(0.0, help="Strength of expected goals (xGF/60) pace adjustment (0=off)"),
 ):
     """Backtest simulation probabilities vs outcomes over a date range using predictions files.
 
@@ -1753,6 +2076,7 @@ def game_backtest_sim(
         overdispersion_k=(sim_overdispersion_k if sim_overdispersion_k and sim_overdispersion_k > 0 else None),
         shared_k=(sim_shared_k if sim_shared_k and sim_shared_k > 0 else None),
         empty_net_p=(sim_empty_net_p if sim_empty_net_p and sim_empty_net_p > 0 else None),
+        empty_net_two_goal_scale=(sim_empty_net_two_goal_scale if sim_empty_net_two_goal_scale and sim_empty_net_two_goal_scale > 0 else None),
     )
     # Load simulation calibration if present
     sim_cal_path = PROC_DIR / "sim_calibration.json"
@@ -1768,6 +2092,18 @@ def game_backtest_sim(
         pass
     cur = _dt.strptime(start, "%Y-%m-%d")
     end_dt = _dt.strptime(end, "%Y-%m-%d")
+    # Preload props projections cache by date for totals feature adjustments
+    props_cache: Dict[str, Optional[pd.DataFrame]] = {}
+    # Precompute last game date per team for rest-day fatigue
+    last_game_map: Dict[str, pd.Timestamp] = {}
+    try:
+        if games_raw is not None:
+            for team in pd.unique(pd.concat([games_raw["home"], games_raw["away"]], ignore_index=True)):
+                sub = games_raw[(games_raw["home"] == team) | (games_raw["away"] == team)]
+                if not sub.empty:
+                    last_game_map[str(team)] = pd.to_datetime(sub["date_et"], utc=True).dt.tz_convert("America/New_York").max()
+    except Exception:
+        last_game_map = {}
     while cur <= end_dt:
         d = cur.strftime("%Y-%m-%d")
         pred_path = PROC_DIR / f"predictions_{d}.csv"
@@ -1791,6 +2127,49 @@ def game_backtest_sim(
             cur += _td(days=1)
             continue
 
+        # Optional props projections for this date
+        props_df = None
+        try:
+            if totals_pace_alpha > 0.0 or totals_goalie_beta > 0.0:
+                if d not in props_cache:
+                    ppath = PROC_DIR / f"props_projections_all_{d}.csv"
+                    if ppath.exists() and getattr(ppath.stat(), "st_size", 0) > 0:
+                        try:
+                            props_cache[d] = pd.read_csv(ppath)
+                        except Exception:
+                            props_cache[d] = None
+                    else:
+                        props_cache[d] = None
+                props_df = props_cache.get(d)
+        except Exception:
+            props_df = None
+
+        # Optional team special teams for this date
+        team_st: Optional[Dict[str, Dict[str, float]]] = None
+        try:
+            if totals_pp_gamma > 0.0 or totals_pk_beta > 0.0:
+                from .data.team_stats import load_team_special_teams
+                team_st = load_team_special_teams(d)
+        except Exception:
+            team_st = None
+        # Optional team penalty rates for this date
+        team_pr: Optional[Dict[str, Dict[str, float]]] = None
+        try:
+            if totals_penalty_gamma > 0.0:
+                from .data.penalty_rates import load_team_penalty_rates
+                team_pr = load_team_penalty_rates(d)
+        except Exception:
+            team_pr = None
+
+        # Optional team expected goals rates for this date
+        team_xg: Optional[Dict[str, Dict[str, float]]] = None
+        try:
+            if totals_xg_gamma > 0.0:
+                from .data.team_xg import load_team_xg
+                team_xg = load_team_xg(d)
+        except Exception:
+            team_xg = None
+
         for _, r in use_df.iterrows():
             # actuals
             try:
@@ -1805,17 +2184,278 @@ def game_backtest_sim(
                 # simulate from predictions row
                 try:
                     if pd.notna(r.get("period1_home_proj")) and pd.notna(r.get("period1_away_proj")) and pd.notna(r.get("period2_home_proj")) and pd.notna(r.get("period2_away_proj")) and pd.notna(r.get("period3_home_proj")) and pd.notna(r.get("period3_away_proj")):
+                        # Optionally adjust period lambdas by props-derived pace and goalie defensive multipliers
+                        h_periods = [float(r.get("period1_home_proj")), float(r.get("period2_home_proj")), float(r.get("period3_home_proj"))]
+                        a_periods = [float(r.get("period1_away_proj")), float(r.get("period2_away_proj")), float(r.get("period3_away_proj"))]
+                        # Fatigue multipliers from rest-day detection (B2B)
+                        fat_h = fat_a = 1.0
+                        try:
+                            if totals_fatigue_beta > 0.0:
+                                d_et = pd.to_datetime(r.get("date_et"), utc=True).tz_convert("America/New_York").normalize() if pd.notna(r.get("date_et")) else None
+                                home = str(r.get("home")); away = str(r.get("away"))
+                                if d_et is not None:
+                                    # last game strictly before current date
+                                    prev_h = games_raw[(games_raw["date_et"] < d_et) & ((games_raw["home"] == home) | (games_raw["away"] == home))]
+                                    prev_a = games_raw[(games_raw["date_et"] < d_et) & ((games_raw["home"] == away) | (games_raw["away"] == away))]
+                                    prev_h_dt = pd.to_datetime(prev_h["date_et"].max()) if not prev_h.empty else None
+                                    prev_a_dt = pd.to_datetime(prev_a["date_et"].max()) if not prev_a.empty else None
+                                    if prev_h_dt is not None and int((d_et - prev_h_dt.normalize()).days) == 1:
+                                        fat_h = float(np.clip(1.0 - totals_fatigue_beta, 0.8, 1.0))
+                                    if prev_a_dt is not None and int((d_et - prev_a_dt.normalize()).days) == 1:
+                                        fat_a = float(np.clip(1.0 - totals_fatigue_beta, 0.8, 1.0))
+                        except Exception:
+                            pass
+                        # Rolling pace multipliers from last 10 games (team goals per game vs baseline)
+                        roll_h = roll_a = 1.0
+                        try:
+                            if totals_rolling_pace_gamma > 0.0:
+                                d_et = pd.to_datetime(r.get("date_et"), utc=True).tz_convert("America/New_York").normalize() if pd.notna(r.get("date_et")) else None
+                                base_per_team = 3.05
+                                if d_et is not None:
+                                    home = str(r.get("home")); away = str(r.get("away"))
+                                    sub_h = games_raw[(games_raw["date_et"] < d_et) & ((games_raw["home"] == home) | (games_raw["away"] == home))].copy()
+                                    sub_h.sort_values("date_et", inplace=True)
+                                    if not sub_h.empty:
+                                        sub_h["team_goals"] = np.where(sub_h["home"] == home, sub_h["home_goals"], sub_h["away_goals"]) 
+                                        last_h = sub_h.tail(10)
+                                        gpg_h = float(last_h["team_goals"].mean()) if len(last_h) > 0 else None
+                                        if gpg_h and gpg_h > 0.0:
+                                            roll_h = float(np.clip(1.0 + totals_rolling_pace_gamma * ((gpg_h - base_per_team) / base_per_team), 0.8, 1.2))
+                                    sub_a = games_raw[(games_raw["date_et"] < d_et) & ((games_raw["home"] == away) | (games_raw["away"] == away))].copy()
+                                    sub_a.sort_values("date_et", inplace=True)
+                                    if not sub_a.empty:
+                                        sub_a["team_goals"] = np.where(sub_a["home"] == away, sub_a["home_goals"], sub_a["away_goals"]) 
+                                        last_a = sub_a.tail(10)
+                                        gpg_a = float(last_a["team_goals"].mean()) if len(last_a) > 0 else None
+                                        if gpg_a and gpg_a > 0.0:
+                                            roll_a = float(np.clip(1.0 + totals_rolling_pace_gamma * ((gpg_a - base_per_team) / base_per_team), 0.8, 1.2))
+                        except Exception:
+                            pass
+                        # xG pacing multipliers
+                        xg_mult_home = xg_mult_away = 1.0
+                        try:
+                            if team_xg is not None and totals_xg_gamma > 0.0:
+                                vals = list(team_xg.values())
+                                base_xgf = float(np.nanmean([v.get("xgf60") for v in vals])) if vals else None
+                                h_abbr = str(r.get("home")).upper(); a_abbr = str(r.get("away")).upper()
+                                h_xgf = float((team_xg.get(h_abbr) or {}).get("xgf60") or np.nan)
+                                a_xgf = float((team_xg.get(a_abbr) or {}).get("xgf60") or np.nan)
+                                if base_xgf and base_xgf > 0.0 and pd.notna(h_xgf) and pd.notna(a_xgf):
+                                    xg_mult_home = float(np.clip(1.0 + totals_xg_gamma * ((h_xgf - base_xgf) / base_xgf), 0.85, 1.20))
+                                    xg_mult_away = float(np.clip(1.0 + totals_xg_gamma * ((a_xgf - base_xgf) / base_xgf), 0.85, 1.20))
+                        except Exception:
+                            pass
+                        try:
+                            if props_df is not None and (totals_pace_alpha > 0.0 or totals_goalie_beta > 0.0):
+                                mcol = "market"; tcol = "team"; lcol = next((c for c in ["proj_lambda", "lambda"] if c in props_df.columns), None)
+                                home_abbr = str(r.get("home")).upper(); away_abbr = str(r.get("away")).upper()
+                                sog_baseline = float(props_df[props_df[mcol] == "SOG"][lcol].mean()) if lcol in props_df.columns else None
+                                saves_baseline = float(props_df[props_df[mcol] == "SAVES"][lcol].mean()) if lcol in props_df.columns else None
+                                home_sog = float(props_df[(props_df[mcol] == "SOG") & (props_df[tcol].str.upper() == home_abbr)][lcol].sum()) if lcol in props_df.columns else None
+                                away_sog = float(props_df[(props_df[mcol] == "SOG") & (props_df[tcol].str.upper() == away_abbr)][lcol].sum()) if lcol in props_df.columns else None
+                                h_g = props_df[(props_df[mcol] == "SAVES") & (props_df[tcol].str.upper() == home_abbr)][lcol] if lcol in props_df.columns else None
+                                a_g = props_df[(props_df[mcol] == "SAVES") & (props_df[tcol].str.upper() == away_abbr)][lcol] if lcol in props_df.columns else None
+                                home_goalie_saves = float(h_g.max()) if (isinstance(h_g, pd.Series) and len(h_g)) else None
+                                away_goalie_saves = float(a_g.max()) if (isinstance(a_g, pd.Series) and len(a_g)) else None
+                                pace_mult_home = pace_mult_away = 1.0
+                                goalie_def_home = goalie_def_away = 1.0
+                                if totals_pace_alpha > 0.0 and sog_baseline and sog_baseline > 0.0 and home_sog and away_sog:
+                                    pace_mult_home = float(np.clip(1.0 + totals_pace_alpha * ((home_sog - sog_baseline) / sog_baseline), 0.7, 1.3))
+                                    pace_mult_away = float(np.clip(1.0 + totals_pace_alpha * ((away_sog - sog_baseline) / sog_baseline), 0.7, 1.3))
+                                if totals_goalie_beta > 0.0 and saves_baseline and saves_baseline > 0.0:
+                                    if home_goalie_saves:
+                                        goalie_def_home = float(np.clip(1.0 - totals_goalie_beta * ((home_goalie_saves - saves_baseline) / saves_baseline), 0.7, 1.2))
+                                    if away_goalie_saves:
+                                        goalie_def_away = float(np.clip(1.0 - totals_goalie_beta * ((away_goalie_saves - saves_baseline) / saves_baseline), 0.7, 1.2))
+                                # Special teams multipliers
+                                pp_mult_home = pp_mult_away = 1.0
+                                pk_mult_home_def = pk_mult_away_def = 1.0
+                                pen_mult_home = pen_mult_away = 1.0
+                                try:
+                                    if team_st is not None and (totals_pp_gamma > 0.0 or totals_pk_beta > 0.0):
+                                        # Team abbreviations
+                                        h_abbr = home_abbr; a_abbr = away_abbr
+                                        vals = list(team_st.values())
+                                        pp_base = float(np.mean([v.get("pp_pct", 0.2) for v in vals])) if vals else 0.2
+                                        pk_base = float(np.mean([v.get("pk_pct", 0.8) for v in vals])) if vals else 0.8
+                                        th = team_st.get(h_abbr) or {}
+                                        ta = team_st.get(a_abbr) or {}
+                                        h_pp = float(th.get("pp_pct", pp_base)); a_pp = float(ta.get("pp_pct", pp_base))
+                                        h_pk = float(th.get("pk_pct", pk_base)); a_pk = float(ta.get("pk_pct", pk_base))
+                                        if totals_pp_gamma > 0.0 and pp_base > 0.0:
+                                            pp_mult_home = float(np.clip(1.0 + totals_pp_gamma * ((h_pp - pp_base) / pp_base), 0.85, 1.20))
+                                            pp_mult_away = float(np.clip(1.0 + totals_pp_gamma * ((a_pp - pp_base) / pp_base), 0.85, 1.20))
+                                        if totals_pk_beta > 0.0 and pk_base > 0.0:
+                                            pk_mult_home_def = float(np.clip(1.0 - totals_pk_beta * ((h_pk - pk_base) / pk_base), 0.80, 1.15))
+                                            pk_mult_away_def = float(np.clip(1.0 - totals_pk_beta * ((a_pk - pk_base) / pk_base), 0.80, 1.15))
+                                except Exception:
+                                    pass
+                                # Penalty exposure multipliers
+                                try:
+                                    if team_pr is not None and totals_penalty_gamma > 0.0:
+                                        home_abbr = str(r.get("home")).upper(); away_abbr = str(r.get("away")).upper()
+                                        vals = list(team_pr.values())
+                                        c_base = float(np.nanmean([v.get("committed_per60") for v in vals])) if vals else None
+                                        d_base = float(np.nanmean([v.get("drawn_per60") for v in vals])) if vals else None
+                                        base_exp = (c_base or 0.0) + (d_base or 0.0)
+                                        th = team_pr.get(home_abbr) or {}
+                                        ta = team_pr.get(away_abbr) or {}
+                                        exp_h = float((th.get("drawn_per60") or 0.0) + (ta.get("committed_per60") or 0.0))
+                                        exp_a = float((ta.get("drawn_per60") or 0.0) + (th.get("committed_per60") or 0.0))
+                                        if base_exp > 0.0:
+                                            pen_mult_home = float(np.clip(1.0 + totals_penalty_gamma * ((exp_h - base_exp) / base_exp), 0.85, 1.20))
+                                            pen_mult_away = float(np.clip(1.0 + totals_penalty_gamma * ((exp_a - base_exp) / base_exp), 0.85, 1.20))
+                                except Exception:
+                                    pass
+                                h_periods = [max(0.0, float(x)) * pace_mult_home * goalie_def_away * fat_h * roll_h * pp_mult_home * pk_mult_away_def * pen_mult_home * xg_mult_home for x in h_periods]
+                                a_periods = [max(0.0, float(x)) * pace_mult_away * goalie_def_home * fat_a * roll_a * pp_mult_away * pk_mult_home_def * pen_mult_away * xg_mult_away for x in a_periods]
+                        except Exception:
+                            pass
                         sim = simulate_from_period_lambdas(
-                            home_periods=[float(r.get("period1_home_proj")), float(r.get("period2_home_proj")), float(r.get("period3_home_proj"))],
-                            away_periods=[float(r.get("period1_away_proj")), float(r.get("period2_away_proj")), float(r.get("period3_away_proj"))],
+                            home_periods=h_periods,
+                            away_periods=a_periods,
                             total_line=float(r.get("total_line_used")),
                             puck_line=-1.5,
                             cfg=sim_cfg,
                         )
                     else:
+                        # Apply optional totals feature adjustments when simulating inline
+                        adj_total = float(r.get("model_total")); adj_diff = float(r.get("model_spread"))
+                        try:
+                            if props_df is not None and (totals_pace_alpha > 0.0 or totals_goalie_beta > 0.0):
+                                mcol = "market"; tcol = "team"; lcol = next((c for c in ["proj_lambda", "lambda"] if c in props_df.columns), None)
+                                # Normalize team keys
+                                home_abbr = str(r.get("home")).upper(); away_abbr = str(r.get("away")).upper()
+                                # Baselines
+                                sog_baseline = float(props_df[props_df[mcol] == "SOG"][lcol].mean()) if lcol and (lcol in props_df.columns) else None
+                                saves_baseline = float(props_df[props_df[mcol] == "SAVES"][lcol].mean()) if lcol and (lcol in props_df.columns) else None
+                                # Team aggregates
+                                home_sog = float(props_df[(props_df[mcol] == "SOG") & (props_df[tcol].str.upper() == home_abbr)][lcol].sum()) if lcol and (lcol in props_df.columns) else None
+                                away_sog = float(props_df[(props_df[mcol] == "SOG") & (props_df[tcol].str.upper() == away_abbr)][lcol].sum()) if lcol and (lcol in props_df.columns) else None
+                                h_g = props_df[(props_df[mcol] == "SAVES") & (props_df[tcol].str.upper() == home_abbr)][lcol] if lcol and (lcol in props_df.columns) else None
+                                a_g = props_df[(props_df[mcol] == "SAVES") & (props_df[tcol].str.upper() == away_abbr)][lcol] if lcol and (lcol in props_df.columns) else None
+                                home_goalie_saves = float(h_g.max()) if (isinstance(h_g, pd.Series) and len(h_g)) else None
+                                away_goalie_saves = float(a_g.max()) if (isinstance(a_g, pd.Series) and len(a_g)) else None
+                                # Multipliers
+                                pace_mult_home = pace_mult_away = 1.0
+                                goalie_def_home = goalie_def_away = 1.0
+                                if totals_pace_alpha > 0.0 and sog_baseline and sog_baseline > 0.0 and home_sog and away_sog:
+                                    pace_mult_home = float(np.clip(1.0 + totals_pace_alpha * ((home_sog - sog_baseline) / sog_baseline), 0.7, 1.3))
+                                    pace_mult_away = float(np.clip(1.0 + totals_pace_alpha * ((away_sog - sog_baseline) / sog_baseline), 0.7, 1.3))
+                                if totals_goalie_beta > 0.0 and saves_baseline and saves_baseline > 0.0:
+                                    if home_goalie_saves:
+                                        goalie_def_home = float(np.clip(1.0 - totals_goalie_beta * ((home_goalie_saves - saves_baseline) / saves_baseline), 0.7, 1.2))
+                                    if away_goalie_saves:
+                                        goalie_def_away = float(np.clip(1.0 - totals_goalie_beta * ((away_goalie_saves - saves_baseline) / saves_baseline), 0.7, 1.2))
+                                from .models.simulator import derive_team_lambdas
+                                lh, la = derive_team_lambdas(adj_total, adj_diff)
+                                # Apply fatigue multipliers (offensive reduction on B2B)
+                                fat_h = fat_a = 1.0
+                                roll_h = roll_a = 1.0
+                                # Special teams multipliers
+                                pp_mult_home = pp_mult_away = 1.0
+                                pk_mult_home_def = pk_mult_away_def = 1.0
+                                pen_mult_home = pen_mult_away = 1.0
+                                try:
+                                    if team_st is not None and (totals_pp_gamma > 0.0 or totals_pk_beta > 0.0):
+                                        home_abbr = str(r.get("home")).upper(); away_abbr = str(r.get("away")).upper()
+                                        vals = list(team_st.values())
+                                        pp_base = float(np.mean([v.get("pp_pct", 0.2) for v in vals])) if vals else 0.2
+                                        pk_base = float(np.mean([v.get("pk_pct", 0.8) for v in vals])) if vals else 0.8
+                                        th = team_st.get(home_abbr) or {}
+                                        ta = team_st.get(away_abbr) or {}
+                                        h_pp = float(th.get("pp_pct", pp_base)); a_pp = float(ta.get("pp_pct", pp_base))
+                                        h_pk = float(th.get("pk_pct", pk_base)); a_pk = float(ta.get("pk_pct", pk_base))
+                                        if totals_pp_gamma > 0.0 and pp_base > 0.0:
+                                            pp_mult_home = float(np.clip(1.0 + totals_pp_gamma * ((h_pp - pp_base) / pp_base), 0.85, 1.20))
+                                            pp_mult_away = float(np.clip(1.0 + totals_pp_gamma * ((a_pp - pp_base) / pp_base), 0.85, 1.20))
+                                        if totals_pk_beta > 0.0 and pk_base > 0.0:
+                                            pk_mult_home_def = float(np.clip(1.0 - totals_pk_beta * ((h_pk - pk_base) / pk_base), 0.80, 1.15))
+                                            pk_mult_away_def = float(np.clip(1.0 - totals_pk_beta * ((a_pk - pk_base) / pk_base), 0.80, 1.15))
+                                except Exception:
+                                    pass
+                                # Penalty exposure multipliers
+                                try:
+                                    if team_pr is not None and totals_penalty_gamma > 0.0:
+                                        home_abbr = str(r.get("home")).upper(); away_abbr = str(r.get("away")).upper()
+                                        vals = list(team_pr.values())
+                                        c_base = float(np.nanmean([v.get("committed_per60") for v in vals])) if vals else None
+                                        d_base = float(np.nanmean([v.get("drawn_per60") for v in vals])) if vals else None
+                                        base_exp = (c_base or 0.0) + (d_base or 0.0)
+                                        th = team_pr.get(home_abbr) or {}
+                                        ta = team_pr.get(away_abbr) or {}
+                                        exp_h = float((th.get("drawn_per60") or 0.0) + (ta.get("committed_per60") or 0.0))
+                                        exp_a = float((ta.get("drawn_per60") or 0.0) + (th.get("committed_per60") or 0.0))
+                                        if base_exp > 0.0:
+                                            pen_mult_home = float(np.clip(1.0 + totals_penalty_gamma * ((exp_h - base_exp) / base_exp), 0.85, 1.20))
+                                            pen_mult_away = float(np.clip(1.0 + totals_penalty_gamma * ((exp_a - base_exp) / base_exp), 0.85, 1.20))
+                                except Exception:
+                                    pass
+                                try:
+                                    if totals_fatigue_beta > 0.0:
+                                        d_et = pd.to_datetime(r.get("date_et"), utc=True).tz_convert("America/New_York").normalize() if pd.notna(r.get("date_et")) else None
+                                        home = str(r.get("home")); away = str(r.get("away"))
+                                        if d_et is not None:
+                                            prev_h = games_raw[(games_raw["date_et"] < d_et) & ((games_raw["home"] == home) | (games_raw["away"] == home))]
+                                            prev_a = games_raw[(games_raw["date_et"] < d_et) & ((games_raw["home"] == away) | (games_raw["away"] == away))]
+                                            prev_h_dt = pd.to_datetime(prev_h["date_et"].max()) if not prev_h.empty else None
+                                            prev_a_dt = pd.to_datetime(prev_a["date_et"].max()) if not prev_a.empty else None
+                                            if prev_h_dt is not None and int((d_et - prev_h_dt.normalize()).days) == 1:
+                                                fat_h = float(np.clip(1.0 - totals_fatigue_beta, 0.8, 1.0))
+                                            if prev_a_dt is not None and int((d_et - prev_a_dt.normalize()).days) == 1:
+                                                fat_a = float(np.clip(1.0 - totals_fatigue_beta, 0.8, 1.0))
+                                except Exception:
+                                    pass
+                                # Rolling pace multipliers
+                                try:
+                                    if totals_rolling_pace_gamma > 0.0:
+                                        d_et = pd.to_datetime(r.get("date_et"), utc=True).tz_convert("America/New_York").normalize() if pd.notna(r.get("date_et")) else None
+                                        base_per_team = 3.05
+                                        if d_et is not None:
+                                            home = str(r.get("home")); away = str(r.get("away"))
+                                            sub_h = games_raw[(games_raw["date_et"] < d_et) & ((games_raw["home"] == home) | (games_raw["away"] == home))].copy()
+                                            sub_h.sort_values("date_et", inplace=True)
+                                            if not sub_h.empty:
+                                                sub_h["team_goals"] = np.where(sub_h["home"] == home, sub_h["home_goals"], sub_h["away_goals"]) 
+                                                last_h = sub_h.tail(10)
+                                                gpg_h = float(last_h["team_goals"].mean()) if len(last_h) > 0 else None
+                                                if gpg_h and gpg_h > 0.0:
+                                                    roll_h = float(np.clip(1.0 + totals_rolling_pace_gamma * ((gpg_h - base_per_team) / base_per_team), 0.8, 1.2))
+                                            sub_a = games_raw[(games_raw["date_et"] < d_et) & ((games_raw["home"] == away) | (games_raw["away"] == away))].copy()
+                                            sub_a.sort_values("date_et", inplace=True)
+                                            if not sub_a.empty:
+                                                sub_a["team_goals"] = np.where(sub_a["home"] == away, sub_a["home_goals"], sub_a["away_goals"]) 
+                                                last_a = sub_a.tail(10)
+                                                gpg_a = float(last_a["team_goals"].mean()) if len(last_a) > 0 else None
+                                                if gpg_a and gpg_a > 0.0:
+                                                    roll_a = float(np.clip(1.0 + totals_rolling_pace_gamma * ((gpg_a - base_per_team) / base_per_team), 0.8, 1.2))
+                                except Exception:
+                                    pass
+                                lh_adj = float(np.clip(lh * pace_mult_home * goalie_def_away * fat_h * roll_h * pp_mult_home * pk_mult_away_def * pen_mult_home, 0.05, 8.0))
+                                la_adj = float(np.clip(la * pace_mult_away * goalie_def_home * fat_a * roll_a * pp_mult_away * pk_mult_home_def * pen_mult_away, 0.05, 8.0))
+                                # xG pacing multipliers for totals/diff path
+                                xg_mult_home = xg_mult_away = 1.0
+                                try:
+                                    if team_xg is not None and totals_xg_gamma > 0.0:
+                                        vals = list(team_xg.values())
+                                        base_xgf = float(np.nanmean([v.get("xgf60") for v in vals])) if vals else None
+                                        home_abbr = str(r.get("home")).upper(); away_abbr = str(r.get("away")).upper()
+                                        h_xgf = float((team_xg.get(home_abbr) or {}).get("xgf60") or np.nan)
+                                        a_xgf = float((team_xg.get(away_abbr) or {}).get("xgf60") or np.nan)
+                                        if base_xgf and base_xgf > 0.0 and pd.notna(h_xgf) and pd.notna(a_xgf):
+                                            xg_mult_home = float(np.clip(1.0 + totals_xg_gamma * ((h_xgf - base_xgf) / base_xgf), 0.85, 1.20))
+                                            xg_mult_away = float(np.clip(1.0 + totals_xg_gamma * ((a_xgf - base_xgf) / base_xgf), 0.85, 1.20))
+                                except Exception:
+                                    pass
+                                lh_adj = float(np.clip(lh_adj * xg_mult_home, 0.05, 8.0))
+                                la_adj = float(np.clip(la_adj * xg_mult_away, 0.05, 8.0))
+                                adj_total = lh_adj + la_adj
+                                adj_diff = lh_adj - la_adj
+                        except Exception:
+                            pass
                         sim = simulate_from_totals_diff(
-                            total_mean=float(r.get("model_total")),
-                            diff_mean=float(r.get("model_spread")),
+                            total_mean=adj_total,
+                            diff_mean=adj_diff,
                             total_line=float(r.get("total_line_used")),
                             puck_line=-1.5,
                             cfg=sim_cfg,
@@ -1832,8 +2472,26 @@ def game_backtest_sim(
                 try:
                     if use_calibrated and sim_ml_cal is not None:
                         p_ml_cal_row = float(sim_ml_cal.apply(np.array([p_ml]))[0])
-                    if use_calibrated and sim_tot_cal is not None:
-                        p_over_cal_row = float(sim_tot_cal.apply(np.array([p_over]))[0])
+                    # Prefer per-line totals calibration if available
+                    if use_calibrated:
+                        # determine line for this row
+                        line_val = r.get("close_total_line_used")
+                        if line_val is None or (isinstance(line_val, float) and np.isnan(line_val)):
+                            line_val = r.get("total_line_used")
+                        line = float(line_val) if (line_val is not None and not (isinstance(line_val, float) and np.isnan(line_val))) else None
+                        tot_line_map = {}
+                        try:
+                            obj = json.loads((PROC_DIR / "sim_calibration_per_line.json").read_text(encoding="utf-8"))
+                            tot_line_map = obj.get("totals", {}) or {}
+                        except Exception:
+                            tot_line_map = {}
+                        if (line is not None) and (str(line) in tot_line_map):
+                            from .utils.calibration import BinaryCalibration
+                            c = tot_line_map[str(line)]
+                            cal = BinaryCalibration(float(c.get("t", 1.0)), float(c.get("b", 0.0)))
+                            p_over_cal_row = float(cal.apply(np.array([p_over]))[0])
+                        elif sim_tot_cal is not None:
+                            p_over_cal_row = float(sim_tot_cal.apply(np.array([p_over]))[0])
                     if use_calibrated and sim_pl_cal is not None:
                         p_pl_cal_row = float(sim_pl_cal.apply(np.array([p_pl]))[0])
                 except Exception:
@@ -2034,6 +2692,15 @@ def game_backtest_sim_thresholds(
     sim_overdispersion_k: float = typer.Option(0.0, help="Gamma-Poisson overdispersion k (0=off)"),
     sim_shared_k: float = typer.Option(0.0, help="Shared pace Gamma k (correlation; 0=off)"),
     sim_empty_net_p: float = typer.Option(0.0, help="Empty-net extra goal probability when leading by 1 (0=off)"),
+    sim_empty_net_two_goal_scale: float = typer.Option(0.0, help="Scale factor for empty-net probability when leading by 2 (0=off)"),
+    totals_pace_alpha: float = typer.Option(0.0, help="Strength of SOG-based pace adjustment for totals (0=off)"),
+    totals_goalie_beta: float = typer.Option(0.0, help="Strength of goalie SAVES-based defensive adjustment (0=off)"),
+    totals_fatigue_beta: float = typer.Option(0.0, help="Strength of fatigue (B2B) offensive reduction (0=off)"),
+    totals_rolling_pace_gamma: float = typer.Option(0.0, help="Strength of rolling team goals pace adjustment (last 10; 0=off)"),
+    totals_pp_gamma: float = typer.Option(0.0, help="Strength of PP offense adjustment from team PP% (0=off)"),
+    totals_pk_beta: float = typer.Option(0.0, help="Strength of PK defensive adjustment from team PK% (applied to opponent; 0=off)"),
+    totals_penalty_gamma: float = typer.Option(0.0, help="Strength of penalty exposure adjustment from team committed/drawn rates (0=off)"),
+    totals_xg_gamma: float = typer.Option(0.0, help="Strength of expected goals (xGF/60) pace adjustment (0=off)"),
 ):
     """Evaluate accuracy vs decision thresholds for ML, Totals, and Puckline using calibrated simulation probabilities.
 
@@ -2065,6 +2732,7 @@ def game_backtest_sim_thresholds(
         overdispersion_k=(sim_overdispersion_k if sim_overdispersion_k and sim_overdispersion_k > 0 else None),
         shared_k=(sim_shared_k if sim_shared_k and sim_shared_k > 0 else None),
         empty_net_p=(sim_empty_net_p if sim_empty_net_p and sim_empty_net_p > 0 else None),
+        empty_net_two_goal_scale=(sim_empty_net_two_goal_scale if sim_empty_net_two_goal_scale and sim_empty_net_two_goal_scale > 0 else None),
     )  # moderate samples for speed
 
     # Accumulators per threshold
@@ -2073,6 +2741,8 @@ def game_backtest_sim_thresholds(
     acc_pl = {t: {"correct": 0, "total": 0} for t in thrs}
 
     cur = _dt.strptime(start, "%Y-%m-%d"); end_dt = _dt.strptime(end, "%Y-%m-%d")
+    # Cache props projections by date for totals feature adjustments
+    props_cache: Dict[str, Optional[pd.DataFrame]] = {}
     while cur <= end_dt:
         d = cur.strftime("%Y-%m-%d")
         # choose source
@@ -2093,6 +2763,31 @@ def game_backtest_sim_thresholds(
         if use_df is None:
             cur += _td(days=1); continue
 
+        # Optional team special teams for this date
+        team_st: Optional[Dict[str, Dict[str, float]]] = None
+        try:
+            if totals_pp_gamma > 0.0 or totals_pk_beta > 0.0:
+                from .data.team_stats import load_team_special_teams
+                team_st = load_team_special_teams(d)
+        except Exception:
+            team_st = None
+        # Optional team penalty rates for this date
+        team_pr: Optional[Dict[str, Dict[str, float]]] = None
+        try:
+            if totals_penalty_gamma > 0.0:
+                from .data.penalty_rates import load_team_penalty_rates
+                team_pr = load_team_penalty_rates(d)
+        except Exception:
+            team_pr = None
+        # Optional team expected goals rates for this date
+        team_xg: Optional[Dict[str, Dict[str, float]]] = None
+        try:
+            if totals_xg_gamma > 0.0:
+                from .data.team_xg import load_team_xg
+                team_xg = load_team_xg(d)
+        except Exception:
+            team_xg = None
+
         for _, r in use_df.iterrows():
             # actuals
             try:
@@ -2110,17 +2805,294 @@ def game_backtest_sim_thresholds(
             if use_mode == 'pred':
                 try:
                     if pd.notna(r.get("period1_home_proj")) and pd.notna(r.get("period1_away_proj")) and pd.notna(r.get("period2_home_proj")) and pd.notna(r.get("period2_away_proj")) and pd.notna(r.get("period3_home_proj")) and pd.notna(r.get("period3_away_proj")):
+                        # Optionally adjust period lambdas by props-derived + fatigue multipliers
+                        h_periods = [float(r.get("period1_home_proj")), float(r.get("period2_home_proj")), float(r.get("period3_home_proj"))]
+                        a_periods = [float(r.get("period1_away_proj")), float(r.get("period2_away_proj")), float(r.get("period3_away_proj"))]
+                        fat_h = fat_a = 1.0
+                        roll_h = roll_a = 1.0
+                        try:
+                            if totals_fatigue_beta > 0.0:
+                                d_et = pd.to_datetime(r.get("date_et"), utc=True).tz_convert("America/New_York").normalize() if pd.notna(r.get("date_et")) else None
+                                home = str(r.get("home")); away = str(r.get("away"))
+                                if d_et is not None:
+                                    prev_h = games_raw[(games_raw["date_et"] < d_et) & ((games_raw["home"] == home) | (games_raw["away"] == home))]
+                                    prev_a = games_raw[(games_raw["date_et"] < d_et) & ((games_raw["home"] == away) | (games_raw["away"] == away))]
+                                    prev_h_dt = pd.to_datetime(prev_h["date_et"].max()) if not prev_h.empty else None
+                                    prev_a_dt = pd.to_datetime(prev_a["date_et"].max()) if not prev_a.empty else None
+                                    if prev_h_dt is not None and int((d_et - prev_h_dt.normalize()).days) == 1:
+                                        fat_h = float(np.clip(1.0 - totals_fatigue_beta, 0.8, 1.0))
+                                    if prev_a_dt is not None and int((d_et - prev_a_dt.normalize()).days) == 1:
+                                        fat_a = float(np.clip(1.0 - totals_fatigue_beta, 0.8, 1.0))
+                        except Exception:
+                            pass
+                        # Rolling pace multipliers
+                        try:
+                            if totals_rolling_pace_gamma > 0.0:
+                                d_et = pd.to_datetime(r.get("date_et"), utc=True).tz_convert("America/New_York").normalize() if pd.notna(r.get("date_et")) else None
+                                base_per_team = 3.05
+                                if d_et is not None:
+                                    home = str(r.get("home")); away = str(r.get("away"))
+                                    sub_h = games_raw[(games_raw["date_et"] < d_et) & ((games_raw["home"] == home) | (games_raw["away"] == home))].copy()
+                                    sub_h.sort_values("date_et", inplace=True)
+                                    if not sub_h.empty:
+                                        sub_h["team_goals"] = np.where(sub_h["home"] == home, sub_h["home_goals"], sub_h["away_goals"]) 
+                                        last_h = sub_h.tail(10)
+                                        gpg_h = float(last_h["team_goals"].mean()) if len(last_h) > 0 else None
+                                        if gpg_h and gpg_h > 0.0:
+                                            roll_h = float(np.clip(1.0 + totals_rolling_pace_gamma * ((gpg_h - base_per_team) / base_per_team), 0.8, 1.2))
+                                    sub_a = games_raw[(games_raw["date_et"] < d_et) & ((games_raw["home"] == away) | (games_raw["away"] == away))].copy()
+                                    sub_a.sort_values("date_et", inplace=True)
+                                    if not sub_a.empty:
+                                        sub_a["team_goals"] = np.where(sub_a["home"] == away, sub_a["home_goals"], sub_a["away_goals"]) 
+                                        last_a = sub_a.tail(10)
+                                        gpg_a = float(last_a["team_goals"].mean()) if len(last_a) > 0 else None
+                                        if gpg_a and gpg_a > 0.0:
+                                            roll_a = float(np.clip(1.0 + totals_rolling_pace_gamma * ((gpg_a - base_per_team) / base_per_team), 0.8, 1.2))
+                        except Exception:
+                            pass
+                        try:
+                            # Load props projections for date if needed
+                            props_df = None
+                            if totals_pace_alpha > 0.0 or totals_goalie_beta > 0.0:
+                                if d not in props_cache:
+                                    ppath = PROC_DIR / f"props_projections_all_{d}.csv"
+                                    if ppath.exists() and getattr(ppath.stat(), "st_size", 0) > 0:
+                                        try:
+                                            props_cache[d] = pd.read_csv(ppath)
+                                        except Exception:
+                                            props_cache[d] = None
+                                    else:
+                                        props_cache[d] = None
+                                props_df = props_cache.get(d)
+                            if props_df is not None:
+                                mcol = "market"; tcol = "team"; lcol = "lambda"
+                                home_abbr = str(r.get("home")).upper(); away_abbr = str(r.get("away")).upper()
+                                sog_baseline = float(props_df[props_df[mcol] == "SOG"][lcol].mean()) if lcol and (lcol in props_df.columns) else None
+                                saves_baseline = float(props_df[props_df[mcol] == "SAVES"][lcol].mean()) if lcol and (lcol in props_df.columns) else None
+                                home_sog = float(props_df[(props_df[mcol] == "SOG") & (props_df[tcol].str.upper() == home_abbr)][lcol].sum()) if lcol and (lcol in props_df.columns) else None
+                                away_sog = float(props_df[(props_df[mcol] == "SOG") & (props_df[tcol].str.upper() == away_abbr)][lcol].sum()) if lcol and (lcol in props_df.columns) else None
+                                h_g = props_df[(props_df[mcol] == "SAVES") & (props_df[tcol].str.upper() == home_abbr)][lcol] if lcol and (lcol in props_df.columns) else None
+                                a_g = props_df[(props_df[mcol] == "SAVES") & (props_df[tcol].str.upper() == away_abbr)][lcol] if lcol and (lcol in props_df.columns) else None
+                                home_goalie_saves = float(h_g.max()) if (isinstance(h_g, pd.Series) and len(h_g)) else None
+                                away_goalie_saves = float(a_g.max()) if (isinstance(a_g, pd.Series) and len(a_g)) else None
+                                pace_mult_home = pace_mult_away = 1.0
+                                goalie_def_home = goalie_def_away = 1.0
+                                if totals_pace_alpha > 0.0 and sog_baseline and sog_baseline > 0.0 and home_sog and away_sog:
+                                    pace_mult_home = float(np.clip(1.0 + totals_pace_alpha * ((home_sog - sog_baseline) / sog_baseline), 0.7, 1.3))
+                                    pace_mult_away = float(np.clip(1.0 + totals_pace_alpha * ((away_sog - sog_baseline) / sog_baseline), 0.7, 1.3))
+                                if totals_goalie_beta > 0.0 and saves_baseline and saves_baseline > 0.0:
+                                    if home_goalie_saves:
+                                        goalie_def_home = float(np.clip(1.0 - totals_goalie_beta * ((home_goalie_saves - saves_baseline) / saves_baseline), 0.7, 1.2))
+                                    if away_goalie_saves:
+                                        goalie_def_away = float(np.clip(1.0 - totals_goalie_beta * ((away_goalie_saves - saves_baseline) / saves_baseline), 0.7, 1.2))
+                                # Special teams multipliers
+                                pp_mult_home = pp_mult_away = 1.0
+                                pk_mult_home_def = pk_mult_away_def = 1.0
+                                try:
+                                    if team_st is not None and (totals_pp_gamma > 0.0 or totals_pk_beta > 0.0):
+                                        h_abbr = home_abbr; a_abbr = away_abbr
+                                        vals = list(team_st.values())
+                                        pp_base = float(np.mean([v.get("pp_pct", 0.2) for v in vals])) if vals else 0.2
+                                        pk_base = float(np.mean([v.get("pk_pct", 0.8) for v in vals])) if vals else 0.8
+                                        th = team_st.get(h_abbr) or {}
+                                        ta = team_st.get(a_abbr) or {}
+                                        h_pp = float(th.get("pp_pct", pp_base)); a_pp = float(ta.get("pp_pct", pp_base))
+                                        h_pk = float(th.get("pk_pct", pk_base)); a_pk = float(ta.get("pk_pct", pk_base))
+                                        if totals_pp_gamma > 0.0 and pp_base > 0.0:
+                                            pp_mult_home = float(np.clip(1.0 + totals_pp_gamma * ((h_pp - pp_base) / pp_base), 0.85, 1.20))
+                                            pp_mult_away = float(np.clip(1.0 + totals_pp_gamma * ((a_pp - pp_base) / pp_base), 0.85, 1.20))
+                                        if totals_pk_beta > 0.0 and pk_base > 0.0:
+                                            pk_mult_home_def = float(np.clip(1.0 - totals_pk_beta * ((h_pk - pk_base) / pk_base), 0.80, 1.15))
+                                            pk_mult_away_def = float(np.clip(1.0 - totals_pk_beta * ((a_pk - pk_base) / pk_base), 0.80, 1.15))
+                                except Exception:
+                                    pass
+                                # Penalty exposure multipliers
+                                pen_mult_home = pen_mult_away = 1.0
+                                try:
+                                    if team_pr is not None and totals_penalty_gamma > 0.0:
+                                        vals = list(team_pr.values())
+                                        c_base = float(np.nanmean([v.get("committed_per60") for v in vals])) if vals else None
+                                        d_base = float(np.nanmean([v.get("drawn_per60") for v in vals])) if vals else None
+                                        base_exp = (c_base or 0.0) + (d_base or 0.0)
+                                        th = team_pr.get(home_abbr) or {}
+                                        ta = team_pr.get(away_abbr) or {}
+                                        exp_h = float((th.get("drawn_per60") or 0.0) + (ta.get("committed_per60") or 0.0))
+                                        exp_a = float((ta.get("drawn_per60") or 0.0) + (th.get("committed_per60") or 0.0))
+                                        if base_exp > 0.0:
+                                            pen_mult_home = float(np.clip(1.0 + totals_penalty_gamma * ((exp_h - base_exp) / base_exp), 0.85, 1.20))
+                                            pen_mult_away = float(np.clip(1.0 + totals_penalty_gamma * ((exp_a - base_exp) / base_exp), 0.85, 1.20))
+                                except Exception:
+                                    pass
+                                # xG pacing multipliers
+                                xg_mult_home = xg_mult_away = 1.0
+                                try:
+                                    if team_xg is not None and totals_xg_gamma > 0.0:
+                                        vals = list(team_xg.values())
+                                        base_xgf = float(np.nanmean([v.get("xgf60") for v in vals])) if vals else None
+                                        h_xgf = float((team_xg.get(home_abbr) or {}).get("xgf60") or np.nan)
+                                        a_xgf = float((team_xg.get(away_abbr) or {}).get("xgf60") or np.nan)
+                                        if base_xgf and base_xgf > 0.0 and pd.notna(h_xgf) and pd.notna(a_xgf):
+                                            xg_mult_home = float(np.clip(1.0 + totals_xg_gamma * ((h_xgf - base_xgf) / base_xgf), 0.85, 1.20))
+                                            xg_mult_away = float(np.clip(1.0 + totals_xg_gamma * ((a_xgf - base_xgf) / base_xgf), 0.85, 1.20))
+                                except Exception:
+                                    pass
+                                h_periods = [max(0.0, float(x)) * pace_mult_home * goalie_def_away * fat_h * roll_h * pp_mult_home * pk_mult_away_def * pen_mult_home * xg_mult_home for x in h_periods]
+                                a_periods = [max(0.0, float(x)) * pace_mult_away * goalie_def_home * fat_a * roll_a * pp_mult_away * pk_mult_home_def * pen_mult_away * xg_mult_away for x in a_periods]
+                        except Exception:
+                            pass
                         sim = simulate_from_period_lambdas(
-                            home_periods=[float(r.get("period1_home_proj")), float(r.get("period2_home_proj")), float(r.get("period3_home_proj"))],
-                            away_periods=[float(r.get("period1_away_proj")), float(r.get("period2_away_proj")), float(r.get("period3_away_proj"))],
+                            home_periods=h_periods,
+                            away_periods=a_periods,
                             total_line=line,
                             puck_line=-1.5,
                             cfg=sim_cfg,
                         )
                     else:
+                        # Apply optional totals feature adjustments
+                        adj_total = float(r.get("model_total")); adj_diff = float(r.get("model_spread"))
+                        try:
+                            props_df = None
+                            if totals_pace_alpha > 0.0 or totals_goalie_beta > 0.0:
+                                if d not in props_cache:
+                                    ppath = PROC_DIR / f"props_projections_all_{d}.csv"
+                                    if ppath.exists() and getattr(ppath.stat(), "st_size", 0) > 0:
+                                        try:
+                                            props_cache[d] = pd.read_csv(ppath)
+                                        except Exception:
+                                            props_cache[d] = None
+                                    else:
+                                        props_cache[d] = None
+                                props_df = props_cache.get(d)
+                            if props_df is not None:
+                                mcol = "market"; tcol = "team"; lcol = "lambda"
+                                home_abbr = str(r.get("home")).upper(); away_abbr = str(r.get("away")).upper()
+                                sog_baseline = float(props_df[props_df[mcol] == "SOG"][lcol].mean()) if lcol in props_df.columns else None
+                                saves_baseline = float(props_df[props_df[mcol] == "SAVES"][lcol].mean()) if lcol in props_df.columns else None
+                                home_sog = float(props_df[(props_df[mcol] == "SOG") & (props_df[tcol].str.upper() == home_abbr)][lcol].sum()) if lcol in props_df.columns else None
+                                away_sog = float(props_df[(props_df[mcol] == "SOG") & (props_df[tcol].str.upper() == away_abbr)][lcol].sum()) if lcol in props_df.columns else None
+                                h_g = props_df[(props_df[mcol] == "SAVES") & (props_df[tcol].str.upper() == home_abbr)][lcol] if lcol in props_df.columns else None
+                                a_g = props_df[(props_df[mcol] == "SAVES") & (props_df[tcol].str.upper() == away_abbr)][lcol] if lcol in props_df.columns else None
+                                home_goalie_saves = float(h_g.max()) if (isinstance(h_g, pd.Series) and len(h_g)) else None
+                                away_goalie_saves = float(a_g.max()) if (isinstance(a_g, pd.Series) and len(a_g)) else None
+                                pace_mult_home = pace_mult_away = 1.0
+                                goalie_def_home = goalie_def_away = 1.0
+                                if totals_pace_alpha > 0.0 and sog_baseline and sog_baseline > 0.0 and home_sog and away_sog:
+                                    pace_mult_home = float(np.clip(1.0 + totals_pace_alpha * ((home_sog - sog_baseline) / sog_baseline), 0.7, 1.3))
+                                    pace_mult_away = float(np.clip(1.0 + totals_pace_alpha * ((away_sog - sog_baseline) / sog_baseline), 0.7, 1.3))
+                                if totals_goalie_beta > 0.0 and saves_baseline and saves_baseline > 0.0:
+                                    if home_goalie_saves:
+                                        goalie_def_home = float(np.clip(1.0 - totals_goalie_beta * ((home_goalie_saves - saves_baseline) / saves_baseline), 0.7, 1.2))
+                                    if away_goalie_saves:
+                                        goalie_def_away = float(np.clip(1.0 - totals_goalie_beta * ((away_goalie_saves - saves_baseline) / saves_baseline), 0.7, 1.2))
+                                from .models.simulator import derive_team_lambdas
+                                lh, la = derive_team_lambdas(adj_total, adj_diff)
+                                # Fatigue multipliers
+                                fat_h = fat_a = 1.0
+                                roll_h = roll_a = 1.0
+                                # Special teams multipliers
+                                pp_mult_home = pp_mult_away = 1.0
+                                pk_mult_home_def = pk_mult_away_def = 1.0
+                                try:
+                                    if team_st is not None and (totals_pp_gamma > 0.0 or totals_pk_beta > 0.0):
+                                        vals = list(team_st.values())
+                                        pp_base = float(np.mean([v.get("pp_pct", 0.2) for v in vals])) if vals else 0.2
+                                        pk_base = float(np.mean([v.get("pk_pct", 0.8) for v in vals])) if vals else 0.8
+                                        home_abbr = str(r.get("home")).upper(); away_abbr = str(r.get("away")).upper()
+                                        th = team_st.get(home_abbr) or {}
+                                        ta = team_st.get(away_abbr) or {}
+                                        h_pp = float(th.get("pp_pct", pp_base)); a_pp = float(ta.get("pp_pct", pp_base))
+                                        h_pk = float(th.get("pk_pct", pk_base)); a_pk = float(ta.get("pk_pct", pk_base))
+                                        if totals_pp_gamma > 0.0 and pp_base > 0.0:
+                                            pp_mult_home = float(np.clip(1.0 + totals_pp_gamma * ((h_pp - pp_base) / pp_base), 0.85, 1.20))
+                                            pp_mult_away = float(np.clip(1.0 + totals_pp_gamma * ((a_pp - pp_base) / pp_base), 0.85, 1.20))
+                                        if totals_pk_beta > 0.0 and pk_base > 0.0:
+                                            pk_mult_home_def = float(np.clip(1.0 - totals_pk_beta * ((h_pk - pk_base) / pk_base), 0.80, 1.15))
+                                            pk_mult_away_def = float(np.clip(1.0 - totals_pk_beta * ((a_pk - pk_base) / pk_base), 0.80, 1.15))
+                                except Exception:
+                                    pass
+                                try:
+                                    if totals_fatigue_beta > 0.0:
+                                        d_et = pd.to_datetime(r.get("date_et"), utc=True).tz_convert("America/New_York").normalize() if pd.notna(r.get("date_et")) else None
+                                        home = str(r.get("home")); away = str(r.get("away"))
+                                        if d_et is not None:
+                                            prev_h = games_raw[(games_raw["date_et"] < d_et) & ((games_raw["home"] == home) | (games_raw["away"] == home))]
+                                            prev_a = games_raw[(games_raw["date_et"] < d_et) & ((games_raw["home"] == away) | (games_raw["away"] == away))]
+                                            prev_h_dt = pd.to_datetime(prev_h["date_et"].max()) if not prev_h.empty else None
+                                            prev_a_dt = pd.to_datetime(prev_a["date_et"].max()) if not prev_a.empty else None
+                                            if prev_h_dt is not None and int((d_et - prev_h_dt.normalize()).days) == 1:
+                                                fat_h = float(np.clip(1.0 - totals_fatigue_beta, 0.8, 1.0))
+                                            if prev_a_dt is not None and int((d_et - prev_a_dt.normalize()).days) == 1:
+                                                fat_a = float(np.clip(1.0 - totals_fatigue_beta, 0.8, 1.0))
+                                except Exception:
+                                    pass
+                                # Rolling pace multipliers
+                                try:
+                                    if totals_rolling_pace_gamma > 0.0:
+                                        d_et = pd.to_datetime(r.get("date_et"), utc=True).tz_convert("America/New_York").normalize() if pd.notna(r.get("date_et")) else None
+                                        base_per_team = 3.05
+                                        if d_et is not None:
+                                            home = str(r.get("home")); away = str(r.get("away"))
+                                            sub_h = games_raw[(games_raw["date_et"] < d_et) & ((games_raw["home"] == home) | (games_raw["away"] == home))].copy()
+                                            sub_h.sort_values("date_et", inplace=True)
+                                            if not sub_h.empty:
+                                                sub_h["team_goals"] = np.where(sub_h["home"] == home, sub_h["home_goals"], sub_h["away_goals"]) 
+                                                last_h = sub_h.tail(10)
+                                                gpg_h = float(last_h["team_goals"].mean()) if len(last_h) > 0 else None
+                                                if gpg_h and gpg_h > 0.0:
+                                                    roll_h = float(np.clip(1.0 + totals_rolling_pace_gamma * ((gpg_h - base_per_team) / base_per_team), 0.8, 1.2))
+                                            sub_a = games_raw[(games_raw["date_et"] < d_et) & ((games_raw["home"] == away) | (games_raw["away"] == away))].copy()
+                                            sub_a.sort_values("date_et", inplace=True)
+                                            if not sub_a.empty:
+                                                sub_a["team_goals"] = np.where(sub_a["home"] == away, sub_a["home_goals"], sub_a["away_goals"]) 
+                                                last_a = sub_a.tail(10)
+                                                gpg_a = float(last_a["team_goals"].mean()) if len(last_a) > 0 else None
+                                                if gpg_a and gpg_a > 0.0:
+                                                    roll_a = float(np.clip(1.0 + totals_rolling_pace_gamma * ((gpg_a - base_per_team) / base_per_team), 0.8, 1.2))
+                                except Exception:
+                                    pass
+                                lh_adj = float(np.clip(lh * pace_mult_home * goalie_def_away * fat_h * roll_h * pp_mult_home * pk_mult_away_def * (1.0), 0.05, 8.0))
+                                la_adj = float(np.clip(la * pace_mult_away * goalie_def_home * fat_a * roll_a * pp_mult_away * pk_mult_home_def * (1.0), 0.05, 8.0))
+                                # Penalty exposure multipliers for totals/diff path
+                                try:
+                                    if team_pr is not None and totals_penalty_gamma > 0.0:
+                                        vals = list(team_pr.values())
+                                        c_base = float(np.nanmean([v.get("committed_per60") for v in vals])) if vals else None
+                                        d_base = float(np.nanmean([v.get("drawn_per60") for v in vals])) if vals else None
+                                        base_exp = (c_base or 0.0) + (d_base or 0.0)
+                                        home_abbr = str(r.get("home")).upper(); away_abbr = str(r.get("away")).upper()
+                                        th = team_pr.get(home_abbr) or {}
+                                        ta = team_pr.get(away_abbr) or {}
+                                        exp_h = float((th.get("drawn_per60") or 0.0) + (ta.get("committed_per60") or 0.0))
+                                        exp_a = float((ta.get("drawn_per60") or 0.0) + (th.get("committed_per60") or 0.0))
+                                        if base_exp > 0.0:
+                                            pen_mult_home = float(np.clip(1.0 + totals_penalty_gamma * ((exp_h - base_exp) / base_exp), 0.85, 1.20))
+                                            pen_mult_away = float(np.clip(1.0 + totals_penalty_gamma * ((exp_a - base_exp) / base_exp), 0.85, 1.20))
+                                            lh_adj = float(np.clip(lh_adj * pen_mult_home, 0.05, 8.0))
+                                            la_adj = float(np.clip(la_adj * pen_mult_away, 0.05, 8.0))
+                                except Exception:
+                                    pass
+                                # xG pacing multipliers for totals/diff path
+                                try:
+                                    if team_xg is not None and totals_xg_gamma > 0.0:
+                                        vals = list(team_xg.values())
+                                        base_xgf = float(np.nanmean([v.get("xgf60") for v in vals])) if vals else None
+                                        home_abbr = str(r.get("home")).upper(); away_abbr = str(r.get("away")).upper()
+                                        h_xgf = float((team_xg.get(home_abbr) or {}).get("xgf60") or np.nan)
+                                        a_xgf = float((team_xg.get(away_abbr) or {}).get("xgf60") or np.nan)
+                                        if base_xgf and base_xgf > 0.0 and pd.notna(h_xgf) and pd.notna(a_xgf):
+                                            xg_mult_home = float(np.clip(1.0 + totals_xg_gamma * ((h_xgf - base_xgf) / base_xgf), 0.85, 1.20))
+                                            xg_mult_away = float(np.clip(1.0 + totals_xg_gamma * ((a_xgf - base_xgf) / base_xgf), 0.85, 1.20))
+                                            lh_adj = float(np.clip(lh_adj * xg_mult_home, 0.05, 8.0))
+                                            la_adj = float(np.clip(la_adj * xg_mult_away, 0.05, 8.0))
+                                except Exception:
+                                    pass
+                                adj_total = lh_adj + la_adj
+                                adj_diff = lh_adj - la_adj
+                        except Exception:
+                            pass
                         sim = simulate_from_totals_diff(
-                            total_mean=float(r.get("model_total")),
-                            diff_mean=float(r.get("model_spread")),
+                            total_mean=adj_total,
+                            diff_mean=adj_diff,
                             total_line=line,
                             puck_line=-1.5,
                             cfg=sim_cfg,

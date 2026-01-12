@@ -21,6 +21,9 @@ class SimConfig:
     # Empty-net behavior: probability that a team leading by exactly 1 goal scores an additional
     # late empty-net goal, converting a 1-goal win into 2+. Applied post-simulation.
     empty_net_p: Optional[float] = None
+    # Optional scaling to allow a smaller empty-net probability when leading by 2.
+    # If set (>0), apply empty_net_p * empty_net_two_goal_scale when diff==2.
+    empty_net_two_goal_scale: Optional[float] = None
 
 
 def _rng(seed: Optional[int]) -> np.random.Generator:
@@ -119,6 +122,19 @@ def simulate_from_period_lambdas(
                 add_a = g.binomial(n=1, p=p_en, size=int(mask_a.sum()))
                 idx_a = np.where(mask_a)[0]
                 away_goals[idx_a] += add_a
+            # Optional: chance of a second empty-net goal when leading by 2
+            if cfg.empty_net_two_goal_scale is not None and float(cfg.empty_net_two_goal_scale) > 0.0:
+                p_en2 = float(p_en * float(cfg.empty_net_two_goal_scale))
+                mask_h2 = (home_goals - away_goals) == 2
+                if np.any(mask_h2) and p_en2 > 0.0:
+                    add_h2 = g.binomial(n=1, p=p_en2, size=int(mask_h2.sum()))
+                    idx_h2 = np.where(mask_h2)[0]
+                    home_goals[idx_h2] += add_h2
+                mask_a2 = (away_goals - home_goals) == 2
+                if np.any(mask_a2) and p_en2 > 0.0:
+                    add_a2 = g.binomial(n=1, p=p_en2, size=int(mask_a2.sum()))
+                    idx_a2 = np.where(mask_a2)[0]
+                    away_goals[idx_a2] += add_a2
     except Exception:
         pass
     diff = home_goals - away_goals
@@ -207,6 +223,19 @@ def simulate_from_totals_diff(
                 add_a = g.binomial(n=1, p=p_en, size=int(mask_a.sum()))
                 idx_a = np.where(mask_a)[0]
                 away_goals[idx_a] += add_a
+            # Optional second empty-net chance when leading by 2
+            if cfg.empty_net_two_goal_scale is not None and float(cfg.empty_net_two_goal_scale) > 0.0:
+                p_en2 = float(p_en * float(cfg.empty_net_two_goal_scale))
+                mask_h2 = (home_goals - away_goals) == 2
+                if np.any(mask_h2) and p_en2 > 0.0:
+                    add_h2 = g.binomial(n=1, p=p_en2, size=int(mask_h2.sum()))
+                    idx_h2 = np.where(mask_h2)[0]
+                    home_goals[idx_h2] += add_h2
+                mask_a2 = (away_goals - home_goals) == 2
+                if np.any(mask_a2) and p_en2 > 0.0:
+                    add_a2 = g.binomial(n=1, p=p_en2, size=int(mask_a2.sum()))
+                    idx_a2 = np.where(mask_a2)[0]
+                    away_goals[idx_a2] += add_a2
     except Exception:
         pass
     diff = home_goals - away_goals

@@ -12,26 +12,35 @@ PBP_DIR = Path(__file__).resolve().parents[1] / "data" / "raw" / "nhl_pbp"
 PROC_DIR = Path(__file__).resolve().parents[1] / "data" / "processed"
 
 
-def _pick_latest_pbp() -> Optional[str]:
+def _pick_valid_pbp() -> Optional[str]:
+    """Pick the latest season PBP Parquet that is actually readable (has columns)."""
     try:
         files = sorted(PBP_DIR.glob("pbp_*.parquet"))
         if not files:
             return None
-        # Choose the file with the largest year suffix
         def _year(p: Path) -> int:
             try:
                 return int(p.stem.split("_")[-1])
             except Exception:
                 return 0
-        latest = sorted(files, key=_year)[-1]
-        return str(latest)
+        # Try files from latest to oldest until one reads
+        for p in sorted(files, key=_year, reverse=True):
+            try:
+                con = duckdb.connect()
+                # Attempt a lightweight read to validate structure
+                con.execute("select 1 from read_parquet(?) limit 1", [str(p)])
+                con.close()
+                return str(p)
+            except Exception:
+                continue
+        return None
     except Exception:
         return None
 
 
 def build_goalie_form_from_pbp(pbp_path: Optional[str] = None, lookback_games: int = 10) -> Dict[str, float]:
     con = duckdb.connect()
-    src = pbp_path or _pick_latest_pbp()
+    src = pbp_path or _pick_valid_pbp()
     if not src:
         return {}
     con.execute(

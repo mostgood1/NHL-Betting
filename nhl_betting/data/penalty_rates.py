@@ -6,7 +6,8 @@ from typing import Dict, Optional
 import pandas as pd
 import requests
 
-from ..paths import PROC_DIR
+from pathlib import Path
+PROC_DIR = Path(__file__).resolve().parents[2] / "data" / "processed"
 
 
 def _season_from_date(date: str) -> str:
@@ -88,14 +89,17 @@ def load_team_penalty_rates(date: Optional[str] = None) -> Optional[Dict[str, Di
         p = PROC_DIR / f"team_penalty_rates_{season}.json"
         if p.exists() and getattr(p.stat(), "st_size", 0) > 0:
             try:
-                return json.loads(p.read_text(encoding="utf-8"))
+                obj = json.loads(p.read_text(encoding="utf-8"))
+                if isinstance(obj, dict) and obj:
+                    return obj
             except Exception:
                 pass
     # Generic cache
     p2 = PROC_DIR / "team_penalty_rates.json"
     if p2.exists() and getattr(p2.stat(), "st_size", 0) > 0:
         try:
-            return json.loads(p2.read_text(encoding="utf-8"))
+            obj = json.loads(p2.read_text(encoding="utf-8"))
+            return obj if isinstance(obj, dict) and obj else None
         except Exception:
             pass
     # Try fetch then save

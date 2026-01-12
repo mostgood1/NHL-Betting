@@ -23,6 +23,8 @@ Param (
   [double]$TotalsPKBeta = 0.00,
   [double]$TotalsPenaltyGamma = 0.08,
   [double]$TotalsXGGamma = 0.00,
+  [double]$TotalsRefsGamma = 0.00,
+  [double]$TotalsGoalieFormGamma = 0.00,
   [switch]$BacktestSimulations,
   [int]$BacktestWindowDays = 30,
   [switch]$SimRecommendations,
@@ -43,6 +45,8 @@ if (Test-Path $NpuScript) {
 
 # Defaults for optional params if not bound
 if (-not $PSBoundParameters.ContainsKey('SimIncludeTotals')) { $SimIncludeTotals = $false }
+# Enable PBP backfill by default unless explicitly disabled
+if (-not $PSBoundParameters.ContainsKey('PBPBackfill')) { $PBPBackfill = $true }
 
 # Ensure ARM64 venv and activate
 try {
@@ -73,6 +77,27 @@ if ($PBPBackfill) {
     Write-Warning "[daily_update] PBP web backfill failed: $($_.Exception.Message)"
   }
 }
+
+# Always refresh PBP-derived feature caches (PP/PK, penalties) and today's goalie form
+try {
+  Write-Host "[daily_update] Refreshing PP/PK and penalty rates from PBP …" -ForegroundColor Yellow
+  python scripts/build_team_specials_and_penalties_from_pbp.py
+} catch {
+  Write-Warning "[daily_update] Failed PP/PK & penalties refresh: $($_.Exception.Message)"
+}
+try {
+  Write-Host "[daily_update] Refreshing goalie recent form for today …" -ForegroundColor Yellow
+  python scripts/build_goalie_form_from_pbp.py
+} catch {
+  Write-Warning "[daily_update] Failed goalie form refresh: $($_.Exception.Message)"
+}
+try {
+  Write-Host "[daily_update] Refreshing team xGF/60 (MoneyPuck) …" -ForegroundColor Yellow
+  $today = (Get-Date).ToString('yyyy-MM-dd')
+  python scripts/build_team_xg_moneypuck.py --date $today
+} catch {
+  Write-Warning "[daily_update] Failed team xG refresh: $($_.Exception.Message)"
+}
 # Run daily update workflow
 $argsList = @("-m", "nhl_betting.scripts.daily_update", "--days-ahead", "$DaysAhead", "--years-back", "$YearsBack")
 if ($NoReconcile) { $argsList += "--no-reconcile" }
@@ -96,6 +121,12 @@ if ($SimulateGames) {
     $base = Get-Date
     for ($i = 0; $i -lt $DaysAhead; $i++) {
       $d = $base.AddDays($i).ToString('yyyy-MM-dd')
+      try {
+        Write-Host "[daily_update] Refreshing referee assignments for $d …" -ForegroundColor Yellow
+        python scripts/build_referee_assignments.py --start $d --end $d
+      } catch {
+        Write-Warning "[daily_update] Failed referee assignments refresh for ${d}: $($_.Exception.Message)"
+      }
       Write-Host "[daily_update] Simulating games for $d (n=$SimSamples) …" -ForegroundColor Yellow
       $ovArg = if ($SimOverK -gt 0) { "--sim-overdispersion-k $SimOverK" } else { "" }
       $shArg = if ($SimSharedK -gt 0) { "--sim-shared-k $SimSharedK" } else { "" }
@@ -108,9 +139,11 @@ if ($SimulateGames) {
       $pkArg = if ($TotalsPKBeta -gt 0) { "--totals-pk-beta $TotalsPKBeta" } else { "" }
       $penArg = if ($TotalsPenaltyGamma -gt 0) { "--totals-penalty-gamma $TotalsPenaltyGamma" } else { "" }
       $xgArg = if ($TotalsXGGamma -gt 0) { "--totals-xg-gamma $TotalsXGGamma" } else { "" }
-      Write-Host "[daily_update] Totals adj: pace=$TotalsPaceAlpha xg=$TotalsXGGamma goalie=$TotalsGoalieBeta fatigue=$TotalsFatigueBeta roll=$TotalsRollingPaceGamma pp=$TotalsPPGamma pk=$TotalsPKBeta pen=$TotalsPenaltyGamma en2=$SimEmptyNetTwoGoalScale" -ForegroundColor DarkCyan
+      Write-Host "[daily_update] Totals adj: pace=$TotalsPaceAlpha xg=$TotalsXGGamma refs=$TotalsRefsGamma gform=$TotalsGoalieFormGamma goalie=$TotalsGoalieBeta fatigue=$TotalsFatigueBeta roll=$TotalsRollingPaceGamma pp=$TotalsPPGamma pk=$TotalsPKBeta pen=$TotalsPenaltyGamma en2=$SimEmptyNetTwoGoalScale" -ForegroundColor DarkCyan
       $trArg = if ($TotalsRollingPaceGamma -gt 0) { "--totals-rolling-pace-gamma $TotalsRollingPaceGamma" } else { "" }
-      python -m nhl_betting.cli game-simulate --date $d --n-sims $SimSamples $ovArg $shArg $enArg $en2Arg $tpArg $tgArg $tfArg $trArg $ppArg $pkArg $penArg $xgArg
+      $refsArg = if ($TotalsRefsGamma -gt 0) { "--totals-refs-gamma $TotalsRefsGamma" } else { "" }
+      $gformArg = if ($TotalsGoalieFormGamma -gt 0) { "--totals-goalie-form-gamma $TotalsGoalieFormGamma" } else { "" }
+      python -m nhl_betting.cli game-simulate --date $d --n-sims $SimSamples $ovArg $shArg $enArg $en2Arg $tpArg $tgArg $tfArg $trArg $ppArg $pkArg $penArg $xgArg $refsArg $gformArg
     }
   } catch {
     Write-Warning "[daily_update] game-simulate failed: $($_.Exception.Message)"
@@ -146,13 +179,15 @@ if ($BacktestSimulations) {
     $tpArg = if ($TotalsPaceAlpha -gt 0) { "--totals-pace-alpha $TotalsPaceAlpha" } else { "" }
     $tgArg = if ($TotalsGoalieBeta -gt 0) { "--totals-goalie-beta $TotalsGoalieBeta" } else { "" }
     $tfArg = if ($TotalsFatigueBeta -gt 0) { "--totals-fatigue-beta $TotalsFatigueBeta" } else { "" }
-    Write-Host "[daily_update] Backtest totals adj: pace=$TotalsPaceAlpha goalie=$TotalsGoalieBeta fatigue=$TotalsFatigueBeta roll=$TotalsRollingPaceGamma pp=$TotalsPPGamma pk=$TotalsPKBeta" -ForegroundColor DarkCyan
+    Write-Host "[daily_update] Backtest totals adj: pace=$TotalsPaceAlpha xg=$TotalsXGGamma refs=$TotalsRefsGamma gform=$TotalsGoalieFormGamma goalie=$TotalsGoalieBeta fatigue=$TotalsFatigueBeta roll=$TotalsRollingPaceGamma pp=$TotalsPPGamma pk=$TotalsPKBeta" -ForegroundColor DarkCyan
     $trArg = if ($TotalsRollingPaceGamma -gt 0) { "--totals-rolling-pace-gamma $TotalsRollingPaceGamma" } else { "" }
     $ppArg = if ($TotalsPPGamma -gt 0) { "--totals-pp-gamma $TotalsPPGamma" } else { "" }
     $pkArg = if ($TotalsPKBeta -gt 0) { "--totals-pk-beta $TotalsPKBeta" } else { "" }
     $penArg = if ($TotalsPenaltyGamma -gt 0) { "--totals-penalty-gamma $TotalsPenaltyGamma" } else { "" }
     $xgArg = if ($TotalsXGGamma -gt 0) { "--totals-xg-gamma $TotalsXGGamma" } else { "" }
-    python -m nhl_betting.cli game-backtest-sim --start $start --end $end --n-sims 6000 --use-calibrated $ovArg $shArg $enArg $en2Arg $tpArg $tgArg $tfArg $trArg $ppArg $pkArg $penArg $xgArg
+    $refsArg = if ($TotalsRefsGamma -gt 0) { "--totals-refs-gamma $TotalsRefsGamma" } else { "" }
+    $gformArg = if ($TotalsGoalieFormGamma -gt 0) { "--totals-goalie-form-gamma $TotalsGoalieFormGamma" } else { "" }
+    python -m nhl_betting.cli game-backtest-sim --start $start --end $end --n-sims 6000 --use-calibrated $ovArg $shArg $enArg $en2Arg $tpArg $tgArg $tfArg $trArg $ppArg $pkArg $penArg $xgArg $refsArg $gformArg
     Write-Host "[daily_update] Backtest written to data/processed/sim_backtest_${start}_to_${end}.json"
   } catch {
     Write-Warning "[daily_update] game-backtest-sim failed: $($_.Exception.Message)"

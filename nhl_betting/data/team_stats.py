@@ -6,7 +6,8 @@ from typing import Dict, Optional
 
 import requests
 
-from .paths import PROC_DIR
+from pathlib import Path
+PROC_DIR = Path(__file__).resolve().parents[2] / "data" / "processed"
 
 
 def _season_for_date(date_str: str) -> str:
@@ -85,7 +86,9 @@ def load_team_special_teams(date: Optional[str] = None) -> Optional[Dict[str, Di
         if p.exists() and getattr(p.stat(), "st_size", 0) > 0:
             try:
                 obj = json.loads(p.read_text(encoding="utf-8"))
-                return obj.get("teams")
+                teams = obj.get("teams")
+                if isinstance(teams, dict) and teams:
+                    return teams
             except Exception:
                 pass
     # Fallback generic
@@ -93,7 +96,8 @@ def load_team_special_teams(date: Optional[str] = None) -> Optional[Dict[str, Di
     if p2.exists() and getattr(p2.stat(), "st_size", 0) > 0:
         try:
             obj = json.loads(p2.read_text(encoding="utf-8"))
-            return obj.get("teams")
+            teams = obj.get("teams")
+            return teams if isinstance(teams, dict) and teams else None
         except Exception:
             return None
     return None

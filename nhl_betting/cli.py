@@ -1475,6 +1475,8 @@ def game_simulate(
     totals_pk_beta: float = typer.Option(0.0, help="Strength of PK defensive adjustment from team PK% (applied to opponent; 0=off)"),
     totals_penalty_gamma: float = typer.Option(0.0, help="Strength of penalty exposure adjustment from team committed/drawn rates (0=off)"),
     totals_xg_gamma: float = typer.Option(0.0, help="Strength of expected-goals (xGF/60) pace adjustment (0=off)"),
+    totals_refs_gamma: float = typer.Option(0.0, help="Strength of referee penalty-rate adjustment (0=off)"),
+    totals_goalie_form_gamma: float = typer.Option(0.0, help="Strength of goalie recent form adjustment (0=off)"),
 ):
     """Run Monte Carlo simulations for the given slate, producing probabilities from NN outputs.
 
@@ -1631,6 +1633,23 @@ def game_simulate(
             team_xg = load_team_xg(date)
     except Exception:
         team_xg = None
+    # Optional referee rates (per-game) and goalie recent form
+    ref_map_base = None
+    goalie_form_map: Optional[Dict[str, float]] = None
+    try:
+        if totals_refs_gamma > 0.0:
+            from .data.referee_rates import load_referee_rates
+            rr = load_referee_rates(date)
+            if rr is not None:
+                ref_map_base = rr  # (map, base)
+    except Exception:
+        ref_map_base = None
+    try:
+        if totals_goalie_form_gamma > 0.0:
+            from .data.goalie_form import load_goalie_form
+            goalie_form_map = load_goalie_form(date)
+    except Exception:
+        goalie_form_map = None
 
     for g in games:
         # Get total_line if available
@@ -1702,6 +1721,8 @@ def game_simulate(
         pk_mult_home_def = pk_mult_away_def = 1.0
         pen_mult_home = pen_mult_away = 1.0
         xg_mult_home = xg_mult_away = 1.0
+        refs_mult = 1.0
+        goalie_form_def_home = goalie_form_def_away = 1.0
         # Special teams: PP/PK adjustments
         try:
             if team_st is not None and (totals_pp_gamma > 0.0 or totals_pk_beta > 0.0):
@@ -1771,6 +1792,41 @@ def game_simulate(
                         xg_mult_home = float(np.clip(1.0 + totals_xg_gamma * ((xg_h - base_xg) / base_xg), 0.85, 1.20))
                     if xg_a:
                         xg_mult_away = float(np.clip(1.0 + totals_xg_gamma * ((xg_a - base_xg) / base_xg), 0.85, 1.20))
+        except Exception:
+            pass
+        # Referee rate multiplier (applied symmetrically to both teams)
+        try:
+            if ref_map_base is not None and totals_refs_gamma > 0.0:
+                from .web.teams import get_team_assets
+                try:
+                    h_abbr = (get_team_assets(g.home).get("abbr") or "").upper()
+                    a_abbr = (get_team_assets(g.away).get("abbr") or "").upper()
+                except Exception:
+                    h_abbr = str(g.home).upper(); a_abbr = str(g.away).upper()
+                per_game_map, base_rate = ref_map_base
+                key = f"{h_abbr}|{a_abbr}"
+                rate = per_game_map.get(key)
+                if rate and base_rate and base_rate > 0.0:
+                    refs_mult = float(np.clip(1.0 + totals_refs_gamma * ((float(rate) - float(base_rate)) / float(base_rate)), 0.9, 1.2))
+        except Exception:
+            pass
+        # Goalie recent form: defensive scaling of opponent scoring
+        try:
+            if goalie_form_map is not None and totals_goalie_form_gamma > 0.0:
+                from .web.teams import get_team_assets
+                try:
+                    h_abbr = (get_team_assets(g.home).get("abbr") or "").upper()
+                    a_abbr = (get_team_assets(g.away).get("abbr") or "").upper()
+                except Exception:
+                    h_abbr = str(g.home).upper(); a_abbr = str(g.away).upper()
+                vals = [v for v in goalie_form_map.values() if v is not None]
+                base_form = float(np.nanmean(vals)) if vals else None
+                gh = goalie_form_map.get(h_abbr); ga = goalie_form_map.get(a_abbr)
+                if base_form and base_form != 0.0:
+                    if gh is not None:
+                        goalie_form_def_home = float(np.clip(1.0 - totals_goalie_form_gamma * ((float(gh) - base_form) / abs(base_form)), 0.7, 1.3))
+                    if ga is not None:
+                        goalie_form_def_away = float(np.clip(1.0 - totals_goalie_form_gamma * ((float(ga) - base_form) / abs(base_form)), 0.7, 1.3))
         except Exception:
             pass
         # Fatigue: reduce offense on back-to-backs
@@ -1945,8 +2001,8 @@ def game_simulate(
         sim = None
         if (p1_home is not None) and (p1_away is not None) and (p2_home is not None) and (p2_away is not None) and (p3_home is not None) and (p3_away is not None):
             # Apply pace + goalie defensive multipliers per team if enabled
-            h_periods = [max(0.0, float(x)) * pace_mult_home * xg_mult_home * goalie_def_away * fatigue_mult_home * roll_mult_home * pp_mult_home * pk_mult_away_def * pen_mult_home for x in [p1_home, p2_home, p3_home]]
-            a_periods = [max(0.0, float(x)) * pace_mult_away * xg_mult_away * goalie_def_home * fatigue_mult_away * roll_mult_away * pp_mult_away * pk_mult_home_def * pen_mult_away for x in [p1_away, p2_away, p3_away]]
+            h_periods = [max(0.0, float(x)) * pace_mult_home * xg_mult_home * refs_mult * goalie_def_away * goalie_form_def_away * fatigue_mult_home * roll_mult_home * pp_mult_home * pk_mult_away_def * pen_mult_home for x in [p1_home, p2_home, p3_home]]
+            a_periods = [max(0.0, float(x)) * pace_mult_away * xg_mult_away * refs_mult * goalie_def_home * goalie_form_def_home * fatigue_mult_away * roll_mult_away * pp_mult_away * pk_mult_home_def * pen_mult_away for x in [p1_away, p2_away, p3_away]]
             sim = simulate_from_period_lambdas(
                 home_periods=h_periods,
                 away_periods=a_periods,
@@ -1959,8 +2015,8 @@ def game_simulate(
             try:
                 from .models.simulator import derive_team_lambdas
                 lh, la = derive_team_lambdas(float(model_total), float(model_spread))
-                lh_adj = float(np.clip(lh * pace_mult_home * xg_mult_home * goalie_def_away * fatigue_mult_home * roll_mult_home * pp_mult_home * pk_mult_away_def * pen_mult_home, 0.05, 8.0))
-                la_adj = float(np.clip(la * pace_mult_away * xg_mult_away * goalie_def_home * fatigue_mult_away * roll_mult_away * pp_mult_away * pk_mult_home_def * pen_mult_away, 0.05, 8.0))
+                lh_adj = float(np.clip(lh * pace_mult_home * xg_mult_home * refs_mult * goalie_def_away * goalie_form_def_away * fatigue_mult_home * roll_mult_home * pp_mult_home * pk_mult_away_def * pen_mult_home, 0.05, 8.0))
+                la_adj = float(np.clip(la * pace_mult_away * xg_mult_away * refs_mult * goalie_def_home * goalie_form_def_home * fatigue_mult_away * roll_mult_away * pp_mult_away * pk_mult_home_def * pen_mult_away, 0.05, 8.0))
                 adj_total = lh_adj + la_adj
                 adj_diff = lh_adj - la_adj
             except Exception:
@@ -2055,6 +2111,8 @@ def game_backtest_sim(
     totals_pk_beta: float = typer.Option(0.0, help="Strength of PK defensive adjustment from team PK% (applied to opponent; 0=off)"),
     totals_penalty_gamma: float = typer.Option(0.0, help="Strength of penalty exposure adjustment from team committed/drawn rates (0=off)"),
     totals_xg_gamma: float = typer.Option(0.0, help="Strength of expected goals (xGF/60) pace adjustment (0=off)"),
+    totals_refs_gamma: float = typer.Option(0.0, help="Strength of referee penalty-rate adjustment (0=off)"),
+    totals_goalie_form_gamma: float = typer.Option(0.0, help="Strength of goalie recent form adjustment (0=off)"),
 ):
     """Backtest simulation probabilities vs outcomes over a date range using predictions files.
 
@@ -2169,6 +2227,40 @@ def game_backtest_sim(
                 team_xg = load_team_xg(d)
         except Exception:
             team_xg = None
+        # Optional referee per-game rates and goalie form
+        ref_map_base = None
+        goalie_form_map: Optional[Dict[str, float]] = None
+        try:
+            if totals_refs_gamma > 0.0:
+                from .data.referee_rates import load_referee_rates
+                rr = load_referee_rates(d)
+                if rr is not None:
+                    ref_map_base = rr
+        except Exception:
+            ref_map_base = None
+        try:
+            if totals_goalie_form_gamma > 0.0:
+                from .data.goalie_form import load_goalie_form
+                goalie_form_map = load_goalie_form(d)
+        except Exception:
+            goalie_form_map = None
+            # Optional referee per-game rates + goalie form maps
+            ref_map_base = None
+            goalie_form_map: Optional[Dict[str, float]] = None
+            try:
+                if totals_refs_gamma > 0.0:
+                    from .data.referee_rates import load_referee_rates
+                    rr = load_referee_rates(d)
+                    if rr is not None:
+                        ref_map_base = rr
+            except Exception:
+                ref_map_base = None
+            try:
+                if totals_goalie_form_gamma > 0.0:
+                    from .data.goalie_form import load_goalie_form
+                    goalie_form_map = load_goalie_form(d)
+            except Exception:
+                goalie_form_map = None
 
         for _, r in use_df.iterrows():
             # actuals
@@ -2271,6 +2363,8 @@ def game_backtest_sim(
                                 pp_mult_home = pp_mult_away = 1.0
                                 pk_mult_home_def = pk_mult_away_def = 1.0
                                 pen_mult_home = pen_mult_away = 1.0
+                                refs_mult = 1.0
+                                goalie_form_def_home = goalie_form_def_away = 1.0
                                 try:
                                     if team_st is not None and (totals_pp_gamma > 0.0 or totals_pk_beta > 0.0):
                                         # Team abbreviations
@@ -2307,8 +2401,33 @@ def game_backtest_sim(
                                             pen_mult_away = float(np.clip(1.0 + totals_penalty_gamma * ((exp_a - base_exp) / base_exp), 0.85, 1.20))
                                 except Exception:
                                     pass
-                                h_periods = [max(0.0, float(x)) * pace_mult_home * goalie_def_away * fat_h * roll_h * pp_mult_home * pk_mult_away_def * pen_mult_home * xg_mult_home for x in h_periods]
-                                a_periods = [max(0.0, float(x)) * pace_mult_away * goalie_def_home * fat_a * roll_a * pp_mult_away * pk_mult_home_def * pen_mult_away * xg_mult_away for x in a_periods]
+                                # Referee multiplier
+                                try:
+                                    if ref_map_base is not None and totals_refs_gamma > 0.0:
+                                        vals = ref_map_base; (per_game_map, base_rate) = vals
+                                        home_abbr = str(r.get("home")).upper(); away_abbr = str(r.get("away")).upper()
+                                        key = f"{home_abbr}|{away_abbr}"
+                                        rate = per_game_map.get(key)
+                                        if rate and base_rate and base_rate > 0.0:
+                                            refs_mult = float(np.clip(1.0 + totals_refs_gamma * ((float(rate) - float(base_rate)) / float(base_rate)), 0.9, 1.2))
+                                except Exception:
+                                    pass
+                                # Goalie recent form defensive scaling
+                                try:
+                                    if goalie_form_map is not None and totals_goalie_form_gamma > 0.0:
+                                        vals = [v for v in goalie_form_map.values() if v is not None]
+                                        base_form = float(np.nanmean(vals)) if vals else None
+                                        home_abbr = str(r.get("home")).upper(); away_abbr = str(r.get("away")).upper()
+                                        gh = goalie_form_map.get(home_abbr); ga = goalie_form_map.get(away_abbr)
+                                        if base_form and base_form != 0.0:
+                                            if gh is not None:
+                                                goalie_form_def_home = float(np.clip(1.0 - totals_goalie_form_gamma * ((float(gh) - base_form) / abs(base_form)), 0.7, 1.3))
+                                            if ga is not None:
+                                                goalie_form_def_away = float(np.clip(1.0 - totals_goalie_form_gamma * ((float(ga) - base_form) / abs(base_form)), 0.7, 1.3))
+                                except Exception:
+                                    pass
+                                h_periods = [max(0.0, float(x)) * pace_mult_home * refs_mult * goalie_def_away * goalie_form_def_away * fat_h * roll_h * pp_mult_home * pk_mult_away_def * pen_mult_home * xg_mult_home for x in h_periods]
+                                a_periods = [max(0.0, float(x)) * pace_mult_away * refs_mult * goalie_def_home * goalie_form_def_home * fat_a * roll_a * pp_mult_away * pk_mult_home_def * pen_mult_away * xg_mult_away for x in a_periods]
                         except Exception:
                             pass
                         sim = simulate_from_period_lambdas(
@@ -2356,6 +2475,8 @@ def game_backtest_sim(
                                 pp_mult_home = pp_mult_away = 1.0
                                 pk_mult_home_def = pk_mult_away_def = 1.0
                                 pen_mult_home = pen_mult_away = 1.0
+                                refs_mult = 1.0
+                                goalie_form_def_home = goalie_form_def_away = 1.0
                                 try:
                                     if team_st is not None and (totals_pp_gamma > 0.0 or totals_pk_beta > 0.0):
                                         home_abbr = str(r.get("home")).upper(); away_abbr = str(r.get("away")).upper()
@@ -2372,6 +2493,31 @@ def game_backtest_sim(
                                         if totals_pk_beta > 0.0 and pk_base > 0.0:
                                             pk_mult_home_def = float(np.clip(1.0 - totals_pk_beta * ((h_pk - pk_base) / pk_base), 0.80, 1.15))
                                             pk_mult_away_def = float(np.clip(1.0 - totals_pk_beta * ((a_pk - pk_base) / pk_base), 0.80, 1.15))
+                                except Exception:
+                                    pass
+                                # Referee multiplier
+                                try:
+                                    if ref_map_base is not None and totals_refs_gamma > 0.0:
+                                        per_game_map, base_rate = ref_map_base
+                                        home_abbr = str(r.get("home")).upper(); away_abbr = str(r.get("away")).upper()
+                                        key = f"{home_abbr}|{away_abbr}"
+                                        rate = per_game_map.get(key)
+                                        if rate and base_rate and base_rate > 0.0:
+                                            refs_mult = float(np.clip(1.0 + totals_refs_gamma * ((float(rate) - float(base_rate)) / float(base_rate)), 0.9, 1.2))
+                                except Exception:
+                                    pass
+                                # Goalie recent form defensive scaling
+                                try:
+                                    if goalie_form_map is not None and totals_goalie_form_gamma > 0.0:
+                                        vals = [v for v in goalie_form_map.values() if v is not None]
+                                        base_form = float(np.nanmean(vals)) if vals else None
+                                        home_abbr = str(r.get("home")).upper(); away_abbr = str(r.get("away")).upper()
+                                        gh = goalie_form_map.get(home_abbr); ga = goalie_form_map.get(away_abbr)
+                                        if base_form and base_form != 0.0:
+                                            if gh is not None:
+                                                goalie_form_def_home = float(np.clip(1.0 - totals_goalie_form_gamma * ((float(gh) - base_form) / abs(base_form)), 0.7, 1.3))
+                                            if ga is not None:
+                                                goalie_form_def_away = float(np.clip(1.0 - totals_goalie_form_gamma * ((float(ga) - base_form) / abs(base_form)), 0.7, 1.3))
                                 except Exception:
                                     pass
                                 # Penalty exposure multipliers
@@ -2431,8 +2577,8 @@ def game_backtest_sim(
                                                     roll_a = float(np.clip(1.0 + totals_rolling_pace_gamma * ((gpg_a - base_per_team) / base_per_team), 0.8, 1.2))
                                 except Exception:
                                     pass
-                                lh_adj = float(np.clip(lh * pace_mult_home * goalie_def_away * fat_h * roll_h * pp_mult_home * pk_mult_away_def * pen_mult_home, 0.05, 8.0))
-                                la_adj = float(np.clip(la * pace_mult_away * goalie_def_home * fat_a * roll_a * pp_mult_away * pk_mult_home_def * pen_mult_away, 0.05, 8.0))
+                                lh_adj = float(np.clip(lh * pace_mult_home * refs_mult * goalie_def_away * goalie_form_def_away * fat_h * roll_h * pp_mult_home * pk_mult_away_def * pen_mult_home, 0.05, 8.0))
+                                la_adj = float(np.clip(la * pace_mult_away * refs_mult * goalie_def_home * goalie_form_def_home * fat_a * roll_a * pp_mult_away * pk_mult_home_def * pen_mult_away, 0.05, 8.0))
                                 # xG pacing multipliers for totals/diff path
                                 xg_mult_home = xg_mult_away = 1.0
                                 try:
@@ -2701,6 +2847,8 @@ def game_backtest_sim_thresholds(
     totals_pk_beta: float = typer.Option(0.0, help="Strength of PK defensive adjustment from team PK% (applied to opponent; 0=off)"),
     totals_penalty_gamma: float = typer.Option(0.0, help="Strength of penalty exposure adjustment from team committed/drawn rates (0=off)"),
     totals_xg_gamma: float = typer.Option(0.0, help="Strength of expected goals (xGF/60) pace adjustment (0=off)"),
+    totals_refs_gamma: float = typer.Option(0.0, help="Strength of referee penalty-rate adjustment (0=off)"),
+    totals_goalie_form_gamma: float = typer.Option(0.0, help="Strength of goalie recent form adjustment (0=off)"),
 ):
     """Evaluate accuracy vs decision thresholds for ML, Totals, and Puckline using calibrated simulation probabilities.
 
@@ -2864,80 +3012,105 @@ def game_backtest_sim_thresholds(
                                     else:
                                         props_cache[d] = None
                                 props_df = props_cache.get(d)
-                            if props_df is not None:
-                                mcol = "market"; tcol = "team"; lcol = "lambda"
-                                home_abbr = str(r.get("home")).upper(); away_abbr = str(r.get("away")).upper()
-                                sog_baseline = float(props_df[props_df[mcol] == "SOG"][lcol].mean()) if lcol and (lcol in props_df.columns) else None
-                                saves_baseline = float(props_df[props_df[mcol] == "SAVES"][lcol].mean()) if lcol and (lcol in props_df.columns) else None
-                                home_sog = float(props_df[(props_df[mcol] == "SOG") & (props_df[tcol].str.upper() == home_abbr)][lcol].sum()) if lcol and (lcol in props_df.columns) else None
-                                away_sog = float(props_df[(props_df[mcol] == "SOG") & (props_df[tcol].str.upper() == away_abbr)][lcol].sum()) if lcol and (lcol in props_df.columns) else None
-                                h_g = props_df[(props_df[mcol] == "SAVES") & (props_df[tcol].str.upper() == home_abbr)][lcol] if lcol and (lcol in props_df.columns) else None
-                                a_g = props_df[(props_df[mcol] == "SAVES") & (props_df[tcol].str.upper() == away_abbr)][lcol] if lcol and (lcol in props_df.columns) else None
-                                home_goalie_saves = float(h_g.max()) if (isinstance(h_g, pd.Series) and len(h_g)) else None
-                                away_goalie_saves = float(a_g.max()) if (isinstance(a_g, pd.Series) and len(a_g)) else None
-                                pace_mult_home = pace_mult_away = 1.0
-                                goalie_def_home = goalie_def_away = 1.0
-                                if totals_pace_alpha > 0.0 and sog_baseline and sog_baseline > 0.0 and home_sog and away_sog:
-                                    pace_mult_home = float(np.clip(1.0 + totals_pace_alpha * ((home_sog - sog_baseline) / sog_baseline), 0.7, 1.3))
-                                    pace_mult_away = float(np.clip(1.0 + totals_pace_alpha * ((away_sog - sog_baseline) / sog_baseline), 0.7, 1.3))
-                                if totals_goalie_beta > 0.0 and saves_baseline and saves_baseline > 0.0:
-                                    if home_goalie_saves:
-                                        goalie_def_home = float(np.clip(1.0 - totals_goalie_beta * ((home_goalie_saves - saves_baseline) / saves_baseline), 0.7, 1.2))
-                                    if away_goalie_saves:
-                                        goalie_def_away = float(np.clip(1.0 - totals_goalie_beta * ((away_goalie_saves - saves_baseline) / saves_baseline), 0.7, 1.2))
-                                # Special teams multipliers
-                                pp_mult_home = pp_mult_away = 1.0
-                                pk_mult_home_def = pk_mult_away_def = 1.0
-                                try:
-                                    if team_st is not None and (totals_pp_gamma > 0.0 or totals_pk_beta > 0.0):
-                                        h_abbr = home_abbr; a_abbr = away_abbr
-                                        vals = list(team_st.values())
-                                        pp_base = float(np.mean([v.get("pp_pct", 0.2) for v in vals])) if vals else 0.2
-                                        pk_base = float(np.mean([v.get("pk_pct", 0.8) for v in vals])) if vals else 0.8
-                                        th = team_st.get(h_abbr) or {}
-                                        ta = team_st.get(a_abbr) or {}
-                                        h_pp = float(th.get("pp_pct", pp_base)); a_pp = float(ta.get("pp_pct", pp_base))
-                                        h_pk = float(th.get("pk_pct", pk_base)); a_pk = float(ta.get("pk_pct", pk_base))
-                                        if totals_pp_gamma > 0.0 and pp_base > 0.0:
-                                            pp_mult_home = float(np.clip(1.0 + totals_pp_gamma * ((h_pp - pp_base) / pp_base), 0.85, 1.20))
-                                            pp_mult_away = float(np.clip(1.0 + totals_pp_gamma * ((a_pp - pp_base) / pp_base), 0.85, 1.20))
-                                        if totals_pk_beta > 0.0 and pk_base > 0.0:
-                                            pk_mult_home_def = float(np.clip(1.0 - totals_pk_beta * ((h_pk - pk_base) / pk_base), 0.80, 1.15))
-                                            pk_mult_away_def = float(np.clip(1.0 - totals_pk_beta * ((a_pk - pk_base) / pk_base), 0.80, 1.15))
-                                except Exception:
-                                    pass
-                                # Penalty exposure multipliers
-                                pen_mult_home = pen_mult_away = 1.0
-                                try:
-                                    if team_pr is not None and totals_penalty_gamma > 0.0:
-                                        vals = list(team_pr.values())
-                                        c_base = float(np.nanmean([v.get("committed_per60") for v in vals])) if vals else None
-                                        d_base = float(np.nanmean([v.get("drawn_per60") for v in vals])) if vals else None
-                                        base_exp = (c_base or 0.0) + (d_base or 0.0)
-                                        th = team_pr.get(home_abbr) or {}
-                                        ta = team_pr.get(away_abbr) or {}
-                                        exp_h = float((th.get("drawn_per60") or 0.0) + (ta.get("committed_per60") or 0.0))
-                                        exp_a = float((ta.get("drawn_per60") or 0.0) + (th.get("committed_per60") or 0.0))
-                                        if base_exp > 0.0:
-                                            pen_mult_home = float(np.clip(1.0 + totals_penalty_gamma * ((exp_h - base_exp) / base_exp), 0.85, 1.20))
-                                            pen_mult_away = float(np.clip(1.0 + totals_penalty_gamma * ((exp_a - base_exp) / base_exp), 0.85, 1.20))
-                                except Exception:
-                                    pass
-                                # xG pacing multipliers
-                                xg_mult_home = xg_mult_away = 1.0
-                                try:
-                                    if team_xg is not None and totals_xg_gamma > 0.0:
-                                        vals = list(team_xg.values())
-                                        base_xgf = float(np.nanmean([v.get("xgf60") for v in vals])) if vals else None
-                                        h_xgf = float((team_xg.get(home_abbr) or {}).get("xgf60") or np.nan)
-                                        a_xgf = float((team_xg.get(away_abbr) or {}).get("xgf60") or np.nan)
-                                        if base_xgf and base_xgf > 0.0 and pd.notna(h_xgf) and pd.notna(a_xgf):
-                                            xg_mult_home = float(np.clip(1.0 + totals_xg_gamma * ((h_xgf - base_xgf) / base_xgf), 0.85, 1.20))
-                                            xg_mult_away = float(np.clip(1.0 + totals_xg_gamma * ((a_xgf - base_xgf) / base_xgf), 0.85, 1.20))
-                                except Exception:
-                                    pass
-                                h_periods = [max(0.0, float(x)) * pace_mult_home * goalie_def_away * fat_h * roll_h * pp_mult_home * pk_mult_away_def * pen_mult_home * xg_mult_home for x in h_periods]
-                                a_periods = [max(0.0, float(x)) * pace_mult_away * goalie_def_home * fat_a * roll_a * pp_mult_away * pk_mult_home_def * pen_mult_away * xg_mult_away for x in a_periods]
+                            mcol = "market"; tcol = "team"; lcol = "lambda"
+                            home_abbr = str(r.get("home")).upper(); away_abbr = str(r.get("away")).upper()
+                            # Pace and goalie defensive multipliers (only if props available)
+                            sog_baseline = float(props_df[props_df[mcol] == "SOG"][lcol].mean()) if (props_df is not None and (lcol in props_df.columns)) else None
+                            saves_baseline = float(props_df[props_df[mcol] == "SAVES"][lcol].mean()) if (props_df is not None and (lcol in props_df.columns)) else None
+                            home_sog = float(props_df[(props_df[mcol] == "SOG") & (props_df[tcol].str.upper() == home_abbr)][lcol].sum()) if (props_df is not None and (lcol in props_df.columns)) else None
+                            away_sog = float(props_df[(props_df[mcol] == "SOG") & (props_df[tcol].str.upper() == away_abbr)][lcol].sum()) if (props_df is not None and (lcol in props_df.columns)) else None
+                            h_g = (props_df[(props_df[mcol] == "SAVES") & (props_df[tcol].str.upper() == home_abbr)][lcol] if (props_df is not None and (lcol in props_df.columns)) else None)
+                            a_g = (props_df[(props_df[mcol] == "SAVES") & (props_df[tcol].str.upper() == away_abbr)][lcol] if (props_df is not None and (lcol in props_df.columns)) else None)
+                            home_goalie_saves = float(h_g.max()) if (isinstance(h_g, pd.Series) and len(h_g)) else None
+                            away_goalie_saves = float(a_g.max()) if (isinstance(a_g, pd.Series) and len(a_g)) else None
+                            pace_mult_home = pace_mult_away = 1.0
+                            goalie_def_home = goalie_def_away = 1.0
+                            if (props_df is not None) and totals_pace_alpha > 0.0 and sog_baseline and sog_baseline > 0.0 and home_sog and away_sog:
+                                pace_mult_home = float(np.clip(1.0 + totals_pace_alpha * ((home_sog - sog_baseline) / sog_baseline), 0.7, 1.3))
+                                pace_mult_away = float(np.clip(1.0 + totals_pace_alpha * ((away_sog - sog_baseline) / sog_baseline), 0.7, 1.3))
+                            if (props_df is not None) and totals_goalie_beta > 0.0 and saves_baseline and saves_baseline > 0.0:
+                                if home_goalie_saves:
+                                    goalie_def_home = float(np.clip(1.0 - totals_goalie_beta * ((home_goalie_saves - saves_baseline) / saves_baseline), 0.7, 1.2))
+                                if away_goalie_saves:
+                                    goalie_def_away = float(np.clip(1.0 - totals_goalie_beta * ((away_goalie_saves - saves_baseline) / saves_baseline), 0.7, 1.2))
+                            # Special teams multipliers
+                            pp_mult_home = pp_mult_away = 1.0
+                            pk_mult_home_def = pk_mult_away_def = 1.0
+                            try:
+                                if team_st is not None and (totals_pp_gamma > 0.0 or totals_pk_beta > 0.0):
+                                    h_abbr = home_abbr; a_abbr = away_abbr
+                                    vals = list(team_st.values())
+                                    pp_base = float(np.mean([v.get("pp_pct", 0.2) for v in vals])) if vals else 0.2
+                                    pk_base = float(np.mean([v.get("pk_pct", 0.8) for v in vals])) if vals else 0.8
+                                    th = team_st.get(h_abbr) or {}
+                                    ta = team_st.get(a_abbr) or {}
+                                    h_pp = float(th.get("pp_pct", pp_base)); a_pp = float(ta.get("pp_pct", pp_base))
+                                    h_pk = float(th.get("pk_pct", pk_base)); a_pk = float(ta.get("pk_pct", pk_base))
+                                    if totals_pp_gamma > 0.0 and pp_base > 0.0:
+                                        pp_mult_home = float(np.clip(1.0 + totals_pp_gamma * ((h_pp - pp_base) / pp_base), 0.85, 1.20))
+                                        pp_mult_away = float(np.clip(1.0 + totals_pp_gamma * ((a_pp - pp_base) / pp_base), 0.85, 1.20))
+                                    if totals_pk_beta > 0.0 and pk_base > 0.0:
+                                        pk_mult_home_def = float(np.clip(1.0 - totals_pk_beta * ((h_pk - pk_base) / pk_base), 0.80, 1.15))
+                                        pk_mult_away_def = float(np.clip(1.0 - totals_pk_beta * ((a_pk - pk_base) / pk_base), 0.80, 1.15))
+                            except Exception:
+                                pass
+                            # Penalty exposure multipliers
+                            pen_mult_home = pen_mult_away = 1.0
+                            try:
+                                if team_pr is not None and totals_penalty_gamma > 0.0:
+                                    vals = list(team_pr.values())
+                                    c_base = float(np.nanmean([v.get("committed_per60") for v in vals])) if vals else None
+                                    d_base = float(np.nanmean([v.get("drawn_per60") for v in vals])) if vals else None
+                                    base_exp = (c_base or 0.0) + (d_base or 0.0)
+                                    th = team_pr.get(home_abbr) or {}
+                                    ta = team_pr.get(away_abbr) or {}
+                                    exp_h = float((th.get("drawn_per60") or 0.0) + (ta.get("committed_per60") or 0.0))
+                                    exp_a = float((ta.get("drawn_per60") or 0.0) + (th.get("committed_per60") or 0.0))
+                                    if base_exp > 0.0:
+                                        pen_mult_home = float(np.clip(1.0 + totals_penalty_gamma * ((exp_h - base_exp) / base_exp), 0.85, 1.20))
+                                        pen_mult_away = float(np.clip(1.0 + totals_penalty_gamma * ((exp_a - base_exp) / base_exp), 0.85, 1.20))
+                            except Exception:
+                                pass
+                            # Referee multiplier
+                            refs_mult = 1.0
+                            try:
+                                if ref_map_base is not None and totals_refs_gamma > 0.0:
+                                    per_game_map, base_rate = ref_map_base
+                                    key = f"{home_abbr}|{away_abbr}"
+                                    rate = per_game_map.get(key)
+                                    if rate and base_rate and base_rate > 0.0:
+                                        refs_mult = float(np.clip(1.0 + totals_refs_gamma * ((float(rate) - float(base_rate)) / float(base_rate)), 0.9, 1.2))
+                            except Exception:
+                                pass
+                            # Goalie recent form defensive scaling
+                            goalie_form_def_home = goalie_form_def_away = 1.0
+                            try:
+                                if goalie_form_map is not None and totals_goalie_form_gamma > 0.0:
+                                    vals = [v for v in goalie_form_map.values() if v is not None]
+                                    base_form = float(np.nanmean(vals)) if vals else None
+                                    gh = goalie_form_map.get(home_abbr); ga = goalie_form_map.get(away_abbr)
+                                    if base_form and base_form != 0.0:
+                                        if gh is not None:
+                                            goalie_form_def_home = float(np.clip(1.0 - totals_goalie_form_gamma * ((float(gh) - base_form) / abs(base_form)), 0.7, 1.3))
+                                        if ga is not None:
+                                            goalie_form_def_away = float(np.clip(1.0 - totals_goalie_form_gamma * ((float(ga) - base_form) / abs(base_form)), 0.7, 1.3))
+                            except Exception:
+                                pass
+                            # xG pacing multipliers
+                            xg_mult_home = xg_mult_away = 1.0
+                            try:
+                                if team_xg is not None and totals_xg_gamma > 0.0:
+                                    vals = list(team_xg.values())
+                                    base_xgf = float(np.nanmean([v.get("xgf60") for v in vals])) if vals else None
+                                    h_xgf = float((team_xg.get(home_abbr) or {}).get("xgf60") or np.nan)
+                                    a_xgf = float((team_xg.get(away_abbr) or {}).get("xgf60") or np.nan)
+                                    if base_xgf and base_xgf > 0.0 and pd.notna(h_xgf) and pd.notna(a_xgf):
+                                        xg_mult_home = float(np.clip(1.0 + totals_xg_gamma * ((h_xgf - base_xgf) / base_xgf), 0.85, 1.20))
+                                        xg_mult_away = float(np.clip(1.0 + totals_xg_gamma * ((a_xgf - base_xgf) / base_xgf), 0.85, 1.20))
+                            except Exception:
+                                pass
+                            h_periods = [max(0.0, float(x)) * pace_mult_home * refs_mult * goalie_def_away * goalie_form_def_away * fat_h * roll_h * pp_mult_home * pk_mult_away_def * pen_mult_home * xg_mult_home for x in h_periods]
+                            a_periods = [max(0.0, float(x)) * pace_mult_away * refs_mult * goalie_def_home * goalie_form_def_home * fat_a * roll_a * pp_mult_away * pk_mult_home_def * pen_mult_away * xg_mult_away for x in a_periods]
                         except Exception:
                             pass
                         sim = simulate_from_period_lambdas(
@@ -3052,6 +3225,35 @@ def game_backtest_sim_thresholds(
                                     pass
                                 lh_adj = float(np.clip(lh * pace_mult_home * goalie_def_away * fat_h * roll_h * pp_mult_home * pk_mult_away_def * (1.0), 0.05, 8.0))
                                 la_adj = float(np.clip(la * pace_mult_away * goalie_def_home * fat_a * roll_a * pp_mult_away * pk_mult_home_def * (1.0), 0.05, 8.0))
+                                # Referee multiplier for totals/diff path
+                                try:
+                                    if ref_map_base is not None and totals_refs_gamma > 0.0:
+                                        per_game_map, base_rate = ref_map_base
+                                        home_abbr = str(r.get("home")).upper(); away_abbr = str(r.get("away")).upper()
+                                        key = f"{home_abbr}|{away_abbr}"
+                                        rate = per_game_map.get(key)
+                                        if rate and base_rate and base_rate > 0.0:
+                                            refs_mult = float(np.clip(1.0 + totals_refs_gamma * ((float(rate) - float(base_rate)) / float(base_rate)), 0.9, 1.2))
+                                            lh_adj = float(np.clip(lh_adj * refs_mult, 0.05, 8.0))
+                                            la_adj = float(np.clip(la_adj * refs_mult, 0.05, 8.0))
+                                except Exception:
+                                    pass
+                                # Goalie recent form defensive scaling for totals/diff
+                                try:
+                                    if goalie_form_map is not None and totals_goalie_form_gamma > 0.0:
+                                        vals = [v for v in goalie_form_map.values() if v is not None]
+                                        base_form = float(np.nanmean(vals)) if vals else None
+                                        home_abbr = str(r.get("home")).upper(); away_abbr = str(r.get("away")).upper()
+                                        gh = goalie_form_map.get(home_abbr); ga = goalie_form_map.get(away_abbr)
+                                        if base_form and base_form != 0.0:
+                                            if gh is not None:
+                                                # Away team shoots vs home goalie (home goalie form reduces away scoring)
+                                                la_adj = float(np.clip(la_adj * (1.0 - totals_goalie_form_gamma * ((float(gh) - base_form) / abs(base_form))), 0.05, 8.0))
+                                            if ga is not None:
+                                                # Home team shoots vs away goalie (away goalie form reduces home scoring)
+                                                lh_adj = float(np.clip(lh_adj * (1.0 - totals_goalie_form_gamma * ((float(ga) - base_form) / abs(base_form))), 0.05, 8.0))
+                                except Exception:
+                                    pass
                                 # Penalty exposure multipliers for totals/diff path
                                 try:
                                     if team_pr is not None and totals_penalty_gamma > 0.0:

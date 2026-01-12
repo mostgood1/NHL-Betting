@@ -3,6 +3,7 @@ player_id,player,full_name,position,team_id,team_abbr,team_name,image_url
 8484149,Gavin Brindley,Gavin Brindley,F,,COL,Colorado Avalanche,https://assets.nhle.com/mugs/nhl/20252026/COL/8484149.png
 8479525,Ross Colton,Ross Colton,F,,COL,Colorado Avalanche,https://assets.nhle.com/mugs/nhl/20252026/COL/8479525.png
 8480835,Jack Drury,Jack Drury,F,,COL,Colorado Avalanche,https://assets.nhle.com/mugs/nhl/20252026/COL/8480835.png
+8483930,Ivan Ivan,Ivan Ivan,F,,COL,Colorado Avalanche,https://assets.nhle.com/mugs/nhl/20252026/COL/8483930.png
 8480448,Parker Kelly,Parker Kelly,F,,COL,Colorado Avalanche,https://assets.nhle.com/mugs/nhl/20252026/COL/8480448.png
 8481641,Joel Kiviranta,Joel Kiviranta,F,,COL,Colorado Avalanche,https://assets.nhle.com/mugs/nhl/20252026/COL/8481641.png
 8476455,Gabriel Landeskog,Gabriel Landeskog,F,,COL,Colorado Avalanche,https://assets.nhle.com/mugs/nhl/20252026/COL/8476455.png
@@ -371,7 +372,6 @@ player_id,player,full_name,position,team_id,team_abbr,team_name,image_url
 8476483,Rickard Rakell,Rickard Rakell,F,,PIT,Pittsburgh Penguins,https://assets.nhle.com/mugs/nhl/20252026/PIT/8476483.png
 8475810,Bryan Rust,Bryan Rust,F,,PIT,Pittsburgh Penguins,https://assets.nhle.com/mugs/nhl/20252026/PIT/8475810.png
 8477365,Connor Clifton,Connor Clifton,D,,PIT,Pittsburgh Penguins,https://assets.nhle.com/mugs/nhl/20252026/PIT/8477365.png
-8478452,Caleb Jones,Caleb Jones,D,,PIT,Pittsburgh Penguins,https://assets.nhle.com/mugs/nhl/20252026/PIT/8478452.png
 8474578,Erik Karlsson,Erik Karlsson,D,,PIT,Pittsburgh Penguins,https://assets.nhle.com/mugs/nhl/20252026/PIT/8474578.png
 8476967,Brett Kulak,Brett Kulak,D,,PIT,Pittsburgh Penguins,https://assets.nhle.com/mugs/nhl/20252026/PIT/8476967.png
 8471724,Kris Letang,Kris Letang,D,,PIT,Pittsburgh Penguins,https://assets.nhle.com/mugs/nhl/20252026/PIT/8471724.png
@@ -581,7 +581,6 @@ player_id,player,full_name,position,team_id,team_abbr,team_name,image_url
 8482482,Adam Wilsby,Adam Wilsby,D,,NSH,Nashville Predators,https://assets.nhle.com/mugs/nhl/20252026/NSH/8482482.png
 8481020,Justus Annunen,Justus Annunen,G,,NSH,Nashville Predators,https://assets.nhle.com/mugs/nhl/20252026/NSH/8481020.png
 8477424,Juuse Saros,Juuse Saros,G,,NSH,Nashville Predators,https://assets.nhle.com/mugs/nhl/20252026/NSH/8477424.png
-8477320,Anton Blidh,Anton Blidh,F,,NYR,New York Rangers,https://assets.nhle.com/mugs/nhl/20252026/NYR/8477320.png
 8477380,Jonny Brodzinski,Jonny Brodzinski,F,,NYR,New York Rangers,https://assets.nhle.com/mugs/nhl/20252026/NYR/8477380.png
 8475842,Sam Carrick,Sam Carrick,F,,NYR,New York Rangers,https://assets.nhle.com/mugs/nhl/20252026/NYR/8475842.png
 8482157,Will Cuylle,Will Cuylle,F,,NYR,New York Rangers,https://assets.nhle.com/mugs/nhl/20252026/NYR/8482157.png
@@ -589,6 +588,7 @@ player_id,player,full_name,position,team_id,team_abbr,team_name,image_url
 8483690,Noah Laba,Noah Laba,F,,NYR,New York Rangers,https://assets.nhle.com/mugs/nhl/20252026/NYR/8483690.png
 8482109,Alexis Lafrenière,Alexis Lafrenière,F,,NYR,New York Rangers,https://assets.nhle.com/mugs/nhl/20252026/NYR/8482109.png
 8476468,J.T. Miller,J.T. Miller,F,,NYR,New York Rangers,https://assets.nhle.com/mugs/nhl/20252026/NYR/8476468.png
+8482747,Brennan Othmann,Brennan Othmann,F,,NYR,New York Rangers,https://assets.nhle.com/mugs/nhl/20252026/NYR/8482747.png
 8478550,Artemi Panarin,Artemi Panarin,F,,NYR,New York Rangers,https://assets.nhle.com/mugs/nhl/20252026/NYR/8478550.png
 8484210,Gabe Perreault,Gabe Perreault,F,,NYR,New York Rangers,https://assets.nhle.com/mugs/nhl/20252026/NYR/8484210.png
 8479390,Taylor Raddysh,Taylor Raddysh,F,,NYR,New York Rangers,https://assets.nhle.com/mugs/nhl/20252026/NYR/8479390.png

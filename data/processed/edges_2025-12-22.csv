@@ -1,27 +1,33 @@
-date,home,away,market,ev
-2025-12-23T03:00:00Z,Anaheim Ducks,Seattle Kraken,ev_away_ml,0.4473
-2025-12-23T03:00:00Z,Anaheim Ducks,Seattle Kraken,ev_away_pl_+1.5,0.3391
-2025-12-23T03:00:00Z,Los Angeles Kings,Columbus Blue Jackets,ev_away_ml,0.1919
-2025-12-23T00:00:00Z,Tampa Bay Lightning,St. Louis Blues,ev_away_pl_+1.5,0.1865
-2025-12-23T00:00:00Z,Tampa Bay Lightning,St. Louis Blues,ev_over,0.1651
-2025-12-23T03:00:00Z,Los Angeles Kings,Columbus Blue Jackets,ev_f10_yes,0.1558
-2025-12-23T03:00:00Z,Los Angeles Kings,Columbus Blue Jackets,ev_over,0.1461
-2025-12-23T00:00:00Z,Tampa Bay Lightning,St. Louis Blues,ev_home_ml,0.1338
-2025-12-23T00:30:00Z,Philadelphia Flyers,Vancouver Canucks,ev_away_pl_+1.5,0.1316
-2025-12-23T00:30:00Z,Philadelphia Flyers,Vancouver Canucks,ev_over,0.1179
-2025-12-23T00:30:00Z,Philadelphia Flyers,Vancouver Canucks,ev_away_ml,0.1119
-2025-12-23T03:00:00Z,Anaheim Ducks,Seattle Kraken,ev_under,0.0868
-2025-12-23T03:00:00Z,Los Angeles Kings,Columbus Blue Jackets,ev_away_pl_+1.5,0.0392
-2025-12-23T03:00:00Z,Los Angeles Kings,Columbus Blue Jackets,ev_home_pl_-1.5,-0.1635
-2025-12-23T00:30:00Z,Philadelphia Flyers,Vancouver Canucks,ev_home_ml,-0.1637
-2025-12-23T03:00:00Z,Los Angeles Kings,Columbus Blue Jackets,ev_home_ml,-0.1824
-2025-12-23T03:00:00Z,Anaheim Ducks,Seattle Kraken,ev_over,-0.1877
-2025-12-23T00:30:00Z,Philadelphia Flyers,Vancouver Canucks,ev_under,-0.2088
-2025-12-23T03:00:00Z,Los Angeles Kings,Columbus Blue Jackets,ev_under,-0.2503
-2025-12-23T00:00:00Z,Tampa Bay Lightning,St. Louis Blues,ev_under,-0.271
-2025-12-23T03:00:00Z,Anaheim Ducks,Seattle Kraken,ev_home_ml,-0.3097
-2025-12-23T00:00:00Z,Tampa Bay Lightning,St. Louis Blues,ev_home_pl_-1.5,-0.3317
-2025-12-23T00:30:00Z,Philadelphia Flyers,Vancouver Canucks,ev_home_pl_-1.5,-0.3722
-2025-12-23T00:00:00Z,Tampa Bay Lightning,St. Louis Blues,ev_away_ml,-0.387
-2025-12-23T03:00:00Z,Los Angeles Kings,Columbus Blue Jackets,ev_f10_no,-0.4891
-2025-12-23T03:00:00Z,Anaheim Ducks,Seattle Kraken,ev_home_pl_-1.5,-0.5286
+date,home,away,market,ev
+2025-12-23T03:00:00Z,Anaheim Ducks,Seattle Kraken,ev_away_ml,0.4473
+2025-12-23T03:00:00Z,Anaheim Ducks,Seattle Kraken,ev_away_pl_+1.5,0.3391
+2025-12-23T03:00:00Z,Los Angeles Kings,Columbus Blue Jackets,ev_away_ml,0.1919
+2025-12-23T00:00:00Z,Tampa Bay Lightning,St. Louis Blues,ev_away_pl_+1.5,0.1865
+2025-12-23T00:00:00Z,Tampa Bay Lightning,St. Louis Blues,ev_over,0.1651
+2025-12-23T03:00:00Z,Los Angeles Kings,Columbus Blue Jackets,ev_f10_yes,0.1558
+2025-12-23T03:00:00Z,Los Angeles Kings,Columbus Blue Jackets,ev_over,0.1461
+2025-12-23T00:00:00Z,Tampa Bay Lightning,St. Louis Blues,ev_home_ml,0.1338
+2025-12-23T00:30:00Z,Philadelphia Flyers,Vancouver Canucks,ev_away_pl_+1.5,0.1316
+2025-12-23T00:30:00Z,Philadelphia Flyers,Vancouver Canucks,ev_over,0.1179
+2025-12-23T00:30:00Z,Philadelphia Flyers,Vancouver Canucks,ev_away_ml,0.1119
+2025-12-23T03:00:00Z,Anaheim Ducks,Seattle Kraken,ev_under,0.0868
+2025-12-23T00:30:00Z,Philadelphia Flyers,Vancouver Canucks,ev_f10_yes,0.0837
+2025-12-23T00:00:00Z,Tampa Bay Lightning,St. Louis Blues,ev_f10_yes,0.0708
+2025-12-23T03:00:00Z,Anaheim Ducks,Seattle Kraken,ev_f10_yes,0.0474
+2025-12-23T03:00:00Z,Los Angeles Kings,Columbus Blue Jackets,ev_away_pl_+1.5,0.0392
+2025-12-23T03:00:00Z,Los Angeles Kings,Columbus Blue Jackets,ev_home_pl_-1.5,-0.1635
+2025-12-23T00:30:00Z,Philadelphia Flyers,Vancouver Canucks,ev_home_ml,-0.1637
+2025-12-23T03:00:00Z,Los Angeles Kings,Columbus Blue Jackets,ev_home_ml,-0.1824
+2025-12-23T03:00:00Z,Anaheim Ducks,Seattle Kraken,ev_over,-0.1877
+2025-12-23T00:30:00Z,Philadelphia Flyers,Vancouver Canucks,ev_under,-0.2088
+2025-12-23T03:00:00Z,Los Angeles Kings,Columbus Blue Jackets,ev_under,-0.2503
+2025-12-23T00:00:00Z,Tampa Bay Lightning,St. Louis Blues,ev_under,-0.271
+2025-12-23T03:00:00Z,Anaheim Ducks,Seattle Kraken,ev_home_ml,-0.3097
+2025-12-23T00:00:00Z,Tampa Bay Lightning,St. Louis Blues,ev_home_pl_-1.5,-0.3317
+2025-12-23T00:30:00Z,Philadelphia Flyers,Vancouver Canucks,ev_home_pl_-1.5,-0.3722
+2025-12-23T03:00:00Z,Anaheim Ducks,Seattle Kraken,ev_f10_no,-0.3807
+2025-12-23T00:00:00Z,Tampa Bay Lightning,St. Louis Blues,ev_away_ml,-0.387
+2025-12-23T00:00:00Z,Tampa Bay Lightning,St. Louis Blues,ev_f10_no,-0.4041
+2025-12-23T00:30:00Z,Philadelphia Flyers,Vancouver Canucks,ev_f10_no,-0.4171
+2025-12-23T03:00:00Z,Los Angeles Kings,Columbus Blue Jackets,ev_f10_no,-0.4891
+2025-12-23T03:00:00Z,Anaheim Ducks,Seattle Kraken,ev_home_pl_-1.5,-0.5286

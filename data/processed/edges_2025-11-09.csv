@@ -1,41 +1,65 @@
-date,home,away,market,ev
-2025-11-09T19:00:00Z,Pittsburgh Penguins,Los Angeles Kings,ev_home_ml,0.6622
-2025-11-10T03:00:00Z,Vancouver Canucks,Colorado Avalanche,ev_home_ml,0.4483
-2025-11-10T00:00:00Z,Ottawa Senators,Utah Mammoth,ev_home_ml,0.3786
-2025-11-10T00:00:00Z,Toronto Maple Leafs,Carolina Hurricanes,ev_home_ml,0.3481
-2025-11-10T00:00:00Z,Dallas Stars,Seattle Kraken,ev_away_ml,0.2246
-2025-11-10T00:00:00Z,Dallas Stars,Seattle Kraken,ev_away_pl_+1.5,0.1536
-2025-11-10T01:00:00Z,Minnesota Wild,Calgary Flames,ev_away_pl_+1.5,0.1237
-2025-11-10T03:00:00Z,Anaheim Ducks,Winnipeg Jets,ev_home_ml,0.1077
-2025-11-10T01:00:00Z,Minnesota Wild,Calgary Flames,ev_home_ml,0.0559
-2025-11-09T18:00:00Z,Detroit Red Wings,Chicago Blackhawks,ev_over,0.0549
-2025-11-09T19:00:00Z,Pittsburgh Penguins,Los Angeles Kings,ev_over,0.0286
-2025-11-10T00:00:00Z,Dallas Stars,Seattle Kraken,ev_over,0.015
-2025-11-10T01:00:00Z,Minnesota Wild,Calgary Flames,ev_over,0.0106
-2025-11-09T18:00:00Z,Detroit Red Wings,Chicago Blackhawks,ev_home_ml,0.0061
-2025-11-10T03:00:00Z,Vancouver Canucks,Colorado Avalanche,ev_under,0.0013
-2025-11-10T00:00:00Z,Ottawa Senators,Utah Mammoth,ev_over,-0.0012
-2025-11-09T18:00:00Z,Detroit Red Wings,Chicago Blackhawks,ev_home_pl_-1.5,-0.0131
-2025-11-10T00:00:00Z,Toronto Maple Leafs,Carolina Hurricanes,ev_under,-0.0217
-2025-11-10T00:00:00Z,Ottawa Senators,Utah Mammoth,ev_home_pl_-1.5,-0.0276
-2025-11-10T03:00:00Z,Anaheim Ducks,Winnipeg Jets,ev_under,-0.0311
-2025-11-10T00:00:00Z,Ottawa Senators,Utah Mammoth,ev_away_pl_+1.5,-0.0478
-2025-11-10T03:00:00Z,Anaheim Ducks,Winnipeg Jets,ev_over,-0.05
-2025-11-09T18:00:00Z,Detroit Red Wings,Chicago Blackhawks,ev_away_pl_+1.5,-0.0595
-2025-11-10T00:00:00Z,Toronto Maple Leafs,Carolina Hurricanes,ev_over,-0.0692
-2025-11-10T00:00:00Z,Ottawa Senators,Utah Mammoth,ev_under,-0.0723
-2025-11-10T01:00:00Z,Minnesota Wild,Calgary Flames,ev_under,-0.0822
-2025-11-10T00:00:00Z,Dallas Stars,Seattle Kraken,ev_under,-0.0849
-2025-11-10T03:00:00Z,Vancouver Canucks,Colorado Avalanche,ev_over,-0.0903
-2025-11-09T19:00:00Z,Pittsburgh Penguins,Los Angeles Kings,ev_under,-0.0959
-2025-11-09T18:00:00Z,Detroit Red Wings,Chicago Blackhawks,ev_under,-0.1173
-2025-11-09T18:00:00Z,Detroit Red Wings,Chicago Blackhawks,ev_away_ml,-0.1188
-2025-11-10T03:00:00Z,Anaheim Ducks,Winnipeg Jets,ev_away_ml,-0.1538
-2025-11-10T00:00:00Z,Dallas Stars,Seattle Kraken,ev_home_ml,-0.1711
-2025-11-10T01:00:00Z,Minnesota Wild,Calgary Flames,ev_away_ml,-0.1814
-2025-11-10T00:00:00Z,Dallas Stars,Seattle Kraken,ev_home_pl_-1.5,-0.2782
-2025-11-10T01:00:00Z,Minnesota Wild,Calgary Flames,ev_home_pl_-1.5,-0.3127
-2025-11-10T03:00:00Z,Vancouver Canucks,Colorado Avalanche,ev_away_ml,-0.3263
-2025-11-10T00:00:00Z,Toronto Maple Leafs,Carolina Hurricanes,ev_away_ml,-0.3665
-2025-11-10T00:00:00Z,Ottawa Senators,Utah Mammoth,ev_away_ml,-0.4873
-2025-11-09T19:00:00Z,Pittsburgh Penguins,Los Angeles Kings,ev_away_ml,-0.5438
+date,home,away,market,ev
+2025-11-09T19:00:00Z,Pittsburgh Penguins,Los Angeles Kings,ev_home_ml,0.6622
+2025-11-10T03:00:00Z,Anaheim Ducks,Winnipeg Jets,ev_away_pl_+1.5,0.609
+2025-11-09T19:00:00Z,Pittsburgh Penguins,Los Angeles Kings,ev_away_pl_+1.5,0.565
+2025-11-10T03:00:00Z,Vancouver Canucks,Colorado Avalanche,ev_home_ml,0.4483
+2025-11-10T00:00:00Z,Toronto Maple Leafs,Carolina Hurricanes,ev_away_pl_+1.5,0.4315
+2025-11-10T00:00:00Z,Ottawa Senators,Utah Mammoth,ev_home_ml,0.3786
+2025-11-10T00:00:00Z,Toronto Maple Leafs,Carolina Hurricanes,ev_home_ml,0.3481
+2025-11-10T03:00:00Z,Vancouver Canucks,Colorado Avalanche,ev_away_pl_+1.5,0.2886
+2025-11-10T00:00:00Z,Dallas Stars,Seattle Kraken,ev_away_ml,0.2246
+2025-11-10T00:00:00Z,Toronto Maple Leafs,Carolina Hurricanes,ev_f10_yes,0.1558
+2025-11-10T00:00:00Z,Dallas Stars,Seattle Kraken,ev_away_pl_+1.5,0.1536
+2025-11-09T18:00:00Z,Detroit Red Wings,Chicago Blackhawks,ev_f10_yes,0.1502
+2025-11-10T00:00:00Z,Ottawa Senators,Utah Mammoth,ev_f10_yes,0.1473
+2025-11-10T01:00:00Z,Minnesota Wild,Calgary Flames,ev_away_pl_+1.5,0.1237
+2025-11-10T03:00:00Z,Anaheim Ducks,Winnipeg Jets,ev_home_ml,0.1077
+2025-11-10T01:00:00Z,Minnesota Wild,Calgary Flames,ev_home_ml,0.0559
+2025-11-09T18:00:00Z,Detroit Red Wings,Chicago Blackhawks,ev_over,0.0549
+2025-11-10T03:00:00Z,Anaheim Ducks,Winnipeg Jets,ev_f10_yes,0.0541
+2025-11-10T03:00:00Z,Vancouver Canucks,Colorado Avalanche,ev_f10_yes,0.0508
+2025-11-10T00:00:00Z,Dallas Stars,Seattle Kraken,ev_f10_yes,0.044
+2025-11-09T19:00:00Z,Pittsburgh Penguins,Los Angeles Kings,ev_f10_yes,0.0371
+2025-11-09T19:00:00Z,Pittsburgh Penguins,Los Angeles Kings,ev_over,0.0286
+2025-11-10T01:00:00Z,Minnesota Wild,Calgary Flames,ev_f10_yes,0.0231
+2025-11-10T00:00:00Z,Dallas Stars,Seattle Kraken,ev_over,0.015
+2025-11-10T01:00:00Z,Minnesota Wild,Calgary Flames,ev_over,0.0106
+2025-11-09T18:00:00Z,Detroit Red Wings,Chicago Blackhawks,ev_home_ml,0.0061
+2025-11-10T03:00:00Z,Vancouver Canucks,Colorado Avalanche,ev_under,0.0013
+2025-11-10T00:00:00Z,Ottawa Senators,Utah Mammoth,ev_over,-0.0012
+2025-11-09T18:00:00Z,Detroit Red Wings,Chicago Blackhawks,ev_home_pl_-1.5,-0.0131
+2025-11-10T00:00:00Z,Toronto Maple Leafs,Carolina Hurricanes,ev_under,-0.0217
+2025-11-10T00:00:00Z,Ottawa Senators,Utah Mammoth,ev_home_pl_-1.5,-0.0276
+2025-11-10T03:00:00Z,Anaheim Ducks,Winnipeg Jets,ev_under,-0.0311
+2025-11-10T00:00:00Z,Ottawa Senators,Utah Mammoth,ev_away_pl_+1.5,-0.0478
+2025-11-10T03:00:00Z,Anaheim Ducks,Winnipeg Jets,ev_over,-0.05
+2025-11-09T18:00:00Z,Detroit Red Wings,Chicago Blackhawks,ev_away_pl_+1.5,-0.0595
+2025-11-10T00:00:00Z,Toronto Maple Leafs,Carolina Hurricanes,ev_over,-0.0692
+2025-11-10T00:00:00Z,Ottawa Senators,Utah Mammoth,ev_under,-0.0723
+2025-11-10T01:00:00Z,Minnesota Wild,Calgary Flames,ev_under,-0.0822
+2025-11-10T00:00:00Z,Dallas Stars,Seattle Kraken,ev_under,-0.0849
+2025-11-10T03:00:00Z,Vancouver Canucks,Colorado Avalanche,ev_over,-0.0903
+2025-11-09T19:00:00Z,Pittsburgh Penguins,Los Angeles Kings,ev_under,-0.0959
+2025-11-09T18:00:00Z,Detroit Red Wings,Chicago Blackhawks,ev_under,-0.1173
+2025-11-09T18:00:00Z,Detroit Red Wings,Chicago Blackhawks,ev_away_ml,-0.1188
+2025-11-10T03:00:00Z,Anaheim Ducks,Winnipeg Jets,ev_away_ml,-0.1538
+2025-11-10T00:00:00Z,Dallas Stars,Seattle Kraken,ev_home_ml,-0.1711
+2025-11-10T01:00:00Z,Minnesota Wild,Calgary Flames,ev_away_ml,-0.1814
+2025-11-10T00:00:00Z,Dallas Stars,Seattle Kraken,ev_home_pl_-1.5,-0.2782
+2025-11-10T01:00:00Z,Minnesota Wild,Calgary Flames,ev_home_pl_-1.5,-0.3127
+2025-11-10T03:00:00Z,Vancouver Canucks,Colorado Avalanche,ev_away_ml,-0.3263
+2025-11-10T01:00:00Z,Minnesota Wild,Calgary Flames,ev_f10_no,-0.3564
+2025-11-10T00:00:00Z,Toronto Maple Leafs,Carolina Hurricanes,ev_away_ml,-0.3665
+2025-11-09T19:00:00Z,Pittsburgh Penguins,Los Angeles Kings,ev_f10_no,-0.3704
+2025-11-10T00:00:00Z,Dallas Stars,Seattle Kraken,ev_f10_no,-0.3773
+2025-11-10T03:00:00Z,Vancouver Canucks,Colorado Avalanche,ev_home_pl_-1.5,-0.3795
+2025-11-10T03:00:00Z,Vancouver Canucks,Colorado Avalanche,ev_f10_no,-0.3841
+2025-11-10T03:00:00Z,Anaheim Ducks,Winnipeg Jets,ev_f10_no,-0.3875
+2025-11-10T00:00:00Z,Ottawa Senators,Utah Mammoth,ev_f10_no,-0.4806
+2025-11-09T18:00:00Z,Detroit Red Wings,Chicago Blackhawks,ev_f10_no,-0.4835
+2025-11-10T00:00:00Z,Ottawa Senators,Utah Mammoth,ev_away_ml,-0.4873
+2025-11-10T00:00:00Z,Toronto Maple Leafs,Carolina Hurricanes,ev_f10_no,-0.4891
+2025-11-10T00:00:00Z,Toronto Maple Leafs,Carolina Hurricanes,ev_home_pl_-1.5,-0.5224
+2025-11-09T19:00:00Z,Pittsburgh Penguins,Los Angeles Kings,ev_away_ml,-0.5438
+2025-11-09T19:00:00Z,Pittsburgh Penguins,Los Angeles Kings,ev_home_pl_-1.5,-0.6559
+2025-11-10T03:00:00Z,Anaheim Ducks,Winnipeg Jets,ev_home_pl_-1.5,-0.6999

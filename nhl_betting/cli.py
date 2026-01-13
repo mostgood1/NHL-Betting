@@ -4918,6 +4918,362 @@ def props_fast_alias(
     return props_fast(date=date, min_ev=min_ev, top=top, market=market)
 
 
+@app.command(name="props-simulate")
+def props_simulate(
+    date: str = typer.Option(..., help="Slate date YYYY-MM-DD (ET)"),
+    markets: str = typer.Option("SOG,GOALS,ASSISTS,POINTS,SAVES,BLOCKS", help="Comma-separated markets to simulate"),
+    n_sims: int = typer.Option(20000, help="Number of Monte Carlo simulations"),
+    sim_shared_k: float = typer.Option(1.0, help="Shared Gamma pace shape (mean=1, var=1/k)"),
+    props_xg_gamma: float = typer.Option(0.02, help="Team xGF/60 impact on per-player lambda"),
+    props_penalty_gamma: float = typer.Option(0.06, help="Opponent penalties committed per60 impact (PP exposure)"),
+    props_goalie_form_gamma: float = typer.Option(0.02, help="Opponent goalie sv% (L10) dampening for GOALS/ASSISTS/POINTS"),
+    props_refs_gamma: float = typer.Option(0.0, help="Referee penalty-rate impact (if assignments available) [reserved]"),
+):
+    """Monte Carlo simulate player props using model lambdas + shared game pace + team features.
+
+    Outputs data/processed/props_simulations_{date}.csv with p_over_sim per (player, market, line, book).
+    """
+    import numpy as _np
+    import pandas as pd
+    from glob import glob as _glob
+    from .web.teams import get_team_assets as _assets
+    from .data.nhl_api_web import NHLWebClient as _Web
+
+    def _norm(s: str | None) -> str:
+        try:
+            return " ".join(str(s or "").split())
+        except Exception:
+            return str(s or "")
+    def _round_half(x: float) -> float:
+        try:
+            import math as _m
+            return _m.floor(float(x) * 2.0 + 1e-6) / 2.0
+        except Exception:
+            return float(x)
+
+    base_lines_dir = Path("data/props") / f"player_props_lines/date={date}"
+    lines_path_parq = base_lines_dir / "oddsapi.parquet"
+    lines_path_csv = base_lines_dir / "oddsapi.csv"
+    if lines_path_parq.exists():
+        try:
+            lines = pd.read_parquet(lines_path_parq, engine="pyarrow")
+        except Exception:
+            import duckdb as _duck
+            f_posix = str(lines_path_parq).replace("\\", "/")
+            lines = _duck.query(f"SELECT * FROM read_parquet('{f_posix}')").df()
+    elif lines_path_csv.exists():
+        lines = pd.read_csv(lines_path_csv)
+    else:
+        print("No canonical props lines found for", date)
+        raise typer.Exit(code=0)
+
+    proj_path = PROC_DIR / f"props_projections_all_{date}.csv"
+    if not proj_path.exists():
+        print("No projections found:", proj_path)
+        raise typer.Exit(code=1)
+    proj = pd.read_csv(proj_path)
+    if proj is None or proj.empty:
+        print("Empty projections file:", proj_path)
+        raise typer.Exit(code=1)
+
+    def _create_name_variants(name: str) -> list[str]:
+        name = (name or "").strip()
+        if not name:
+            return []
+        norm = " ".join(name.split())
+        out = [norm.lower()]
+        if "." in norm:
+            out.append(norm.replace(".", "").lower())
+        parts = [p for p in norm.split() if p and not p.endswith(".")]
+        if len(parts) >= 2:
+            f, l = parts[0], parts[-1]
+            ab = f"{f[0].upper()}. {l}"; out += [ab.lower(), ab.replace(".", "").lower(), f"{f[0].upper()} {l}".lower()]
+        return list(set(out))
+
+    def _abbr_team(n: str | None) -> str | None:
+        if not n:
+            return None
+        try:
+            a = _assets(str(n)) or {}
+            return str(a.get("abbr") or "").upper() or None
+        except Exception:
+            return None
+
+    markets_set = set([m.strip().upper() for m in (markets or "").split(",") if m.strip()])
+    if not markets_set:
+        markets_set = {"SOG","GOALS","ASSISTS","POINTS","SAVES","BLOCKS"}
+
+    # Build player_norm in lines and attach abbr team guess
+    import ast as _ast
+    def _norm_player(x):
+        s = str(x or "").strip()
+        if s.startswith("{") and s.endswith("}"):
+            try:
+                d = _ast.literal_eval(s)
+                v = d.get("default") or d.get("name")
+                if isinstance(v, str):
+                    s = v.strip()
+            except Exception:
+                pass
+        return " ".join(s.split())
+    lines = lines.copy()
+    name_cols = [c for c in ["player_name","player","name","display_name"] if c in lines.columns]
+    if name_cols:
+        s = lines[name_cols[0]].copy()
+        for c in name_cols[1:]:
+            try:
+                s = s.where(s.notna() & (s.astype(str).str.strip() != ""), lines[c])
+            except Exception:
+                continue
+        lines["player_display"] = s.map(_norm_player)
+    else:
+        lines["player_display"] = lines.index.map(lambda _: "")
+    lines["market"] = lines.get("market").astype(str).str.upper()
+    lines = lines[lines["market"].isin(markets_set)]
+    lines["line_num"] = pd.to_numeric(lines.get("line"), errors="coerce")
+    lines = lines[lines["line_num"].notna()].copy()
+    def _for_join(name: str) -> str:
+        v = _create_name_variants(name)
+        if not v: return ""
+        dv = [x for x in v if "." in x or (len(x.split())==2 and len(x.split()[0])==1)]
+        return min(dv, key=len) if dv else min(v, key=len)
+    lines["player_norm"] = lines["player_display"].map(_for_join)
+
+    # Roster-based team abbr resolution similar to props_recommendations
+    player_team_map: dict[str, str] = {}
+    try:
+        roster_cache = PROC_DIR / f"roster_{date}.csv"
+        if roster_cache.exists():
+            rc = pd.read_csv(roster_cache)
+            if rc is not None and not rc.empty:
+                name_col = "full_name" if "full_name" in rc.columns else ("player" if "player" in rc.columns else None)
+                team_col = None
+                for c in ("team","team_abbr","team_abbrev","teamAbbrev","team_abbreviation"):
+                    if c in rc.columns: team_col=c; break
+                if name_col and team_col:
+                    for _, rr in rc.dropna(subset=[name_col, team_col]).iterrows():
+                        nm = _norm(str(rr.get(name_col)))
+                        tm = str(rr.get(team_col)).strip().upper()
+                        if nm and tm:
+                            for v in _create_name_variants(nm):
+                                player_team_map[v.lower()] = tm
+    except Exception:
+        pass
+    lines["team_abbr"] = lines.get("team")
+    try:
+        lines["team_abbr"] = lines["team_abbr"].map(lambda t: str(t).strip().upper() if pd.notna(t) else None)
+        missing = lines["team_abbr"].isna() | (lines["team_abbr"].astype(str).str.strip()=="")
+        lines.loc[missing, "team_abbr"] = lines.loc[missing, "player_norm"].map(lambda nm: player_team_map.get(str(nm).lower()))
+    except Exception:
+        pass
+
+    # Opponent mapping via schedule
+    abbr_to_opp: dict[str, str] = {}
+    try:
+        web = _Web(); sched = web.schedule_day(date)
+        names=set(); games=[]
+        for g in sched:
+            h=str(getattr(g, "home", "")); a=str(getattr(g, "away", ""))
+            games.append((_abbr_team(h), _abbr_team(a)))
+        for h,a in games:
+            if h and a:
+                abbr_to_opp[h]=a; abbr_to_opp[a]=h
+    except Exception:
+        abbr_to_opp = {}
+    lines["opp_abbr"] = lines["team_abbr"].map(lambda t: abbr_to_opp.get(str(t).upper()) if pd.notna(t) else None)
+
+    # Load team features
+    xg_path = PROC_DIR / "team_xg_latest.csv"
+    xg_map = {}
+    if xg_path.exists():
+        try:
+            _xg = pd.read_csv(xg_path)
+            if not _xg.empty and {"abbr","xgf60"}.issubset(_xg.columns):
+                xg_map = {str(r.abbr).upper(): float(r.xgf60) for _, r in _xg.iterrows()}
+        except Exception:
+            xg_map = {}
+    league_xg = float(_np.mean(list(xg_map.values()))) if xg_map else 2.6
+    pen_path = PROC_DIR / "team_penalty_rates.json"
+    pen_comm = {}
+    if pen_path.exists():
+        try:
+            pen_comm = json.loads(pen_path.read_text(encoding="utf-8"))
+        except Exception:
+            pen_comm = {}
+    league_pen = float(_np.mean([float(v.get("committed_per60", 0.0)) for v in pen_comm.values()])) if pen_comm else 3.0
+    # Goalie form (sv% L10) for opponent adjustment on scoring markets
+    from datetime import date as _date
+    gf_today = PROC_DIR / f"goalie_form_{_date.today().strftime('%Y-%m-%d')}.csv"
+    gf_map = {}
+    if gf_today.exists():
+        try:
+            _gf = pd.read_csv(gf_today)
+            if not _gf.empty and {"team","sv_pct_l10"}.issubset(_gf.columns):
+                gf_map = {str(r.team).upper(): float(r.sv_pct_l10) for _, r in _gf.iterrows()}
+        except Exception:
+            gf_map = {}
+    league_sv = float(_np.mean(list(gf_map.values()))) if gf_map else 0.905
+
+    # Join projections (lambda per player+market)
+    proj = proj.copy()
+    proj["player_norm"] = proj["player"].astype(str).map(lambda s: min(_create_name_variants(s) or [s], key=len))
+    proj["market"] = proj["market"].astype(str).str.upper()
+    merged = lines.merge(proj[["player_norm","market","proj_lambda"]], on=["player_norm","market"], how="left")
+    merged = merged[merged["proj_lambda"].notna()].copy()
+
+    def _multiplier(row) -> float:
+        mk = str(row.get("market")).upper(); team=str(row.get("team_abbr") or "").upper(); opp=str(row.get("opp_abbr") or "").upper()
+        lam_scale = 1.0
+        try:
+            txg = xg_map.get(team); oxg = xg_map.get(opp)
+            if mk == "SAVES":
+                if oxg:
+                    lam_scale *= (1.0 + props_xg_gamma * ((oxg / league_xg) - 1.0))
+                pc = pen_comm.get(team, {}).get("committed_per60")
+                if pc is not None:
+                    lam_scale *= (1.0 + props_penalty_gamma * ((float(pc) / league_pen) - 1.0))
+            else:
+                if txg:
+                    lam_scale *= (1.0 + props_xg_gamma * ((txg / league_xg) - 1.0))
+                pc = pen_comm.get(opp, {}).get("committed_per60")
+                if pc is not None and mk in {"GOALS","ASSISTS","POINTS","SOG","BLOCKS"}:
+                    lam_scale *= (1.0 + props_penalty_gamma * ((float(pc) / league_pen) - 1.0))
+                if mk in {"GOALS","ASSISTS","POINTS"}:
+                    sv = gf_map.get(opp)
+                    if sv is not None:
+                        lam_scale *= (1.0 - props_goalie_form_gamma * (float(sv) - league_sv))
+        except Exception:
+            lam_scale = lam_scale
+        return max(0.0, lam_scale)
+
+    merged["lam_scale_mean"] = merged.apply(_multiplier, axis=1).astype(float)
+
+    # Build game-level shared pace groups by (team,opp)
+    merged["grp"] = merged.apply(lambda r: ":".join(sorted([str(r.get("team_abbr") or "").upper(), str(r.get("opp_abbr") or "").upper()])), axis=1)
+    groups = {g: i for i, g in enumerate(sorted(merged["grp"].unique()))}
+    merged["grp_id"] = merged["grp"].map(groups)
+
+    rs = _np.random.RandomState(42)
+    shape = float(sim_shared_k) if float(sim_shared_k) > 0 else 1.0
+    scale = 1.0 / shape
+    grp_ids = sorted(groups.values())
+    pace_draws = _np.ones((len(grp_ids), n_sims), dtype=_np.float32)
+    if shape > 0:
+        pace_draws = rs.gamma(shape=shape, scale=scale, size=(len(grp_ids), n_sims)).astype(_np.float32)
+
+    out_rows = []
+    # Iterate row-wise to keep memory bounded; vectorization across sims via numpy arrays
+    for idx, rr in merged.iterrows():
+        mk = str(rr["market"]).upper(); ln = float(rr["line_num"]); lam0 = float(rr["proj_lambda"]); mmean = float(rr["lam_scale_mean"])
+        if lam0 <= 0 or mmean <= 0:
+            continue
+        lam_eff = lam0 * mmean
+        g = int(rr["grp_id"]) if pd.notna(rr.get("grp_id")) else 0
+        lam_arr = lam_eff * pace_draws[g]
+        # Discrete line handling
+        k_line = int(_np.floor(ln + 1e-9))
+        # Approximate via survival function of Poisson per draw using normal approximation is poor; sample directly
+        # For speed, compute tail with CDF at k_line using vectorized poisson.sf
+        try:
+            p_over = _poisson.sf(k_line, mu=lam_arr).mean()
+        except Exception:
+            # Fallback sampling
+            y = rs.poisson(lam_arr)
+            p_over = float((y > k_line).mean())
+        out_rows.append({
+            "date": date,
+            "player": rr.get("player_display"),
+            "team": rr.get("team_abbr"),
+            "opp": rr.get("opp_abbr"),
+            "market": mk,
+            "line": float(ln),
+            "over_price": rr.get("over_price"),
+            "under_price": rr.get("under_price"),
+            "book": rr.get("book"),
+            "proj_lambda": round(lam0, 4),
+            "lam_scale_mean": round(mmean, 4),
+            "p_over_sim": round(float(p_over), 6),
+            "n_sims": int(n_sims),
+        })
+    out = pd.DataFrame(out_rows)
+    out_path = PROC_DIR / f"props_simulations_{date}.csv"
+    save_df(out, out_path)
+    print(f"[props-sim] wrote {out_path} rows={len(out)}")
+
+
+@app.command(name="props-recommendations-sim")
+def props_recommendations_sim(
+    date: str = typer.Option(..., help="Slate date YYYY-MM-DD (ET)"),
+    min_ev: float = typer.Option(0.0, help="Minimum EV threshold for ev_over"),
+    top: int = typer.Option(400, help="Top N to keep after sorting by EV desc"),
+    min_ev_per_market: str = typer.Option("", help="Optional per-market EV thresholds"),
+    min_prob: float = typer.Option(0.0, help="Minimum chosen-side probability threshold (0-1), e.g., 0.60"),
+    min_prob_per_market: str = typer.Option("SOG=0.75,GOALS=0.60,ASSISTS=0.60,POINTS=0.60,SAVES=0.60,BLOCKS=0.60", help="Optional per-market probability thresholds, e.g., 'SOG=0.58,GOALS=0.60'"),
+):
+    """Generate recommendations using simulation-backed p_over if available; falls back to model-only if missing."""
+    sim_path = PROC_DIR / f"props_simulations_{date}.csv"
+    if not sim_path.exists():
+        print("No simulations found; running props-simulate first…")
+        props_simulate.callback(date=date)
+    df = pd.read_csv(sim_path) if sim_path.exists() else pd.DataFrame()
+    if df is None or df.empty:
+        print("No simulation results present, aborting.")
+        raise typer.Exit(code=0)
+    import numpy as _np
+    def _american_to_decimal(s):
+        try:
+            s = float(s)
+            return 1.0 + (s/100.0) if s > 0 else 1.0 + (100.0/abs(s))
+        except Exception:
+            return _np.nan
+    df["dec_over"] = df["over_price"].map(_american_to_decimal)
+    df["dec_under"] = df["under_price"].map(_american_to_decimal)
+    p = pd.to_numeric(df["p_over_sim"], errors="coerce")
+    ev_over = p * (df["dec_over"] - 1.0) - (1.0 - p)
+    p_under = (1.0 - p).clip(lower=0.0, upper=1.0)
+    ev_under = p_under * (df["dec_under"] - 1.0) - (1.0 - p_under)
+    over_better = ev_under.isna() | (~ev_over.isna() & (ev_over >= ev_under))
+    side = _np.where(over_better, "Over", "Under")
+    ev_chosen = _np.where(over_better, ev_over, ev_under)
+    # chosen-side probability
+    chosen_prob = _np.where(over_better, p, (1.0 - p))
+    out = df.assign(
+        ev_over=ev_over,
+        side=side,
+        ev=ev_chosen,
+        chosen_prob=chosen_prob,
+    )
+    def _parse_thresholds(s: str) -> dict:
+        d = {}
+        for part in (s or "").split(","):
+            part = part.strip()
+            if not part or "=" not in part:
+                continue
+            k, v = part.split("=", 1)
+            try:
+                d[str(k).strip().upper()] = float(str(v).strip())
+            except Exception:
+                continue
+        return d
+    thr_map = _parse_thresholds(min_ev_per_market)
+    prob_thr_map = _parse_thresholds(min_prob_per_market)
+    if thr_map:
+        thr_series = out["market"].astype(str).str.upper().map(lambda m: thr_map.get(m, float(min_ev))).astype(float)
+        out = out[(out["ev"].notna()) & (out["ev"].astype(float) >= thr_series)]
+    else:
+        out = out[(out["ev"].notna()) & (out["ev"].astype(float) >= float(min_ev))]
+
+    # Apply probability thresholds
+    if prob_thr_map or (float(min_prob) > 0.0):
+        prob_series = out["market"].astype(str).str.upper().map(lambda m: prob_thr_map.get(m, float(min_prob))).astype(float)
+        out = out[(out["chosen_prob"].notna()) & (out["chosen_prob"].astype(float) >= prob_series)]
+    out = out.sort_values("ev", ascending=False).head(int(top))
+    final = out[["date","player","team","market","line","proj_lambda","p_over_sim","over_price","under_price","book","side","ev","chosen_prob"]].copy()
+    final.rename(columns={"p_over_sim":"p_over"}, inplace=True)
+    out_path = PROC_DIR / f"props_recommendations_{date}.csv"
+    save_df(final, out_path)
+    print(f"[props-recs-sim] wrote {out_path} with {len(final)} rows")
+
 @app.command()
 def odds_fetch_historical(
     snapshot: str = typer.Option(..., help="ISO timestamp for snapshot, e.g., 2024-03-01T12:00:00Z"),
@@ -5973,6 +6329,39 @@ def props_backtest(
     stats_all["player_text_norm"] = stats_all["player_text_raw"].apply(_norm_name)
     # Also provide a no-dot variant for initial matching (e.g., "N. Schmaltz" -> "n schmaltz")
     stats_all["player_text_nodot"] = stats_all["player_text_norm"].str.replace(".", "", regex=False)
+
+    # Helper: name variants for joining outcomes (exact, no-dot, initial-last)
+    def _name_variants(full: str):
+        full = (full or "").strip()
+        parts = [p for p in full.split(" ") if p]
+        vars = set()
+        if full:
+            nm = _norm_name(full)
+            vars.add(nm)
+            vars.add(nm.replace(".", ""))
+        if len(parts) >= 2:
+            first, last = parts[0], parts[-1]
+            init_last = f"{first[0]}. {last}"
+            nm2 = _norm_name(init_last)
+            vars.add(nm2)
+            vars.add(nm2.replace(".", ""))
+        return vars
+
+    def _name_variants(full: str):
+        full = (full or "").strip()
+        parts = [p for p in full.split(" ") if p]
+        vars = set()
+        if full:
+            nm = _norm_name(full)
+            vars.add(nm)
+            vars.add(nm.replace(".", ""))
+        if len(parts) >= 2:
+            first, last = parts[0], parts[-1]
+            init_last = f"{first[0]}. {last}"
+            nm2 = _norm_name(init_last)
+            vars.add(nm2)
+            vars.add(nm2.replace(".", ""))
+        return vars
     # Models with configured window
     cfg = PropsConfig(window=window)
     shots = SkaterShotsModel(cfg); saves = GoalieSavesModel(cfg); goals = SkaterGoalsModel(cfg); assists = SkaterAssistsModel(cfg); points = SkaterPointsModel(cfg); blocks = SkaterBlocksModel(cfg)
@@ -6182,10 +6571,21 @@ def props_backtest(
             "wins": int((df["result"] == "win").sum()),
             "losses": int((df["result"] == "loss").sum()),
             "pushes": int((df["result"] == "push").sum()),
-            "staked": float(df["stake"].fillna(0).sum()),
-            "pnl": float(df["payout"].fillna(0).sum()),
         }
-        d["roi"] = (d["pnl"] / d["staked"]) if d["staked"] > 0 else None
+        # Accuracy (exclude pushes)
+        try:
+            dec = df[df["result"].isin(["win","loss"])].copy()
+            d["accuracy"] = float((dec["result"] == "win").mean()) if len(dec) > 0 else None
+        except Exception:
+            d["accuracy"] = None
+        # Brier score for chosen side if probabilities present
+        try:
+            p_chosen = np.where(df["side"].astype(str)=="Over", df["p_over"].astype(float), (1.0 - df["p_over"].astype(float)))
+            y = np.where(df["result"].astype(str)=="win", 1.0, np.where(df["result"].astype(str)=="loss", 0.0, np.nan))
+            mask = ~np.isnan(p_chosen) & ~np.isnan(y)
+            d["brier"] = float(np.mean((p_chosen[mask] - y[mask])**2)) if np.any(mask) else None
+        except Exception:
+            d["brier"] = None
         return d
     overall = summarize(rows_df)
     by_market = {}
@@ -6212,6 +6612,684 @@ def props_backtest(
     rows_df.to_csv(rows_path, index=False)
     with open(summ_path, "w", encoding="utf-8") as f:
         json.dump({"overall": overall, "by_market": by_market, "calibration": calib_bins}, f, indent=2)
+    print(json.dumps({"overall": overall, "by_market": by_market}, indent=2))
+    print(f"Saved rows to {rows_path} and summary to {summ_path}")
+
+
+@app.command(name="props-recommendations-nolines")
+def props_recommendations_nolines(
+    date: str = typer.Option(..., help="Slate date YYYY-MM-DD (ET)"),
+    markets: str = typer.Option("SAVES,BLOCKS", help="Comma list of markets to include"),
+    top: int = typer.Option(400, help="Top N to keep after sorting by chosen_prob desc"),
+    min_prob: float = typer.Option(0.0, help="Global minimum chosen-side probability (0-1)"),
+    min_prob_per_market: str = typer.Option("SAVES=0.60,BLOCKS=0.85", help="Per-market minimum chosen-side probability thresholds"),
+):
+    """Generate recommendations from nolines simulations by probability gating.
+
+    Reads data/processed/props_simulations_nolines_{date}.csv and filters picks by chosen-side probability.
+    Writes data/processed/props_recommendations_nolines_{date}.csv
+    """
+    import pandas as pd
+    import numpy as _np
+    from .utils.io import PROC_DIR, save_df
+
+    path = PROC_DIR / f"props_simulations_nolines_{date}.csv"
+    if not path.exists():
+        print("No nolines simulations found:", path)
+        raise typer.Exit(code=0)
+    df = pd.read_csv(path)
+    if df is None or df.empty:
+        print("Empty nolines simulations file:", path)
+        raise typer.Exit(code=0)
+    df["market"] = df["market"].astype(str).str.upper()
+    allowed = [m.strip().upper() for m in (markets or "").split(",") if m.strip()]
+    if allowed:
+        df = df[df["market"].isin(allowed)]
+    if df.empty:
+        print("No rows after market filter.")
+        raise typer.Exit(code=0)
+
+    p_over = pd.to_numeric(df["p_over_sim"], errors="coerce").astype(float)
+    over_better = p_over >= 0.5
+    chosen_prob = _np.where(over_better, p_over, 1.0 - p_over)
+    side = _np.where(over_better, "Over", "Under")
+    out = df.assign(chosen_prob=chosen_prob, side=side)
+
+    def _parse_thresholds(s: str) -> dict[str, float]:
+        d: dict[str, float] = {}
+        for part in (s or "").split(","):
+            part = part.strip()
+            if not part or "=" not in part:
+                continue
+            k, v = part.split("=", 1)
+            try:
+                d[str(k).strip().upper()] = float(str(v).strip())
+            except Exception:
+                continue
+        return d
+    thr_map = _parse_thresholds(min_prob_per_market)
+    if thr_map or (float(min_prob) > 0.0):
+        thr_series = out["market"].astype(str).str.upper().map(lambda m: thr_map.get(m, float(min_prob))).astype(float)
+        out = out[(out["chosen_prob"].notna()) & (out["chosen_prob"].astype(float) >= thr_series)]
+    out = out.sort_values("chosen_prob", ascending=False).head(int(top))
+    final = out[["date","player","team","opp","market","line","proj_lambda","lam_scale_mean","p_over_sim","side","chosen_prob"]].copy()
+    final.rename(columns={"p_over_sim":"p_over"}, inplace=True)
+    out_path = PROC_DIR / f"props_recommendations_nolines_{date}.csv"
+    save_df(final, out_path)
+    print(f"[props-recs-nolines] wrote {out_path} with {len(final)} rows")
+
+
+@app.command(name="props-nolines-monitor")
+def props_nolines_monitor(
+    window_days: int = typer.Option(7, help="Rolling window in days for monitor"),
+    markets: str = typer.Option("SAVES,BLOCKS", help="Markets to include"),
+    min_prob_per_market: str = typer.Option("SAVES=0.60,BLOCKS=0.85", help="Per-market probability gates for backtest"),
+):
+    """Generate a rolling monitor JSON for nolines simulations over the last N days."""
+    from datetime import date, timedelta
+    import json
+    from .utils.io import PROC_DIR
+    # Derive start/end
+    end = date.today()
+    start = end - timedelta(days=max(1, int(window_days)))
+    start_s = start.strftime("%Y-%m-%d"); end_s = end.strftime("%Y-%m-%d")
+    # Run backtest to compute metrics
+    try:
+        props_backtest_nolines(start=start_s, end=end_s, markets=markets, min_prob=0.0, min_prob_per_market=min_prob_per_market, out_prefix="monitor")
+    except SystemExit:
+        pass
+    # Read the produced summary and write standard monitor path
+    summ_path = PROC_DIR / f"monitor_props_backtest_nolines_summary_{start_s}_to_{end_s}.json"
+    if not summ_path.exists():
+        print("No monitor summary found:", summ_path)
+        raise typer.Exit(code=0)
+    try:
+        with open(summ_path, "r", encoding="utf-8") as f:
+            summ = json.load(f)
+        out_path = PROC_DIR / "props_nolines_monitor.json"
+        with open(out_path, "w", encoding="utf-8") as f:
+            json.dump({"window_days": window_days, "start": start_s, "end": end_s, **summ}, f, indent=2)
+        print("[nolines-monitor] wrote", out_path)
+    except Exception as e:
+        print("Failed to write props_nolines_monitor.json:", e)
+
+
+@app.command(name="props-recommendations-combined")
+def props_recommendations_combined(
+    date: str = typer.Option(..., help="Slate date YYYY-MM-DD (ET)"),
+    include_nolines: bool = typer.Option(True, help="Include nolines recommendations if present"),
+    out_json: bool = typer.Option(True, help="Also write a JSON alongside CSV"),
+):
+    """Merge EV-based sim recommendations and nolines recommendations into one output.
+
+    Sources:
+      - data/processed/props_recommendations_{date}.csv (EV-based)
+      - data/processed/props_recommendations_nolines_{date}.csv (probability-gated)
+    Writes: data/processed/props_recommendations_combined_{date}.csv (+.json)
+    """
+    import pandas as pd
+    import json
+    from .utils.io import PROC_DIR, save_df
+
+    rows = []
+    ev_path = PROC_DIR / f"props_recommendations_{date}.csv"
+    if ev_path.exists():
+        try:
+            ev = pd.read_csv(ev_path)
+            if not ev.empty:
+                ev = ev.copy(); ev["source"] = "ev"
+                rows.append(ev)
+        except Exception:
+            pass
+    no_path = PROC_DIR / f"props_recommendations_nolines_{date}.csv"
+    if include_nolines and no_path.exists():
+        try:
+            no = pd.read_csv(no_path)
+            if not no.empty:
+                no = no.copy(); no["source"] = "nolines"
+                rows.append(no)
+        except Exception:
+            pass
+    if not rows:
+        print("No recommendation sources found for", date)
+        raise typer.Exit(code=0)
+    df = pd.concat(rows, ignore_index=True)
+    # Standardize columns
+    have_ev = {c for c in df.columns}
+    for col in ["ev","chosen_prob"]:
+        if col not in have_ev:
+            df[col] = None
+    # Preferred ordering
+    cols = [c for c in ["date","player","team","opp","market","line","book","over_price","under_price","proj_lambda","p_over","side","ev","chosen_prob","source"] if c in df.columns]
+    final = df[cols].copy()
+    out_csv = PROC_DIR / f"props_recommendations_combined_{date}.csv"
+    save_df(final, out_csv)
+    print(f"[props-recs-combined] wrote {out_csv} with {len(final)} rows")
+    if out_json:
+        try:
+            out_json_path = PROC_DIR / f"props_recommendations_combined_{date}.json"
+            final.to_json(out_json_path, orient="records")
+            print("[props-recs-combined] wrote", out_json_path)
+        except Exception:
+            pass
+
+
+@app.command(name="props-simulate-unlined")
+def props_simulate_unlined(
+    date: str = typer.Option(..., help="Slate date YYYY-MM-DD (ET)"),
+    markets: str = typer.Option("SAVES,BLOCKS", help="Comma-separated markets to simulate without relying on lines"),
+    candidate_lines: str = typer.Option("SAVES=24.5,26.5,28.5,30.5;BLOCKS=1.5,2.5,3.5", help="Per-market candidate lines; ';' between markets, ',' between values"),
+    n_sims: int = typer.Option(20000, help="Number of Monte Carlo simulations"),
+    sim_shared_k: float = typer.Option(1.0, help="Shared Gamma pace shape (mean=1, var=1/k)"),
+    props_xg_gamma: float = typer.Option(0.02, help="Team xGF/60 impact on per-player lambda"),
+    props_penalty_gamma: float = typer.Option(0.06, help="Opponent penalties committed per60 impact (PP exposure)"),
+    props_goalie_form_gamma: float = typer.Option(0.02, help="Opponent goalie sv% (L10) dampening for GOALS/ASSISTS/POINTS"),
+):
+    """Simulate selected player props using model lambdas + shared game pace + team features without needing canonical lines.
+
+    Writes data/processed/props_simulations_nolines_{date}.csv with p_over_sim per (player, market, candidate_line).
+    """
+    import numpy as _np
+    import pandas as _pd
+    from glob import glob as _glob
+    from datetime import datetime as _dt
+    from .web.teams import get_team_assets as _assets
+    from .data.nhl_api_web import NHLWebClient as _Web
+    from .utils.io import PROC_DIR
+    from scipy.stats import poisson as _poisson
+    from .data.rosters import fetch_current_roster as _fetch_roster
+
+    # Parse markets and candidate lines mapping
+    markets_set = set([m.strip().upper() for m in (markets or "").split(",") if m.strip()])
+    def _parse_candidate_lines(s: str) -> dict[str, list[float]]:
+        out: dict[str, list[float]] = {}
+        for part in (s or "").split(";"):
+            part = part.strip()
+            if not part or "=" not in part:
+                continue
+            k, v = part.split("=", 1)
+            kk = str(k).strip().upper()
+            vals = []
+            for x in v.split(","):
+                x = x.strip()
+                if not x:
+                    continue
+                try:
+                    vals.append(float(x))
+                except Exception:
+                    continue
+            if vals:
+                out[kk] = vals
+        return out
+    cand_map = _parse_candidate_lines(candidate_lines)
+    if not markets_set:
+        markets_set = {"SAVES","BLOCKS"}
+
+    # Ensure projections exist
+    proj_path = PROC_DIR / f"props_projections_all_{date}.csv"
+    if not proj_path.exists():
+        print("No projections found:", proj_path)
+        raise typer.Exit(code=1)
+    proj = pd.read_csv(proj_path)
+    if proj is None or proj.empty:
+        print("Empty projections file:", proj_path)
+        raise typer.Exit(code=1)
+
+
+    # Opponent mapping via schedule
+    def _abbr_team(n: str | None) -> str | None:
+        if not n:
+            return None
+        try:
+            a = _assets(str(n)) or {}
+            return str(a.get("abbr") or "").upper() or None
+        except Exception:
+            return None
+    abbr_to_opp: dict[str, str] = {}
+    try:
+        web = _Web(); sched = web.schedule_day(date)
+        games=[]
+        for g in sched:
+            h=str(getattr(g, "home", "")); a=str(getattr(g, "away", ""))
+            games.append((_abbr_team(h), _abbr_team(a)))
+        for h,a in games:
+            if h and a:
+                abbr_to_opp[h]=a; abbr_to_opp[a]=h
+    except Exception:
+        abbr_to_opp = {}
+
+    # If SAVES requested but missing in projections, supplement with web rosters (goalies) at fallback lambda
+    if ("SAVES" in markets_set) and ("SAVES" not in set(proj["market"].astype(str).str.upper().unique())):
+        goalie_rows = []
+        slate_teams = list(set([k for k in abbr_to_opp.keys()]))
+        for t in slate_teams:
+            try:
+                ros = _fetch_roster(str(t))
+                for rp in (ros or []):
+                    if str(getattr(rp, "position", "")).upper() == "G" and str(getattr(rp, "full_name", "")).strip():
+                        goalie_rows.append({
+                            "date": date,
+                            "player": str(rp.full_name),
+                            "team": str(t),
+                            "market": "SAVES",
+                            "proj_lambda": 27.0,  # conservative fallback; will be scaled by team features
+                        })
+            except Exception:
+                continue
+        if goalie_rows:
+            proj = pd.concat([proj, pd.DataFrame(goalie_rows)], ignore_index=True)
+
+    # Load team features
+    xg_path = PROC_DIR / "team_xg_latest.csv"
+    xg_map = {}
+    if xg_path.exists():
+        try:
+            _xg = pd.read_csv(xg_path)
+            if not _xg.empty and {"abbr","xgf60"}.issubset(_xg.columns):
+                xg_map = {str(r.abbr).upper(): float(r.xgf60) for _, r in _xg.iterrows()}
+        except Exception:
+            xg_map = {}
+    league_xg = float(_np.mean(list(xg_map.values()))) if xg_map else 2.6
+    pen_path = PROC_DIR / "team_penalty_rates.json"
+    pen_comm = {}
+    if pen_path.exists():
+        try:
+            import json
+            pen_comm = json.loads(pen_path.read_text(encoding="utf-8"))
+        except Exception:
+            pen_comm = {}
+    league_pen = float(_np.mean([float(v.get("committed_per60", 0.0)) for v in pen_comm.values()])) if pen_comm else 3.0
+    # Goalie form (sv% L10) for opponent adjustment on scoring markets (not used for SAVES directly)
+    from datetime import date as _date
+    gf_today = PROC_DIR / f"goalie_form_{_date.today().strftime('%Y-%m-%d')}.csv"
+    gf_map = {}
+    if gf_today.exists():
+        try:
+            _gf = pd.read_csv(gf_today)
+            if not _gf.empty and {"team","sv_pct_l10"}.issubset(_gf.columns):
+                gf_map = {str(r.team).upper(): float(r.sv_pct_l10) for _, r in _gf.iterrows()}
+        except Exception:
+            gf_map = {}
+    league_sv = float(_np.mean(list(gf_map.values()))) if gf_map else 0.905
+
+    # Prep projections subset
+    proj = proj.copy()
+    proj["market"] = proj["market"].astype(str).str.upper()
+    proj = proj[proj["market"].isin(markets_set)].copy()
+    if proj.empty:
+        print("No projections for requested markets; ensure include_goalies for SAVES.")
+        raise typer.Exit(code=0)
+    # Normalize team abbr and opponent
+    proj["team_abbr"] = proj["team"].astype(str).str.upper()
+    proj["opp_abbr"] = proj["team_abbr"].map(lambda t: abbr_to_opp.get(str(t).upper()))
+
+    def _multiplier(row) -> float:
+        mk = str(row.get("market")).upper(); team=str(row.get("team_abbr") or "").upper(); opp=str(row.get("opp_abbr") or "").upper()
+        lam_scale = 1.0
+        try:
+            txg = xg_map.get(team); oxg = xg_map.get(opp)
+            if mk == "SAVES":
+                if oxg:
+                    lam_scale *= (1.0 + props_xg_gamma * ((oxg / league_xg) - 1.0))
+                pc = pen_comm.get(team, {}).get("committed_per60")
+                if pc is not None:
+                    lam_scale *= (1.0 + props_penalty_gamma * ((float(pc) / league_pen) - 1.0))
+            else:
+                if txg:
+                    lam_scale *= (1.0 + props_xg_gamma * ((txg / league_xg) - 1.0))
+                pc = pen_comm.get(opp, {}).get("committed_per60")
+                if pc is not None and mk in {"GOALS","ASSISTS","POINTS","SOG","BLOCKS"}:
+                    lam_scale *= (1.0 + props_penalty_gamma * ((float(pc) / league_pen) - 1.0))
+                if mk in {"GOALS","ASSISTS","POINTS"}:
+                    sv = gf_map.get(opp)
+                    if sv is not None:
+                        lam_scale *= (1.0 - props_goalie_form_gamma * (float(sv) - league_sv))
+        except Exception:
+            lam_scale = lam_scale
+        return max(0.0, lam_scale)
+
+    proj["lam_scale_mean"] = proj.apply(_multiplier, axis=1).astype(float)
+    # Group by game for shared pace
+    proj["grp"] = proj.apply(lambda r: ":".join(sorted([str(r.get("team_abbr") or "").upper(), str(r.get("opp_abbr") or "").upper()])), axis=1)
+    groups = {g: i for i, g in enumerate(sorted(proj["grp"].unique()))}
+    proj["grp_id"] = proj["grp"].map(groups)
+
+    rs = _np.random.RandomState(42)
+    shape = float(sim_shared_k) if float(sim_shared_k) > 0 else 1.0
+    scale = 1.0 / shape
+    grp_ids = sorted(groups.values())
+    pace_draws = _np.ones((len(grp_ids), n_sims), dtype=_np.float32)
+    if shape > 0:
+        pace_draws = rs.gamma(shape=shape, scale=scale, size=(len(grp_ids), n_sims)).astype(_np.float32)
+
+    out_rows = []
+    for _, rr in proj.iterrows():
+        mk = str(rr["market"]).upper(); lam0 = float(rr["proj_lambda"]); mmean = float(rr["lam_scale_mean"])
+        if lam0 <= 0 or mmean <= 0:
+            continue
+        lines = cand_map.get(mk, [])
+        if not lines:
+            continue
+        lam_eff = lam0 * mmean
+        g = int(rr["grp_id"]) if pd.notna(rr.get("grp_id")) else 0
+        lam_arr = lam_eff * pace_draws[g]
+        for ln in lines:
+            k_line = int(_np.floor(float(ln) + 1e-9))
+            try:
+                p_over = _poisson.sf(k_line, mu=lam_arr).mean()
+            except Exception:
+                y = rs.poisson(lam_arr)
+                p_over = float((y > k_line).mean())
+            out_rows.append({
+                "date": date,
+                "player": rr.get("player"),
+                "team": rr.get("team_abbr"),
+                "opp": rr.get("opp_abbr"),
+                "market": mk,
+                "line": float(ln),
+                "book": "NA",
+                "proj_lambda": round(lam0, 4),
+                "lam_scale_mean": round(mmean, 4),
+                "p_over_sim": round(float(p_over), 6),
+                "n_sims": int(n_sims),
+            })
+    out = pd.DataFrame(out_rows)
+    out_path = PROC_DIR / f"props_simulations_nolines_{date}.csv"
+    save_df(out, out_path)
+    print(f"[props-sim-nolines] wrote {out_path} rows={len(out)}")
+
+
+@app.command(name="props-backtest-nolines")
+def props_backtest_nolines(
+    start: str = typer.Option(..., help="Start date YYYY-MM-DD (ET)"),
+    end: str = typer.Option(..., help="End date YYYY-MM-DD (ET)"),
+    markets: str = typer.Option("SAVES,BLOCKS", help="Comma list of markets to include"),
+    min_prob: float = typer.Option(0.0, help="Minimum chosen-side probability threshold (0-1)"),
+    min_prob_per_market: str = typer.Option("", help="Optional per-market probability thresholds, e.g., 'SAVES=0.60,BLOCKS=0.60'"),
+    out_prefix: str = typer.Option("nolines", help="Output filename prefix under data/processed/"),
+):
+    """Backtest 'nolines' simulations (no odds/EV) using chosen probability and outcomes.
+
+    For each day in [start, end]:
+      - Load data/processed/props_simulations_nolines_{date}.csv
+      - Choose side: Over if p_over_sim >= 0.5 else Under
+      - Apply probability thresholds (global or per-market) to filter picks
+      - Evaluate outcomes from data/raw/player_game_stats.csv
+      - Aggregate accuracy, Brier, and avg chosen probability
+    Writes rows and summary to data/processed with a prefix.
+    """
+    from datetime import datetime, timedelta
+    from zoneinfo import ZoneInfo as _Z
+    import numpy as _np
+    import pandas as pd
+    import json
+    from .utils.io import RAW_DIR, PROC_DIR
+
+    # Load realized player stats for outcomes
+    stats_path = RAW_DIR / "player_game_stats.csv"
+    if not stats_path.exists():
+        print("player_game_stats.csv missing; run props_stats_backfill first.")
+        raise typer.Exit(code=1)
+    try:
+        stats_all = pd.read_csv(stats_path)
+    except Exception:
+        print("Failed to read player_game_stats.csv; is the file empty or malformed?")
+        raise typer.Exit(code=1)
+
+    def _iso_to_et(iso_utc: str) -> str | None:
+        try:
+            s = str(iso_utc or "").replace("Z", "+00:00")
+            dt = datetime.fromisoformat(s)
+        except Exception:
+            try:
+                dt = datetime.fromisoformat(str(iso_utc)[:19]).replace(tzinfo=datetime.timezone.utc)  # type: ignore
+            except Exception:
+                return None
+        try:
+            return dt.astimezone(_Z("America/New_York")).strftime("%Y-%m-%d")
+        except Exception:
+            return None
+
+    import ast, re, unicodedata
+    def _extract_player_text(v) -> str:
+        if v is None:
+            return ""
+        try:
+            if isinstance(v, str) and v.strip().startswith("{") and v.strip().endswith("}"):
+                d = ast.literal_eval(v)
+                if isinstance(d, dict):
+                    for k in ("default", "en", "name", "fullName", "full_name"):
+                        if d.get(k):
+                            return str(d.get(k))
+                return str(v)
+            if isinstance(v, dict):
+                for k in ("default", "en", "name", "fullName", "full_name"):
+                    if v.get(k):
+                        return str(v.get(k))
+                return str(v)
+            return str(v)
+        except Exception:
+            return str(v)
+
+    def _norm_name(s: str) -> str:
+        s = (s or "").strip()
+        s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode()
+        s = re.sub(r"\s+", " ", s)
+        return s.lower()
+
+    stats_all["date_et"] = stats_all["date"].apply(_iso_to_et)
+    stats_all["player_text_raw"] = stats_all["player"].apply(_extract_player_text)
+    stats_all["player_text_norm"] = stats_all["player_text_raw"].apply(_norm_name)
+    stats_all["player_text_nodot"] = stats_all["player_text_norm"].str.replace(".", "", regex=False)
+
+    allowed_markets = [m.strip().upper() for m in (markets or "").split(",") if m.strip()]
+
+    def _parse_thresholds(s: str) -> dict[str, float]:
+        d: dict[str, float] = {}
+        for part in (s or "").split(","):
+            part = part.strip()
+            if not part or "=" not in part:
+                continue
+            k, v = part.split("=", 1)
+            try:
+                d[str(k).strip().upper()] = float(str(v).strip())
+            except Exception:
+                continue
+        return d
+    prob_thr_map = _parse_thresholds(min_prob_per_market)
+
+    def to_dt(s: str) -> datetime:
+        return datetime.strptime(s, "%Y-%m-%d")
+    cur = to_dt(start); end_dt = to_dt(end)
+    rows = []; calib = []
+
+    while cur <= end_dt:
+        d = cur.strftime("%Y-%m-%d")
+        sim_path = PROC_DIR / f"props_simulations_nolines_{d}.csv"
+        if not sim_path.exists():
+            cur += timedelta(days=1)
+            continue
+        try:
+            sim_df = pd.read_csv(sim_path)
+        except Exception:
+            cur += timedelta(days=1)
+            continue
+        if sim_df.empty:
+            cur += timedelta(days=1)
+            continue
+        sim_df["market"] = sim_df["market"].astype(str).str.upper()
+        if allowed_markets:
+            sim_df = sim_df[sim_df["market"].isin(allowed_markets)]
+        if sim_df.empty:
+            cur += timedelta(days=1)
+            continue
+        sim_df["player_norm"] = sim_df["player"].astype(str).apply(_norm_name)
+        # Evaluate outcomes across all candidate lines
+        for _, r in sim_df.iterrows():
+            m = str(r.get("market") or "").upper()
+            if allowed_markets and m not in allowed_markets:
+                continue
+            player_disp = r.get("player")
+            ln = r.get("line")
+            try:
+                ln = float(ln)
+            except Exception:
+                continue
+            p_over = pd.to_numeric(r.get("p_over_sim"), errors="coerce")
+            if pd.isna(p_over):
+                continue
+            p_over = float(p_over)
+            # chosen side by probability
+            over_better = bool(p_over >= 0.5)
+            side = "Over" if over_better else "Under"
+            chosen_prob = float(p_over if over_better else (1.0 - p_over))
+            # Apply probability thresholds
+            thr = prob_thr_map.get(m, float(min_prob)) if prob_thr_map else float(min_prob)
+            if thr > 0.0 and chosen_prob < thr:
+                continue
+
+            # Actual outcome from stats on ET date d
+            day_stats = stats_all[stats_all["date_et"] == d]
+            _full = str(player_disp or "").strip()
+            _parts = [p for p in _full.split(" ") if p]
+            _vars = set()
+            if _full:
+                _nm = _norm_name(_full)
+                _vars.add(_nm); _vars.add(_nm.replace(".", ""))
+            if len(_parts) >= 2:
+                _first, _last = _parts[0], _parts[-1]
+                _init_last = f"{_first[0]}. {_last}"
+                _nm2 = _norm_name(_init_last)
+                _vars.add(_nm2); _vars.add(_nm2.replace(".", ""))
+            ps = day_stats[day_stats["player_text_norm"].isin(_vars) | day_stats["player_text_nodot"].isin(_vars)]
+            actual = None
+            if not ps.empty:
+                row = ps.iloc[0]
+                if m == "SOG":
+                    actual = row.get("shots")
+                elif m == "SAVES":
+                    actual = row.get("saves")
+                elif m == "GOALS":
+                    actual = row.get("goals")
+                elif m == "ASSISTS":
+                    actual = row.get("assists")
+                elif m == "POINTS":
+                    try:
+                        actual = float((row.get("goals") or 0)) + float((row.get("assists") or 0))
+                    except Exception:
+                        actual = None
+                elif m == "BLOCKS":
+                    actual = row.get("blocked")
+            result = None
+            if actual is not None and pd.notna(actual):
+                try:
+                    av = float(actual)
+                    if av > ln:
+                        over_res = "win"
+                    elif av < ln:
+                        over_res = "loss"
+                    else:
+                        over_res = "push"
+                    if side == "Over":
+                        result = over_res
+                    elif side == "Under":
+                        if over_res == "win":
+                            result = "loss"
+                        elif over_res == "loss":
+                            result = "win"
+                        else:
+                            result = "push"
+                except Exception:
+                    result = None
+
+            rows.append({
+                "date": d,
+                "market": m,
+                "player": player_disp,
+                "line": float(ln),
+                "p_over": float(p_over),
+                "side": side,
+                "chosen_prob": float(chosen_prob),
+                "actual": actual,
+                "result": result,
+            })
+            # Calibration record for over outcome
+            if actual is not None and pd.notna(actual) and (abs(ln - round(ln)) > 1e-9 or float(actual) != float(round(ln))):
+                calib.append({
+                    "date": d,
+                    "market": m,
+                    "p_over": float(p_over),
+                    "over_won": bool(float(actual) > float(ln)),
+                })
+        cur += timedelta(days=1)
+
+    rows_df = pd.DataFrame(rows)
+    if rows_df.empty:
+        print("No backtest rows generated. Ensure nolines simulations exist for the range.")
+        raise typer.Exit(code=0)
+
+    def summarize(df: pd.DataFrame) -> dict:
+        out: dict[str, object] = {
+            "picks": int(len(df)),
+            "decided": int(df["result"].isin(["win", "loss"]).sum()),
+            "wins": int((df["result"] == "win").sum()),
+            "losses": int((df["result"] == "loss").sum()),
+            "pushes": int((df["result"] == "push").sum()),
+        }
+        try:
+            decided = df[df["result"].isin(["win", "loss"])].copy()
+            if not decided.empty:
+                p_sel = decided["chosen_prob"].astype(float).to_numpy()
+                y = (decided["result"] == "win").astype(float).to_numpy()
+                p_sel = _np.clip(p_sel, 0.0, 1.0)
+                out["accuracy"] = float((y == 1.0).mean()) if len(y) > 0 else None
+                out["brier"] = float(_np.mean((p_sel - y) ** 2)) if len(y) > 0 else None
+                out["avg_prob"] = float(_np.mean(p_sel))
+            else:
+                out["accuracy"] = None; out["brier"] = None; out["avg_prob"] = None
+        except Exception:
+            out["accuracy"] = None; out["brier"] = None; out["avg_prob"] = None
+        return out
+
+    overall = summarize(rows_df)
+    by_market = {mkt: summarize(g) for mkt, g in rows_df.groupby("market")}
+
+    def acc_at_threshold(df: pd.DataFrame, thr: float) -> dict:
+        try:
+            decided = df[df["result"].isin(["win","loss"])].copy()
+            mask = decided["chosen_prob"].astype(float) >= thr
+            sub = decided[mask]
+            acc = float((sub["result"] == "win").mean()) if len(sub) > 0 else None
+            return {"picks": int(len(sub)), "accuracy": acc}
+        except Exception:
+            return {"picks": 0, "accuracy": None}
+    thresholds = [0.55, 0.60, 0.65]
+    by_market_thresholds = {mkt: {str(t): acc_at_threshold(g, t) for t in thresholds} for mkt, g in rows_df.groupby("market")}
+
+    calib_df = pd.DataFrame(calib)
+    calib_bins = []
+    if not calib_df.empty:
+        bins = _np.linspace(0.0, 1.0, 11)
+        calib_df["bin"] = pd.cut(calib_df["p_over"], bins=bins, include_lowest=True)
+        for b, g in calib_df.groupby("bin"):
+            try:
+                exp = float(g["p_over"].mean()); obs = float(g["over_won"].mean()); cnt = int(len(g))
+                calib_bins.append({"bin": str(b), "expected": exp, "observed": obs, "count": cnt})
+            except Exception:
+                continue
+
+    pref = (out_prefix.strip() + "_") if out_prefix.strip() else ""
+    rows_path = PROC_DIR / f"{pref}props_backtest_nolines_rows_{start}_to_{end}.csv"
+    summ_path = PROC_DIR / f"{pref}props_backtest_nolines_summary_{start}_to_{end}.json"
+    rows_df.to_csv(rows_path, index=False)
+    with open(summ_path, "w", encoding="utf-8") as f:
+        json.dump({
+            "overall": overall,
+            "by_market": by_market,
+            "by_market_thresholds": by_market_thresholds,
+            "calibration": calib_bins,
+            "filters": {"markets": allowed_markets, "min_prob": min_prob}
+        }, f, indent=2)
     print(json.dumps({"overall": overall, "by_market": by_market}, indent=2))
     print(f"Saved rows to {rows_path} and summary to {summ_path}")
 
@@ -7969,6 +9047,38 @@ def props_backtest_from_projections(
     stats_all["player_text_norm"] = stats_all["player_text_raw"].apply(_norm_name)
     stats_all["player_text_nodot"] = stats_all["player_text_norm"].str.replace(".", "", regex=False)
 
+    def _name_variants(full: str):
+        full = (full or "").strip()
+        parts = [p for p in full.split(" ") if p]
+        vars = set()
+        if full:
+            nm = _norm_name(full)
+            vars.add(nm)
+            vars.add(nm.replace(".", ""))
+        if len(parts) >= 2:
+            first, last = parts[0], parts[-1]
+            init_last = f"{first[0]}. {last}"
+            nm2 = _norm_name(init_last)
+            vars.add(nm2)
+            vars.add(nm2.replace(".", ""))
+        return vars
+
+    def _name_variants(full: str):
+        full = (full or "").strip()
+        parts = [p for p in full.split(" ") if p]
+        vars = set()
+        if full:
+            nm = _norm_name(full)
+            vars.add(nm)
+            vars.add(nm.replace(".", ""))
+        if len(parts) >= 2:
+            first, last = parts[0], parts[-1]
+            init_last = f"{first[0]}. {last}"
+            nm2 = _norm_name(init_last)
+            vars.add(nm2)
+            vars.add(nm2.replace(".", ""))
+        return vars
+
     allowed_markets = [m.strip().upper() for m in (markets or "").split(",") if m.strip()]
     src_filter = (source_filter or "").strip().lower()
 
@@ -8252,10 +9362,21 @@ def props_backtest_from_projections(
             "wins": int((df["result"] == "win").sum()),
             "losses": int((df["result"] == "loss").sum()),
             "pushes": int((df["result"] == "push").sum()),
-            "staked": float(df["stake"].fillna(0).sum()),
-            "pnl": float(df["payout"].fillna(0).sum()),
         }
-        d["roi"] = (d["pnl"] / d["staked"]) if d["staked"] > 0 else None
+        # Accuracy (exclude pushes)
+        try:
+            dec = df[df["result"].isin(["win","loss"])].copy()
+            d["accuracy"] = float((dec["result"] == "win").mean()) if len(dec) > 0 else None
+        except Exception:
+            d["accuracy"] = None
+        # Brier score for chosen side if probabilities present
+        try:
+            p_chosen = np.where(df["side"].astype(str)=="Over", df["p_over"].astype(float), (1.0 - df["p_over"].astype(float)))
+            y = np.where(df["result"].astype(str)=="win", 1.0, np.where(df["result"].astype(str)=="loss", 0.0, np.nan))
+            mask = ~np.isnan(p_chosen) & ~np.isnan(y)
+            d["brier"] = float(np.mean((p_chosen[mask] - y[mask])**2)) if np.any(mask) else None
+        except Exception:
+            d["brier"] = None
         return d
 
     overall = summarize(rows_df)
@@ -8289,6 +9410,359 @@ def props_backtest_from_projections(
             "filters": {"markets": allowed_markets, "source_filter": src_filter or None, "min_ev": min_ev}
         }, f, indent=2)
     print(json.dumps({"overall": overall, "by_market": by_market, "by_source": by_source}, indent=2))
+    print(f"Saved rows to {rows_path} and summary to {summ_path}")
+
+
+@app.command()
+def props_backtest_from_simulations(
+    start: str = typer.Option(..., help="Start date YYYY-MM-DD (ET)"),
+    end: str = typer.Option(..., help="End date YYYY-MM-DD (ET)"),
+    stake: float = typer.Option(100.0, help="Flat stake per play for ROI calc"),
+    markets: str = typer.Option("SOG,SAVES,GOALS,ASSISTS,POINTS,BLOCKS", help="Comma list of markets to include"),
+    min_ev: float = typer.Option(-1.0, help="Filter to plays with EV >= min_ev; set -1 to include all"),
+    out_prefix: str = typer.Option("sim", help="Output filename prefix under data/processed/"),
+    min_ev_per_market: str = typer.Option("", help="Optional per-market EV thresholds, e.g., 'SOG=0.00,GOALS=0.04,ASSISTS=0.00,POINTS=0.08'"),
+):
+    """Backtest using simulation-backed p_over from props_simulations_{date}.csv joined to canonical lines.
+
+    For each day in [start, end]:
+      - Load data/processed/props_simulations_{date}.csv
+      - Compute EV for Over and Under from p_over_sim and odds; choose higher EV side
+      - Evaluate outcome from data/raw/player_game_stats.csv (ET date alignment)
+      - Aggregate ROI and calibration stats by market and overall
+    Writes rows and summary to data/processed with a prefix.
+    """
+    from datetime import datetime, timedelta
+    from zoneinfo import ZoneInfo as _Z
+    import json
+    import numpy as np
+    import pandas as pd
+    from .utils.io import RAW_DIR, PROC_DIR
+    from .utils.odds import american_to_decimal
+
+    # Load realized player stats for outcomes
+    stats_path = RAW_DIR / "player_game_stats.csv"
+    if not stats_path.exists():
+        print("player_game_stats.csv missing; run props_stats_backfill first.")
+        raise typer.Exit(code=1)
+    try:
+        stats_all = pd.read_csv(stats_path)
+    except Exception:
+        print("Failed to read player_game_stats.csv; is the file empty or malformed?")
+        raise typer.Exit(code=1)
+
+    # Normalize stats date and player fields (reuse logic from projections backtest)
+    def _iso_to_et(iso_utc: str) -> str | None:
+        try:
+            s = str(iso_utc or "").replace("Z", "+00:00")
+            dt = datetime.fromisoformat(s)
+        except Exception:
+            try:
+                dt = datetime.fromisoformat(str(iso_utc)[:19]).replace(tzinfo=datetime.timezone.utc)  # type: ignore
+            except Exception:
+                return None
+        try:
+            return dt.astimezone(_Z("America/New_York")).strftime("%Y-%m-%d")
+        except Exception:
+            return None
+
+    import ast, re, unicodedata
+    def _extract_player_text(v) -> str:
+        if v is None:
+            return ""
+        try:
+            if isinstance(v, str) and v.strip().startswith("{") and v.strip().endswith("}"):
+                d = ast.literal_eval(v)
+                if isinstance(d, dict):
+                    for k in ("default", "en", "name", "fullName", "full_name"):
+                        if d.get(k):
+                            return str(d.get(k))
+                return str(v)
+            if isinstance(v, dict):
+                for k in ("default", "en", "name", "fullName", "full_name"):
+                    if v.get(k):
+                        return str(v.get(k))
+                return str(v)
+            return str(v)
+        except Exception:
+            return str(v)
+
+    def _norm_name(s: str) -> str:
+        s = (s or "").strip()
+        s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode()
+        s = re.sub(r"\s+", " ", s)
+        return s.lower()
+
+    stats_all["date_et"] = stats_all["date"].apply(_iso_to_et)
+    stats_all["player_text_raw"] = stats_all["player"].apply(_extract_player_text)
+    stats_all["player_text_norm"] = stats_all["player_text_raw"].apply(_norm_name)
+    stats_all["player_text_nodot"] = stats_all["player_text_norm"].str.replace(".", "", regex=False)
+
+    allowed_markets = [m.strip().upper() for m in (markets or "").split(",") if m.strip()]
+
+    # Parse per-market thresholds if provided
+    def _parse_thresholds(s: str) -> dict[str, float]:
+        d: dict[str, float] = {}
+        for part in (s or "").split(","):
+            part = part.strip()
+            if not part or "=" not in part:
+                continue
+            k, v = part.split("=", 1)
+            try:
+                d[str(k).strip().upper()] = float(str(v).strip())
+            except Exception:
+                continue
+        return d
+    per_thr = _parse_thresholds(min_ev_per_market)
+
+    # Iterate dates
+    def to_dt(s: str) -> datetime:
+        return datetime.strptime(s, "%Y-%m-%d")
+    cur = to_dt(start); end_dt = to_dt(end)
+    rows = []
+    calib = []
+
+    while cur <= end_dt:
+        d = cur.strftime("%Y-%m-%d")
+        sim_path = PROC_DIR / f"props_simulations_{d}.csv"
+        if not sim_path.exists():
+            cur += timedelta(days=1)
+            continue
+        try:
+            sim_df = pd.read_csv(sim_path)
+        except Exception:
+            cur += timedelta(days=1)
+            continue
+        if sim_df.empty:
+            cur += timedelta(days=1)
+            continue
+        sim_df["market"] = sim_df["market"].astype(str).str.upper()
+        if allowed_markets:
+            sim_df = sim_df[sim_df["market"].isin(allowed_markets)]
+        if sim_df.empty:
+            cur += timedelta(days=1)
+            continue
+        # Normalize player display for join to stats
+        name_col = "player" if "player" in sim_df.columns else None
+        if not name_col:
+            cur += timedelta(days=1)
+            continue
+        sim_df["player_norm"] = sim_df[name_col].astype(str).apply(_norm_name)
+        # Compute EVs and evaluate outcomes
+        for _, r in sim_df.iterrows():
+            m = str(r.get("market") or "").upper()
+            if allowed_markets and m not in allowed_markets:
+                continue
+            player_disp = r.get(name_col)
+            ln = r.get("line")
+            try:
+                ln = float(ln)
+            except Exception:
+                continue
+            p_over = pd.to_numeric(r.get("p_over_sim"), errors="coerce")
+            if pd.isna(p_over):
+                continue
+            p_over = float(p_over)
+            p_under = max(0.0, 1.0 - p_over)
+            dec_o = american_to_decimal(r.get("over_price")) if pd.notna(r.get("over_price")) else None
+            dec_u = american_to_decimal(r.get("under_price")) if pd.notna(r.get("under_price")) else None
+            ev_o = (p_over * (dec_o - 1.0) - (1.0 - p_over)) if (dec_o is not None) else None
+            ev_u = (p_under * (dec_u - 1.0) - (1.0 - p_under)) if (dec_u is not None) else None
+            side = None; price = None; ev = None
+            if ev_o is not None or ev_u is not None:
+                if (ev_u is None) or (ev_o is not None and ev_o >= ev_u):
+                    side = "Over"; price = r.get("over_price"); ev = ev_o
+                else:
+                    side = "Under"; price = r.get("under_price"); ev = ev_u
+            if ev is None:
+                continue
+            thr = per_thr.get(m, float(min_ev)) if per_thr else float(min_ev)
+            try:
+                if thr is not None and float(thr) > -1.0 and float(ev) < float(thr):
+                    continue
+            except Exception:
+                pass
+
+            # Actual outcome from stats on ET date d
+            day_stats = stats_all[stats_all["date_et"] == d]
+            # Name variants inlined: exact, no-dot, initial-last
+            _full = str(player_disp or "").strip()
+            _parts = [p for p in _full.split(" ") if p]
+            _vars = set()
+            if _full:
+                _nm = _norm_name(_full)
+                _vars.add(_nm)
+                _vars.add(_nm.replace(".", ""))
+            if len(_parts) >= 2:
+                _first, _last = _parts[0], _parts[-1]
+                _init_last = f"{_first[0]}. {_last}"
+                _nm2 = _norm_name(_init_last)
+                _vars.add(_nm2)
+                _vars.add(_nm2.replace(".", ""))
+            ps = day_stats[day_stats["player_text_norm"].isin(_vars) | day_stats["player_text_nodot"].isin(_vars)]
+            actual = None
+            if not ps.empty:
+                row = ps.iloc[0]
+                if m == "SOG":
+                    actual = row.get("shots")
+                elif m == "SAVES":
+                    actual = row.get("saves")
+                elif m == "GOALS":
+                    actual = row.get("goals")
+                elif m == "ASSISTS":
+                    actual = row.get("assists")
+                elif m == "POINTS":
+                    try:
+                        actual = float((row.get("goals") or 0)) + float((row.get("assists") or 0))
+                    except Exception:
+                        actual = None
+                elif m == "BLOCKS":
+                    actual = row.get("blocked")
+            result = None
+            if actual is not None and pd.notna(actual):
+                try:
+                    av = float(actual)
+                    if av > ln:
+                        over_res = "win"
+                    elif av < ln:
+                        over_res = "loss"
+                    else:
+                        over_res = "push"
+                    if side == "Over":
+                        result = over_res
+                    elif side == "Under":
+                        if over_res == "win":
+                            result = "loss"
+                        elif over_res == "loss":
+                            result = "win"
+                        else:
+                            result = "push"
+                except Exception:
+                    result = None
+
+            payout = None
+            if result is not None:
+                dec = american_to_decimal(price)
+                if result == "win" and dec is not None:
+                    payout = stake * (dec - 1.0)
+                elif result == "loss":
+                    payout = -stake
+                elif result == "push":
+                    payout = 0.0
+
+            rows.append({
+                "date": d,
+                "market": m,
+                "player": player_disp,
+                "line": float(ln),
+                "book": r.get("book"),
+                "over_price": r.get("over_price") if pd.notna(r.get("over_price")) else None,
+                "under_price": r.get("under_price") if pd.notna(r.get("under_price")) else None,
+                "p_over": float(p_over),
+                "side": side,
+                "ev": float(ev) if ev is not None else None,
+                "actual": actual,
+                "result": result,
+                "stake": stake,
+                "payout": payout,
+            })
+            # Calibration record for over outcome
+            if actual is not None and pd.notna(actual) and (abs(ln - round(ln)) > 1e-9 or float(actual) != float(round(ln))):
+                calib.append({
+                    "date": d,
+                    "market": m,
+                    "p_over": float(p_over),
+                    "over_won": bool(float(actual) > float(ln)),
+                })
+        cur += timedelta(days=1)
+
+    rows_df = pd.DataFrame(rows)
+    if rows_df.empty:
+        print("No backtest rows generated. Ensure simulations exist for the range.")
+        raise typer.Exit(code=0)
+
+    def summarize(df: pd.DataFrame) -> dict:
+        out: dict[str, object] = {
+            "picks": int(len(df)),
+            "decided": int(df["result"].isin(["win", "loss"]).sum()),
+            "wins": int((df["result"] == "win").sum()),
+            "losses": int((df["result"] == "loss").sum()),
+            "pushes": int((df["result"] == "push").sum()),
+        }
+        try:
+            decided = df[df["result"].isin(["win", "loss"])].copy()
+            if not decided.empty:
+                # chosen probability for the selected side
+                p_sel = np.where(
+                    decided["side"].astype(str) == "Over",
+                    pd.to_numeric(decided["p_over"], errors="coerce").astype(float),
+                    1.0 - pd.to_numeric(decided["p_over"], errors="coerce").astype(float),
+                )
+                y = (decided["result"] == "win").astype(float).to_numpy()
+                p_sel = np.clip(p_sel, 0.0, 1.0)
+                # accuracy and Brier score
+                acc = float((y == 1.0).mean()) if len(y) > 0 else None
+                brier = float(np.mean((p_sel - y) ** 2)) if len(y) > 0 else None
+                out["accuracy"] = acc
+                out["brier"] = brier
+                out["avg_prob"] = float(np.mean(p_sel))
+            else:
+                out["accuracy"] = None
+                out["brier"] = None
+                out["avg_prob"] = None
+        except Exception:
+            out["accuracy"] = None
+            out["brier"] = None
+            out["avg_prob"] = None
+        return out
+
+    overall = summarize(rows_df)
+    by_market = {mkt: summarize(g) for mkt, g in rows_df.groupby("market")}
+    # Also report accuracy at probability cut thresholds for quick targeting
+    def acc_at_threshold(df: pd.DataFrame, thr: float) -> dict:
+        try:
+            p_chosen = np.where(df["side"].astype(str)=="Over", df["p_over"].astype(float), (1.0 - df["p_over"].astype(float)))
+            decided = df[df["result"].isin(["win","loss"])].copy()
+            p_sel = np.where(decided["side"].astype(str)=="Over", decided["p_over"].astype(float), (1.0 - decided["p_over"].astype(float)))
+            mask = p_sel >= thr
+            sub = decided[mask]
+            acc = float((sub["result"] == "win").mean()) if len(sub) > 0 else None
+            return {"picks": int(len(sub)), "accuracy": acc}
+        except Exception:
+            return {"picks": 0, "accuracy": None}
+    thresholds = [0.55, 0.60, 0.65]
+    by_market_thresholds = {
+        mkt: {str(t): acc_at_threshold(g, t) for t in thresholds}
+        for mkt, g in rows_df.groupby("market")
+    }
+
+    calib_df = pd.DataFrame(calib)
+    calib_bins = []
+    if not calib_df.empty:
+        bins = np.linspace(0.0, 1.0, 11)
+        calib_df["bin"] = pd.cut(calib_df["p_over"], bins=bins, include_lowest=True)
+        for b, g in calib_df.groupby("bin"):
+            try:
+                exp = float(g["p_over"].mean())
+                obs = float(g["over_won"].mean())
+                cnt = int(len(g))
+                calib_bins.append({"bin": str(b), "expected": exp, "observed": obs, "count": cnt})
+            except Exception:
+                continue
+
+    pref = (out_prefix.strip() + "_") if out_prefix.strip() else ""
+    rows_path = PROC_DIR / f"{pref}props_backtest_sim_rows_{start}_to_{end}.csv"
+    summ_path = PROC_DIR / f"{pref}props_backtest_sim_summary_{start}_to_{end}.json"
+    rows_df.to_csv(rows_path, index=False)
+    with open(summ_path, "w", encoding="utf-8") as f:
+        json.dump({
+            "overall": overall,
+            "by_market": by_market,
+            "by_market_thresholds": by_market_thresholds,
+            "calibration": calib_bins,
+            "filters": {"markets": allowed_markets, "min_ev": min_ev}
+        }, f, indent=2)
+    print(json.dumps({"overall": overall, "by_market": by_market}, indent=2))
     print(f"Saved rows to {rows_path} and summary to {summ_path}")
 
 

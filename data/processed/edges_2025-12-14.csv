@@ -1,35 +1,49 @@
-date,home,away,market,ev
-2025-12-15T01:00:00Z,Seattle Kraken,Buffalo Sabres,ev_away_pl_+1.5,0.3667
-2025-12-14T22:00:00Z,Carolina Hurricanes,Philadelphia Flyers,ev_away_ml,0.2949
-2025-12-14T20:00:00Z,Pittsburgh Penguins,Utah Mammoth,ev_away_ml,0.2439
-2025-12-14T17:30:00Z,New Jersey Devils,Vancouver Canucks,ev_away_ml,0.2305
-2025-12-14T22:00:00Z,Carolina Hurricanes,Philadelphia Flyers,ev_over,0.192
-2025-12-15T00:00:00Z,Montréal Canadiens,Edmonton Oilers,ev_away_ml,0.1687
-2025-12-14T17:30:00Z,New Jersey Devils,Vancouver Canucks,ev_over,0.1504
-2025-12-15T00:00:00Z,Montréal Canadiens,Edmonton Oilers,ev_under,0.1445
-2025-12-14T17:30:00Z,New Jersey Devils,Vancouver Canucks,ev_away_pl_+1.5,0.1413
-2025-12-14T23:00:00Z,Minnesota Wild,Boston Bruins,ev_away_pl_+1.5,0.1367
-2025-12-14T22:00:00Z,Carolina Hurricanes,Philadelphia Flyers,ev_away_pl_+1.5,0.1102
-2025-12-15T01:00:00Z,Seattle Kraken,Buffalo Sabres,ev_f10_yes,0.1027
-2025-12-14T23:00:00Z,Minnesota Wild,Boston Bruins,ev_over,0.0909
-2025-12-14T23:00:00Z,Minnesota Wild,Boston Bruins,ev_home_ml,0.0776
-2025-12-14T20:00:00Z,Pittsburgh Penguins,Utah Mammoth,ev_under,-0.003
-2025-12-15T01:00:00Z,Seattle Kraken,Buffalo Sabres,ev_under,-0.0213
-2025-12-15T01:00:00Z,Seattle Kraken,Buffalo Sabres,ev_away_ml,-0.0299
-2025-12-15T01:00:00Z,Seattle Kraken,Buffalo Sabres,ev_home_ml,-0.0583
-2025-12-15T01:00:00Z,Seattle Kraken,Buffalo Sabres,ev_over,-0.0631
-2025-12-14T20:00:00Z,Pittsburgh Penguins,Utah Mammoth,ev_over,-0.0855
-2025-12-14T23:00:00Z,Minnesota Wild,Boston Bruins,ev_away_ml,-0.1911
-2025-12-14T22:00:00Z,Carolina Hurricanes,Philadelphia Flyers,ev_home_ml,-0.1944
-2025-12-14T23:00:00Z,Minnesota Wild,Boston Bruins,ev_under,-0.1949
-2025-12-14T22:00:00Z,Carolina Hurricanes,Philadelphia Flyers,ev_home_pl_-1.5,-0.2178
-2025-12-15T00:00:00Z,Montréal Canadiens,Edmonton Oilers,ev_over,-0.2428
-2025-12-14T17:30:00Z,New Jersey Devils,Vancouver Canucks,ev_under,-0.2528
-2025-12-14T17:30:00Z,New Jersey Devils,Vancouver Canucks,ev_home_ml,-0.2675
-2025-12-15T00:00:00Z,Montréal Canadiens,Edmonton Oilers,ev_home_ml,-0.2872
-2025-12-14T22:00:00Z,Carolina Hurricanes,Philadelphia Flyers,ev_under,-0.3032
-2025-12-14T23:00:00Z,Minnesota Wild,Boston Bruins,ev_home_pl_-1.5,-0.3819
-2025-12-14T20:00:00Z,Pittsburgh Penguins,Utah Mammoth,ev_home_ml,-0.3892
-2025-12-14T17:30:00Z,New Jersey Devils,Vancouver Canucks,ev_home_pl_-1.5,-0.4068
-2025-12-15T01:00:00Z,Seattle Kraken,Buffalo Sabres,ev_f10_no,-0.436
-2025-12-15T01:00:00Z,Seattle Kraken,Buffalo Sabres,ev_home_pl_-1.5,-0.4576
+date,home,away,market,ev
+2025-12-14T20:00:00Z,Pittsburgh Penguins,Utah Mammoth,ev_away_pl_+1.5,0.6165
+2025-12-15T00:00:00Z,Montréal Canadiens,Edmonton Oilers,ev_away_pl_+1.5,0.4894
+2025-12-15T01:00:00Z,Seattle Kraken,Buffalo Sabres,ev_away_pl_+1.5,0.3667
+2025-12-14T22:00:00Z,Carolina Hurricanes,Philadelphia Flyers,ev_away_ml,0.2949
+2025-12-14T20:00:00Z,Pittsburgh Penguins,Utah Mammoth,ev_away_ml,0.2439
+2025-12-14T17:30:00Z,New Jersey Devils,Vancouver Canucks,ev_away_ml,0.2305
+2025-12-14T22:00:00Z,Carolina Hurricanes,Philadelphia Flyers,ev_over,0.192
+2025-12-15T00:00:00Z,Montréal Canadiens,Edmonton Oilers,ev_away_ml,0.1687
+2025-12-14T17:30:00Z,New Jersey Devils,Vancouver Canucks,ev_over,0.1504
+2025-12-15T00:00:00Z,Montréal Canadiens,Edmonton Oilers,ev_under,0.1445
+2025-12-14T17:30:00Z,New Jersey Devils,Vancouver Canucks,ev_away_pl_+1.5,0.1413
+2025-12-14T23:00:00Z,Minnesota Wild,Boston Bruins,ev_away_pl_+1.5,0.1367
+2025-12-14T17:30:00Z,New Jersey Devils,Vancouver Canucks,ev_f10_yes,0.124
+2025-12-15T00:00:00Z,Montréal Canadiens,Edmonton Oilers,ev_f10_yes,0.1119
+2025-12-14T22:00:00Z,Carolina Hurricanes,Philadelphia Flyers,ev_away_pl_+1.5,0.1102
+2025-12-15T01:00:00Z,Seattle Kraken,Buffalo Sabres,ev_f10_yes,0.1027
+2025-12-14T20:00:00Z,Pittsburgh Penguins,Utah Mammoth,ev_f10_yes,0.0964
+2025-12-14T23:00:00Z,Minnesota Wild,Boston Bruins,ev_over,0.0909
+2025-12-14T23:00:00Z,Minnesota Wild,Boston Bruins,ev_home_ml,0.0776
+2025-12-14T23:00:00Z,Minnesota Wild,Boston Bruins,ev_f10_yes,0.0508
+2025-12-14T22:00:00Z,Carolina Hurricanes,Philadelphia Flyers,ev_f10_yes,0.044
+2025-12-14T20:00:00Z,Pittsburgh Penguins,Utah Mammoth,ev_under,-0.003
+2025-12-15T01:00:00Z,Seattle Kraken,Buffalo Sabres,ev_under,-0.0213
+2025-12-15T01:00:00Z,Seattle Kraken,Buffalo Sabres,ev_away_ml,-0.0299
+2025-12-15T01:00:00Z,Seattle Kraken,Buffalo Sabres,ev_home_ml,-0.0583
+2025-12-15T01:00:00Z,Seattle Kraken,Buffalo Sabres,ev_over,-0.0631
+2025-12-14T20:00:00Z,Pittsburgh Penguins,Utah Mammoth,ev_over,-0.0855
+2025-12-14T23:00:00Z,Minnesota Wild,Boston Bruins,ev_away_ml,-0.1911
+2025-12-14T22:00:00Z,Carolina Hurricanes,Philadelphia Flyers,ev_home_ml,-0.1944
+2025-12-14T23:00:00Z,Minnesota Wild,Boston Bruins,ev_under,-0.1949
+2025-12-14T22:00:00Z,Carolina Hurricanes,Philadelphia Flyers,ev_home_pl_-1.5,-0.2178
+2025-12-15T00:00:00Z,Montréal Canadiens,Edmonton Oilers,ev_over,-0.2428
+2025-12-14T17:30:00Z,New Jersey Devils,Vancouver Canucks,ev_under,-0.2528
+2025-12-14T17:30:00Z,New Jersey Devils,Vancouver Canucks,ev_home_ml,-0.2675
+2025-12-15T00:00:00Z,Montréal Canadiens,Edmonton Oilers,ev_home_ml,-0.2872
+2025-12-14T22:00:00Z,Carolina Hurricanes,Philadelphia Flyers,ev_under,-0.3032
+2025-12-14T22:00:00Z,Carolina Hurricanes,Philadelphia Flyers,ev_f10_no,-0.3773
+2025-12-14T23:00:00Z,Minnesota Wild,Boston Bruins,ev_home_pl_-1.5,-0.3819
+2025-12-14T23:00:00Z,Minnesota Wild,Boston Bruins,ev_f10_no,-0.3841
+2025-12-14T20:00:00Z,Pittsburgh Penguins,Utah Mammoth,ev_home_ml,-0.3892
+2025-12-14T17:30:00Z,New Jersey Devils,Vancouver Canucks,ev_home_pl_-1.5,-0.4068
+2025-12-14T20:00:00Z,Pittsburgh Penguins,Utah Mammoth,ev_f10_no,-0.4297
+2025-12-15T01:00:00Z,Seattle Kraken,Buffalo Sabres,ev_f10_no,-0.436
+2025-12-15T00:00:00Z,Montréal Canadiens,Edmonton Oilers,ev_f10_no,-0.4452
+2025-12-14T17:30:00Z,New Jersey Devils,Vancouver Canucks,ev_f10_no,-0.4573
+2025-12-15T01:00:00Z,Seattle Kraken,Buffalo Sabres,ev_home_pl_-1.5,-0.4576
+2025-12-15T00:00:00Z,Montréal Canadiens,Edmonton Oilers,ev_home_pl_-1.5,-0.5803
+2025-12-14T20:00:00Z,Pittsburgh Penguins,Utah Mammoth,ev_home_pl_-1.5,-0.7074

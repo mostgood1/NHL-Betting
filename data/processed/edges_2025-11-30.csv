@@ -1,23 +1,33 @@
-date,home,away,market,ev
-2025-11-30T18:00:00Z,New York Islanders,Washington Capitals,ev_away_ml,0.351
-2025-11-30T22:00:00Z,Carolina Hurricanes,Calgary Flames,ev_away_ml,0.3021
-2025-11-30T20:30:00Z,Chicago Blackhawks,Anaheim Ducks,ev_away_ml,0.2371
-2025-11-30T23:00:00Z,Dallas Stars,Ottawa Senators,ev_home_ml,0.1472
-2025-11-30T23:00:00Z,Dallas Stars,Ottawa Senators,ev_f10_yes,0.1088
-2025-11-30T20:30:00Z,Chicago Blackhawks,Anaheim Ducks,ev_under,0.1036
-2025-11-30T23:00:00Z,Dallas Stars,Ottawa Senators,ev_over,0.072
-2025-11-30T22:00:00Z,Carolina Hurricanes,Calgary Flames,ev_away_pl_+1.5,0.0303
-2025-11-30T23:00:00Z,Dallas Stars,Ottawa Senators,ev_away_pl_+1.5,0.0186
-2025-11-30T22:00:00Z,Carolina Hurricanes,Calgary Flames,ev_under,0.0174
-2025-11-30T18:00:00Z,New York Islanders,Washington Capitals,ev_over,-0.0231
-2025-11-30T18:00:00Z,New York Islanders,Washington Capitals,ev_under,-0.0609
-2025-11-30T22:00:00Z,Carolina Hurricanes,Calgary Flames,ev_over,-0.1107
-2025-11-30T22:00:00Z,Carolina Hurricanes,Calgary Flames,ev_home_pl_-1.5,-0.1234
-2025-11-30T23:00:00Z,Dallas Stars,Ottawa Senators,ev_home_pl_-1.5,-0.1553
-2025-11-30T23:00:00Z,Dallas Stars,Ottawa Senators,ev_under,-0.1724
-2025-11-30T20:30:00Z,Chicago Blackhawks,Anaheim Ducks,ev_over,-0.1872
-2025-11-30T22:00:00Z,Carolina Hurricanes,Calgary Flames,ev_home_ml,-0.1977
-2025-11-30T23:00:00Z,Dallas Stars,Ottawa Senators,ev_away_ml,-0.2809
-2025-11-30T20:30:00Z,Chicago Blackhawks,Anaheim Ducks,ev_home_ml,-0.3589
-2025-11-30T23:00:00Z,Dallas Stars,Ottawa Senators,ev_f10_no,-0.4422
-2025-11-30T18:00:00Z,New York Islanders,Washington Capitals,ev_home_ml,-0.5036
+date,home,away,market,ev
+2025-11-30T18:00:00Z,New York Islanders,Washington Capitals,ev_away_pl_+1.5,0.552
+2025-11-30T20:30:00Z,Chicago Blackhawks,Anaheim Ducks,ev_away_pl_+1.5,0.4446
+2025-11-30T18:00:00Z,New York Islanders,Washington Capitals,ev_away_ml,0.351
+2025-11-30T22:00:00Z,Carolina Hurricanes,Calgary Flames,ev_away_ml,0.3021
+2025-11-30T20:30:00Z,Chicago Blackhawks,Anaheim Ducks,ev_away_ml,0.2371
+2025-11-30T23:00:00Z,Dallas Stars,Ottawa Senators,ev_home_ml,0.1472
+2025-11-30T23:00:00Z,Dallas Stars,Ottawa Senators,ev_f10_yes,0.1088
+2025-11-30T20:30:00Z,Chicago Blackhawks,Anaheim Ducks,ev_under,0.1036
+2025-11-30T18:00:00Z,New York Islanders,Washington Capitals,ev_f10_yes,0.0901
+2025-11-30T23:00:00Z,Dallas Stars,Ottawa Senators,ev_over,0.072
+2025-11-30T22:00:00Z,Carolina Hurricanes,Calgary Flames,ev_away_pl_+1.5,0.0303
+2025-11-30T23:00:00Z,Dallas Stars,Ottawa Senators,ev_away_pl_+1.5,0.0186
+2025-11-30T22:00:00Z,Carolina Hurricanes,Calgary Flames,ev_under,0.0174
+2025-11-30T22:00:00Z,Carolina Hurricanes,Calgary Flames,ev_f10_yes,0.0124
+2025-11-30T20:30:00Z,Chicago Blackhawks,Anaheim Ducks,ev_f10_yes,0.0051
+2025-11-30T18:00:00Z,New York Islanders,Washington Capitals,ev_over,-0.0231
+2025-11-30T18:00:00Z,New York Islanders,Washington Capitals,ev_under,-0.0609
+2025-11-30T22:00:00Z,Carolina Hurricanes,Calgary Flames,ev_over,-0.1107
+2025-11-30T22:00:00Z,Carolina Hurricanes,Calgary Flames,ev_home_pl_-1.5,-0.1234
+2025-11-30T23:00:00Z,Dallas Stars,Ottawa Senators,ev_home_pl_-1.5,-0.1553
+2025-11-30T23:00:00Z,Dallas Stars,Ottawa Senators,ev_under,-0.1724
+2025-11-30T20:30:00Z,Chicago Blackhawks,Anaheim Ducks,ev_over,-0.1872
+2025-11-30T22:00:00Z,Carolina Hurricanes,Calgary Flames,ev_home_ml,-0.1977
+2025-11-30T23:00:00Z,Dallas Stars,Ottawa Senators,ev_away_ml,-0.2809
+2025-11-30T20:30:00Z,Chicago Blackhawks,Anaheim Ducks,ev_f10_no,-0.3385
+2025-11-30T22:00:00Z,Carolina Hurricanes,Calgary Flames,ev_f10_no,-0.3457
+2025-11-30T20:30:00Z,Chicago Blackhawks,Anaheim Ducks,ev_home_ml,-0.3589
+2025-11-30T18:00:00Z,New York Islanders,Washington Capitals,ev_f10_no,-0.4234
+2025-11-30T23:00:00Z,Dallas Stars,Ottawa Senators,ev_f10_no,-0.4422
+2025-11-30T18:00:00Z,New York Islanders,Washington Capitals,ev_home_ml,-0.5036
+2025-11-30T20:30:00Z,Chicago Blackhawks,Anaheim Ducks,ev_home_pl_-1.5,-0.5355
+2025-11-30T18:00:00Z,New York Islanders,Washington Capitals,ev_home_pl_-1.5,-0.6429

@@ -51,7 +51,7 @@ def collect_oddsapi_props(date: str) -> pd.DataFrame:
     # Note: Some books return 422 for unsupported player markets; to maximize coverage
     # and avoid per-event probing, we limit to the most reliable keys.
     # Keys per OddsAPI docs commonly available: player_shots_on_goal, player_goals, player_assists, player_points
-    markets = "player_shots_on_goal,player_goals,player_assists,player_points"
+    markets = "player_shots_on_goal,player_goals,player_assists,player_points,player_saves,player_blocks"
     rows: List[Dict] = []
     # Map Odds API market keys to our canonical markets
     m_map = {
@@ -59,9 +59,8 @@ def collect_oddsapi_props(date: str) -> pd.DataFrame:
         "player_goals": "GOALS",
         "player_assists": "ASSISTS",
         "player_points": "POINTS",
-    # Additional markets like goalie saves/blocks can be added when consistently supported by requested books.
-    # "player_saves": "SAVES",
-    # "player_blocks": "BLOCKS",
+        "player_saves": "SAVES",
+        "player_blocks": "BLOCKS",
     }
     def _parse_event_markets(event_odds_obj: Dict):
         bks = event_odds_obj.get("bookmakers", [])

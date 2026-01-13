@@ -1,47 +1,65 @@
-date,home,away,market,ev
-2025-11-19T01:00:00Z,Dallas Stars,New York Islanders,ev_home_ml,0.2505
-2025-11-19T01:00:00Z,Winnipeg Jets,Columbus Blue Jackets,ev_home_ml,0.2468
-2025-11-19T00:00:00Z,Toronto Maple Leafs,St. Louis Blues,ev_home_ml,0.2398
-2025-11-19T00:00:00Z,Detroit Red Wings,Seattle Kraken,ev_over,0.1768
-2025-11-19T03:00:00Z,Vegas Golden Knights,New York Rangers,ev_home_ml,0.1739
-2025-11-19T01:30:00Z,Chicago Blackhawks,Calgary Flames,ev_over,0.1657
-2025-11-19T00:00:00Z,Toronto Maple Leafs,St. Louis Blues,ev_over,0.1577
-2025-11-19T00:00:00Z,Tampa Bay Lightning,New Jersey Devils,ev_over,0.1523
-2025-11-19T00:00:00Z,Toronto Maple Leafs,St. Louis Blues,ev_away_pl_+1.5,0.1252
-2025-11-19T01:30:00Z,Chicago Blackhawks,Calgary Flames,ev_home_ml,0.1245
-2025-11-19T03:00:00Z,San Jose Sharks,Utah Mammoth,ev_under,0.0986
-2025-11-19T00:00:00Z,Tampa Bay Lightning,New Jersey Devils,ev_home_ml,0.0894
-2025-11-19T03:00:00Z,Vegas Golden Knights,New York Rangers,ev_away_pl_+1.5,0.0839
-2025-11-19T00:00:00Z,Detroit Red Wings,Seattle Kraken,ev_home_ml,0.0794
-2025-11-19T01:00:00Z,Winnipeg Jets,Columbus Blue Jackets,ev_under,0.051
-2025-11-19T00:00:00Z,Detroit Red Wings,Seattle Kraken,ev_away_pl_+1.5,0.0348
-2025-11-19T01:00:00Z,Dallas Stars,New York Islanders,ev_under,0.0327
-2025-11-19T01:00:00Z,Dallas Stars,New York Islanders,ev_away_pl_+1.5,0.0325
-2025-11-19T03:00:00Z,Vegas Golden Knights,New York Rangers,ev_over,0.0272
-2025-11-19T00:00:00Z,Tampa Bay Lightning,New Jersey Devils,ev_away_pl_+1.5,-0.0049
-2025-11-19T01:00:00Z,Winnipeg Jets,Columbus Blue Jackets,ev_home_pl_-1.5,-0.0098
-2025-11-19T01:30:00Z,Chicago Blackhawks,Calgary Flames,ev_away_pl_+1.5,-0.0136
-2025-11-19T03:00:00Z,San Jose Sharks,Utah Mammoth,ev_away_ml,-0.0151
-2025-11-19T01:00:00Z,Winnipeg Jets,Columbus Blue Jackets,ev_away_pl_+1.5,-0.0587
-2025-11-19T03:00:00Z,San Jose Sharks,Utah Mammoth,ev_home_ml,-0.0714
-2025-11-19T00:00:00Z,Tampa Bay Lightning,New Jersey Devils,ev_home_pl_-1.5,-0.1013
-2025-11-19T01:30:00Z,Chicago Blackhawks,Calgary Flames,ev_home_pl_-1.5,-0.1078
-2025-11-19T03:00:00Z,Vegas Golden Knights,New York Rangers,ev_under,-0.1192
-2025-11-19T01:00:00Z,Dallas Stars,New York Islanders,ev_over,-0.1258
-2025-11-19T01:00:00Z,Winnipeg Jets,Columbus Blue Jackets,ev_over,-0.147
-2025-11-19T01:00:00Z,Dallas Stars,New York Islanders,ev_home_pl_-1.5,-0.1594
-2025-11-19T00:00:00Z,Detroit Red Wings,Seattle Kraken,ev_home_pl_-1.5,-0.1662
-2025-11-19T03:00:00Z,San Jose Sharks,Utah Mammoth,ev_over,-0.1949
-2025-11-19T01:30:00Z,Chicago Blackhawks,Calgary Flames,ev_away_ml,-0.2154
-2025-11-19T00:00:00Z,Detroit Red Wings,Seattle Kraken,ev_away_ml,-0.2329
-2025-11-19T00:00:00Z,Tampa Bay Lightning,New Jersey Devils,ev_away_ml,-0.2399
-2025-11-19T00:00:00Z,Toronto Maple Leafs,St. Louis Blues,ev_under,-0.2742
-2025-11-19T00:00:00Z,Tampa Bay Lightning,New Jersey Devils,ev_under,-0.2765
-2025-11-19T01:30:00Z,Chicago Blackhawks,Calgary Flames,ev_under,-0.2776
-2025-11-19T03:00:00Z,Vegas Golden Knights,New York Rangers,ev_home_pl_-1.5,-0.2805
-2025-11-19T00:00:00Z,Detroit Red Wings,Seattle Kraken,ev_under,-0.3067
-2025-11-19T03:00:00Z,Vegas Golden Knights,New York Rangers,ev_away_ml,-0.3154
-2025-11-19T00:00:00Z,Toronto Maple Leafs,St. Louis Blues,ev_away_ml,-0.362
-2025-11-19T00:00:00Z,Toronto Maple Leafs,St. Louis Blues,ev_home_pl_-1.5,-0.3973
-2025-11-19T01:00:00Z,Dallas Stars,New York Islanders,ev_away_ml,-0.4853
-2025-11-19T01:00:00Z,Winnipeg Jets,Columbus Blue Jackets,ev_away_ml,-0.5315
+date,home,away,market,ev
+2025-11-19T03:00:00Z,San Jose Sharks,Utah Mammoth,ev_away_pl_+1.5,0.7074
+2025-11-19T01:00:00Z,Dallas Stars,New York Islanders,ev_home_ml,0.2505
+2025-11-19T01:00:00Z,Winnipeg Jets,Columbus Blue Jackets,ev_home_ml,0.2468
+2025-11-19T00:00:00Z,Toronto Maple Leafs,St. Louis Blues,ev_home_ml,0.2398
+2025-11-19T00:00:00Z,Detroit Red Wings,Seattle Kraken,ev_over,0.1768
+2025-11-19T03:00:00Z,Vegas Golden Knights,New York Rangers,ev_home_ml,0.1739
+2025-11-19T01:30:00Z,Chicago Blackhawks,Calgary Flames,ev_over,0.1657
+2025-11-19T00:00:00Z,Toronto Maple Leafs,St. Louis Blues,ev_over,0.1577
+2025-11-19T00:00:00Z,Tampa Bay Lightning,New Jersey Devils,ev_over,0.1523
+2025-11-19T01:00:00Z,Dallas Stars,New York Islanders,ev_f10_yes,0.1269
+2025-11-19T00:00:00Z,Toronto Maple Leafs,St. Louis Blues,ev_away_pl_+1.5,0.1252
+2025-11-19T01:30:00Z,Chicago Blackhawks,Calgary Flames,ev_home_ml,0.1245
+2025-11-19T00:00:00Z,Tampa Bay Lightning,New Jersey Devils,ev_f10_yes,0.1057
+2025-11-19T03:00:00Z,San Jose Sharks,Utah Mammoth,ev_f10_yes,0.1027
+2025-11-19T00:00:00Z,Detroit Red Wings,Seattle Kraken,ev_f10_yes,0.0995
+2025-11-19T03:00:00Z,San Jose Sharks,Utah Mammoth,ev_under,0.0986
+2025-11-19T00:00:00Z,Tampa Bay Lightning,New Jersey Devils,ev_home_ml,0.0894
+2025-11-19T03:00:00Z,Vegas Golden Knights,New York Rangers,ev_away_pl_+1.5,0.0839
+2025-11-19T00:00:00Z,Detroit Red Wings,Seattle Kraken,ev_home_ml,0.0794
+2025-11-19T00:00:00Z,Toronto Maple Leafs,St. Louis Blues,ev_f10_yes,0.0642
+2025-11-19T01:00:00Z,Winnipeg Jets,Columbus Blue Jackets,ev_under,0.051
+2025-11-19T03:00:00Z,Vegas Golden Knights,New York Rangers,ev_f10_yes,0.0474
+2025-11-19T00:00:00Z,Detroit Red Wings,Seattle Kraken,ev_away_pl_+1.5,0.0348
+2025-11-19T01:00:00Z,Winnipeg Jets,Columbus Blue Jackets,ev_f10_yes,0.0336
+2025-11-19T01:00:00Z,Dallas Stars,New York Islanders,ev_under,0.0327
+2025-11-19T01:00:00Z,Dallas Stars,New York Islanders,ev_away_pl_+1.5,0.0325
+2025-11-19T01:30:00Z,Chicago Blackhawks,Calgary Flames,ev_f10_yes,0.0301
+2025-11-19T03:00:00Z,Vegas Golden Knights,New York Rangers,ev_over,0.0272
+2025-11-19T00:00:00Z,Tampa Bay Lightning,New Jersey Devils,ev_away_pl_+1.5,-0.0049
+2025-11-19T01:00:00Z,Winnipeg Jets,Columbus Blue Jackets,ev_home_pl_-1.5,-0.0098
+2025-11-19T01:30:00Z,Chicago Blackhawks,Calgary Flames,ev_away_pl_+1.5,-0.0136
+2025-11-19T03:00:00Z,San Jose Sharks,Utah Mammoth,ev_away_ml,-0.0151
+2025-11-19T01:00:00Z,Winnipeg Jets,Columbus Blue Jackets,ev_away_pl_+1.5,-0.0587
+2025-11-19T03:00:00Z,San Jose Sharks,Utah Mammoth,ev_home_ml,-0.0714
+2025-11-19T00:00:00Z,Tampa Bay Lightning,New Jersey Devils,ev_home_pl_-1.5,-0.1013
+2025-11-19T01:30:00Z,Chicago Blackhawks,Calgary Flames,ev_home_pl_-1.5,-0.1078
+2025-11-19T03:00:00Z,Vegas Golden Knights,New York Rangers,ev_under,-0.1192
+2025-11-19T01:00:00Z,Dallas Stars,New York Islanders,ev_over,-0.1258
+2025-11-19T01:00:00Z,Winnipeg Jets,Columbus Blue Jackets,ev_over,-0.147
+2025-11-19T01:00:00Z,Dallas Stars,New York Islanders,ev_home_pl_-1.5,-0.1594
+2025-11-19T00:00:00Z,Detroit Red Wings,Seattle Kraken,ev_home_pl_-1.5,-0.1662
+2025-11-19T03:00:00Z,San Jose Sharks,Utah Mammoth,ev_over,-0.1949
+2025-11-19T01:30:00Z,Chicago Blackhawks,Calgary Flames,ev_away_ml,-0.2154
+2025-11-19T00:00:00Z,Detroit Red Wings,Seattle Kraken,ev_away_ml,-0.2329
+2025-11-19T00:00:00Z,Tampa Bay Lightning,New Jersey Devils,ev_away_ml,-0.2399
+2025-11-19T00:00:00Z,Toronto Maple Leafs,St. Louis Blues,ev_under,-0.2742
+2025-11-19T00:00:00Z,Tampa Bay Lightning,New Jersey Devils,ev_under,-0.2765
+2025-11-19T01:30:00Z,Chicago Blackhawks,Calgary Flames,ev_under,-0.2776
+2025-11-19T03:00:00Z,Vegas Golden Knights,New York Rangers,ev_home_pl_-1.5,-0.2805
+2025-11-19T00:00:00Z,Detroit Red Wings,Seattle Kraken,ev_under,-0.3067
+2025-11-19T03:00:00Z,Vegas Golden Knights,New York Rangers,ev_away_ml,-0.3154
+2025-11-19T00:00:00Z,Toronto Maple Leafs,St. Louis Blues,ev_away_ml,-0.362
+2025-11-19T01:30:00Z,Chicago Blackhawks,Calgary Flames,ev_f10_no,-0.3634
+2025-11-19T01:00:00Z,Winnipeg Jets,Columbus Blue Jackets,ev_f10_no,-0.3669
+2025-11-19T03:00:00Z,Vegas Golden Knights,New York Rangers,ev_f10_no,-0.3807
+2025-11-19T00:00:00Z,Toronto Maple Leafs,St. Louis Blues,ev_home_pl_-1.5,-0.3973
+2025-11-19T00:00:00Z,Toronto Maple Leafs,St. Louis Blues,ev_f10_no,-0.3975
+2025-11-19T00:00:00Z,Detroit Red Wings,Seattle Kraken,ev_f10_no,-0.4329
+2025-11-19T03:00:00Z,San Jose Sharks,Utah Mammoth,ev_f10_no,-0.436
+2025-11-19T00:00:00Z,Tampa Bay Lightning,New Jersey Devils,ev_f10_no,-0.4391
+2025-11-19T01:00:00Z,Dallas Stars,New York Islanders,ev_f10_no,-0.4603
+2025-11-19T01:00:00Z,Dallas Stars,New York Islanders,ev_away_ml,-0.4853
+2025-11-19T01:00:00Z,Winnipeg Jets,Columbus Blue Jackets,ev_away_ml,-0.5315
+2025-11-19T03:00:00Z,San Jose Sharks,Utah Mammoth,ev_home_pl_-1.5,-0.7983

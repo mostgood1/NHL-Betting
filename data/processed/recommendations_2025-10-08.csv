@@ -8,8 +8,7 @@ date,home,away,market,bet,prob,price,book,ev
 2025-10-08T23:30:00Z,Washington Capitals,Boston Bruins,totals,under,0.5796674343536998,-108.0,bovada,0.1164
 2025-10-09T02:00:00Z,Vegas Golden Knights,Los Angeles Kings,puckline,away_pl_+1.5,0.6748441820058001,-163.0,bovada,0.0889
 2025-10-08T23:30:00Z,Washington Capitals,Boston Bruins,puckline,away_pl_+1.5,0.6775049321442257,-165.0,bovada,0.0881
-2025-10-08T23:00:00Z,Toronto Maple Leafs,Montréal Canadiens,first10,f10_yes,0.6302765554559411,-150.0,,0.0505
-2025-10-09T02:00:00Z,Vegas Golden Knights,Los Angeles Kings,moneyline,home_ml,0.6734376742542055,-183.0,bovada,0.0414
-2025-10-08T23:30:00Z,Washington Capitals,Boston Bruins,first10,f10_yes,0.6209169618966012,-150.0,,0.0349
-2025-10-09T02:00:00Z,Edmonton Oilers,Calgary Flames,first10,f10_yes,0.6209169618966012,-150.0,,0.0349
+2025-10-08T23:00:00Z,Toronto Maple Leafs,Montréal Canadiens,first10,f10_yes,0.6652930814234967,-150.0,,0.0505
+2025-10-08T23:30:00Z,Washington Capitals,Boston Bruins,first10,f10_yes,0.6559609119460121,-150.0,,0.0349
+2025-10-09T02:00:00Z,Edmonton Oilers,Calgary Flames,first10,f10_yes,0.6559609119460121,-150.0,,0.0349
 2025-10-09T02:00:00Z,Edmonton Oilers,Calgary Flames,puckline,away_pl_+1.5,0.5920352441254211,-138.0,bovada,0.021

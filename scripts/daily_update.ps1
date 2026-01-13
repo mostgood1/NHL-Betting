@@ -33,6 +33,15 @@ Param (
   [double]$SimMLThr = 0.65,
   [double]$SimTotThr = 0.55,
   [double]$SimPLThr = 0.62
+  ,
+  [switch]$PropsRecs,
+  [switch]$PropsUseSim,
+  [double]$PropsMinEv = 0,
+  [int]$PropsTop = 400,
+  [string]$PropsMinEvPerMarket = "SOG=0.00,GOALS=0.05,ASSISTS=0.00,POINTS=0.12,SAVES=0.02,BLOCKS=0.02",
+  [double]$PropsMinProb = 0.0,
+  [string]$PropsMinProbPerMarket = "",
+  [switch]$PropsIncludeGoalies
 )
 $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -48,6 +57,7 @@ if (Test-Path $NpuScript) {
 if (-not $PSBoundParameters.ContainsKey('SimIncludeTotals')) { $SimIncludeTotals = $false }
 # Enable PBP backfill by default unless explicitly disabled
 if (-not $PSBoundParameters.ContainsKey('PBPBackfill')) { $PBPBackfill = $true }
+if (-not $PSBoundParameters.ContainsKey('PropsIncludeGoalies')) { $PropsIncludeGoalies = $true }
 
 # Optional: load tuned totals multipliers from config if present and not overridden
 try {
@@ -271,4 +281,74 @@ try {
   Write-Host "[daily_update] Alerts written under data/processed/monitor_alerts_*.json"
 } catch {
   Write-Warning "[daily_update] game-monitor-anomalies failed: $($_.Exception.Message)"
+}
+
+# Optional: precompute props projections and generate props recommendations
+if ($PropsRecs) {
+  try {
+    $today = (Get-Date).ToString('yyyy-MM-dd')
+    $tomorrow = (Get-Date).AddDays(1).ToString('yyyy-MM-dd')
+    Write-Host "[daily_update] Precomputing props projections for $today & $tomorrow …" -ForegroundColor Yellow
+    $projArgsBase = @("-m", "nhl_betting.cli", "props-project-all", "--ensure-history-days", "365")
+    if ($PropsIncludeGoalies) { $projArgsBase += "--include-goalies" }
+    python @($projArgsBase + @("--date", $today))
+    python @($projArgsBase + @("--date", $tomorrow))
+
+    if ($PropsUseSim) {
+      Write-Host "[daily_update] Simulating props for $today & $tomorrow …" -ForegroundColor Yellow
+      $simArgsBase = @("-m", "nhl_betting.cli", "props-simulate", "--markets", "SOG,GOALS,ASSISTS,POINTS,SAVES,BLOCKS", "--n-sims", "16000", "--sim-shared-k", "1.2", "--props-xg-gamma", "0.02", "--props-penalty-gamma", "0.06", "--props-goalie-form-gamma", "0.02")
+      python @($simArgsBase + @("--date", $today))
+      python @($simArgsBase + @("--date", $tomorrow))
+      # Supplement: simulate SAVES/BLOCKS independent of provider lines
+      Write-Host "[daily_update] Simulating nolines props (SAVES/BLOCKS) for $today & $tomorrow …" -ForegroundColor Yellow
+      $nolArgsBase = @("-m", "nhl_betting.cli", "props-simulate-unlined", "--markets", "SAVES,BLOCKS", "--candidate-lines", "SAVES=24.5,26.5,28.5,30.5;BLOCKS=1.5,2.5,3.5", "--n-sims", "16000", "--sim-shared-k", "1.2", "--props-xg-gamma", "0.02", "--props-penalty-gamma", "0.06", "--props-goalie-form-gamma", "0.02")
+      python @($nolArgsBase + @("--date", $today))
+      python @($nolArgsBase + @("--date", $tomorrow))
+      Write-Host "[daily_update] Generating SIM-based props recommendations for $today & $tomorrow …" -ForegroundColor Cyan
+      # Weekly auto-tune for SAVES nolines gate (range 0.65–0.68) based on 7-day monitor
+      $SavesGate = 0.65
+      try {
+        if ((Get-Date).DayOfWeek -eq 'Monday') {
+          Write-Host "[daily_update] Auto-tuning SAVES gate via 7-day monitor …" -ForegroundColor DarkGreen
+          $monCmd = @("-m", "nhl_betting.cli", "props-nolines-monitor", "--window-days", "7", "--markets", "SAVES,BLOCKS", "--min-prob-per-market", "SAVES=$SavesGate,BLOCKS=0.92")
+          python $monCmd
+          $monPath = Join-Path "data\processed" "props_nolines_monitor.json"
+          if (Test-Path $monPath) {
+            $mon = Get-Content $monPath -Raw | ConvertFrom-Json
+            $acc = [double]$mon.by_market.SAVES.accuracy
+            $brier = [double]$mon.by_market.SAVES.brier
+            if (($acc -lt 0.88) -or ($brier -gt 0.16)) { $SavesGate = 0.68 }
+            elseif (($acc -lt 0.90) -or ($brier -gt 0.15)) { $SavesGate = 0.67 }
+            elseif (($acc -lt 0.92) -or ($brier -gt 0.14)) { $SavesGate = 0.66 }
+            else { $SavesGate = 0.65 }
+            Write-Host "[daily_update] SAVES gate set to $SavesGate (acc=$acc brier=$brier)" -ForegroundColor DarkGreen
+          }
+        }
+      } catch {
+        Write-Warning "[daily_update] Auto-tune failed: $($_.Exception.Message)"
+      }
+      $recsSimBase = @("-m", "nhl_betting.cli", "props-recommendations-sim", "--min-ev", "$PropsMinEv", "--top", "$PropsTop", "--min-ev-per-market", $PropsMinEvPerMarket, "--min-prob", "$PropsMinProb", "--min-prob-per-market", $PropsMinProbPerMarket)
+      python @($recsSimBase + @("--date", $today))
+      python @($recsSimBase + @("--date", $tomorrow))
+      # Also produce nolines-only recommendations (SAVES/BLOCKS) without odds
+      Write-Host "[daily_update] Generating nolines props recommendations for $today & $tomorrow …" -ForegroundColor Cyan
+      $recsNoBase = @("-m", "nhl_betting.cli", "props-recommendations-nolines", "--markets", "SAVES,BLOCKS", "--top", "$PropsTop", "--min-prob-per-market", "SAVES=$SavesGate,BLOCKS=0.92")
+      python @($recsNoBase + @("--date", $today))
+      python @($recsNoBase + @("--date", $tomorrow))
+      # Combine EV-based and nolines into one output per day
+      Write-Host "[daily_update] Combining EV-based and nolines recommendations …" -ForegroundColor DarkCyan
+      python -m nhl_betting.cli props-recommendations-combined --date $today
+      python -m nhl_betting.cli props-recommendations-combined --date $tomorrow
+      # Write 7-day nolines monitor
+      Write-Host "[daily_update] Generating nolines monitor (7-day) …" -ForegroundColor DarkGreen
+      python -m nhl_betting.cli props-nolines-monitor --window-days 7 --markets "SAVES,BLOCKS" --min-prob-per-market "SAVES=$SavesGate,BLOCKS=0.92"
+    } else {
+      Write-Host "[daily_update] Generating props recommendations (model-only) for $today & $tomorrow …" -ForegroundColor Cyan
+      $recsArgsBase = @("-m", "nhl_betting.cli", "props-recommendations", "--min-ev", "$PropsMinEv", "--top", "$PropsTop", "--min-ev-per-market", $PropsMinEvPerMarket)
+      python @($recsArgsBase + @("--date", $today))
+      python @($recsArgsBase + @("--date", $tomorrow))
+    }
+  } catch {
+    Write-Warning "[daily_update] Props projections/recommendations failed: $($_.Exception.Message)"
+  }
 }

@@ -1,0 +1,29 @@
+date,home,away,market,ev
+2026-01-17T02:00:00Z,Colorado Avalanche,Nashville Predators,ev_away_ml,0.4195
+2026-01-17T02:00:00Z,Colorado Avalanche,Nashville Predators,ev_away_pl_+1.5,0.2948
+2026-01-17T01:00:00Z,St. Louis Blues,Tampa Bay Lightning,ev_home_ml,0.2204
+2026-01-17T03:30:00Z,Los Angeles Kings,Anaheim Ducks,ev_away_ml,0.1744
+2026-01-17T00:00:00Z,Carolina Hurricanes,Florida Panthers,ev_away_pl_+1.5,0.1506
+2026-01-17T00:00:00Z,Carolina Hurricanes,Florida Panthers,ev_under,0.1049
+2026-01-17T00:00:00Z,Detroit Red Wings,San Jose Sharks,ev_over,0.0867
+2026-01-17T03:30:00Z,Los Angeles Kings,Anaheim Ducks,ev_home_pl_-1.5,0.059
+2026-01-17T02:00:00Z,Colorado Avalanche,Nashville Predators,ev_under,0.0524
+2026-01-17T03:30:00Z,Los Angeles Kings,Anaheim Ducks,ev_over,0.0168
+2026-01-17T01:00:00Z,St. Louis Blues,Tampa Bay Lightning,ev_under,0.0076
+2026-01-17T00:00:00Z,Detroit Red Wings,San Jose Sharks,ev_home_pl_-1.5,-0.0059
+2026-01-17T00:00:00Z,Carolina Hurricanes,Florida Panthers,ev_away_ml,-0.0093
+2026-01-17T00:00:00Z,Detroit Red Wings,San Jose Sharks,ev_home_ml,-0.0214
+2026-01-17T00:00:00Z,Carolina Hurricanes,Florida Panthers,ev_home_ml,-0.0675
+2026-01-17T00:00:00Z,Detroit Red Wings,San Jose Sharks,ev_away_pl_+1.5,-0.0845
+2026-01-17T00:00:00Z,Detroit Red Wings,San Jose Sharks,ev_away_ml,-0.0909
+2026-01-17T01:00:00Z,St. Louis Blues,Tampa Bay Lightning,ev_over,-0.0995
+2026-01-17T03:30:00Z,Los Angeles Kings,Anaheim Ducks,ev_under,-0.1041
+2026-01-17T03:30:00Z,Los Angeles Kings,Anaheim Ducks,ev_away_pl_+1.5,-0.1184
+2026-01-17T02:00:00Z,Colorado Avalanche,Nashville Predators,ev_over,-0.1433
+2026-01-17T00:00:00Z,Detroit Red Wings,San Jose Sharks,ev_under,-0.1676
+2026-01-17T00:00:00Z,Carolina Hurricanes,Florida Panthers,ev_over,-0.1708
+2026-01-17T03:30:00Z,Los Angeles Kings,Anaheim Ducks,ev_home_ml,-0.1838
+2026-01-17T02:00:00Z,Colorado Avalanche,Nashville Predators,ev_home_ml,-0.2065
+2026-01-17T01:00:00Z,St. Louis Blues,Tampa Bay Lightning,ev_away_ml,-0.2227
+2026-01-17T02:00:00Z,Colorado Avalanche,Nashville Predators,ev_home_pl_-1.5,-0.3287
+2026-01-17T00:00:00Z,Carolina Hurricanes,Florida Panthers,ev_home_pl_-1.5,-0.3687

@@ -4,6 +4,7 @@ date,home,away,market,ev
 2026-01-24T03:00:00Z,San Jose Sharks,New York Rangers,ev_under,0.2903
 2026-01-24T03:00:00Z,San Jose Sharks,New York Rangers,ev_away_pl_+1.5,0.2471
 2026-01-24T03:00:00Z,Seattle Kraken,Anaheim Ducks,ev_home_pl_-1.5,0.1843
+2026-01-24T03:00:00Z,Seattle Kraken,Anaheim Ducks,ev_f10_yes,0.1328
 2026-01-24T00:00:00Z,Chicago Blackhawks,Tampa Bay Lightning,ev_home_ml,0.1326
 2026-01-24T00:00:00Z,Chicago Blackhawks,Tampa Bay Lightning,ev_under,0.1322
 2026-01-24T01:00:00Z,Dallas Stars,St. Louis Blues,ev_home_ml,0.1093
@@ -37,5 +38,6 @@ date,home,away,market,ev
 2026-01-24T01:00:00Z,Dallas Stars,St. Louis Blues,ev_away_ml,-0.2588
 2026-01-24T03:00:00Z,San Jose Sharks,New York Rangers,ev_over,-0.3179
 2026-01-24T00:00:00Z,Toronto Maple Leafs,Vegas Golden Knights,ev_away_ml,-0.3885
+2026-01-24T03:00:00Z,Seattle Kraken,Anaheim Ducks,ev_f10_no,-0.4662
 2026-01-24T03:00:00Z,San Jose Sharks,New York Rangers,ev_home_pl_-1.5,-0.5937
 2026-01-24T03:00:00Z,San Jose Sharks,New York Rangers,ev_home_ml,-0.5996

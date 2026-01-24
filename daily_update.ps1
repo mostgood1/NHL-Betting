@@ -11,7 +11,9 @@ Param(
   [switch]$SkipPropsCalibration,
   [switch]$SkipGameCalibration,
   [switch]$InstallDeps,
-  [switch]$RecomputeRecs
+  [switch]$RecomputeRecs,
+  [switch]$RunBacktests,
+  [int]$BacktestDays = 30
 )
 $ErrorActionPreference = "Stop"
 
@@ -124,6 +126,28 @@ if ($RecomputeRecs) {
     if (-not $Quiet) { Write-Host "[recs] Done writing recommendations CSVs to data/processed." -ForegroundColor DarkGray }
   } catch {
     Write-Warning "[recs] Failed to recompute recommendations: $($_.Exception.Message)"
+  }
+}
+
+# Optional: run a short projections backtest over recent days and print a summary
+if ($RunBacktests) {
+  try {
+    $end = (Get-Date).ToString('yyyy-MM-dd')
+    $start = (Get-Date).AddDays(-[int]$BacktestDays).ToString('yyyy-MM-dd')
+    if (-not $Quiet) { Write-Host "[bt] Projections backtest $start..$end (EV≥2%)" -ForegroundColor Cyan }
+    python -m nhl_betting.cli props-backtest-from-projections --start $start --end $end --stake 100 --markets 'SOG,SAVES,GOALS,ASSISTS,POINTS,BLOCKS' --min-ev 0.02 --out-prefix nn_daily | Out-Null
+    $summ = Join-Path $RepoRoot "data/processed/nn_daily_props_backtest_summary_${start}_to_${end}.json"
+    if (Test-Path $summ) {
+      $obj = Get-Content $summ | ConvertFrom-Json
+      $ov = $obj.overall
+      $acc = if ($ov.accuracy) { [math]::Round([double]$ov.accuracy, 4) } else { $null }
+      $brier = if ($ov.brier) { [math]::Round([double]$ov.brier, 4) } else { $null }
+      Write-Host "[bt] Picks=$($ov.picks) Decided=$($ov.decided) Acc=$acc Brier=$brier" -ForegroundColor DarkGray
+    } else {
+      Write-Host "[bt] Summary not found: $summ" -ForegroundColor Yellow
+    }
+  } catch {
+    Write-Warning "[bt] Backtest failed: $($_.Exception.Message)"
   }
 }
 

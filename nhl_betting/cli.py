@@ -53,6 +53,7 @@ from .models.trends import TrendAdjustments, team_keys, get_adjustment
 from .utils.odds import american_to_decimal, decimal_to_implied_prob, remove_vig_two_way, ev_unit, kelly_stake
 from .data.collect import collect_player_game_stats
 from .models.props import SkaterShotsModel, GoalieSavesModel, SkaterGoalsModel, SkaterAssistsModel, SkaterPointsModel, SkaterBlocksModel
+from .props.utils import compute_props_lam_scale_mean
 from .data.odds_api import OddsAPIClient, normalize_snapshot_to_rows
 from .data import player_props as props_data
 from .data.rosters import build_all_team_roster_snapshots, build_roster_snapshot, infer_lines, project_toi, TEAM_ABBRS
@@ -4935,6 +4936,7 @@ def props_simulate(
     props_penalty_gamma: float = typer.Option(0.06, help="Opponent penalties committed per60 impact (PP exposure)"),
     props_goalie_form_gamma: float = typer.Option(0.02, help="Opponent goalie sv% (L10) dampening for GOALS/ASSISTS/POINTS"),
     props_refs_gamma: float = typer.Option(0.0, help="Referee penalty-rate impact (if assignments available) [reserved]"),
+    props_strength_gamma: float = typer.Option(0.04, help="Strength-aware adjustment for SAVES using sim PP shot fraction vs league average"),
 ):
     """Monte Carlo simulate player props using model lambdas + shared game pace + team features.
 
@@ -5121,6 +5123,55 @@ def props_simulate(
             gf_map = {}
     league_sv = float(_np.mean(list(gf_map.values()))) if gf_map else 0.905
 
+    # Load possession events to derive PP shot fractions (optional)
+    # - opp_pp_frac_map: opponent PP fraction of shots (useful for SAVES, BLOCKS exposure)
+    # - team_pp_frac_map: team PP fraction of own shots (useful for GOALS/ASSISTS/POINTS exposure)
+    opp_pp_frac_map: dict[str, float] = {}
+    team_pp_frac_map: dict[str, float] = {}
+    league_pp_frac = 0.18
+    try:
+        ev_path = PROC_DIR / f"sim_events_pos_{date}.csv"
+        if ev_path.exists():
+            ev = pd.read_csv(ev_path)
+            # Build abbr mapping via schedule
+            web = _Web(); sched = web.schedule_day(date)
+            def _abbr(n: str | None) -> str | None:
+                try:
+                    a = _assets(str(n)) or {}
+                    return str(a.get("abbr") or "").upper() or None
+                except Exception:
+                    return None
+            for _, r in ev.iterrows():
+                h = str(r.get("home") or ""); a = str(r.get("away") or "")
+                h_ab = _abbr(h); a_ab = _abbr(a)
+                if not h_ab or not a_ab:
+                    continue
+                # Team PP fraction (own shots)
+                sh_home_total = float(r.get("shots_ev_home", 0)) + float(r.get("shots_pp_home", 0)) + float(r.get("shots_pk_home", 0))
+                sh_home_pp = float(r.get("shots_pp_home", 0))
+                team_pp_home = (sh_home_pp / sh_home_total) if sh_home_total > 0 else None
+                if team_pp_home is not None:
+                    team_pp_frac_map[h_ab] = float(team_pp_home)
+                sh_away_total = float(r.get("shots_ev_away", 0)) + float(r.get("shots_pp_away", 0)) + float(r.get("shots_pk_away", 0))
+                sh_away_pp = float(r.get("shots_pp_away", 0))
+                team_pp_away = (sh_away_pp / sh_away_total) if sh_away_total > 0 else None
+                if team_pp_away is not None:
+                    team_pp_frac_map[a_ab] = float(team_pp_away)
+                # Opponent PP fraction (opponent shots)
+                opp_pp_frac_home = (sh_away_pp / sh_away_total) if sh_away_total > 0 else None
+                if opp_pp_frac_home is not None:
+                    opp_pp_frac_map[h_ab] = float(opp_pp_frac_home)
+                opp_pp_frac_away = (sh_home_pp / sh_home_total) if sh_home_total > 0 else None
+                if opp_pp_frac_away is not None:
+                    opp_pp_frac_map[a_ab] = float(opp_pp_frac_away)
+            # Update league average from observed (use team PP fractions)
+            vals = [v for v in team_pp_frac_map.values() if v is not None]
+            if vals:
+                league_pp_frac = float(_np.mean(vals))
+    except Exception:
+        opp_pp_frac_map = {}
+        team_pp_frac_map = {}
+
     # Join projections (lambda per player+market)
     proj = proj.copy()
     proj["player_norm"] = proj["player"].astype(str).map(lambda s: min(_create_name_variants(s) or [s], key=len))
@@ -5129,29 +5180,24 @@ def props_simulate(
     merged = merged[merged["proj_lambda"].notna()].copy()
 
     def _multiplier(row) -> float:
-        mk = str(row.get("market")).upper(); team=str(row.get("team_abbr") or "").upper(); opp=str(row.get("opp_abbr") or "").upper()
-        lam_scale = 1.0
-        try:
-            txg = xg_map.get(team); oxg = xg_map.get(opp)
-            if mk == "SAVES":
-                if oxg:
-                    lam_scale *= (1.0 + props_xg_gamma * ((oxg / league_xg) - 1.0))
-                pc = pen_comm.get(team, {}).get("committed_per60")
-                if pc is not None:
-                    lam_scale *= (1.0 + props_penalty_gamma * ((float(pc) / league_pen) - 1.0))
-            else:
-                if txg:
-                    lam_scale *= (1.0 + props_xg_gamma * ((txg / league_xg) - 1.0))
-                pc = pen_comm.get(opp, {}).get("committed_per60")
-                if pc is not None and mk in {"GOALS","ASSISTS","POINTS","SOG","BLOCKS"}:
-                    lam_scale *= (1.0 + props_penalty_gamma * ((float(pc) / league_pen) - 1.0))
-                if mk in {"GOALS","ASSISTS","POINTS"}:
-                    sv = gf_map.get(opp)
-                    if sv is not None:
-                        lam_scale *= (1.0 - props_goalie_form_gamma * (float(sv) - league_sv))
-        except Exception:
-            lam_scale = lam_scale
-        return max(0.0, lam_scale)
+        return compute_props_lam_scale_mean(
+            market=str(row.get("market")),
+            team_abbr=row.get("team_abbr"),
+            opp_abbr=row.get("opp_abbr"),
+            league_xg=league_xg,
+            xg_map=xg_map,
+            league_pen=league_pen,
+            pen_comm=pen_comm,
+            league_sv=league_sv,
+            gf_map=gf_map,
+            league_pp_frac=league_pp_frac,
+            opp_pp_frac_map=opp_pp_frac_map,
+            team_pp_frac_map=team_pp_frac_map,
+            props_xg_gamma=float(props_xg_gamma),
+            props_penalty_gamma=float(props_penalty_gamma),
+            props_goalie_form_gamma=float(props_goalie_form_gamma),
+            props_strength_gamma=float(props_strength_gamma),
+        )
 
     merged["lam_scale_mean"] = merged.apply(_multiplier, axis=1).astype(float)
 
@@ -5208,6 +5254,161 @@ def props_simulate(
     print(f"[props-sim] wrote {out_path} rows={len(out)}")
 
 
+@app.command(name="props-precompute-all")
+def props_precompute_all(
+    date: str = typer.Option(..., help="Slate date YYYY-MM-DD (ET)"),
+):
+    """Compute model-only projections (lambda) for all rostered players on the slate and write props_projections_all_{date}.csv.
+
+    This mirrors web app behavior without requiring FastAPI. Uses historical player game stats and current rosters.
+    """
+    import pandas as pd
+    from datetime import datetime, timedelta
+    from .data.nhl_api_web import NHLWebClient
+    from .web.teams import get_team_assets
+    from .models.props import SkaterShotsModel, GoalieSavesModel, SkaterGoalsModel, SkaterAssistsModel, SkaterPointsModel, SkaterBlocksModel
+    # Ensure stats history exists (best effort)
+    try:
+        from .data.collect import collect_player_game_stats as _collect_stats
+        start = (datetime.strptime(date, "%Y-%m-%d") - timedelta(days=365)).strftime("%Y-%m-%d")
+        stats_path = RAW_DIR / "player_game_stats.csv"
+        need = (not stats_path.exists()) or (getattr(stats_path.stat(), "st_size", 0) == 0)
+        if need:
+            try:
+                _collect_stats(start, date, source="web")
+            except Exception:
+                _collect_stats(start, date, source="stats")
+        try:
+            hist = pd.read_csv(stats_path)
+        except Exception:
+            hist = pd.DataFrame()
+    except Exception:
+        hist = pd.DataFrame()
+    # Slate teams via Web API
+    try:
+        web = NHLWebClient()
+        games = web.schedule_day(date)
+    except Exception:
+        games = []
+    slate_names = set()
+    for g in games or []:
+        slate_names.add(str(g.home)); slate_names.add(str(g.away))
+    slate_abbrs = set()
+    for nm in slate_names:
+        ab = (get_team_assets(str(nm)).get('abbr') or '').upper()
+        if ab:
+            slate_abbrs.add(ab)
+    # Try live roster; fallback to historical enrichment
+    roster_df = pd.DataFrame()
+    try:
+        from .data.rosters import list_teams as _list_teams, fetch_current_roster as _fetch
+        teams = _list_teams()
+        name_to_id = { str(t.get('name') or '').strip().lower(): int(t.get('id')) for t in teams }
+        id_to_abbr = { int(t.get('id')): str(t.get('abbreviation') or '').upper() for t in teams }
+        rows = []
+        for nm in sorted(slate_names):
+            tid = name_to_id.get(str(nm).strip().lower())
+            if not tid:
+                continue
+            try:
+                players = _fetch(tid)
+            except Exception:
+                players = []
+            for p in players:
+                rows.append({ 'player_id': p.player_id, 'player': p.full_name, 'position': p.position, 'team': id_to_abbr.get(tid) })
+        roster_df = pd.DataFrame(rows)
+    except Exception:
+        roster_df = pd.DataFrame()
+    if roster_df is None or roster_df.empty:
+        # Historical enrichment
+        try:
+            from .data import player_props as _pp
+            enrich = _pp._build_roster_enrichment()
+        except Exception:
+            enrich = pd.DataFrame()
+        if enrich is None or enrich.empty:
+            save_df(pd.DataFrame(columns=["date","player","team","position","market","proj_lambda"]), PROC_DIR / f"props_projections_all_{date}.csv")
+            print(f"[props-precompute] wrote empty projections for {date}")
+            return
+        def _to_abbr(x):
+            try:
+                a = get_team_assets(str(x)).get('abbr')
+                return str(a).upper() if a else None
+            except Exception:
+                return None
+        enrich = enrich.copy(); enrich['team_abbr'] = enrich['team'].map(_to_abbr)
+        # Infer position from historical if available
+        pos_map = {}
+        try:
+            if hist is not None and not hist.empty and {'player','primary_position'}.issubset(hist.columns):
+                tmp = hist.dropna(subset=['player']).copy()
+                tmp['player'] = tmp['player'].astype(str)
+                last_pos = tmp.dropna(subset=['primary_position']).groupby('player')['primary_position'].last()
+                pos_map = {k: v for k, v in last_pos.items() if isinstance(k, str)}
+        except Exception:
+            pos_map = {}
+        rows = []
+        for _, rr in enrich.iterrows():
+            ab = rr.get('team_abbr')
+            if slate_abbrs and (not ab or ab not in slate_abbrs):
+                continue
+            nm = rr.get('full_name')
+            pos_raw = pos_map.get(str(nm), '')
+            pos = 'G' if str(pos_raw).upper().startswith('G') else ('D' if str(pos_raw).upper().startswith('D') else 'F')
+            rows.append({'player_id': rr.get('player_id'), 'player': nm, 'position': pos, 'team': ab})
+        roster_df = pd.DataFrame(rows)
+    if roster_df is None or roster_df.empty:
+        save_df(pd.DataFrame(columns=["date","player","team","position","market","proj_lambda"]), PROC_DIR / f"props_projections_all_{date}.csv")
+        print(f"[props-precompute] wrote empty projections for {date}")
+        return
+    shots = SkaterShotsModel(); saves = GoalieSavesModel(); goals = SkaterGoalsModel(); assists = SkaterAssistsModel(); points = SkaterPointsModel(); blocks = SkaterBlocksModel()
+    def _clean_player_display_name(s: str) -> str:
+        try:
+            x = str(s or '').strip()
+            return ' '.join(x.split())
+        except Exception:
+            return str(s or '')
+    out_rows = []
+    for _, r in roster_df.iterrows():
+        player = _clean_player_display_name(str(r.get('player') or ''))
+        pos = str(r.get('position') or '').upper()
+        team = r.get('team')
+        if not player:
+            continue
+        try:
+            if pos == 'G':
+                lam = saves.player_lambda(hist, player)
+                out_rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'SAVES', 'proj_lambda': float(lam) if lam is not None else None})
+            else:
+                lam = shots.player_lambda(hist, player); out_rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'SOG', 'proj_lambda': float(lam) if lam is not None else None})
+                lam = goals.player_lambda(hist, player); out_rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'GOALS', 'proj_lambda': float(lam) if lam is not None else None})
+                lam = assists.player_lambda(hist, player); out_rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'ASSISTS', 'proj_lambda': float(lam) if lam is not None else None})
+                lam = points.player_lambda(hist, player); out_rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'POINTS', 'proj_lambda': float(lam) if lam is not None else None})
+                lam = blocks.player_lambda(hist, player); out_rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'BLOCKS', 'proj_lambda': float(lam) if lam is not None else None})
+        except Exception:
+            continue
+    df = pd.DataFrame(out_rows)
+    try:
+        if not df.empty:
+            df = df.sort_values(['team','position','player','market'])
+    except Exception:
+        pass
+    out_path = PROC_DIR / f"props_projections_all_{date}.csv"
+    save_df(df, out_path)
+    print(f"[props-precompute] wrote {out_path} rows={len(df)}")
+
+
+@app.command(name="props-project-all")
+def props_project_all(
+    date: str = typer.Option(..., help="Slate date YYYY-MM-DD (ET)"),
+    ensure_history_days: int = typer.Option(365, help="Minimum history window to ensure is collected"),
+    include_goalies: bool = typer.Option(True, help="Include goalies (SAVES) in projections"),
+):
+    """Alias for props_precompute_all with compatible options used by scripts/daily_update.ps1."""
+    # Currently props_precompute_all always includes goalies and uses ~365 days history; options provided for compatibility
+    return props_precompute_all(date=date)
+
+
 @app.command(name="props-recommendations-sim")
 def props_recommendations_sim(
     date: str = typer.Option(..., help="Slate date YYYY-MM-DD (ET)"),
@@ -5221,7 +5422,15 @@ def props_recommendations_sim(
     sim_path = PROC_DIR / f"props_simulations_{date}.csv"
     if not sim_path.exists():
         print("No simulations found; running props-simulate first…")
-        props_simulate.callback(date=date)
+        try:
+            props_simulate(date=date)
+        except Exception:
+            # If CLI invocation fails in-process, attempt a subprocess call
+            import subprocess, sys
+            try:
+                subprocess.run([sys.executable, "-m", "nhl_betting.cli", "props-simulate", "--date", str(date)], check=False)
+            except Exception:
+                pass
     df = pd.read_csv(sim_path) if sim_path.exists() else pd.DataFrame()
     if df is None or df.empty:
         print("No simulation results present, aborting.")
@@ -9076,8 +9285,8 @@ def props_backtest_from_projections(
     For each day in [start, end]:
       - Load data/processed/props_projections_all_{date}.csv
       - Optionally filter to a specific source (nn|trad|fallback)
-      - Load canonical player props lines for that date (bovada/oddsapi)
-      - Join on player+market (normalized names), compute Poisson P(Over) from proj_lambda
+    - Load canonical player props lines for that date (bovada/oddsapi)
+    - Join on player+market (normalized names), compute Poisson P(Over) using proj_lambda_eff when available (falls back to proj_lambda)
       - Compute EV for Over and Under (with push-prob handling); choose higher EV side
       - Evaluate outcome from data/raw/player_game_stats.csv (ET date alignment)
       - Aggregate ROI and calibration stats by market and overall
@@ -9325,8 +9534,12 @@ def props_backtest_from_projections(
         lines_df["player_norm"] = lines_df[name_col].astype(str).apply(_norm_name)
 
         # Join projections to lines on player+market
+        # Build projection columns to merge, preferring effective lambda when present
+        _proj_cols = ["player_norm", "market", "proj_lambda", "source"]
+        if "proj_lambda_eff" in proj_df.columns:
+            _proj_cols.append("proj_lambda_eff")
         merged = lines_df.merge(
-            proj_df[["player_norm", "market", "proj_lambda", "source"]],
+            proj_df[_proj_cols],
             on=["player_norm", "market"], how="inner",
         )
         if merged.empty:
@@ -9344,11 +9557,18 @@ def props_backtest_from_projections(
                 ln = float(ln)
             except Exception:
                 continue
-            lam = r.get("proj_lambda")
-            try:
-                lam = float(lam)
-            except Exception:
-                continue
+            # Prefer effective lambda if available; otherwise use base lambda
+            lam = None
+            if "proj_lambda_eff" in merged.columns and pd.notna(r.get("proj_lambda_eff")):
+                try:
+                    lam = float(r.get("proj_lambda_eff"))
+                except Exception:
+                    lam = None
+            if lam is None:
+                try:
+                    lam = float(r.get("proj_lambda"))
+                except Exception:
+                    continue
             # Compute P(over), P(under), P(push)
             p_over, p_under, p_push = _poisson_probs_over_under(lam, ln)
             if p_over is None:
@@ -9438,7 +9658,8 @@ def props_backtest_from_projections(
                 "book": r.get("book"),
                 "over_price": r.get("over_price") if pd.notna(r.get("over_price")) else None,
                 "under_price": r.get("under_price") if pd.notna(r.get("under_price")) else None,
-                "proj_lambda": float(lam),
+                "proj_lambda": float(r.get("proj_lambda")) if pd.notna(r.get("proj_lambda")) else None,
+                "proj_lambda_eff": float(r.get("proj_lambda_eff")) if ("proj_lambda_eff" in merged.columns and pd.notna(r.get("proj_lambda_eff"))) else None,
                 "p_over": float(p_over),
                 "p_under": float(p_under),
                 "p_push": float(p_push),
@@ -10558,6 +10779,8 @@ if __name__ == "__main__":
                         "position": p.position,
                         "shots": int(p.stats.get("shots", 0.0)),
                         "goals": int(p.stats.get("goals", 0.0)),
+                        "assists": int(p.stats.get("assists", 0.0)),
+                        "points": int(p.stats.get("goals", 0.0)) + int(p.stats.get("assists", 0.0)),
                         "saves": int(p.stats.get("saves", 0.0)),
                     })
             except Exception as e:
@@ -10699,28 +10922,52 @@ if __name__ == "__main__":
                         "shots": int(p.stats.get("shots", 0.0)),
                         "goals": int(p.stats.get("goals", 0.0)),
                         "saves": int(p.stats.get("saves", 0.0)),
+                        "blocks": int(p.stats.get("blocks", 0.0)),
                     })
-                # Event strength summary per game
+                # Event strength summary per game (shots, goals, saves by strength)
                 try:
                     def _cnt(kind: str, strength: str, team_name: str) -> int:
                         return sum(1 for e in _events if (e.kind == kind and e.meta.get("strength") == strength and e.team == team_name))
+                    # Saves by strength = opponent shots - opponent goals for that strength
+                    sh_ev_home = _cnt("shot", "EV", g.home); sh_pp_home = _cnt("shot", "PP", g.home); sh_pk_home = _cnt("shot", "PK", g.home)
+                    gl_ev_home = _cnt("goal", "EV", g.home); gl_pp_home = _cnt("goal", "PP", g.home); gl_pk_home = _cnt("goal", "PK", g.home)
+                    bl_ev_home = _cnt("block", "EV", g.home); bl_pp_home = _cnt("block", "PP", g.home); bl_pk_home = _cnt("block", "PK", g.home)
+                    sh_ev_away = _cnt("shot", "EV", g.away); sh_pp_away = _cnt("shot", "PP", g.away); sh_pk_away = _cnt("shot", "PK", g.away)
+                    gl_ev_away = _cnt("goal", "EV", g.away); gl_pp_away = _cnt("goal", "PP", g.away); gl_pk_away = _cnt("goal", "PK", g.away)
+                    bl_ev_away = _cnt("block", "EV", g.away); bl_pp_away = _cnt("block", "PP", g.away); bl_pk_away = _cnt("block", "PK", g.away)
                     evt_rows.append({
                         "gamePk": g.gamePk,
                         "date": d,
                         "home": g.home,
                         "away": g.away,
-                        "shots_ev_home": _cnt("shot", "EV", g.home),
-                        "shots_pp_home": _cnt("shot", "PP", g.home),
-                        "shots_pk_home": _cnt("shot", "PK", g.home),
-                        "shots_ev_away": _cnt("shot", "EV", g.away),
-                        "shots_pp_away": _cnt("shot", "PP", g.away),
-                        "shots_pk_away": _cnt("shot", "PK", g.away),
-                        "goals_ev_home": _cnt("goal", "EV", g.home),
-                        "goals_pp_home": _cnt("goal", "PP", g.home),
-                        "goals_pk_home": _cnt("goal", "PK", g.home),
-                        "goals_ev_away": _cnt("goal", "EV", g.away),
-                        "goals_pp_away": _cnt("goal", "PP", g.away),
-                        "goals_pk_away": _cnt("goal", "PK", g.away),
+                        # shots
+                        "shots_ev_home": sh_ev_home,
+                        "shots_pp_home": sh_pp_home,
+                        "shots_pk_home": sh_pk_home,
+                        "shots_ev_away": sh_ev_away,
+                        "shots_pp_away": sh_pp_away,
+                        "shots_pk_away": sh_pk_away,
+                        # goals
+                        "goals_ev_home": gl_ev_home,
+                        "goals_pp_home": gl_pp_home,
+                        "goals_pk_home": gl_pk_home,
+                        "goals_ev_away": gl_ev_away,
+                        "goals_pp_away": gl_pp_away,
+                        "goals_pk_away": gl_pk_away,
+                        # blocks
+                        "blocks_ev_home": bl_ev_home,
+                        "blocks_pp_home": bl_pp_home,
+                        "blocks_pk_home": bl_pk_home,
+                        "blocks_ev_away": bl_ev_away,
+                        "blocks_pp_away": bl_pp_away,
+                        "blocks_pk_away": bl_pk_away,
+                        # saves by strength
+                        "saves_ev_home": max(0, sh_ev_away - gl_ev_away),
+                        "saves_pp_home": max(0, sh_pp_away - gl_pp_away),
+                        "saves_pk_home": max(0, sh_pk_away - gl_pk_away),
+                        "saves_ev_away": max(0, sh_ev_home - gl_ev_home),
+                        "saves_pp_away": max(0, sh_pp_home - gl_pp_home),
+                        "saves_pk_away": max(0, sh_pk_home - gl_pk_home),
                     })
                 except Exception:
                     pass
@@ -10749,6 +10996,7 @@ if __name__ == "__main__":
         from pathlib import Path
         dates = pd.date_range(start=pd.to_datetime(start), end=pd.to_datetime(end), freq="D")
         ev_sh = ev_gl = pp_sh = pp_gl = pk_sh = pk_gl = 0
+        ev_bl = pp_bl = pk_bl = 0
         n_days = 0
         for dt in dates:
             d = dt.strftime("%Y-%m-%d")
@@ -10764,6 +11012,13 @@ if __name__ == "__main__":
                 ev_gl += int(df[["goals_ev_home","goals_ev_away"]].sum().sum())
                 pp_gl += int(df[["goals_pp_home","goals_pp_away"]].sum().sum())
                 pk_gl += int(df[["goals_pk_home","goals_pk_away"]].sum().sum())
+                # Blocks by strength (sum home+away)
+                try:
+                    ev_bl += int(df[["blocks_ev_home","blocks_ev_away"]].sum().sum())
+                    pp_bl += int(df[["blocks_pp_home","blocks_pp_away"]].sum().sum())
+                    pk_bl += int(df[["blocks_pk_home","blocks_pk_away"]].sum().sum())
+                except Exception:
+                    pass
                 n_days += 1
             except Exception:
                 continue
@@ -10771,6 +11026,12 @@ if __name__ == "__main__":
         total_gl = ev_gl + pp_gl + pk_gl
         obs_pp_sh_frac = (pp_sh / total_sh) if total_sh > 0 else 0.0
         obs_pp_gl_frac = (pp_gl / total_gl) if total_gl > 0 else 0.0
+        # Observed block rates per opponent shots (defensive exposure)
+        obs_ev_blk_rate = (ev_bl / ev_sh) if ev_sh > 0 else 0.0
+        # PK blocks: defending team blocks while short-handed; denominator = opponent PP shots
+        obs_pk_blk_rate = (pk_bl / pp_sh) if pp_sh > 0 else 0.0
+        # PP-def blocks: blocks while team is on PP (rare); denominator = opponent PK shots
+        obs_pp_def_blk_rate = (pp_bl / pk_sh) if pk_sh > 0 else 0.0
         # Recommend multipliers to move observed toward targets (bounded)
         rec_pp_sh_mult = float(max(0.8, min(1.6, (target_pp_shot_frac / max(obs_pp_sh_frac, 1e-6)))))
         rec_pp_goal_mult = float(max(0.9, min(1.6, (target_pp_goal_frac / max(obs_pp_gl_frac, 1e-6)))))
@@ -10782,6 +11043,7 @@ if __name__ == "__main__":
             "observed": {
                 "shots": {"ev": ev_sh, "pp": pp_sh, "pk": pk_sh, "pp_frac": obs_pp_sh_frac},
                 "goals": {"ev": ev_gl, "pp": pp_gl, "pk": pk_gl, "pp_frac": obs_pp_gl_frac},
+                "blocks": {"ev": ev_bl, "pp": pp_bl, "pk": pk_bl, "ev_rate": obs_ev_blk_rate, "pk_rate": obs_pk_blk_rate, "pp_def_rate": obs_pp_def_blk_rate},
             },
             "targets": {"pp_shot_frac": target_pp_shot_frac, "pp_goal_frac": target_pp_goal_frac},
             "recommended": {
@@ -10789,6 +11051,10 @@ if __name__ == "__main__":
                 "pk_shot_multiplier": rec_pk_sh_mult,
                 "pp_goal_multiplier": rec_pp_goal_mult,
                 "pk_goal_multiplier": rec_pk_goal_mult,
+                # Blocks: recommend using observed rates as defaults for simulation
+                "blocks_ev_rate": obs_ev_blk_rate,
+                "blocks_pk_rate": obs_pk_blk_rate,
+                "blocks_pp_def_rate": obs_pp_def_blk_rate,
             },
         }
         # Persist into sim_calibration.json and update model_calibration.json patch
@@ -10810,7 +11076,7 @@ if __name__ == "__main__":
             if mc_path.exists() and getattr(mc_path.stat(), "st_size", 0) > 0:
                 mc = json.loads(mc_path.read_text(encoding="utf-8"))
             mc.setdefault("special_teams", {})
-            mc["special_teams"].update(out["recommended"])  # store the multipliers
+            mc["special_teams"].update(out["recommended"])  # store the multipliers and block rates
             mc_path.write_text(json.dumps(mc, indent=2), encoding="utf-8")
         except Exception:
             pass

@@ -602,22 +602,153 @@ def _compute_props_projections(date: str, market: Optional[str] = None) -> pd.Da
         SkaterShotsModel, GoalieSavesModel, SkaterGoalsModel,
         SkaterAssistsModel, SkaterPointsModel, SkaterBlocksModel,
     )
+    from ..props.utils import compute_props_lam_scale_mean
+    from ..data.nhl_api_web import NHLWebClient as _Web
+    from ..web.teams import get_team_assets as _assets
     shots = SkaterShotsModel(); saves = GoalieSavesModel(); goals = SkaterGoalsModel()
     assists = SkaterAssistsModel(); points = SkaterPointsModel(); blocks = SkaterBlocksModel()
-    def proj_prob(m, player, ln):
+    # Load team features used for scaling
+    import numpy as _np, json
+    xg_path = PROC_DIR / "team_xg_latest.csv"
+    xg_map = {}
+    if xg_path.exists():
+        try:
+            _xg = pd.read_csv(xg_path)
+            if not _xg.empty and {"abbr","xgf60"}.issubset(_xg.columns):
+                xg_map = {str(r.abbr).upper(): float(r.xgf60) for _, r in _xg.iterrows()}
+        except Exception:
+            xg_map = {}
+    league_xg = float(_np.mean(list(xg_map.values()))) if xg_map else 2.6
+    pen_path = PROC_DIR / "team_penalty_rates.json"
+    pen_comm = {}
+    if pen_path.exists():
+        try:
+            pen_comm = json.loads(pen_path.read_text(encoding="utf-8"))
+        except Exception:
+            pen_comm = {}
+    league_pen = float(_np.mean([float(v.get("committed_per60", 0.0)) for v in pen_comm.values()])) if pen_comm else 3.0
+    # Goalie form (sv% L10)
+    from datetime import date as _date
+    gf_today = PROC_DIR / f"goalie_form_{_date.today().strftime('%Y-%m-%d')}.csv"
+    gf_map = {}
+    if gf_today.exists():
+        try:
+            _gf = pd.read_csv(gf_today)
+            if not _gf.empty and {"team","sv_pct_l10"}.issubset(_gf.columns):
+                gf_map = {str(r.team).upper(): float(r.sv_pct_l10) for _, r in _gf.iterrows()}
+        except Exception:
+            gf_map = {}
+    league_sv = float(_np.mean(list(gf_map.values()))) if gf_map else 0.905
+    # Possession events-derived PP fractions (optional)
+    opp_pp_frac_map: dict[str, float] = {}
+    team_pp_frac_map: dict[str, float] = {}
+    league_pp_frac = 0.18
+    try:
+        ev_path = PROC_DIR / f"sim_events_pos_{date}.csv"
+        if ev_path.exists():
+            ev = pd.read_csv(ev_path)
+            def _abbr(n: str | None) -> str | None:
+                try:
+                    a = _assets(str(n)) or {}
+                    return str(a.get("abbr") or "").upper() or None
+                except Exception:
+                    return None
+            for _, r in ev.iterrows():
+                h = str(r.get("home") or ""); a = str(r.get("away") or "")
+                h_ab = _abbr(h); a_ab = _abbr(a)
+                if not h_ab or not a_ab:
+                    continue
+                sh_home_total = float(r.get("shots_ev_home", 0)) + float(r.get("shots_pp_home", 0)) + float(r.get("shots_pk_home", 0))
+                sh_home_pp = float(r.get("shots_pp_home", 0))
+                team_pp_home = (sh_home_pp / sh_home_total) if sh_home_total > 0 else None
+                if team_pp_home is not None:
+                    team_pp_frac_map[h_ab] = float(team_pp_home)
+                sh_away_total = float(r.get("shots_ev_away", 0)) + float(r.get("shots_pp_away", 0)) + float(r.get("shots_pk_away", 0))
+                sh_away_pp = float(r.get("shots_pp_away", 0))
+                team_pp_away = (sh_away_pp / sh_away_total) if sh_away_total > 0 else None
+                if team_pp_away is not None:
+                    team_pp_frac_map[a_ab] = float(team_pp_away)
+                opp_pp_frac_home = (sh_away_pp / sh_away_total) if sh_away_total > 0 else None
+                if opp_pp_frac_home is not None:
+                    opp_pp_frac_map[h_ab] = float(opp_pp_frac_home)
+                opp_pp_frac_away = (sh_home_pp / sh_home_total) if sh_home_total > 0 else None
+                if opp_pp_frac_away is not None:
+                    opp_pp_frac_map[a_ab] = float(opp_pp_frac_away)
+            vals = [v for v in team_pp_frac_map.values() if v is not None]
+            if vals:
+                league_pp_frac = float(_np.mean(vals))
+    except Exception:
+        opp_pp_frac_map = {}
+        team_pp_frac_map = {}
+    # Opponent mapping via schedule
+    abbr_to_opp: dict[str, str] = {}
+    try:
+        web = _Web(); sched = web.schedule_day(date)
+        games=[]
+        for g in sched:
+            h=str(getattr(g, "home", "")); a=str(getattr(g, "away", ""))
+            ha = (_assets(h) or {}).get("abbr"); aa = (_assets(a) or {}).get("abbr")
+            ha = str(ha or "").upper(); aa = str(aa or "").upper()
+            if ha and aa:
+                abbr_to_opp[ha]=aa; abbr_to_opp[aa]=ha
+    except Exception:
+        abbr_to_opp = {}
+    def proj_prob(m, player, ln, team_abbr: str | None, opp_abbr: str | None):
         m = (m or '').upper()
         if m == 'SOG':
-            lam = shots.player_lambda(hist, player); return lam, shots.prob_over(lam, ln)
+            lam = shots.player_lambda(hist, player)
+            scale = compute_props_lam_scale_mean(m, team_abbr, opp_abbr,
+                league_xg=league_xg, xg_map=xg_map, league_pen=league_pen, pen_comm=pen_comm,
+                league_sv=league_sv, gf_map=gf_map, league_pp_frac=league_pp_frac,
+                opp_pp_frac_map=opp_pp_frac_map, team_pp_frac_map=team_pp_frac_map,
+                props_xg_gamma=0.02, props_penalty_gamma=0.06, props_goalie_form_gamma=0.02, props_strength_gamma=0.04)
+            lam_eff = (lam or 0.0) * float(scale)
+            return lam, shots.prob_over(lam_eff, ln), lam_eff
         if m == 'SAVES':
-            lam = saves.player_lambda(hist, player); return lam, saves.prob_over(lam, ln)
+            lam = saves.player_lambda(hist, player)
+            scale = compute_props_lam_scale_mean(m, team_abbr, opp_abbr,
+                league_xg=league_xg, xg_map=xg_map, league_pen=league_pen, pen_comm=pen_comm,
+                league_sv=league_sv, gf_map=gf_map, league_pp_frac=league_pp_frac,
+                opp_pp_frac_map=opp_pp_frac_map, team_pp_frac_map=team_pp_frac_map,
+                props_xg_gamma=0.02, props_penalty_gamma=0.06, props_goalie_form_gamma=0.02, props_strength_gamma=0.04)
+            lam_eff = (lam or 0.0) * float(scale)
+            return lam, saves.prob_over(lam_eff, ln), lam_eff
         if m == 'GOALS':
-            lam = goals.player_lambda(hist, player); return lam, goals.prob_over(lam, ln)
+            lam = goals.player_lambda(hist, player)
+            scale = compute_props_lam_scale_mean(m, team_abbr, opp_abbr,
+                league_xg=league_xg, xg_map=xg_map, league_pen=league_pen, pen_comm=pen_comm,
+                league_sv=league_sv, gf_map=gf_map, league_pp_frac=league_pp_frac,
+                opp_pp_frac_map=opp_pp_frac_map, team_pp_frac_map=team_pp_frac_map,
+                props_xg_gamma=0.02, props_penalty_gamma=0.06, props_goalie_form_gamma=0.02, props_strength_gamma=0.04)
+            lam_eff = (lam or 0.0) * float(scale)
+            return lam, goals.prob_over(lam_eff, ln), lam_eff
         if m == 'ASSISTS':
-            lam = assists.player_lambda(hist, player); return lam, assists.prob_over(lam, ln)
+            lam = assists.player_lambda(hist, player)
+            scale = compute_props_lam_scale_mean(m, team_abbr, opp_abbr,
+                league_xg=league_xg, xg_map=xg_map, league_pen=league_pen, pen_comm=pen_comm,
+                league_sv=league_sv, gf_map=gf_map, league_pp_frac=league_pp_frac,
+                opp_pp_frac_map=opp_pp_frac_map, team_pp_frac_map=team_pp_frac_map,
+                props_xg_gamma=0.02, props_penalty_gamma=0.06, props_goalie_form_gamma=0.02, props_strength_gamma=0.04)
+            lam_eff = (lam or 0.0) * float(scale)
+            return lam, assists.prob_over(lam_eff, ln), lam_eff
         if m == 'POINTS':
-            lam = points.player_lambda(hist, player); return lam, points.prob_over(lam, ln)
+            lam = points.player_lambda(hist, player)
+            scale = compute_props_lam_scale_mean(m, team_abbr, opp_abbr,
+                league_xg=league_xg, xg_map=xg_map, league_pen=league_pen, pen_comm=pen_comm,
+                league_sv=league_sv, gf_map=gf_map, league_pp_frac=league_pp_frac,
+                opp_pp_frac_map=opp_pp_frac_map, team_pp_frac_map=team_pp_frac_map,
+                props_xg_gamma=0.02, props_penalty_gamma=0.06, props_goalie_form_gamma=0.02, props_strength_gamma=0.04)
+            lam_eff = (lam or 0.0) * float(scale)
+            return lam, points.prob_over(lam_eff, ln), lam_eff
         if m == 'BLOCKS':
-            lam = blocks.player_lambda(hist, player); return lam, blocks.prob_over(lam, ln)
+            lam = blocks.player_lambda(hist, player)
+            scale = compute_props_lam_scale_mean(m, team_abbr, opp_abbr,
+                league_xg=league_xg, xg_map=xg_map, league_pen=league_pen, pen_comm=pen_comm,
+                league_sv=league_sv, gf_map=gf_map, league_pp_frac=league_pp_frac,
+                opp_pp_frac_map=opp_pp_frac_map, team_pp_frac_map=team_pp_frac_map,
+                props_xg_gamma=0.02, props_penalty_gamma=0.06, props_goalie_form_gamma=0.02, props_strength_gamma=0.04)
+            lam_eff = (lam or 0.0) * float(scale)
+            return lam, blocks.prob_over(lam_eff, ln), lam_eff
         return None, None
     def _dec(a):
         try:
@@ -634,9 +765,11 @@ def _compute_props_projections(date: str, market: Optional[str] = None) -> pd.Da
             ln = float(r.get('line'))
         except Exception:
             ln = None
-        lam, p_over = (None, None)
+        lam, p_over, lam_eff = (None, None, None)
         if (ln is not None):
-            lam, p_over = proj_prob(m, str(player), ln)
+            team_abbr = (str(r.get('team') or '').strip().upper() or None)
+            opp_abbr = abbr_to_opp.get(team_abbr) if team_abbr else None
+            lam, p_over, lam_eff = proj_prob(m, str(player), ln, team_abbr, opp_abbr)
         over_price = r.get('over_price') if pd.notna(r.get('over_price')) else None
         ev_over = None
         if (p_over is not None) and (over_price is not None):
@@ -651,6 +784,7 @@ def _compute_props_projections(date: str, market: Optional[str] = None) -> pd.Da
             'over_price': over_price,
             'under_price': r.get('under_price') if pd.notna(r.get('under_price')) else None,
             'proj_lambda': float(lam) if lam is not None else None,
+            'proj_lambda_eff': float(lam_eff) if lam_eff is not None else None,
             'p_over': float(p_over) if p_over is not None else None,
             'ev_over': float(ev_over) if ev_over is not None else None,
             'book': r.get('book'),
@@ -4105,6 +4239,9 @@ async def api_props_recommendations(
                 from ..models.props import SkaterAssistsModel, SkaterPointsModel, SkaterBlocksModel
                 from ..data.collect import collect_player_game_stats
                 from ..utils.io import RAW_DIR
+                from ..props.utils import compute_props_lam_scale_mean
+                from ..data.nhl_api_web import NHLWebClient as _Web
+                from ..web.teams import get_team_assets as _assets
                 # Load canonical lines
                 base = PROC_DIR.parent / "props" / f"player_props_lines/date={date}"
                 parts = []
@@ -4129,20 +4266,148 @@ async def api_props_recommendations(
                         pass
                 hist = pd.read_csv(stats_path) if stats_path.exists() else pd.DataFrame()
                 shots = SkaterShotsModel(); saves = GoalieSavesModel(); goals = SkaterGoalsModel(); assists = SkaterAssistsModel(); points = SkaterPointsModel(); blocks = SkaterBlocksModel()
-                def proj_prob(m, player, ln):
+                # Load team features similar to CLI for scaling
+                import numpy as _np, json
+                xg_path = PROC_DIR / "team_xg_latest.csv"
+                xg_map = {}
+                if xg_path.exists():
+                    try:
+                        _xg = pd.read_csv(xg_path)
+                        if not _xg.empty and {"abbr","xgf60"}.issubset(_xg.columns):
+                            xg_map = {str(r.abbr).upper(): float(r.xgf60) for _, r in _xg.iterrows()}
+                    except Exception:
+                        xg_map = {}
+                league_xg = float(_np.mean(list(xg_map.values()))) if xg_map else 2.6
+                pen_path = PROC_DIR / "team_penalty_rates.json"
+                pen_comm = {}
+                if pen_path.exists():
+                    try:
+                        pen_comm = json.loads(pen_path.read_text(encoding="utf-8"))
+                    except Exception:
+                        pen_comm = {}
+                league_pen = float(_np.mean([float(v.get("committed_per60", 0.0)) for v in pen_comm.values()])) if pen_comm else 3.0
+                # Goalie form (sv% L10)
+                from datetime import date as _date
+                gf_today = PROC_DIR / f"goalie_form_{_date.today().strftime('%Y-%m-%d')}.csv"
+                gf_map = {}
+                if gf_today.exists():
+                    try:
+                        _gf = pd.read_csv(gf_today)
+                        if not _gf.empty and {"team","sv_pct_l10"}.issubset(_gf.columns):
+                            gf_map = {str(r.team).upper(): float(r.sv_pct_l10) for _, r in _gf.iterrows()}
+                    except Exception:
+                        gf_map = {}
+                league_sv = float(_np.mean(list(gf_map.values()))) if gf_map else 0.905
+                # Possession events-derived PP fractions (optional)
+                opp_pp_frac_map: dict[str, float] = {}
+                team_pp_frac_map: dict[str, float] = {}
+                league_pp_frac = 0.18
+                try:
+                    ev_path = PROC_DIR / f"sim_events_pos_{date}.csv"
+                    if ev_path.exists():
+                        ev = pd.read_csv(ev_path)
+                        def _abbr(n: str | None) -> str | None:
+                            try:
+                                a = _assets(str(n)) or {}
+                                return str(a.get("abbr") or "").upper() or None
+                            except Exception:
+                                return None
+                        for _, r in ev.iterrows():
+                            h = str(r.get("home") or ""); a = str(r.get("away") or "")
+                            h_ab = _abbr(h); a_ab = _abbr(a)
+                            if not h_ab or not a_ab:
+                                continue
+                            sh_home_total = float(r.get("shots_ev_home", 0)) + float(r.get("shots_pp_home", 0)) + float(r.get("shots_pk_home", 0))
+                            sh_home_pp = float(r.get("shots_pp_home", 0))
+                            team_pp_home = (sh_home_pp / sh_home_total) if sh_home_total > 0 else None
+                            if team_pp_home is not None:
+                                team_pp_frac_map[h_ab] = float(team_pp_home)
+                            sh_away_total = float(r.get("shots_ev_away", 0)) + float(r.get("shots_pp_away", 0)) + float(r.get("shots_pk_away", 0))
+                            sh_away_pp = float(r.get("shots_pp_away", 0))
+                            team_pp_away = (sh_away_pp / sh_away_total) if sh_away_total > 0 else None
+                            if team_pp_away is not None:
+                                team_pp_frac_map[a_ab] = float(team_pp_away)
+                            opp_pp_frac_home = (sh_away_pp / sh_away_total) if sh_away_total > 0 else None
+                            if opp_pp_frac_home is not None:
+                                opp_pp_frac_map[h_ab] = float(opp_pp_frac_home)
+                            opp_pp_frac_away = (sh_home_pp / sh_home_total) if sh_home_total > 0 else None
+                            if opp_pp_frac_away is not None:
+                                opp_pp_frac_map[a_ab] = float(opp_pp_frac_away)
+                        vals = [v for v in team_pp_frac_map.values() if v is not None]
+                        if vals:
+                            league_pp_frac = float(_np.mean(vals))
+                except Exception:
+                    opp_pp_frac_map = {}
+                    team_pp_frac_map = {}
+                # Opponent mapping via schedule
+                abbr_to_opp: dict[str, str] = {}
+                try:
+                    web = _Web(); sched = web.schedule_day(date)
+                    games=[]
+                    for g in sched:
+                        h=str(getattr(g, "home", "")); a=str(getattr(g, "away", ""))
+                        ha = (_assets(h) or {}).get("abbr"); aa = (_assets(a) or {}).get("abbr")
+                        ha = str(ha or "").upper(); aa = str(aa or "").upper()
+                        if ha and aa:
+                            abbr_to_opp[ha]=aa; abbr_to_opp[aa]=ha
+                except Exception:
+                    abbr_to_opp = {}
+                def proj_prob(m, player, ln, team_abbr: str | None, opp_abbr: str | None):
                     m = (m or '').upper()
                     if m == 'SOG':
-                        lam = shots.player_lambda(hist, player); return lam, shots.prob_over(lam, ln)
+                        lam = shots.player_lambda(hist, player)
+                        scale = compute_props_lam_scale_mean(m, team_abbr, opp_abbr,
+                            league_xg=league_xg, xg_map=xg_map, league_pen=league_pen, pen_comm=pen_comm,
+                            league_sv=league_sv, gf_map=gf_map, league_pp_frac=league_pp_frac,
+                            opp_pp_frac_map=opp_pp_frac_map, team_pp_frac_map=team_pp_frac_map,
+                            props_xg_gamma=0.02, props_penalty_gamma=0.06, props_goalie_form_gamma=0.02, props_strength_gamma=0.04)
+                        lam_eff = (lam or 0.0) * float(scale)
+                        return lam, shots.prob_over(lam_eff, ln)
                     if m == 'SAVES':
-                        lam = saves.player_lambda(hist, player); return lam, saves.prob_over(lam, ln)
+                        lam = saves.player_lambda(hist, player)
+                        scale = compute_props_lam_scale_mean(m, team_abbr, opp_abbr,
+                            league_xg=league_xg, xg_map=xg_map, league_pen=league_pen, pen_comm=pen_comm,
+                            league_sv=league_sv, gf_map=gf_map, league_pp_frac=league_pp_frac,
+                            opp_pp_frac_map=opp_pp_frac_map, team_pp_frac_map=team_pp_frac_map,
+                            props_xg_gamma=0.02, props_penalty_gamma=0.06, props_goalie_form_gamma=0.02, props_strength_gamma=0.04)
+                        lam_eff = (lam or 0.0) * float(scale)
+                        return lam, saves.prob_over(lam_eff, ln)
                     if m == 'GOALS':
-                        lam = goals.player_lambda(hist, player); return lam, goals.prob_over(lam, ln)
+                        lam = goals.player_lambda(hist, player)
+                        scale = compute_props_lam_scale_mean(m, team_abbr, opp_abbr,
+                            league_xg=league_xg, xg_map=xg_map, league_pen=league_pen, pen_comm=pen_comm,
+                            league_sv=league_sv, gf_map=gf_map, league_pp_frac=league_pp_frac,
+                            opp_pp_frac_map=opp_pp_frac_map, team_pp_frac_map=team_pp_frac_map,
+                            props_xg_gamma=0.02, props_penalty_gamma=0.06, props_goalie_form_gamma=0.02, props_strength_gamma=0.04)
+                        lam_eff = (lam or 0.0) * float(scale)
+                        return lam, goals.prob_over(lam_eff, ln)
                     if m == 'ASSISTS':
-                        lam = assists.player_lambda(hist, player); return lam, assists.prob_over(lam, ln)
+                        lam = assists.player_lambda(hist, player)
+                        scale = compute_props_lam_scale_mean(m, team_abbr, opp_abbr,
+                            league_xg=league_xg, xg_map=xg_map, league_pen=league_pen, pen_comm=pen_comm,
+                            league_sv=league_sv, gf_map=gf_map, league_pp_frac=league_pp_frac,
+                            opp_pp_frac_map=opp_pp_frac_map, team_pp_frac_map=team_pp_frac_map,
+                            props_xg_gamma=0.02, props_penalty_gamma=0.06, props_goalie_form_gamma=0.02, props_strength_gamma=0.04)
+                        lam_eff = (lam or 0.0) * float(scale)
+                        return lam, assists.prob_over(lam_eff, ln)
                     if m == 'POINTS':
-                        lam = points.player_lambda(hist, player); return lam, points.prob_over(lam, ln)
+                        lam = points.player_lambda(hist, player)
+                        scale = compute_props_lam_scale_mean(m, team_abbr, opp_abbr,
+                            league_xg=league_xg, xg_map=xg_map, league_pen=league_pen, pen_comm=pen_comm,
+                            league_sv=league_sv, gf_map=gf_map, league_pp_frac=league_pp_frac,
+                            opp_pp_frac_map=opp_pp_frac_map, team_pp_frac_map=team_pp_frac_map,
+                            props_xg_gamma=0.02, props_penalty_gamma=0.06, props_goalie_form_gamma=0.02, props_strength_gamma=0.04)
+                        lam_eff = (lam or 0.0) * float(scale)
+                        return lam, points.prob_over(lam_eff, ln)
                     if m == 'BLOCKS':
-                        lam = blocks.player_lambda(hist, player); return lam, blocks.prob_over(lam, ln)
+                        lam = blocks.player_lambda(hist, player)
+                        scale = compute_props_lam_scale_mean(m, team_abbr, opp_abbr,
+                            league_xg=league_xg, xg_map=xg_map, league_pen=league_pen, pen_comm=pen_comm,
+                            league_sv=league_sv, gf_map=gf_map, league_pp_frac=league_pp_frac,
+                            opp_pp_frac_map=opp_pp_frac_map, team_pp_frac_map=team_pp_frac_map,
+                            props_xg_gamma=0.02, props_penalty_gamma=0.06, props_goalie_form_gamma=0.02, props_strength_gamma=0.04)
+                        lam_eff = (lam or 0.0) * float(scale)
+                        return lam, blocks.prob_over(lam_eff, ln)
                     return None, None
                 recs = []
                 for _, r in lines.iterrows():
@@ -4159,7 +4424,9 @@ async def api_props_recommendations(
                     op = r.get('over_price'); up = r.get('under_price')
                     if pd.isna(op) and pd.isna(up):
                         continue
-                    lam, p_over = proj_prob(m, str(player), ln)
+                    team_abbr = (str(r.get('team') or '').strip().upper() or None)
+                    opp_abbr = abbr_to_opp.get(team_abbr) if team_abbr else None
+                    lam, p_over = proj_prob(m, str(player), ln, team_abbr, opp_abbr)
                     if lam is None or p_over is None:
                         continue
                     # EV calc
@@ -4440,7 +4707,7 @@ async def api_cron_props_projections(
                 if 'proj' in h.columns and 'proj_lambda' not in h.columns:
                     try: h.rename(columns={'proj':'proj_lambda'}, inplace=True)
                     except Exception: pass
-                keep = [c for c in ['date','player','team','position','market','proj_lambda','p_over','ev_over'] if c in h.columns]
+                keep = [c for c in ['date','player','team','position','market','proj_lambda','proj_lambda_eff','p_over','ev_over'] if c in h.columns]
                 if keep:
                     h = h[keep]
                 if hist_path.exists():
@@ -5157,6 +5424,8 @@ async def props_all_players_page(
         key = (sort or 'name').lower(); ascending = True; col = None
         if key in ('lambda_desc','lambda_asc'):
             col = 'proj_lambda'; ascending = (key == 'lambda_asc')
+        elif key in ('lambda_eff_desc','lambda_eff_asc'):
+            col = 'proj_lambda_eff'; ascending = (key == 'lambda_eff_asc')
         elif key in ('p_over_desc','p_over_asc'):
             col = 'p_over'; ascending = (key == 'p_over_asc')
         elif key in ('ev_desc','ev_asc'):
@@ -5172,7 +5441,7 @@ async def props_all_players_page(
         if env_cap and (effective_top is None or env_cap < effective_top):
             effective_top = env_cap
         # Partial sort for numeric columns to avoid full-frame sort memory spikes
-        if col and col in display_df.columns and effective_top and col in ('proj_lambda','p_over','ev'):
+        if col and col in display_df.columns and effective_top and col in ('proj_lambda','proj_lambda_eff','p_over','ev'):
             try:
                 s = pd.to_numeric(display_df[col], errors='coerce')
                 k = min(len(display_df), int(effective_top))

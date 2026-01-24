@@ -20,9 +20,12 @@
     "end": "2026-01-19"
   },
   "special_teams": {
-    "pp_shot_multiplier": 1.6,
-    "pk_shot_multiplier": 0.625,
-    "pp_goal_multiplier": 1.6,
-    "pk_goal_multiplier": 0.625
+    "pp_shot_multiplier": 1.2587543252595157,
+    "pk_shot_multiplier": 0.7944361977019077,
+    "pp_goal_multiplier": 1.2148148148148148,
+    "pk_goal_multiplier": 0.8231707317073171,
+    "blocks_ev_rate": 0.0327496757457847,
+    "blocks_pk_rate": 0.05190311418685121,
+    "blocks_pp_def_rate": 0.018421052631578946
   }
 }

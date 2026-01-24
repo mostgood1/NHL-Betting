@@ -133,18 +133,32 @@ class PeriodSimulator:
         cal_pk_sh_mult = float((special_teams_cal or {}).get("pk_shot_multiplier", 1.0))
         cal_pp_gl_mult = float((special_teams_cal or {}).get("pp_goal_multiplier", 1.0))
         cal_pk_gl_mult = float((special_teams_cal or {}).get("pk_goal_multiplier", 1.0))
-        # Expected PP minutes per game approx = drawn_per_game * 2
-        pp_frac_home = max(0.0, min(0.35, (float(st_home.get("drawn_per_game", 3.0)) * 2.0) / 60.0))
-        pp_frac_away = max(0.0, min(0.35, (float(st_away.get("drawn_per_game", 3.0)) * 2.0) / 60.0))
+        # Combined PP intensity from drawn and committed rates (approximate)
+        h_drawn = float(st_home.get("drawn_per_game", 3.0))
+        h_comm = float(st_home.get("committed_per_game", 3.0))
+        a_drawn = float(st_away.get("drawn_per_game", 3.0))
+        a_comm = float(st_away.get("committed_per_game", 3.0))
+        total_pen = max(1e-6, h_drawn + h_comm + a_drawn + a_comm)
+        # Expected PP minutes fraction per game (bounded)
+        pp_frac_total = max(0.0, min(0.45, (h_drawn + a_drawn + h_comm + a_comm) / 60.0))
+        # Side weighting: home PP draws weight from its drawn + opp committed
+        home_pp_weight = max(1e-6, h_drawn + a_comm)
+        away_pp_weight = max(1e-6, a_drawn + h_comm)
+        home_pp_prob = home_pp_weight / (home_pp_weight + away_pp_weight)
         # Sample PP segments with these fractions
         for k in range(segments):
             # score effects factor
             diff = gs.home.score - gs.away.score
             home_factor = max(0.6, min(1.4, 1.0 + (-0.10 if diff > 0 else (0.10 if diff < 0 else 0.0))))
             away_factor = max(0.6, min(1.4, 1.0 + (-0.10 if diff < 0 else (0.10 if diff > 0 else 0.0))))
-            # PP/PK effects
-            seg_is_home_pp = (self.rng.random() < pp_frac_home) and not (self.rng.random() < pp_frac_away)
-            seg_is_away_pp = (self.rng.random() < pp_frac_away) and not seg_is_home_pp
+            # PP/PK effects: sample whether segment is PP at all, then which side
+            r_seg = self.rng.random()
+            if r_seg < pp_frac_total:
+                seg_is_home_pp = (self.rng.random() < home_pp_prob)
+                seg_is_away_pp = not seg_is_home_pp
+            else:
+                seg_is_home_pp = False
+                seg_is_away_pp = False
             # Base PP/PK shot factors further scaled by calibration
             pp_mult_shots = 1.4 * cal_pp_sh_mult
             pk_mult_shots = 0.7 * cal_pk_sh_mult
@@ -255,6 +269,43 @@ class PeriodSimulator:
             for _ in range(g_a):
                 pid = (self.rng.choice(ice_a) if ice_a else None)
                 events.append(Event(t=t0 + self.rng.random() * seg_len, period=period_idx + 1, team=gs.away.name, kind="goal", player_id=pid, meta={"strength": strength_a}))
+            # Attribute blocks to defending players on ice (approximate fraction of opponent SOG)
+            # Higher block rate on PK segments vs EV; lower on PP defending side
+            p_block_ev = float((special_teams_cal or {}).get("blocks_ev_rate", 0.22))
+            p_block_pk = float((special_teams_cal or {}).get("blocks_pk_rate", 0.28))
+            p_block_pp_def = float((special_teams_cal or {}).get("blocks_pp_def_rate", 0.18))
+            # Away defending blocks vs home shots
+            if seg_is_home_pp:
+                p_blk_away = p_block_pk
+            elif seg_is_away_pp:
+                p_blk_away = p_block_pp_def
+            else:
+                p_blk_away = p_block_ev
+            # Home defending blocks vs away shots
+            if seg_is_away_pp:
+                p_blk_home = p_block_pk
+            elif seg_is_home_pp:
+                p_blk_home = p_block_pp_def
+            else:
+                p_blk_home = p_block_ev
+            b_away = sum(1 for _ in range(sh_h) if self.rng.random() < p_blk_away)
+            b_home = sum(1 for _ in range(sh_a) if self.rng.random() < p_blk_home)
+            # Choose defending units for block attribution
+            def _defenders_for_home() -> List[int]:
+                if seg_is_away_pp and pk_home:
+                    return pk_home[0 if len(pk_home)==1 else (idx_pk_h % len(pk_home))]
+                return (d_home[idx_dh % len(d_home)] if d_home else [])
+            def _defenders_for_away() -> List[int]:
+                if seg_is_home_pp and pk_away:
+                    return pk_away[0 if len(pk_away)==1 else (idx_pk_a % len(pk_away))]
+                return (d_away[idx_da % len(d_away)] if d_away else [])
+            def_h = _defenders_for_home(); def_a = _defenders_for_away()
+            for _ in range(b_home):
+                pid = (self.rng.choice(def_h) if def_h else None)
+                events.append(Event(t=t0 + self.rng.random() * seg_len, period=period_idx + 1, team=gs.home.name, kind="block", player_id=pid, meta={"strength": strength_h}))
+            for _ in range(b_away):
+                pid = (self.rng.choice(def_a) if def_a else None)
+                events.append(Event(t=t0 + self.rng.random() * seg_len, period=period_idx + 1, team=gs.away.name, kind="block", player_id=pid, meta={"strength": strength_a}))
             # rotate
             idx_lh = (idx_lh + 1) % max(1, len(l_home)); idx_dh = (idx_dh + 1) % max(1, len(d_home))
             idx_la = (idx_la + 1) % max(1, len(l_away)); idx_da = (idx_da + 1) % max(1, len(d_away))
@@ -342,13 +393,39 @@ class GameSimulator:
             gs.away.score += int(ag)
             # Attribute player events directly from simulated events (shots/goals)
             for e in ev:
-                if e.kind in ("shot", "goal") and e.player_id is not None:
+                if e.kind in ("shot", "goal", "block") and e.player_id is not None:
                     # Find player state and increment
                     team = gs.home if e.team == gs.home.name else gs.away
                     pstate = team.players.get(int(e.player_id))
                     if pstate:
-                        key = "shots" if e.kind == "shot" else "goals"
+                        key = "shots" if e.kind == "shot" else ("goals" if e.kind == "goal" else "blocks")
                         pstate.stats[key] = pstate.stats.get(key, 0.0) + 1.0
+                        # Simple assists attribution: on goals, assign 1-2 assists to random teammates
+                        if e.kind == "goal":
+                            try:
+                                # Choose assisting teammates excluding the scorer
+                                skaters = [p for p in team.players.values() if p.position in ("F","D") and int(p.player_id) != int(e.player_id)]
+                                if skaters:
+                                    # Probability of one vs two assists
+                                    n_assists = 1 + (1 if self.rng.random() < 0.35 else 0)
+                                    # Weight by projected TOI
+                                    weights = [max(p.toi_proj, 1e-3) for p in skaters]
+                                    total_w = sum(weights) or 1.0
+                                    probs = [w/total_w for w in weights]
+                                    # Draw without replacement
+                                    import numpy as _np
+                                    idxs = list(range(len(skaters)))
+                                    chosen = []
+                                    # sample n_assists unique indices
+                                    if len(skaters) >= n_assists:
+                                        chosen = list(_np.random.choice(idxs, size=n_assists, replace=False, p=_np.array(probs)))
+                                    else:
+                                        chosen = idxs
+                                    for ci in chosen:
+                                        ap = skaters[int(ci)]
+                                        ap.stats["assists"] = ap.stats.get("assists", 0.0) + 1.0
+                            except Exception:
+                                pass
             events_all.extend(ev)
         # Saves from events: opponent shots minus opponent goals
         shots_home = sum(1 for e in events_all if e.kind == "shot" and e.team == gs.home.name)

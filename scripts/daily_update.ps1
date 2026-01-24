@@ -327,6 +327,7 @@ try {
 }
 
 # Optional: precompute props projections and generate props recommendations
+# Note: Web projections now compute strength-aware p_over using scaled lambda (proj_lambda_eff)
 if ($PropsRecs) {
   try {
     $today = (Get-Date).ToString('yyyy-MM-dd')
@@ -339,7 +340,7 @@ if ($PropsRecs) {
 
     if ($PropsUseSim) {
       Write-Host "[daily_update] Simulating props for $today & $tomorrow …" -ForegroundColor Yellow
-      $simArgsBase = @("-m", "nhl_betting.cli", "props-simulate", "--markets", "SOG,GOALS,ASSISTS,POINTS,SAVES,BLOCKS", "--n-sims", "16000", "--sim-shared-k", "1.2", "--props-xg-gamma", "0.02", "--props-penalty-gamma", "0.06", "--props-goalie-form-gamma", "0.02")
+      $simArgsBase = @("-m", "nhl_betting.cli", "props-simulate", "--markets", "SOG,GOALS,ASSISTS,POINTS,SAVES,BLOCKS", "--n-sims", "16000", "--sim-shared-k", "1.2", "--props-xg-gamma", "0.02", "--props-penalty-gamma", "0.06", "--props-goalie-form-gamma", "0.02", "--props-strength-gamma", "0.04")
       python @($simArgsBase + @("--date", $today))
       python @($simArgsBase + @("--date", $tomorrow))
       # Supplement: simulate SAVES/BLOCKS independent of provider lines

@@ -148,6 +148,7 @@
           <th class="th-sort" data-key="team" onclick="setSort('team')">Team<span class="arrow">⇅</span></th>
           <th class="th-sort" data-key="line" onclick="setSort('line')">Line<span class="arrow">⇅</span></th>
           <th class="th-sort" data-key="lambda" onclick="toggleSort('lambda')">Proj λ<span class="arrow">⇅</span></th>
+          <th class="th-sort" data-key="lambda_eff" onclick="toggleSort('lambda_eff')">Proj λ eff<span class="arrow">⇅</span></th>
           <th class="th-sort" data-key="p_over" onclick="toggleSort('p_over')">P(Over)<span class="arrow">⇅</span></th>
           <th>Over Price</th>
           <th>Under Price</th>
@@ -162,6 +163,7 @@
             <td>{{ r.team if r.team is defined else '' }}</td>
             <td>{{ r.line if r.line is defined else '' }}</td>
             <td>{% if r.proj_lambda is defined and r.proj_lambda is not none %}{{ '%.2f' % r.proj_lambda }}{% else %}-{% endif %}</td>
+            <td>{% if r.proj_lambda_eff is defined and r.proj_lambda_eff is not none %}{{ '%.2f' % r.proj_lambda_eff }}{% else %}-{% endif %}</td>
             <td>{% if r.p_over is defined and r.p_over is not none %}{{ '%.1f' % (r.p_over * 100) }}%{% else %}-{% endif %}</td>
             <td>{{ r.over_price if r.over_price is defined else '' }}</td>
             <td>{{ r.under_price if r.under_price is defined else '' }}</td>
@@ -250,6 +252,7 @@
       if(metric==='ev') sel.value = (cur==='ev_desc') ? 'ev_asc' : 'ev_desc';
       else if(metric==='p_over') sel.value = (cur==='p_over_desc') ? 'p_over_asc' : 'p_over_desc';
       else if(metric==='lambda') sel.value = (cur==='lambda_desc') ? 'lambda_asc' : 'lambda_desc';
+      else if(metric==='lambda_eff') sel.value = (cur==='lambda_eff_desc') ? 'lambda_eff_asc' : 'lambda_eff_desc';
       reloadPage();
     }
     function changePage(delta){
@@ -283,6 +286,7 @@
         'ev_desc':'ev','ev_asc':'ev',
         'p_over_desc':'p_over','p_over_asc':'p_over',
         'lambda_desc':'lambda','lambda_asc':'lambda',
+        'lambda_eff_desc':'lambda_eff','lambda_eff_asc':'lambda_eff',
         'name':'name','team':'team','market':'market','line':'line'
       };
       const key = map[curSort];

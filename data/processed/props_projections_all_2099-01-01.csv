@@ -1,0 +1,4 @@
+date,player,team,position,market,proj_lambda
+2099-01-01,Test Goalie,BOS,G,SAVES,28.0
+2099-01-01,Away D,MTL,D,BLOCKS,2.0
+2099-01-01,Test Skater,BOS,F,GOALS,0.25

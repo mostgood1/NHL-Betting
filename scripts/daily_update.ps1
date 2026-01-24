@@ -112,6 +112,22 @@ if ($PBPBackfill) {
   }
 }
 
+# Refresh roster, lineup (with co-TOI), and injuries for today & tomorrow
+try {
+  $today = (Get-Date).ToString('yyyy-MM-dd')
+  $tomorrow = (Get-Date).AddDays(1).ToString('yyyy-MM-dd')
+  Write-Host "[daily_update] Updating roster snapshot for $today …" -ForegroundColor Yellow
+  python -m nhl_betting.cli roster-update --date $today
+  Write-Host "[daily_update] Updating lineup + co-TOI for $today …" -ForegroundColor Yellow
+  python -m nhl_betting.cli lineup-update --date $today
+  Write-Host "[daily_update] Updating injury snapshot for $today …" -ForegroundColor Yellow
+  python -m nhl_betting.cli injury-update --date $today
+  Write-Host "[daily_update] Updating lineup + co-TOI for $tomorrow …" -ForegroundColor Yellow
+  python -m nhl_betting.cli lineup-update --date $tomorrow
+} catch {
+  Write-Warning "[daily_update] roster/lineup/injuries update failed: $($_.Exception.Message)"
+}
+
 # Always refresh PBP-derived feature caches (PP/PK, penalties) and today's goalie form
 try {
   Write-Host "[daily_update] Refreshing PP/PK and penalty rates from PBP …" -ForegroundColor Yellow
@@ -179,6 +195,14 @@ if ($SimulateGames) {
       if ($TotalsRefsGamma -gt 0) { $pyArgs += @("--totals-refs-gamma", "$TotalsRefsGamma") }
       if ($TotalsGoalieFormGamma -gt 0) { $pyArgs += @("--totals-goalie-form-gamma", "$TotalsGoalieFormGamma") }
       python @pyArgs
+
+      # Supplement: write baseline period-level sim outputs for quick props boxscore projections
+      try {
+        Write-Host "[daily_update] Baseline period-level sim for $d …" -ForegroundColor DarkYellow
+        python -m nhl_betting.cli game-simulate-baseline --date $d
+      } catch {
+        Write-Warning "[daily_update] game-simulate-baseline failed for ${d}: $($_.Exception.Message)"
+      }
     }
   } catch {
     Write-Warning "[daily_update] game-simulate failed: $($_.Exception.Message)"

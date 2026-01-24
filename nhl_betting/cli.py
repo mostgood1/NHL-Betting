@@ -55,7 +55,13 @@ from .data.collect import collect_player_game_stats
 from .models.props import SkaterShotsModel, GoalieSavesModel, SkaterGoalsModel, SkaterAssistsModel, SkaterPointsModel, SkaterBlocksModel
 from .data.odds_api import OddsAPIClient, normalize_snapshot_to_rows
 from .data import player_props as props_data
-from .data.rosters import build_all_team_roster_snapshots
+from .data.rosters import build_all_team_roster_snapshots, build_roster_snapshot, infer_lines, project_toi, TEAM_ABBRS
+from .data.lineups import build_lineup_snapshot
+from .data.injuries import build_injury_snapshot
+from .data.co_toi import build_co_toi_from_lineups
+from .sim.engine import GameSimulator, SimConfig
+from .sim.models import RateModels
+from .web.teams import get_team_assets
 
 app = typer.Typer(help="NHL Betting predictive engine CLI")
 
@@ -6226,6 +6232,110 @@ def props_watch(
                 except Exception as e2:
                     print(f"[props_watch] oddsapi fallback failed: {e2}")
         except Exception as e:
+
+            @app.command()
+            def roster_update(date: Optional[str] = typer.Option(None, help="ET date YYYY-MM-DD to stamp output")):
+                """Build and save all-team roster snapshot (Web API)."""
+                d = date or ymd(today_utc())
+                df = build_all_team_roster_snapshots()
+                out_path = PROC_DIR / f"roster_snapshot_{d}.csv"
+                save_df(df, out_path)
+                print(f"Saved roster snapshot to {out_path} ({len(df)} players)")
+
+            @app.command()
+            def lineup_update(date: Optional[str] = typer.Option(None, help="ET date YYYY-MM-DD to stamp output")):
+                """Build expected lineups per team using TOI-based inference (baseline)."""
+                d = date or ymd(today_utc())
+                frames = []
+                # Use aliased team abbrevs from roster module
+                for ab in TEAM_ABBRS:
+                    try:
+                        snap = build_lineup_snapshot(ab)
+                        snap["team"] = ab
+                        frames.append(snap)
+                    except Exception as e:
+                        print({"team": ab, "error": str(e)})
+                out = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame(columns=["player_id","full_name","position","line_slot","pp_unit","pk_unit","proj_toi","confidence","team"])
+                out_path = PROC_DIR / f"lineups_{d}.csv"
+                save_df(out, out_path)
+                print(f"Saved lineup snapshot to {out_path} ({len(out)} rows)")
+
+            @app.command()
+            def injury_update(date: Optional[str] = typer.Option(None, help="ET date YYYY-MM-DD to stamp output"), overrides_path: Optional[str] = typer.Option(None, help="Optional CSV with manual injury entries")):
+                """Save a normalized injury snapshot for the date (baseline manual/empty)."""
+                d = date or ymd(today_utc())
+                manual = []
+                if overrides_path:
+                    try:
+                        dfm = pd.read_csv(overrides_path)
+                        manual = dfm.to_dict(orient="records")
+                    except Exception as e:
+                        print({"overrides": "error", "path": overrides_path, "error": str(e)})
+                df = build_injury_snapshot(d, manual=manual)
+                out_path = PROC_DIR / f"injuries_{d}.csv"
+                save_df(df, out_path)
+                print(f"Saved injury snapshot to {out_path} ({len(df)} rows)")
+
+            @app.command(name="game-simulate-baseline")
+            def game_simulate_baseline(date: Optional[str] = typer.Option(None, help="ET date YYYY-MM-DD to simulate schedule"), seed: Optional[int] = typer.Option(None, help="Random seed for reproducibility")):
+                """Simulate all scheduled games for a date using baseline period-level engine and output game and box score CSVs."""
+                d = date or ymd(today_utc())
+                client = NHLWebClient()
+                games = client.schedule_day(d)
+                # Base goals rate from config if present
+                base_mu = 3.0
+                try:
+                    cfg_path = MODEL_DIR / "config.json"
+                    if cfg_path.exists():
+                        obj = json.loads(cfg_path.read_text(encoding="utf-8"))
+                        base_mu = float(obj.get("base_mu", base_mu))
+                except Exception:
+                    pass
+                sim_cfg = SimConfig(seed=seed)
+                sim_rates = RateModels.baseline(base_mu=base_mu)
+                sim = GameSimulator(cfg=sim_cfg, rates=sim_rates)
+                game_rows = []
+                box_rows = []
+                for g in games:
+                    try:
+                        # Map full team names to abbreviations
+                        h_ab = get_team_assets(g.home).get("abbr") or g.home
+                        a_ab = get_team_assets(g.away).get("abbr") or g.away
+                        roster_home = build_roster_snapshot(h_ab).to_dict(orient="records")
+                        roster_away = build_roster_snapshot(a_ab).to_dict(orient="records")
+                        gs, _events = sim.simulate(home_name=g.home, away_name=g.away, roster_home=roster_home, roster_away=roster_away)
+                        game_rows.append({
+                            "gamePk": g.gamePk,
+                            "date": d,
+                            "home": g.home,
+                            "away": g.away,
+                            "home_goals_sim": gs.home.score,
+                            "away_goals_sim": gs.away.score,
+                        })
+                        # Box scores
+                        for p in list(gs.home.players.values()) + list(gs.away.players.values()):
+                            box_rows.append({
+                                "gamePk": g.gamePk,
+                                "date": d,
+                                "team": p.team,
+                                "player_id": p.player_id,
+                                "full_name": p.full_name,
+                                "position": p.position,
+                                "shots": int(p.stats.get("shots", 0.0)),
+                                "goals": int(p.stats.get("goals", 0.0)),
+                                "saves": int(p.stats.get("saves", 0.0)),
+                            })
+                    except Exception as e:
+                        print({"simulate": "error", "gamePk": g.gamePk, "error": str(e)})
+                # Save outputs
+                games_df = pd.DataFrame(game_rows)
+                boxes_df = pd.DataFrame(box_rows)
+                out_g = PROC_DIR / f"sim_games_{d}.csv"
+                out_b = PROC_DIR / f"sim_boxscores_{d}.csv"
+                save_df(games_df, out_g)
+                save_df(boxes_df, out_b)
+                print({"saved": {"games": str(out_g), "boxscores": str(out_b)}, "counts": {"games": len(games_df), "box": len(boxes_df)}})
+
             print(f"[props_watch] attempt failed: {e}")
         if i < tries - 1:
             _time.sleep(max(1, int(interval)))
@@ -10328,5 +10438,108 @@ if __name__ == "__main__":
         except Exception as e:
             print({"backtest": "error", "date": d, "error": str(e)})
 
+
+    @app.command(name="roster-update")
+    def roster_update_cmd(date: Optional[str] = typer.Option(None, help="ET date YYYY-MM-DD to stamp output")):
+        d = date or ymd(today_utc())
+        df = build_all_team_roster_snapshots()
+        out_path = PROC_DIR / f"roster_snapshot_{d}.csv"
+        save_df(df, out_path)
+        print(f"Saved roster snapshot to {out_path} ({len(df)} players)")
+
+    @app.command(name="lineup-update")
+    def lineup_update_cmd(date: Optional[str] = typer.Option(None, help="ET date YYYY-MM-DD to stamp output")):
+        d = date or ymd(today_utc())
+        frames = []
+        for ab in TEAM_ABBRS:
+            try:
+                snap = build_lineup_snapshot(ab)
+                snap["team"] = ab
+                frames.append(snap)
+            except Exception as e:
+                print({"team": ab, "error": str(e)})
+        out = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame(columns=["player_id","full_name","position","line_slot","pp_unit","pk_unit","proj_toi","confidence","team"])
+        out_path = PROC_DIR / f"lineups_{d}.csv"
+        save_df(out, out_path)
+        print(f"Saved lineup snapshot to {out_path} ({len(out)} rows)")
+
+        try:
+            # Build co-TOI pairs from lineups and save alongside
+            co = build_co_toi_from_lineups(out)
+            co_path = PROC_DIR / f"lineups_co_toi_{d}.csv"
+            save_df(co, co_path)
+            print(f"Saved co-TOI snapshot to {co_path} ({len(co)} rows)")
+        except Exception as e:
+            print({"co_toi": "error", "date": d, "error": str(e)})
+
+    @app.command(name="injury-update")
+    def injury_update_cmd(date: Optional[str] = typer.Option(None, help="ET date YYYY-MM-DD to stamp output"), overrides_path: Optional[str] = typer.Option(None, help="Optional CSV with manual injury entries")):
+        d = date or ymd(today_utc())
+        manual = []
+        if overrides_path:
+            try:
+                dfm = pd.read_csv(overrides_path)
+                manual = dfm.to_dict(orient="records")
+            except Exception as e:
+                print({"overrides": "error", "path": overrides_path, "error": str(e)})
+        df = build_injury_snapshot(d, manual=manual)
+        out_path = PROC_DIR / f"injuries_{d}.csv"
+        save_df(df, out_path)
+        print(f"Saved injury snapshot to {out_path} ({len(df)} rows)")
+
+    @app.command(name="game-simulate-baseline")
+    def game_simulate_baseline_cmd(date: Optional[str] = typer.Option(None, help="ET date YYYY-MM-DD to simulate schedule"), seed: Optional[int] = typer.Option(None, help="Random seed for reproducibility")):
+        d = date or ymd(today_utc())
+        client = NHLWebClient()
+        games = client.schedule_day(d)
+        base_mu = 3.0
+        try:
+            cfg_path = MODEL_DIR / "config.json"
+            if cfg_path.exists():
+                obj = json.loads(cfg_path.read_text(encoding="utf-8"))
+                base_mu = float(obj.get("base_mu", base_mu))
+        except Exception:
+            pass
+        sim_cfg = SimConfig(seed=seed)
+        sim_rates = RateModels.baseline(base_mu=base_mu)
+        sim = GameSimulator(cfg=sim_cfg, rates=sim_rates)
+        game_rows = []
+        box_rows = []
+        for g in games:
+            try:
+                h_ab = get_team_assets(g.home).get("abbr") or g.home
+                a_ab = get_team_assets(g.away).get("abbr") or g.away
+                roster_home = build_roster_snapshot(h_ab).to_dict(orient="records")
+                roster_away = build_roster_snapshot(a_ab).to_dict(orient="records")
+                gs, _events = sim.simulate(home_name=g.home, away_name=g.away, roster_home=roster_home, roster_away=roster_away)
+                game_rows.append({
+                    "gamePk": g.gamePk,
+                    "date": d,
+                    "home": g.home,
+                    "away": g.away,
+                    "home_goals_sim": gs.home.score,
+                    "away_goals_sim": gs.away.score,
+                })
+                for p in list(gs.home.players.values()) + list(gs.away.players.values()):
+                    box_rows.append({
+                        "gamePk": g.gamePk,
+                        "date": d,
+                        "team": p.team,
+                        "player_id": p.player_id,
+                        "full_name": p.full_name,
+                        "position": p.position,
+                        "shots": int(p.stats.get("shots", 0.0)),
+                        "goals": int(p.stats.get("goals", 0.0)),
+                        "saves": int(p.stats.get("saves", 0.0)),
+                    })
+            except Exception as e:
+                print({"simulate": "error", "gamePk": g.gamePk, "error": str(e)})
+        games_df = pd.DataFrame(game_rows)
+        boxes_df = pd.DataFrame(box_rows)
+        out_g = PROC_DIR / f"sim_games_{d}.csv"
+        out_b = PROC_DIR / f"sim_boxscores_{d}.csv"
+        save_df(games_df, out_g)
+        save_df(boxes_df, out_b)
+        print({"saved": {"games": str(out_g), "boxscores": str(out_b)}, "counts": {"games": len(games_df), "box": len(boxes_df)}})
 
     app()

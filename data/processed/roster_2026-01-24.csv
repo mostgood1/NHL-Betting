@@ -21,7 +21,7 @@ player_id,player,full_name,position,team_id,team_abbr,team_name,image_url
 8476312,Josh Manson,Josh Manson,D,,COL,Colorado Avalanche,https://assets.nhle.com/mugs/nhl/20252026/COL/8476312.png
 8478038,Devon Toews,Devon Toews,D,,COL,Colorado Avalanche,https://assets.nhle.com/mugs/nhl/20252026/COL/8478038.png
 8478406,Mackenzie Blackwood,Mackenzie Blackwood,G,,COL,Colorado Avalanche,https://assets.nhle.com/mugs/nhl/20252026/COL/8478406.png
-8475809,Scott Wedgewood,Scott Wedgewood,G,,COL,Colorado Avalanche,https://assets.nhle.com/mugs/nhl/20252026/COL/8475809.png
+8485473,Isak Posch,Isak Posch,G,,COL,Colorado Avalanche,https://assets.nhle.com/mugs/nhl/20252026/COL/8485473.png
 8477416,Oliver Bjorkstrand,Oliver Bjorkstrand,F,,TBL,Tampa Bay Lightning,https://assets.nhle.com/mugs/nhl/20252026/TBL/8477416.png
 8478519,Anthony Cirelli,Anthony Cirelli,F,,TBL,Tampa Bay Lightning,https://assets.nhle.com/mugs/nhl/20252026/TBL/8478519.png
 8480876,Curtis Douglas,Curtis Douglas,F,,TBL,Tampa Bay Lightning,https://assets.nhle.com/mugs/nhl/20252026/TBL/8480876.png
@@ -293,8 +293,8 @@ player_id,player,full_name,position,team_id,team_abbr,team_name,image_url
 8484958,Maxim Tsyplakov,Maxim Tsyplakov,F,,NYI,New York Islanders,https://assets.nhle.com/mugs/nhl/20252026/NYI/8484958.png
 8480871,Adam Boqvist,Adam Boqvist,D,,NYI,New York Islanders,https://assets.nhle.com/mugs/nhl/20252026/NYI/8480871.png
 8477950,Tony DeAngelo,Tony DeAngelo,D,,NYI,New York Islanders,https://assets.nhle.com/mugs/nhl/20252026/NYI/8477950.png
+8483448,Isaiah George,Isaiah George,D,,NYI,New York Islanders,https://assets.nhle.com/mugs/nhl/20252026/NYI/8483448.png
 8476429,Scott Mayfield,Scott Mayfield,D,,NYI,New York Islanders,https://assets.nhle.com/mugs/nhl/20252026/NYI/8476429.png
-8484287,Cole McWard,Cole McWard,D,,NYI,New York Islanders,https://assets.nhle.com/mugs/nhl/20252026/NYI/8484287.png
 8476917,Adam Pelech,Adam Pelech,D,,NYI,New York Islanders,https://assets.nhle.com/mugs/nhl/20252026/NYI/8476917.png
 8477506,Ryan Pulock,Ryan Pulock,D,,NYI,New York Islanders,https://assets.nhle.com/mugs/nhl/20252026/NYI/8477506.png
 8481014,Alexander Romanov,Alexander Romanov,D,,NYI,New York Islanders,https://assets.nhle.com/mugs/nhl/20252026/NYI/8481014.png
@@ -808,4 +808,4 @@ player_id,player,full_name,position,team_id,team_abbr,team_name,image_url
 8484240,Tom Willander,Tom Willander,D,,VAN,Vancouver Canucks,https://assets.nhle.com/mugs/nhl/20252026/VAN/8484240.png
 8477967,Thatcher Demko,Thatcher Demko,G,,VAN,Vancouver Canucks,https://assets.nhle.com/mugs/nhl/20252026/VAN/8477967.png
 8480947,Kevin Lankinen,Kevin Lankinen,G,,VAN,Vancouver Canucks,https://assets.nhle.com/mugs/nhl/20252026/VAN/8480947.png
-8480238,Jiri Patera,Jiri Patera,G,,VAN,Vancouver Canucks,https://assets.nhle.com/mugs/nhl/20252026/VAN/8480238.png
+8484268,Nikita Tolopilo,Nikita Tolopilo,G,,VAN,Vancouver Canucks,https://assets.nhle.com/mugs/nhl/20252026/VAN/8484268.png

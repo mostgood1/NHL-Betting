@@ -59,6 +59,7 @@ from .data.rosters import build_all_team_roster_snapshots, build_roster_snapshot
 from .data.lineups import build_lineup_snapshot
 from .data.injuries import build_injury_snapshot
 from .data.co_toi import build_co_toi_from_lineups
+from .data.shifts_api import shifts_frame, co_toi_from_shifts, player_toi_from_shifts
 from .sim.engine import GameSimulator, SimConfig
 from .sim.models import RateModels
 from .web.teams import get_team_assets
@@ -10472,6 +10473,32 @@ if __name__ == "__main__":
         except Exception as e:
             print({"co_toi": "error", "date": d, "error": str(e)})
 
+    @app.command(name="shifts-update")
+    def shifts_update_cmd(date: Optional[str] = typer.Option(None, help="ET date YYYY-MM-DD to fetch shiftcharts and compute co-TOI")):
+        d = date or ymd(today_utc())
+        client = NHLWebClient()
+        games = client.schedule_day(d)
+        frames = []
+        for g in games:
+            try:
+                df = shifts_frame(g.gamePk)
+                if df is not None and not df.empty:
+                    df["gamePk"] = g.gamePk
+                    frames.append(df)
+            except Exception as e:
+                print({"shifts": "error", "gamePk": g.gamePk, "error": str(e)})
+        all_shifts = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame(columns=["team","player_id","period","start_s","end_s","gamePk"])
+        out_s = PROC_DIR / f"shifts_{d}.csv"
+        save_df(all_shifts, out_s)
+        print(f"Saved shifts to {out_s} ({len(all_shifts)} rows)")
+        try:
+            co = co_toi_from_shifts(all_shifts)
+            out_c = PROC_DIR / f"co_toi_shifts_{d}.csv"
+            save_df(co, out_c)
+            print(f"Saved co-TOI from shifts to {out_c} ({len(co)} rows)")
+        except Exception as e:
+            print({"co_toi_shifts": "error", "date": d, "error": str(e)})
+
     @app.command(name="injury-update")
     def injury_update_cmd(date: Optional[str] = typer.Option(None, help="ET date YYYY-MM-DD to stamp output"), overrides_path: Optional[str] = typer.Option(None, help="Optional CSV with manual injury entries")):
         d = date or ymd(today_utc())
@@ -10505,6 +10532,7 @@ if __name__ == "__main__":
         sim = GameSimulator(cfg=sim_cfg, rates=sim_rates)
         game_rows = []
         box_rows = []
+        evt_rows = []
         for g in games:
             try:
                 h_ab = get_team_assets(g.home).get("abbr") or g.home
@@ -10541,5 +10569,251 @@ if __name__ == "__main__":
         save_df(games_df, out_g)
         save_df(boxes_df, out_b)
         print({"saved": {"games": str(out_g), "boxscores": str(out_b)}, "counts": {"games": len(games_df), "box": len(boxes_df)}})
+
+    @app.command(name="game-simulate-possession")
+    def game_simulate_possession_cmd(date: Optional[str] = typer.Option(None, help="ET date YYYY-MM-DD to simulate schedule using lineups and simple score effects"), seed: Optional[int] = typer.Option(None, help="Random seed for reproducibility")):
+        d = date or ymd(today_utc())
+        client = NHLWebClient()
+        games = client.schedule_day(d)
+        base_mu = 3.0
+        try:
+            cfg_path = MODEL_DIR / "config.json"
+            if cfg_path.exists():
+                obj = json.loads(cfg_path.read_text(encoding="utf-8"))
+                base_mu = float(obj.get("base_mu", base_mu))
+        except Exception:
+            pass
+        sim_cfg = SimConfig(seed=seed)
+        sim_rates = RateModels.baseline(base_mu=base_mu)
+        sim = GameSimulator(cfg=sim_cfg, rates=sim_rates)
+        # Load calibrated special-teams multipliers (optional)
+        st_cal: Dict[str, float] = {}
+        try:
+            mc_path = PROC_DIR / "model_calibration.json"
+            if mc_path.exists() and getattr(mc_path.stat(), "st_size", 0) > 0:
+                import json
+                mc = json.loads(mc_path.read_text(encoding="utf-8"))
+                st_cal = dict(mc.get("special_teams", {}) or {})
+        except Exception:
+            st_cal = {}
+        # Load team special teams for PP/PK effects
+        try:
+            from .data.team_stats import load_team_special_teams
+            team_st = load_team_special_teams(d) or {}
+        except Exception:
+            team_st = {}
+        # Load team penalty rates (committed/drawn per game) to refine PP frequency
+        try:
+            from .data.penalty_rates import load_team_penalty_rates
+            team_pr = load_team_penalty_rates(d) or {}
+        except Exception:
+            team_pr = {}
+        # Load lineup snapshot for date
+        lineup_path = PROC_DIR / f"lineups_{d}.csv"
+        if not lineup_path.exists():
+            print(f"Missing {lineup_path}; run lineup-update first.")
+            raise typer.Exit(code=1)
+        lineups_all = pd.read_csv(lineup_path)
+        # Optional: enrich TOI projections from shiftcharts if available
+        shifts_path = PROC_DIR / f"shifts_{d}.csv"
+        toi_map_home = {}; toi_map_away = {}
+        if shifts_path.exists():
+            try:
+                sh = pd.read_csv(shifts_path)
+                ptoi = player_toi_from_shifts(sh)
+                # Build maps per team for quick lookup
+                for _, r in ptoi.iterrows():
+                    tm = str(r["team"]).upper(); pid = int(r["player_id"]); m = float(r["toi_ev_minutes"]) if pd.notna(r["toi_ev_minutes"]) else 0.0
+                    # Assign sets after we know home/away abbrevs
+                    # We'll map by abbr later when we know h_ab/a_ab
+                    pass
+                # We'll re-compute per game below once h_ab/a_ab known
+                ptoi_all = ptoi
+            except Exception:
+                ptoi_all = pd.DataFrame()
+        else:
+            ptoi_all = pd.DataFrame()
+        game_rows = []
+        box_rows = []
+        evt_rows = []
+        for g in games:
+            try:
+                h_ab = get_team_assets(g.home).get("abbr") or g.home
+                a_ab = get_team_assets(g.away).get("abbr") or g.away
+                roster_home_df = build_roster_snapshot(h_ab)
+                roster_away_df = build_roster_snapshot(a_ab)
+                # Merge shift-based TOI if available
+                if not ptoi_all.empty:
+                    try:
+                        p_h = ptoi_all[ptoi_all["team"].eq(h_ab)].rename(columns={"toi_ev_minutes":"proj_toi"})[["player_id","proj_toi"]]
+                        p_a = ptoi_all[ptoi_all["team"].eq(a_ab)].rename(columns={"toi_ev_minutes":"proj_toi"})[["player_id","proj_toi"]]
+                        roster_home_df = roster_home_df.merge(p_h, on="player_id", how="left")
+                        roster_away_df = roster_away_df.merge(p_a, on="player_id", how="left")
+                        roster_home_df["proj_toi"] = roster_home_df["proj_toi"].fillna(15.0)
+                        roster_away_df["proj_toi"] = roster_away_df["proj_toi"].fillna(15.0)
+                    except Exception:
+                        roster_home_df["proj_toi"] = 15.0
+                        roster_away_df["proj_toi"] = 15.0
+                else:
+                    roster_home_df["proj_toi"] = 15.0
+                    roster_away_df["proj_toi"] = 15.0
+                roster_home = roster_home_df.to_dict(orient="records")
+                roster_away = roster_away_df.to_dict(orient="records")
+                l_home = lineups_all[lineups_all["team"].eq(h_ab)].to_dict(orient="records")
+                l_away = lineups_all[lineups_all["team"].eq(a_ab)].to_dict(orient="records")
+                st_h = team_st.get(h_ab) or {"pp_pct": 0.2, "pk_pct": 0.8, "drawn_per_game": 3.0, "committed_per_game": 3.0}
+                st_a = team_st.get(a_ab) or {"pp_pct": 0.2, "pk_pct": 0.8, "drawn_per_game": 3.0, "committed_per_game": 3.0}
+                # Refine with penalty rates if available
+                try:
+                    pr_h = team_pr.get(h_ab) or {}
+                    pr_a = team_pr.get(a_ab) or {}
+                    if pr_h:
+                        if pr_h.get("drawn_per60") is not None:
+                            st_h["drawn_per_game"] = float(pr_h.get("drawn_per60"))
+                        if pr_h.get("committed_per60") is not None:
+                            st_h["committed_per_game"] = float(pr_h.get("committed_per60"))
+                    if pr_a:
+                        if pr_a.get("drawn_per60") is not None:
+                            st_a["drawn_per_game"] = float(pr_a.get("drawn_per60"))
+                        if pr_a.get("committed_per60") is not None:
+                            st_a["committed_per_game"] = float(pr_a.get("committed_per60"))
+                except Exception:
+                    pass
+                gs, _events = sim.simulate_with_lineups(home_name=g.home, away_name=g.away, roster_home=roster_home, roster_away=roster_away, lineup_home=l_home, lineup_away=l_away, st_home=st_h, st_away=st_a, special_teams_cal=st_cal)
+                game_rows.append({
+                    "gamePk": g.gamePk,
+                    "date": d,
+                    "home": g.home,
+                    "away": g.away,
+                    "home_goals_sim": gs.home.score,
+                    "away_goals_sim": gs.away.score,
+                })
+                for p in list(gs.home.players.values()) + list(gs.away.players.values()):
+                    box_rows.append({
+                        "gamePk": g.gamePk,
+                        "date": d,
+                        "team": p.team,
+                        "player_id": p.player_id,
+                        "full_name": p.full_name,
+                        "position": p.position,
+                        "shots": int(p.stats.get("shots", 0.0)),
+                        "goals": int(p.stats.get("goals", 0.0)),
+                        "saves": int(p.stats.get("saves", 0.0)),
+                    })
+                # Event strength summary per game
+                try:
+                    def _cnt(kind: str, strength: str, team_name: str) -> int:
+                        return sum(1 for e in _events if (e.kind == kind and e.meta.get("strength") == strength and e.team == team_name))
+                    evt_rows.append({
+                        "gamePk": g.gamePk,
+                        "date": d,
+                        "home": g.home,
+                        "away": g.away,
+                        "shots_ev_home": _cnt("shot", "EV", g.home),
+                        "shots_pp_home": _cnt("shot", "PP", g.home),
+                        "shots_pk_home": _cnt("shot", "PK", g.home),
+                        "shots_ev_away": _cnt("shot", "EV", g.away),
+                        "shots_pp_away": _cnt("shot", "PP", g.away),
+                        "shots_pk_away": _cnt("shot", "PK", g.away),
+                        "goals_ev_home": _cnt("goal", "EV", g.home),
+                        "goals_pp_home": _cnt("goal", "PP", g.home),
+                        "goals_pk_home": _cnt("goal", "PK", g.home),
+                        "goals_ev_away": _cnt("goal", "EV", g.away),
+                        "goals_pp_away": _cnt("goal", "PP", g.away),
+                        "goals_pk_away": _cnt("goal", "PK", g.away),
+                    })
+                except Exception:
+                    pass
+            except Exception as e:
+                print({"simulate": "error", "gamePk": g.gamePk, "error": str(e)})
+        games_df = pd.DataFrame(game_rows)
+        boxes_df = pd.DataFrame(box_rows)
+        events_df = pd.DataFrame(evt_rows)
+        out_g = PROC_DIR / f"sim_games_pos_{d}.csv"
+        out_b = PROC_DIR / f"sim_boxscores_pos_{d}.csv"
+        out_e = PROC_DIR / f"sim_events_pos_{d}.csv"
+        save_df(games_df, out_g)
+        save_df(boxes_df, out_b)
+        if not events_df.empty:
+            save_df(events_df, out_e)
+        print({"saved": {"games": str(out_g), "boxscores": str(out_b), "events": (str(out_e) if not events_df.empty else None)}, "counts": {"games": len(games_df), "box": len(boxes_df), "events": len(events_df)}})
+
+    @app.command(name="game-calibrate-special-teams")
+    def game_calibrate_special_teams_cmd(
+        start: str = typer.Option(..., help="Start ET date YYYY-MM-DD"),
+        end: str = typer.Option(..., help="End ET date YYYY-MM-DD"),
+        target_pp_shot_frac: float = typer.Option(0.18, help="Target fraction of shots occurring on PP (league-wide heuristic)"),
+        target_pp_goal_frac: float = typer.Option(0.24, help="Target fraction of goals occurring on PP (league-wide heuristic)"),
+    ):
+        import pandas as pd
+        from pathlib import Path
+        dates = pd.date_range(start=pd.to_datetime(start), end=pd.to_datetime(end), freq="D")
+        ev_sh = ev_gl = pp_sh = pp_gl = pk_sh = pk_gl = 0
+        n_days = 0
+        for dt in dates:
+            d = dt.strftime("%Y-%m-%d")
+            p = PROC_DIR / f"sim_events_pos_{d}.csv"
+            if not p.exists():
+                continue
+            try:
+                df = pd.read_csv(p)
+                # Sum EV/PP/PK shots+goals across both teams
+                ev_sh += int(df[["shots_ev_home","shots_ev_away"]].sum().sum())
+                pp_sh += int(df[["shots_pp_home","shots_pp_away"]].sum().sum())
+                pk_sh += int(df[["shots_pk_home","shots_pk_away"]].sum().sum())
+                ev_gl += int(df[["goals_ev_home","goals_ev_away"]].sum().sum())
+                pp_gl += int(df[["goals_pp_home","goals_pp_away"]].sum().sum())
+                pk_gl += int(df[["goals_pk_home","goals_pk_away"]].sum().sum())
+                n_days += 1
+            except Exception:
+                continue
+        total_sh = ev_sh + pp_sh + pk_sh
+        total_gl = ev_gl + pp_gl + pk_gl
+        obs_pp_sh_frac = (pp_sh / total_sh) if total_sh > 0 else 0.0
+        obs_pp_gl_frac = (pp_gl / total_gl) if total_gl > 0 else 0.0
+        # Recommend multipliers to move observed toward targets (bounded)
+        rec_pp_sh_mult = float(max(0.8, min(1.6, (target_pp_shot_frac / max(obs_pp_sh_frac, 1e-6)))))
+        rec_pp_goal_mult = float(max(0.9, min(1.6, (target_pp_goal_frac / max(obs_pp_gl_frac, 1e-6)))))
+        # PK shot/goal multipliers keep inverse relationship to PP
+        rec_pk_sh_mult = float(max(0.6, min(1.2, 1.0 / rec_pp_sh_mult)))
+        rec_pk_goal_mult = float(max(0.6, min(1.2, 1.0 / rec_pp_goal_mult)))
+        out = {
+            "window": {"start": start, "end": end, "days_with_events": n_days},
+            "observed": {
+                "shots": {"ev": ev_sh, "pp": pp_sh, "pk": pk_sh, "pp_frac": obs_pp_sh_frac},
+                "goals": {"ev": ev_gl, "pp": pp_gl, "pk": pk_gl, "pp_frac": obs_pp_gl_frac},
+            },
+            "targets": {"pp_shot_frac": target_pp_shot_frac, "pp_goal_frac": target_pp_goal_frac},
+            "recommended": {
+                "pp_shot_multiplier": rec_pp_sh_mult,
+                "pk_shot_multiplier": rec_pk_sh_mult,
+                "pp_goal_multiplier": rec_pp_goal_mult,
+                "pk_goal_multiplier": rec_pk_goal_mult,
+            },
+        }
+        # Persist into sim_calibration.json and update model_calibration.json patch
+        sim_cal_path = PROC_DIR / "sim_calibration.json"
+        try:
+            obj = {}
+            if sim_cal_path.exists() and getattr(sim_cal_path.stat(), "st_size", 0) > 0:
+                import json
+                obj = json.loads(sim_cal_path.read_text(encoding="utf-8"))
+            obj["special_teams"] = out
+            sim_cal_path.write_text(json.dumps(obj, indent=2), encoding="utf-8")
+        except Exception:
+            pass
+        # Patch model_calibration.json (non-fatal if missing)
+        mc_path = PROC_DIR / "model_calibration.json"
+        try:
+            import json
+            mc = {}
+            if mc_path.exists() and getattr(mc_path.stat(), "st_size", 0) > 0:
+                mc = json.loads(mc_path.read_text(encoding="utf-8"))
+            mc.setdefault("special_teams", {})
+            mc["special_teams"].update(out["recommended"])  # store the multipliers
+            mc_path.write_text(json.dumps(mc, indent=2), encoding="utf-8")
+        except Exception:
+            pass
+        print({"calibrated": out["recommended"], "window": out["window"], "observed": out["observed"]})
 
     app()

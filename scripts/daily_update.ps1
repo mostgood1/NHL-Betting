@@ -120,6 +120,8 @@ try {
   python -m nhl_betting.cli roster-update --date $today
   Write-Host "[daily_update] Updating lineup + co-TOI for $today …" -ForegroundColor Yellow
   python -m nhl_betting.cli lineup-update --date $today
+  Write-Host "[daily_update] Fetching shiftcharts + co-TOI for $today …" -ForegroundColor Yellow
+  python -m nhl_betting.cli shifts-update --date $today
   Write-Host "[daily_update] Updating injury snapshot for $today …" -ForegroundColor Yellow
   python -m nhl_betting.cli injury-update --date $today
   Write-Host "[daily_update] Updating lineup + co-TOI for $tomorrow …" -ForegroundColor Yellow
@@ -168,6 +170,15 @@ try {
 # Optional: run game simulations (ML/PL/Totals) driven by NN outputs
 if ($SimulateGames) {
   try {
+    # Calibrate special-teams multipliers before running possession sims (last 30 days)
+    try {
+      $calStart = (Get-Date).AddDays(-30).ToString('yyyy-MM-dd')
+      $calEnd = (Get-Date).ToString('yyyy-MM-dd')
+      Write-Host "[daily_update] Calibrating special teams $calStart..$calEnd …" -ForegroundColor DarkGreen
+      python -m nhl_betting.cli game-calibrate-special-teams --start $calStart --end $calEnd
+    } catch {
+      Write-Warning "[daily_update] Special-teams calibration failed: $($_.Exception.Message)"
+    }
     $base = Get-Date
     for ($i = 0; $i -lt $DaysAhead; $i++) {
       $d = $base.AddDays($i).ToString('yyyy-MM-dd')
@@ -202,6 +213,14 @@ if ($SimulateGames) {
         python -m nhl_betting.cli game-simulate-baseline --date $d
       } catch {
         Write-Warning "[daily_update] game-simulate-baseline failed for ${d}: $($_.Exception.Message)"
+      }
+
+      # Possession-aware sim using lineups and shift-based TOI
+      try {
+        Write-Host "[daily_update] Possession-aware sim for $d …" -ForegroundColor DarkYellow
+        python -m nhl_betting.cli game-simulate-possession --date $d
+      } catch {
+        Write-Warning "[daily_update] game-simulate-possession failed for ${d}: $($_.Exception.Message)"
       }
     }
   } catch {

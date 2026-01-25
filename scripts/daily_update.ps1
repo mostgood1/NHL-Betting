@@ -77,6 +77,22 @@ if (-not $SimPropsBacktestMinEvPerMarket -or $SimPropsBacktestMinEvPerMarket.Tri
   $SimPropsBacktestMinEvPerMarket = 'SOG=0.04,GOALS=0.00,ASSISTS=0.00,POINTS=0.08,SAVES=0.02,BLOCKS=0.02'
 }
 
+# Optional: load tuned props sim multipliers if present
+try {
+  $propsCfgPath = Join-Path $ProcessedDir 'props_sim_multipliers_config.json'
+  if (Test-Path $propsCfgPath) {
+    $propsCfg = Get-Content $propsCfgPath | ConvertFrom-Json
+    if ($propsCfg.best) {
+      $best = $propsCfg.best
+      $PropsXGGamma = [double]($best.props_xg_gamma)
+      $PropsPenaltyGamma = [double]($best.props_penalty_gamma)
+      $PropsGoalieFormGamma = [double]($best.props_goalie_form_gamma)
+      $PropsStrengthGamma = [double]($best.props_strength_gamma)
+      Write-Host "[daily_update] Using tuned props sim gammas: xg=$PropsXGGamma pen=$PropsPenaltyGamma gform=$PropsGoalieFormGamma str=$PropsStrengthGamma" -ForegroundColor DarkGreen
+    }
+  }
+} catch { Write-Warning "[daily_update] Failed to load props_sim_multipliers_config: $($_.Exception.Message)" }
+
 # Optional: load tuned totals multipliers from config if present and not overridden
 try {
   $cfgPath = Join-Path $RepoRoot 'data/processed/totals_multipliers_config.json'
@@ -425,12 +441,19 @@ if ($PropsRecs) {
 
     if ($PropsUseSim) {
       Write-Host "[daily_update] Simulating props for $today & $tomorrow …" -ForegroundColor Yellow
-      $simArgsBase = @("-m", "nhl_betting.cli", "props-simulate", "--markets", "SOG,GOALS,ASSISTS,POINTS,SAVES,BLOCKS", "--n-sims", "16000", "--sim-shared-k", "1.2", "--props-xg-gamma", "0.02", "--props-penalty-gamma", "0.06", "--props-goalie-form-gamma", "0.02", "--props-strength-gamma", "0.04")
+      $simArgsBase = @("-m", "nhl_betting.cli", "props-simulate", "--markets", "SOG,GOALS,ASSISTS,POINTS,SAVES,BLOCKS", "--n-sims", "16000", "--sim-shared-k", "1.2")
+      if ($PropsXGGamma) { $simArgsBase += @("--props-xg-gamma", "$PropsXGGamma") } else { $simArgsBase += @("--props-xg-gamma", "0.02") }
+      if ($PropsPenaltyGamma) { $simArgsBase += @("--props-penalty-gamma", "$PropsPenaltyGamma") } else { $simArgsBase += @("--props-penalty-gamma", "0.06") }
+      if ($PropsGoalieFormGamma) { $simArgsBase += @("--props-goalie-form-gamma", "$PropsGoalieFormGamma") } else { $simArgsBase += @("--props-goalie-form-gamma", "0.02") }
+      if ($PropsStrengthGamma) { $simArgsBase += @("--props-strength-gamma", "$PropsStrengthGamma") } else { $simArgsBase += @("--props-strength-gamma", "0.04") }
       python @($simArgsBase + @("--date", $today))
       python @($simArgsBase + @("--date", $tomorrow))
       # Supplement: simulate SAVES/BLOCKS independent of provider lines
       Write-Host "[daily_update] Simulating nolines props (SAVES/BLOCKS) for $today & $tomorrow …" -ForegroundColor Yellow
-      $nolArgsBase = @("-m", "nhl_betting.cli", "props-simulate-unlined", "--markets", "SAVES,BLOCKS", "--candidate-lines", "SAVES=24.5,26.5,28.5,30.5;BLOCKS=1.5,2.5,3.5", "--n-sims", "16000", "--sim-shared-k", "1.2", "--props-xg-gamma", "0.02", "--props-penalty-gamma", "0.06", "--props-goalie-form-gamma", "0.02")
+      $nolArgsBase = @("-m", "nhl_betting.cli", "props-simulate-unlined", "--markets", "SAVES,BLOCKS", "--candidate-lines", "SAVES=24.5,26.5,28.5,30.5;BLOCKS=1.5,2.5,3.5", "--n-sims", "16000", "--sim-shared-k", "1.2")
+      if ($PropsXGGamma) { $nolArgsBase += @("--props-xg-gamma", "$PropsXGGamma") } else { $nolArgsBase += @("--props-xg-gamma", "0.02") }
+      if ($PropsPenaltyGamma) { $nolArgsBase += @("--props-penalty-gamma", "$PropsPenaltyGamma") } else { $nolArgsBase += @("--props-penalty-gamma", "0.06") }
+      if ($PropsGoalieFormGamma) { $nolArgsBase += @("--props-goalie-form-gamma", "$PropsGoalieFormGamma") } else { $nolArgsBase += @("--props-goalie-form-gamma", "0.02") }
       python @($nolArgsBase + @("--date", $today))
       python @($nolArgsBase + @("--date", $tomorrow))
       Write-Host "[daily_update] Generating SIM-based props recommendations for $today & $tomorrow …" -ForegroundColor Cyan

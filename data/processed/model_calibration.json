@@ -18,5 +18,14 @@
   "ev_gates_range": {
     "start": "2025-09-01",
     "end": "2026-01-24"
+  },
+  "special_teams": {
+    "pp_shot_multiplier": 1.3088151174668028,
+    "pk_shot_multiplier": 0.7640498544481126,
+    "pp_goal_multiplier": 1.4409836065573771,
+    "pk_goal_multiplier": 0.6939704209328782,
+    "blocks_ev_rate": 0.1559221734062584,
+    "blocks_pk_rate": 0.21348314606741572,
+    "blocks_pp_def_rate": 0.10390763765541741
   }
 }

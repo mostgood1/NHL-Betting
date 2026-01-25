@@ -1,0 +1,31 @@
+date,home,away,market,ev
+2026-01-27T00:00:00Z,Columbus Blue Jackets,Los Angeles Kings,ev_home_ml,0.4501
+2026-01-27T01:30:00Z,Edmonton Oilers,Anaheim Ducks,ev_under,0.4055
+2026-01-27T00:00:00Z,Philadelphia Flyers,New York Islanders,ev_home_ml,0.259
+2026-01-27T00:00:00Z,Tampa Bay Lightning,Utah Mammoth,ev_under,0.2158
+2026-01-27T01:30:00Z,Edmonton Oilers,Anaheim Ducks,ev_away_pl_+1.5,0.1863
+2026-01-27T00:00:00Z,Philadelphia Flyers,New York Islanders,ev_over,0.1731
+2026-01-27T00:00:00Z,New York Rangers,Boston Bruins,ev_under,0.1586
+2026-01-27T00:00:00Z,Columbus Blue Jackets,Los Angeles Kings,ev_home_pl_-1.5,0.1459
+2026-01-27T01:30:00Z,Edmonton Oilers,Anaheim Ducks,ev_home_ml,0.0811
+2026-01-27T00:00:00Z,New York Rangers,Boston Bruins,ev_away_pl_+1.5,0.0805
+2026-01-27T00:00:00Z,Philadelphia Flyers,New York Islanders,ev_home_pl_-1.5,0.0773
+2026-01-27T00:00:00Z,New York Rangers,Boston Bruins,ev_away_ml,0.0682
+2026-01-27T00:00:00Z,Tampa Bay Lightning,Utah Mammoth,ev_home_ml,0.0406
+2026-01-27T00:00:00Z,Tampa Bay Lightning,Utah Mammoth,ev_away_pl_+1.5,0.021
+2026-01-27T00:00:00Z,Columbus Blue Jackets,Los Angeles Kings,ev_over,0.0094
+2026-01-27T00:00:00Z,Columbus Blue Jackets,Los Angeles Kings,ev_under,-0.0812
+2026-01-27T00:00:00Z,Philadelphia Flyers,New York Islanders,ev_away_pl_+1.5,-0.0975
+2026-01-27T00:00:00Z,Columbus Blue Jackets,Los Angeles Kings,ev_away_pl_+1.5,-0.126
+2026-01-27T00:00:00Z,Tampa Bay Lightning,Utah Mammoth,ev_home_pl_-1.5,-0.1357
+2026-01-27T00:00:00Z,New York Rangers,Boston Bruins,ev_home_ml,-0.1533
+2026-01-27T00:00:00Z,Tampa Bay Lightning,Utah Mammoth,ev_away_ml,-0.1724
+2026-01-27T00:00:00Z,New York Rangers,Boston Bruins,ev_over,-0.2695
+2026-01-27T00:00:00Z,Philadelphia Flyers,New York Islanders,ev_under,-0.2798
+2026-01-27T01:30:00Z,Edmonton Oilers,Anaheim Ducks,ev_home_pl_-1.5,-0.2865
+2026-01-27T00:00:00Z,New York Rangers,Boston Bruins,ev_home_pl_-1.5,-0.3212
+2026-01-27T01:30:00Z,Edmonton Oilers,Anaheim Ducks,ev_away_ml,-0.3225
+2026-01-27T00:00:00Z,Tampa Bay Lightning,Utah Mammoth,ev_over,-0.3347
+2026-01-27T00:00:00Z,Philadelphia Flyers,New York Islanders,ev_away_ml,-0.3839
+2026-01-27T01:30:00Z,Edmonton Oilers,Anaheim Ducks,ev_over,-0.3845
+2026-01-27T00:00:00Z,Columbus Blue Jackets,Los Angeles Kings,ev_away_ml,-0.5741

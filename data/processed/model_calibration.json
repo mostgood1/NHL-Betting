@@ -1,5 +1,5 @@
 {
-  "last_calibrated_utc": "2026-01-25T00:37:06Z",
+  "last_calibrated_utc": "2026-01-25T03:38:43Z",
   "range": {
     "start": "2025-09-01",
     "end": "2026-01-24"
@@ -14,18 +14,9 @@
   "min_ev_pl": 0.005,
   "min_ev_first10": 0.0,
   "min_ev_periods": 0.0,
-  "ev_gates_last_learned_utc": "2026-01-25T00:37:10Z",
+  "ev_gates_last_learned_utc": "2026-01-25T03:38:46Z",
   "ev_gates_range": {
     "start": "2025-09-01",
     "end": "2026-01-24"
-  },
-  "special_teams": {
-    "pp_shot_multiplier": 1.3088151174668028,
-    "pk_shot_multiplier": 0.7640498544481126,
-    "pp_goal_multiplier": 1.4409836065573771,
-    "pk_goal_multiplier": 0.6939704209328782,
-    "blocks_ev_rate": 0.1559221734062584,
-    "blocks_pk_rate": 0.21348314606741572,
-    "blocks_pp_def_rate": 0.10390763765541741
   }
 }

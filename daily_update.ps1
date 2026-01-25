@@ -13,7 +13,9 @@ Param(
   [switch]$InstallDeps,
   [switch]$RecomputeRecs,
   [switch]$RunBacktests,
-  [int]$BacktestDays = 30
+  [int]$BacktestDays = 30,
+  [switch]$RunSimBacktests,
+  [int]$SimBacktestDays = 14
 )
 $ErrorActionPreference = "Stop"
 
@@ -148,6 +150,28 @@ if ($RunBacktests) {
     }
   } catch {
     Write-Warning "[bt] Backtest failed: $($_.Exception.Message)"
+  }
+}
+
+# Optional: run a short sim-backed backtest over recent days and print a summary
+if ($RunSimBacktests) {
+  try {
+    $end = (Get-Date).ToString('yyyy-MM-dd')
+    $start = (Get-Date).AddDays(-[int]$SimBacktestDays).ToString('yyyy-MM-dd')
+    if (-not $Quiet) { Write-Host "[bt] Sim-backed props backtest $start..$end" -ForegroundColor Cyan }
+    python -m nhl_betting.cli props-backtest-from-simulations --start $start --end $end --stake 100 --markets 'SOG,SAVES,GOALS,ASSISTS,POINTS,BLOCKS' --min-ev -1 --out-prefix sim_daily | Out-Null
+    $summ = Join-Path $RepoRoot "data/processed/sim_daily_props_backtest_sim_summary_${start}_to_${end}.json"
+    if (Test-Path $summ) {
+      $obj = Get-Content $summ | ConvertFrom-Json
+      $ov = $obj.overall
+      $acc = if ($ov.accuracy) { [math]::Round([double]$ov.accuracy, 4) } else { $null }
+      $brier = if ($ov.brier) { [math]::Round([double]$ov.brier, 4) } else { $null }
+      Write-Host "[bt-sim] Picks=$($ov.picks) Decided=$($ov.decided) Acc=$acc Brier=$brier" -ForegroundColor DarkGray
+    } else {
+      Write-Host "[bt-sim] Summary not found: $summ (ensure props simulations exist)" -ForegroundColor Yellow
+    }
+  } catch {
+    Write-Warning "[bt-sim] Sim-backed backtest failed: $($_.Exception.Message)"
   }
 }
 

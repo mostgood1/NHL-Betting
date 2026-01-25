@@ -280,11 +280,11 @@ if ($RunPropsBacktests) {
     $prevEnd = $prevEndDT.ToString('yyyy-MM-dd')
     $projPrevSummaryJson = Join-Path $ProcessedDir "nn_daily_props_backtest_summary_${prevStart}_to_${prevEnd}.json"
 
-    $dashboardCsv = Join-Path $ProcessedDir 'daily_backtests_dashboard.csv'
+    $dashboardCsv = Join-Path $ProcessedDir "backtest_daily_summary_${start}_to_${end}.csv"
     if (Test-Path $projPrevSummaryJson) {
-      python -m nhl_betting.scripts.backtest_daily_summary $projSummaryJson None $dashboardCsv $projPrevSummaryJson None
+      python .\\nhl_betting\\scripts\\backtest_daily_summary.py $projSummaryJson None $dashboardCsv $projPrevSummaryJson None
     } else {
-      python -m nhl_betting.scripts.backtest_daily_summary $projSummaryJson None $dashboardCsv
+      python .\\nhl_betting\\scripts\\backtest_daily_summary.py $projSummaryJson None $dashboardCsv
     }
     Write-Host "[daily_update] Props projections backtest summary written to $dashboardCsv" -ForegroundColor DarkGreen
   } catch {
@@ -314,15 +314,15 @@ if ($RunSimPropsBacktests) {
     $projPrevSummaryJson = Join-Path $ProcessedDir "nn_daily_props_backtest_summary_${prevStart}_to_${prevEnd}.json"
 
     $projArg = if (Test-Path $projSummaryJson) { $projSummaryJson } else { 'None' }
-    $dashboardCsv = Join-Path $ProcessedDir 'daily_backtests_dashboard.csv'
+    $dashboardCsv = Join-Path $ProcessedDir "backtest_daily_summary_${start}_to_${end}.csv"
     if ((Test-Path $projPrevSummaryJson) -and (Test-Path $simPrevSummaryJson)) {
-      python -m nhl_betting.scripts.backtest_daily_summary $projArg $simSummaryJson $dashboardCsv $projPrevSummaryJson $simPrevSummaryJson
+      python .\\nhl_betting\\scripts\\backtest_daily_summary.py $projArg $simSummaryJson $dashboardCsv $projPrevSummaryJson $simPrevSummaryJson
     } elseif (Test-Path $simPrevSummaryJson) {
-      python -m nhl_betting.scripts.backtest_daily_summary $projArg $simSummaryJson $dashboardCsv None $simPrevSummaryJson
+      python .\\nhl_betting\\scripts\\backtest_daily_summary.py $projArg $simSummaryJson $dashboardCsv None $simPrevSummaryJson
     } elseif (Test-Path $projPrevSummaryJson) {
-      python -m nhl_betting.scripts.backtest_daily_summary $projArg $simSummaryJson $dashboardCsv $projPrevSummaryJson None
+      python .\\nhl_betting\\scripts\\backtest_daily_summary.py $projArg $simSummaryJson $dashboardCsv $projPrevSummaryJson None
     } else {
-      python -m nhl_betting.scripts.backtest_daily_summary $projArg $simSummaryJson $dashboardCsv
+      python .\\nhl_betting\\scripts\\backtest_daily_summary.py $projArg $simSummaryJson $dashboardCsv
     }
     Write-Host "[daily_update] Sim-backed props backtest summary written to $dashboardCsv" -ForegroundColor DarkGreen
   } catch {

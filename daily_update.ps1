@@ -14,8 +14,10 @@ Param(
   [switch]$RecomputeRecs,
   [switch]$RunBacktests,
   [int]$BacktestDays = 30,
+  [string]$BacktestMinEvPerMarket = "",
   [switch]$RunSimBacktests,
-  [int]$SimBacktestDays = 14
+  [int]$SimBacktestDays = 14,
+  [string]$SimBacktestMinEvPerMarket = ""
 )
 $ErrorActionPreference = "Stop"
 
@@ -137,7 +139,9 @@ if ($RunBacktests) {
     $end = (Get-Date).ToString('yyyy-MM-dd')
     $start = (Get-Date).AddDays(-[int]$BacktestDays).ToString('yyyy-MM-dd')
     if (-not $Quiet) { Write-Host "[bt] Projections backtest $start..$end (EV≥2%)" -ForegroundColor Cyan }
-    python -m nhl_betting.cli props-backtest-from-projections --start $start --end $end --stake 100 --markets 'SOG,SAVES,GOALS,ASSISTS,POINTS,BLOCKS' --min-ev 0.02 --out-prefix nn_daily | Out-Null
+    $btCmd = "python -m nhl_betting.cli props-backtest-from-projections --start $start --end $end --stake 100 --markets 'SOG,SAVES,GOALS,ASSISTS,POINTS,BLOCKS' --min-ev 0.02 --out-prefix nn_daily"
+    if ($BacktestMinEvPerMarket -and $BacktestMinEvPerMarket.Trim().Length -gt 0) { $btCmd += " --min-ev-per-market `"$BacktestMinEvPerMarket`"" }
+    iex $btCmd | Out-Null
     $summ = Join-Path $RepoRoot "data/processed/nn_daily_props_backtest_summary_${start}_to_${end}.json"
     if (Test-Path $summ) {
       $obj = Get-Content $summ | ConvertFrom-Json
@@ -147,6 +151,13 @@ if ($RunBacktests) {
       Write-Host "[bt] Picks=$($ov.picks) Decided=$($ov.decided) Acc=$acc Brier=$brier" -ForegroundColor DarkGray
     } else {
       Write-Host "[bt] Summary not found: $summ" -ForegroundColor Yellow
+    }
+    $simSumm = $null
+    $simSumm = Join-Path $RepoRoot "data/processed/sim_daily_props_backtest_sim_summary_${start}_to_${end}.json"
+    $outCsv = Join-Path $RepoRoot "data/processed/backtest_daily_summary_${start}_to_${end}.csv"
+    if (Test-Path $summ) {
+      python -m nhl_betting.scripts.backtest_daily_summary --proj $summ --sim $simSumm --out $outCsv | Out-Null
+      if (-not $Quiet) { Write-Host "[bt] Wrote dashboard: $outCsv" -ForegroundColor DarkGray }
     }
   } catch {
     Write-Warning "[bt] Backtest failed: $($_.Exception.Message)"
@@ -159,7 +170,9 @@ if ($RunSimBacktests) {
     $end = (Get-Date).ToString('yyyy-MM-dd')
     $start = (Get-Date).AddDays(-[int]$SimBacktestDays).ToString('yyyy-MM-dd')
     if (-not $Quiet) { Write-Host "[bt] Sim-backed props backtest $start..$end" -ForegroundColor Cyan }
-    python -m nhl_betting.cli props-backtest-from-simulations --start $start --end $end --stake 100 --markets 'SOG,SAVES,GOALS,ASSISTS,POINTS,BLOCKS' --min-ev -1 --out-prefix sim_daily | Out-Null
+    $simCmd = "python -m nhl_betting.cli props-backtest-from-simulations --start $start --end $end --stake 100 --markets 'SOG,SAVES,GOALS,ASSISTS,POINTS,BLOCKS' --min-ev -1 --out-prefix sim_daily"
+    if ($SimBacktestMinEvPerMarket -and $SimBacktestMinEvPerMarket.Trim().Length -gt 0) { $simCmd += " --min-ev-per-market `"$SimBacktestMinEvPerMarket`"" }
+    iex $simCmd | Out-Null
     $summ = Join-Path $RepoRoot "data/processed/sim_daily_props_backtest_sim_summary_${start}_to_${end}.json"
     if (Test-Path $summ) {
       $obj = Get-Content $summ | ConvertFrom-Json
@@ -169,6 +182,13 @@ if ($RunSimBacktests) {
       Write-Host "[bt-sim] Picks=$($ov.picks) Decided=$($ov.decided) Acc=$acc Brier=$brier" -ForegroundColor DarkGray
     } else {
       Write-Host "[bt-sim] Summary not found: $summ (ensure props simulations exist)" -ForegroundColor Yellow
+    }
+    $projSumm = $null
+    $projSumm = Join-Path $RepoRoot "data/processed/nn_daily_props_backtest_summary_${start}_to_${end}.json"
+    $outCsv = Join-Path $RepoRoot "data/processed/backtest_daily_summary_${start}_to_${end}.csv"
+    if (Test-Path $summ -or (Test-Path $projSumm)) {
+      python -m nhl_betting.scripts.backtest_daily_summary --proj $projSumm --sim $summ --out $outCsv | Out-Null
+      if (-not $Quiet) { Write-Host "[bt-sim] Wrote dashboard: $outCsv" -ForegroundColor DarkGray }
     }
   } catch {
     Write-Warning "[bt-sim] Sim-backed backtest failed: $($_.Exception.Message)"

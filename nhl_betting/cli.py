@@ -5350,6 +5350,7 @@ def props_precompute_all(
         rows = []
         for _, rr in enrich.iterrows():
             ab = rr.get('team_abbr')
+            # If slate teams are known, filter to them; otherwise include all teams as a fallback
             if slate_abbrs and (not ab or ab not in slate_abbrs):
                 continue
             nm = rr.get('full_name')
@@ -5763,8 +5764,12 @@ def props_project_all(
         try:
             if roster_cache.exists():
                 tmp = pd.read_csv(roster_cache)
-                if not tmp.empty and {"player","team","position"}.issubset(tmp.columns):
-                    roster_df = tmp.copy()
+                if tmp is not None and not tmp.empty:
+                    cols = set(tmp.columns)
+                    if {"player","position"}.issubset(cols) and ("team" in cols or "team_abbr" in cols):
+                        roster_df = tmp.copy()
+                        if "team" not in roster_df.columns and "team_abbr" in roster_df.columns:
+                            roster_df = roster_df.rename(columns={"team_abbr":"team"})
         except Exception:
             pass
     if roster_df.empty:

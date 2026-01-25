@@ -51,16 +51,55 @@ def collect_oddsapi_props(date: str) -> pd.DataFrame:
     # Note: Some books return 422 for unsupported player markets; to maximize coverage
     # and avoid per-event probing, we limit to the most reliable keys.
     # Keys per OddsAPI docs commonly available: player_shots_on_goal, player_goals, player_assists, player_points
-    markets = "player_shots_on_goal,player_goals,player_assists,player_points,player_saves,player_blocks"
+    # Include common base + alternate keys and known synonyms across books.
+    # Notes:
+    # - "player_goal_scorer_anytime" is a yes/no market without a numeric line; we skip it here.
+    # - Some books use synonyms like "shots_on_goal" or "player_shots"; include them for coverage.
+    markets = ",".join([
+        # Shots/SOG
+        "player_shots_on_goal",
+        "player_shots_on_goal_alternate",
+        "shots_on_goal",
+        "player_shots",
+        # Goals
+        "player_goals",
+        "player_goals_alternate",
+        # Assists
+        "player_assists",
+        "player_assists_alternate",
+        # Points
+        "player_points",
+        "player_points_alternate",
+        # Saves (goalies)
+        "player_saves",
+        "goalie_saves",
+        # Blocks (skaters)
+        "player_blocks",
+        "player_blocked_shots",
+    ])
     rows: List[Dict] = []
     # Map Odds API market keys to our canonical markets
     m_map = {
+        # Shots on goal variants
         "player_shots_on_goal": "SOG",
+        "player_shots_on_goal_alternate": "SOG",
+        "shots_on_goal": "SOG",
+        "player_shots": "SOG",
+        # Goals (including alternates)
         "player_goals": "GOALS",
+        "player_goals_alternate": "GOALS",
+        # Assists (including alternates)
         "player_assists": "ASSISTS",
+        "player_assists_alternate": "ASSISTS",
+        # Points (including alternates)
         "player_points": "POINTS",
+        "player_points_alternate": "POINTS",
+        # Saves
         "player_saves": "SAVES",
+        "goalie_saves": "SAVES",
+        # Blocks
         "player_blocks": "BLOCKS",
+        "player_blocked_shots": "BLOCKS",
     }
     def _parse_event_markets(event_odds_obj: Dict):
         bks = event_odds_obj.get("bookmakers", [])
@@ -120,9 +159,26 @@ def collect_oddsapi_props(date: str) -> pd.DataFrame:
             from_dt = f"{date}T00:00:00Z"; to_dt = f"{date}T23:59:59Z"
         evs, _ = client.list_events("icehockey_nhl", commence_from_iso=from_dt, commence_to_iso=to_dt)
         if isinstance(evs, list) and evs:
+            # Fallback-aware fetch: probe event-specific available market keys first, then request odds
             def fetch(ev_id: str):
                 try:
-                    eo, _ = client.event_odds("icehockey_nhl", ev_id, markets=markets, regions=regions, bookmakers=(bk_pref or None))
+                    mkts, _ = client.event_markets("icehockey_nhl", ev_id, regions=regions, bookmakers=(bk_pref or None))
+                except Exception:
+                    mkts = None
+                keys: List[str] = []
+                try:
+                    if isinstance(mkts, dict):
+                        # mkts example: {"markets": [{"key": "player_points"}, ...]}
+                        cand = [str(m.get("key") or "") for m in mkts.get("markets", [])]
+                        # keep only supported keys
+                        keys = [k for k in cand if k in m_map]
+                except Exception:
+                    keys = []
+                # If no probe keys, fall back to our full list (some APIs return 404 for probe)
+                use_keys = keys or [k for k in markets.split(",")]
+                # Request odds for the filtered keys
+                try:
+                    eo, _ = client.event_odds("icehockey_nhl", ev_id, markets=",".join(use_keys), regions=regions, bookmakers=(bk_pref or None))
                     return eo
                 except Exception:
                     return None
@@ -417,8 +473,7 @@ def combine_over_under(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def write_props(df: pd.DataFrame, cfg: PropsCollectionConfig, date: str) -> str:
-    if df.empty:
-        return ""
+    # Always write an output artifact, even if empty, to aid downstream verification/monitoring.
     out_dir = os.path.join(cfg.output_root, "player_props_lines", f"date={date}")
     os.makedirs(out_dir, exist_ok=True)
     # Use file label based on source
@@ -431,7 +486,13 @@ def write_props(df: pd.DataFrame, cfg: PropsCollectionConfig, date: str) -> str:
     except Exception:
         # Fallback to CSV if Parquet writer is unavailable/mismatched
         csv_path = os.path.join(out_dir, f"{file_label}.csv")
-        df.to_csv(csv_path, index=False)
+        try:
+            df.to_csv(csv_path, index=False)
+        except Exception:
+            # As a final fallback, write an empty CSV with standard columns
+            cols = ["date","player_id","player_name","team","market","line","over_price","under_price","book","first_seen_at","last_seen_at","is_current"]
+            import pandas as _pd
+            _pd.DataFrame(columns=cols).to_csv(csv_path, index=False)
         return csv_path
 
 

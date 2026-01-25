@@ -42,3 +42,25 @@ try {
 } catch {
 	Write-Warning "[ARM64] ensure_arm64_venv.ps1 failed: $($_.Exception.Message)"
 }
+
+# Load environment variables from .env (if present), e.g. ODDS_API_KEY
+try {
+    $EnvPath = Join-Path $RepoRoot '.env'
+    if (Test-Path $EnvPath) {
+        Get-Content $EnvPath | ForEach-Object {
+            $line = $_.Trim()
+            if ($line -eq '' -or $line.StartsWith('#')) { return }
+            if ($line -match '^[A-Za-z_][A-Za-z0-9_]*=') {
+                $parts = $line.Split('=', 2)
+                $name = $parts[0].Trim()
+                $val = $parts[1].Trim()
+                # Strip optional surrounding double quotes
+                if ($val.StartsWith('"') -and $val.EndsWith('"')) { $val = $val.Trim('"') }
+                Set-Item -Path "Env:$name" -Value $val -ErrorAction SilentlyContinue
+            }
+        }
+        Write-Host "[env] Loaded .env from $EnvPath" -ForegroundColor Green
+    }
+} catch {
+    Write-Warning "[env] Failed to load .env: $($_.Exception.Message)"
+}

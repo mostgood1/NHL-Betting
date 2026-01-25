@@ -433,6 +433,32 @@ if ($PropsRecs) {
   try {
     $today = (Get-Date).ToString('yyyy-MM-dd')
     $tomorrow = (Get-Date).AddDays(1).ToString('yyyy-MM-dd')
+    # Step 0: Collect OddsAPI props lines and verify presence (non-fatal)
+    try {
+      Write-Host "[daily_update] Collecting canonical props lines (OddsAPI) for $today & $tomorrow …" -ForegroundColor Yellow
+      python -m nhl_betting.cli props-collect --date $today
+      python -m nhl_betting.cli props-collect --date $tomorrow
+      Write-Host "[daily_update] Verifying props lines files …" -ForegroundColor Yellow
+      python -m nhl_betting.cli props-verify --date $today
+      python -m nhl_betting.cli props-verify --date $tomorrow
+    } catch {
+      Write-Warning "[daily_update] props-collect/verify failed: $($_.Exception.Message)"
+    }
+    # Step 0b: Ensure projections_all exist (needed for nolines simulation fallback)
+    try {
+      $pfToday = Join-Path "data\processed" "props_projections_all_${today}.csv"
+      $pfTomorrow = Join-Path "data\processed" "props_projections_all_${tomorrow}.csv"
+      $needProjToday = (-not (Test-Path $pfToday)) -or ((Get-Item $pfToday).Length -lt 64)
+      $needProjTomorrow = (-not (Test-Path $pfTomorrow)) -or ((Get-Item $pfTomorrow).Length -lt 64)
+      if ($needProjToday -or $needProjTomorrow) {
+        Write-Host "[daily_update] Ensuring props projections_all for missing/empty days …" -ForegroundColor Yellow
+        $projForceBase = @("-m", "nhl_betting.cli", "props-project-all", "--ensure-history-days", "365", "--include-goalies")
+        if ($needProjToday) { python @($projForceBase + @("--date", $today)) }
+        if ($needProjTomorrow) { python @($projForceBase + @("--date", $tomorrow)) }
+      }
+    } catch {
+      Write-Warning "[daily_update] projections_all ensure failed: $($_.Exception.Message)"
+    }
     Write-Host "[daily_update] Precomputing props projections for $today & $tomorrow …" -ForegroundColor Yellow
     $projArgsBase = @("-m", "nhl_betting.cli", "props-project-all", "--ensure-history-days", "365")
     if ($PropsIncludeGoalies) { $projArgsBase += "--include-goalies" }

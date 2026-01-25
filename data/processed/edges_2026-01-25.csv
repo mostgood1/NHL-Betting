@@ -1,27 +1,27 @@
 date,home,away,market,ev
-2026-01-26T00:00:00Z,Chicago Blackhawks,Florida Panthers,ev_away_ml,0.46
-2026-01-25T20:00:00Z,Seattle Kraken,New Jersey Devils,ev_away_ml,0.3568
-2026-01-26T01:00:00Z,Calgary Flames,Anaheim Ducks,ev_under,0.2574
-2026-01-25T23:00:00Z,Vancouver Canucks,Pittsburgh Penguins,ev_away_ml,0.2377
-2026-01-25T22:00:00Z,Ottawa Senators,Vegas Golden Knights,ev_home_ml,0.2171
+2026-01-26T00:00:00Z,Chicago Blackhawks,Florida Panthers,ev_away_ml,0.4628
+2026-01-25T20:00:00Z,Seattle Kraken,New Jersey Devils,ev_away_ml,0.366
+2026-01-26T01:00:00Z,Calgary Flames,Anaheim Ducks,ev_under,0.2607
+2026-01-25T23:00:00Z,Vancouver Canucks,Pittsburgh Penguins,ev_away_ml,0.2403
+2026-01-25T22:00:00Z,Ottawa Senators,Vegas Golden Knights,ev_home_ml,0.2157
 2026-01-25T18:30:00Z,Toronto Maple Leafs,Colorado Avalanche,ev_home_ml,0.2123
-2026-01-25T23:00:00Z,Vancouver Canucks,Pittsburgh Penguins,ev_under,0.1636
-2026-01-26T00:00:00Z,Chicago Blackhawks,Florida Panthers,ev_under,0.0871
-2026-01-25T22:00:00Z,Ottawa Senators,Vegas Golden Knights,ev_under,0.0717
-2026-01-26T01:00:00Z,Calgary Flames,Anaheim Ducks,ev_away_ml,0.0056
-2026-01-25T18:30:00Z,Toronto Maple Leafs,Colorado Avalanche,ev_under,-0.0112
-2026-01-25T20:00:00Z,Seattle Kraken,New Jersey Devils,ev_under,-0.0161
-2026-01-26T01:00:00Z,Calgary Flames,Anaheim Ducks,ev_away_pl_+1.5,-0.0224
-2026-01-25T20:00:00Z,Seattle Kraken,New Jersey Devils,ev_over,-0.0639
-2026-01-25T18:30:00Z,Toronto Maple Leafs,Colorado Avalanche,ev_over,-0.0773
-2026-01-26T01:00:00Z,Calgary Flames,Anaheim Ducks,ev_home_pl_-1.5,-0.0839
-2026-01-26T01:00:00Z,Calgary Flames,Anaheim Ducks,ev_home_ml,-0.0934
-2026-01-26T00:00:00Z,Chicago Blackhawks,Florida Panthers,ev_over,-0.1436
-2026-01-25T22:00:00Z,Ottawa Senators,Vegas Golden Knights,ev_over,-0.1626
+2026-01-25T23:00:00Z,Vancouver Canucks,Pittsburgh Penguins,ev_under,0.1711
+2026-01-26T00:00:00Z,Chicago Blackhawks,Florida Panthers,ev_under,0.09
+2026-01-25T22:00:00Z,Ottawa Senators,Vegas Golden Knights,ev_under,0.0611
+2026-01-26T01:00:00Z,Calgary Flames,Anaheim Ducks,ev_away_ml,0.0185
+2026-01-25T18:30:00Z,Toronto Maple Leafs,Colorado Avalanche,ev_under,0.0033
+2026-01-25T20:00:00Z,Seattle Kraken,New Jersey Devils,ev_under,-0.0145
+2026-01-26T01:00:00Z,Calgary Flames,Anaheim Ducks,ev_away_pl_+1.5,-0.0201
+2026-01-25T20:00:00Z,Seattle Kraken,New Jersey Devils,ev_over,-0.0654
+2026-01-26T01:00:00Z,Calgary Flames,Anaheim Ducks,ev_home_pl_-1.5,-0.0892
+2026-01-25T18:30:00Z,Toronto Maple Leafs,Colorado Avalanche,ev_over,-0.0912
+2026-01-26T01:00:00Z,Calgary Flames,Anaheim Ducks,ev_home_ml,-0.1057
+2026-01-26T00:00:00Z,Chicago Blackhawks,Florida Panthers,ev_over,-0.1459
+2026-01-25T22:00:00Z,Ottawa Senators,Vegas Golden Knights,ev_over,-0.152
 2026-01-25T18:30:00Z,Toronto Maple Leafs,Colorado Avalanche,ev_away_ml,-0.1988
-2026-01-25T22:00:00Z,Ottawa Senators,Vegas Golden Knights,ev_away_ml,-0.2493
-2026-01-25T23:00:00Z,Vancouver Canucks,Pittsburgh Penguins,ev_over,-0.2752
-2026-01-26T01:00:00Z,Calgary Flames,Anaheim Ducks,ev_over,-0.3607
-2026-01-25T23:00:00Z,Vancouver Canucks,Pittsburgh Penguins,ev_home_ml,-0.3978
-2026-01-25T20:00:00Z,Seattle Kraken,New Jersey Devils,ev_home_ml,-0.4861
-2026-01-26T00:00:00Z,Chicago Blackhawks,Florida Panthers,ev_home_ml,-0.6847
+2026-01-25T22:00:00Z,Ottawa Senators,Vegas Golden Knights,ev_away_ml,-0.2481
+2026-01-25T23:00:00Z,Vancouver Canucks,Pittsburgh Penguins,ev_over,-0.2837
+2026-01-26T01:00:00Z,Calgary Flames,Anaheim Ducks,ev_over,-0.3642
+2026-01-25T23:00:00Z,Vancouver Canucks,Pittsburgh Penguins,ev_home_ml,-0.4012
+2026-01-25T20:00:00Z,Seattle Kraken,New Jersey Devils,ev_home_ml,-0.4964
+2026-01-26T00:00:00Z,Chicago Blackhawks,Florida Panthers,ev_home_ml,-0.6883

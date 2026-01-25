@@ -41,11 +41,20 @@ Param (
   [string]$PropsMinEvPerMarket = "SOG=0.00,GOALS=0.05,ASSISTS=0.00,POINTS=0.12,SAVES=0.02,BLOCKS=0.02",
   [double]$PropsMinProb = 0.0,
   [string]$PropsMinProbPerMarket = "",
-  [switch]$PropsIncludeGoalies
+  [switch]$PropsIncludeGoalies,
+  # Props backtests (projections)
+  [switch]$RunPropsBacktests,
+  [int]$PropsBacktestDays = 30,
+  [string]$PropsBacktestMinEvPerMarket = "",
+  # Props backtests (sim-backed)
+  [switch]$RunSimPropsBacktests,
+  [int]$SimPropsBacktestDays = 13,
+  [string]$SimPropsBacktestMinEvPerMarket = ""
 )
 $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot = Split-Path -Parent $ScriptDir
+$ProcessedDir = Join-Path $RepoRoot 'data/processed'
 $NpuScript = Join-Path $RepoRoot "activate_npu.ps1"
 
 # Ensure QNN env (optional). Dot-source if available so QNN EP is found in this session.
@@ -58,6 +67,15 @@ if (-not $PSBoundParameters.ContainsKey('SimIncludeTotals')) { $SimIncludeTotals
 # Enable PBP backfill by default unless explicitly disabled
 if (-not $PSBoundParameters.ContainsKey('PBPBackfill')) { $PBPBackfill = $true }
 if (-not $PSBoundParameters.ContainsKey('PropsIncludeGoalies')) { $PropsIncludeGoalies = $true }
+
+# Defaults for props backtests EV gates if not provided
+if (-not $PropsBacktestMinEvPerMarket -or $PropsBacktestMinEvPerMarket.Trim() -eq '') {
+  $PropsBacktestMinEvPerMarket = 'SOG=0.00,GOALS=0.05,ASSISTS=0.00,POINTS=0.12,SAVES=0.02,BLOCKS=0.02'
+}
+if (-not $SimPropsBacktestMinEvPerMarket -or $SimPropsBacktestMinEvPerMarket.Trim() -eq '') {
+  # Mild gates to stabilize weaker markets for sim-backed
+  $SimPropsBacktestMinEvPerMarket = 'SOG=0.04,GOALS=0.00,ASSISTS=0.00,POINTS=0.08,SAVES=0.02,BLOCKS=0.02'
+}
 
 # Optional: load tuned totals multipliers from config if present and not overridden
 try {
@@ -244,6 +262,73 @@ if ($SimRecommendations) {
   }
 }
 
+# Optional: run rolling props backtests (projections) and write dashboard row
+if ($RunPropsBacktests) {
+  try {
+    $end = (Get-Date).ToString('yyyy-MM-dd')
+    $start = (Get-Date).AddDays(-1 * [int]$PropsBacktestDays).ToString('yyyy-MM-dd')
+    Write-Host "[daily_update] Backtesting props (projections) $start..$end …" -ForegroundColor Yellow
+    python -m nhl_betting.cli props-backtest-from-projections --start $start --end $end --stake 100 --markets "SOG,SAVES,GOALS,ASSISTS,POINTS,BLOCKS" --min-ev-per-market $PropsBacktestMinEvPerMarket
+
+    # Dashboard update with WoW deltas if previous window exists
+    $projSummaryJson = Join-Path $ProcessedDir "nn_daily_props_backtest_summary_${start}_to_${end}.json"
+    # previous window: [start-PropsBacktestDays .. (start-1)]
+    $startDT = [datetime]::ParseExact($start, 'yyyy-MM-dd', $null)
+    $prevEndDT = $startDT.AddDays(-1)
+    $prevStartDT = $prevEndDT.AddDays(-$PropsBacktestDays + 1)
+    $prevStart = $prevStartDT.ToString('yyyy-MM-dd')
+    $prevEnd = $prevEndDT.ToString('yyyy-MM-dd')
+    $projPrevSummaryJson = Join-Path $ProcessedDir "nn_daily_props_backtest_summary_${prevStart}_to_${prevEnd}.json"
+
+    $dashboardCsv = Join-Path $ProcessedDir 'daily_backtests_dashboard.csv'
+    if (Test-Path $projPrevSummaryJson) {
+      python -m nhl_betting.scripts.backtest_daily_summary $projSummaryJson None $dashboardCsv $projPrevSummaryJson None
+    } else {
+      python -m nhl_betting.scripts.backtest_daily_summary $projSummaryJson None $dashboardCsv
+    }
+    Write-Host "[daily_update] Props projections backtest summary written to $dashboardCsv" -ForegroundColor DarkGreen
+  } catch {
+    Write-Warning "[daily_update] props-backtest-from-projections failed: $($_.Exception.Message)"
+  }
+}
+
+# Optional: run rolling props backtests (sim-backed) and update dashboard
+if ($RunSimPropsBacktests) {
+  try {
+    $end = (Get-Date).ToString('yyyy-MM-dd')
+    $start = (Get-Date).AddDays(-1 * [int]$SimPropsBacktestDays).ToString('yyyy-MM-dd')
+    Write-Host "[daily_update] Backtesting props (sim-backed) $start..$end …" -ForegroundColor Yellow
+    python -m nhl_betting.cli props-backtest-from-simulations --start $start --end $end --stake 100 --markets "SOG,SAVES,GOALS,ASSISTS,POINTS,BLOCKS" --min-ev-per-market $SimPropsBacktestMinEvPerMarket
+
+    $simSummaryJson = Join-Path $ProcessedDir "sim_daily_props_backtest_sim_summary_${start}_to_${end}.json"
+    # previous window
+    $startDT = [datetime]::ParseExact($start, 'yyyy-MM-dd', $null)
+    $prevEndDT = $startDT.AddDays(-1)
+    $prevStartDT = $prevEndDT.AddDays(-$SimPropsBacktestDays + 1)
+    $prevStart = $prevStartDT.ToString('yyyy-MM-dd')
+    $prevEnd = $prevEndDT.ToString('yyyy-MM-dd')
+    $simPrevSummaryJson = Join-Path $ProcessedDir "sim_daily_props_backtest_sim_summary_${prevStart}_to_${prevEnd}.json"
+
+    # Use existing projections summary if available
+    $projSummaryJson = Join-Path $ProcessedDir "nn_daily_props_backtest_summary_${start}_to_${end}.json"
+    $projPrevSummaryJson = Join-Path $ProcessedDir "nn_daily_props_backtest_summary_${prevStart}_to_${prevEnd}.json"
+
+    $projArg = if (Test-Path $projSummaryJson) { $projSummaryJson } else { 'None' }
+    $dashboardCsv = Join-Path $ProcessedDir 'daily_backtests_dashboard.csv'
+    if ((Test-Path $projPrevSummaryJson) -and (Test-Path $simPrevSummaryJson)) {
+      python -m nhl_betting.scripts.backtest_daily_summary $projArg $simSummaryJson $dashboardCsv $projPrevSummaryJson $simPrevSummaryJson
+    } elseif (Test-Path $simPrevSummaryJson) {
+      python -m nhl_betting.scripts.backtest_daily_summary $projArg $simSummaryJson $dashboardCsv None $simPrevSummaryJson
+    } elseif (Test-Path $projPrevSummaryJson) {
+      python -m nhl_betting.scripts.backtest_daily_summary $projArg $simSummaryJson $dashboardCsv $projPrevSummaryJson None
+    } else {
+      python -m nhl_betting.scripts.backtest_daily_summary $projArg $simSummaryJson $dashboardCsv
+    }
+    Write-Host "[daily_update] Sim-backed props backtest summary written to $dashboardCsv" -ForegroundColor DarkGreen
+  } catch {
+    Write-Warning "[daily_update] props-backtest-from-simulations failed: $($_.Exception.Message)"
+  }
+}
 # Optional: run rolling backtest over last BacktestWindowDays (non-fatal)
 if ($BacktestSimulations) {
   try {

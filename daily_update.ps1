@@ -186,7 +186,7 @@ if ($RunSimBacktests) {
     $projSumm = $null
     $projSumm = Join-Path $RepoRoot "data/processed/nn_daily_props_backtest_summary_${start}_to_${end}.json"
     $outCsv = Join-Path $RepoRoot "data/processed/backtest_daily_summary_${start}_to_${end}.csv"
-    if (Test-Path $summ -or (Test-Path $projSumm)) {
+    if ((Test-Path $summ) -or (Test-Path $projSumm)) {
       python -m nhl_betting.scripts.backtest_daily_summary --proj $projSumm --sim $summ --out $outCsv | Out-Null
       if (-not $Quiet) { Write-Host "[bt-sim] Wrote dashboard: $outCsv" -ForegroundColor DarkGray }
     }

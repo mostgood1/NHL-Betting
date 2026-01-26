@@ -25,7 +25,7 @@ class PropsCollectionConfig:
     output_root: str = "data/props"
     # For OddsAPI, book will come from the bookmaker key per row; file label is "oddsapi".
     book: str = "oddsapi"
-    source: str = "oddsapi"  # oddsapi
+    source: str = "oddsapi"  # oddsapi | bovada
 
 
 def _utc_now_iso() -> str:
@@ -224,6 +224,145 @@ def collect_oddsapi_props(date: str) -> pd.DataFrame:
                 continue
     except Exception:
         pass
+    return pd.DataFrame(rows)
+
+
+def collect_bovada_props(date: str) -> pd.DataFrame:
+    """Collect player props via Bovada's public JSON services.
+
+    Notes:
+    - Uses unauthenticated endpoints intended for public odds display.
+    - Parses player Over/Under markets with numeric handicaps only.
+    - Returns a long-form DataFrame with columns: market, player, line, odds, side, book, date, collected_at
+    """
+    import requests, time
+    # Bovada serves similar structures on multiple hostnames; try a few.
+    hosts = [
+        "https://www.bovada.lv",
+        "https://www.bovada.com",
+    ]
+    # Candidate endpoint patterns (coupon/events: richer structure with displayGroups)
+    paths = [
+        "/services/sports/event/coupon/events/A/description/ice-hockey/nhl",
+        "/services/sports/event/coupon/events/A/description/hockey/nhl",
+        # v2 as a fallback
+        "/services/sports/event/v2/events/A/description/ice-hockey/nhl",
+        "/services/sports/event/v2/events/A/description/hockey/nhl",
+    ]
+    params = {
+        "marketFilterId": "def",
+        "preMatchOnly": "true",
+        "includeParticipants": "true",
+        "lang": "en",
+    }
+    rows: List[Dict] = []
+    # Helper: map market description to canonical
+    def _canon_market(desc: str) -> Optional[str]:
+        s = (desc or "").strip().lower()
+        if not s:
+            return None
+        # Exclude non-OU player props like anytime goals
+        if "anytime" in s or "1st goal" in s or "first goal" in s:
+            return None
+        if "shots on goal" in s or "shots-on-goal" in s or ("shots" in s and "goal" in s):
+            return "SOG"
+        if "blocked" in s or "blocks" in s:
+            return "BLOCKS"
+        if "assists" in s:
+            return "ASSISTS"
+        if "points" in s:
+            return "POINTS"
+        if "saves" in s:
+            return "SAVES"
+        if "goals" in s:
+            return "GOALS"
+        return None
+    def _to_american(price_obj) -> Optional[int]:
+        try:
+            if isinstance(price_obj, dict):
+                a = price_obj.get("american")
+                if a is None:
+                    return None
+                return int(str(a))
+        except Exception:
+            return None
+        return None
+    def _float_or_none(v) -> Optional[float]:
+        try:
+            if v is None:
+                return None
+            return float(v)
+        except Exception:
+            return None
+    def _now() -> str:
+        return _utc_now_iso()
+    # Iterate endpoints until we successfully parse
+    data = None
+    last_err = None
+    for h in hosts:
+        for pth in paths:
+            url = f"{h}{pth}"
+            try:
+                r = requests.get(url, params=params, timeout=20)
+                if not r.ok:
+                    continue
+                js = r.json()
+                # v1 coupon returns a list of groups; v2 returns dict with events
+                data = js
+                break
+            except Exception as e:
+                last_err = e
+                time.sleep(0.3)
+        if data is not None:
+            break
+    if data is None:
+        return pd.DataFrame(rows)
+    # Normalize to a flat list of events with displayGroups/markets
+    events: List[Dict] = []
+    try:
+        if isinstance(data, list):
+            # coupon format: list of categories -> each has "events"
+            for grp in data:
+                evs = grp.get("events") if isinstance(grp, dict) else None
+                if isinstance(evs, list):
+                    events.extend([e for e in evs if isinstance(e, dict)])
+        elif isinstance(data, dict):
+            # v2 format: {"events": [...]}
+            evs = data.get("events")
+            if isinstance(evs, list):
+                events.extend([e for e in evs if isinstance(e, dict)])
+    except Exception:
+        events = []
+    # Parse markets/outcomes
+    for ev in events:
+        dgs = ev.get("displayGroups") or []
+        for dg in dgs:
+            mkts = dg.get("markets") or []
+            for m in mkts:
+                mdesc = m.get("description") or m.get("displayKey") or m.get("key") or ""
+                canon = _canon_market(mdesc)
+                if not canon:
+                    continue
+                # Only OU with a numeric handicap
+                outcs = m.get("outcomes") or []
+                for oc in outcs:
+                    name = (oc.get("description") or oc.get("participant") or oc.get("name") or "").strip()
+                    side_raw = (oc.get("name") or oc.get("type") or "").strip().upper()
+                    side = "OVER" if side_raw.startswith("OVER") else ("UNDER" if side_raw.startswith("UNDER") else None)
+                    line = _float_or_none(oc.get("handicap") or oc.get("price") and (oc.get("price") or {}).get("handicap"))
+                    odds = _to_american(oc.get("price"))
+                    if not name or side is None or line is None or odds is None:
+                        continue
+                    rows.append({
+                        "market": canon,
+                        "player": name,
+                        "line": line,
+                        "odds": odds,
+                        "side": side,
+                        "book": "bovada",
+                        "date": date,
+                        "collected_at": _now(),
+                    })
     return pd.DataFrame(rows)
 
 
@@ -477,7 +616,7 @@ def write_props(df: pd.DataFrame, cfg: PropsCollectionConfig, date: str) -> str:
     out_dir = os.path.join(cfg.output_root, "player_props_lines", f"date={date}")
     os.makedirs(out_dir, exist_ok=True)
     # Use file label based on source
-    file_label = "oddsapi"
+    file_label = (cfg.source or cfg.book or "oddsapi").strip().lower()
     pq_path = os.path.join(out_dir, f"{file_label}.parquet")
     try:
         # Use pyarrow engine explicitly for stability across environments
@@ -498,8 +637,12 @@ def write_props(df: pd.DataFrame, cfg: PropsCollectionConfig, date: str) -> str:
 
 def collect_and_write(date: str, roster_df: Optional[pd.DataFrame] = None, cfg: PropsCollectionConfig | None = None) -> Dict:
     cfg = cfg or PropsCollectionConfig()
-    # OddsAPI-only
-    raw = collect_oddsapi_props(date)
+    # Choose source
+    src = (cfg.source or "oddsapi").strip().lower()
+    if src == "bovada":
+        raw = collect_bovada_props(date)
+    else:
+        raw = collect_oddsapi_props(date)
     # If no roster_df provided, attempt to build one for reliable player_id/team mapping
     if roster_df is None:
         # Prefer unified processed roster caches for speed and stability
@@ -586,7 +729,7 @@ def _build_roster_enrichment() -> pd.DataFrame:
         stats_p = _RAW_DIR / "player_game_stats.csv"
         if stats_p.exists():
             stats = pd.read_csv(stats_p)
-            if not stats.empty and {"player","player_id"}.issubset(stats.columns):
+            if not stats.empty and {"player"}.issubset(stats.columns):
                 stats = stats.dropna(subset=["player"])  # require a name
                 # Extract a cleaner display name when the raw value is a dict-like string such as
                 # "{'default': 'A. Matthews'}" or includes localized variants. This improves
@@ -598,7 +741,6 @@ def _build_roster_enrichment() -> pd.DataFrame:
                         if s.startswith('{') and 'default' in s:
                             import ast as _ast
                             obj = _ast.literal_eval(s)
-                            # Typical structure: {'default': 'N. Schmaltz', 'fr': '...', ...}
                             dval = obj.get('default') if isinstance(obj, dict) else None
                             if isinstance(dval, str) and dval.strip():
                                 return dval.strip()
@@ -609,18 +751,28 @@ def _build_roster_enrichment() -> pd.DataFrame:
                     stats['player'] = stats['player'].map(_extract_default)
                 except Exception:
                     pass
+                # Normalize potential team columns
+                team_col = None
+                for cand in ("team","team_abbr","teamAbbrev","team_abbrev","team_abbreviation"):
+                    if cand in stats.columns:
+                        team_col = cand; break
+                if team_col is None:
+                    stats['team'] = None
+                    team_col = 'team'
                 # Order by date to take last known mapping
                 try:
                     stats["_date"] = pd.to_datetime(stats["date"], errors="coerce")
                     stats = stats.sort_values("_date")
                 except Exception:
                     pass
-                last = stats.groupby("player").agg({
-                    "player_id": "last",
-                    "team": "last",
-                }).reset_index().rename(columns={"player": "full_name"})
+                agg_map = {team_col: "last"}
+                if "player_id" in stats.columns:
+                    agg_map["player_id"] = "last"
+                last = stats.groupby("player").agg(agg_map).reset_index().rename(columns={"player": "full_name", team_col: "team"})
                 # Ensure clean strings
                 last["full_name"] = last["full_name"].astype(str)
+                if "player_id" not in last.columns:
+                    last["player_id"] = None
                 return last[["full_name","player_id","team"]]
     except Exception:
         pass

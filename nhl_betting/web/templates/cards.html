@@ -56,6 +56,19 @@
   body.light .indicator-label { color: #475569; }
   body.light .indicator-value.low { color: #94a3b8; }
   body.light .indicator-subtitle { color: #64748b; }
+  /* Top props section */
+  .top-props { margin: 12px 0; padding: 12px; border: 1px solid var(--border, #243356); border-radius: 8px; background: rgba(255,255,255,0.02); }
+  .top-props .title { font-size: 12px; font-weight: 600; color: var(--text-muted, #9fb0ff); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+  .props-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .prop-item { font-size: 13px; display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; background: rgba(255,255,255,0.03); }
+  .team-badge { font-weight: 700; font-size: 11px; padding: 2px 6px; border-radius: 12px; background: #1f2a4d; color: #cfe0ff; }
+  .prop-line { color: var(--text-muted, #9fb0ff); }
+  .prop-ev { font-weight: 700; }
+  .prop-ev.pos { color: #19c37d; }
+  .prop-ev.neg { color: #ef4444; }
+  .prop-book { font-size: 11px; color: var(--text-muted, #9fb0ff); }
+  body.light .top-props { background: #f8fafc; border-color: #cbd5e1; }
+  body.light .prop-item { background: #f1f5f9; }
   </style>
   <script>
   // Theme toggle initialization (before page render)
@@ -397,6 +410,40 @@
               </div>
               {% endif %}
             {% endfor %}
+            {% set has_props = (r.get('props_top_home') and r.get('props_top_home')|length > 0) or (r.get('props_top_away') and r.get('props_top_away')|length > 0) %}
+            {% if has_props %}
+            <div class="top-props">
+              <div class="title">Top Props</div>
+              <div class="props-cols">
+                <div>
+                  {% for p in r.get('props_top_away') or [] %}
+                  <div class="prop-item">
+                    <span class="team-badge">{{ r.away_abbr }}</span>
+                    <span class="prop-player">{{ p.player }}</span>
+                    <span class="prop-line">· {{ p.market }}{% if p.line is not none %} {{ p.line }}{% endif %}{% if p.side %} {{ p.side }}{% endif %}</span>
+                    {% set evp = (100*(p.ev or 0)) %}
+                    <span class="prop-ev {{ 'pos' if evp>0 else ('neg' if evp<0 else '') }}">EV {{ ('+' if evp>0 else '') ~ ('%.1f' % evp) }}%</span>
+                    {% if p.p_over is not none %}<span class="prop-ev">· P(Over) {{ '%.0f' % (100*p.p_over) }}%</span>{% endif %}
+                    {% if p.price is not none %}<span class="prop-book">· {{ p.price }}{% if p.book %} @ {{ p.book }}{% endif %}</span>{% endif %}
+                  </div>
+                  {% endfor %}
+                </div>
+                <div>
+                  {% for p in r.get('props_top_home') or [] %}
+                  <div class="prop-item">
+                    <span class="team-badge">{{ r.home_abbr }}</span>
+                    <span class="prop-player">{{ p.player }}</span>
+                    <span class="prop-line">· {{ p.market }}{% if p.line is not none %} {{ p.line }}{% endif %}{% if p.side %} {{ p.side }}{% endif %}</span>
+                    {% set evp2 = (100*(p.ev or 0)) %}
+                    <span class="prop-ev {{ 'pos' if evp2>0 else ('neg' if evp2<0 else '') }}">EV {{ ('+' if evp2>0 else '') ~ ('%.1f' % evp2) }}%</span>
+                    {% if p.p_over is not none %}<span class="prop-ev">· P(Over) {{ '%.0f' % (100*p.p_over) }}%</span>{% endif %}
+                    {% if p.price is not none %}<span class="prop-book">· {{ p.price }}{% if p.book %} @ {{ p.book }}{% endif %}</span>{% endif %}
+                  </div>
+                  {% endfor %}
+                </div>
+              </div>
+            </div>
+            {% endif %}
             <div class="row details">
               <div class="detail-col">
                 <div>

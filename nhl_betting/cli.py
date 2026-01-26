@@ -13,7 +13,7 @@ except (ImportError, OSError):
     _torch = None  # Optional dependency, may fail if numpy already loaded
 
 import numpy as np
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 from pathlib import Path
 from typing import Optional, List
@@ -3448,6 +3448,529 @@ def game_recommendations_sim(
     print(f"Saved recommendations to {out_path}")
 
 
+@app.command(name="game-backtest-sim-picks-range")
+def game_backtest_sim_picks_range(
+    start: str = typer.Option(..., help="Start date YYYY-MM-DD (ET)"),
+    end: str = typer.Option(..., help="End date YYYY-MM-DD (ET)"),
+):
+    """Backtest sim-backed picks written by game-recommendations-sim across a date range.
+
+    Computes coverage and accuracy per market (ML, Totals, Puckline) using outcomes from data/raw/games.csv.
+
+    Writes data/processed/sim_picks_backtest_{start}_to_{end}.json
+    """
+    from datetime import datetime as _dt, timedelta as _td
+    games_raw = load_df(RAW_DIR / "games.csv")
+    # Normalize ET date for easy joins
+    try:
+        games_raw["date_et"] = pd.to_datetime(games_raw["date"], utc=True).dt.tz_convert("America/New_York").dt.strftime("%Y-%m-%d")
+    except Exception:
+        pass
+    # Accumulators
+    acc = {
+        "ML": {"correct": 0, "total": 0},
+        "Totals": {"correct": 0, "total": 0},
+        "Puckline": {"correct": 0, "total": 0},
+    }
+    cur = _dt.strptime(start, "%Y-%m-%d"); end_dt = _dt.strptime(end, "%Y-%m-%d")
+    while cur <= end_dt:
+        d = cur.strftime("%Y-%m-%d")
+        path = PROC_DIR / f"sim_picks_{d}.csv"
+        if not (path.exists() and getattr(path.stat(), "st_size", 0) > 0):
+            cur += _td(days=1)
+            continue
+        df = pd.read_csv(path)
+        for _, r in df.iterrows():
+            market = str(r.get("market")).upper()
+            home = str(r.get("home")); away = str(r.get("away"))
+            # Join to actuals
+            sub = games_raw[(games_raw["date_et"] == d) & (games_raw["home"] == home) & (games_raw["away"] == away)]
+            if sub.empty:
+                continue
+            ah = sub.iloc[0]["home_goals"]; aa = sub.iloc[0]["away_goals"]
+            try:
+                ah = int(ah); aa = int(aa)
+            except Exception:
+                continue
+            # Evaluate by market
+            if market == "ML":
+                side = str(r.get("side"))
+                pick_home = side.upper() == "HOME"
+                correct = (ah > aa) if pick_home else (aa > ah)
+                acc["ML"]["total"] += 1
+                acc["ML"]["correct"] += 1 if correct else 0
+            elif market == "TOTALS":
+                side = str(r.get("side"))  # OVER or UNDER
+                line_val = r.get("line")
+                try:
+                    line = float(line_val)
+                except Exception:
+                    line = None
+                total = ah + aa
+                if line is not None and total != line:
+                    pick_over = side.upper() == "OVER"
+                    correct = (total > line) if pick_over else (total < line)
+                    acc["Totals"]["total"] += 1
+                    acc["Totals"]["correct"] += 1 if correct else 0
+            elif market == "PUCKLINE":
+                side = str(r.get("side"))  # HOME -1.5 or AWAY +1.5
+                pick_home_minus = side.upper().startswith("HOME")
+                diff = ah - aa
+                correct = (diff > 1.5) if pick_home_minus else (diff < 1.5)
+                acc["Puckline"]["total"] += 1
+                acc["Puckline"]["correct"] += 1 if correct else 0
+        cur += _td(days=1)
+
+    def _summ(d):
+        return {"n": int(d["total"]), "acc": (float(d["correct"]) / max(1, int(d["total"])))}
+    res = {
+        "range": {"start": start, "end": end},
+        "ML": _summ(acc["ML"]),
+        "Totals": _summ(acc["Totals"]),
+        "Puckline": _summ(acc["Puckline"]),
+    }
+    out_path = PROC_DIR / f"sim_picks_backtest_{start}_to_{end}.json"
+    with out_path.open("w", encoding="utf-8") as f:
+        json.dump(res, f, indent=2)
+    print(res)
+    print(f"Saved sim picks backtest to {out_path}")
+
+
+@app.command(name="game-backtest-sim-picks-roi-range")
+def game_backtest_sim_picks_roi_range(
+    start: str = typer.Option(..., help="Start date YYYY-MM-DD (ET)"),
+    end: str = typer.Option(..., help="End date YYYY-MM-DD (ET)"),
+    stake: float = typer.Option(100.0, help="Stake per pick in dollars"),
+    ml_default_odds: float = typer.Option(-115.0, help="Default American odds for ML when price missing"),
+    totals_default_odds: float = typer.Option(-110.0, help="Default American odds for Totals when price missing"),
+    puckline_default_odds: float = typer.Option(-110.0, help="Default American odds for Puckline when price missing"),
+):
+    """Compute baseline ROI for sim-backed picks across a date range.
+
+    Uses outcomes from data/raw/games.csv. If prices are not present in sim picks, applies default American odds per market.
+
+    Writes data/processed/sim_picks_roi_{start}_to_{end}.json
+    """
+    from datetime import datetime as _dt, timedelta as _td
+    games_raw = load_df(RAW_DIR / "games.csv")
+    try:
+        games_raw["date_et"] = pd.to_datetime(games_raw["date"], utc=True).dt.tz_convert("America/New_York").dt.strftime("%Y-%m-%d")
+    except Exception:
+        pass
+    def _dec_from_american(a: float) -> float:
+        a = float(a)
+        return (1.0 + (a / 100.0)) if a > 0 else (1.0 + (100.0 / abs(a)))
+    def _profit(p_win: bool, american: float, stake_amt: float) -> float:
+        dec = _dec_from_american(american)
+        return stake_amt * (dec - 1.0) if p_win else -stake_amt
+    roi = {
+        "ML": {"profit": 0.0, "count": 0},
+        "Totals": {"profit": 0.0, "count": 0},
+        "Puckline": {"profit": 0.0, "count": 0},
+        "All": {"profit": 0.0, "count": 0},
+    }
+    cur = _dt.strptime(start, "%Y-%m-%d"); end_dt = _dt.strptime(end, "%Y-%m-%d")
+    audit_rows = []
+    while cur <= end_dt:
+        d = cur.strftime("%Y-%m-%d")
+        path = PROC_DIR / f"sim_picks_{d}.csv"
+        if not (path.exists() and getattr(path.stat(), "st_size", 0) > 0):
+            cur += _td(days=1)
+            continue
+        df = pd.read_csv(path)
+        # Optional predictions for odds mapping
+        pred_df = None
+        try:
+            ppath = PROC_DIR / f"predictions_{d}.csv"
+            if ppath.exists() and getattr(ppath.stat(), "st_size", 0) > 0:
+                pred_df = pd.read_csv(ppath)
+        except Exception:
+            pred_df = None
+        for _, r in df.iterrows():
+            market = str(r.get("market")).upper()
+            home = str(r.get("home")); away = str(r.get("away"))
+            sub = games_raw[(games_raw["date_et"] == d) & (games_raw["home"] == home) & (games_raw["away"] == away)]
+            if sub.empty:
+                continue
+            try:
+                ah = int(sub.iloc[0]["home_goals"]); aa = int(sub.iloc[0]["away_goals"])
+            except Exception:
+                continue
+            win = False
+            american = None
+            # Try to map odds from predictions if available
+            def _odds_from_predictions(side_key: str, totals_side: str | None = None, pl_side: str | None = None) -> float | None:
+                try:
+                    if pred_df is None:
+                        return None
+                    rowp = pred_df[(pred_df["date_et"] == d) & (pred_df["home"] == home) & (pred_df["away"] == away)]
+                    if rowp is None or rowp.empty:
+                        return None
+                    rp = rowp.iloc[0]
+                    if market == "ML":
+                        # prefer close_*; fallback to base odds fields
+                        val = rp.get("close_home_ml_odds") if side_key == "HOME" else rp.get("close_away_ml_odds")
+                        if val is None or (isinstance(val, float) and pd.isna(val)):
+                            val = rp.get("home_ml_odds") if side_key == "HOME" else rp.get("away_ml_odds")
+                        v = float(val) if val is not None else None
+                        return v if (v is not None and math.isfinite(v)) else None
+                    elif market == "TOTALS" and totals_side is not None:
+                        val = rp.get("close_over_odds") if totals_side == "OVER" else rp.get("close_under_odds")
+                        if val is None or (isinstance(val, float) and pd.isna(val)):
+                            val = rp.get("over_odds") if totals_side == "OVER" else rp.get("under_odds")
+                        v = float(val) if val is not None else None
+                        return v if (v is not None and math.isfinite(v)) else None
+                    elif market == "PUCKLINE" and pl_side is not None:
+                        val = rp.get("close_home_pl_-1.5_odds") if pl_side.startswith("HOME") else rp.get("close_away_pl_+1.5_odds")
+                        if val is None or (isinstance(val, float) and pd.isna(val)):
+                            val = rp.get("home_pl_-1.5_odds") if pl_side.startswith("HOME") else rp.get("away_pl_+1.5_odds")
+                        v = float(val) if val is not None else None
+                        return v if (v is not None and math.isfinite(v)) else None
+                except Exception:
+                    return None
+                return None
+            if market == "ML":
+                side = str(r.get("side"))
+                pick_home = side.upper() == "HOME"
+                win = (ah > aa) if pick_home else (aa > ah)
+                american = _odds_from_predictions("HOME" if pick_home else "AWAY") or ml_default_odds
+            elif market == "TOTALS":
+                side = str(r.get("side"))
+                try:
+                    line = float(r.get("line"))
+                except Exception:
+                    line = None
+                total = ah + aa
+                if line is None or total == line:
+                    continue
+                pick_over = side.upper() == "OVER"
+                win = (total > line) if pick_over else (total < line)
+                american = _odds_from_predictions(None, "OVER" if pick_over else "UNDER") or totals_default_odds
+            elif market == "PUCKLINE":
+                side = str(r.get("side"))
+                pick_home_minus = side.upper().startswith("HOME")
+                diff = ah - aa
+                win = (diff > 1.5) if pick_home_minus else (diff < 1.5)
+                american = _odds_from_predictions(None, None, "HOME -1.5" if pick_home_minus else "AWAY +1.5") or puckline_default_odds
+            else:
+                continue
+            profit = _profit(win, american, stake)
+            key = "ML" if market == "ML" else ("Totals" if market == "TOTALS" else "Puckline")
+            roi[key]["profit"] += profit
+            roi[key]["count"] += 1
+            roi["All"]["profit"] += profit
+            roi["All"]["count"] += 1
+            audit_rows.append({
+                "date": d,
+                "home": home,
+                "away": away,
+                "market": market,
+                "side": side,
+                "line": r.get("line"),
+                "prob": r.get("prob"),
+                "american_odds": american,
+                "win": bool(win),
+                "profit": round(profit, 2),
+            })
+        cur += _td(days=1)
+
+    def _summ(m):
+        cnt = int(roi[m]["count"]);
+        prof = float(roi[m]["profit"])
+        return {"n": cnt, "profit": round(prof, 2), "roi": round(prof / max(1.0, cnt * stake), 4)}
+    res = {
+        "range": {"start": start, "end": end},
+        "ML": _summ("ML"),
+        "Totals": _summ("Totals"),
+        "Puckline": _summ("Puckline"),
+        "All": _summ("All"),
+        "assumptions": {
+            "stake": stake,
+            "ml_default_odds": ml_default_odds,
+            "totals_default_odds": totals_default_odds,
+            "puckline_default_odds": puckline_default_odds,
+        }
+    }
+    out_path = PROC_DIR / f"sim_picks_roi_{start}_to_{end}.json"
+    with out_path.open("w", encoding="utf-8") as f:
+        json.dump(res, f, indent=2)
+    print(res)
+    print(f"Saved sim picks ROI backtest to {out_path}")
+    # Also emit CSV audit
+    try:
+        audit_df = pd.DataFrame(audit_rows)
+        audit_csv = PROC_DIR / f"sim_picks_audit_{start}_to_{end}.csv"
+        save_df(audit_df, audit_csv)
+        print(f"Saved sim picks audit to {audit_csv}")
+    except Exception:
+        pass
+
+
+@app.command(name="game-weekly-summary")
+def game_weekly_summary(
+    start: str = typer.Option(..., help="Start date YYYY-MM-DD (ET)"),
+    end: str = typer.Option(..., help="End date YYYY-MM-DD (ET)"),
+):
+    """Consolidate weekly summaries: thresholds, picks accuracy, ROI, audit CSV path.
+
+    Writes data/processed/weekly_summary_{start}_to_{end}.json
+    """
+    def _read_json(path: Path) -> dict:
+        try:
+            if path.exists() and getattr(path.stat(), "st_size", 0) > 0:
+                return json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            return {}
+        return {}
+    base = PROC_DIR
+    th = _read_json(base / f"sim_thresholds_{start}_to_{end}.json")
+    acc = _read_json(base / f"sim_picks_backtest_{start}_to_{end}.json")
+    roi = _read_json(base / f"sim_picks_roi_{start}_to_{end}.json")
+    audit_csv = str((base / f"sim_picks_audit_{start}_to_{end}.csv").resolve())
+    out = {
+        "range": {"start": start, "end": end},
+        "thresholds": th or None,
+        "picks_accuracy": acc or None,
+        "roi": roi or None,
+        "audit_csv": audit_csv,
+    }
+    out_path = PROC_DIR / f"weekly_summary_{start}_to_{end}.json"
+    with out_path.open("w", encoding="utf-8") as f:
+        json.dump(out, f, indent=2)
+    print(out)
+    print(f"Saved weekly summary to {out_path}")
+
+
+@app.command(name="game-inject-odds-range")
+def game_inject_odds_range(
+    start: str = typer.Option(..., help="Start date YYYY-MM-DD (ET)"),
+    end: str = typer.Option(..., help="End date YYYY-MM-DD (ET)"),
+    bookmaker: str = typer.Option("draftkings", help="Bookmaker key for OddsAPI (e.g., draftkings, pinnacle)"),
+    backfill: bool = typer.Option(True, help="Only fill missing odds; do not overwrite existing prices"),
+):
+    """Inject The Odds API odds into predictions_{date}.csv across a range without running models."""
+    from datetime import datetime as _dt, timedelta as _td
+    try:
+        from .web.app import _inject_oddsapi_odds_into_predictions
+    except Exception as e:
+        print("Injection function unavailable:", e)
+        raise typer.Exit(code=1)
+    cur = _dt.strptime(start, "%Y-%m-%d"); end_dt = _dt.strptime(end, "%Y-%m-%d")
+    total_updates = {"rows": 0, "fields": 0}
+    while cur <= end_dt:
+        d = cur.strftime("%Y-%m-%d")
+        summary = _inject_oddsapi_odds_into_predictions(d, backfill=backfill, bookmaker=bookmaker)
+        try:
+            total_updates["rows"] += int(summary.get("updated_rows") or 0)
+            total_updates["fields"] += int(summary.get("updated_fields") or 0)
+        except Exception:
+            pass
+        print({"date": d, **(summary or {})})
+        cur += _td(days=1)
+    print({"range": {"start": start, "end": end}, "updates": total_updates})
+
+
+@app.command(name="game-weekly-dashboard-csv")
+def game_weekly_dashboard_csv(
+    start: str = typer.Option(..., help="Start date YYYY-MM-DD (ET)"),
+    end: str = typer.Option(..., help="End date YYYY-MM-DD (ET)"),
+):
+    """Aggregate per-day metrics (counts, accuracy, profits) into a CSV dashboard from audit data."""
+    import math
+    audit_csv = PROC_DIR / f"sim_picks_audit_{start}_to_{end}.csv"
+    if not (audit_csv.exists() and getattr(audit_csv.stat(), "st_size", 0) > 0):
+        print(f"Missing audit CSV: {audit_csv}. Run game-backtest-sim-picks-roi-range first.")
+        raise typer.Exit(code=1)
+    df = pd.read_csv(audit_csv)
+    # Ensure grouping columns exist
+    for c in ("date","market","win","profit"):
+        if c not in df.columns:
+            print(f"Audit CSV missing column: {c}")
+            raise typer.Exit(code=1)
+    # Compute per-day per-market metrics
+    rows = []
+    for (d, m), g in df.groupby(["date","market"]):
+        n = int(len(g))
+        wins = int(g["win"].sum()) if g["win"].dtype != object else int(g["win"].astype(bool).sum())
+        acc = float(wins) / max(1, n)
+        profit = float(g["profit"].sum()) if math.isfinite(g["profit"].sum()) else float(pd.to_numeric(g["profit"], errors="coerce").sum())
+        rows.append({"date": d, "market": m, "n": n, "acc": round(acc,4), "profit": round(profit,2)})
+    out = pd.DataFrame(rows).sort_values(["date","market"]) if rows else pd.DataFrame(columns=["date","market","n","acc","profit"])
+    out_path = PROC_DIR / f"weekly_dashboard_{start}_to_{end}.csv"
+    save_df(out, out_path)
+    print(out.head(20))
+    print(f"Saved weekly dashboard to {out_path}")
+    
+@app.command(name="game-sim-accuracy-range")
+def game_sim_accuracy_range(
+    start: Optional[str] = typer.Option(None, help="Start date YYYY-MM-DD (ET)"),
+    end: Optional[str] = typer.Option(None, help="End date YYYY-MM-DD (ET)"),
+    use_calibrated: bool = typer.Option(True, help="Prefer calibrated sim probabilities if present"),
+    bins: int = typer.Option(10, help="Calibration bins count"),
+    output_prefix: str = typer.Option("game_sim_accuracy", help="Output JSON filename prefix"),
+):
+    """Compute simulation accuracy metrics (accuracy@0.5, Brier score, calibration bins)
+    across Moneyline (home win), Totals Over, and Puckline Home -1.5 cover for a date range.
+
+    Reads data/processed/simulations_{date}.csv and outcomes from data/raw/games.csv.
+    Writes data/processed/{output_prefix}_{start}_to_{end}.json (or _all.json if no range specified).
+    """
+    def _read_outcomes() -> pd.DataFrame:
+        path = RAW_DIR / "games.csv"
+        if not (path.exists() and getattr(path.stat(), "st_size", 0) > 0):
+            print(f"Missing outcomes: {path}")
+            raise typer.Exit(code=1)
+        df = pd.read_csv(path)
+        # Normalize: create ET calendar 'date' from 'date_et' if present; else from 'date'
+        if 'date_et' in df.columns:
+            df['date'] = pd.to_datetime(df['date_et']).dt.strftime('%Y-%m-%d')
+        else:
+            df['date'] = pd.to_datetime(df['date']).dt.strftime('%Y-%m-%d')
+        df['home_goals'] = pd.to_numeric(df['home_goals'], errors='coerce').astype('Int64')
+        df['away_goals'] = pd.to_numeric(df['away_goals'], errors='coerce').astype('Int64')
+        df['total_goals'] = (df['home_goals'].astype(int) + df['away_goals'].astype(int))
+        df['home_win'] = (df['home_goals'] > df['away_goals']).astype(int)
+        return df[['date','home','away','home_goals','away_goals','total_goals','home_win']]
+
+    def _load_sim(path: Path, date_hint: Optional[str]) -> pd.DataFrame:
+        df = pd.read_csv(path)
+        # Ensure date column
+        if 'date' not in df.columns:
+            try:
+                d = date_hint or path.stem.split('_')[-1]
+                pd.to_datetime(d)
+                df['date'] = d
+            except Exception:
+                pass
+        if 'date' in df.columns:
+            df['date'] = pd.to_datetime(df['date']).dt.strftime('%Y-%m-%d')
+        return df
+
+    def _brier(y_true: np.ndarray, y_prob: np.ndarray) -> float:
+        y_true = y_true.astype(float)
+        y_prob = y_prob.astype(float)
+        return float(np.mean((y_prob - y_true) ** 2))
+
+    def _cal_bins(y_true: np.ndarray, y_prob: np.ndarray, n_bins: int):
+        edges = np.linspace(0.0, 1.0, n_bins + 1)
+        idx = np.digitize(y_prob, edges, right=True)
+        out = []
+        for b in range(1, n_bins + 1):
+            m = (idx == b)
+            cnt = int(np.sum(m))
+            if cnt == 0:
+                out.append({'bin': b, 'mid': float((edges[b-1] + edges[b]) / 2), 'count': 0, 'avg_prob': None, 'emp_rate': None})
+            else:
+                out.append({'bin': b, 'mid': float((edges[b-1] + edges[b]) / 2), 'count': cnt, 'avg_prob': float(np.mean(y_prob[m])), 'emp_rate': float(np.mean(y_true[m]))})
+        return out
+
+    # Choose dates and simulation files
+    sim_files: List[Path] = []
+    date_list: List[str] = []
+    if start and end:
+        try:
+            s_dt = datetime.strptime(start, '%Y-%m-%d').date(); e_dt = datetime.strptime(end, '%Y-%m-%d').date()
+        except Exception:
+            print('Invalid date format; use YYYY-MM-DD'); raise typer.Exit(code=1)
+        if e_dt < s_dt:
+            s_dt, e_dt = e_dt, s_dt
+        cur = s_dt
+        while cur <= e_dt:
+            d = cur.strftime('%Y-%m-%d')
+            p = PROC_DIR / f"simulations_{d}.csv"
+            if p.exists() and getattr(p.stat(), 'st_size', 0) > 0:
+                sim_files.append(p)
+                date_list.append(d)
+            cur = cur + timedelta(days=1)
+    else:
+        for p in sorted((PROC_DIR).glob('simulations_*.csv')):
+            sim_files.append(p)
+            try:
+                date_list.append(pd.to_datetime(p.stem.split('_')[-1]).strftime('%Y-%m-%d'))
+            except Exception:
+                date_list.append(None)
+    if not sim_files:
+        print('No simulations files found for requested range.')
+        raise typer.Exit(code=0)
+
+    outcomes = _read_outcomes()
+
+    ml_true: List[int] = []
+    ml_prob: List[float] = []
+    tot_true: List[int] = []
+    tot_prob: List[float] = []
+    pl_true: List[int] = []
+    pl_prob: List[float] = []
+
+    for p, d in zip(sim_files, date_list):
+        df = _load_sim(p, d)
+        if 'date' not in df.columns:
+            # Cannot join without date; skip
+            continue
+        # Join on date/home/away
+        cols_ok = all(c in df.columns for c in ('date','home','away'))
+        if not cols_ok:
+            continue
+        merged = df.merge(outcomes, on=['date','home','away'], how='inner')
+        if merged.empty:
+            continue
+        for _, r in merged.iterrows():
+            # Moneyline
+            p_ml = r.get('p_home_ml_sim_cal' if use_calibrated else 'p_home_ml_sim')
+            if pd.isna(p_ml):
+                p_ml = r.get('p_home_ml_sim' if use_calibrated else 'p_home_ml_sim_cal')
+            if p_ml is not None and not pd.isna(p_ml):
+                ml_prob.append(float(p_ml))
+                ml_true.append(int(r['home_win']))
+            # Totals (Over)
+            # Use total line from simulations if present
+            line = r.get('close_total_line_used')
+            if line is None or (isinstance(line, float) and pd.isna(line)):
+                line = r.get('total_line_used')
+            try:
+                tline = float(line) if line is not None else None
+            except Exception:
+                tline = None
+            p_over = r.get('p_over_sim_cal' if use_calibrated else 'p_over_sim')
+            if pd.isna(p_over):
+                p_over = r.get('p_over_sim' if use_calibrated else 'p_over_sim_cal')
+            if (p_over is not None and not pd.isna(p_over)) and (tline is not None):
+                total = int(r['total_goals']) if 'total_goals' in r.index else (int(r['home_goals']) + int(r['away_goals']))
+                if total != tline:  # exclude pushes
+                    tot_prob.append(float(p_over))
+                    tot_true.append(int(total > tline))
+            # Puckline Home -1.5 cover
+            p_pl = r.get('p_home_pl_-1.5_sim_cal' if use_calibrated else 'p_home_pl_-1.5_sim')
+            if pd.isna(p_pl):
+                p_pl = r.get('p_home_pl_-1.5_sim' if use_calibrated else 'p_home_pl_-1.5_sim_cal')
+            if p_pl is not None and not pd.isna(p_pl):
+                diff = int(r['home_goals']) - int(r['away_goals'])
+                pl_prob.append(float(p_pl))
+                pl_true.append(int(diff > 1.5))
+
+    def _summ(y_true: List[int], y_prob: List[float]):
+        if not y_true:
+            return {'n': 0}
+        y_true_arr = np.array(y_true)
+        y_prob_arr = np.array(y_prob)
+        acc = float(np.mean(((y_prob_arr >= 0.5).astype(int) == y_true_arr)))
+        brier = _brier(y_true_arr, y_prob_arr)
+        cbind = _cal_bins(y_true_arr, y_prob_arr, bins)
+        return {'n': int(len(y_true)), 'accuracy_0p5': acc, 'brier': brier, 'calibration_bins': cbind}
+
+    summary = {
+        'range': {'start': start, 'end': end} if start and end else 'all',
+        'moneyline_home_win': _summ(ml_true, ml_prob),
+        'totals_over': _summ(tot_true, tot_prob),
+        'puckline_home_minus_1p5_cover': _summ(pl_true, pl_prob),
+    }
+
+    out_name = f"{output_prefix}_{start}_to_{end}.json" if start and end else f"{output_prefix}_all.json"
+    out_path = PROC_DIR / out_name
+    with out_path.open('w', encoding='utf-8') as f:
+        json.dump(summary, f, indent=2)
+    print(summary)
+    print(f"Saved sim accuracy to {out_path}")
 @app.command()
 def predict_range(
     start: str = typer.Argument(..., help="Start date YYYY-MM-DD"),
@@ -4116,10 +4639,10 @@ def props_recommendations(
         if dbg:
             print(f"[recs] {msg}", flush=True)
     from glob import glob
-    # Read canonical lines for date (OddsAPI-only)
+    # Read canonical lines for date (OddsAPI + Bovada if present)
     parts = []
     base = Path("data/props") / f"player_props_lines/date={date}"
-    prefer = [base / "oddsapi.parquet", base / "oddsapi.csv"]
+    prefer = [base / "oddsapi.parquet", base / "bovada.parquet", base / "oddsapi.csv", base / "bovada.csv"]
     def _read_any(files):
         out = []
         for f in files:
@@ -5330,9 +5853,39 @@ def props_precompute_all(
             save_df(pd.DataFrame(columns=["date","player","team","position","market","proj_lambda"]), PROC_DIR / f"props_projections_all_{date}.csv")
             print(f"[props-precompute] wrote empty projections for {date}")
             return
+        # Robust team abbreviation mapping: handle full names and existing abbreviations
+        abbr_map_name: dict[str, str] = {}
+        abbr_map_abbr: dict[str, str] = {}
+        try:
+            from .data.rosters import list_teams as _list_teams
+            _teams = _list_teams()
+            for t in _teams:
+                try:
+                    nm = str(t.get('name') or '').strip().lower()
+                    ab = str(t.get('abbreviation') or '').strip().upper()
+                    if nm:
+                        abbr_map_name[nm] = ab
+                    if ab:
+                        abbr_map_abbr[ab] = ab
+                except Exception:
+                    pass
+        except Exception:
+            pass
         def _to_abbr(x):
+            s = str(x or '').strip()
+            if not s:
+                return None
             try:
-                a = get_team_assets(str(x)).get('abbr')
+                # If already an abbreviation, normalize directly
+                su = s.upper()
+                if su in abbr_map_abbr:
+                    return abbr_map_abbr[su]
+                # Try name mapping
+                sl = s.lower()
+                if sl in abbr_map_name:
+                    return abbr_map_name[sl]
+                # Fallback to assets lookup
+                a = get_team_assets(s).get('abbr')
                 return str(a).upper() if a else None
             except Exception:
                 return None
@@ -5350,8 +5903,8 @@ def props_precompute_all(
         rows = []
         for _, rr in enrich.iterrows():
             ab = rr.get('team_abbr')
-            # If slate teams are known, filter to them; otherwise include all teams as a fallback
-            if slate_abbrs and (not ab or ab not in slate_abbrs):
+            # If slate teams are known, only filter when we have a known abbr; otherwise include
+            if slate_abbrs and (ab is not None) and (ab not in slate_abbrs):
                 continue
             nm = rr.get('full_name')
             pos_raw = pos_map.get(str(nm), '')
@@ -6240,16 +6793,16 @@ def props_fetch_bovada(
 def props_collect(
     date: str = typer.Option(..., help="Slate date YYYY-MM-DD"),
     output_root: str = typer.Option("data/props", help="Output root directory for Parquet files"),
-    source: str = typer.Option("oddsapi", help="Source: oddsapi (requires ODDS_API_KEY)"),
+    source: str = typer.Option("oddsapi", help="Source: oddsapi (requires ODDS_API_KEY) | bovada"),
 ):
     """Collect & normalize player props and write canonical Parquet under data/props/player_props_lines/date=YYYY-MM-DD.
 
     - oddsapi: use The Odds API historical snapshot for player markets (requires ODDS_API_KEY)
     """
     src = source.lower().strip()
-    if src != "oddsapi":
-        print("Unsupported source. Only 'oddsapi' is supported now."); raise typer.Exit(code=1)
-    cfg = props_data.PropsCollectionConfig(output_root=output_root, book="oddsapi", source="oddsapi")
+    if src not in ("oddsapi", "bovada"):
+        print("Unsupported source. Use 'oddsapi' or 'bovada'."); raise typer.Exit(code=1)
+    cfg = props_data.PropsCollectionConfig(output_root=output_root, book=src, source=src)
     # Optional: roster mapping could be passed; for now, None
     res = props_data.collect_and_write(date, roster_df=None, cfg=cfg)
     print(json.dumps(res, indent=2))
@@ -7150,15 +7703,59 @@ def props_simulate_unlined(
     if not markets_set:
         markets_set = {"SAVES","BLOCKS"}
 
-    # Ensure projections exist
+    # Ensure projections exist (attempt on-demand precompute if missing/empty)
     proj_path = PROC_DIR / f"props_projections_all_{date}.csv"
-    if not proj_path.exists():
-        print("No projections found:", proj_path)
-        raise typer.Exit(code=1)
-    proj = pd.read_csv(proj_path)
+    def _load_proj(path):
+        try:
+            df = pd.read_csv(path)
+            return df
+        except Exception:
+            return None
+    proj = _load_proj(proj_path) if proj_path.exists() else None
     if proj is None or proj.empty:
-        print("Empty projections file:", proj_path)
-        raise typer.Exit(code=1)
+        try:
+            # On-demand compute projections for this date
+            props_precompute_all(date=date)  # type: ignore[name-defined]
+        except Exception:
+            pass
+        proj = _load_proj(proj_path)
+    if proj is None or proj.empty:
+        # Fallback: build minimal projections from current rosters with baseline lambdas
+        try:
+            slate_teams = []
+            try:
+                web = _Web(); sched = web.schedule_day(date)
+                for g in sched:
+                    h = str(getattr(g, "home", "")); a = str(getattr(g, "away", ""))
+                    slate_teams.extend([_assets(h).get("abbr"), _assets(a).get("abbr")])
+                slate_teams = [str(t or "").upper() for t in slate_teams if t]
+            except Exception:
+                slate_teams = []
+            rows = []
+            for t in set(slate_teams):
+                try:
+                    ros = _fetch_roster(str(t))
+                except Exception:
+                    ros = []
+                for rp in (ros or []):
+                    pname = str(getattr(rp, "full_name", "")).strip()
+                    pos = str(getattr(rp, "position", "")).upper()
+                    if not pname:
+                        continue
+                    if pos.startswith("G"):
+                        rows.append({"date": date, "player": pname, "team": str(t), "market": "SAVES", "proj_lambda": 27.0})
+                    else:
+                        rows.append({"date": date, "player": pname, "team": str(t), "market": "SOG", "proj_lambda": 2.5})
+                        rows.append({"date": date, "player": pname, "team": str(t), "market": "GOALS", "proj_lambda": 0.4})
+                        rows.append({"date": date, "player": pname, "team": str(t), "market": "ASSISTS", "proj_lambda": 0.4})
+                        rows.append({"date": date, "player": pname, "team": str(t), "market": "POINTS", "proj_lambda": 0.8})
+                        rows.append({"date": date, "player": pname, "team": str(t), "market": "BLOCKS", "proj_lambda": 1.8})
+            proj = _pd.DataFrame(rows)
+        except Exception:
+            proj = _pd.DataFrame()
+        if proj is None or proj.empty:
+            print("Empty projections file:", proj_path)
+            raise typer.Exit(code=1)
 
 
     # Opponent mapping via schedule

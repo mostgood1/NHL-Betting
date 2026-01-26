@@ -1,5 +1,5 @@
 {
-  "last_calibrated_utc": "2026-01-26T14:42:42Z",
+  "last_calibrated_utc": "2026-01-26T15:39:49Z",
   "range": {
     "start": "2025-09-01",
     "end": "2026-01-26"
@@ -14,7 +14,7 @@
   "min_ev_pl": 0.005,
   "min_ev_first10": 0.0,
   "min_ev_periods": 0.0,
-  "ev_gates_last_learned_utc": "2026-01-26T14:42:45Z",
+  "ev_gates_last_learned_utc": "2026-01-26T15:39:53Z",
   "ev_gates_range": {
     "start": "2025-09-01",
     "end": "2026-01-26"

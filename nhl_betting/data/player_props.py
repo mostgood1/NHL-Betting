@@ -618,13 +618,24 @@ def write_props(df: pd.DataFrame, cfg: PropsCollectionConfig, date: str) -> str:
     # Use file label based on source
     file_label = (cfg.source or cfg.book or "oddsapi").strip().lower()
     pq_path = os.path.join(out_dir, f"{file_label}.parquet")
+    csv_path = os.path.join(out_dir, f"{file_label}.csv")
     try:
         # Use pyarrow engine explicitly for stability across environments
         df.to_parquet(pq_path, index=False, engine="pyarrow")
+        # Also write a CSV sidecar to guarantee simple downstream reads
+        try:
+            df.to_csv(csv_path, index=False)
+        except Exception:
+            # If CSV write fails, ensure at least an empty schema is present
+            cols = [
+                "date","player_id","player_name","team","market","line",
+                "over_price","under_price","book","first_seen_at","last_seen_at","is_current"
+            ]
+            import pandas as _pd
+            _pd.DataFrame(columns=cols).to_csv(csv_path, index=False)
         return pq_path
     except Exception:
         # Fallback to CSV if Parquet writer is unavailable/mismatched
-        csv_path = os.path.join(out_dir, f"{file_label}.csv")
         try:
             df.to_csv(csv_path, index=False)
         except Exception:

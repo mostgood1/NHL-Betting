@@ -164,6 +164,32 @@ try {
   Write-Warning "[daily_update] roster/lineup/injuries update failed: $($_.Exception.Message)"
 }
 
+# Ensure props lines are saved once per slate (CSV+Parquet) without refetching repeatedly
+try {
+  $dates = @((Get-Date).ToString('yyyy-MM-dd'), (Get-Date).AddDays(1).ToString('yyyy-MM-dd'))
+  foreach ($d in $dates) {
+    $dir = Join-Path $RepoRoot "data/props/player_props_lines/date=$d"
+    if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir | Out-Null }
+    $haveRows = $false
+    foreach ($fn in @('oddsapi.csv','bovada.csv')) {
+      $p = Join-Path $dir $fn
+      if (Test-Path $p) {
+        try {
+          $cnt = (Import-Csv $p).Count
+          if ($cnt -gt 0) { $haveRows = $true }
+        } catch { }
+      }
+    }
+    if (-not $haveRows) {
+      Write-Host "[daily_update] Collecting props lines for $d (oddsapi+bovada) …" -ForegroundColor Yellow
+      try { python -m nhl_betting.cli props-collect --date $d --source oddsapi } catch { Write-Warning "[daily_update] props-collect oddsapi failed: $($_.Exception.Message)" }
+      try { python -m nhl_betting.cli props-collect --date $d --source bovada } catch { Write-Warning "[daily_update] props-collect bovada failed: $($_.Exception.Message)" }
+    } else {
+      Write-Host "[daily_update] Props lines already present for $d; skipping collection." -ForegroundColor DarkGreen
+    }
+  }
+} catch { Write-Warning "[daily_update] props lines ensure failed: $($_.Exception.Message)" }
+
 # Always refresh PBP-derived feature caches (PP/PK, penalties) and today's goalie form
 try {
   Write-Host "[daily_update] Refreshing PP/PK and penalty rates from PBP …" -ForegroundColor Yellow

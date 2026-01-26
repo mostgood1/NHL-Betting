@@ -5353,7 +5353,7 @@ def props_verify(
     """Print counts for canonical lines files for the given date."""
     base = Path("data/props") / f"player_props_lines/date={date}"
     found = []
-    for fn in ("oddsapi.parquet","oddsapi.csv"):
+    for fn in ("oddsapi.parquet","bovada.parquet","oddsapi.csv","bovada.csv"):
         p = base / fn
         if p.exists():
             try:

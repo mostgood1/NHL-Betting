@@ -11,6 +11,7 @@ from typing import Dict, List, Optional
 import pandas as pd
 
 from .rosters import build_roster_snapshot, infer_lines, project_toi
+from .lineups_sources import fetch_dailyfaceoff_team_lineups
 
 
 def build_lineup_snapshot(team_abbr: str, usage_df: Optional[pd.DataFrame] = None, overrides: Optional[Dict] = None) -> pd.DataFrame:
@@ -46,4 +47,58 @@ def build_lineup_snapshot(team_abbr: str, usage_df: Optional[pd.DataFrame] = Non
     return df[["player_id","full_name","position","line_slot","pp_unit","pk_unit","proj_toi","confidence"]]
 
 
-__all__ = ["build_lineup_snapshot"]
+def build_lineup_snapshot_from_source(team_abbr: str, date: str, overrides: Optional[Dict] = None) -> pd.DataFrame:
+    """Build lineup snapshot using an external source (Daily Faceoff) with roster mapping.
+
+    - Fetch lineup items for the team/date
+    - Map player names to roster snapshot to resolve `player_id` and `position`
+    - Provide reasonable defaults for missing fields; apply overrides if provided
+    """
+    items = fetch_dailyfaceoff_team_lineups(team_abbr, date)
+    roster = build_roster_snapshot(team_abbr)
+    name_map = {}
+    pos_map = {}
+    if not roster.empty:
+        tmp = roster.copy()
+        tmp["_name_key"] = tmp["full_name"].astype(str).str.strip().str.lower()
+        for _, r in tmp.iterrows():
+            name_map[str(r["_name_key"])]= int(r["player_id"]) if pd.notnull(r["player_id"]) else None
+            pos_map[str(r["_name_key"])]= str(r.get("position",""))
+    rows = []
+    for it in items:
+        nm = str(it.get("player_name",""))
+        key = nm.strip().lower()
+        pid = name_map.get(key)
+        pos = pos_map.get(key) or str(it.get("position",""))
+        rows.append({
+            "player_id": pid,
+            "full_name": nm,
+            "position": pos,
+            "line_slot": it.get("line_slot"),
+            "pp_unit": it.get("pp_unit"),
+            "pk_unit": it.get("pk_unit"),
+            "proj_toi": None,
+            "confidence": float(it.get("confidence", 0.5)),
+        })
+    df = pd.DataFrame(rows)
+    # Compute projected TOI when roster is available using inference baseline for matched players
+    try:
+        if not roster.empty:
+            # Use infer_lines/project_toi on roster to get baseline TOI
+            inf = project_toi(infer_lines(roster.rename(columns={"full_name":"full_name","player_id":"player_id","position":"position"})))
+            inf = inf[["player_id","proj_toi"]].dropna()
+            df = df.merge(inf, on="player_id", how="left", suffixes=("","_inf"))
+            df["proj_toi"] = df["proj_toi"].fillna(df["proj_toi_inf"]).drop(columns=["proj_toi_inf"], errors="ignore")
+    except Exception:
+        pass
+    overrides = overrides or {}
+    if overrides:
+        for pid, vals in overrides.items():
+            mask = df["player_id"].eq(int(pid))
+            for k, v in vals.items():
+                if k in df.columns:
+                    df.loc[mask, k] = v
+    return df[["player_id","full_name","position","line_slot","pp_unit","pk_unit","proj_toi","confidence"]]
+
+
+__all__ = ["build_lineup_snapshot", "build_lineup_snapshot_from_source"]

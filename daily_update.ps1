@@ -86,6 +86,24 @@ python @argsList
 # Final status
 if (-not $Quiet) { Write-Host "[run] Daily update complete." }
 
+# Sim-based player props boxscores + recommendations (play-level rooted)
+if (-not $SkipProps) {
+  try {
+    $today = (Get-Date).ToString('yyyy-MM-dd')
+    $tomorrow = (Get-Date).AddDays(1).ToString('yyyy-MM-dd')
+    if (-not $Quiet) { Write-Host "[props-sim] Boxscores $today & $tomorrow" -ForegroundColor Cyan }
+    python -m nhl_betting.cli props-simulate-boxscores --date $today --n-sims 2000 --seed 42 | Out-Null
+    python -m nhl_betting.cli props-simulate-boxscores --date $tomorrow --n-sims 2000 --seed 42 | Out-Null
+    if (-not $Quiet) { Write-Host "[props-recs] From boxscores $today & $tomorrow (prob gating)" -ForegroundColor Cyan }
+    # Apply per-market probability gates to improve daily accuracy (especially SOG)
+    $probGates = 'SOG=0.68,GOALS=0.60,ASSISTS=0.60,POINTS=0.62,SAVES=0.60,BLOCKS=0.60'
+    python -m nhl_betting.cli props-recommendations-boxscores --date $today --min-ev 0 --top 400 --min-prob-per-market $probGates | Out-Null
+    python -m nhl_betting.cli props-recommendations-boxscores --date $tomorrow --min-ev 0 --top 400 --min-prob-per-market $probGates | Out-Null
+  } catch {
+    Write-Warning "[props-sim] Failed to generate boxscores/recs: $($_.Exception.Message)"
+  }
+}
+
 # Automatically calibrate game model parameters (dc_rho, market anchor weights, totals temp)
 if (-not $SkipGameCalibration) {
   try {

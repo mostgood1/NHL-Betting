@@ -57,7 +57,9 @@ from .props.utils import compute_props_lam_scale_mean
 from .data.odds_api import OddsAPIClient, normalize_snapshot_to_rows
 from .data import player_props as props_data
 from .data.rosters import build_all_team_roster_snapshots, build_roster_snapshot, infer_lines, project_toi, TEAM_ABBRS
-from .data.lineups import build_lineup_snapshot
+from .data.lineups import build_lineup_snapshot, build_lineup_snapshot_from_source
+from .data.lineups_sources import fetch_dailyfaceoff_starting_goalies
+from .data.lineups_sources import fetch_dailyfaceoff_starting_goalies
 from .data.injuries import build_injury_snapshot
 from .data.co_toi import build_co_toi_from_lineups
 from .data.shifts_api import shifts_frame, co_toi_from_shifts, player_toi_from_shifts
@@ -3748,18 +3750,180 @@ def game_inject_odds_range(
     bookmaker: str = typer.Option("draftkings", help="Bookmaker key for OddsAPI (e.g., draftkings, pinnacle)"),
     backfill: bool = typer.Option(True, help="Only fill missing odds; do not overwrite existing prices"),
 ):
-    """Inject The Odds API odds into predictions_{date}.csv across a range without running models."""
-    from datetime import datetime as _dt, timedelta as _td
-    try:
-        from .web.app import _inject_oddsapi_odds_into_predictions
-    except Exception as e:
-        print("Injection function unavailable:", e)
-        raise typer.Exit(code=1)
+    """Inject The Odds API odds into predictions_{date}.csv across a range without running models.
+
+    Avoids importing the web app to prevent circular imports by implementing injection here.
+    """
+    from datetime import datetime as _dt, timedelta as _td, timezone as _tz
+    import re, unicodedata, math
+    import pandas as _pd
+    from .utils.io import PROC_DIR
+    from .data.odds_api import OddsAPIClient
+
+    def _norm_team(s: str) -> str:
+        if s is None:
+            return ""
+        s = str(s)
+        s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode()
+        s = s.lower()
+        return re.sub(r"[^a-z0-9]+", "", s)
+
+    def _extract_prices(markets):
+        out = {}
+        m_h2h = next((m for m in markets if m.get("key") == "h2h"), None)
+        if m_h2h:
+            for oc in m_h2h.get("outcomes", []):
+                nm = str(oc.get("name"))
+                out[f"ml::{nm}"] = oc.get("price")
+        m_tot = next((m for m in markets if m.get("key") == "totals"), None)
+        if m_tot:
+            pts = None
+            for oc in m_tot.get("outcomes", []):
+                if oc.get("name") in ("Over", "Under"):
+                    if pts is None:
+                        pts = oc.get("point")
+                    out[f"tot::{oc.get('name')}"] = oc.get("price")
+                    out["tot::point"] = pts
+        m_spr = next((m for m in markets if m.get("key") == "spreads"), None)
+        if m_spr:
+            for oc in m_spr.get("outcomes", []):
+                try:
+                    pt = float(oc.get("point"))
+                except Exception:
+                    continue
+                if abs(pt) == 1.5:
+                    out[f"pl::{oc.get('name')}::{pt}"] = oc.get("price")
+        return out
+
+    def _inject_for_date(d: str) -> dict:
+        pred_path = PROC_DIR / f"predictions_{d}.csv"
+        if not pred_path.exists():
+            return {"status": "no-predictions", "date": d}
+        try:
+            df = _pd.read_csv(pred_path)
+        except Exception as e:
+            return {"status": "read-failed", "date": d, "error": str(e)}
+        if df is None or df.empty:
+            return {"status": "empty", "date": d}
+
+        # Build ET day window
+        try:
+            from zoneinfo import ZoneInfo as _Z
+            et = _Z("America/New_York")
+            d0 = _dt.strptime(d, "%Y-%m-%d").replace(tzinfo=et)
+            d1 = d0 + _td(days=1)
+            start_iso = d0.astimezone(_tz.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            end_iso = d1.astimezone(_tz.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        except Exception:
+            start_iso = end_iso = None
+
+        try:
+            client = OddsAPIClient()
+        except Exception as e:
+            return {"status": "no-oddsapi", "date": d, "error": str(e)}
+
+        try:
+            events, _ = client.list_events("icehockey_nhl", commence_from_iso=start_iso, commence_to_iso=end_iso)
+        except Exception:
+            events = []
+
+        rows = []
+        for ev in events or []:
+            try:
+                eid = str(ev.get("id"))
+                data, _ = client.event_odds(
+                    sport="icehockey_nhl",
+                    event_id=eid,
+                    markets="h2h,totals,spreads",
+                    regions="us",
+                    bookmakers=bookmaker,
+                    odds_format="american",
+                )
+                bks = data.get("bookmakers", []) if isinstance(data, dict) else []
+                if not bks:
+                    continue
+                book = next((b for b in bks if b.get("key") == bookmaker), bks[0])
+                markets = book.get("markets", [])
+                prices = _extract_prices(markets)
+                rows.append({
+                    "home": ev.get("home_team"),
+                    "away": ev.get("away_team"),
+                    "home_ml": prices.get(f"ml::{ev.get('home_team')}"),
+                    "away_ml": prices.get(f"ml::{ev.get('away_team')}"),
+                    "over": prices.get("tot::Over"),
+                    "under": prices.get("tot::Under"),
+                    "total_line": prices.get("tot::point"),
+                    "home_pl_-1.5": prices.get(f"pl::{ev.get('home_team')}::-1.5"),
+                    "away_pl_+1.5": prices.get(f"pl::{ev.get('away_team')}::1.5"),
+                    "home_ml_book": book.get("key"),
+                    "away_ml_book": book.get("key"),
+                    "over_book": book.get("key"),
+                    "under_book": book.get("key"),
+                    "home_pl_-1.5_book": book.get("key"),
+                    "away_pl_+1.5_book": book.get("key"),
+                })
+            except Exception:
+                continue
+        if not rows:
+            return {"status": "no-odds", "date": d}
+        odds = _pd.DataFrame.from_records(rows)
+        odds["home_norm"] = odds["home"].apply(_norm_team)
+        odds["away_norm"] = odds["away"].apply(_norm_team)
+
+        updated_rows = 0
+        updated_fields = 0
+        df = df.copy()
+        df["home_norm"] = df["home"].apply(_norm_team)
+        df["away_norm"] = df["away"].apply(_norm_team)
+
+        for idx, r in df.iterrows():
+            m = odds[(odds["home_norm"] == r.get("home_norm")) & (odds["away_norm"] == r.get("away_norm"))]
+            if m.empty:
+                m = odds[(odds["home_norm"] == r.get("away_norm")) & (odds["away_norm"] == r.get("home_norm"))]
+            if m.empty:
+                continue
+            o = m.iloc[0]
+            before = updated_fields
+            def set_val(dst, val):
+                nonlocal updated_fields
+                if val is None or (isinstance(val, float) and _pd.isna(val)):
+                    return
+                cur = df.at[idx, dst] if dst in df.columns else None
+                if backfill:
+                    if cur is None or (isinstance(cur, float) and _pd.isna(cur)):
+                        df.at[idx, dst] = val
+                        updated_fields += 1
+                else:
+                    if str(cur) != str(val):
+                        df.at[idx, dst] = val
+                        updated_fields += 1
+            for col, val in [
+                ("home_ml_odds", o.get("home_ml")),
+                ("away_ml_odds", o.get("away_ml")),
+                ("over_odds", o.get("over")),
+                ("under_odds", o.get("under")),
+                ("total_line_used", o.get("total_line")),
+                ("home_pl_-1.5_odds", o.get("home_pl_-1.5")),
+                ("away_pl_+1.5_odds", o.get("away_pl_+1.5")),
+                ("home_ml_book", o.get("home_ml_book")),
+                ("away_ml_book", o.get("away_ml_book")),
+                ("over_book", o.get("over_book")),
+                ("under_book", o.get("under_book")),
+                ("home_pl_-1.5_book", o.get("home_pl_-1.5_book")),
+                ("away_pl_+1.5_book", o.get("away_pl_+1.5_book")),
+            ]:
+                set_val(col, val)
+            if updated_fields > before:
+                updated_rows += 1
+        if updated_fields > 0:
+            df.to_csv(pred_path, index=False)
+        return {"status": "ok", "date": d, "updated_rows": int(updated_rows), "updated_fields": int(updated_fields)}
+
     cur = _dt.strptime(start, "%Y-%m-%d"); end_dt = _dt.strptime(end, "%Y-%m-%d")
     total_updates = {"rows": 0, "fields": 0}
     while cur <= end_dt:
         d = cur.strftime("%Y-%m-%d")
-        summary = _inject_oddsapi_odds_into_predictions(d, backfill=backfill, bookmaker=bookmaker)
+        summary = _inject_for_date(d)
         try:
             total_updates["rows"] += int(summary.get("updated_rows") or 0)
             total_updates["fields"] += int(summary.get("updated_fields") or 0)
@@ -5777,6 +5941,142 @@ def props_simulate(
     print(f"[props-sim] wrote {out_path} rows={len(out)}")
 
 
+@app.command(name="props-simulate-boxscores")
+def props_simulate_boxscores(
+    date: str = typer.Option(..., help="Slate date YYYY-MM-DD (ET)"),
+    n_sims: int = typer.Option(5000, help="Number of play-level simulations per game"),
+    seed: int = typer.Option(42, help="Random seed for reproducibility"),
+    write_samples: bool = typer.Option(True, help="Also write per-sim totals samples for p_over computation"),
+):
+    """Generate period and game-level simulated player boxscores from the play-level sim engine.
+
+    Writes data/processed/props_boxscores_sim_{date}.csv (per-period and totals per player).
+    """
+    import pandas as pd
+    from .data.nhl_api_web import NHLWebClient
+    from .web.teams import get_team_assets
+    from .sim.engine import GameSimulator, SimConfig
+    from .sim.models import RateModels
+    from .sim.props_boxscore import aggregate_events_to_boxscores
+    # Build slate via schedule
+    try:
+        web = NHLWebClient()
+        games = web.schedule_day(date)
+    except Exception:
+        games = []
+    if not games:
+        print("No games on slate for", date)
+        raise typer.Exit(code=0)
+    # Helper: fetch roster for team name
+    from .data.rosters import fetch_current_roster as _fetch
+    def _roster_for_name(nm: str) -> list[dict]:
+        rows: list[dict] = []
+        # Try Web API current roster via team abbreviation
+        try:
+            abbr = (get_team_assets(nm).get('abbr') or '').upper()
+        except Exception:
+            abbr = ''
+        players = []
+        if abbr:
+            try:
+                players = _fetch(abbr)
+            except Exception:
+                players = []
+            for p in players or []:
+                rows.append({
+                    'player_id': int(getattr(p, 'player_id', 0) or 0),
+                    'full_name': str(getattr(p, 'full_name', '') or ''),
+                    'position': str(getattr(p, 'position', '') or ''),
+                    'proj_toi': float(getattr(p, 'avg_toi', 0.0) or 0.0),
+                })
+        # Fallback: historical enrichment
+        if not rows:
+            try:
+                from .data import player_props as _pp
+                enrich = _pp._build_roster_enrichment()
+            except Exception:
+                enrich = None
+            if enrich is not None and not enrich.empty:
+                for _, rr in enrich.iterrows():
+                    tm = str(rr.get('team') or rr.get('team_abbr') or '').upper()
+                    if abbr and tm != abbr:
+                        continue
+                    pos_raw = str(rr.get('position') or '')
+                    pos = 'G' if pos_raw.upper().startswith('G') else ('D' if pos_raw.upper().startswith('D') else 'F')
+                    rows.append({
+                        'player_id': int(rr.get('player_id') or 0),
+                        'full_name': str(rr.get('full_name') or rr.get('player') or ''),
+                        'position': pos,
+                        'proj_toi': float(rr.get('avg_toi') or 0.0),
+                    })
+        return rows
+    # Aggregate across games and sims
+    agg_all: list[pd.DataFrame] = []
+    samples_all: list[pd.DataFrame] = []
+    for g in games:
+        home = str(getattr(g, 'home', ''))
+        away = str(getattr(g, 'away', ''))
+        if not home or not away:
+            continue
+        roster_home = _roster_for_name(home)
+        roster_away = _roster_for_name(away)
+        if not roster_home or not roster_away:
+            continue
+        # Simple baseline rates per game; future: inject team-specific rates
+        rates = RateModels.baseline()
+        cfg = SimConfig(periods=3, seed=seed)
+        sim = GameSimulator(cfg=cfg, rates=rates)
+        # Run sims and aggregate per-sim boxscores
+        df_parts = []
+        for i in range(int(n_sims)):
+            gs, ev = sim.simulate_with_lineups(home_name=home, away_name=away, roster_home=roster_home, roster_away=roster_away, lineup_home=[], lineup_away=[])
+            df_i = aggregate_events_to_boxscores(gs, ev)
+            # Attach player names for convenience
+            name_map = { int(p['player_id']): str(p['full_name']) for p in (roster_home + roster_away) if p.get('player_id') }
+            df_i['player'] = df_i['player_id'].map(lambda pid: name_map.get(int(pid)))
+            df_i['game_home'] = home; df_i['game_away'] = away; df_i['date'] = date
+            # Collect per-sim totals (period=0) in long format for markets
+            if write_samples:
+                d0 = df_i[df_i['period'] == 0].copy()
+                if not d0.empty:
+                    d0['sim_idx'] = int(i)
+                    long = d0.melt(
+                        id_vars=['team','player_id','player','game_home','game_away','date','period','sim_idx'],
+                        value_vars=['shots','goals','assists','points','blocks','saves'],
+                        var_name='market_raw', value_name='value'
+                    )
+                    long['market'] = long['market_raw'].astype(str).str.upper().map({
+                        'SHOTS':'SOG', 'GOALS':'GOALS', 'ASSISTS':'ASSISTS', 'POINTS':'POINTS', 'BLOCKS':'BLOCKS', 'SAVES':'SAVES'
+                    }).fillna(long['market_raw'].astype(str).str.upper())
+                    samples_all.append(long[['team','player_id','player','market','value','sim_idx','game_home','game_away','date']])
+            df_parts.append(df_i)
+        # Average over sims
+        if df_parts:
+            df_sum = pd.concat(df_parts, ignore_index=True)
+            grp_cols = ['team','player_id','period','player','game_home','game_away','date']
+            df_sum = df_sum.groupby(grp_cols, as_index=False)[['shots','goals','assists','points','blocks','saves','toi_sec']].sum()
+            df_sum[['shots','goals','assists','points','blocks','saves','toi_sec']] = df_sum[['shots','goals','assists','points','blocks','saves','toi_sec']].astype(float) / float(n_sims)
+            agg_all.append(df_sum)
+    if not agg_all:
+        print("No aggregated boxscores generated.")
+        raise typer.Exit(code=0)
+    out = pd.concat(agg_all, ignore_index=True)
+    out_path = PROC_DIR / f"props_boxscores_sim_{date}.csv"
+    save_df(out, out_path)
+    print(f"[props-sim-boxscores] wrote {out_path} rows={len(out)}")
+    if write_samples and samples_all:
+        samp = pd.concat(samples_all, ignore_index=True)
+        samp_path = PROC_DIR / f"props_boxscores_sim_samples_{date}.parquet"
+        try:
+            import pyarrow as _pa  # noqa: F401
+            samp.to_parquet(samp_path, engine='pyarrow')
+        except Exception:
+            # fallback to CSV if parquet fails
+            samp_path = PROC_DIR / f"props_boxscores_sim_samples_{date}.csv"
+            save_df(samp, samp_path)
+        print(f"[props-sim-boxscores] wrote samples {samp_path}")
+
+
 @app.command(name="props-precompute-all")
 def props_precompute_all(
     date: str = typer.Option(..., help="Slate date YYYY-MM-DD (ET)"),
@@ -6043,6 +6343,178 @@ def props_recommendations_sim(
     out_path = PROC_DIR / f"props_recommendations_{date}.csv"
     save_df(final, out_path)
     print(f"[props-recs-sim] wrote {out_path} with {len(final)} rows")
+
+
+@app.command(name="props-recommendations-boxscores")
+def props_recommendations_boxscores(
+    date: str = typer.Option(..., help="Slate date YYYY-MM-DD (ET)"),
+    min_ev: float = typer.Option(0.0, help="Minimum EV threshold for ev_over"),
+    top: int = typer.Option(400, help="Top N to keep after sorting by EV desc"),
+    min_ev_per_market: str = typer.Option("", help="Optional per-market EV thresholds"),
+    min_prob: float = typer.Option(0.0, help="Minimum chosen-side probability threshold (0-1)"),
+    min_prob_per_market: str = typer.Option("", help="Optional per-market probability thresholds, e.g., 'SOG=0.58,GOALS=0.60'"),
+):
+    """Generate player props recommendations using per-sim totals from play-level boxscore simulation.
+
+    Expects props_boxscores_sim_samples_{date}.{parquet|csv} and canonical props lines under data/props.
+    """
+    import pandas as pd
+    import numpy as _np
+    from glob import glob as _glob
+    from .web.teams import get_team_assets as _assets
+    # Load samples
+    samp_path_parq = PROC_DIR / f"props_boxscores_sim_samples_{date}.parquet"
+    samp_path_csv = PROC_DIR / f"props_boxscores_sim_samples_{date}.csv"
+    if samp_path_parq.exists():
+        try:
+            samples = pd.read_parquet(samp_path_parq, engine='pyarrow')
+        except Exception:
+            import duckdb as _duck
+            f_posix = str(samp_path_parq).replace('\\', '/')
+            samples = _duck.query(f"SELECT * FROM read_parquet('{f_posix}')").df()
+    elif samp_path_csv.exists():
+        samples = pd.read_csv(samp_path_csv)
+    else:
+        print("No boxscore samples found for", date)
+        raise typer.Exit(code=0)
+    if samples is None or samples.empty:
+        print("Empty samples; aborting.")
+        raise typer.Exit(code=0)
+    # Lines load and normalization
+    base_lines_dir = Path("data/props") / f"player_props_lines/date={date}"
+    lines_path_parq = base_lines_dir / "oddsapi.parquet"
+    lines_path_csv = base_lines_dir / "oddsapi.csv"
+    if lines_path_parq.exists():
+        try:
+            lines = pd.read_parquet(lines_path_parq, engine="pyarrow")
+        except Exception:
+            import duckdb as _duck
+            f_posix = str(lines_path_parq).replace("\\", "/")
+            lines = _duck.query(f"SELECT * FROM read_parquet('{f_posix}')").df()
+    elif lines_path_csv.exists():
+        lines = pd.read_csv(lines_path_csv)
+    else:
+        print("No canonical props lines found for", date)
+        raise typer.Exit(code=0)
+    def _norm(s: str | None) -> str:
+        try:
+            return " ".join(str(s or "").split())
+        except Exception:
+            return str(s or "")
+    import ast as _ast
+    def _norm_player(x):
+        s = str(x or "").strip()
+        if s.startswith("{") and s.endswith("}"):
+            try:
+                d = _ast.literal_eval(s)
+                v = d.get("default") or d.get("name")
+                if isinstance(v, str):
+                    s = v.strip()
+            except Exception:
+                pass
+        return " ".join(s.split())
+    lines = lines.copy()
+    name_cols = [c for c in ["player_name","player","name","display_name"] if c in lines.columns]
+    if name_cols:
+        s = lines[name_cols[0]].copy()
+        for c in name_cols[1:]:
+            try:
+                s = s.where(s.notna() & (s.astype(str).str.strip() != ""), lines[c])
+            except Exception:
+                continue
+        lines["player_display"] = s.map(_norm_player)
+    else:
+        lines["player_display"] = lines.index.map(lambda _: "")
+    lines["market"] = lines.get("market").astype(str).str.upper()
+    lines["line_num"] = pd.to_numeric(lines.get("line"), errors="coerce")
+    lines = lines[lines["line_num"].notna()].copy()
+    # Create simple join on normalized name
+    def _create_name_variants(name: str) -> list[str]:
+        name = (name or "").strip()
+        if not name:
+            return []
+        norm = " ".join(name.split())
+        out = [norm.lower()]
+        if "." in norm:
+            out.append(norm.replace(".", "").lower())
+        parts = [p for p in norm.split() if p and not p.endswith(".")]
+        if len(parts) >= 2:
+            f, l = parts[0], parts[-1]
+            ab = f"{f[0].upper()}. {l}"; out += [ab.lower(), ab.replace(".", "").lower(), f"{f[0].upper()} {l}".lower()]
+        return list(set(out))
+    def _for_join(name: str) -> str:
+        v = _create_name_variants(name)
+        return (min(v, key=len) if v else "")
+    lines["player_norm"] = lines["player_display"].map(_for_join)
+    samples = samples.copy()
+    samples["player_norm"] = samples["player"].astype(str).map(lambda s: min(_create_name_variants(s) or [s], key=len))
+    # Team abbr for samples
+    def _abbr_team(n: str | None) -> str | None:
+        if not n:
+            return None
+        try:
+            a = _assets(str(n)) or {}
+            return str(a.get("abbr") or "").upper() or None
+        except Exception:
+            return None
+    samples["team_abbr"] = samples["team"].map(_abbr_team)
+    # Join samples to lines
+    merged = lines.merge(samples, on=["player_norm","market"], how="inner")
+    if merged is None or merged.empty:
+        print("No joinable samples/lines; aborting.")
+        raise typer.Exit(code=0)
+    # Compute p_over from sample counts per (player, market, line, book)
+    # For each group, proportion of sims with value > line_num
+    merged["over_win"] = (merged["value"].astype(float) > merged["line_num"].astype(float)).astype(int)
+    grp_cols = ["date","player","team_abbr","market","line_num","book","over_price","under_price"]
+    prob = merged.groupby(grp_cols, as_index=False)["over_win"].mean().rename(columns={"over_win":"p_over_sim"})
+    # Prices to decimal
+    def _american_to_decimal(s):
+        try:
+            s = float(s)
+            return 1.0 + (s/100.0) if s > 0 else 1.0 + (100.0/abs(s))
+        except Exception:
+            return _np.nan
+    prob["dec_over"] = prob["over_price"].map(_american_to_decimal)
+    prob["dec_under"] = prob["under_price"].map(_american_to_decimal)
+    p = pd.to_numeric(prob["p_over_sim"], errors="coerce")
+    ev_over = p * (prob["dec_over"] - 1.0) - (1.0 - p)
+    p_under = (1.0 - p).clip(lower=0.0, upper=1.0)
+    ev_under = p_under * (prob["dec_under"] - 1.0) - (1.0 - p_under)
+    over_better = ev_under.isna() | (~ev_over.isna() & (ev_over >= ev_under))
+    side = _np.where(over_better, "Over", "Under")
+    ev_chosen = _np.where(over_better, ev_over, ev_under)
+    chosen_prob = _np.where(over_better, p, (1.0 - p))
+    out = prob.assign(side=side, ev=ev_chosen, chosen_prob=chosen_prob)
+    # Thresholds
+    def _parse_thresholds(s: str) -> dict:
+        d = {}
+        for part in (s or "").split(","):
+            part = part.strip()
+            if not part or "=" not in part:
+                continue
+            k, v = part.split("=", 1)
+            try:
+                d[str(k).strip().upper()] = float(str(v).strip())
+            except Exception:
+                continue
+        return d
+    thr_map = _parse_thresholds(min_ev_per_market)
+    prob_thr_map = _parse_thresholds(min_prob_per_market)
+    if thr_map:
+        thr_series = out["market"].astype(str).str.upper().map(lambda m: thr_map.get(m, float(min_ev))).astype(float)
+        out = out[(out["ev"].notna()) & (out["ev"].astype(float) >= thr_series)]
+    else:
+        out = out[(out["ev"].notna()) & (out["ev"].astype(float) >= float(min_ev))]
+    if prob_thr_map or (float(min_prob) > 0.0):
+        prob_series = out["market"].astype(str).str.upper().map(lambda m: prob_thr_map.get(m, float(min_prob))).astype(float)
+        out = out[(out["chosen_prob"].notna()) & (out["chosen_prob"].astype(float) >= prob_series)]
+    out = out.sort_values("ev", ascending=False).head(int(top))
+    final = out.rename(columns={"line_num":"line"})[["date","player","team_abbr","market","line","p_over_sim","over_price","under_price","book","side","ev","chosen_prob"]].copy()
+    final.rename(columns={"team_abbr":"team","p_over_sim":"p_over"}, inplace=True)
+    out_path = PROC_DIR / f"props_recommendations_{date}.csv"
+    save_df(final, out_path)
+    print(f"[props-recs-boxscores] wrote {out_path} with {len(final)} rows")
 
 @app.command()
 def odds_fetch_historical(
@@ -7011,14 +7483,27 @@ def props_watch(
                 print(f"Saved roster snapshot to {out_path} ({len(df)} players)")
 
             @app.command()
-            def lineup_update(date: Optional[str] = typer.Option(None, help="ET date YYYY-MM-DD to stamp output")):
-                """Build expected lineups per team using TOI-based inference (baseline)."""
+            def lineup_update(
+                date: Optional[str] = typer.Option(None, help="ET date YYYY-MM-DD to stamp output"),
+                prefer_source: Optional[str] = typer.Option("dailyfaceoff", help="Optional external source to try first (dailyfaceoff|none)")
+            ):
+                """Build expected lineups per team using external source when available; fallback to TOI-based inference."""
                 d = date or ymd(today_utc())
                 frames = []
                 # Use aliased team abbrevs from roster module
                 for ab in TEAM_ABBRS:
                     try:
-                        snap = build_lineup_snapshot(ab)
+                        snap = None
+                        if prefer_source and prefer_source.lower() == "dailyfaceoff":
+                            try:
+                                from .data.lineups import build_lineup_snapshot_from_source
+                                snap_src = build_lineup_snapshot_from_source(ab, d)
+                                if snap_src is not None and not snap_src.empty:
+                                    snap = snap_src
+                            except Exception as e_src:
+                                print({"team": ab, "source": prefer_source, "error": str(e_src)})
+                        if snap is None or snap.empty:
+                            snap = build_lineup_snapshot(ab)
                         snap["team"] = ab
                         frames.append(snap)
                     except Exception as e:
@@ -7027,6 +7512,48 @@ def props_watch(
                 out_path = PROC_DIR / f"lineups_{d}.csv"
                 save_df(out, out_path)
                 print(f"Saved lineup snapshot to {out_path} ({len(out)} rows)")
+                # Also write starting goalies snapshot (best-effort)
+                try:
+                    rows_g = fetch_dailyfaceoff_starting_goalies(d)
+                    df_g = pd.DataFrame(rows_g, columns=["team","goalie","status","confidence","source"]) if rows_g else pd.DataFrame(columns=["team","goalie","status","confidence","source"])
+                    # Fallback: derive likely starters from lineup snapshot by highest projected TOI among goalies
+                    if df_g.empty and not out.empty:
+                        df_goalies = out.copy()
+                        # Normalize position filter
+                        df_goalies["position"] = df_goalies["position"].astype(str)
+                        df_goalies = df_goalies[df_goalies["position"].str.upper().str.contains("G")]
+                        if not df_goalies.empty:
+                            # Ensure proj_toi numeric
+                            def _to_num(x):
+                                try:
+                                    import math
+                                    v = float(x)
+                                    return v if math.isfinite(v) else None
+                                except Exception:
+                                    return None
+                            df_goalies["_toi"] = df_goalies["proj_toi"].apply(_to_num)
+                            # Group by team and pick max TOI, fallback to highest confidence
+                            starters = []
+                            for team, grp in df_goalies.groupby("team"):
+                                g1 = grp.copy()
+                                g1 = g1.sort_values(["_toi","confidence"], ascending=[False, False])
+                                if not g1.empty:
+                                    r = g1.iloc[0]
+                                    starters.append({
+                                        "team": str(team),
+                                        "goalie": str(r.get("full_name","")),
+                                        "status": "Derived",
+                                        "confidence": float(r.get("confidence", 0.5)),
+                                        "source": "lineup_snapshot",
+                                    })
+                            if starters:
+                                df_g = pd.DataFrame(starters, columns=["team","goalie","status","confidence","source"])
+                    out_g = PROC_DIR / f"starting_goalies_{d}.csv"
+                    save_df(df_g, out_g)
+                    print(f"Saved starting goalies snapshot to {out_g} ({len(df_g)} rows)")
+                except Exception as e_g:
+                    print(f"[lineup_update] starting goalies fetch failed: {e_g}")
+
 
             @app.command()
             def injury_update(date: Optional[str] = typer.Option(None, help="ET date YYYY-MM-DD to stamp output"), overrides_path: Optional[str] = typer.Option(None, help="Optional CSV with manual injury entries")):
@@ -11272,12 +11799,21 @@ if __name__ == "__main__":
         print(f"Saved roster snapshot to {out_path} ({len(df)} players)")
 
     @app.command(name="lineup-update")
-    def lineup_update_cmd(date: Optional[str] = typer.Option(None, help="ET date YYYY-MM-DD to stamp output")):
+    def lineup_update_cmd(date: Optional[str] = typer.Option(None, help="ET date YYYY-MM-DD to stamp output"), prefer_source: Optional[str] = typer.Option("dailyfaceoff", help="Optional external source to try first (dailyfaceoff|none)")):
         d = date or ymd(today_utc())
         frames = []
         for ab in TEAM_ABBRS:
             try:
-                snap = build_lineup_snapshot(ab)
+                snap = None
+                if prefer_source and str(prefer_source).lower() == "dailyfaceoff":
+                    try:
+                        snap_src = build_lineup_snapshot_from_source(ab, d)
+                        if snap_src is not None and not snap_src.empty:
+                            snap = snap_src
+                    except Exception as e_src:
+                        print({"team": ab, "source": prefer_source, "error": str(e_src)})
+                if snap is None or snap.empty:
+                    snap = build_lineup_snapshot(ab)
                 snap["team"] = ab
                 frames.append(snap)
             except Exception as e:
@@ -11295,6 +11831,44 @@ if __name__ == "__main__":
             print(f"Saved co-TOI snapshot to {co_path} ({len(co)} rows)")
         except Exception as e:
             print({"co_toi": "error", "date": d, "error": str(e)})
+
+        # Also write starting goalies snapshot (best-effort)
+        try:
+            rows_g = fetch_dailyfaceoff_starting_goalies(d)
+            df_g = pd.DataFrame(rows_g, columns=["team","goalie","status","confidence","source"]) if rows_g else pd.DataFrame(columns=["team","goalie","status","confidence","source"])
+            # Fallback: derive likely starters from lineup snapshot by highest projected TOI among goalies
+            if df_g.empty and not out.empty:
+                df_goalies = out.copy()
+                df_goalies["position"] = df_goalies["position"].astype(str)
+                df_goalies = df_goalies[df_goalies["position"].str.upper().str.contains("G")]
+                if not df_goalies.empty:
+                    def _to_num(x):
+                        try:
+                            import math
+                            v = float(x)
+                            return v if math.isfinite(v) else None
+                        except Exception:
+                            return None
+                    df_goalies["_toi"] = df_goalies["proj_toi"].apply(_to_num)
+                    starters = []
+                    for team, grp in df_goalies.groupby("team"):
+                        g1 = grp.copy().sort_values(["_toi","confidence"], ascending=[False, False])
+                        if not g1.empty:
+                            r = g1.iloc[0]
+                            starters.append({
+                                "team": str(team),
+                                "goalie": str(r.get("full_name","")),
+                                "status": "Derived",
+                                "confidence": float(r.get("confidence", 0.5)),
+                                "source": "lineup_snapshot",
+                            })
+                    if starters:
+                        df_g = pd.DataFrame(starters, columns=["team","goalie","status","confidence","source"])
+            out_g = PROC_DIR / f"starting_goalies_{d}.csv"
+            save_df(df_g, out_g)
+            print(f"Saved starting goalies snapshot to {out_g} ({len(df_g)} rows)")
+        except Exception as e_g:
+            print({"starting_goalies": "error", "date": d, "error": str(e_g)})
 
     @app.command(name="shifts-update")
     def shifts_update_cmd(date: Optional[str] = typer.Option(None, help="ET date YYYY-MM-DD to fetch shiftcharts and compute co-TOI")):
@@ -11684,4 +12258,160 @@ if __name__ == "__main__":
             pass
         print({"calibrated": out["recommended"], "window": out["window"], "observed": out["observed"]})
 
+
+@app.command(name="team-odds-collect")
+def team_odds_collect(
+    date: str = typer.Option(..., help="ET date YYYY-MM-DD"),
+    markets: str = typer.Option("h2h,spreads,totals", help="Comma-separated team markets (OddsAPI keys)"),
+):
+    """Collect team odds for the slate and archive to data/odds/team/date=YYYY-MM-DD/oddsapi.{csv,parquet}."""
+    try:
+        from .data.team_odds import archive_team_odds_oddsapi
+        res = archive_team_odds_oddsapi(date)
+        print({
+            "date": date,
+            "source": "oddsapi",
+            "input_rows": res.get("input_rows"),
+            "output_rows": res.get("output_rows"),
+            "csv_path": str(res.get("csv_path")),
+        })
+    except Exception as e:
+        print(f"[team-odds-collect] failed: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command(name="games-archive")
+def games_archive(
+    date: str = typer.Option(..., help="ET date YYYY-MM-DD"),
+):
+    """Archive the day's scoreboard (games, status, scores) for reconciliation.
+
+    Writes data/odds/games/date=YYYY-MM-DD/scoreboard.csv with upsert by gamePk where available.
+    """
+    base_dir = PROC_DIR.parent / "odds" / "games" / f"date={date}"
+    csv_path = base_dir / "scoreboard.csv"
+    base_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        client = NHLWebClient()
+        rows = client.scoreboard_day(date)
+    except Exception as e:
+        print(f"[games-archive] scoreboard fetch failed: {e}")
+        raise typer.Exit(code=1)
+    df = pd.DataFrame(rows or [])
+    # Normalize minimal expected columns
+    keep_cols = [
+        "gamePk","state","start_time","home","away","home_goals","away_goals","venue","tv","gameState"
+    ]
+    cols = [c for c in keep_cols if c in df.columns]
+    if cols:
+        df = df[cols]
+    # Upsert by gamePk when possible
+    if csv_path.exists():
+        try:
+            old = pd.read_csv(csv_path)
+        except Exception:
+            old = pd.DataFrame()
+        key = "gamePk" if "gamePk" in df.columns else None
+        if key and key in old.columns and not old.empty:
+            merged = pd.concat([old, df], ignore_index=True)
+            merged = merged.sort_values(by=[key]).drop_duplicates(subset=[key], keep="last")
+            df = merged
+    df.to_csv(csv_path, index=False)
+    print({"date": date, "rows": int(len(df.index)), "csv_path": str(csv_path)})
+
+
+@app.command(name="game-accuracy-day")
+def game_accuracy_day(
+    date: str = typer.Option(..., help="ET date YYYY-MM-DD"),
+    use_close: bool = typer.Option(True, help="Prefer closing odds/lines when available"),
+):
+    """Compute per-market accuracy for a single day from predictions_{date}.csv and write JSON.
+
+    Outputs: data/processed/accuracy_{date}.json with fields per market and totals.
+    Markets: moneyline, totals (exclude pushes), puckline (-1.5), first10 (if present).
+    """
+    import json, math
+    import pandas as _pd
+    from .utils.io import PROC_DIR
+    pred_path = PROC_DIR / f"predictions_{date}.csv"
+    if not pred_path.exists():
+        print(json.dumps({"ok": False, "reason": "no_predictions", "path": str(pred_path)})); return
+    try:
+        df = _pd.read_csv(pred_path)
+    except Exception as e:
+        print(json.dumps({"ok": False, "reason": "read_failed", "error": str(e)})); return
+
+    def _num(v):
+        try:
+            if v is None: return None
+            f = float(v)
+            return f if math.isfinite(f) else None
+        except Exception:
+            return None
+
+    out = {}
+    # Moneyline
+    n=0; c=0
+    for _, r in df.iterrows():
+        fh=_num(r.get('final_home_goals')); fa=_num(r.get('final_away_goals'))
+        ph=_num(r.get('p_home_ml')); pa=_num(r.get('p_away_ml'))
+        if fh is None or fa is None or ph is None or pa is None: continue
+        n += 1
+        pick = 'home' if ph >= pa else 'away'
+        won = (fh>fa) if pick=='home' else (fa>fh)
+        if won: c += 1
+    out['moneyline'] = {"n": n, "acc": (c/n) if n else None}
+
+    # Totals (exclude pushes)
+    n=0; c=0
+    for _, r in df.iterrows():
+        fh=_num(r.get('final_home_goals')); fa=_num(r.get('final_away_goals'))
+        po=_num(r.get('p_over')); pu=_num(r.get('p_under'))
+        tl=_num(r.get('close_total_line_used')) if use_close else _num(r.get('total_line_used'))
+        if fh is None or fa is None or po is None or pu is None or tl is None: continue
+        tot = fh + fa
+        if abs(tot - tl) < 1e-9:  # push
+            continue
+        n += 1
+        pick = 'over' if po >= pu else 'under'
+        won = (tot>tl) if pick=='over' else (tot<tl)
+        if won: c += 1
+    out['totals'] = {"n": n, "acc": (c/n) if n else None}
+
+    # Puckline (-1.5)
+    n=0; c=0
+    for _, r in df.iterrows():
+        fh=_num(r.get('final_home_goals')); fa=_num(r.get('final_away_goals'))
+        php=_num(r.get('p_home_pl_-1.5')); pap=_num(r.get('p_away_pl_+1.5'))
+        if fh is None or fa is None or php is None or pap is None: continue
+        n += 1
+        pick = 'home' if php >= pap else 'away'
+        diff = fh - fa
+        won = (diff>1.5) if pick=='home' else (diff<1.5)
+        if won: c += 1
+    out['puckline'] = {"n": n, "acc": (c/n) if n else None}
+
+    # First10 Yes/No if present
+    if 'p_f10_yes' in df.columns and 'p_f10_no' in df.columns and 'result_first10' in df.columns:
+        n=0; c=0
+        for _, r in df.iterrows():
+            py=_num(r.get('p_f10_yes')); pn=_num(r.get('p_f10_no'))
+            rf=str(r.get('result_first10') or '').strip().lower()
+            if py is None or pn is None or rf not in ('yes','no'): continue
+            n += 1
+            pick = 'yes' if py >= pn else 'no'
+            if rf == pick: c += 1
+        out['first10'] = {"n": n, "acc": (c/n) if n else None}
+
+    # Write JSON
+    out_path = PROC_DIR / f"accuracy_{date}.json"
+    try:
+        with out_path.open('w', encoding='utf-8') as f:
+            json.dump(out, f, indent=2)
+    except Exception:
+        pass
+    print(json.dumps({"ok": True, "date": date, **out, "path": str(out_path)}))
+
+
+if __name__ == "__main__":
     app()

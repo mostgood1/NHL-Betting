@@ -190,6 +190,44 @@ try {
   }
 } catch { Write-Warning "[daily_update] props lines ensure failed: $($_.Exception.Message)" }
 
+# Ensure team odds (ML/PL/Totals) and scoreboard snapshots are archived daily
+try {
+  $dates = @((Get-Date).ToString('yyyy-MM-dd'), (Get-Date).AddDays(1).ToString('yyyy-MM-dd'))
+  foreach ($d in $dates) {
+    # Team odds via OddsAPI
+    $teamDir = Join-Path $RepoRoot "data/odds/team/date=$d"
+    if (-not (Test-Path $teamDir)) { New-Item -ItemType Directory -Path $teamDir | Out-Null }
+    $teamCsv = Join-Path $teamDir 'oddsapi.csv'
+    $needTeam = $true
+    if (Test-Path $teamCsv) {
+      try { $cnt = (Import-Csv $teamCsv).Count; if ($cnt -gt 0) { $needTeam = $false } } catch { }
+    }
+    if ($needTeam) {
+      Write-Host "[daily_update] Archiving team odds for $d …" -ForegroundColor Yellow
+      try { python -m nhl_betting.cli team-odds-collect --date $d } catch { Write-Warning "[daily_update] team-odds-collect failed for ${d}: $($_.Exception.Message)" }
+    } else {
+      Write-Host "[daily_update] Team odds already present for $d; skipping collection." -ForegroundColor DarkGreen
+    }
+    # Games scoreboard archive
+    $gamesDir = Join-Path $RepoRoot "data/odds/games/date=$d"
+    if (-not (Test-Path $gamesDir)) { New-Item -ItemType Directory -Path $gamesDir | Out-Null }
+    $sbCsv = Join-Path $gamesDir 'scoreboard.csv'
+    if (-not (Test-Path $sbCsv) -or ((Get-Item $sbCsv).Length -lt 64)) {
+      Write-Host "[daily_update] Archiving scoreboard for $d …" -ForegroundColor Yellow
+      try { python -m nhl_betting.cli games-archive --date $d } catch { Write-Warning "[daily_update] games-archive failed for ${d}: $($_.Exception.Message)" }
+    } else {
+      Write-Host "[daily_update] Scoreboard already present for $d; skipping." -ForegroundColor DarkGreen
+    }
+  }
+} catch { Write-Warning "[daily_update] team odds / games archive failed: $($_.Exception.Message)" }
+
+# Compute accuracy JSON for yesterday (post-settlement)
+try {
+  $yesterday = (Get-Date).AddDays(-1).ToString('yyyy-MM-dd')
+  Write-Host "[daily_update] Writing per-day accuracy for $yesterday …" -ForegroundColor Yellow
+  python -m nhl_betting.cli game-accuracy-day --date $yesterday
+} catch { Write-Warning "[daily_update] game-accuracy-day failed: $($_.Exception.Message)" }
+
 # Always refresh PBP-derived feature caches (PP/PK, penalties) and today's goalie form
 try {
   Write-Host "[daily_update] Refreshing PP/PK and penalty rates from PBP …" -ForegroundColor Yellow

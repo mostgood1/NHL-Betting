@@ -278,7 +278,6 @@ player_id,player,full_name,position,team_id,team_abbr,team_name,image_url
 8477934,Leon Draisaitl,Leon Draisaitl,F,,EDM,Edmonton Oilers,https://assets.nhle.com/mugs/nhl/20252026/EDM/8477934.png
 8479365,Trent Frederic,Trent Frederic,F,,EDM,Edmonton Oilers,https://assets.nhle.com/mugs/nhl/20252026/EDM/8479365.png
 8474641,Adam Henrique,Adam Henrique,F,,EDM,Edmonton Oilers,https://assets.nhle.com/mugs/nhl/20252026/EDM/8474641.png
-8483455,Isaac Howard,Isaac Howard,F,,EDM,Edmonton Oilers,https://assets.nhle.com/mugs/nhl/20252026/EDM/8483455.png
 8475786,Zach Hyman,Zach Hyman,F,,EDM,Edmonton Oilers,https://assets.nhle.com/mugs/nhl/20252026/EDM/8475786.png
 8477406,Mattias Janmark,Mattias Janmark,F,,EDM,Edmonton Oilers,https://assets.nhle.com/mugs/nhl/20252026/EDM/8477406.png
 8477953,Kasperi Kapanen,Kasperi Kapanen,F,,EDM,Edmonton Oilers,https://assets.nhle.com/mugs/nhl/20252026/EDM/8477953.png
@@ -288,6 +287,7 @@ player_id,player,full_name,position,team_id,team_abbr,team_name,image_url
 8476454,Ryan Nugent-Hopkins,Ryan Nugent-Hopkins,F,,EDM,Edmonton Oilers,https://assets.nhle.com/mugs/nhl/20252026/EDM/8476454.png
 8481617,Vasily Podkolzin,Vasily Podkolzin,F,,EDM,Edmonton Oilers,https://assets.nhle.com/mugs/nhl/20252026/EDM/8481617.png
 8478458,Jack Roslovic,Jack Roslovic,F,,EDM,Edmonton Oilers,https://assets.nhle.com/mugs/nhl/20252026/EDM/8478458.png
+8484509,Josh Samanski,Josh Samanski,F,,EDM,Edmonton Oilers,https://assets.nhle.com/mugs/nhl/20252026/EDM/8484509.png
 8483512,Matt Savoie,Matt Savoie,F,,EDM,Edmonton Oilers,https://assets.nhle.com/mugs/nhl/20252026/EDM/8483512.png
 8480803,Evan Bouchard,Evan Bouchard,D,,EDM,Edmonton Oilers,https://assets.nhle.com/mugs/nhl/20252026/EDM/8480803.png
 8475218,Mattias Ekholm,Mattias Ekholm,D,,EDM,Edmonton Oilers,https://assets.nhle.com/mugs/nhl/20252026/EDM/8475218.png
@@ -536,6 +536,7 @@ player_id,player,full_name,position,team_id,team_abbr,team_name,image_url
 8477968,Alex Nedeljkovic,Alex Nedeljkovic,G,,SJS,San Jose Sharks,https://assets.nhle.com/mugs/nhl/20252026/SJS/8477968.png
 8476469,Joel Armia,Joel Armia,F,,LAK,Los Angeles Kings,https://assets.nhle.com/mugs/nhl/20252026/LAK/8476469.png
 8482124,Quinton Byfield,Quinton Byfield,F,,LAK,Los Angeles Kings,https://assets.nhle.com/mugs/nhl/20252026/LAK/8482124.png
+8483675,Kenny Connors,Kenny Connors,F,,LAK,Los Angeles Kings,https://assets.nhle.com/mugs/nhl/20252026/LAK/8483675.png
 8477942,Kevin Fiala,Kevin Fiala,F,,LAK,Los Angeles Kings,https://assets.nhle.com/mugs/nhl/20252026/LAK/8477942.png
 8477998,Warren Foegele,Warren Foegele,F,,LAK,Los Angeles Kings,https://assets.nhle.com/mugs/nhl/20252026/LAK/8477998.png
 8482726,Samuel Helenius,Samuel Helenius,F,,LAK,Los Angeles Kings,https://assets.nhle.com/mugs/nhl/20252026/LAK/8482726.png
@@ -723,6 +724,7 @@ player_id,player,full_name,position,team_id,team_abbr,team_name,image_url
 8478840,Will Borgen,Will Borgen,D,,NYR,New York Rangers,https://assets.nhle.com/mugs/nhl/20252026/NYR/8478840.png
 8479323,Adam Fox,Adam Fox,D,,NYR,New York Rangers,https://assets.nhle.com/mugs/nhl/20252026/NYR/8479323.png
 8478882,Vladislav Gavrikov,Vladislav Gavrikov,D,,NYR,New York Rangers,https://assets.nhle.com/mugs/nhl/20252026/NYR/8478882.png
+8482067,Connor Mackey,Connor Mackey,D,,NYR,New York Rangers,https://assets.nhle.com/mugs/nhl/20252026/NYR/8482067.png
 8482666,Scott Morrow,Scott Morrow,D,,NYR,New York Rangers,https://assets.nhle.com/mugs/nhl/20252026/NYR/8482666.png
 8481525,Matthew Robertson,Matthew Robertson,D,,NYR,New York Rangers,https://assets.nhle.com/mugs/nhl/20252026/NYR/8481525.png
 8482073,Braden Schneider,Braden Schneider,D,,NYR,New York Rangers,https://assets.nhle.com/mugs/nhl/20252026/NYR/8482073.png
@@ -767,7 +769,6 @@ player_id,player,full_name,position,team_id,team_abbr,team_name,image_url
 8482089,Jake Neighbours,Jake Neighbours,F,,STL,St. Louis Blues,https://assets.nhle.com/mugs/nhl/20252026/STL/8482089.png
 8475170,Brayden Schenn,Brayden Schenn,F,,STL,St. Louis Blues,https://assets.nhle.com/mugs/nhl/20252026/STL/8475170.png
 8483516,Jimmy Snuggerud,Jimmy Snuggerud,F,,STL,St. Louis Blues,https://assets.nhle.com/mugs/nhl/20252026/STL/8483516.png
-8484230,Otto Stenberg,Otto Stenberg,F,,STL,St. Louis Blues,https://assets.nhle.com/mugs/nhl/20252026/STL/8484230.png
 8476897,Oskar Sundqvist,Oskar Sundqvist,F,,STL,St. Louis Blues,https://assets.nhle.com/mugs/nhl/20252026/STL/8476897.png
 8480459,Pius Suter,Pius Suter,F,,STL,St. Louis Blues,https://assets.nhle.com/mugs/nhl/20252026/STL/8480459.png
 8480023,Robert Thomas,Robert Thomas,F,,STL,St. Louis Blues,https://assets.nhle.com/mugs/nhl/20252026/STL/8480023.png
@@ -792,6 +793,7 @@ player_id,player,full_name,position,team_id,team_abbr,team_name,image_url
 8480144,David Kampf,David Kampf,F,,VAN,Vancouver Canucks,https://assets.nhle.com/mugs/nhl/20252026/VAN/8480144.png
 8475169,Evander Kane,Evander Kane,F,,VAN,Vancouver Canucks,https://assets.nhle.com/mugs/nhl/20252026/VAN/8475169.png
 8481024,Linus Karlsson,Linus Karlsson,F,,VAN,Vancouver Canucks,https://assets.nhle.com/mugs/nhl/20252026/VAN/8481024.png
+8483476,Jonathan Lekkerimäki,Jonathan Lekkerimäki,F,,VAN,Vancouver Canucks,https://assets.nhle.com/mugs/nhl/20252026/VAN/8483476.png
 8482055,Drew O'Connor,Drew O'Connor,F,,VAN,Vancouver Canucks,https://assets.nhle.com/mugs/nhl/20252026/VAN/8482055.png
 8483499,Liam Ohgren,Liam Ohgren,F,,VAN,Vancouver Canucks,https://assets.nhle.com/mugs/nhl/20252026/VAN/8483499.png
 8480012,Elias Pettersson,Elias Pettersson,F,,VAN,Vancouver Canucks,https://assets.nhle.com/mugs/nhl/20252026/VAN/8480012.png
@@ -802,6 +804,7 @@ player_id,player,full_name,position,team_id,team_abbr,team_name,image_url
 8475762,Derek Forbort,Derek Forbort,D,,VAN,Vancouver Canucks,https://assets.nhle.com/mugs/nhl/20252026/VAN/8475762.png
 8479425,Filip Hronek,Filip Hronek,D,,VAN,Vancouver Canucks,https://assets.nhle.com/mugs/nhl/20252026/VAN/8479425.png
 8480058,P.O Joseph,P.O Joseph,D,,VAN,Vancouver Canucks,https://assets.nhle.com/mugs/nhl/20252026/VAN/8480058.png
+8483768,Victor Mancini,Victor Mancini,D,,VAN,Vancouver Canucks,https://assets.nhle.com/mugs/nhl/20252026/VAN/8483768.png
 8474574,Tyler Myers,Tyler Myers,D,,VAN,Vancouver Canucks,https://assets.nhle.com/mugs/nhl/20252026/VAN/8474574.png
 8483678,Elias Pettersson,Elias Pettersson,D,,VAN,Vancouver Canucks,https://assets.nhle.com/mugs/nhl/20252026/VAN/8483678.png
 8477969,Marcus Pettersson,Marcus Pettersson,D,,VAN,Vancouver Canucks,https://assets.nhle.com/mugs/nhl/20252026/VAN/8477969.png

@@ -619,6 +619,94 @@ def write_props(df: pd.DataFrame, cfg: PropsCollectionConfig, date: str) -> str:
     file_label = (cfg.source or cfg.book or "oddsapi").strip().lower()
     pq_path = os.path.join(out_dir, f"{file_label}.parquet")
     csv_path = os.path.join(out_dir, f"{file_label}.csv")
+    # Load existing data (prefer parquet, then CSV)
+    existing = pd.DataFrame()
+    try:
+        if os.path.exists(pq_path):
+            existing = pd.read_parquet(pq_path)
+        elif os.path.exists(csv_path):
+            existing = pd.read_csv(csv_path)
+    except Exception:
+        existing = pd.DataFrame()
+    # If the incoming frame is empty and we already have existing rows, do NOT overwrite
+    try:
+        if (df is None or df.empty) and (existing is not None and not existing.empty):
+            # Ensure CSV sidecar exists
+            try:
+                if not os.path.exists(csv_path):
+                    existing.to_csv(csv_path, index=False)
+            except Exception:
+                pass
+            return pq_path if os.path.exists(pq_path) else csv_path
+    except Exception:
+        pass
+    # Merge: keep latest rows per key, preserve earlier rows when new fetch is partial
+    try:
+        # Normalize required columns presence
+        for c in ["date","player_id","player_name","team","market","line","over_price","under_price","book","first_seen_at","last_seen_at","is_current"]:
+            if c not in df.columns:
+                try:
+                    df[c] = None
+                except Exception:
+                    pass
+        for c in ["date","player_id","player_name","team","market","line","over_price","under_price","book","first_seen_at","last_seen_at","is_current"]:
+            if c not in existing.columns:
+                try:
+                    existing[c] = None
+                except Exception:
+                    pass
+        comb = pd.concat([existing, df], ignore_index=True)
+        # Build a robust merge key (prefer player_id, else normalized name)
+        def _mk_key_row(r):
+            try:
+                pid = r.get("player_id")
+            except Exception:
+                pid = None
+            if pd.notna(pid):
+                return f"id::{pid}"
+            try:
+                nm = str(r.get("player_name") or "").strip().lower()
+            except Exception:
+                nm = ""
+            return f"name::{nm}" if nm else None
+        try:
+            comb["_merge_key"] = comb.apply(_mk_key_row, axis=1)
+        except Exception:
+            comb["_merge_key"] = None
+        # Keys for uniqueness
+        subset = ["date","_merge_key","market","line","book"]
+        # Compute min first_seen_at per key for historical continuity
+        try:
+            fst_min = comb.groupby(subset)["first_seen_at"].min().reset_index().rename(columns={"first_seen_at":"_first_seen_min"})
+        except Exception:
+            fst_min = pd.DataFrame(columns=subset + ["_first_seen_min"])
+        # Keep last occurrence per key (so newer prices/timestamps win)
+        try:
+            comb.sort_values(["date","last_seen_at"], inplace=True)
+        except Exception:
+            pass
+        try:
+            dedup = comb.drop_duplicates(subset=subset, keep="last").copy()
+        except Exception:
+            dedup = comb.copy()
+        # Attach min first_seen_at
+        try:
+            dedup = dedup.merge(fst_min, on=subset, how="left")
+            dedup["first_seen_at"] = dedup["_first_seen_min"].where(dedup["_first_seen_min"].notna(), dedup.get("first_seen_at"))
+            if "_first_seen_min" in dedup.columns:
+                dedup.drop(columns=["_first_seen_min"], inplace=True)
+        except Exception:
+            pass
+        # Ensure is_current is True for dedup rows
+        try:
+            dedup["is_current"] = True
+        except Exception:
+            pass
+        # Use this merged frame for writing
+        df = dedup
+    except Exception:
+        # If merge fails, fall back to incoming df to avoid data loss
+        df = df
     try:
         # Use pyarrow engine explicitly for stability across environments
         df.to_parquet(pq_path, index=False, engine="pyarrow")

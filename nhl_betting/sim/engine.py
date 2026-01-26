@@ -256,6 +256,11 @@ class PeriodSimulator:
             else:
                 ice_h = (l_home[idx_lh % len(l_home)] if l_home else []) + (d_home[idx_dh % len(d_home)] if d_home else [])
                 ice_a = (l_away[idx_la % len(l_away)] if l_away else []) + (d_away[idx_da % len(d_away)] if d_away else [])
+            # Emit shift events for TOI attribution for all players on ice
+            for pid in (ice_h or []):
+                events.append(Event(t=t0, period=period_idx + 1, team=gs.home.name, kind="shift", player_id=pid, meta={"dur": seg_len, "strength": strength_h}))
+            for pid in (ice_a or []):
+                events.append(Event(t=t0, period=period_idx + 1, team=gs.away.name, kind="shift", player_id=pid, meta={"dur": seg_len, "strength": strength_a}))
             # Attribute shots and goals to players on ice
             for _ in range(sh_h):
                 pid = (self.rng.choice(ice_h) if ice_h else None)
@@ -424,6 +429,8 @@ class GameSimulator:
                                     for ci in chosen:
                                         ap = skaters[int(ci)]
                                         ap.stats["assists"] = ap.stats.get("assists", 0.0) + 1.0
+                                        # Emit assist event for period-level aggregation
+                                        events_all.append(Event(t=e.t, period=e.period, team=team.name, kind="assist", player_id=int(ap.player_id), meta={"strength": e.meta.get("strength", "EV")}))
                             except Exception:
                                 pass
             events_all.extend(ev)

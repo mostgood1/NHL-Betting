@@ -1,0 +1,2 @@
+source,picks,decided,accuracy,brier,acc_sog,brier_sog,acc_goals,brier_goals,acc_assists,brier_assists,acc_points,brier_points,acc_saves,brier_saves,acc_blocks,brier_blocks,picks_delta,decided_delta,accuracy_delta,brier_delta,acc_sog_delta,brier_sog_delta,acc_goals_delta,brier_goals_delta,acc_assists_delta,brier_assists_delta,acc_points_delta,brier_points_delta,acc_saves_delta,brier_saves_delta,acc_blocks_delta,brier_blocks_delta
+simulations,34512,16860,0.5258007117437722,0.2461367694194403,,,,,,,,,,,,,,,,,,,,,,,,,,,,

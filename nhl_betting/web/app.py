@@ -9027,14 +9027,11 @@ async def api_cron_props_full(
     if async_run:
         d_local = d
         def _run_full():
-            # Collect lines (oddsapi only)
+            # Collect lines for configured sources; ensure output dir exists
             from ..data import player_props as props_data
             base = PROC_DIR.parent / "props" / f"player_props_lines/date={d_local}"
             base.mkdir(parents=True, exist_ok=True)
-            try:
-                for name in ("oddsapi.parquet", "bovada.parquet"):
-            except Exception:
-                step_timeout = 90
+            step_timeout = 90
             from concurrent.futures import ThreadPoolExecutor, TimeoutError as _FutTimeout
             for which, src in (("oddsapi", "oddsapi"),):
                 try:

@@ -22,6 +22,9 @@ class PlayerPeriodStats:
     toi: float = 0.0
 
 
+SAVES_CAL: float = 0.50  # calibration factor to reduce simulated saves toward observed levels
+
+
 def aggregate_events_to_boxscores(gs: GameState, events: List[Event]) -> pd.DataFrame:
     """Aggregate simulated events into per-player per-period boxscores.
 
@@ -91,7 +94,9 @@ def aggregate_events_to_boxscores(gs: GameState, events: List[Event]) -> pd.Data
         # choose highest projected TOI as starter
         return int(max(goalies, key=lambda p: float(p.toi_proj or 0.0)).player_id)
 
-    # Opponent saves: opponent shots - opponent goals in that period
+    # Opponent saves: approximate saves from opponent SOG minus goals.
+    # Engine emits separate 'shot' and 'goal' events; approximate SOG = shots + goals.
+    # Apply calibration factor SAVES_CAL to reduce systematic overestimation.
     for team_name in (gs.home.name, gs.away.name):
         opp_name = gs.away.name if team_name == gs.home.name else gs.home.name
         goalie_id = _starter_goalie(team_name)
@@ -101,7 +106,10 @@ def aggregate_events_to_boxscores(gs: GameState, events: List[Event]) -> pd.Data
         periods = set([p for (_, t, p) in per_key.keys() if t == opp_name])
         for period in sorted(periods):
             d = _team_pd(opp_name, period)
-            saves = max(0, int(d.get("shots", 0)) - int(d.get("goals", 0)))
+            shots = int(d.get("shots", 0))
+            goals = int(d.get("goals", 0))
+            sog_est = max(0, shots + goals)
+            saves = max(0, int(round(SAVES_CAL * sog_est)) - goals)
             if saves > 0:
                 s = _get(goalie_id, team_name, period)
                 s.saves += saves

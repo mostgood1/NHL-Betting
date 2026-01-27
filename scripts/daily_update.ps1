@@ -594,3 +594,20 @@ if ($PropsRecs) {
     Write-Warning "[daily_update] Props projections/recommendations failed: $($_.Exception.Message)"
   }
 }
+
+  # Post-settlement props reconciliation and summary (yesterday)
+  try {
+    if (-not $NoReconcile) {
+      $yesterday = (Get-Date).AddDays(-1).ToString('yyyy-MM-dd')
+      Write-Host "[daily_update] Backfilling actuals for $yesterday …" -ForegroundColor Yellow
+      try { python .\scripts\backfill_actuals_day.py $yesterday } catch { Write-Warning "[daily_update] backfill_actuals_day failed: $($_.Exception.Message)" }
+      Write-Host "[daily_update] Reconciling props for $yesterday …" -ForegroundColor Cyan
+      try { python .\scripts\props_reconcile_day.py $yesterday } catch { Write-Warning "[daily_update] props_reconcile_day failed: $($_.Exception.Message)" }
+      Write-Host "[daily_update] Aggregating reconciliation summaries …" -ForegroundColor DarkGreen
+      try { python .\scripts\props_reconciliations_aggregate.py $yesterday } catch { Write-Warning "[daily_update] props_reconciliations_aggregate failed: $($_.Exception.Message)" }
+    } else {
+      Write-Host "[daily_update] Props reconciliation skipped (-NoReconcile)" -ForegroundColor DarkGreen
+    }
+  } catch {
+    Write-Warning "[daily_update] props reconciliation pipeline failed: $($_.Exception.Message)"
+  }

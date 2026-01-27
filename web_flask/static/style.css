@@ -1,0 +1,39 @@
+/* Legacy card styling slice to match previous format */
+:root {
+  --border: #2b3340;
+  --card-bg: #1a1f27;
+  --text: #ffffff;
+  --text-muted: #cfd7e6;
+}
+body { background-color: #121417; color: var(--text); }
+.navbar { border-bottom: 1px solid var(--border); }
+.card { background: var(--card-bg); border: 1px solid var(--border); }
+.card-header-primary { background-color: #222833; color: var(--text); }
+.section-title { font-weight: 600; color: var(--text); }
+.table thead th { background: rgba(255,255,255,0.12); color: var(--text); }
+/* Period projections - Traditional line score table */
+.period-projections { margin: 12px 0; border: 1px solid var(--border); border-radius: 8px; background: var(--card-bg); overflow: hidden; }
+.period-projections summary { cursor: pointer; padding: 10px 14px; font-weight: 600; font-size: 13px; color: var(--text); -webkit-user-select: none; user-select: none; border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.06); }
+.period-projections summary::-webkit-details-marker { display: none; }
+.period-projections[open] summary { background: rgba(255,255,255,0.04); }
+.line-score { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+.line-score thead th { text-align: center; padding: 8px 6px; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text); background: rgba(255,255,255,0.16); border-bottom: 1px solid var(--border); }
+.line-score thead th:first-child { text-align: left; padding-left: 14px; }
+.line-score tbody td { text-align: center; padding: 10px 6px; color: var(--text); border-bottom: 1px solid rgba(43,51,64,0.5); }
+.line-score tbody tr:last-child td { border-bottom: none; }
+.line-score tbody td.team-name { text-align: left; padding-left: 14px; font-weight: 600; }
+.line-score tbody td.total-val { font-weight: 700; background: rgba(255,255,255,0.12); border-left: 1px solid var(--border); }
+.line-score tbody .period-val { color: var(--text-muted); }
+/* First 10 min indicator */
+.first-10min-indicator { margin: 12px 0; padding: 12px; background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: 8px; }
+.indicator-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); font-weight: 600; margin-bottom: 8px; }
+.indicator-value { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+.indicator-value.high { color: #19c37d; }
+.indicator-value.medium { color: #f59e0b; }
+.indicator-value.low { color: #8b97a6; }
+.indicator-subtitle { font-size: 12px; color: var(--text-muted); }
+.badge.text-bg-success { background-color: #19c37d !important; }
+.badge.text-bg-info { background-color: #0dcaf0 !important; }
+
+/* Logos */
+.team-logo { height: 28px; }

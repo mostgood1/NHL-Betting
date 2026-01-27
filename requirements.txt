@@ -12,6 +12,7 @@ python-dateutil==2.9.0.post0
 fastapi==0.115.0
 uvicorn==0.30.6
 Jinja2==3.1.4
+Flask>=3.0.0
 python-dotenv==1.0.1
 beautifulsoup4==4.12.3
 # pyarrow has no official wheel on Windows ARM64; use duckdb fallback there

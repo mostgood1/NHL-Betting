@@ -1,17 +1,17 @@
 date,home,away,market,ev
-2026-01-29T00:00:00Z,New York Islanders,New York Rangers,ev_away_ml,0.6454
-2026-01-29T00:30:00Z,Ottawa Senators,Colorado Avalanche,ev_home_ml,0.6117
-2026-01-29T00:00:00Z,New York Islanders,New York Rangers,ev_away_pl_+1.5,0.1283
-2026-01-29T00:30:00Z,Columbus Blue Jackets,Philadelphia Flyers,ev_home_pl_-1.5,0.0863
-2026-01-29T00:30:00Z,Ottawa Senators,Colorado Avalanche,ev_under,0.0801
-2026-01-29T00:00:00Z,New York Islanders,New York Rangers,ev_under,0.0301
-2026-01-29T00:30:00Z,Columbus Blue Jackets,Philadelphia Flyers,ev_home_ml,0.0264
-2026-01-29T00:30:00Z,Columbus Blue Jackets,Philadelphia Flyers,ev_over,-0.0038
-2026-01-29T00:30:00Z,Columbus Blue Jackets,Philadelphia Flyers,ev_under,-0.0798
-2026-01-29T00:30:00Z,Columbus Blue Jackets,Philadelphia Flyers,ev_away_pl_+1.5,-0.1027
-2026-01-29T00:30:00Z,Columbus Blue Jackets,Philadelphia Flyers,ev_away_ml,-0.1182
-2026-01-29T00:00:00Z,New York Islanders,New York Rangers,ev_over,-0.1227
-2026-01-29T00:30:00Z,Ottawa Senators,Colorado Avalanche,ev_over,-0.171
-2026-01-29T00:00:00Z,New York Islanders,New York Rangers,ev_home_pl_-1.5,-0.3475
-2026-01-29T00:30:00Z,Ottawa Senators,Colorado Avalanche,ev_away_ml,-0.4872
-2026-01-29T00:00:00Z,New York Islanders,New York Rangers,ev_home_ml,-0.5552
+2026-01-29T00:00:00Z,New York Islanders,New York Rangers,ev_away_ml,0.654
+2026-01-29T00:30:00Z,Ottawa Senators,Colorado Avalanche,ev_home_ml,0.6095
+2026-01-29T00:30:00Z,Ottawa Senators,Colorado Avalanche,ev_under,0.1881
+2026-01-29T00:00:00Z,New York Islanders,New York Rangers,ev_away_pl_+1.5,0.1268
+2026-01-29T00:30:00Z,Columbus Blue Jackets,Philadelphia Flyers,ev_home_pl_-1.5,0.1056
+2026-01-29T00:00:00Z,New York Islanders,New York Rangers,ev_under,0.031
+2026-01-29T00:30:00Z,Columbus Blue Jackets,Philadelphia Flyers,ev_home_ml,0.0248
+2026-01-29T00:30:00Z,Columbus Blue Jackets,Philadelphia Flyers,ev_over,-0.0061
+2026-01-29T00:30:00Z,Columbus Blue Jackets,Philadelphia Flyers,ev_under,-0.0777
+2026-01-29T00:30:00Z,Columbus Blue Jackets,Philadelphia Flyers,ev_away_pl_+1.5,-0.1122
+2026-01-29T00:30:00Z,Columbus Blue Jackets,Philadelphia Flyers,ev_away_ml,-0.1163
+2026-01-29T00:00:00Z,New York Islanders,New York Rangers,ev_over,-0.1238
+2026-01-29T00:30:00Z,Ottawa Senators,Colorado Avalanche,ev_over,-0.2317
+2026-01-29T00:00:00Z,New York Islanders,New York Rangers,ev_home_pl_-1.5,-0.3448
+2026-01-29T00:30:00Z,Ottawa Senators,Colorado Avalanche,ev_away_ml,-0.4857
+2026-01-29T00:00:00Z,New York Islanders,New York Rangers,ev_home_ml,-0.5616

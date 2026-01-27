@@ -1,0 +1,161 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-2">
+  <h3 class="mb-0">{{ home_name }} ({{ home }}) vs {{ away_name }} ({{ away }}) — {{ date }}</h3>
+  <a class="btn btn-sm btn-outline-secondary" href="/games/{{ date }}">Back to Games</a>
+  </div>
+
+<div class="row">
+  <div class="col-md-6">
+    <h5>Betting Odds</h5>
+    {% if odds and odds|length > 0 %}
+    <table class="table table-sm table-bordered">
+      <thead><tr><th>Home ML</th><th>Away ML</th><th>Over</th><th>Under</th></tr></thead>
+      <tbody>
+        {% for o in odds %}
+        <tr>
+          <td>{{ o.home_ml }}</td>
+          <td>{{ o.away_ml }}</td>
+          <td>{{ o.home_totals_over }}</td>
+          <td>{{ o.home_totals_under }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="alert alert-warning">Odds not available.</div>
+    {% endif %}
+  </div>
+  <div class="col-md-6">
+    <h5>Betting Recommendations (Sim)</h5>
+    {% if edge_recs and edge_recs|length > 0 %}
+    <ul class="list-group">
+      {% for r in edge_recs %}
+      <li class="list-group-item d-flex justify-content-between align-items-center">
+        {{ r.market }}
+        <span class="badge text-bg-success">EV {{ r.ev }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <div class="alert alert-warning">No sim-based edges found.</div>
+    {% endif %}
+  </div>
+</div>
+
+<hr/>
+<div class="row">
+  <div class="col-md-6">
+    <h5>Projected Box Score by Period (avg of sims)</h5>
+    <h6>{{ home }}</h6>
+    {% if per_period.home and per_period.home|length > 0 %}
+    <table class="table table-sm table-striped">
+      <thead><tr><th>Period</th><th>G</th><th>SOG</th><th>BLK</th><th>Saves</th></tr></thead>
+      <tbody>
+        {% for p in per_period.home %}
+        <tr>
+          <td>{{ p.period }}</td>
+          <td>{{ p.goals }}</td>
+          <td>{{ p.shots }}</td>
+          <td>{{ p.blocked }}</td>
+          <td>{{ p.saves }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<div class="alert alert-warning">No period projections.</div>{% endif %}
+    <h6>{{ away }}</h6>
+    {% if per_period.away and per_period.away|length > 0 %}
+    <table class="table table-sm table-striped">
+      <thead><tr><th>Period</th><th>G</th><th>SOG</th><th>BLK</th><th>Saves</th></tr></thead>
+      <tbody>
+        {% for p in per_period.away %}
+        <tr>
+          <td>{{ p.period }}</td>
+          <td>{{ p.goals }}</td>
+          <td>{{ p.shots }}</td>
+          <td>{{ p.blocked }}</td>
+          <td>{{ p.saves }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<div class="alert alert-warning">No period projections.</div>{% endif %}
+  </div>
+  <div class="col-md-6">
+    <h5>Projected Player Box Scores (avg of sims)</h5>
+    <div class="row">
+      <div class="col-md-6">
+        <h6>{{ home }}</h6>
+        {% if home_players and home_players|length > 0 %}
+        <table class="table table-sm table-striped">
+          <thead><tr><th>Player</th><th>P</th><th>SOG</th><th>BLK</th><th>TOI</th></tr></thead>
+          <tbody>
+            {% for r in home_players %}
+            <tr>
+              <td>{{ r.player }}</td>
+              <td>{{ r.points }}</td>
+              <td>{{ r.shots }}</td>
+              <td>{{ r.blocked }}</td>
+              <td>{{ r.toi_min }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}<div class="alert alert-warning">No player projections.</div>{% endif %}
+      </div>
+      <div class="col-md-6">
+        <h6>{{ away }}</h6>
+        {% if away_players and away_players|length > 0 %}
+        <table class="table table-sm table-striped">
+          <thead><tr><th>Player</th><th>P</th><th>SOG</th><th>BLK</th><th>TOI</th></tr></thead>
+          <tbody>
+            {% for r in away_players %}
+            <tr>
+              <td>{{ r.player }}</td>
+              <td>{{ r.points }}</td>
+              <td>{{ r.shots }}</td>
+              <td>{{ r.blocked }}</td>
+              <td>{{ r.toi_min }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}<div class="alert alert-warning">No player projections.</div>{% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<hr/>
+<h5>Recommended Props (avg of sims)</h5>
+{% if props_rows and props_rows|length > 0 %}
+<table class="table table-sm table-striped">
+  <thead>
+    <tr>
+      <th>Team</th><th>Player</th><th>Market</th><th>Line</th><th>Side</th><th>EV</th><th>Book</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in props_rows %}
+    <tr>
+      <td>{{ r.team }}</td>
+      <td>{{ r.player }}</td>
+      <td>{{ r.market }}</td>
+      <td>{{ r.line }}</td>
+      <td>{{ r.side }}</td>
+      <td><span class="badge text-bg-success">{{ r.ev }}</span></td>
+      <td>{{ r.book }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="alert alert-warning">No props recommendations available.</div>
+{% endif %}
+
+<hr/>
+<h5>Matchup Write-up</h5>
+<p class="lead">{{ writeup }}</p>
+
+{% endblock %}

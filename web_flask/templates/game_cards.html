@@ -1,0 +1,211 @@
+{% extends 'base.html' %}
+{% block content %}
+<h3>Game Cards — {{ date }}</h3>
+{% if cards and cards|length > 0 %}
+  <div class="row">
+    {% for c in cards %}
+    <div class="col-12 mb-3">
+      <div class="card shadow-sm">
+        <div class="card-header d-flex justify-content-between align-items-center card-header-primary">
+          <div class="d-flex align-items-center gap-2">
+            {% if c.logos.home %}<img src="{{ c.logos.home }}" alt="{{ c.home_name }}" class="team-logo">{% endif %}
+            <strong>{{ c.home_name }} ({{ c.home }}) vs {{ c.away_name }} ({{ c.away }})</strong>
+            {% if c.logos.away %}<img src="{{ c.logos.away }}" alt="{{ c.away_name }}" class="team-logo">{% endif %}
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <span class="badge text-bg-info">First 10: {{ c.first10|round(1) }}%</span>
+            <a class="btn btn-sm btn-outline-light" href="/game-card/{{ date }}/{{ c.home }}/{{ c.away }}">Open</a>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="row">
+            <div class="col-md-6">
+              <h6 class="section-title text-primary">Betting Odds</h6>
+              {% if c.odds and c.odds|length > 0 %}
+              <table class="table table-sm table-bordered">
+                <thead><tr><th>Home ML</th><th>Away ML</th><th>Over</th><th>Under</th></tr></thead>
+                <tbody>
+                {% for o in c.odds %}
+                  <tr>
+                    <td>{{ o.home_ml }}</td>
+                    <td>{{ o.away_ml }}</td>
+                    <td>{{ o.home_totals_over }}</td>
+                    <td>{{ o.home_totals_under }}</td>
+                  </tr>
+                {% endfor %}
+                </tbody>
+              </table>
+              {% else %}
+              <div class="alert alert-warning">Odds not available.</div>
+              {% endif %}
+            </div>
+            <div class="col-md-6">
+              <h6 class="section-title text-success">Betting Recommendations (Sim)</h6>
+                        <details class="period-projections" open>
+                          <summary>Projected Line Score ▾</summary>
+                          <table class="line-score">
+                            <thead>
+                              <tr>
+                                <th>Team</th>
+                                <th>1st</th>
+                                <th>2nd</th>
+                                <th>3rd</th>
+                                <th>Total</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr class="away-row">
+                                <td class="team-name">{{ c.away_name }}</td>
+                                <td class="period-val">{{ c.line_score.away[0]|round(1) }}</td>
+                                <td class="period-val">{{ c.line_score.away[1]|round(1) }}</td>
+                                <td class="period-val">{{ c.line_score.away[2]|round(1) }}</td>
+                                <td class="total-val">{{ c.line_score.away[3]|round(1) }}</td>
+                              </tr>
+                              <tr class="home-row">
+                                <td class="team-name">{{ c.home_name }}</td>
+                                <td class="period-val">{{ c.line_score.home[0]|round(1) }}</td>
+                                <td class="period-val">{{ c.line_score.home[1]|round(1) }}</td>
+                                <td class="period-val">{{ c.line_score.home[2]|round(1) }}</td>
+                                <td class="total-val">{{ c.line_score.home[3]|round(1) }}</td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </details>
+              {% if c.edge_recs and c.edge_recs|length > 0 %}
+              <div class="list-group">
+                {% for r in c.edge_recs %}
+                <div class="list-group-item d-flex justify-content-between align-items-center">
+                  <span>{{ r.market }}</span>
+                  <span class="badge text-bg-success">EV {{ r.ev }}</span>
+                </div>
+                {% endfor %}
+              </div>
+              {% else %}
+              <div class="alert alert-warning">No sim-based edges found.</div>
+              {% endif %}
+            </div>
+          </div>
+
+          <hr/>
+          <div class="row">
+            <div class="col-md-6">
+              <h6 class="section-title text-warning">Projected Box Score by Period</h6>
+              <h6>{{ c.home }}</h6>
+              {% if c.per_period.home and c.per_period.home|length > 0 %}
+              <table class="table table-sm table-striped">
+                <thead><tr><th>Period</th><th>G</th><th>SOG</th><th>BLK</th><th>Saves</th></tr></thead>
+                <tbody>
+                  {% for p in c.per_period.home %}
+                  <tr>
+                    <td>{{ p.period }}</td>
+                    <td>{{ p.goals|round(1) }}</td>
+                    <td>{{ p.shots|round(1) }}</td>
+                    <td>{{ p.blocked|round(1) }}</td>
+                    <td>{{ p.saves|round(1) }}</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+              {% else %}<div class="alert alert-warning">No period projections.</div>{% endif %}
+              <h6>{{ c.away }}</h6>
+              {% if c.per_period.away and c.per_period.away|length > 0 %}
+              <table class="table table-sm table-striped">
+                <thead><tr><th>Period</th><th>G</th><th>SOG</th><th>BLK</th><th>Saves</th></tr></thead>
+                <tbody>
+                  {% for p in c.per_period.away %}
+                  <tr>
+                    <td>{{ p.period }}</td>
+                    <td>{{ p.goals|round(1) }}</td>
+                    <td>{{ p.shots|round(1) }}</td>
+                    <td>{{ p.blocked|round(1) }}</td>
+                    <td>{{ p.saves|round(1) }}</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+              {% else %}<div class="alert alert-warning">No period projections.</div>{% endif %}
+            </div>
+            <div class="col-md-6">
+              <h6 class="section-title text-info">Projected Player Box Scores</h6>
+              <div class="row">
+                <div class="col-md-6">
+                  <h6>{{ c.home }}</h6>
+                  {% if c.home_players and c.home_players|length > 0 %}
+                  <table class="table table-sm table-striped">
+                    <thead><tr><th>Player</th><th>P</th><th>SOG</th><th>BLK</th><th>TOI</th></tr></thead>
+                    <tbody>
+                      {% for r in c.home_players %}
+                      <tr>
+                        <td>{{ r.player }}</td>
+                        <td>{{ r.points|round(1) }}</td>
+                        <td>{{ r.shots|round(1) }}</td>
+                        <td>{{ r.blocked|round(1) }}</td>
+                        <td>{{ r.toi_min|round(1) }}</td>
+                      </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                  {% else %}<div class="alert alert-warning">No player projections.</div>{% endif %}
+                </div>
+                <div class="col-md-6">
+                  <h6>{{ c.away }}</h6>
+                  {% if c.away_players and c.away_players|length > 0 %}
+                  <table class="table table-sm table-striped">
+                    <thead><tr><th>Player</th><th>P</th><th>SOG</th><th>BLK</th><th>TOI</th></tr></thead>
+                    <tbody>
+                      {% for r in c.away_players %}
+                      <tr>
+                        <td>{{ r.player }}</td>
+                        <td>{{ r.points|round(1) }}</td>
+                        <td>{{ r.shots|round(1) }}</td>
+                        <td>{{ r.blocked|round(1) }}</td>
+                        <td>{{ r.toi_min|round(1) }}</td>
+                      </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                  {% else %}<div class="alert alert-warning">No player projections.</div>{% endif %}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <hr/>
+          <h6 class="section-title text-teal">Recommended Props</h6>
+          {% if c.props_rows and c.props_rows|length > 0 %}
+          <table class="table table-sm table-striped">
+            <thead>
+              <tr>
+                <th>Team</th><th>Player</th><th>Market</th><th>Line</th><th>Side</th><th>EV</th><th>Book</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in c.props_rows %}
+              <tr>
+                <td>{{ r.team }}</td>
+                <td>{{ r.player }}</td>
+                <td>{{ r.market }}</td>
+                <td>{{ r.line }}</td>
+                <td>{{ r.side }}</td>
+                <td><span class="badge text-bg-success">{{ r.ev }}</span></td>
+                <td>{{ r.book }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% else %}
+          <div class="alert alert-warning">No props recommendations available.</div>
+          {% endif %}
+
+          <hr/>
+          <h6 class="section-title text-secondary">Matchup Write-up</h6>
+          <p class="lead">{{ c.writeup }}</p>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+{% else %}
+<div class="alert alert-warning">No games found for {{ date }}.</div>
+{% endif %}
+{% endblock %}

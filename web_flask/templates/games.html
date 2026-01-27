@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+{% block content %}
+<h3>Games for {{ date }}</h3>
+{% if games and games|length > 0 %}
+<table class="table table-sm table-striped">
+  <thead>
+    <tr>
+      <th>Date (ET)</th>
+      <th>Home</th>
+      <th>Away</th>
+      <th>Home ML</th>
+      <th>Away ML</th>
+      <th>Totals</th>
+      <th>EV Home ML</th>
+      <th>EV Away ML</th>
+      <th>EV Over</th>
+      <th>EV Under</th>
+      <th>Action</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for g in games %}
+    <tr>
+      <td>{{ g.date_et }}</td>
+      <td>{{ g.home }} <span class="badge text-bg-secondary">{{ g.home_abbr }}</span></td>
+      <td>{{ g.away }} <span class="badge text-bg-secondary">{{ g.away_abbr }}</span></td>
+      <td>{{ g.home_ml }}</td>
+      <td>{{ g.away_ml }}</td>
+      <td>{{ g.totals_line }}</td>
+      <td>{% if g.ev_home_ml %}<span class="badge text-bg-success">{{ g.ev_home_ml }}</span>{% endif %}</td>
+      <td>{% if g.ev_away_ml %}<span class="badge text-bg-success">{{ g.ev_away_ml }}</span>{% endif %}</td>
+      <td>{% if g.ev_over %}<span class="badge text-bg-info">{{ g.ev_over }}</span>{% endif %}</td>
+      <td>{% if g.ev_under %}<span class="badge text-bg-info">{{ g.ev_under }}</span>{% endif %}</td>
+      <td>
+        {% if g.home_abbr and g.away_abbr %}
+        <a class="btn btn-sm btn-primary" href="/game-card/{{ date }}/{{ g.home_abbr }}/{{ g.away_abbr }}">View Card</a>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="alert alert-warning">No games predictions found for {{ date }}.</div>
+{% endif %}
+{% endblock %}

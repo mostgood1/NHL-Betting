@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% block content %}
+<h3>Props Recommendations for {{ date }}</h3>
+{% if source %}<p><span class="badge text-bg-secondary">Source: {{ source }}</span></p>{% endif %}
+{% if rows and rows|length > 0 %}
+<table class="table table-sm table-striped">
+  <thead>
+    <tr>
+      <th>Team</th>
+      <th>Player</th>
+      <th>Market</th>
+      <th>Line</th>
+      <th>Side</th>
+      <th>Price</th>
+      <th>EV</th>
+      <th>Book</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in rows %}
+    <tr>
+      <td>{{ r.team }}</td>
+      <td>{{ r.player }}</td>
+      <td>{{ r.market }}</td>
+      <td>{{ r.line }}</td>
+      <td>{{ r.side }}</td>
+      <td>{{ r.price }}</td>
+      <td>{{ r.ev }}</td>
+      <td>{{ r.book }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="alert alert-warning">No props found for {{ date }}.</div>
+{% endif %}
+{% endblock %}

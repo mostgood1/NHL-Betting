@@ -6384,6 +6384,7 @@ def props_recommendations_sim(
 ):
     """Generate recommendations using simulation-backed p_over if available; falls back to model-only if missing."""
     sim_path = PROC_DIR / f"props_simulations_{date}.csv"
+    sim_nolines_path = PROC_DIR / f"props_simulations_nolines_{date}.csv"
     if not sim_path.exists():
         print("No simulations found; running props-simulate first…")
         try:
@@ -6395,7 +6396,19 @@ def props_recommendations_sim(
                 subprocess.run([sys.executable, "-m", "nhl_betting.cli", "props-simulate", "--date", str(date)], check=False)
             except Exception:
                 pass
-    df = pd.read_csv(sim_path) if sim_path.exists() else pd.DataFrame()
+    # Robust read: treat empty/invalid CSV as empty DF and fallback to nolines file if available
+    df = pd.DataFrame()
+    if sim_path.exists():
+        try:
+            df = pd.read_csv(sim_path)
+        except Exception:
+            df = pd.DataFrame()
+    # Fallback to nolines simulations if primary is missing or empty
+    if (df is None or df.empty) and sim_nolines_path.exists():
+        try:
+            df = pd.read_csv(sim_nolines_path)
+        except Exception:
+            df = pd.DataFrame()
     if df is None or df.empty:
         print("No simulation results present, aborting.")
         raise typer.Exit(code=0)
@@ -6406,12 +6419,23 @@ def props_recommendations_sim(
             return 1.0 + (s/100.0) if s > 0 else 1.0 + (100.0/abs(s))
         except Exception:
             return _np.nan
+    # Ensure price columns exist even if nolines fallback was used
+    if "over_price" not in df.columns:
+        df["over_price"] = _np.nan
+    if "under_price" not in df.columns:
+        df["under_price"] = _np.nan
     df["dec_over"] = df["over_price"].map(_american_to_decimal)
     df["dec_under"] = df["under_price"].map(_american_to_decimal)
     p = pd.to_numeric(df["p_over_sim"], errors="coerce")
     ev_over = p * (df["dec_over"] - 1.0) - (1.0 - p)
     p_under = (1.0 - p).clip(lower=0.0, upper=1.0)
     ev_under = p_under * (df["dec_under"] - 1.0) - (1.0 - p_under)
+    # When prices are missing (nolines fallback), treat EVs as 0 for gating by probability
+    try:
+        ev_over = ev_over.fillna(0.0)
+        ev_under = ev_under.fillna(0.0)
+    except Exception:
+        pass
     over_better = ev_under.isna() | (~ev_over.isna() & (ev_over >= ev_under))
     side = _np.where(over_better, "Over", "Under")
     ev_chosen = _np.where(over_better, ev_over, ev_under)

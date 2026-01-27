@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block content %}
+<h3>Player Boxscores for {{ date }}</h3>
+{% if source %}<p><span class="badge text-bg-secondary">Source: {{ source }}</span></p>{% endif %}
+{% if rows and rows|length > 0 %}
+<table class="table table-sm table-striped">
+  <thead>
+    <tr>
+      <th>Team</th>
+      <th>Player</th>
+      <th>G</th>
+      <th>A</th>
+      <th>P</th>
+      <th>SOG</th>
+      <th>BLK</th>
+      <th>Saves</th>
+      <th>TOI (min)</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in rows %}
+    <tr>
+      <td>{{ r.team }}</td>
+      <td>{{ r.player }}</td>
+      <td>{{ r.goals }}</td>
+      <td>{{ r.assists }}</td>
+      <td>{{ r.points }}</td>
+      <td>{{ r.shots }}</td>
+      <td>{{ r.blocked }}</td>
+      <td>{{ r.saves }}</td>
+      <td>{{ r.toi_min }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="alert alert-warning">No boxscores available for {{ date }}.</div>
+{% endif %}
+{% endblock %}

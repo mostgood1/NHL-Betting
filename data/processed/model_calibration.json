@@ -1,8 +1,8 @@
 {
-  "last_calibrated_utc": "2026-01-26T21:44:15Z",
+  "last_calibrated_utc": "2026-01-27T22:28:42Z",
   "range": {
     "start": "2025-09-01",
-    "end": "2026-01-26"
+    "end": "2026-01-27"
   },
   "dc_rho": 0.2,
   "market_anchor_w": 0.25,
@@ -14,9 +14,9 @@
   "min_ev_pl": 0.005,
   "min_ev_first10": 0.0,
   "min_ev_periods": 0.0,
-  "ev_gates_last_learned_utc": "2026-01-26T21:44:18Z",
+  "ev_gates_last_learned_utc": "2026-01-27T22:28:45Z",
   "ev_gates_range": {
     "start": "2025-09-01",
-    "end": "2026-01-26"
+    "end": "2026-01-27"
   }
 }

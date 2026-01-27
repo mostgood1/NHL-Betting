@@ -25,3 +25,4 @@ onnx>=1.14.0
 # - Everywhere else (Linux/macOS/Windows x86): use standard onnxruntime CPU/GPU providers
 onnxruntime-qnn==1.23.1; platform_system == "Windows" and platform_machine == "ARM64"
 onnxruntime==1.23.1; platform_system != "Windows" or platform_machine != "ARM64"
+playwright>=1.49.0

@@ -223,6 +223,41 @@
               </table>
             </details>
             
+            {# Live/Final Line Score (populated via /api/scoreboard when available) #}
+            <details class="period-linescore-live" {% if live_now %}open{% endif %}>
+              <summary>Line Score {% if live_now %}· Live{% elif settled %}· Final{% endif %} ▾</summary>
+              <table class="line-score live-line-score">
+                <thead>
+                  <tr>
+                    <th>Team</th>
+                    <th>1st</th>
+                    <th>2nd</th>
+                    <th>3rd</th>
+                    <th>OT</th>
+                    <th>Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr class="away-row">
+                    <td class="team-name">{{ r.get('away','') }}</td>
+                    <td class="p1" data-col="p1">—</td>
+                    <td class="p2" data-col="p2">—</td>
+                    <td class="p3" data-col="p3">—</td>
+                    <td class="pot" data-col="ot">—</td>
+                    <td class="ptot" data-col="tot">—</td>
+                  </tr>
+                  <tr class="home-row">
+                    <td class="team-name">{{ r.get('home','') }}</td>
+                    <td class="p1" data-col="p1">—</td>
+                    <td class="p2" data-col="p2">—</td>
+                    <td class="p3" data-col="p3">—</td>
+                    <td class="pot" data-col="ot">—</td>
+                    <td class="ptot" data-col="tot">—</td>
+                  </tr>
+                </tbody>
+              </table>
+            </details>
+            
             {# First 10 Minutes Goal Probability #}
             {% set first_10_proj = r.get('first_10min_proj') %}
             {# Prefer unified p_f10_yes when present; fallback to explicit prob or lambda #}
@@ -252,6 +287,145 @@
                 Blend yes {{ '%.0f' % (100*(r.get('p_f10_yes') or _prob_val)) }}%
               </div>
               {% endif %}
+            </div>
+            {% endif %}
+            {# Player Box Scores (Projected) – Traditional table for all players #}
+            {% set has_box = (r.get('box_home') and r.get('box_home')|length > 0) or (r.get('box_away') and r.get('box_away')|length > 0) %}
+            {% if has_box %}
+            <style>
+              .boxscores { margin: 12px 0; padding: 12px; border: 1px solid var(--border, #243356); border-radius: 8px; background: rgba(255,255,255,0.02); }
+              .boxscores .title { font-size: 12px; font-weight: 600; color: var(--text-muted, #9fb0ff); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+              .team-box { margin-top: 8px; }
+              .team-box h4 { margin: 8px 0 6px; font-size: 12px; color: var(--text, #cfe0ff); }
+              .team-box table { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
+              .team-box thead th { text-align: left; padding: 6px 8px; font-weight: 600; font-size: 11px; color: var(--text-muted, #9fb0ff); background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--border, #243356); }
+              .team-box tbody td { padding: 6px 8px; color: var(--text, #cfe0ff); border-bottom: 1px solid rgba(36, 51, 86, 0.3); }
+              .team-box tbody tr:last-child td { border-bottom: none; }
+              .pos-col { width: 36px; text-align: center; font-weight: 600; color: var(--text-muted, #9fb0ff); }
+              .num-col { width: 36px; text-align: center; color: var(--text-muted, #9fb0ff); }
+              .name-col { font-weight: 600; }
+              .val-col { text-align: right; }
+              body.light .boxscores { background: #f8fafc; border-color: #cbd5e1; }
+              body.light .team-box thead th { color: #475569; background: #f8fafc; border-bottom-color: #cbd5e1; }
+              body.light .team-box tbody td { color: #0a0f1c; border-bottom-color: #e2e8f0; }
+              body.light .pos-col, body.light .num-col { color: #64748b; }
+            </style>
+            <div class="boxscores">
+              <div class="title">Player Box Scores (Projected)</div>
+              <div class="team-box">
+                <h4>{{ r.away }} ({{ r.away_abbr }})</h4>
+                <div>
+                  <div class="title" style="margin:6px 0 4px;">Skaters</div>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th class="pos-col">Pos</th>
+                        <th class="name-col">Player</th>
+                        <th class="val-col">SOG</th>
+                        <th class="val-col">G</th>
+                        <th class="val-col">A</th>
+                        <th class="val-col">Pts</th>
+                        <th class="val-col">Blk</th>
+                        <th class="val-col">TOI</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for p in r.get('box_away') or [] %}
+                      {% if p.pos != 'G' %}
+                      <tr>
+                        <td class="pos-col">{{ p.pos if p.pos else '' }}</td>
+                        <td class="name-col">{{ p.player }}</td>
+                        <td class="val-col">{{ '%.1f' % p.shots if p.shots is not none else '—' }}</td>
+                        <td class="val-col">{{ '%.1f' % p.goals if p.goals is not none else '—' }}</td>
+                        <td class="val-col">{{ '%.1f' % p.assists if p.assists is not none else '—' }}</td>
+                        <td class="val-col">{{ '%.1f' % p.points if p.points is not none else '—' }}</td>
+                        <td class="val-col">{{ '%.1f' % p.blocks if p.blocks is not none else '—' }}</td>
+                        <td class="val-col">{{ '%.1f' % p.toi_min if p.toi_min is not none else '—' }}</td>
+                      </tr>
+                      {% endif %}
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                  <div class="title" style="margin:10px 0 4px;">Goalies</div>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th class="name-col">Player</th>
+                        <th class="val-col">Sv</th>
+                        <th class="val-col">TOI</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for p in r.get('box_away') or [] %}
+                      {% if p.pos == 'G' %}
+                      <tr>
+                        <td class="name-col">{{ p.player }}</td>
+                        <td class="val-col">{{ '%.1f' % p.saves if p.saves is not none else '—' }}</td>
+                        <td class="val-col">{{ '%.1f' % p.toi_min if p.toi_min is not none else '—' }}</td>
+                      </tr>
+                      {% endif %}
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="team-box">
+                <h4>{{ r.home }} ({{ r.home_abbr }})</h4>
+                <div>
+                  <div class="title" style="margin:6px 0 4px;">Skaters</div>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th class="pos-col">Pos</th>
+                        <th class="name-col">Player</th>
+                        <th class="val-col">SOG</th>
+                        <th class="val-col">G</th>
+                        <th class="val-col">A</th>
+                        <th class="val-col">Pts</th>
+                        <th class="val-col">Blk</th>
+                        <th class="val-col">TOI</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for p in r.get('box_home') or [] %}
+                      {% if p.pos != 'G' %}
+                      <tr>
+                        <td class="pos-col">{{ p.pos if p.pos else '' }}</td>
+                        <td class="name-col">{{ p.player }}</td>
+                        <td class="val-col">{{ '%.1f' % p.shots if p.shots is not none else '—' }}</td>
+                        <td class="val-col">{{ '%.1f' % p.goals if p.goals is not none else '—' }}</td>
+                        <td class="val-col">{{ '%.1f' % p.assists if p.assists is not none else '—' }}</td>
+                        <td class="val-col">{{ '%.1f' % p.points if p.points is not none else '—' }}</td>
+                        <td class="val-col">{{ '%.1f' % p.blocks if p.blocks is not none else '—' }}</td>
+                        <td class="val-col">{{ '%.1f' % p.toi_min if p.toi_min is not none else '—' }}</td>
+                      </tr>
+                      {% endif %}
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                  <div class="title" style="margin:10px 0 4px;">Goalies</div>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th class="name-col">Player</th>
+                        <th class="val-col">Sv</th>
+                        <th class="val-col">TOI</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for p in r.get('box_home') or [] %}
+                      {% if p.pos == 'G' %}
+                      <tr>
+                        <td class="name-col">{{ p.player }}</td>
+                        <td class="val-col">{{ '%.1f' % p.saves if p.saves is not none else '—' }}</td>
+                        <td class="val-col">{{ '%.1f' % p.toi_min if p.toi_min is not none else '—' }}</td>
+                      </tr>
+                      {% endif %}
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
             {% endif %}
             {% endif %}
@@ -821,6 +995,35 @@
         const aa = card.querySelector('.js-live-away');
         if (ha && g.home_goals != null) ha.textContent = String(g.home_goals);
         if (aa && g.away_goals != null) aa.textContent = String(g.away_goals);
+
+        // Update live line score table when period goals provided
+        try {
+          const tbl = card.querySelector('.live-line-score');
+          if (tbl && (Array.isArray(g.period_goals_home) || Array.isArray(g.period_goals_away))) {
+            const hp = Array.isArray(g.period_goals_home) ? g.period_goals_home.slice() : [];
+            const ap = Array.isArray(g.period_goals_away) ? g.period_goals_away.slice() : [];
+            // Ensure length up to 4 (P1,P2,P3,OT), pad with nulls
+            while (hp.length < 4) hp.push(null);
+            while (ap.length < 4) ap.push(null);
+            const awayRow = tbl.querySelector('tr.away-row');
+            const homeRow = tbl.querySelector('tr.home-row');
+            const cols = ['p1','p2','p3','ot'];
+            let htot = 0, atot = 0;
+            cols.forEach((c, idx) => {
+              const av = ap[idx]; const hv = hp[idx];
+              const ac = awayRow ? awayRow.querySelector(`[data-col="${c}"]`) : null;
+              const hc = homeRow ? homeRow.querySelector(`[data-col="${c}"]`) : null;
+              if (ac) ac.textContent = (av != null) ? String(av) : '—';
+              if (hc) hc.textContent = (hv != null) ? String(hv) : '—';
+              if (typeof av === 'number') atot += av;
+              if (typeof hv === 'number') htot += hv;
+            });
+            const at = awayRow ? awayRow.querySelector('[data-col="tot"]') : null;
+            const ht = homeRow ? homeRow.querySelector('[data-col="tot"]') : null;
+            if (at) at.textContent = (atot > 0 || cols.some((_,i)=>ap[i]!=null)) ? String(atot) : '—';
+            if (ht) ht.textContent = (htot > 0 || cols.some((_,i)=>hp[i]!=null)) ? String(htot) : '—';
+          }
+        } catch (_) { /* ignore DOM errors */ }
 
         // If the game is LIVE or FINAL and we haven't captured closing odds yet, do it once
         try {

@@ -5500,6 +5500,7 @@ def props_collect(
     """
     import time
     from .data import player_props as _pp
+    from .data import bovada_scrape as _bov
     t0 = time.monotonic()
     src = source.strip().lower()
     if src != "oddsapi":
@@ -5508,6 +5509,71 @@ def props_collect(
     res = _pp.collect_and_write(date, roster_df=None, cfg=cfg)
     dt = round(time.monotonic() - t0, 2)
     print(f"[collect:{src}] raw={res.get('raw_count')} combined={res.get('combined_count')} path={res.get('output_path')} ({dt}s)")
+
+
+@app.command(name="props-collect-bovada-page")
+def props_collect_bovada_page(
+    url: str = typer.Option(..., help="Bovada event URL (e.g., https://www.bovada.lv/sports/hockey/nhl/...)"),
+    date: str = typer.Option(..., help="Slate date YYYY-MM-DD (ET)"),
+    wait_sec: float = typer.Option(6.0, help="Seconds to wait for network XHRs after initial load"),
+    no_headless: bool = typer.Option(False, help="Run browser non-headless for sites that block headless"),
+):
+    """Collect player props from a single Bovada event page via headless browser and write canonical lines.
+
+    This is a fallback when public JSON endpoints are empty/geoblocked. Targets Goalie Saves / Blocked Shots.
+    """
+    import time
+    from .data import bovada_scrape as _bov
+    t0 = time.monotonic()
+    try:
+        # Collect raw (non-persist) to ensure we pass headless flag
+        raw = _bov.collect_from_event_page(url=url, date=date, wait_sec=wait_sec, headless=(not no_headless))
+        # Persist via normalizer/writer path
+        from .data import player_props as _pp
+        roster_df = None
+        norm = _pp.normalize_player_names(raw, roster_df)
+        comb = _pp.combine_over_under(norm)
+        cfg = _pp.PropsCollectionConfig(output_root="data/props", book="bovada", source="bovada")
+        out_path = _pp.write_props(comb, cfg, date)
+        res = {"raw_count": len(raw), "combined_count": len(comb), "output_path": out_path}
+    except Exception as e:
+        print("[bovada-page] scrape failed:", e)
+        raise typer.Exit(code=1)
+    dt = round(time.monotonic() - t0, 2)
+    print(f"[collect:bovada-page] raw={res.get('raw_count')} combined={res.get('combined_count')} path={res.get('output_path')} ({dt}s)")
+
+
+@app.command(name="props-collect-bovada-category")
+def props_collect_bovada_category(
+    url: str = typer.Option(..., help="Bovada NHL category URL (e.g., https://www.bovada.lv/sports/hockey/nhl)"),
+    date: str = typer.Option(..., help="Slate date YYYY-MM-DD (ET)"),
+    visit_events: bool = typer.Option(True, help="Also navigate into each event page to capture props"),
+    max_events: int = typer.Option(20, help="Limit the number of event pages to visit"),
+    no_headless: bool = typer.Option(False, help="Run browser non-headless for sites that block headless"),
+):
+    """Collect player props across the NHL category page and write canonical lines.
+
+    Uses a headless browser; captures network JSON from coupon/event services and per-event pages.
+    """
+    import time
+    from .data import bovada_scrape as _bov
+    t0 = time.monotonic()
+    try:
+        # Collect raw across category (respect headless flag)
+        raw_df = _bov.collect_from_category_page(url=url, date=date, visit_events=visit_events, max_events=max_events, headless=(not no_headless))
+        # Persist
+        from .data import player_props as _pp
+        roster_df = None
+        norm = _pp.normalize_player_names(raw_df, roster_df)
+        comb = _pp.combine_over_under(norm)
+        cfg = _pp.PropsCollectionConfig(output_root="data/props", book="bovada", source="bovada")
+        out_path = _pp.write_props(comb, cfg, date)
+        res = {"raw_count": len(raw_df), "combined_count": len(comb), "output_path": out_path}
+    except Exception as e:
+        print("[bovada-category] scrape failed:", e)
+        raise typer.Exit(code=1)
+    dt = round(time.monotonic() - t0, 2)
+    print(f"[collect:bovada-category] path={res.get('output_path')} raw={res.get('raw_count')} combined={res.get('combined_count')} ({dt}s)")
 
 
 @app.command(name="props-verify")
@@ -5969,13 +6035,57 @@ def props_simulate_boxscores(
         raise typer.Exit(code=0)
     # Helper: fetch roster for team name
     from .data.rosters import fetch_current_roster as _fetch
-    def _roster_for_name(nm: str) -> list[dict]:
+    def _roster_for_name(nm: str) -> tuple[list[dict], list[dict]]:
+        """Return (roster_rows, lineup_rows) for a team name.
+
+        Prefer using processed roster files for the exact date to capture line slots and special teams units.
+        Fallback to Web API current roster when processed files are unavailable.
+        """
         rows: list[dict] = []
-        # Try Web API current roster via team abbreviation
+        lineups: list[dict] = []
+        # Resolve team abbreviation
         try:
             abbr = (get_team_assets(nm).get('abbr') or '').upper()
         except Exception:
             abbr = ''
+        # Try processed roster files first
+        try:
+            from .utils.io import PROC_DIR as _PROC
+            p_dated = _PROC / f"roster_{date}.csv"
+            p_master = _PROC / "roster_master.csv"
+            df_src = None
+            if p_dated.exists():
+                df_src = pd.read_csv(p_dated)
+            elif p_master.exists():
+                df_src = pd.read_csv(p_master)
+            if df_src is not None and not df_src.empty:
+                df_src = df_src.copy()
+                # Filter to team abbreviation
+                team_col = 'team_abbr' if 'team_abbr' in df_src.columns else ('team' if 'team' in df_src.columns else None)
+                if team_col:
+                    df_src = df_src[df_src[team_col].astype(str).str.upper() == abbr]
+                # Build roster rows
+                for _, rr in df_src.iterrows():
+                    try:
+                        pid = int(float(rr.get('player_id') or 0))
+                    except Exception:
+                        pid = 0
+                    pos = str(rr.get('position') or '')
+                    rows.append({
+                        'player_id': pid,
+                        'full_name': str(rr.get('full_name') or rr.get('player') or ''),
+                        'position': pos,
+                        'proj_toi': float(rr.get('proj_toi') or rr.get('avg_toi') or 0.0),
+                    })
+                    # Capture lineup slots if available
+                    ls = rr.get('line_slot'); pp = rr.get('pp_unit'); pk = rr.get('pk_unit')
+                    if ls or pp or pk:
+                        lineups.append({'player_id': pid, 'line_slot': ls, 'pp_unit': pp, 'pk_unit': pk})
+                if rows:
+                    return rows, lineups
+        except Exception:
+            pass
+        # Fallback: Web API current roster
         players = []
         if abbr:
             try:
@@ -5989,7 +6099,7 @@ def props_simulate_boxscores(
                     'position': str(getattr(p, 'position', '') or ''),
                     'proj_toi': float(getattr(p, 'avg_toi', 0.0) or 0.0),
                 })
-        # Fallback: historical enrichment
+        # Fallback enrichment if Web API empty
         if not rows:
             try:
                 from .data import player_props as _pp
@@ -6009,7 +6119,7 @@ def props_simulate_boxscores(
                         'position': pos,
                         'proj_toi': float(rr.get('avg_toi') or 0.0),
                     })
-        return rows
+        return rows, lineups
     # Aggregate across games and sims
     agg_all: list[pd.DataFrame] = []
     samples_all: list[pd.DataFrame] = []
@@ -6018,8 +6128,8 @@ def props_simulate_boxscores(
         away = str(getattr(g, 'away', ''))
         if not home or not away:
             continue
-        roster_home = _roster_for_name(home)
-        roster_away = _roster_for_name(away)
+        roster_home, lineup_home = _roster_for_name(home)
+        roster_away, lineup_away = _roster_for_name(away)
         if not roster_home or not roster_away:
             continue
         # Simple baseline rates per game; future: inject team-specific rates
@@ -6029,7 +6139,7 @@ def props_simulate_boxscores(
         # Run sims and aggregate per-sim boxscores
         df_parts = []
         for i in range(int(n_sims)):
-            gs, ev = sim.simulate_with_lineups(home_name=home, away_name=away, roster_home=roster_home, roster_away=roster_away, lineup_home=[], lineup_away=[])
+            gs, ev = sim.simulate_with_lineups(home_name=home, away_name=away, roster_home=roster_home, roster_away=roster_away, lineup_home=lineup_home or [], lineup_away=lineup_away or [])
             df_i = aggregate_events_to_boxscores(gs, ev)
             # Attach player names for convenience
             name_map = { int(p['player_id']): str(p['full_name']) for p in (roster_home + roster_away) if p.get('player_id') }

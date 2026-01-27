@@ -240,17 +240,23 @@ def collect_bovada_props(date: str) -> pd.DataFrame:
     hosts = [
         "https://www.bovada.lv",
         "https://www.bovada.com",
+        # Regional mirrors often carry identical JSON with different coverage
+        "https://www.bodog.eu",
+        "https://www.bodog.com",
     ]
     # Candidate endpoint patterns (coupon/events: richer structure with displayGroups)
     paths = [
+        # v1 coupon
         "/services/sports/event/coupon/events/A/description/ice-hockey/nhl",
         "/services/sports/event/coupon/events/A/description/hockey/nhl",
-        # v2 as a fallback
+        # v2 coupon
         "/services/sports/event/v2/events/A/description/ice-hockey/nhl",
         "/services/sports/event/v2/events/A/description/hockey/nhl",
     ]
-    params = {
-        "marketFilterId": "def",
+    # Try multiple market filters; some mirrors expose player props only when using
+    # specific filters like "players" or "props".
+    market_filters = ["def", "players", "player", "props", "playerprops"]
+    base_params = {
         "preMatchOnly": "true",
         "includeParticipants": "true",
         "lang": "en",
@@ -301,18 +307,23 @@ def collect_bovada_props(date: str) -> pd.DataFrame:
     last_err = None
     for h in hosts:
         for pth in paths:
-            url = f"{h}{pth}"
-            try:
-                r = requests.get(url, params=params, timeout=20)
-                if not r.ok:
-                    continue
-                js = r.json()
-                # v1 coupon returns a list of groups; v2 returns dict with events
-                data = js
+            for mf in market_filters:
+                url = f"{h}{pth}"
+                params = dict(base_params)
+                params["marketFilterId"] = mf
+                try:
+                    r = requests.get(url, params=params, timeout=20)
+                    if not r.ok:
+                        continue
+                    js = r.json()
+                    # v1 coupon returns a list of groups; v2 returns dict with events
+                    data = js
+                    break
+                except Exception as e:
+                    last_err = e
+                    time.sleep(0.3)
+            if data is not None:
                 break
-            except Exception as e:
-                last_err = e
-                time.sleep(0.3)
         if data is not None:
             break
     if data is None:

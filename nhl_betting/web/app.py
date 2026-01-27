@@ -3805,6 +3805,269 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
     except Exception:
         # Silent failure; props section is optional
         pass
+    # Attach projected player box scores (from sim boxscores per player, period 0 totals)
+    try:
+        box_path = PROC_DIR / f"props_boxscores_sim_{date}.csv"
+        df_box = _read_csv_fallback(box_path) if box_path.exists() else pd.DataFrame()
+        if df_box is not None and not df_box.empty:
+            try:
+                db = df_box.copy()
+                # keep totals (period 0)
+                if "period" in db.columns:
+                    db = db[db["period"].fillna(0).astype(int) == 0]
+                # Optional enrichment: positions from roster_master + cache for F → C/L/R
+                pos_by_id = {}
+                try:
+                    roster_path = PROC_DIR / "roster_master.csv"
+                    if roster_path.exists():
+                        rmt = _read_csv_fallback(roster_path)
+                        if rmt is not None and not rmt.empty and {"player_id","position"}.issubset(set(rmt.columns)):
+                            for _, rr0 in rmt.iterrows():
+                                try:
+                                    pid = rr0.get("player_id")
+                                    pos = rr0.get("position")
+                                    if pid is not None and pd.notna(pid) and isinstance(pid, (int, np.integer)):
+                                        pos_by_id[int(pid)] = str(pos or "").strip()
+                                except Exception:
+                                    pass
+                except Exception:
+                    pos_by_id = {}
+                pos_cache = {}
+                try:
+                    cache_path = PROC_DIR / "props_positions_cache.json"
+                    if cache_path.exists():
+                        with open(cache_path, "r", encoding="utf-8") as fh:
+                            pos_cache = json.load(fh) or {}
+                except Exception:
+                    pos_cache = {}
+                # Build estimated skater TOI (minutes) from co-TOI pairs for the slate
+                est_toi_by_player_name: Dict[str, float] = {}
+                try:
+                    co_path = PROC_DIR / f"lineups_co_toi_{date}.csv"
+                    if co_path.exists():
+                        df_co = _read_csv_fallback(co_path)
+                        if df_co is not None and not df_co.empty:
+                            def _get_name(rr_: pd.Series, keys: list[str]) -> Optional[str]:
+                                try:
+                                    for k in keys:
+                                        v = rr_.get(k)
+                                        if v is not None and pd.notna(v):
+                                            s = str(v).strip()
+                                            if s:
+                                                return s
+                                except Exception:
+                                    pass
+                                return None
+                            def _get_min(rr_: pd.Series) -> Optional[float]:
+                                for k in ["co_toi_min","co_toi_minutes","toi_min","ev_toi_min"]:
+                                    try:
+                                        v = rr_.get(k)
+                                        if v is not None and pd.notna(v):
+                                            return float(v)
+                                    except Exception:
+                                        pass
+                                for k in ["co_toi_sec","co_toi_seconds","toi_sec","ev_toi_sec"]:
+                                    try:
+                                        v = rr_.get(k)
+                                        if v is not None and pd.notna(v):
+                                            return float(v) / 60.0
+                                    except Exception:
+                                        pass
+                                return None
+                            for _, rr0 in df_co.iterrows():
+                                try:
+                                    m = _get_min(rr0)
+                                    if m is None or m <= 0:
+                                        continue
+                                    n1 = _get_name(rr0, ["p1_name","player1","p1","player_a","name_a","skater_a"]) or _get_name(rr0, ["name1","a_name"]) 
+                                    n2 = _get_name(rr0, ["p2_name","player2","p2","player_b","name_b","skater_b"]) or _get_name(rr0, ["name2","b_name"]) 
+                                    for nm in [n1, n2]:
+                                        if nm:
+                                            prev = est_toi_by_player_name.get(nm)
+                                            est_toi_by_player_name[nm] = max(float(prev or 0.0), float(m))
+                                except Exception:
+                                    pass
+                except Exception:
+                    est_toi_by_player_name = {}
+                # normalize team abbrs for matching
+                def _abbr(x):
+                    try:
+                        return (get_team_assets(str(x)).get("abbr") or "").upper()
+                    except Exception:
+                        return ""
+                # Iterate game rows and assign top players per side
+                for r in rows:
+                    h = str(r.get("home") or ""); a = str(r.get("away") or "")
+                    if not h or not a:
+                        r["box_home"] = []; r["box_away"] = []; continue
+                    # match game context columns if present
+                    sub = db.copy()
+                    if {"game_home","game_away"}.issubset(sub.columns):
+                        try:
+                            sub = sub[(sub["game_home"].astype(str)==h) & (sub["game_away"].astype(str)==a)]
+                        except Exception:
+                            pass
+                    # Split by team abbr
+                    h_ab = (r.get("home_abbr") or _abbr(h)).upper()
+                    a_ab = (r.get("away_abbr") or _abbr(a)).upper()
+                    def _fmt_row(rr: pd.Series) -> dict:
+                        def _f(k):
+                            try:
+                                v = rr.get(k)
+                                return float(v) if v is not None and pd.notna(v) else None
+                            except Exception:
+                                return None
+                        def _pos_for(rr_: pd.Series) -> Optional[str]:
+                            # 1) roster-master by player_id
+                            try:
+                                pid = rr_.get("player_id")
+                                if pid is not None and pd.notna(pid):
+                                    try:
+                                        pid_i = int(pid)
+                                        p = pos_by_id.get(pid_i)
+                                        if p:
+                                            # If generic F, attempt refine via cache
+                                            if str(p).upper() == "F":
+                                                nm = str(rr_.get("player") or "").strip()
+                                                if nm:
+                                                    parts = nm.split()
+                                                    if len(parts) >= 2:
+                                                        key = f"{parts[0][0]}. {parts[-1]}"
+                                                        p2 = pos_cache.get(key)
+                                                        if p2:
+                                                            return str(p2).upper()
+                                            return str(p).upper()
+                                    except Exception:
+                                        pass
+                            except Exception:
+                                pass
+                            # 2) heuristic: goalie if saves field present
+                            try:
+                                sv = rr_.get("saves")
+                                if sv is not None and pd.notna(sv):
+                                    return "G"
+                            except Exception:
+                                pass
+                            return None
+                        d = {
+                            "player": rr.get("player") or rr.get("player_id"),
+                            "shots": _f("shots"),
+                            "goals": _f("goals"),
+                            "assists": _f("assists"),
+                            "points": _f("points"),
+                            "blocks": _f("blocks"),
+                            "saves": _f("saves"),
+                            "toi": _f("toi_sec"),
+                            "pos": _pos_for(rr),
+                        }
+                        # convert TOI seconds to minutes for display
+                        try:
+                            orig_min = None
+                            if d["toi"] is not None:
+                                try:
+                                    orig_min = round(float(d["toi"]) / 60.0, 1)
+                                except Exception:
+                                    orig_min = None
+                            # Goalies: show original TOI (often ~60m)
+                            if (d.get("pos") or "") == "G":
+                                d["toi_min"] = orig_min
+                            else:
+                                # Skaters: use estimated TOI from co-TOI mapping when available
+                                nm = str(d.get("player") or "").strip()
+                                est = None
+                                try:
+                                    est = est_toi_by_player_name.get(nm)
+                                except Exception:
+                                    est = None
+                                d["toi_min"] = float(est) if (est is not None and est > 0) else None
+                        except Exception:
+                            pass
+                        return d
+                    side_col = "team" if "team" in sub.columns else None
+                    home_rows = []
+                    away_rows = []
+                    if side_col:
+                        try:
+                            tmp = sub.copy()
+                            # Map team names to abbreviations for reliable matching
+                            def _to_abbr(val: Any) -> str:
+                                try:
+                                    return (get_team_assets(str(val)).get("abbr") or "").upper()
+                                except Exception:
+                                    return ""
+                            try:
+                                tmp["team_abbr"] = tmp[side_col].apply(_to_abbr)
+                            except Exception:
+                                tmp["team_abbr"] = ""
+                            home_rows = tmp[tmp["team_abbr"] == h_ab]
+                            away_rows = tmp[tmp["team_abbr"] == a_ab]
+                            # Fallback: if abbr mapping failed, try full-name equality (case-insensitive)
+                            if (isinstance(home_rows, pd.DataFrame) and home_rows.empty) and (isinstance(away_rows, pd.DataFrame) and away_rows.empty):
+                                home_rows = sub[sub[side_col].astype(str).str.upper() == str(h).upper()]
+                                away_rows = sub[sub[side_col].astype(str).str.upper() == str(a).upper()]
+                            # Filter to players in roster_master for this team when available to avoid cross-team artifacts
+                            try:
+                                roster_path = PROC_DIR / "roster_master.csv"
+                                if roster_path.exists():
+                                    rm = _read_csv_fallback(roster_path)
+                                    if rm is not None and not rm.empty:
+                                        rm = rm.copy()
+                                        col_ab = 'team_abbr' if 'team_abbr' in rm.columns else ('team' if 'team' in rm.columns else None)
+                                        if col_ab:
+                                            rm_h = rm[rm[col_ab].astype(str).str.upper() == h_ab]
+                                            rm_a = rm[rm[col_ab].astype(str).str.upper() == a_ab]
+                                            valid_h_ids = set([int(x) for x in rm_h['player_id'].dropna().astype(int).tolist()]) if 'player_id' in rm_h.columns else set()
+                                            valid_h_names = set([str(x).strip() for x in rm_h.get('player', rm_h.get('full_name', pd.Series([]))).dropna().astype(str).tolist()])
+                                            valid_a_ids = set([int(x) for x in rm_a['player_id'].dropna().astype(int).tolist()]) if 'player_id' in rm_a.columns else set()
+                                            valid_a_names = set([str(x).strip() for x in rm_a.get('player', rm_a.get('full_name', pd.Series([]))).dropna().astype(str).tolist()])
+                                            def _filter(df_, ids, names):
+                                                try:
+                                                    df_ = df_.copy()
+                                                    if 'player_id' in df_.columns:
+                                                        df_ = df_[df_['player_id'].astype(str).isin(set([str(i) for i in ids])) | df_['player'].astype(str).isin(names)]
+                                                    else:
+                                                        df_ = df_[df_['player'].astype(str).isin(names)]
+                                                except Exception:
+                                                    pass
+                                                return df_
+                                            home_rows = _filter(home_rows, valid_h_ids, valid_h_names)
+                                            away_rows = _filter(away_rows, valid_a_ids, valid_a_names)
+                            except Exception:
+                                pass
+                        except Exception:
+                            home_rows = sub.head(0); away_rows = sub.head(0)
+                    else:
+                        # no team tag; heuristic split by player/team enrichment not available: skip
+                        home_rows = sub.head(0); away_rows = sub.head(0)
+                    # Sort by projected TOI then points then shots for skaters; goalies bubble up by saves
+                    def _sort_df(df_):
+                        try:
+                            df_ = df_.copy()
+                            # create helper columns if missing
+                            for c in ["toi_sec","points","shots","saves"]:
+                                if c not in df_.columns:
+                                    df_[c] = 0
+                            return df_.sort_values(["toi_sec","points","shots","saves"], ascending=[False, False, False, False])
+                        except Exception:
+                            return df_
+                    home_rows = _sort_df(home_rows)
+                    away_rows = _sort_df(away_rows)
+                    # No cap: show all players (traditional box score)
+                    r["box_home"] = [ _fmt_row(rr) for _, rr in home_rows.iterrows() ]
+                    r["box_away"] = [ _fmt_row(rr) for _, rr in away_rows.iterrows() ]
+            except Exception:
+                # On any failure, ensure keys exist
+                for r in rows:
+                    r["box_home"] = r.get("box_home") or []
+                    r["box_away"] = r.get("box_away") or []
+        else:
+            for r in rows:
+                r["box_home"] = []
+                r["box_away"] = []
+    except Exception:
+        for r in rows:
+            r["box_home"] = r.get("box_home") or []
+            r["box_away"] = r.get("box_away") or []
     html = template.render(
         date=date,
         original_date=requested_date,
@@ -3993,12 +4256,59 @@ async def api_scoreboard(date: Optional[str] = Query(None), debug_cache: Optiona
                                 clock_val = clock3
                         curp = live.get("plays", {}).get("currentPlay", {}).get("about", {})
                         per2 = (ls2.get("currentPeriod") if isinstance(ls2, dict) else None) or (ls2.get("period") if isinstance(ls2, dict) else None) or curp.get("period")
+                        # Extract per-period goals for line score table (best-effort across structures)
+                        home_per = []
+                        away_per = []
+                        try:
+                            periods_obj = ls2.get("periods") if isinstance(ls2, dict) else None
+                            if isinstance(periods_obj, list):
+                                for p in periods_obj:
+                                    try:
+                                        # Common shapes: {'num':1,'home':2,'away':1} or nested team dicts
+                                        hv = None; av = None
+                                        if isinstance(p.get("home"), dict):
+                                            hv = p.get("home", {}).get("goals") or p.get("home", {}).get("score")
+                                        else:
+                                            hv = p.get("home")
+                                        if isinstance(p.get("away"), dict):
+                                            av = p.get("away", {}).get("goals") or p.get("away", {}).get("score")
+                                        else:
+                                            av = p.get("away")
+                                        # Fallback generic keys
+                                        if hv is None:
+                                            hv = p.get("homeGoals") or p.get("homeScore")
+                                        if av is None:
+                                            av = p.get("awayGoals") or p.get("awayScore")
+                                        # Coerce to int if numeric
+                                        try:
+                                            hv = int(hv) if hv is not None else None
+                                        except Exception:
+                                            hv = None
+                                        try:
+                                            av = int(av) if av is not None else None
+                                        except Exception:
+                                            av = None
+                                        if hv is not None:
+                                            home_per.append(hv)
+                                        else:
+                                            home_per.append(None)
+                                        if av is not None:
+                                            away_per.append(av)
+                                        else:
+                                            away_per.append(None)
+                                    except Exception:
+                                        home_per.append(None); away_per.append(None)
+                        except Exception:
+                            home_per = []; away_per = []
                         cached_stats = {}
                         if clock_val:
                             cached_stats["clock"] = clock_val
                             cached_stats["source_clock"] = "stats"
                         if per2 is not None:
                             cached_stats["period"] = per2
+                        if home_per or away_per:
+                            cached_stats["period_goals_home"] = home_per
+                            cached_stats["period_goals_away"] = away_per
                         cached_stats["intermission"] = in_inter
                         _SCOREBOARD_STATS_CACHE[game_pk] = {
                             "last_fetch_ts": now_ts,

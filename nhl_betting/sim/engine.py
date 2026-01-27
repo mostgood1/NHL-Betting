@@ -237,6 +237,8 @@ class PeriodSimulator:
                         idx_pk_a = (idx_pk_a + 1) % max(1, len(pk_away))
                 else:
                     ice_a = (l_away[idx_la % len(l_away)] if l_away else []) + (d_away[idx_da % len(d_away)] if d_away else [])
+                    idx_la = (idx_la + 1) % max(1, len(l_away))
+                    idx_da = (idx_da + 1) % max(1, len(d_away))
             elif seg_is_away_pp and pp_away:
                 # Prefer PP unit 1 slightly (approx TOI share)
                 if len(pp_away) > 1 and self.rng.random() < 0.65:
@@ -253,9 +255,15 @@ class PeriodSimulator:
                         idx_pk_h = (idx_pk_h + 1) % max(1, len(pk_home))
                 else:
                     ice_h = (l_home[idx_lh % len(l_home)] if l_home else []) + (d_home[idx_dh % len(d_home)] if d_home else [])
+                    idx_lh = (idx_lh + 1) % max(1, len(l_home))
+                    idx_dh = (idx_dh + 1) % max(1, len(d_home))
             else:
                 ice_h = (l_home[idx_lh % len(l_home)] if l_home else []) + (d_home[idx_dh % len(d_home)] if d_home else [])
                 ice_a = (l_away[idx_la % len(l_away)] if l_away else []) + (d_away[idx_da % len(d_away)] if d_away else [])
+                idx_lh = (idx_lh + 1) % max(1, len(l_home))
+                idx_dh = (idx_dh + 1) % max(1, len(d_home))
+                idx_la = (idx_la + 1) % max(1, len(l_away))
+                idx_da = (idx_da + 1) % max(1, len(d_away))
             # Emit shift events for TOI attribution for all players on ice
             for pid in (ice_h or []):
                 events.append(Event(t=t0, period=period_idx + 1, team=gs.home.name, kind="shift", player_id=pid, meta={"dur": seg_len, "strength": strength_h}))

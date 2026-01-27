@@ -539,8 +539,8 @@ if ($PropsRecs) {
       python @($simArgsBase + @("--date", $today))
       python @($simArgsBase + @("--date", $tomorrow))
       # Supplement: simulate SAVES/BLOCKS independent of provider lines
-      Write-Host "[daily_update] Simulating nolines props (SAVES/BLOCKS) for $today & $tomorrow …" -ForegroundColor Yellow
-      $nolArgsBase = @("-m", "nhl_betting.cli", "props-simulate-unlined", "--markets", "SAVES,BLOCKS", "--candidate-lines", "SAVES=24.5,26.5,28.5,30.5;BLOCKS=1.5,2.5,3.5", "--n-sims", "16000", "--sim-shared-k", "1.2")
+      Write-Host "[daily_update] Simulating nolines props (SAVES/BLOCKS/SOG) for $today & $tomorrow …" -ForegroundColor Yellow
+      $nolArgsBase = @("-m", "nhl_betting.cli", "props-simulate-unlined", "--markets", "SAVES,BLOCKS,SOG", "--candidate-lines", "SAVES=24.5,26.5,28.5,30.5;BLOCKS=1.5,2.5,3.5;SOG=1.5,2.5,3.5,4.5", "--n-sims", "16000", "--sim-shared-k", "1.2")
       if ($PropsXGGamma) { $nolArgsBase += @("--props-xg-gamma", "$PropsXGGamma") } else { $nolArgsBase += @("--props-xg-gamma", "0.02") }
       if ($PropsPenaltyGamma) { $nolArgsBase += @("--props-penalty-gamma", "$PropsPenaltyGamma") } else { $nolArgsBase += @("--props-penalty-gamma", "0.06") }
       if ($PropsGoalieFormGamma) { $nolArgsBase += @("--props-goalie-form-gamma", "$PropsGoalieFormGamma") } else { $nolArgsBase += @("--props-goalie-form-gamma", "0.02") }
@@ -574,7 +574,7 @@ if ($PropsRecs) {
       python @($recsSimBase + @("--date", $tomorrow))
       # Also produce nolines-only recommendations (SAVES/BLOCKS) without odds
       Write-Host "[daily_update] Generating nolines props recommendations for $today & $tomorrow …" -ForegroundColor Cyan
-      $recsNoBase = @("-m", "nhl_betting.cli", "props-recommendations-nolines", "--markets", "SAVES,BLOCKS", "--top", "$PropsTop", "--min-prob-per-market", "SAVES=$SavesGate,BLOCKS=0.92")
+      $recsNoBase = @("-m", "nhl_betting.cli", "props-recommendations-nolines", "--markets", "SAVES,BLOCKS,SOG", "--top", "$PropsTop", "--min-prob-per-market", "SAVES=$SavesGate,BLOCKS=0.92,SOG=0.72")
       python @($recsNoBase + @("--date", $today))
       python @($recsNoBase + @("--date", $tomorrow))
       # Combine EV-based and nolines into one output per day

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Dict, Optional, List, Set
+import functools
 
 import numpy as np
 import pandas as pd
@@ -20,6 +21,7 @@ def _normalize_name(s: str) -> str:
     return s
 
 
+@functools.lru_cache(maxsize=50000)
 def _unwrap_dictish_name(val: str) -> str:
     """If the name is serialized like "{'default': 'N. Schmaltz'}", extract the default/name.
 
@@ -74,9 +76,13 @@ def _select_player_rows(df: pd.DataFrame, player: str, role: str, metric_cols: L
         pdf = df[df.get("role", "").astype(str).str.lower() == str(role).lower()].copy()
         # Normalize player names in the view for matching
         if "player" in pdf.columns:
-            # Unwrap dict-like serialized names, then normalize
-            pdf["_p_norm"] = pdf["player"].astype(str).map(_unwrap_dictish_name).map(_normalize_name)
-            pdf = pdf[pdf["_p_norm"].isin(candidates)]
+            # If a normalized column already exists, reuse it to avoid repeated parsing
+            if "_p_norm" in pdf.columns:
+                pdf = pdf[pdf["_p_norm"].isin(candidates)]
+            else:
+                # Unwrap dict-like serialized names, then normalize (cached)
+                pdf["_p_norm"] = pdf["player"].astype(str).map(_unwrap_dictish_name).map(_normalize_name)
+                pdf = pdf[pdf["_p_norm"].isin(candidates)]
         else:
             # No player column; return empty schema
             return pd.DataFrame(columns=expected)

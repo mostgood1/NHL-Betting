@@ -6165,7 +6165,34 @@ def props_simulate_boxscores(
             df_sum = pd.concat(df_parts, ignore_index=True)
             grp_cols = ['team','player_id','period','player','game_home','game_away','date']
             df_sum = df_sum.groupby(grp_cols, as_index=False)[['shots','goals','assists','points','blocks','saves','toi_sec']].sum()
+            # Convert to expected means across sims
             df_sum[['shots','goals','assists','points','blocks','saves','toi_sec']] = df_sum[['shots','goals','assists','points','blocks','saves','toi_sec']].astype(float) / float(n_sims)
+            # Integerize period stats for realism and recompute totals (period=0)
+            def _normalize_boxscores(df: pd.DataFrame) -> pd.DataFrame:
+                df = df.copy()
+                # Separate period rows and totals
+                periods = df[df['period'] > 0].copy()
+                # Round core count stats to integers for per-period rows
+                for col in ['shots','goals','assists','blocks','saves']:
+                    if col in periods.columns:
+                        periods[col] = periods[col].fillna(0).round().astype(int)
+                        periods[col] = periods[col].clip(lower=0)
+                # Ensure points consistency = goals + assists
+                if {'goals','assists'}.issubset(periods.columns):
+                    periods['points'] = (periods['goals'].astype(int) + periods['assists'].astype(int)).astype(int)
+                # Minimal TOI floor for any non-zero stat rows to avoid zero-TOI anomalies
+                if 'toi_sec' in periods.columns:
+                    mask_nonzero = (periods[['shots','goals','assists','blocks','saves']].sum(axis=1) > 0)
+                    periods.loc[mask_nonzero & (periods['toi_sec'] <= 0), 'toi_sec'] = 60.0
+                # Recompute totals across periods (period=0) with integer sums
+                key_cols = ['team','player_id','player','game_home','game_away','date']
+                totals = periods.groupby(key_cols, as_index=False)[['shots','goals','assists','points','blocks','saves','toi_sec']].sum()
+                totals['period'] = 0
+                cols = ['team','player_id','period','player','game_home','game_away','date','shots','goals','assists','points','blocks','saves','toi_sec']
+                # Combine back
+                out_df = pd.concat([periods[cols], totals[cols]], ignore_index=True)
+                return out_df
+            df_sum = _normalize_boxscores(df_sum)
             agg_all.append(df_sum)
     if not agg_all:
         print("No aggregated boxscores generated.")
@@ -6218,38 +6245,120 @@ def props_precompute_all(
     except Exception:
         hist = pd.DataFrame()
     # Slate teams via Web API
-    try:
-        web = NHLWebClient()
-        games = web.schedule_day(date)
-    except Exception:
-        games = []
-    slate_names = set()
-    for g in games or []:
-        slate_names.add(str(g.home)); slate_names.add(str(g.away))
     slate_abbrs = set()
-    for nm in slate_names:
-        ab = (get_team_assets(str(nm)).get('abbr') or '').upper()
-        if ab:
-            slate_abbrs.add(ab)
+    # Prefer predictions file to define slate, fallback to Web schedule
+    try:
+        pred_path = PROC_DIR / f"predictions_{date}.csv"
+        if pred_path.exists():
+            p = pd.read_csv(pred_path)
+            if not p.empty and {'home','away'}.issubset(p.columns):
+                for _, r in p.iterrows():
+                    for nm in [r.get('home'), r.get('away')]:
+                        ab = (get_team_assets(str(nm)).get('abbr') or '').upper()
+                        if ab:
+                            slate_abbrs.add(ab)
+    except Exception:
+        pass
+    if not slate_abbrs:
+        try:
+            web = NHLWebClient()
+            games = web.schedule_day(date)
+        except Exception:
+            games = []
+        slate_names = set()
+        for g in games or []:
+            slate_names.add(str(g.home)); slate_names.add(str(g.away))
+        for nm in slate_names:
+            ab = (get_team_assets(str(nm)).get('abbr') or '').upper()
+            if ab:
+                slate_abbrs.add(ab)
     # Try live roster; fallback to historical enrichment
     roster_df = pd.DataFrame()
+    # Prefer local roster snapshot if present
+    try:
+        snap = PROC_DIR / f"roster_{date}.csv"
+        if snap.exists():
+            s = pd.read_csv(snap)
+            name_col = 'full_name' if 'full_name' in s.columns else ('player' if 'player' in s.columns else None)
+            team_col = 'team_abbr' if 'team_abbr' in s.columns else ('team' if 'team' in s.columns else None)
+            pos_col = 'position' if 'position' in s.columns else None
+            if name_col and team_col:
+                s[name_col] = s[name_col].astype(str).str.strip()
+                rows = []
+                for _, rr in s.iterrows():
+                    nm = rr.get(name_col)
+                    ab = str(rr.get(team_col) or '').upper()
+                    pos_raw = str(rr.get(pos_col) or '').upper() if pos_col else ''
+                    pos = 'G' if pos_raw.startswith('G') else ('D' if pos_raw.startswith('D') else ('F' if pos_raw else None))
+                    # If slate teams known, filter by them; else include all
+                    if slate_abbrs and ab and (ab not in slate_abbrs):
+                        continue
+                    rows.append({'player': nm, 'position': pos, 'team': ab})
+                roster_df = pd.DataFrame(rows)
+        # Fallback: try alternate snapshot filename if primary yielded no rows
+        if (roster_df is None or roster_df.empty):
+            alt = PROC_DIR / f"roster_snapshot_{date}.csv"
+            if alt.exists():
+                s = pd.read_csv(alt)
+                name_col = 'full_name' if 'full_name' in s.columns else ('player' if 'player' in s.columns else None)
+                team_col = 'team_abbr' if 'team_abbr' in s.columns else ('team' if 'team' in s.columns else None)
+                pos_col = 'position' if 'position' in s.columns else None
+                if name_col and team_col:
+                    s[name_col] = s[name_col].astype(str).str.strip()
+                    rows = []
+                    for _, rr in s.iterrows():
+                        nm = rr.get(name_col)
+                        ab = str(rr.get(team_col) or '').upper()
+                        pos_raw = str(rr.get(pos_col) or '').upper() if pos_col else ''
+                        pos = 'G' if pos_raw.startswith('G') else ('D' if pos_raw.startswith('D') else ('F' if pos_raw else None))
+                        # Do not filter by slate in fallback; include all to avoid empty output
+                        rows.append({'player': nm, 'position': pos, 'team': ab})
+                    roster_df = pd.DataFrame(rows)
+    except Exception:
+        roster_df = pd.DataFrame()
+    # Final local fallback: use persisted roster_master snapshot
+    if roster_df is None or roster_df.empty:
+        try:
+            master = PROC_DIR / "roster_master.csv"
+            if master.exists():
+                s = pd.read_csv(master)
+                name_col = 'full_name' if 'full_name' in s.columns else ('player' if 'player' in s.columns else None)
+                team_col = 'team_abbr' if 'team_abbr' in s.columns else ('team' if 'team' in s.columns else None)
+                pos_col = 'position' if 'position' in s.columns else None
+                if name_col and team_col:
+                    s[name_col] = s[name_col].astype(str).str.strip()
+                    rows = []
+                    for _, rr in s.iterrows():
+                        nm = rr.get(name_col)
+                        ab = str(rr.get(team_col) or '').upper()
+                        pos_raw = str(rr.get(pos_col) or '').upper() if pos_col else ''
+                        pos = 'G' if pos_raw.startswith('G') else ('D' if pos_raw.startswith('D') else ('F' if pos_raw else None))
+                        # Filter by slate when known
+                        if slate_abbrs and ab and (ab not in slate_abbrs):
+                            continue
+                        rows.append({'player': nm, 'position': pos, 'team': ab})
+                    roster_df = pd.DataFrame(rows)
+        except Exception:
+            pass
     try:
         from .data.rosters import list_teams as _list_teams, fetch_current_roster as _fetch
         teams = _list_teams()
-        name_to_id = { str(t.get('name') or '').strip().lower(): int(t.get('id')) for t in teams }
+        abbr_to_id = { str(t.get('abbreviation') or '').strip().upper(): int(t.get('id')) for t in teams }
         id_to_abbr = { int(t.get('id')): str(t.get('abbreviation') or '').upper() for t in teams }
-        rows = []
-        for nm in sorted(slate_names):
-            tid = name_to_id.get(str(nm).strip().lower())
-            if not tid:
-                continue
-            try:
-                players = _fetch(tid)
-            except Exception:
-                players = []
-            for p in players:
-                rows.append({ 'player_id': p.player_id, 'player': p.full_name, 'position': p.position, 'team': id_to_abbr.get(tid) })
-        roster_df = pd.DataFrame(rows)
+        if roster_df is None or roster_df.empty:
+            rows = []
+            # Fetch current roster per slate team
+            for ab in sorted(slate_abbrs) if slate_abbrs else [str(t.get('abbreviation') or '').upper() for t in teams]:
+                tid = abbr_to_id.get(ab)
+                if not tid:
+                    continue
+                try:
+                    players = _fetch(tid)
+                except Exception:
+                    players = []
+                for p in players:
+                    rows.append({ 'player_id': p.player_id, 'player': p.full_name, 'position': p.position, 'team': id_to_abbr.get(tid) })
+            roster_df = pd.DataFrame(rows)
     except Exception:
         roster_df = pd.DataFrame()
     if roster_df is None or roster_df.empty:
@@ -6357,6 +6466,20 @@ def props_precompute_all(
             df = df.sort_values(['team','position','player','market'])
     except Exception:
         pass
+    # Correct team assignments using roster snapshot when available
+    try:
+        snap = PROC_DIR / f"roster_{date}.csv"
+        if snap.exists() and (df is not None and not df.empty):
+            snap_df = pd.read_csv(snap)
+            # Expect columns 'full_name' and 'team_abbr'
+            name_col = 'full_name' if 'full_name' in snap_df.columns else ('player' if 'player' in snap_df.columns else None)
+            team_col = 'team_abbr' if 'team_abbr' in snap_df.columns else ('team' if 'team' in snap_df.columns else None)
+            if name_col and team_col:
+                snap_df[name_col] = snap_df[name_col].astype(str).str.strip()
+                name_to_team = {str(r[name_col]): str(r[team_col]).upper() for _, r in snap_df.iterrows() if pd.notna(r.get(team_col))}
+                df['team'] = df['player'].astype(str).str.strip().map(lambda x: name_to_team.get(x, df.loc[df['player'].astype(str).str.strip() == x, 'team'].iloc[0] if 'team' in df.columns else None))
+    except Exception:
+        pass
     out_path = PROC_DIR / f"props_projections_all_{date}.csv"
     save_df(df, out_path)
     print(f"[props-precompute] wrote {out_path} rows={len(df)}")
@@ -6371,6 +6494,154 @@ def props_project_all(
     """Alias for props_precompute_all with compatible options used by scripts/daily_update.ps1."""
     # Currently props_precompute_all always includes goalies and uses ~365 days history; options provided for compatibility
     return props_precompute_all(date=date)
+
+
+@app.command(name="props-fix-projections-teams")
+def props_fix_projections_teams(
+    date: str = typer.Option(..., help="Slate date YYYY-MM-DD (ET)"),
+):
+    """Fix player-to-team mapping in props_projections_all_{date}.csv using roster snapshot for the date.
+
+    Reads data/processed/roster_{date}.csv to map names to team abbreviations and overwrites the projections file.
+    """
+    import pandas as pd
+    from .utils.io import PROC_DIR, save_df
+    proj_path = PROC_DIR / f"props_projections_all_{date}.csv"
+    snap_path = PROC_DIR / f"roster_{date}.csv"
+    if not proj_path.exists() or (getattr(proj_path.stat(), "st_size", 0) == 0):
+        print("No projections file present to fix:", proj_path)
+        raise typer.Exit(code=0)
+    try:
+        df = pd.read_csv(proj_path)
+    except Exception:
+        print("Failed to read projections file:", proj_path)
+        raise typer.Exit(code=1)
+    if not snap_path.exists():
+        print("No roster snapshot present:", snap_path)
+        raise typer.Exit(code=0)
+    try:
+        snap = pd.read_csv(snap_path)
+    except Exception:
+        print("Failed to read roster snapshot:", snap_path)
+        raise typer.Exit(code=1)
+    name_col = 'full_name' if 'full_name' in snap.columns else ('player' if 'player' in snap.columns else None)
+    team_col = 'team_abbr' if 'team_abbr' in snap.columns else ('team' if 'team' in snap.columns else None)
+    if not name_col or not team_col:
+        print("Roster snapshot missing expected columns; cannot fix teams.")
+        raise typer.Exit(code=1)
+    snap[name_col] = snap[name_col].astype(str).str.strip()
+    name_to_team = {str(r[name_col]): str(r[team_col]).upper() for _, r in snap.iterrows() if pd.notna(r.get(team_col))}
+    if df is None or df.empty or 'player' not in df.columns:
+        print("Projections file empty or missing 'player' column; nothing to fix.")
+        raise typer.Exit(code=0)
+    df['player'] = df['player'].astype(str).str.strip()
+    df['team'] = df['player'].map(lambda x: name_to_team.get(x, df.loc[df['player'] == x, 'team'].iloc[0] if 'team' in df.columns else None))
+    save_df(df, proj_path)
+    print(f"[props-fix] wrote corrected team mappings to {proj_path} rows={len(df)}")
+
+
+@app.command(name="props-projections-force")
+def props_projections_force(
+    date: str = typer.Option(..., help="Slate date YYYY-MM-DD (ET)"),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Print detailed progress while computing projections"),
+):
+    """Force-generate props projections for a date using local roster snapshots only.
+
+    Uses roster_{date}.csv or roster_snapshot_{date}.csv (falling back to roster_master.csv)
+    and computes simple lambdas via Props models. Writes props_projections_all_{date}.csv.
+    """
+    import pandas as pd
+    from .utils.io import PROC_DIR, RAW_DIR, save_df
+    from .models.props import SkaterShotsModel, GoalieSavesModel, SkaterGoalsModel, SkaterAssistsModel, SkaterPointsModel, SkaterBlocksModel
+    from .web.teams import get_team_assets
+    # Load roster snapshot
+    roster_df = pd.DataFrame()
+    tried = []
+    for fn in [f"roster_{date}.csv", f"roster_snapshot_{date}.csv", "roster_master.csv"]:
+        p = PROC_DIR / fn
+        if p.exists():
+            try:
+                s = pd.read_csv(p)
+                tried.append(fn)
+                name_col = 'full_name' if 'full_name' in s.columns else ('player' if 'player' in s.columns else None)
+                team_col = 'team_abbr' if 'team_abbr' in s.columns else ('team' if 'team' in s.columns else None)
+                pos_col = 'position' if 'position' in s.columns else None
+                if name_col and team_col:
+                    s[name_col] = s[name_col].astype(str).str.strip()
+                    rows = []
+                    for _, rr in s.iterrows():
+                        nm = rr.get(name_col)
+                        ab = str(rr.get(team_col) or rr.get('team') or '').upper()
+                        # Normalize team via assets if missing
+                        if not ab:
+                            ab = (get_team_assets(str(rr.get('team') or '')).get('abbr') or '').upper()
+                        pos_raw = str(rr.get(pos_col) or '').upper() if pos_col else ''
+                        pos = 'G' if pos_raw.startswith('G') else ('D' if pos_raw.startswith('D') else ('F' if pos_raw else None))
+                        rows.append({'player': nm, 'position': pos, 'team': ab})
+                    roster_df = pd.DataFrame(rows)
+                    if not roster_df.empty:
+                        if verbose:
+                            print(f"[props-force] roster source={fn} players={len(roster_df)}")
+                        break
+            except Exception:
+                continue
+    if roster_df is None or roster_df.empty:
+        if verbose:
+            print(f"[props-force] no roster rows; tried sources={tried}")
+        save_df(pd.DataFrame(columns=["date","player","team","position","market","proj_lambda"]), PROC_DIR / f"props_projections_all_{date}.csv")
+        print(f"[props-force] wrote empty projections for {date}")
+        return
+    # Load history (best effort)
+    try:
+        hist = pd.read_csv(RAW_DIR / "player_game_stats.csv")
+        # Precompute normalized player names once to avoid repeated parsing in models
+        if hist is not None and not hist.empty:
+            from .models.props import _unwrap_dictish_name as _uwrap, _normalize_name as _norm
+            try:
+                s = hist.get("player")
+                if s is not None:
+                    hist["_p_norm"] = s.astype(str).map(_uwrap).map(_norm)
+                    if verbose:
+                        print(f"[props-force] history rows={len(hist)} with _p_norm cached")
+            except Exception:
+                pass
+    except Exception:
+        hist = pd.DataFrame()
+        if verbose:
+            print("[props-force] history missing; proceeding with defaults")
+    shots = SkaterShotsModel(); saves = GoalieSavesModel(); goals = SkaterGoalsModel(); assists = SkaterAssistsModel(); points = SkaterPointsModel(); blocks = SkaterBlocksModel()
+    def _clean_name(s: str) -> str:
+        try:
+            x = str(s or '').strip()
+            return ' '.join(x.split())
+        except Exception:
+            return str(s or '')
+    out_rows = []
+    if verbose:
+        print(f"[props-force] computing lambdas for {len(roster_df)} players…")
+    for i, r in enumerate(roster_df.itertuples(index=False)):
+        player = _clean_name(getattr(r, 'player'))
+        team = getattr(r, 'team')
+        pos = str(getattr(r, 'position') or '').upper()
+        if not player:
+            continue
+        try:
+            if pos == 'G':
+                lam = saves.player_lambda(hist, player)
+                out_rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'SAVES', 'proj_lambda': float(lam) if lam is not None else None})
+            else:
+                lam = shots.player_lambda(hist, player); out_rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'SOG', 'proj_lambda': float(lam) if lam is not None else None})
+                lam = goals.player_lambda(hist, player); out_rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'GOALS', 'proj_lambda': float(lam) if lam is not None else None})
+                lam = assists.player_lambda(hist, player); out_rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'ASSISTS', 'proj_lambda': float(lam) if lam is not None else None})
+                lam = points.player_lambda(hist, player); out_rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'POINTS', 'proj_lambda': float(lam) if lam is not None else None})
+                lam = blocks.player_lambda(hist, player); out_rows.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'BLOCKS', 'proj_lambda': float(lam) if lam is not None else None})
+        except Exception:
+            continue
+        if verbose and (i % 200 == 0):
+            print(f"[props-force] processed {i} players…")
+    df = pd.DataFrame(out_rows)
+    save_df(df, PROC_DIR / f"props_projections_all_{date}.csv")
+    print(f"[props-force] wrote props_projections_all_{date}.csv rows={len(df)}")
 
 
 @app.command(name="props-recommendations-sim")
@@ -6649,6 +6920,123 @@ def props_recommendations_boxscores(
     out_path = PROC_DIR / f"props_recommendations_{date}.csv"
     save_df(final, out_path)
     print(f"[props-recs-boxscores] wrote {out_path} with {len(final)} rows")
+
+@app.command(name="props-projections-from-sim")
+def props_projections_from_sim(
+    date: str = typer.Option(..., help="Slate date YYYY-MM-DD (ET)"),
+    source: str = typer.Option("agg", help="Source: 'agg' for props_boxscores_sim, 'samples' for per-sample aggregation"),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Print detailed progress while computing projections from sim"),
+):
+    """Derive props projections (proj_lambda) from play-level sim boxscores.
+
+    Writes props_projections_all_{date}.csv using mean values per player for markets:
+    SOG, GOALS, ASSISTS, POINTS, BLOCKS, SAVES.
+    """
+    import pandas as pd
+    import numpy as _np
+    from pathlib import Path as _Path
+    from .utils.io import PROC_DIR, save_df
+    from .web.teams import get_team_assets as _assets
+    # Load sim data
+    df = pd.DataFrame()
+    if source.lower() == "agg":
+        p = PROC_DIR / f"props_boxscores_sim_{date}.csv"
+        if p.exists():
+            df = pd.read_csv(p)
+            if verbose:
+                print(f"[proj-sim] using aggregated boxscores: {p} rows={len(df)}")
+        else:
+            if verbose:
+                print(f"[proj-sim] aggregated file missing: {p}; falling back to samples")
+            source = "samples"
+    if source.lower() == "samples":
+        p_parq = PROC_DIR / f"props_boxscores_sim_samples_{date}.parquet"
+        p_csv = PROC_DIR / f"props_boxscores_sim_samples_{date}.csv"
+        if p_parq.exists():
+            try:
+                df = pd.read_parquet(p_parq, engine='pyarrow')
+            except Exception:
+                import duckdb as _duck
+                f_posix = str(p_parq).replace('\\', '/')
+                df = _duck.query(f"SELECT * FROM read_parquet('{f_posix}')").df()
+        elif p_csv.exists():
+            df = pd.read_csv(p_csv)
+        else:
+            print("No sim samples found for", date)
+            save_df(pd.DataFrame(columns=["date","player","team","position","market","proj_lambda"]), PROC_DIR / f"props_projections_all_{date}.csv")
+            return
+        if df is None or df.empty:
+            print("Empty sim samples; aborting.")
+            save_df(pd.DataFrame(columns=["date","player","team","position","market","proj_lambda"]), PROC_DIR / f"props_projections_all_{date}.csv")
+            return
+        if verbose:
+            print(f"[proj-sim] aggregating samples rows={len(df)}")
+        # Aggregate mean per player/team/date from samples
+        if {'player','team','value','market','date'}.issubset(df.columns):
+            grp = df.groupby(['date','player','team'], as_index=False)
+            wide = grp.apply(lambda g: g.pivot_table(index=['date','player','team'], columns='market', values='value', aggfunc='mean')).reset_index(drop=True)
+            try:
+                wide = wide.reset_index()
+            except Exception:
+                pass
+            wide.columns = [c if isinstance(c, str) else str(c) for c in wide.columns]
+            df = wide
+    if df is None or df.empty:
+        print("No sim boxscores available; writing empty projections.")
+        save_df(pd.DataFrame(columns=["date","player","team","position","market","proj_lambda"]), PROC_DIR / f"props_projections_all_{date}.csv")
+        return
+    # Normalize schema
+    df = df.copy()
+    df['date'] = df.get('date').astype(str)
+    df['player'] = df.get('player').astype(str).map(lambda s: ' '.join(str(s or '').split()))
+    def _abbr_team(n: str | None) -> str | None:
+        if not n:
+            return None
+        try:
+            a = _assets(str(n)) or {}
+            return str(a.get('abbr') or '').upper() or None
+        except Exception:
+            return None
+    df['team_abbr'] = df.get('team').map(_abbr_team)
+    def _infer_pos(row) -> str:
+        try:
+            sv = float(row.get('saves')) if 'saves' in row and pd.notna(row.get('saves')) else 0.0
+            if sv > 0.0:
+                return 'G'
+        except Exception:
+            pass
+        return 'F'
+    try:
+        df['position'] = df.apply(_infer_pos, axis=1)
+    except Exception:
+        df['position'] = 'F'
+    markets = []
+    def _add(mk: str, col: str):
+        if col in df.columns:
+            markets.append((mk, col))
+    _add('SOG', 'shots')
+    _add('GOALS', 'goals')
+    _add('ASSISTS', 'assists')
+    _add('POINTS', 'points')
+    _add('BLOCKS', 'blocks')
+    _add('SAVES', 'saves')
+    rows = []
+    for _, r in df.iterrows():
+        d = str(r.get('date'))
+        pl = str(r.get('player'))
+        team = r.get('team_abbr')
+        pos = str(r.get('position'))
+        for mk, col in markets:
+            val = r.get(col)
+            try:
+                lam = float(val) if pd.notna(val) else _np.nan
+            except Exception:
+                lam = _np.nan
+            rows.append({'date': d, 'player': pl, 'team': team, 'position': pos, 'market': mk, 'proj_lambda': lam})
+    out = pd.DataFrame(rows)
+    out_path = PROC_DIR / f"props_projections_all_{date}.csv"
+    save_df(out, out_path)
+    print(f"[proj-sim] wrote {out_path} rows={len(out)}")
 
 @app.command()
 def odds_fetch_historical(
@@ -12546,6 +12934,135 @@ def game_accuracy_day(
         pass
     print(json.dumps({"ok": True, "date": date, **out, "path": str(out_path)}))
 
+
+@app.command(name="props-validate-boxscores")
+def props_validate_boxscores(
+    date: str = typer.Option(..., help="Slate date YYYY-MM-DD (ET)"),
+    source: str = typer.Option("agg", help="Source: 'agg' from props_boxscores_sim, 'pos' from sim_boxscores_pos"),
+    verbose: bool = typer.Option(True, help="Print summary of sanity checks"),
+):
+    """Sanity-check simulated player boxscores for realism and internal consistency.
+
+    Checks:
+    - Totals match sum of periods for all stats and TOI.
+    - Integer counts for shots/goals/assists/points/blocks/saves.
+    - No active player has zero TOI (sum over periods) when present in periods.
+    - Saves only attributed to goalies (based on processed roster positions).
+    - Team-level SOG (shots+goals) vs goalie saves+goals are reasonably aligned.
+    Writes a JSON summary to data/processed/props_boxscores_sanity_{date}.json.
+    """
+    import json
+    import pandas as pd
+    from collections import defaultdict
+    from .utils.io import PROC_DIR
+    box_path = PROC_DIR / (f"props_boxscores_sim_{date}.csv" if source == "agg" else f"sim_boxscores_pos_{date}.csv")
+    if not box_path.exists() or box_path.stat().st_size == 0:
+        print(f"[sanity] missing boxscores: {box_path}")
+        raise typer.Exit(code=1)
+    df = pd.read_csv(box_path)
+    if df.empty:
+        print("[sanity] empty boxscores; aborting")
+        raise typer.Exit(code=1)
+    # Ensure required columns
+    need = ["team","player_id","period","shots","goals","assists","points","blocks","saves","toi_sec"]
+    for c in need:
+        if c not in df.columns:
+            print(f"[sanity] missing column {c} in {box_path.name}")
+            raise typer.Exit(code=1)
+    # Load roster positions for goalie check
+    pos_map: dict[int, str] = {}
+    roster_path = PROC_DIR / f"roster_{date}.csv"
+    if roster_path.exists():
+        try:
+            ro = pd.read_csv(roster_path)
+            for _, rr in ro.iterrows():
+                try:
+                    pid = int(float(rr.get("player_id") or 0))
+                except Exception:
+                    continue
+                pos_map[pid] = str(rr.get("position") or rr.get("primary_position") or "")
+        except Exception:
+            pass
+    # Summary aggregations
+    violations = defaultdict(list)
+    # 1) totals equal sum of periods
+    per = df[df["period"] > 0].copy()
+    tot = df[df["period"] == 0].copy()
+    sum_per = per.groupby(["team","player_id"], as_index=False)[["shots","goals","assists","points","blocks","saves","toi_sec"]].sum()
+    merged = sum_per.merge(tot, on=["team","player_id"], suffixes=("_sum",""), how="left")
+    for col in ["shots","goals","assists","points","blocks","saves","toi_sec"]:
+        diff = (merged[f"{col}_sum"].fillna(0) - merged[col].fillna(0)).abs()
+        bad = merged[diff > (1e-6 if col == "toi_sec" else 0)].copy()
+        if not bad.empty:
+            violations[f"totals_mismatch_{col}"] = bad[["team","player_id",f"{col}_sum",col]].head(20).to_dict(orient="records")
+    # 2) integer columns
+    for col in ["shots","goals","assists","points","blocks","saves"]:
+        non_int = df[(df[col] != df[col].round()).astype(bool)]
+        if not non_int.empty:
+            violations[f"non_integer_{col}"] = non_int[["team","player_id","period",col]].head(20).to_dict(orient="records")
+    # 3) TOI non-zero for active players
+    act_toi = per.groupby(["team","player_id"], as_index=False)[["toi_sec"]].sum()
+    zero_toi = act_toi[act_toi["toi_sec"] <= 0.0]
+    if not zero_toi.empty:
+        violations["zero_toi_actives"] = zero_toi[["team","player_id","toi_sec"]].head(50).to_dict(orient="records")
+    # 4) saves only for goalies (if roster position known)
+    if pos_map:
+        saves_non_goalie = df[(df["saves"] > 0) & (~df["player_id"].astype(int).map(lambda x: str(pos_map.get(x,"")) == "G"))]
+        if not saves_non_goalie.empty:
+            violations["saves_non_goalie"] = saves_non_goalie[["team","player_id","period","saves"]].head(50).to_dict(orient="records")
+    # 5) Team-level SOG vs saves + goals sanity (per period)
+    # Compute SOG_total = shots + goals from player rows
+    per_team = per.copy()
+    per_team["sog"] = per_team["shots"].astype(int) + per_team["goals"].astype(int)
+    sog_by_team_period = per_team.groupby(["team","period"], as_index=False)[["sog","goals"]].sum()
+    # Goalie saves by opponent team period
+    goalie_saves = per[per["saves"] > 0].groupby(["team","period"], as_index=False)[["saves"]].sum()
+    # Infer opponent mapping from all game_home/game_away pairs present
+    opp_pairs = {}
+    if set(["game_home","game_away"]).issubset(df.columns):
+        pairs = df[["game_home","game_away"]].dropna().drop_duplicates()
+        for _, r in pairs.iterrows():
+            h = str(r.get("game_home","")); a = str(r.get("game_away",""))
+            if h and a:
+                opp_pairs[h] = a
+                opp_pairs[a] = h
+    sanity_sog = []
+    for _, row in sog_by_team_period.iterrows():
+        team = str(row["team"]) ; period = int(row["period"]) ; sog = int(row["sog"]) ; goals = int(row["goals"])
+        opp = opp_pairs.get(team, None)
+        if opp is None:
+            continue
+        opp_saves = int(goalie_saves[(goalie_saves["team"] == opp) & (goalie_saves["period"] == period)]["saves"].sum())
+        diff = abs((opp_saves + goals) - sog)
+        sanity_sog.append({"team": team, "period": period, "sog": sog, "opp_saves": opp_saves, "goals": goals, "diff": diff})
+    large_diff = [x for x in sanity_sog if x["diff"] > 3]
+    if large_diff:
+        violations["team_sog_vs_saves_goals_mismatch"] = large_diff[:20]
+    # Compose result
+    result = {
+        "date": date,
+        "source": source,
+        "file": str(box_path),
+        "violations_count": {k: (len(v) if isinstance(v, list) else 1) for k, v in violations.items()},
+        "has_violations": bool(violations),
+    }
+    out_path = PROC_DIR / f"props_boxscores_sanity_{date}.json"
+    try:
+        with open(out_path, "w", encoding="utf-8") as f:
+            json.dump(result, f, indent=2)
+        if verbose:
+            print(f"[sanity] wrote {out_path}")
+            print(json.dumps(result, indent=2))
+    except Exception as e:
+        print(f"[sanity] failed to write summary: {e}")
+    # Print concise summary
+    if verbose:
+        if not violations:
+            print("[sanity] OK: no violations detected")
+        else:
+            print("[sanity] Violations detected:")
+            for k, v in result["violations_count"].items():
+                print(f" - {k}: {v}")
 
 if __name__ == "__main__":
     app()

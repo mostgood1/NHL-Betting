@@ -516,8 +516,232 @@ def _gh_lookback_days(default_public: int = 2, default_local: int = 7) -> int:
     return int(default_public if _is_public_host_env() else default_local)
 
 
+# -----------------------------------------------------------------------------
+# Sim artifacts loader helpers (local-first with GitHub raw fallback)
+# -----------------------------------------------------------------------------
+def _load_sim_df(date: str, filenames: list[str]) -> pd.DataFrame:
+    """Attempt to load a sim artifact for a given date.
+
+    Tries local `data/processed/<filename>` candidates first, then GitHub raw when
+    running on public hosts. Returns an empty DataFrame if nothing is found.
+    """
+    try:
+        # Local-first
+        for fname in filenames:
+            p = PROC_DIR / fname.format(date=date)
+            if p.exists():
+                try:
+                    return pd.read_csv(p)
+                except Exception:
+                    pass
+        # Public host fallback to GitHub raw
+        if _is_public_host_env():
+            for fname in filenames:
+                rel = f"data/processed/{fname.format(date=date)}"
+                try:
+                    df = _github_raw_read_csv(rel)
+                except Exception:
+                    df = pd.DataFrame()
+                if df is not None and not df.empty:
+                    return df
+    except Exception:
+        pass
+    return pd.DataFrame()
+
+def _norm_str(s: Optional[str]) -> str:
+    try:
+        x = str(s or "").strip(); return " ".join(x.split())
+    except Exception:
+        return str(s or "")
+
+def _abbr_or_none(team_name: Optional[str]) -> Optional[str]:
+    try:
+        a = get_team_assets(str(team_name)) or {}
+        ab = str(a.get("abbr") or "").upper().strip()
+        return ab or None
+    except Exception:
+        return None
+
+# -----------------------------------------------------------------------------
+# Sim engine data APIs (source-of-truth for period/game/player aggregates)
+# -----------------------------------------------------------------------------
+@app.get("/api/sim/summary")
+async def api_sim_summary(date: Optional[str] = Query(None)):
+    """Report presence and counts for core sim artifacts for a date."""
+    d = date or _today_ymd()
+    games = _load_sim_df(d, ["sim_games_{date}.csv", "sim_games_pos_{date}.csv"])  # allow pos variant
+    events = _load_sim_df(d, ["sim_events_pos_{date}.csv"])  # possession/events aggregate
+    # Prefer props-aggregated boxscores; fall back to per-game player boxscores
+    boxscores = _load_sim_df(d, ["props_boxscores_sim_{date}.csv", "sim_boxscores_pos_{date}.csv"])
+    def _summary(df: pd.DataFrame) -> dict:
+        try:
+            return {"exists": (df is not None and not df.empty), "count": int(len(df))}
+        except Exception:
+            return {"exists": False, "count": 0}
+    return JSONResponse({
+        "ok": True,
+        "date": d,
+        "games": _summary(games),
+        "events": _summary(events),
+        "boxscores": _summary(boxscores),
+    })
+
+@app.get("/api/sim/games")
+async def api_sim_games(
+    date: Optional[str] = Query(None),
+    game: Optional[str] = Query(None, description="Filter by AWY@HOME abbreviations"),
+    home: Optional[str] = Query(None),
+    away: Optional[str] = Query(None),
+):
+    """Return simulated game-level aggregates for a date (home/away teams, totals, odds)."""
+    d = date or _today_ymd()
+    df = _load_sim_df(d, ["sim_games_{date}.csv", "sim_games_pos_{date}.csv"])  # allow pos variant
+    if df is None or df.empty:
+        return JSONResponse({"ok": True, "date": d, "rows": [], "count": 0})
+    # Normalize filters
+    h_ab = str(home or "").upper().strip() or None
+    a_ab = str(away or "").upper().strip() or None
+    g_tok = str(game or "").upper().strip()
+    if g_tok and "@" in g_tok:
+        try:
+            a_tok, h_tok = [t.strip() for t in g_tok.split("@", 1)]
+            h_ab = h_ab or (h_tok if h_tok else None)
+            a_ab = a_ab or (a_tok if a_tok else None)
+        except Exception:
+            pass
+    # Attempt to harmonize team fields to abbreviations for robust filtering
+    for col in ("home", "away"):
+        try:
+            df[col + "_abbr"] = df[col].map(_abbr_or_none)
+        except Exception:
+            pass
+    try:
+        if h_ab:
+            df = df[df.get("home_abbr").astype(str).str.upper() == h_ab]
+        if a_ab:
+            df = df[df.get("away_abbr").astype(str).str.upper() == a_ab]
+    except Exception:
+        pass
+    try:
+        df = df.sort_values(by=["home_abbr", "away_abbr"]).reset_index(drop=True)
+    except Exception:
+        pass
+    return JSONResponse({"ok": True, "date": d, "count": int(len(df)), "rows": df.to_dict(orient="records")})
+
+@app.get("/api/sim/events")
+async def api_sim_events(
+    date: Optional[str] = Query(None),
+    game: Optional[str] = Query(None),
+    home: Optional[str] = Query(None),
+    away: Optional[str] = Query(None),
+):
+    """Return simulated possession/events aggregates per game (EV/PP/PK shots, penalties, goals)."""
+    d = date or _today_ymd()
+    df = _load_sim_df(d, ["sim_events_pos_{date}.csv"])  # possession/events aggregate
+    if df is None or df.empty:
+        return JSONResponse({"ok": True, "date": d, "rows": [], "count": 0})
+    h_ab = str(home or "").upper().strip() or None
+    a_ab = str(away or "").upper().strip() or None
+    g_tok = str(game or "").upper().strip()
+    if g_tok and "@" in g_tok:
+        try:
+            a_tok, h_tok = [t.strip() for t in g_tok.split("@", 1)]
+            h_ab = h_ab or (h_tok if h_tok else None)
+            a_ab = a_ab or (a_tok if a_tok else None)
+        except Exception:
+            pass
+    for col in ("home", "away"):
+        try:
+            df[col + "_abbr"] = df[col].map(_abbr_or_none)
+        except Exception:
+            pass
+    try:
+        if h_ab:
+            df = df[df.get("home_abbr").astype(str).str.upper() == h_ab]
+        if a_ab:
+            df = df[df.get("away_abbr").astype(str).str.upper() == a_ab]
+    except Exception:
+        pass
+    try:
+        df = df.sort_values(by=["home_abbr", "away_abbr"]).reset_index(drop=True)
+    except Exception:
+        pass
+    return JSONResponse({"ok": True, "date": d, "count": int(len(df)), "rows": df.to_dict(orient="records")})
+
+@app.get("/api/sim/boxscores")
+async def api_sim_boxscores(
+    date: Optional[str] = Query(None),
+    game: Optional[str] = Query(None),
+    team: Optional[str] = Query(None),
+    player: Optional[str] = Query(None),
+    market: Optional[str] = Query(None),
+    top: Optional[int] = Query(None),
+):
+    """Return simulated player boxscores for a date.
+
+    Prefers `props_boxscores_sim_{date}.csv` for aggregated props-facing outputs,
+    falling back to `sim_boxscores_pos_{date}.csv` if needed.
+    """
+    d = date or _today_ymd()
+    df = _load_sim_df(d, ["props_boxscores_sim_{date}.csv", "sim_boxscores_pos_{date}.csv"])
+    if df is None or df.empty:
+        return JSONResponse({"ok": True, "date": d, "rows": [], "count": 0})
+    # Optional filters
+    try:
+        if market:
+            df = df[df.get("market").astype(str).str.upper() == str(market).upper()]
+    except Exception:
+        pass
+    try:
+        if team:
+            df = df[df.get("team").astype(str).str.upper() == str(team).upper()]
+    except Exception:
+        pass
+    try:
+        if player:
+            q = _norm_str(player).lower()
+            df = df[df.get("player").astype(str).str.lower().str.contains(q)]
+    except Exception:
+        pass
+    # Game filter via AWY@HOME using mapped abbreviations on events/games if present
+    g_tok = str(game or "").upper().strip()
+    if g_tok and "@" in g_tok:
+        try:
+            a_tok, h_tok = [t.strip() for t in g_tok.split("@", 1)]
+        except Exception:
+            a_tok = None; h_tok = None
+        # If game columns exist, use them; else try to infer via team abbr columns
+        try:
+            if {"home","away"}.issubset(df.columns):
+                df["home_abbr"] = df["home"].map(_abbr_or_none)
+                df["away_abbr"] = df["away"].map(_abbr_or_none)
+                if h_tok:
+                    df = df[df.get("home_abbr").astype(str).str.upper() == h_tok]
+                if a_tok:
+                    df = df[df.get("away_abbr").astype(str).str.upper() == a_tok]
+            else:
+                # Fallback: filter by team abbreviation presence
+                if h_tok:
+                    df = df[df.get("team").astype(str).str.upper() == h_tok]
+        except Exception:
+            pass
+    # Sort for consistency and truncate
+    try:
+        sort_cols = [c for c in ["team", "market", "player"] if c in df.columns]
+        if sort_cols:
+            df = df.sort_values(by=sort_cols).reset_index(drop=True)
+    except Exception:
+        pass
+    if top is not None and top > 0:
+        df = df.head(int(top))
+    return JSONResponse({"ok": True, "date": d, "count": int(len(df)), "rows": df.to_dict(orient="records")})
+
+
 def _compute_props_projections(date: str, market: Optional[str] = None) -> pd.DataFrame:
-    """Build player props projections using canonical lines and simple Poisson-based models.
+    """Build player props projections using canonical lines, preferring sim-derived lambdas.
+
+    Source-of-truth for `proj_lambda` is props_projections_all_{date}.csv when present
+    (derived from play-level sim boxscores). Falls back to historical models otherwise.
 
     Returns DataFrame with columns:
     [market, player, team, line, over_price, under_price, proj_lambda, p_over, ev_over, book]
@@ -552,7 +776,40 @@ def _compute_props_projections(date: str, market: Optional[str] = None) -> pd.Da
             lines = lines[lines["market"].astype(str).str.upper() == str(market).upper()]
         except Exception:
             pass
-    # Historical per-player stats for lambda estimation
+    # Prefer sim-derived projections for lambda
+    try:
+        sim_proj_path = PROC_DIR / f"props_projections_all_{date}.csv"
+        sim_proj = pd.read_csv(sim_proj_path) if sim_proj_path.exists() else pd.DataFrame()
+    except Exception:
+        sim_proj = pd.DataFrame()
+    # Build mapping from (norm_player, market) -> lambda, optionally disambiguated by team
+    def _norm_name(s: str) -> str:
+        try:
+            x = str(s or "").strip(); return " ".join(x.split()).lower()
+        except Exception:
+            return str(s or "").lower()
+    sim_map: dict[tuple[str, str], float] = {}
+    sim_map_team: dict[tuple[str, str, str], float] = {}
+    if sim_proj is not None and not sim_proj.empty and {'player','market','proj_lambda'}.issubset(sim_proj.columns):
+        try:
+            for _, r in sim_proj.iterrows():
+                nm = _norm_name(r.get('player'))
+                mk = str(r.get('market') or '').upper()
+                lam = r.get('proj_lambda')
+                try:
+                    lam = float(lam) if lam is not None else None
+                except Exception:
+                    lam = None
+                if lam is None:
+                    continue
+                sim_map[(nm, mk)] = lam
+                team = str(r.get('team') or '').strip().upper() if 'team' in sim_proj.columns else None
+                if team:
+                    sim_map_team[(nm, mk, team)] = lam
+        except Exception:
+            sim_map = {}
+            sim_map_team = {}
+    # Historical per-player stats for fallback lambda estimation
     try:
         stats_path = RAW_DIR / "player_game_stats.csv"
         hist = pd.read_csv(stats_path) if stats_path.exists() else pd.DataFrame()
@@ -695,8 +952,13 @@ def _compute_props_projections(date: str, market: Optional[str] = None) -> pd.Da
         abbr_to_opp = {}
     def proj_prob(m, player, ln, team_abbr: str | None, opp_abbr: str | None):
         m = (m or '').upper()
+        # Normalize name for sim-map lookup
+        p_norm = _norm_name(player)
+        # Try team-specific sim lambda first, then name-only sim lambda, else model fallback
         if m == 'SOG':
-            lam = shots.player_lambda(hist, player)
+            lam = sim_map_team.get((p_norm, m, str(team_abbr or ''))) or sim_map.get((p_norm, m))
+            if lam is None:
+                lam = shots.player_lambda(hist, player)
             scale = compute_props_lam_scale_mean(m, team_abbr, opp_abbr,
                 league_xg=league_xg, xg_map=xg_map, league_pen=league_pen, pen_comm=pen_comm,
                 league_sv=league_sv, gf_map=gf_map, league_pp_frac=league_pp_frac,
@@ -705,7 +967,9 @@ def _compute_props_projections(date: str, market: Optional[str] = None) -> pd.Da
             lam_eff = (lam or 0.0) * float(scale)
             return lam, shots.prob_over(lam_eff, ln), lam_eff
         if m == 'SAVES':
-            lam = saves.player_lambda(hist, player)
+            lam = sim_map_team.get((p_norm, m, str(team_abbr or ''))) or sim_map.get((p_norm, m))
+            if lam is None:
+                lam = saves.player_lambda(hist, player)
             scale = compute_props_lam_scale_mean(m, team_abbr, opp_abbr,
                 league_xg=league_xg, xg_map=xg_map, league_pen=league_pen, pen_comm=pen_comm,
                 league_sv=league_sv, gf_map=gf_map, league_pp_frac=league_pp_frac,
@@ -714,7 +978,9 @@ def _compute_props_projections(date: str, market: Optional[str] = None) -> pd.Da
             lam_eff = (lam or 0.0) * float(scale)
             return lam, saves.prob_over(lam_eff, ln), lam_eff
         if m == 'GOALS':
-            lam = goals.player_lambda(hist, player)
+            lam = sim_map_team.get((p_norm, m, str(team_abbr or ''))) or sim_map.get((p_norm, m))
+            if lam is None:
+                lam = goals.player_lambda(hist, player)
             scale = compute_props_lam_scale_mean(m, team_abbr, opp_abbr,
                 league_xg=league_xg, xg_map=xg_map, league_pen=league_pen, pen_comm=pen_comm,
                 league_sv=league_sv, gf_map=gf_map, league_pp_frac=league_pp_frac,
@@ -723,7 +989,9 @@ def _compute_props_projections(date: str, market: Optional[str] = None) -> pd.Da
             lam_eff = (lam or 0.0) * float(scale)
             return lam, goals.prob_over(lam_eff, ln), lam_eff
         if m == 'ASSISTS':
-            lam = assists.player_lambda(hist, player)
+            lam = sim_map_team.get((p_norm, m, str(team_abbr or ''))) or sim_map.get((p_norm, m))
+            if lam is None:
+                lam = assists.player_lambda(hist, player)
             scale = compute_props_lam_scale_mean(m, team_abbr, opp_abbr,
                 league_xg=league_xg, xg_map=xg_map, league_pen=league_pen, pen_comm=pen_comm,
                 league_sv=league_sv, gf_map=gf_map, league_pp_frac=league_pp_frac,
@@ -732,7 +1000,9 @@ def _compute_props_projections(date: str, market: Optional[str] = None) -> pd.Da
             lam_eff = (lam or 0.0) * float(scale)
             return lam, assists.prob_over(lam_eff, ln), lam_eff
         if m == 'POINTS':
-            lam = points.player_lambda(hist, player)
+            lam = sim_map_team.get((p_norm, m, str(team_abbr or ''))) or sim_map.get((p_norm, m))
+            if lam is None:
+                lam = points.player_lambda(hist, player)
             scale = compute_props_lam_scale_mean(m, team_abbr, opp_abbr,
                 league_xg=league_xg, xg_map=xg_map, league_pen=league_pen, pen_comm=pen_comm,
                 league_sv=league_sv, gf_map=gf_map, league_pp_frac=league_pp_frac,
@@ -741,7 +1011,9 @@ def _compute_props_projections(date: str, market: Optional[str] = None) -> pd.Da
             lam_eff = (lam or 0.0) * float(scale)
             return lam, points.prob_over(lam_eff, ln), lam_eff
         if m == 'BLOCKS':
-            lam = blocks.player_lambda(hist, player)
+            lam = sim_map_team.get((p_norm, m, str(team_abbr or ''))) or sim_map.get((p_norm, m))
+            if lam is None:
+                lam = blocks.player_lambda(hist, player)
             scale = compute_props_lam_scale_mean(m, team_abbr, opp_abbr,
                 league_xg=league_xg, xg_map=xg_map, league_pen=league_pen, pen_comm=pen_comm,
                 league_sv=league_sv, gf_map=gf_map, league_pp_frac=league_pp_frac,

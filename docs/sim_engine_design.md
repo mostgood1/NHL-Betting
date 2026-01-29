@@ -60,3 +60,19 @@
 5. Validate against daily artifacts; calibrate rates
 6. Integrate outputs for per-period and player props
 
+
+## Web API Endpoints (Sim Source-of-Truth)
+- **GET /api/sim/summary**: presence + counts for sim artifacts (games, events, boxscores).
+- **GET /api/sim/games**: simulated game-level aggregates; filters: `date`, `home`, `away`, `game=AWY@HOME`.
+- **GET /api/sim/events**: simulated possession/events per game (EV/PP/PK shots, penalties, goals); same filters.
+- **GET /api/sim/boxscores**: simulated player boxscores; filters: `date`, `team`, `player` (substring), `market`, `game`, `top`.
+
+Artifacts consumed:
+- `data/processed/sim_games_{date}.csv` (fallback: `sim_games_pos_{date}.csv`)
+- `data/processed/sim_events_pos_{date}.csv`
+- `data/processed/props_boxscores_sim_{date}.csv` (fallback: `sim_boxscores_pos_{date}.csv`)
+
+Behavior:
+- Local-first loads; public hosts fall back to GitHub raw.
+- Team names normalized via abbreviations for robust filtering.
+

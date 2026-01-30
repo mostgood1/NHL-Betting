@@ -137,6 +137,8 @@ if ($InstallDeps) {
 } else {
   Write-Host "[deps] Skipping pip install (use -InstallDeps to enable)" -ForegroundColor DarkGray
 }
+# Use venv Python for timed subprocesses
+$PyExe = Join-Path $RepoRoot '.venv/Scripts/python.exe'
 # Optional: lightweight PBP backfill via NHL Web API for recent days (true period splits)
 if ($PBPBackfill) {
   try {
@@ -173,14 +175,34 @@ try {
   foreach ($d in $dates) {
     Write-Host "[daily_update] Generating simulated player boxscores for $d …" -ForegroundColor DarkYellow
     try {
-      python -m nhl_betting.cli props-simulate-boxscores --date $d --n-sims 6000
+      # Run with timeout to prevent stalls on future slates
+      $job1 = Start-Job -ScriptBlock { & $using:PyExe -m nhl_betting.cli props-simulate-boxscores --date $using:d --n-sims 6000 }
+      $done1 = Wait-Job $job1 -Timeout 180
+      if (-not $done1) {
+        try { Stop-Job $job1 -Force } catch {}
+        Remove-Job $job1 -Force
+        Write-Warning "[daily_update] props-simulate-boxscores timed out for ${d}; skipping."
+      } else {
+        Receive-Job $job1 | Write-Host
+        Remove-Job $job1 -Force
+      }
     } catch {
       Write-Warning "[daily_update] props-simulate-boxscores failed for ${d}: $($_.Exception.Message)"
     }
     # Produce sim-native game predictions and edges (ML/Totals) directly from per-sim samples
     try {
       Write-Host "[daily_update] Computing sim-native game predictions for $d …" -ForegroundColor DarkYellow
-      python -m nhl_betting.cli game-recommendations-sim --date $d --top 200
+      # Run with timeout to prevent stalls if samples are unavailable
+      $job2 = Start-Job -ScriptBlock { & $using:PyExe -m nhl_betting.cli game-recommendations-sim --date $using:d --top 200 }
+      $done2 = Wait-Job $job2 -Timeout 120
+      if (-not $done2) {
+        try { Stop-Job $job2 -Force } catch {}
+        Remove-Job $job2 -Force
+        Write-Warning "[daily_update] game-recommendations-sim timed out for ${d}; skipping."
+      } else {
+        Receive-Job $job2 | Write-Host
+        Remove-Job $job2 -Force
+      }
     } catch {
       Write-Warning "[daily_update] game-recommendations-sim failed for ${d}: $($_.Exception.Message)"
     }

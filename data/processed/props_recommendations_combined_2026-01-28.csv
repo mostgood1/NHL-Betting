@@ -1,282 +1,273 @@
-date,player,team,opp,market,line,proj_lambda,p_over,side,ev,chosen_prob,source
-2026-01-28,Will Cuylle,NYR,NYI,SOG,4.5,2.5,0.179929,Under,,0.820071,nolines
-2026-01-28,Mika Zibanejad,NYR,NYI,SOG,4.5,2.5,0.179929,Under,,0.820071,nolines
-2026-01-28,Urho Vaakanainen,NYR,NYI,SOG,4.5,2.5,0.179929,Under,,0.820071,nolines
-2026-01-28,Sam Carrick,NYR,NYI,SOG,4.5,2.5,0.179929,Under,,0.820071,nolines
-2026-01-28,Braden Schneider,NYR,NYI,SOG,4.5,2.5,0.179929,Under,,0.820071,nolines
-2026-01-28,Matthew Robertson,NYR,NYI,SOG,4.5,2.5,0.179929,Under,,0.820071,nolines
-2026-01-28,Jonny Brodzinski,NYR,NYI,SOG,4.5,2.5,0.179929,Under,,0.820071,nolines
-2026-01-28,Scott Morrow,NYR,NYI,SOG,4.5,2.5,0.179929,Under,,0.820071,nolines
-2026-01-28,Connor Mackey,NYR,NYI,SOG,4.5,2.5,0.179929,Under,,0.820071,nolines
-2026-01-28,Vladislav Gavrikov,NYR,NYI,SOG,4.5,2.5,0.179929,Under,,0.820071,nolines
-2026-01-28,J.T. Miller,NYR,NYI,SOG,4.5,2.5,0.179929,Under,,0.820071,nolines
-2026-01-28,Will Borgen,NYR,NYI,SOG,4.5,2.5,0.179929,Under,,0.820071,nolines
-2026-01-28,Adam Fox,NYR,NYI,SOG,4.5,2.5,0.179929,Under,,0.820071,nolines
-2026-01-28,Vincent Trocheck,NYR,NYI,SOG,4.5,2.5,0.179929,Under,,0.820071,nolines
-2026-01-28,Artemi Panarin,NYR,NYI,SOG,4.5,2.5,0.179929,Under,,0.820071,nolines
-2026-01-28,Conor Sheary,NYR,NYI,SOG,4.5,2.5,0.179929,Under,,0.820071,nolines
-2026-01-28,Adam Edstrom,NYR,NYI,SOG,4.5,2.5,0.179929,Under,,0.820071,nolines
-2026-01-28,Brennan Othmann,NYR,NYI,SOG,4.5,2.5,0.179929,Under,,0.820071,nolines
-2026-01-28,Matt Rempe,NYR,NYI,SOG,4.5,2.5,0.179929,Under,,0.820071,nolines
-2026-01-28,Taylor Raddysh,NYR,NYI,SOG,4.5,2.5,0.179929,Under,,0.820071,nolines
-2026-01-28,Alexis Lafrenière,NYR,NYI,SOG,4.5,2.5,0.179929,Under,,0.820071,nolines
-2026-01-28,Noah Laba,NYR,NYI,SOG,4.5,2.5,0.179929,Under,,0.820071,nolines
-2026-01-28,Gabe Perreault,NYR,NYI,SOG,4.5,2.5,0.179929,Under,,0.820071,nolines
-2026-01-28,Emil Andrae,PHI,CBJ,SOG,4.5,2.5,0.181052,Under,,0.818948,nolines
-2026-01-28,Noah Juulsen,PHI,CBJ,SOG,4.5,2.5,0.181052,Under,,0.818948,nolines
-2026-01-28,Jamie Drysdale,PHI,CBJ,SOG,4.5,2.5,0.181052,Under,,0.818948,nolines
-2026-01-28,Cam York,PHI,CBJ,SOG,4.5,2.5,0.181052,Under,,0.818948,nolines
-2026-01-28,Rasmus Ristolainen,PHI,CBJ,SOG,4.5,2.5,0.181052,Under,,0.818948,nolines
-2026-01-28,Travis Sanheim,PHI,CBJ,SOG,4.5,2.5,0.181052,Under,,0.818948,nolines
-2026-01-28,Trevor Zegras,PHI,CBJ,SOG,4.5,2.5,0.181052,Under,,0.818948,nolines
-2026-01-28,Nick Seeler,PHI,CBJ,SOG,4.5,2.5,0.181052,Under,,0.818948,nolines
-2026-01-28,Owen Tippett,PHI,CBJ,SOG,4.5,2.5,0.181052,Under,,0.818948,nolines
-2026-01-28,Nikita Grebenkin,PHI,CBJ,SOG,4.5,2.5,0.181052,Under,,0.818948,nolines
-2026-01-28,Denver Barkey,PHI,CBJ,SOG,4.5,2.5,0.181052,Under,,0.818948,nolines
-2026-01-28,Bobby Brink,PHI,CBJ,SOG,4.5,2.5,0.181052,Under,,0.818948,nolines
-2026-01-28,Noah Cates,PHI,CBJ,SOG,4.5,2.5,0.181052,Under,,0.818948,nolines
-2026-01-28,Rodrigo Abols,PHI,CBJ,SOG,4.5,2.5,0.181052,Under,,0.818948,nolines
-2026-01-28,Sean Couturier,PHI,CBJ,SOG,4.5,2.5,0.181052,Under,,0.818948,nolines
-2026-01-28,Nicolas Deslauriers,PHI,CBJ,SOG,4.5,2.5,0.181052,Under,,0.818948,nolines
-2026-01-28,Tyson Foerster,PHI,CBJ,SOG,4.5,2.5,0.181052,Under,,0.818948,nolines
-2026-01-28,Christian Dvorak,PHI,CBJ,SOG,4.5,2.5,0.181052,Under,,0.818948,nolines
-2026-01-28,Travis Konecny,PHI,CBJ,SOG,4.5,2.5,0.181052,Under,,0.818948,nolines
-2026-01-28,Carl Grundstrom,PHI,CBJ,SOG,4.5,2.5,0.181052,Under,,0.818948,nolines
-2026-01-28,Lane Pederson,PHI,CBJ,SOG,4.5,2.5,0.181052,Under,,0.818948,nolines
-2026-01-28,Matvei Michkov,PHI,CBJ,SOG,4.5,2.5,0.181052,Under,,0.818948,nolines
-2026-01-28,Garnet Hathaway,PHI,CBJ,SOG,4.5,2.5,0.181052,Under,,0.818948,nolines
-2026-01-28,Anders Lee,NYI,NYR,SOG,4.5,2.5,0.182026,Under,,0.817974,nolines
-2026-01-28,Scott Mayfield,NYI,NYR,SOG,4.5,2.5,0.182026,Under,,0.817974,nolines
-2026-01-28,Ryan Pulock,NYI,NYR,SOG,4.5,2.5,0.182026,Under,,0.817974,nolines
-2026-01-28,Bo Horvat,NYI,NYR,SOG,4.5,2.5,0.182026,Under,,0.817974,nolines
-2026-01-28,Tony DeAngelo,NYI,NYR,SOG,4.5,2.5,0.182026,Under,,0.817974,nolines
-2026-01-28,Kyle Palmieri,NYI,NYR,SOG,4.5,2.5,0.182026,Under,,0.817974,nolines
-2026-01-28,Matthew Schaefer,NYI,NYR,SOG,4.5,2.5,0.182026,Under,,0.817974,nolines
-2026-01-28,Max Shabanov,NYI,NYR,SOG,4.5,2.5,0.182026,Under,,0.817974,nolines
-2026-01-28,Adam Boqvist,NYI,NYR,SOG,4.5,2.5,0.182026,Under,,0.817974,nolines
-2026-01-28,Calum Ritchie,NYI,NYR,SOG,4.5,2.5,0.182026,Under,,0.817974,nolines
-2026-01-28,Maxim Tsyplakov,NYI,NYR,SOG,4.5,2.5,0.182026,Under,,0.817974,nolines
-2026-01-28,Jean-Gabriel Pageau,NYI,NYR,SOG,4.5,2.5,0.182026,Under,,0.817974,nolines
-2026-01-28,Alexander Romanov,NYI,NYR,SOG,4.5,2.5,0.182026,Under,,0.817974,nolines
-2026-01-28,Kyle MacLean,NYI,NYR,SOG,4.5,2.5,0.182026,Under,,0.817974,nolines
-2026-01-28,Simon Holmstrom,NYI,NYR,SOG,4.5,2.5,0.182026,Under,,0.817974,nolines
-2026-01-28,Anthony Duclair,NYI,NYR,SOG,4.5,2.5,0.182026,Under,,0.817974,nolines
-2026-01-28,Emil Heineman,NYI,NYR,SOG,4.5,2.5,0.182026,Under,,0.817974,nolines
-2026-01-28,Jonathan Drouin,NYI,NYR,SOG,4.5,2.5,0.182026,Under,,0.817974,nolines
-2026-01-28,Casey Cizikas,NYI,NYR,SOG,4.5,2.5,0.182026,Under,,0.817974,nolines
-2026-01-28,Mathew Barzal,NYI,NYR,SOG,4.5,2.5,0.182026,Under,,0.817974,nolines
-2026-01-28,Adam Pelech,NYI,NYR,SOG,4.5,2.5,0.182026,Under,,0.817974,nolines
-2026-01-28,Carson Soucy,NYI,NYR,SOG,4.5,2.5,0.182026,Under,,0.817974,nolines
-2026-01-28,Marc Gatcomb,NYI,NYR,SOG,4.5,2.5,0.182026,Under,,0.817974,nolines
-2026-01-28,Dmitri Voronkov,CBJ,PHI,SOG,4.5,2.5,0.183671,Under,,0.816329,nolines
-2026-01-28,Sean Monahan,CBJ,PHI,SOG,4.5,2.5,0.183671,Under,,0.816329,nolines
-2026-01-28,Kent Johnson,CBJ,PHI,SOG,4.5,2.5,0.183671,Under,,0.816329,nolines
-2026-01-28,Mathieu Olivier,CBJ,PHI,SOG,4.5,2.5,0.183671,Under,,0.816329,nolines
-2026-01-28,Boone Jenner,CBJ,PHI,SOG,4.5,2.5,0.183671,Under,,0.816329,nolines
-2026-01-28,Cole Sillinger,CBJ,PHI,SOG,4.5,2.5,0.183671,Under,,0.816329,nolines
-2026-01-28,Ivan Provorov,CBJ,PHI,SOG,4.5,2.5,0.183671,Under,,0.816329,nolines
-2026-01-28,Danton Heinen,CBJ,PHI,SOG,4.5,2.5,0.183671,Under,,0.816329,nolines
-2026-01-28,Adam Fantilli,CBJ,PHI,SOG,4.5,2.5,0.183671,Under,,0.816329,nolines
-2026-01-28,Brendan Gaunce,CBJ,PHI,SOG,4.5,2.5,0.183671,Under,,0.816329,nolines
-2026-01-28,Miles Wood,CBJ,PHI,SOG,4.5,2.5,0.183671,Under,,0.816329,nolines
-2026-01-28,Charlie Coyle,CBJ,PHI,SOG,4.5,2.5,0.183671,Under,,0.816329,nolines
-2026-01-28,Jake Christiansen,CBJ,PHI,SOG,4.5,2.5,0.183671,Under,,0.816329,nolines
-2026-01-28,Dante Fabbro,CBJ,PHI,SOG,4.5,2.5,0.183671,Under,,0.816329,nolines
-2026-01-28,Erik Gudbranson,CBJ,PHI,SOG,4.5,2.5,0.183671,Under,,0.816329,nolines
-2026-01-28,Denton Mateychuk,CBJ,PHI,SOG,4.5,2.5,0.183671,Under,,0.816329,nolines
-2026-01-28,Damon Severson,CBJ,PHI,SOG,4.5,2.5,0.183671,Under,,0.816329,nolines
-2026-01-28,Isac Lundeström,CBJ,PHI,SOG,4.5,2.5,0.183671,Under,,0.816329,nolines
-2026-01-28,Mason Marchment,CBJ,PHI,SOG,4.5,2.5,0.183671,Under,,0.816329,nolines
-2026-01-28,Zach Werenski,CBJ,PHI,SOG,4.5,2.5,0.183671,Under,,0.816329,nolines
-2026-01-28,Egor Zamula,CBJ,PHI,SOG,4.5,2.5,0.183671,Under,,0.816329,nolines
-2026-01-28,Kirill Marchenko,CBJ,PHI,SOG,4.5,2.5,0.183671,Under,,0.816329,nolines
-2026-01-28,Brendan Smith,CBJ,PHI,SOG,4.5,2.5,0.183671,Under,,0.816329,nolines
-2026-01-28,Lars Eller,OTT,COL,SOG,4.5,2.5,0.184337,Under,,0.815663,nolines
-2026-01-28,Brady Tkachuk,OTT,COL,SOG,4.5,2.5,0.184337,Under,,0.815663,nolines
-2026-01-28,Tim Stützle,OTT,COL,SOG,4.5,2.5,0.184337,Under,,0.815663,nolines
-2026-01-28,Shane Pinto,OTT,COL,SOG,4.5,2.5,0.184337,Under,,0.815663,nolines
-2026-01-28,David Perron,OTT,COL,SOG,4.5,2.5,0.184337,Under,,0.815663,nolines
-2026-01-28,Kurtis MacDermid,OTT,COL,SOG,4.5,2.5,0.184337,Under,,0.815663,nolines
-2026-01-28,Stephen Halliday,OTT,COL,SOG,4.5,2.5,0.184337,Under,,0.815663,nolines
-2026-01-28,Ridly Greig,OTT,COL,SOG,4.5,2.5,0.184337,Under,,0.815663,nolines
-2026-01-28,Claude Giroux,OTT,COL,SOG,4.5,2.5,0.184337,Under,,0.815663,nolines
-2026-01-28,Nikolas Matinpalo,OTT,COL,SOG,4.5,2.5,0.184337,Under,,0.815663,nolines
-2026-01-28,Dylan Cozens,OTT,COL,SOG,4.5,2.5,0.184337,Under,,0.815663,nolines
-2026-01-28,Artem Zub,OTT,COL,SOG,4.5,2.5,0.184337,Under,,0.815663,nolines
-2026-01-28,Drake Batherson,OTT,COL,SOG,4.5,2.5,0.184337,Under,,0.815663,nolines
-2026-01-28,Michael Amadio,OTT,COL,SOG,4.5,2.5,0.184337,Under,,0.815663,nolines
-2026-01-28,Jordan Spence,OTT,COL,SOG,4.5,2.5,0.184337,Under,,0.815663,nolines
-2026-01-28,Thomas Chabot,OTT,COL,SOG,4.5,2.5,0.184337,Under,,0.815663,nolines
-2026-01-28,Nick Jensen,OTT,COL,SOG,4.5,2.5,0.184337,Under,,0.815663,nolines
-2026-01-28,Tyler Kleven,OTT,COL,SOG,4.5,2.5,0.184337,Under,,0.815663,nolines
-2026-01-28,Jake Sanderson,OTT,COL,SOG,4.5,2.5,0.184337,Under,,0.815663,nolines
-2026-01-28,Nick Cousins,OTT,COL,SOG,4.5,2.5,0.184337,Under,,0.815663,nolines
-2026-01-28,Fabian Zetterlund,OTT,COL,SOG,4.5,2.5,0.184337,Under,,0.815663,nolines
-2026-01-28,Gabriel Landeskog,COL,OTT,SOG,4.5,2.5,0.185347,Under,,0.814653,nolines
-2026-01-28,Zakhar Bardakov,COL,OTT,SOG,4.5,2.5,0.185347,Under,,0.814653,nolines
-2026-01-28,Josh Manson,COL,OTT,SOG,4.5,2.5,0.185347,Under,,0.814653,nolines
-2026-01-28,Devon Toews,COL,OTT,SOG,4.5,2.5,0.185347,Under,,0.814653,nolines
-2026-01-28,Joel Kiviranta,COL,OTT,SOG,4.5,2.5,0.185347,Under,,0.814653,nolines
-2026-01-28,Cale Makar,COL,OTT,SOG,4.5,2.5,0.185347,Under,,0.814653,nolines
-2026-01-28,Samuel Girard,COL,OTT,SOG,4.5,2.5,0.185347,Under,,0.814653,nolines
-2026-01-28,Brent Burns,COL,OTT,SOG,4.5,2.5,0.185347,Under,,0.814653,nolines
-2026-01-28,Sam Malinski,COL,OTT,SOG,4.5,2.5,0.185347,Under,,0.814653,nolines
-2026-01-28,Valeri Nichushkin,COL,OTT,SOG,4.5,2.5,0.185347,Under,,0.814653,nolines
-2026-01-28,Brock Nelson,COL,OTT,SOG,4.5,2.5,0.185347,Under,,0.814653,nolines
-2026-01-28,Victor Olofsson,COL,OTT,SOG,4.5,2.5,0.185347,Under,,0.814653,nolines
-2026-01-28,Martin Necas,COL,OTT,SOG,4.5,2.5,0.185347,Under,,0.814653,nolines
-2026-01-28,Gavin Brindley,COL,OTT,SOG,4.5,2.5,0.185347,Under,,0.814653,nolines
-2026-01-28,Taylor Makar,COL,OTT,SOG,4.5,2.5,0.185347,Under,,0.814653,nolines
-2026-01-28,Ross Colton,COL,OTT,SOG,4.5,2.5,0.185347,Under,,0.814653,nolines
-2026-01-28,Nathan MacKinnon,COL,OTT,SOG,4.5,2.5,0.185347,Under,,0.814653,nolines
-2026-01-28,Jack Drury,COL,OTT,SOG,4.5,2.5,0.185347,Under,,0.814653,nolines
-2026-01-28,Artturi Lehkonen,COL,OTT,SOG,4.5,2.5,0.185347,Under,,0.814653,nolines
-2026-01-28,Parker Kelly,COL,OTT,SOG,4.5,2.5,0.185347,Under,,0.814653,nolines
-2026-01-28,J.T. Miller,NYR,NYI,SOG,3.5,2.5,0.259633,Under,,0.740367,nolines
-2026-01-28,Brennan Othmann,NYR,NYI,SOG,3.5,2.5,0.259633,Under,,0.740367,nolines
-2026-01-28,Artemi Panarin,NYR,NYI,SOG,3.5,2.5,0.259633,Under,,0.740367,nolines
-2026-01-28,Gabe Perreault,NYR,NYI,SOG,3.5,2.5,0.259633,Under,,0.740367,nolines
-2026-01-28,Taylor Raddysh,NYR,NYI,SOG,3.5,2.5,0.259633,Under,,0.740367,nolines
-2026-01-28,Conor Sheary,NYR,NYI,SOG,3.5,2.5,0.259633,Under,,0.740367,nolines
-2026-01-28,Alexis Lafrenière,NYR,NYI,SOG,3.5,2.5,0.259633,Under,,0.740367,nolines
-2026-01-28,Vincent Trocheck,NYR,NYI,SOG,3.5,2.5,0.259633,Under,,0.740367,nolines
-2026-01-28,Matthew Robertson,NYR,NYI,SOG,3.5,2.5,0.259633,Under,,0.740367,nolines
-2026-01-28,Mika Zibanejad,NYR,NYI,SOG,3.5,2.5,0.259633,Under,,0.740367,nolines
-2026-01-28,Will Borgen,NYR,NYI,SOG,3.5,2.5,0.259633,Under,,0.740367,nolines
-2026-01-28,Adam Fox,NYR,NYI,SOG,3.5,2.5,0.259633,Under,,0.740367,nolines
-2026-01-28,Vladislav Gavrikov,NYR,NYI,SOG,3.5,2.5,0.259633,Under,,0.740367,nolines
-2026-01-28,Connor Mackey,NYR,NYI,SOG,3.5,2.5,0.259633,Under,,0.740367,nolines
-2026-01-28,Scott Morrow,NYR,NYI,SOG,3.5,2.5,0.259633,Under,,0.740367,nolines
-2026-01-28,Adam Edstrom,NYR,NYI,SOG,3.5,2.5,0.259633,Under,,0.740367,nolines
-2026-01-28,Braden Schneider,NYR,NYI,SOG,3.5,2.5,0.259633,Under,,0.740367,nolines
-2026-01-28,Urho Vaakanainen,NYR,NYI,SOG,3.5,2.5,0.259633,Under,,0.740367,nolines
-2026-01-28,Noah Laba,NYR,NYI,SOG,3.5,2.5,0.259633,Under,,0.740367,nolines
-2026-01-28,Matt Rempe,NYR,NYI,SOG,3.5,2.5,0.259633,Under,,0.740367,nolines
-2026-01-28,Will Cuylle,NYR,NYI,SOG,3.5,2.5,0.259633,Under,,0.740367,nolines
-2026-01-28,Sam Carrick,NYR,NYI,SOG,3.5,2.5,0.259633,Under,,0.740367,nolines
-2026-01-28,Jonny Brodzinski,NYR,NYI,SOG,3.5,2.5,0.259633,Under,,0.740367,nolines
-2026-01-28,Rodrigo Abols,PHI,CBJ,SOG,3.5,2.5,0.261637,Under,,0.738363,nolines
-2026-01-28,Travis Konecny,PHI,CBJ,SOG,3.5,2.5,0.261637,Under,,0.738363,nolines
-2026-01-28,Travis Sanheim,PHI,CBJ,SOG,3.5,2.5,0.261637,Under,,0.738363,nolines
-2026-01-28,Cam York,PHI,CBJ,SOG,3.5,2.5,0.261637,Under,,0.738363,nolines
-2026-01-28,Rasmus Ristolainen,PHI,CBJ,SOG,3.5,2.5,0.261637,Under,,0.738363,nolines
-2026-01-28,Noah Juulsen,PHI,CBJ,SOG,3.5,2.5,0.261637,Under,,0.738363,nolines
-2026-01-28,Jamie Drysdale,PHI,CBJ,SOG,3.5,2.5,0.261637,Under,,0.738363,nolines
-2026-01-28,Emil Andrae,PHI,CBJ,SOG,3.5,2.5,0.261637,Under,,0.738363,nolines
-2026-01-28,Trevor Zegras,PHI,CBJ,SOG,3.5,2.5,0.261637,Under,,0.738363,nolines
-2026-01-28,Owen Tippett,PHI,CBJ,SOG,3.5,2.5,0.261637,Under,,0.738363,nolines
-2026-01-28,Lane Pederson,PHI,CBJ,SOG,3.5,2.5,0.261637,Under,,0.738363,nolines
-2026-01-28,Matvei Michkov,PHI,CBJ,SOG,3.5,2.5,0.261637,Under,,0.738363,nolines
-2026-01-28,Garnet Hathaway,PHI,CBJ,SOG,3.5,2.5,0.261637,Under,,0.738363,nolines
-2026-01-28,Carl Grundstrom,PHI,CBJ,SOG,3.5,2.5,0.261637,Under,,0.738363,nolines
-2026-01-28,Nikita Grebenkin,PHI,CBJ,SOG,3.5,2.5,0.261637,Under,,0.738363,nolines
-2026-01-28,Tyson Foerster,PHI,CBJ,SOG,3.5,2.5,0.261637,Under,,0.738363,nolines
-2026-01-28,Christian Dvorak,PHI,CBJ,SOG,3.5,2.5,0.261637,Under,,0.738363,nolines
-2026-01-28,Nicolas Deslauriers,PHI,CBJ,SOG,3.5,2.5,0.261637,Under,,0.738363,nolines
-2026-01-28,Sean Couturier,PHI,CBJ,SOG,3.5,2.5,0.261637,Under,,0.738363,nolines
-2026-01-28,Noah Cates,PHI,CBJ,SOG,3.5,2.5,0.261637,Under,,0.738363,nolines
-2026-01-28,Bobby Brink,PHI,CBJ,SOG,3.5,2.5,0.261637,Under,,0.738363,nolines
-2026-01-28,Denver Barkey,PHI,CBJ,SOG,3.5,2.5,0.261637,Under,,0.738363,nolines
-2026-01-28,Nick Seeler,PHI,CBJ,SOG,3.5,2.5,0.261637,Under,,0.738363,nolines
-2026-01-28,Matthew Schaefer,NYI,NYR,SOG,3.5,2.5,0.262026,Under,,0.737974,nolines
-2026-01-28,Jean-Gabriel Pageau,NYI,NYR,SOG,3.5,2.5,0.262026,Under,,0.737974,nolines
-2026-01-28,Carson Soucy,NYI,NYR,SOG,3.5,2.5,0.262026,Under,,0.737974,nolines
-2026-01-28,Kyle MacLean,NYI,NYR,SOG,3.5,2.5,0.262026,Under,,0.737974,nolines
-2026-01-28,Alexander Romanov,NYI,NYR,SOG,3.5,2.5,0.262026,Under,,0.737974,nolines
-2026-01-28,Mathew Barzal,NYI,NYR,SOG,3.5,2.5,0.262026,Under,,0.737974,nolines
-2026-01-28,Calum Ritchie,NYI,NYR,SOG,3.5,2.5,0.262026,Under,,0.737974,nolines
-2026-01-28,Anthony Duclair,NYI,NYR,SOG,3.5,2.5,0.262026,Under,,0.737974,nolines
-2026-01-28,Emil Heineman,NYI,NYR,SOG,3.5,2.5,0.262026,Under,,0.737974,nolines
-2026-01-28,Jonathan Drouin,NYI,NYR,SOG,3.5,2.5,0.262026,Under,,0.737974,nolines
-2026-01-28,Simon Holmstrom,NYI,NYR,SOG,3.5,2.5,0.262026,Under,,0.737974,nolines
-2026-01-28,Max Shabanov,NYI,NYR,SOG,3.5,2.5,0.262026,Under,,0.737974,nolines
-2026-01-28,Casey Cizikas,NYI,NYR,SOG,3.5,2.5,0.262026,Under,,0.737974,nolines
-2026-01-28,Kyle Palmieri,NYI,NYR,SOG,3.5,2.5,0.262026,Under,,0.737974,nolines
-2026-01-28,Maxim Tsyplakov,NYI,NYR,SOG,3.5,2.5,0.262026,Under,,0.737974,nolines
-2026-01-28,Bo Horvat,NYI,NYR,SOG,3.5,2.5,0.262026,Under,,0.737974,nolines
-2026-01-28,Adam Boqvist,NYI,NYR,SOG,3.5,2.5,0.262026,Under,,0.737974,nolines
-2026-01-28,Anders Lee,NYI,NYR,SOG,3.5,2.5,0.262026,Under,,0.737974,nolines
-2026-01-28,Tony DeAngelo,NYI,NYR,SOG,3.5,2.5,0.262026,Under,,0.737974,nolines
-2026-01-28,Scott Mayfield,NYI,NYR,SOG,3.5,2.5,0.262026,Under,,0.737974,nolines
-2026-01-28,Adam Pelech,NYI,NYR,SOG,3.5,2.5,0.262026,Under,,0.737974,nolines
-2026-01-28,Ryan Pulock,NYI,NYR,SOG,3.5,2.5,0.262026,Under,,0.737974,nolines
-2026-01-28,Marc Gatcomb,NYI,NYR,SOG,3.5,2.5,0.262026,Under,,0.737974,nolines
-2026-01-28,Tim Stützle,OTT,COL,SOG,3.5,2.5,0.263492,Under,,0.7365079999999999,nolines
-2026-01-28,Stephen Halliday,OTT,COL,SOG,3.5,2.5,0.263492,Under,,0.7365079999999999,nolines
-2026-01-28,Brady Tkachuk,OTT,COL,SOG,3.5,2.5,0.263492,Under,,0.7365079999999999,nolines
-2026-01-28,Shane Pinto,OTT,COL,SOG,3.5,2.5,0.263492,Under,,0.7365079999999999,nolines
-2026-01-28,David Perron,OTT,COL,SOG,3.5,2.5,0.263492,Under,,0.7365079999999999,nolines
-2026-01-28,Kurtis MacDermid,OTT,COL,SOG,3.5,2.5,0.263492,Under,,0.7365079999999999,nolines
-2026-01-28,Fabian Zetterlund,OTT,COL,SOG,3.5,2.5,0.263492,Under,,0.7365079999999999,nolines
-2026-01-28,Lars Eller,OTT,COL,SOG,3.5,2.5,0.263492,Under,,0.7365079999999999,nolines
-2026-01-28,Ridly Greig,OTT,COL,SOG,3.5,2.5,0.263492,Under,,0.7365079999999999,nolines
-2026-01-28,Claude Giroux,OTT,COL,SOG,3.5,2.5,0.263492,Under,,0.7365079999999999,nolines
-2026-01-28,Tyler Kleven,OTT,COL,SOG,3.5,2.5,0.263492,Under,,0.7365079999999999,nolines
-2026-01-28,Jake Sanderson,OTT,COL,SOG,3.5,2.5,0.263492,Under,,0.7365079999999999,nolines
-2026-01-28,Dylan Cozens,OTT,COL,SOG,3.5,2.5,0.263492,Under,,0.7365079999999999,nolines
-2026-01-28,Nick Cousins,OTT,COL,SOG,3.5,2.5,0.263492,Under,,0.7365079999999999,nolines
-2026-01-28,Drake Batherson,OTT,COL,SOG,3.5,2.5,0.263492,Under,,0.7365079999999999,nolines
-2026-01-28,Michael Amadio,OTT,COL,SOG,3.5,2.5,0.263492,Under,,0.7365079999999999,nolines
-2026-01-28,Nick Jensen,OTT,COL,SOG,3.5,2.5,0.263492,Under,,0.7365079999999999,nolines
-2026-01-28,Nikolas Matinpalo,OTT,COL,SOG,3.5,2.5,0.263492,Under,,0.7365079999999999,nolines
-2026-01-28,Thomas Chabot,OTT,COL,SOG,3.5,2.5,0.263492,Under,,0.7365079999999999,nolines
-2026-01-28,Jordan Spence,OTT,COL,SOG,3.5,2.5,0.263492,Under,,0.7365079999999999,nolines
-2026-01-28,Artem Zub,OTT,COL,SOG,3.5,2.5,0.263492,Under,,0.7365079999999999,nolines
-2026-01-28,Zach Werenski,CBJ,PHI,SOG,3.5,2.5,0.264629,Under,,0.735371,nolines
-2026-01-28,Kirill Marchenko,CBJ,PHI,SOG,3.5,2.5,0.264629,Under,,0.735371,nolines
-2026-01-28,Miles Wood,CBJ,PHI,SOG,3.5,2.5,0.264629,Under,,0.735371,nolines
-2026-01-28,Charlie Coyle,CBJ,PHI,SOG,3.5,2.5,0.264629,Under,,0.735371,nolines
-2026-01-28,Adam Fantilli,CBJ,PHI,SOG,3.5,2.5,0.264629,Under,,0.735371,nolines
-2026-01-28,Brendan Gaunce,CBJ,PHI,SOG,3.5,2.5,0.264629,Under,,0.735371,nolines
-2026-01-28,Danton Heinen,CBJ,PHI,SOG,3.5,2.5,0.264629,Under,,0.735371,nolines
-2026-01-28,Boone Jenner,CBJ,PHI,SOG,3.5,2.5,0.264629,Under,,0.735371,nolines
-2026-01-28,Kent Johnson,CBJ,PHI,SOG,3.5,2.5,0.264629,Under,,0.735371,nolines
-2026-01-28,Isac Lundeström,CBJ,PHI,SOG,3.5,2.5,0.264629,Under,,0.735371,nolines
-2026-01-28,Mason Marchment,CBJ,PHI,SOG,3.5,2.5,0.264629,Under,,0.735371,nolines
-2026-01-28,Mathieu Olivier,CBJ,PHI,SOG,3.5,2.5,0.264629,Under,,0.735371,nolines
-2026-01-28,Cole Sillinger,CBJ,PHI,SOG,3.5,2.5,0.264629,Under,,0.735371,nolines
-2026-01-28,Dmitri Voronkov,CBJ,PHI,SOG,3.5,2.5,0.264629,Under,,0.735371,nolines
-2026-01-28,Sean Monahan,CBJ,PHI,SOG,3.5,2.5,0.264629,Under,,0.735371,nolines
-2026-01-28,Erik Gudbranson,CBJ,PHI,SOG,3.5,2.5,0.264629,Under,,0.735371,nolines
-2026-01-28,Dante Fabbro,CBJ,PHI,SOG,3.5,2.5,0.264629,Under,,0.735371,nolines
-2026-01-28,Damon Severson,CBJ,PHI,SOG,3.5,2.5,0.264629,Under,,0.735371,nolines
-2026-01-28,Brendan Smith,CBJ,PHI,SOG,3.5,2.5,0.264629,Under,,0.735371,nolines
-2026-01-28,Denton Mateychuk,CBJ,PHI,SOG,3.5,2.5,0.264629,Under,,0.735371,nolines
-2026-01-28,Egor Zamula,CBJ,PHI,SOG,3.5,2.5,0.264629,Under,,0.735371,nolines
-2026-01-28,Ivan Provorov,CBJ,PHI,SOG,3.5,2.5,0.264629,Under,,0.735371,nolines
-2026-01-28,Jake Christiansen,CBJ,PHI,SOG,3.5,2.5,0.264629,Under,,0.735371,nolines
-2026-01-28,Valeri Nichushkin,COL,OTT,SOG,3.5,2.5,0.264635,Under,,0.735365,nolines
-2026-01-28,Zakhar Bardakov,COL,OTT,SOG,3.5,2.5,0.264635,Under,,0.735365,nolines
-2026-01-28,Brock Nelson,COL,OTT,SOG,3.5,2.5,0.264635,Under,,0.735365,nolines
-2026-01-28,Victor Olofsson,COL,OTT,SOG,3.5,2.5,0.264635,Under,,0.735365,nolines
-2026-01-28,Martin Necas,COL,OTT,SOG,3.5,2.5,0.264635,Under,,0.735365,nolines
-2026-01-28,Brent Burns,COL,OTT,SOG,3.5,2.5,0.264635,Under,,0.735365,nolines
-2026-01-28,Taylor Makar,COL,OTT,SOG,3.5,2.5,0.264635,Under,,0.735365,nolines
-2026-01-28,Samuel Girard,COL,OTT,SOG,3.5,2.5,0.264635,Under,,0.735365,nolines
-2026-01-28,Josh Manson,COL,OTT,SOG,3.5,2.5,0.264635,Under,,0.735365,nolines
-2026-01-28,Nathan MacKinnon,COL,OTT,SOG,3.5,2.5,0.264635,Under,,0.735365,nolines
-2026-01-28,Artturi Lehkonen,COL,OTT,SOG,3.5,2.5,0.264635,Under,,0.735365,nolines
-2026-01-28,Sam Malinski,COL,OTT,SOG,3.5,2.5,0.264635,Under,,0.735365,nolines
-2026-01-28,Gabriel Landeskog,COL,OTT,SOG,3.5,2.5,0.264635,Under,,0.735365,nolines
-2026-01-28,Joel Kiviranta,COL,OTT,SOG,3.5,2.5,0.264635,Under,,0.735365,nolines
-2026-01-28,Parker Kelly,COL,OTT,SOG,3.5,2.5,0.264635,Under,,0.735365,nolines
-2026-01-28,Jack Drury,COL,OTT,SOG,3.5,2.5,0.264635,Under,,0.735365,nolines
-2026-01-28,Ross Colton,COL,OTT,SOG,3.5,2.5,0.264635,Under,,0.735365,nolines
-2026-01-28,Gavin Brindley,COL,OTT,SOG,3.5,2.5,0.264635,Under,,0.735365,nolines
-2026-01-28,Devon Toews,COL,OTT,SOG,3.5,2.5,0.264635,Under,,0.735365,nolines
-2026-01-28,Cale Makar,COL,OTT,SOG,3.5,2.5,0.264635,Under,,0.735365,nolines
-2026-01-28,David Rittich,NYI,NYR,SAVES,30.5,27.0,0.32772,Under,,0.67228,nolines
-2026-01-28,Semyon Varlamov,NYI,NYR,SAVES,30.5,27.0,0.32772,Under,,0.67228,nolines
-2026-01-28,Ilya Sorokin,NYI,NYR,SAVES,30.5,27.0,0.32772,Under,,0.67228,nolines
-2026-01-28,Jet Greaves,CBJ,PHI,SAVES,30.5,27.0,0.330206,Under,,0.669794,nolines
-2026-01-28,Elvis Merzlikins,CBJ,PHI,SAVES,30.5,27.0,0.330206,Under,,0.669794,nolines
-2026-01-28,Mackenzie Blackwood,COL,OTT,SAVES,30.5,27.0,0.330451,Under,,0.669549,nolines
-2026-01-28,Scott Wedgewood,COL,OTT,SAVES,30.5,27.0,0.330451,Under,,0.669549,nolines
-2026-01-28,Jonathan Quick,NYR,NYI,SAVES,30.5,27.0,0.330707,Under,,0.669293,nolines
-2026-01-28,Spencer Martin,NYR,NYI,SAVES,30.5,27.0,0.330707,Under,,0.669293,nolines
-2026-01-28,Igor Shesterkin,NYR,NYI,SAVES,30.5,27.0,0.330707,Under,,0.669293,nolines
-2026-01-28,Linus Ullmark,OTT,COL,SAVES,30.5,27.0,0.331835,Under,,0.668165,nolines
-2026-01-28,James Reimer,OTT,COL,SAVES,30.5,27.0,0.331835,Under,,0.668165,nolines
-2026-01-28,Dan Vladar,PHI,CBJ,SAVES,30.5,27.0,0.333937,Under,,0.6660630000000001,nolines
-2026-01-28,Aleksei Kolosov,PHI,CBJ,SAVES,30.5,27.0,0.333937,Under,,0.6660630000000001,nolines
-2026-01-28,Samuel Ersson,PHI,CBJ,SAVES,30.5,27.0,0.333937,Under,,0.6660630000000001,nolines
+date,player,team,opp,market,line,proj_lambda,p_over,side,ev,chosen_prob,source,team_norm,player_norm
+2026-01-28,Will Cuylle,NYR,NYI,SOG,4.5,2.5,0.179929,Under,,0.820071,nolines,NYR,will cuylle
+2026-01-28,Mika Zibanejad,NYR,NYI,SOG,4.5,2.5,0.179929,Under,,0.820071,nolines,NYR,mika zibanejad
+2026-01-28,Urho Vaakanainen,NYR,NYI,SOG,4.5,2.5,0.179929,Under,,0.820071,nolines,NYR,urho vaakanainen
+2026-01-28,Sam Carrick,NYR,NYI,SOG,4.5,2.5,0.179929,Under,,0.820071,nolines,NYR,sam carrick
+2026-01-28,Braden Schneider,NYR,NYI,SOG,4.5,2.5,0.179929,Under,,0.820071,nolines,NYR,braden schneider
+2026-01-28,Matthew Robertson,NYR,NYI,SOG,4.5,2.5,0.179929,Under,,0.820071,nolines,NYR,matthew robertson
+2026-01-28,Jonny Brodzinski,NYR,NYI,SOG,4.5,2.5,0.179929,Under,,0.820071,nolines,NYR,jonny brodzinski
+2026-01-28,Scott Morrow,NYR,NYI,SOG,4.5,2.5,0.179929,Under,,0.820071,nolines,NYR,scott morrow
+2026-01-28,Connor Mackey,NYR,NYI,SOG,4.5,2.5,0.179929,Under,,0.820071,nolines,NYR,connor mackey
+2026-01-28,Vladislav Gavrikov,NYR,NYI,SOG,4.5,2.5,0.179929,Under,,0.820071,nolines,NYR,vladislav gavrikov
+2026-01-28,J.T. Miller,NYR,NYI,SOG,4.5,2.5,0.179929,Under,,0.820071,nolines,NYR,j.t. miller
+2026-01-28,Will Borgen,NYR,NYI,SOG,4.5,2.5,0.179929,Under,,0.820071,nolines,NYR,will borgen
+2026-01-28,Adam Fox,NYR,NYI,SOG,4.5,2.5,0.179929,Under,,0.820071,nolines,NYR,adam fox
+2026-01-28,Vincent Trocheck,NYR,NYI,SOG,4.5,2.5,0.179929,Under,,0.820071,nolines,NYR,vincent trocheck
+2026-01-28,Artemi Panarin,NYR,NYI,SOG,4.5,2.5,0.179929,Under,,0.820071,nolines,NYR,artemi panarin
+2026-01-28,Conor Sheary,NYR,NYI,SOG,4.5,2.5,0.179929,Under,,0.820071,nolines,NYR,conor sheary
+2026-01-28,Adam Edstrom,NYR,NYI,SOG,4.5,2.5,0.179929,Under,,0.820071,nolines,NYR,adam edstrom
+2026-01-28,Brennan Othmann,NYR,NYI,SOG,4.5,2.5,0.179929,Under,,0.820071,nolines,NYR,brennan othmann
+2026-01-28,Matt Rempe,NYR,NYI,SOG,4.5,2.5,0.179929,Under,,0.820071,nolines,NYR,matt rempe
+2026-01-28,Taylor Raddysh,NYR,NYI,SOG,4.5,2.5,0.179929,Under,,0.820071,nolines,NYR,taylor raddysh
+2026-01-28,Alexis Lafrenière,NYR,NYI,SOG,4.5,2.5,0.179929,Under,,0.820071,nolines,NYR,alexis lafrenière
+2026-01-28,Noah Laba,NYR,NYI,SOG,4.5,2.5,0.179929,Under,,0.820071,nolines,NYR,noah laba
+2026-01-28,Gabe Perreault,NYR,NYI,SOG,4.5,2.5,0.179929,Under,,0.820071,nolines,NYR,gabe perreault
+2026-01-28,Emil Andrae,PHI,CBJ,SOG,4.5,2.5,0.181052,Under,,0.818948,nolines,PHI,emil andrae
+2026-01-28,Noah Juulsen,PHI,CBJ,SOG,4.5,2.5,0.181052,Under,,0.818948,nolines,PHI,noah juulsen
+2026-01-28,Jamie Drysdale,PHI,CBJ,SOG,4.5,2.5,0.181052,Under,,0.818948,nolines,PHI,jamie drysdale
+2026-01-28,Cam York,PHI,CBJ,SOG,4.5,2.5,0.181052,Under,,0.818948,nolines,PHI,cam york
+2026-01-28,Rasmus Ristolainen,PHI,CBJ,SOG,4.5,2.5,0.181052,Under,,0.818948,nolines,PHI,rasmus ristolainen
+2026-01-28,Travis Sanheim,PHI,CBJ,SOG,4.5,2.5,0.181052,Under,,0.818948,nolines,PHI,travis sanheim
+2026-01-28,Trevor Zegras,PHI,CBJ,SOG,4.5,2.5,0.181052,Under,,0.818948,nolines,PHI,trevor zegras
+2026-01-28,Nick Seeler,PHI,CBJ,SOG,4.5,2.5,0.181052,Under,,0.818948,nolines,PHI,nick seeler
+2026-01-28,Owen Tippett,PHI,CBJ,SOG,4.5,2.5,0.181052,Under,,0.818948,nolines,PHI,owen tippett
+2026-01-28,Nikita Grebenkin,PHI,CBJ,SOG,4.5,2.5,0.181052,Under,,0.818948,nolines,PHI,nikita grebenkin
+2026-01-28,Denver Barkey,PHI,CBJ,SOG,4.5,2.5,0.181052,Under,,0.818948,nolines,PHI,denver barkey
+2026-01-28,Bobby Brink,PHI,CBJ,SOG,4.5,2.5,0.181052,Under,,0.818948,nolines,PHI,bobby brink
+2026-01-28,Noah Cates,PHI,CBJ,SOG,4.5,2.5,0.181052,Under,,0.818948,nolines,PHI,noah cates
+2026-01-28,Rodrigo Abols,PHI,CBJ,SOG,4.5,2.5,0.181052,Under,,0.818948,nolines,PHI,rodrigo abols
+2026-01-28,Sean Couturier,PHI,CBJ,SOG,4.5,2.5,0.181052,Under,,0.818948,nolines,PHI,sean couturier
+2026-01-28,Nicolas Deslauriers,PHI,CBJ,SOG,4.5,2.5,0.181052,Under,,0.818948,nolines,PHI,nicolas deslauriers
+2026-01-28,Tyson Foerster,PHI,CBJ,SOG,4.5,2.5,0.181052,Under,,0.818948,nolines,PHI,tyson foerster
+2026-01-28,Christian Dvorak,PHI,CBJ,SOG,4.5,2.5,0.181052,Under,,0.818948,nolines,PHI,christian dvorak
+2026-01-28,Travis Konecny,PHI,CBJ,SOG,4.5,2.5,0.181052,Under,,0.818948,nolines,PHI,travis konecny
+2026-01-28,Carl Grundstrom,PHI,CBJ,SOG,4.5,2.5,0.181052,Under,,0.818948,nolines,PHI,carl grundstrom
+2026-01-28,Lane Pederson,PHI,CBJ,SOG,4.5,2.5,0.181052,Under,,0.818948,nolines,PHI,lane pederson
+2026-01-28,Matvei Michkov,PHI,CBJ,SOG,4.5,2.5,0.181052,Under,,0.818948,nolines,PHI,matvei michkov
+2026-01-28,Garnet Hathaway,PHI,CBJ,SOG,4.5,2.5,0.181052,Under,,0.818948,nolines,PHI,garnet hathaway
+2026-01-28,Anders Lee,NYI,NYR,SOG,4.5,2.5,0.182026,Under,,0.817974,nolines,NYI,anders lee
+2026-01-28,Scott Mayfield,NYI,NYR,SOG,4.5,2.5,0.182026,Under,,0.817974,nolines,NYI,scott mayfield
+2026-01-28,Ryan Pulock,NYI,NYR,SOG,4.5,2.5,0.182026,Under,,0.817974,nolines,NYI,ryan pulock
+2026-01-28,Bo Horvat,NYI,NYR,SOG,4.5,2.5,0.182026,Under,,0.817974,nolines,NYI,bo horvat
+2026-01-28,Tony DeAngelo,NYI,NYR,SOG,4.5,2.5,0.182026,Under,,0.817974,nolines,NYI,tony deangelo
+2026-01-28,Kyle Palmieri,NYI,NYR,SOG,4.5,2.5,0.182026,Under,,0.817974,nolines,NYI,kyle palmieri
+2026-01-28,Matthew Schaefer,NYI,NYR,SOG,4.5,2.5,0.182026,Under,,0.817974,nolines,NYI,matthew schaefer
+2026-01-28,Max Shabanov,NYI,NYR,SOG,4.5,2.5,0.182026,Under,,0.817974,nolines,NYI,max shabanov
+2026-01-28,Adam Boqvist,NYI,NYR,SOG,4.5,2.5,0.182026,Under,,0.817974,nolines,NYI,adam boqvist
+2026-01-28,Calum Ritchie,NYI,NYR,SOG,4.5,2.5,0.182026,Under,,0.817974,nolines,NYI,calum ritchie
+2026-01-28,Maxim Tsyplakov,NYI,NYR,SOG,4.5,2.5,0.182026,Under,,0.817974,nolines,NYI,maxim tsyplakov
+2026-01-28,Jean-Gabriel Pageau,NYI,NYR,SOG,4.5,2.5,0.182026,Under,,0.817974,nolines,NYI,jean-gabriel pageau
+2026-01-28,Alexander Romanov,NYI,NYR,SOG,4.5,2.5,0.182026,Under,,0.817974,nolines,NYI,alexander romanov
+2026-01-28,Kyle MacLean,NYI,NYR,SOG,4.5,2.5,0.182026,Under,,0.817974,nolines,NYI,kyle maclean
+2026-01-28,Simon Holmstrom,NYI,NYR,SOG,4.5,2.5,0.182026,Under,,0.817974,nolines,NYI,simon holmstrom
+2026-01-28,Anthony Duclair,NYI,NYR,SOG,4.5,2.5,0.182026,Under,,0.817974,nolines,NYI,anthony duclair
+2026-01-28,Emil Heineman,NYI,NYR,SOG,4.5,2.5,0.182026,Under,,0.817974,nolines,NYI,emil heineman
+2026-01-28,Jonathan Drouin,NYI,NYR,SOG,4.5,2.5,0.182026,Under,,0.817974,nolines,NYI,jonathan drouin
+2026-01-28,Casey Cizikas,NYI,NYR,SOG,4.5,2.5,0.182026,Under,,0.817974,nolines,NYI,casey cizikas
+2026-01-28,Mathew Barzal,NYI,NYR,SOG,4.5,2.5,0.182026,Under,,0.817974,nolines,NYI,mathew barzal
+2026-01-28,Adam Pelech,NYI,NYR,SOG,4.5,2.5,0.182026,Under,,0.817974,nolines,NYI,adam pelech
+2026-01-28,Carson Soucy,NYI,NYR,SOG,4.5,2.5,0.182026,Under,,0.817974,nolines,NYI,carson soucy
+2026-01-28,Marc Gatcomb,NYI,NYR,SOG,4.5,2.5,0.182026,Under,,0.817974,nolines,NYI,marc gatcomb
+2026-01-28,Dmitri Voronkov,CBJ,PHI,SOG,4.5,2.5,0.183671,Under,,0.816329,nolines,CBJ,dmitri voronkov
+2026-01-28,Sean Monahan,CBJ,PHI,SOG,4.5,2.5,0.183671,Under,,0.816329,nolines,CBJ,sean monahan
+2026-01-28,Kent Johnson,CBJ,PHI,SOG,4.5,2.5,0.183671,Under,,0.816329,nolines,CBJ,kent johnson
+2026-01-28,Mathieu Olivier,CBJ,PHI,SOG,4.5,2.5,0.183671,Under,,0.816329,nolines,CBJ,mathieu olivier
+2026-01-28,Boone Jenner,CBJ,PHI,SOG,4.5,2.5,0.183671,Under,,0.816329,nolines,CBJ,boone jenner
+2026-01-28,Cole Sillinger,CBJ,PHI,SOG,4.5,2.5,0.183671,Under,,0.816329,nolines,CBJ,cole sillinger
+2026-01-28,Ivan Provorov,CBJ,PHI,SOG,4.5,2.5,0.183671,Under,,0.816329,nolines,CBJ,ivan provorov
+2026-01-28,Danton Heinen,CBJ,PHI,SOG,4.5,2.5,0.183671,Under,,0.816329,nolines,CBJ,danton heinen
+2026-01-28,Adam Fantilli,CBJ,PHI,SOG,4.5,2.5,0.183671,Under,,0.816329,nolines,CBJ,adam fantilli
+2026-01-28,Brendan Gaunce,CBJ,PHI,SOG,4.5,2.5,0.183671,Under,,0.816329,nolines,CBJ,brendan gaunce
+2026-01-28,Miles Wood,CBJ,PHI,SOG,4.5,2.5,0.183671,Under,,0.816329,nolines,CBJ,miles wood
+2026-01-28,Charlie Coyle,CBJ,PHI,SOG,4.5,2.5,0.183671,Under,,0.816329,nolines,CBJ,charlie coyle
+2026-01-28,Jake Christiansen,CBJ,PHI,SOG,4.5,2.5,0.183671,Under,,0.816329,nolines,CBJ,jake christiansen
+2026-01-28,Dante Fabbro,CBJ,PHI,SOG,4.5,2.5,0.183671,Under,,0.816329,nolines,CBJ,dante fabbro
+2026-01-28,Erik Gudbranson,CBJ,PHI,SOG,4.5,2.5,0.183671,Under,,0.816329,nolines,CBJ,erik gudbranson
+2026-01-28,Denton Mateychuk,CBJ,PHI,SOG,4.5,2.5,0.183671,Under,,0.816329,nolines,CBJ,denton mateychuk
+2026-01-28,Damon Severson,CBJ,PHI,SOG,4.5,2.5,0.183671,Under,,0.816329,nolines,CBJ,damon severson
+2026-01-28,Isac Lundeström,CBJ,PHI,SOG,4.5,2.5,0.183671,Under,,0.816329,nolines,CBJ,isac lundeström
+2026-01-28,Mason Marchment,CBJ,PHI,SOG,4.5,2.5,0.183671,Under,,0.816329,nolines,CBJ,mason marchment
+2026-01-28,Zach Werenski,CBJ,PHI,SOG,4.5,2.5,0.183671,Under,,0.816329,nolines,CBJ,zach werenski
+2026-01-28,Egor Zamula,CBJ,PHI,SOG,4.5,2.5,0.183671,Under,,0.816329,nolines,CBJ,egor zamula
+2026-01-28,Kirill Marchenko,CBJ,PHI,SOG,4.5,2.5,0.183671,Under,,0.816329,nolines,CBJ,kirill marchenko
+2026-01-28,Brendan Smith,CBJ,PHI,SOG,4.5,2.5,0.183671,Under,,0.816329,nolines,CBJ,brendan smith
+2026-01-28,Lars Eller,OTT,COL,SOG,4.5,2.5,0.184337,Under,,0.815663,nolines,OTT,lars eller
+2026-01-28,Brady Tkachuk,OTT,COL,SOG,4.5,2.5,0.184337,Under,,0.815663,nolines,OTT,brady tkachuk
+2026-01-28,Tim Stützle,OTT,COL,SOG,4.5,2.5,0.184337,Under,,0.815663,nolines,OTT,tim stützle
+2026-01-28,Shane Pinto,OTT,COL,SOG,4.5,2.5,0.184337,Under,,0.815663,nolines,OTT,shane pinto
+2026-01-28,David Perron,OTT,COL,SOG,4.5,2.5,0.184337,Under,,0.815663,nolines,OTT,david perron
+2026-01-28,Kurtis MacDermid,OTT,COL,SOG,4.5,2.5,0.184337,Under,,0.815663,nolines,OTT,kurtis macdermid
+2026-01-28,Stephen Halliday,OTT,COL,SOG,4.5,2.5,0.184337,Under,,0.815663,nolines,OTT,stephen halliday
+2026-01-28,Ridly Greig,OTT,COL,SOG,4.5,2.5,0.184337,Under,,0.815663,nolines,OTT,ridly greig
+2026-01-28,Claude Giroux,OTT,COL,SOG,4.5,2.5,0.184337,Under,,0.815663,nolines,OTT,claude giroux
+2026-01-28,Nikolas Matinpalo,OTT,COL,SOG,4.5,2.5,0.184337,Under,,0.815663,nolines,OTT,nikolas matinpalo
+2026-01-28,Dylan Cozens,OTT,COL,SOG,4.5,2.5,0.184337,Under,,0.815663,nolines,OTT,dylan cozens
+2026-01-28,Artem Zub,OTT,COL,SOG,4.5,2.5,0.184337,Under,,0.815663,nolines,OTT,artem zub
+2026-01-28,Drake Batherson,OTT,COL,SOG,4.5,2.5,0.184337,Under,,0.815663,nolines,OTT,drake batherson
+2026-01-28,Michael Amadio,OTT,COL,SOG,4.5,2.5,0.184337,Under,,0.815663,nolines,OTT,michael amadio
+2026-01-28,Jordan Spence,OTT,COL,SOG,4.5,2.5,0.184337,Under,,0.815663,nolines,OTT,jordan spence
+2026-01-28,Thomas Chabot,OTT,COL,SOG,4.5,2.5,0.184337,Under,,0.815663,nolines,OTT,thomas chabot
+2026-01-28,Nick Jensen,OTT,COL,SOG,4.5,2.5,0.184337,Under,,0.815663,nolines,OTT,nick jensen
+2026-01-28,Tyler Kleven,OTT,COL,SOG,4.5,2.5,0.184337,Under,,0.815663,nolines,OTT,tyler kleven
+2026-01-28,Jake Sanderson,OTT,COL,SOG,4.5,2.5,0.184337,Under,,0.815663,nolines,OTT,jake sanderson
+2026-01-28,Nick Cousins,OTT,COL,SOG,4.5,2.5,0.184337,Under,,0.815663,nolines,OTT,nick cousins
+2026-01-28,Fabian Zetterlund,OTT,COL,SOG,4.5,2.5,0.184337,Under,,0.815663,nolines,OTT,fabian zetterlund
+2026-01-28,Gabriel Landeskog,COL,OTT,SOG,4.5,2.5,0.185347,Under,,0.814653,nolines,COL,gabriel landeskog
+2026-01-28,Zakhar Bardakov,COL,OTT,SOG,4.5,2.5,0.185347,Under,,0.814653,nolines,COL,zakhar bardakov
+2026-01-28,Josh Manson,COL,OTT,SOG,4.5,2.5,0.185347,Under,,0.814653,nolines,COL,josh manson
+2026-01-28,Devon Toews,COL,OTT,SOG,4.5,2.5,0.185347,Under,,0.814653,nolines,COL,devon toews
+2026-01-28,Joel Kiviranta,COL,OTT,SOG,4.5,2.5,0.185347,Under,,0.814653,nolines,COL,joel kiviranta
+2026-01-28,Cale Makar,COL,OTT,SOG,4.5,2.5,0.185347,Under,,0.814653,nolines,COL,cale makar
+2026-01-28,Samuel Girard,COL,OTT,SOG,4.5,2.5,0.185347,Under,,0.814653,nolines,COL,samuel girard
+2026-01-28,Brent Burns,COL,OTT,SOG,4.5,2.5,0.185347,Under,,0.814653,nolines,COL,brent burns
+2026-01-28,Sam Malinski,COL,OTT,SOG,4.5,2.5,0.185347,Under,,0.814653,nolines,COL,sam malinski
+2026-01-28,Valeri Nichushkin,COL,OTT,SOG,4.5,2.5,0.185347,Under,,0.814653,nolines,COL,valeri nichushkin
+2026-01-28,Brock Nelson,COL,OTT,SOG,4.5,2.5,0.185347,Under,,0.814653,nolines,COL,brock nelson
+2026-01-28,Victor Olofsson,COL,OTT,SOG,4.5,2.5,0.185347,Under,,0.814653,nolines,COL,victor olofsson
+2026-01-28,Martin Necas,COL,OTT,SOG,4.5,2.5,0.185347,Under,,0.814653,nolines,COL,martin necas
+2026-01-28,Gavin Brindley,COL,OTT,SOG,4.5,2.5,0.185347,Under,,0.814653,nolines,COL,gavin brindley
+2026-01-28,Taylor Makar,COL,OTT,SOG,4.5,2.5,0.185347,Under,,0.814653,nolines,COL,taylor makar
+2026-01-28,Ross Colton,COL,OTT,SOG,4.5,2.5,0.185347,Under,,0.814653,nolines,COL,ross colton
+2026-01-28,Nathan MacKinnon,COL,OTT,SOG,4.5,2.5,0.185347,Under,,0.814653,nolines,COL,nathan mackinnon
+2026-01-28,Jack Drury,COL,OTT,SOG,4.5,2.5,0.185347,Under,,0.814653,nolines,COL,jack drury
+2026-01-28,Artturi Lehkonen,COL,OTT,SOG,4.5,2.5,0.185347,Under,,0.814653,nolines,COL,artturi lehkonen
+2026-01-28,Parker Kelly,COL,OTT,SOG,4.5,2.5,0.185347,Under,,0.814653,nolines,COL,parker kelly
+2026-01-28,J.T. Miller,NYR,NYI,SOG,3.5,2.5,0.259633,Under,,0.740367,nolines,NYR,j.t. miller
+2026-01-28,Brennan Othmann,NYR,NYI,SOG,3.5,2.5,0.259633,Under,,0.740367,nolines,NYR,brennan othmann
+2026-01-28,Artemi Panarin,NYR,NYI,SOG,3.5,2.5,0.259633,Under,,0.740367,nolines,NYR,artemi panarin
+2026-01-28,Gabe Perreault,NYR,NYI,SOG,3.5,2.5,0.259633,Under,,0.740367,nolines,NYR,gabe perreault
+2026-01-28,Taylor Raddysh,NYR,NYI,SOG,3.5,2.5,0.259633,Under,,0.740367,nolines,NYR,taylor raddysh
+2026-01-28,Conor Sheary,NYR,NYI,SOG,3.5,2.5,0.259633,Under,,0.740367,nolines,NYR,conor sheary
+2026-01-28,Alexis Lafrenière,NYR,NYI,SOG,3.5,2.5,0.259633,Under,,0.740367,nolines,NYR,alexis lafrenière
+2026-01-28,Vincent Trocheck,NYR,NYI,SOG,3.5,2.5,0.259633,Under,,0.740367,nolines,NYR,vincent trocheck
+2026-01-28,Matthew Robertson,NYR,NYI,SOG,3.5,2.5,0.259633,Under,,0.740367,nolines,NYR,matthew robertson
+2026-01-28,Mika Zibanejad,NYR,NYI,SOG,3.5,2.5,0.259633,Under,,0.740367,nolines,NYR,mika zibanejad
+2026-01-28,Will Borgen,NYR,NYI,SOG,3.5,2.5,0.259633,Under,,0.740367,nolines,NYR,will borgen
+2026-01-28,Adam Fox,NYR,NYI,SOG,3.5,2.5,0.259633,Under,,0.740367,nolines,NYR,adam fox
+2026-01-28,Vladislav Gavrikov,NYR,NYI,SOG,3.5,2.5,0.259633,Under,,0.740367,nolines,NYR,vladislav gavrikov
+2026-01-28,Connor Mackey,NYR,NYI,SOG,3.5,2.5,0.259633,Under,,0.740367,nolines,NYR,connor mackey
+2026-01-28,Scott Morrow,NYR,NYI,SOG,3.5,2.5,0.259633,Under,,0.740367,nolines,NYR,scott morrow
+2026-01-28,Adam Edstrom,NYR,NYI,SOG,3.5,2.5,0.259633,Under,,0.740367,nolines,NYR,adam edstrom
+2026-01-28,Braden Schneider,NYR,NYI,SOG,3.5,2.5,0.259633,Under,,0.740367,nolines,NYR,braden schneider
+2026-01-28,Urho Vaakanainen,NYR,NYI,SOG,3.5,2.5,0.259633,Under,,0.740367,nolines,NYR,urho vaakanainen
+2026-01-28,Noah Laba,NYR,NYI,SOG,3.5,2.5,0.259633,Under,,0.740367,nolines,NYR,noah laba
+2026-01-28,Matt Rempe,NYR,NYI,SOG,3.5,2.5,0.259633,Under,,0.740367,nolines,NYR,matt rempe
+2026-01-28,Will Cuylle,NYR,NYI,SOG,3.5,2.5,0.259633,Under,,0.740367,nolines,NYR,will cuylle
+2026-01-28,Sam Carrick,NYR,NYI,SOG,3.5,2.5,0.259633,Under,,0.740367,nolines,NYR,sam carrick
+2026-01-28,Jonny Brodzinski,NYR,NYI,SOG,3.5,2.5,0.259633,Under,,0.740367,nolines,NYR,jonny brodzinski
+2026-01-28,Rodrigo Abols,PHI,CBJ,SOG,3.5,2.5,0.261637,Under,,0.738363,nolines,PHI,rodrigo abols
+2026-01-28,Travis Konecny,PHI,CBJ,SOG,3.5,2.5,0.261637,Under,,0.738363,nolines,PHI,travis konecny
+2026-01-28,Travis Sanheim,PHI,CBJ,SOG,3.5,2.5,0.261637,Under,,0.738363,nolines,PHI,travis sanheim
+2026-01-28,Cam York,PHI,CBJ,SOG,3.5,2.5,0.261637,Under,,0.738363,nolines,PHI,cam york
+2026-01-28,Rasmus Ristolainen,PHI,CBJ,SOG,3.5,2.5,0.261637,Under,,0.738363,nolines,PHI,rasmus ristolainen
+2026-01-28,Noah Juulsen,PHI,CBJ,SOG,3.5,2.5,0.261637,Under,,0.738363,nolines,PHI,noah juulsen
+2026-01-28,Jamie Drysdale,PHI,CBJ,SOG,3.5,2.5,0.261637,Under,,0.738363,nolines,PHI,jamie drysdale
+2026-01-28,Emil Andrae,PHI,CBJ,SOG,3.5,2.5,0.261637,Under,,0.738363,nolines,PHI,emil andrae
+2026-01-28,Trevor Zegras,PHI,CBJ,SOG,3.5,2.5,0.261637,Under,,0.738363,nolines,PHI,trevor zegras
+2026-01-28,Owen Tippett,PHI,CBJ,SOG,3.5,2.5,0.261637,Under,,0.738363,nolines,PHI,owen tippett
+2026-01-28,Lane Pederson,PHI,CBJ,SOG,3.5,2.5,0.261637,Under,,0.738363,nolines,PHI,lane pederson
+2026-01-28,Matvei Michkov,PHI,CBJ,SOG,3.5,2.5,0.261637,Under,,0.738363,nolines,PHI,matvei michkov
+2026-01-28,Garnet Hathaway,PHI,CBJ,SOG,3.5,2.5,0.261637,Under,,0.738363,nolines,PHI,garnet hathaway
+2026-01-28,Carl Grundstrom,PHI,CBJ,SOG,3.5,2.5,0.261637,Under,,0.738363,nolines,PHI,carl grundstrom
+2026-01-28,Nikita Grebenkin,PHI,CBJ,SOG,3.5,2.5,0.261637,Under,,0.738363,nolines,PHI,nikita grebenkin
+2026-01-28,Tyson Foerster,PHI,CBJ,SOG,3.5,2.5,0.261637,Under,,0.738363,nolines,PHI,tyson foerster
+2026-01-28,Christian Dvorak,PHI,CBJ,SOG,3.5,2.5,0.261637,Under,,0.738363,nolines,PHI,christian dvorak
+2026-01-28,Nicolas Deslauriers,PHI,CBJ,SOG,3.5,2.5,0.261637,Under,,0.738363,nolines,PHI,nicolas deslauriers
+2026-01-28,Sean Couturier,PHI,CBJ,SOG,3.5,2.5,0.261637,Under,,0.738363,nolines,PHI,sean couturier
+2026-01-28,Noah Cates,PHI,CBJ,SOG,3.5,2.5,0.261637,Under,,0.738363,nolines,PHI,noah cates
+2026-01-28,Bobby Brink,PHI,CBJ,SOG,3.5,2.5,0.261637,Under,,0.738363,nolines,PHI,bobby brink
+2026-01-28,Denver Barkey,PHI,CBJ,SOG,3.5,2.5,0.261637,Under,,0.738363,nolines,PHI,denver barkey
+2026-01-28,Nick Seeler,PHI,CBJ,SOG,3.5,2.5,0.261637,Under,,0.738363,nolines,PHI,nick seeler
+2026-01-28,Matthew Schaefer,NYI,NYR,SOG,3.5,2.5,0.262026,Under,,0.737974,nolines,NYI,matthew schaefer
+2026-01-28,Jean-Gabriel Pageau,NYI,NYR,SOG,3.5,2.5,0.262026,Under,,0.737974,nolines,NYI,jean-gabriel pageau
+2026-01-28,Carson Soucy,NYI,NYR,SOG,3.5,2.5,0.262026,Under,,0.737974,nolines,NYI,carson soucy
+2026-01-28,Kyle MacLean,NYI,NYR,SOG,3.5,2.5,0.262026,Under,,0.737974,nolines,NYI,kyle maclean
+2026-01-28,Alexander Romanov,NYI,NYR,SOG,3.5,2.5,0.262026,Under,,0.737974,nolines,NYI,alexander romanov
+2026-01-28,Mathew Barzal,NYI,NYR,SOG,3.5,2.5,0.262026,Under,,0.737974,nolines,NYI,mathew barzal
+2026-01-28,Calum Ritchie,NYI,NYR,SOG,3.5,2.5,0.262026,Under,,0.737974,nolines,NYI,calum ritchie
+2026-01-28,Anthony Duclair,NYI,NYR,SOG,3.5,2.5,0.262026,Under,,0.737974,nolines,NYI,anthony duclair
+2026-01-28,Emil Heineman,NYI,NYR,SOG,3.5,2.5,0.262026,Under,,0.737974,nolines,NYI,emil heineman
+2026-01-28,Jonathan Drouin,NYI,NYR,SOG,3.5,2.5,0.262026,Under,,0.737974,nolines,NYI,jonathan drouin
+2026-01-28,Simon Holmstrom,NYI,NYR,SOG,3.5,2.5,0.262026,Under,,0.737974,nolines,NYI,simon holmstrom
+2026-01-28,Max Shabanov,NYI,NYR,SOG,3.5,2.5,0.262026,Under,,0.737974,nolines,NYI,max shabanov
+2026-01-28,Casey Cizikas,NYI,NYR,SOG,3.5,2.5,0.262026,Under,,0.737974,nolines,NYI,casey cizikas
+2026-01-28,Kyle Palmieri,NYI,NYR,SOG,3.5,2.5,0.262026,Under,,0.737974,nolines,NYI,kyle palmieri
+2026-01-28,Maxim Tsyplakov,NYI,NYR,SOG,3.5,2.5,0.262026,Under,,0.737974,nolines,NYI,maxim tsyplakov
+2026-01-28,Bo Horvat,NYI,NYR,SOG,3.5,2.5,0.262026,Under,,0.737974,nolines,NYI,bo horvat
+2026-01-28,Adam Boqvist,NYI,NYR,SOG,3.5,2.5,0.262026,Under,,0.737974,nolines,NYI,adam boqvist
+2026-01-28,Anders Lee,NYI,NYR,SOG,3.5,2.5,0.262026,Under,,0.737974,nolines,NYI,anders lee
+2026-01-28,Tony DeAngelo,NYI,NYR,SOG,3.5,2.5,0.262026,Under,,0.737974,nolines,NYI,tony deangelo
+2026-01-28,Scott Mayfield,NYI,NYR,SOG,3.5,2.5,0.262026,Under,,0.737974,nolines,NYI,scott mayfield
+2026-01-28,Adam Pelech,NYI,NYR,SOG,3.5,2.5,0.262026,Under,,0.737974,nolines,NYI,adam pelech
+2026-01-28,Ryan Pulock,NYI,NYR,SOG,3.5,2.5,0.262026,Under,,0.737974,nolines,NYI,ryan pulock
+2026-01-28,Marc Gatcomb,NYI,NYR,SOG,3.5,2.5,0.262026,Under,,0.737974,nolines,NYI,marc gatcomb
+2026-01-28,Tim Stützle,OTT,COL,SOG,3.5,2.5,0.263492,Under,,0.7365079999999999,nolines,OTT,tim stützle
+2026-01-28,Stephen Halliday,OTT,COL,SOG,3.5,2.5,0.263492,Under,,0.7365079999999999,nolines,OTT,stephen halliday
+2026-01-28,Brady Tkachuk,OTT,COL,SOG,3.5,2.5,0.263492,Under,,0.7365079999999999,nolines,OTT,brady tkachuk
+2026-01-28,Shane Pinto,OTT,COL,SOG,3.5,2.5,0.263492,Under,,0.7365079999999999,nolines,OTT,shane pinto
+2026-01-28,David Perron,OTT,COL,SOG,3.5,2.5,0.263492,Under,,0.7365079999999999,nolines,OTT,david perron
+2026-01-28,Kurtis MacDermid,OTT,COL,SOG,3.5,2.5,0.263492,Under,,0.7365079999999999,nolines,OTT,kurtis macdermid
+2026-01-28,Fabian Zetterlund,OTT,COL,SOG,3.5,2.5,0.263492,Under,,0.7365079999999999,nolines,OTT,fabian zetterlund
+2026-01-28,Lars Eller,OTT,COL,SOG,3.5,2.5,0.263492,Under,,0.7365079999999999,nolines,OTT,lars eller
+2026-01-28,Ridly Greig,OTT,COL,SOG,3.5,2.5,0.263492,Under,,0.7365079999999999,nolines,OTT,ridly greig
+2026-01-28,Claude Giroux,OTT,COL,SOG,3.5,2.5,0.263492,Under,,0.7365079999999999,nolines,OTT,claude giroux
+2026-01-28,Tyler Kleven,OTT,COL,SOG,3.5,2.5,0.263492,Under,,0.7365079999999999,nolines,OTT,tyler kleven
+2026-01-28,Jake Sanderson,OTT,COL,SOG,3.5,2.5,0.263492,Under,,0.7365079999999999,nolines,OTT,jake sanderson
+2026-01-28,Dylan Cozens,OTT,COL,SOG,3.5,2.5,0.263492,Under,,0.7365079999999999,nolines,OTT,dylan cozens
+2026-01-28,Nick Cousins,OTT,COL,SOG,3.5,2.5,0.263492,Under,,0.7365079999999999,nolines,OTT,nick cousins
+2026-01-28,Drake Batherson,OTT,COL,SOG,3.5,2.5,0.263492,Under,,0.7365079999999999,nolines,OTT,drake batherson
+2026-01-28,Michael Amadio,OTT,COL,SOG,3.5,2.5,0.263492,Under,,0.7365079999999999,nolines,OTT,michael amadio
+2026-01-28,Nick Jensen,OTT,COL,SOG,3.5,2.5,0.263492,Under,,0.7365079999999999,nolines,OTT,nick jensen
+2026-01-28,Nikolas Matinpalo,OTT,COL,SOG,3.5,2.5,0.263492,Under,,0.7365079999999999,nolines,OTT,nikolas matinpalo
+2026-01-28,Thomas Chabot,OTT,COL,SOG,3.5,2.5,0.263492,Under,,0.7365079999999999,nolines,OTT,thomas chabot
+2026-01-28,Jordan Spence,OTT,COL,SOG,3.5,2.5,0.263492,Under,,0.7365079999999999,nolines,OTT,jordan spence
+2026-01-28,Artem Zub,OTT,COL,SOG,3.5,2.5,0.263492,Under,,0.7365079999999999,nolines,OTT,artem zub
+2026-01-28,Zach Werenski,CBJ,PHI,SOG,3.5,2.5,0.264629,Under,,0.735371,nolines,CBJ,zach werenski
+2026-01-28,Kirill Marchenko,CBJ,PHI,SOG,3.5,2.5,0.264629,Under,,0.735371,nolines,CBJ,kirill marchenko
+2026-01-28,Miles Wood,CBJ,PHI,SOG,3.5,2.5,0.264629,Under,,0.735371,nolines,CBJ,miles wood
+2026-01-28,Charlie Coyle,CBJ,PHI,SOG,3.5,2.5,0.264629,Under,,0.735371,nolines,CBJ,charlie coyle
+2026-01-28,Adam Fantilli,CBJ,PHI,SOG,3.5,2.5,0.264629,Under,,0.735371,nolines,CBJ,adam fantilli
+2026-01-28,Brendan Gaunce,CBJ,PHI,SOG,3.5,2.5,0.264629,Under,,0.735371,nolines,CBJ,brendan gaunce
+2026-01-28,Danton Heinen,CBJ,PHI,SOG,3.5,2.5,0.264629,Under,,0.735371,nolines,CBJ,danton heinen
+2026-01-28,Boone Jenner,CBJ,PHI,SOG,3.5,2.5,0.264629,Under,,0.735371,nolines,CBJ,boone jenner
+2026-01-28,Kent Johnson,CBJ,PHI,SOG,3.5,2.5,0.264629,Under,,0.735371,nolines,CBJ,kent johnson
+2026-01-28,Isac Lundeström,CBJ,PHI,SOG,3.5,2.5,0.264629,Under,,0.735371,nolines,CBJ,isac lundeström
+2026-01-28,Mason Marchment,CBJ,PHI,SOG,3.5,2.5,0.264629,Under,,0.735371,nolines,CBJ,mason marchment
+2026-01-28,Mathieu Olivier,CBJ,PHI,SOG,3.5,2.5,0.264629,Under,,0.735371,nolines,CBJ,mathieu olivier
+2026-01-28,Cole Sillinger,CBJ,PHI,SOG,3.5,2.5,0.264629,Under,,0.735371,nolines,CBJ,cole sillinger
+2026-01-28,Dmitri Voronkov,CBJ,PHI,SOG,3.5,2.5,0.264629,Under,,0.735371,nolines,CBJ,dmitri voronkov
+2026-01-28,Sean Monahan,CBJ,PHI,SOG,3.5,2.5,0.264629,Under,,0.735371,nolines,CBJ,sean monahan
+2026-01-28,Erik Gudbranson,CBJ,PHI,SOG,3.5,2.5,0.264629,Under,,0.735371,nolines,CBJ,erik gudbranson
+2026-01-28,Dante Fabbro,CBJ,PHI,SOG,3.5,2.5,0.264629,Under,,0.735371,nolines,CBJ,dante fabbro
+2026-01-28,Damon Severson,CBJ,PHI,SOG,3.5,2.5,0.264629,Under,,0.735371,nolines,CBJ,damon severson
+2026-01-28,Brendan Smith,CBJ,PHI,SOG,3.5,2.5,0.264629,Under,,0.735371,nolines,CBJ,brendan smith
+2026-01-28,Denton Mateychuk,CBJ,PHI,SOG,3.5,2.5,0.264629,Under,,0.735371,nolines,CBJ,denton mateychuk
+2026-01-28,Egor Zamula,CBJ,PHI,SOG,3.5,2.5,0.264629,Under,,0.735371,nolines,CBJ,egor zamula
+2026-01-28,Ivan Provorov,CBJ,PHI,SOG,3.5,2.5,0.264629,Under,,0.735371,nolines,CBJ,ivan provorov
+2026-01-28,Jake Christiansen,CBJ,PHI,SOG,3.5,2.5,0.264629,Under,,0.735371,nolines,CBJ,jake christiansen
+2026-01-28,Valeri Nichushkin,COL,OTT,SOG,3.5,2.5,0.264635,Under,,0.735365,nolines,COL,valeri nichushkin
+2026-01-28,Zakhar Bardakov,COL,OTT,SOG,3.5,2.5,0.264635,Under,,0.735365,nolines,COL,zakhar bardakov
+2026-01-28,Brock Nelson,COL,OTT,SOG,3.5,2.5,0.264635,Under,,0.735365,nolines,COL,brock nelson
+2026-01-28,Victor Olofsson,COL,OTT,SOG,3.5,2.5,0.264635,Under,,0.735365,nolines,COL,victor olofsson
+2026-01-28,Martin Necas,COL,OTT,SOG,3.5,2.5,0.264635,Under,,0.735365,nolines,COL,martin necas
+2026-01-28,Brent Burns,COL,OTT,SOG,3.5,2.5,0.264635,Under,,0.735365,nolines,COL,brent burns
+2026-01-28,Taylor Makar,COL,OTT,SOG,3.5,2.5,0.264635,Under,,0.735365,nolines,COL,taylor makar
+2026-01-28,Samuel Girard,COL,OTT,SOG,3.5,2.5,0.264635,Under,,0.735365,nolines,COL,samuel girard
+2026-01-28,Josh Manson,COL,OTT,SOG,3.5,2.5,0.264635,Under,,0.735365,nolines,COL,josh manson
+2026-01-28,Nathan MacKinnon,COL,OTT,SOG,3.5,2.5,0.264635,Under,,0.735365,nolines,COL,nathan mackinnon
+2026-01-28,Artturi Lehkonen,COL,OTT,SOG,3.5,2.5,0.264635,Under,,0.735365,nolines,COL,artturi lehkonen
+2026-01-28,Sam Malinski,COL,OTT,SOG,3.5,2.5,0.264635,Under,,0.735365,nolines,COL,sam malinski
+2026-01-28,Gabriel Landeskog,COL,OTT,SOG,3.5,2.5,0.264635,Under,,0.735365,nolines,COL,gabriel landeskog
+2026-01-28,Joel Kiviranta,COL,OTT,SOG,3.5,2.5,0.264635,Under,,0.735365,nolines,COL,joel kiviranta
+2026-01-28,Parker Kelly,COL,OTT,SOG,3.5,2.5,0.264635,Under,,0.735365,nolines,COL,parker kelly
+2026-01-28,Jack Drury,COL,OTT,SOG,3.5,2.5,0.264635,Under,,0.735365,nolines,COL,jack drury
+2026-01-28,Ross Colton,COL,OTT,SOG,3.5,2.5,0.264635,Under,,0.735365,nolines,COL,ross colton
+2026-01-28,Gavin Brindley,COL,OTT,SOG,3.5,2.5,0.264635,Under,,0.735365,nolines,COL,gavin brindley
+2026-01-28,Devon Toews,COL,OTT,SOG,3.5,2.5,0.264635,Under,,0.735365,nolines,COL,devon toews
+2026-01-28,Cale Makar,COL,OTT,SOG,3.5,2.5,0.264635,Under,,0.735365,nolines,COL,cale makar
+2026-01-28,Samuel Ersson,PHI,CBJ,SAVES,30.5,27.0,0.333937,Under,,0.6660630000000001,nolines,PHI,samuel ersson
+2026-01-28,James Reimer,OTT,COL,SAVES,30.5,27.0,0.331835,Under,,0.668165,nolines,OTT,james reimer
+2026-01-28,Spencer Martin,NYR,NYI,SAVES,30.5,27.0,0.330707,Under,,0.669293,nolines,NYR,spencer martin
+2026-01-28,Mackenzie Blackwood,COL,OTT,SAVES,30.5,27.0,0.330451,Under,,0.669549,nolines,COL,mackenzie blackwood
+2026-01-28,Jet Greaves,CBJ,PHI,SAVES,30.5,27.0,0.330206,Under,,0.669794,nolines,CBJ,jet greaves
+2026-01-28,David Rittich,NYI,NYR,SAVES,30.5,27.0,0.32772,Under,,0.67228,nolines,NYI,david rittich

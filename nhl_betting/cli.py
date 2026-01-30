@@ -4068,14 +4068,19 @@ def game_sim_accuracy_range(
 
     for p, d in zip(sim_files, date_list):
         df = _load_sim(p, d)
-        if 'date' not in df.columns:
-            # Cannot join without date; skip
-            continue
-        # Join on date/home/away
-        cols_ok = all(c in df.columns for c in ('date','home','away'))
+        # Ensure we have home/away and some date column
+        cols_ok = all(c in df.columns for c in ('home','away')) and (('date_et' in df.columns) or ('date' in df.columns))
         if not cols_ok:
             continue
-        merged = df.merge(outcomes, on=['date','home','away'], how='inner')
+        # Prefer ET calendar join if available to avoid UTC day drift
+        if 'date_et' in df.columns:
+            try:
+                df['date_et'] = pd.to_datetime(df['date_et'], errors='coerce').dt.strftime('%Y-%m-%d')
+            except Exception:
+                pass
+            merged = df.merge(outcomes, left_on=['date_et','home','away'], right_on=['date','home','away'], how='inner')
+        else:
+            merged = df.merge(outcomes, on=['date','home','away'], how='inner')
         if merged.empty:
             continue
         for _, r in merged.iterrows():
@@ -6123,6 +6128,23 @@ def props_simulate_boxscores(
     # Aggregate across games and sims
     agg_all: list[pd.DataFrame] = []
     samples_all: list[pd.DataFrame] = []
+    # Optional: load starting goalies snapshot to improve goalie attribution
+    starter_map_by_teamname: dict[str, int] = {}
+    try:
+        from .utils.io import PROC_DIR as _PROC
+        sg = pd.read_csv(_PROC / f"starting_goalies_{date}.csv")
+        # Build mapping from slate team names to player_id via roster lookup
+        # sg has columns [team, goalie]
+        for _, r in (sg if sg is not None else pd.DataFrame()).iterrows():
+            ab = str(r.get("team") or "").upper()
+            gname = str(r.get("goalie") or "").strip()
+            if not ab or not gname:
+                continue
+            # We'll resolve later after roster load per game
+            starter_map_by_teamname[ab] = gname  # temporarily store name by abbr
+    except Exception:
+        starter_map_by_teamname = {}
+
     for g in games:
         home = str(getattr(g, 'home', ''))
         away = str(getattr(g, 'away', ''))
@@ -6132,6 +6154,33 @@ def props_simulate_boxscores(
         roster_away, lineup_away = _roster_for_name(away)
         if not roster_home or not roster_away:
             continue
+        # Resolve starting goalie IDs for each side using snapshot when available
+        starter_ids: dict[str, int] = {}
+        try:
+            h_ab = (get_team_assets(home).get('abbr') or '').upper()
+            a_ab = (get_team_assets(away).get('abbr') or '').upper()
+            name_h = starter_map_by_teamname.get(h_ab)
+            name_a = starter_map_by_teamname.get(a_ab)
+            # helper to find player_id by full name within roster
+            def _pid_for(roster: list[dict], full: str) -> int | None:
+                if not (roster and full):
+                    return None
+                for rr in roster:
+                    nm = str(rr.get('full_name') or rr.get('player') or '').strip()
+                    if nm and nm.lower() == full.lower():
+                        try:
+                            return int(rr.get('player_id'))
+                        except Exception:
+                            return None
+                return None
+            pid_h = _pid_for(roster_home, name_h)
+            pid_a = _pid_for(roster_away, name_a)
+            if pid_h:
+                starter_ids[home] = int(pid_h)
+            if pid_a:
+                starter_ids[away] = int(pid_a)
+        except Exception:
+            pass
         # Simple baseline rates per game; future: inject team-specific rates
         rates = RateModels.baseline()
         cfg = SimConfig(periods=3, seed=seed)
@@ -6140,7 +6189,7 @@ def props_simulate_boxscores(
         df_parts = []
         for i in range(int(n_sims)):
             gs, ev = sim.simulate_with_lineups(home_name=home, away_name=away, roster_home=roster_home, roster_away=roster_away, lineup_home=lineup_home or [], lineup_away=lineup_away or [])
-            df_i = aggregate_events_to_boxscores(gs, ev)
+            df_i = aggregate_events_to_boxscores(gs, ev, starter_goalies=starter_ids or None)
             # Attach player names for convenience
             name_map = { int(p['player_id']): str(p['full_name']) for p in (roster_home + roster_away) if p.get('player_id') }
             df_i['player'] = df_i['player_id'].map(lambda pid: name_map.get(int(pid)))
@@ -6167,23 +6216,25 @@ def props_simulate_boxscores(
             df_sum = df_sum.groupby(grp_cols, as_index=False)[['shots','goals','assists','points','blocks','saves','toi_sec']].sum()
             # Convert to expected means across sims
             df_sum[['shots','goals','assists','points','blocks','saves','toi_sec']] = df_sum[['shots','goals','assists','points','blocks','saves','toi_sec']].astype(float) / float(n_sims)
-            # Integerize period stats for realism and recompute totals (period=0)
+            # Recompute totals (period=0) from per-period means without hard rounding to preserve variance
             def _normalize_boxscores(df: pd.DataFrame) -> pd.DataFrame:
                 df = df.copy()
                 # Separate period rows and totals
                 periods = df[df['period'] > 0].copy()
-                # Round core count stats to integers for per-period rows
-                for col in ['shots','goals','assists','blocks','saves']:
+                # Keep per-period expected values as floats; ensure non-negative
+                for col in ['shots','goals','assists','blocks','saves','points']:
                     if col in periods.columns:
-                        periods[col] = periods[col].fillna(0).round().astype(int)
+                        periods[col] = periods[col].fillna(0).astype(float)
                         periods[col] = periods[col].clip(lower=0)
-                # Ensure points consistency = goals + assists
+                # Ensure points consistency = goals + assists (as float expectations)
                 if {'goals','assists'}.issubset(periods.columns):
-                    periods['points'] = (periods['goals'].astype(int) + periods['assists'].astype(int)).astype(int)
+                    periods['points'] = (periods['goals'].astype(float) + periods['assists'].astype(float))
                 # Minimal TOI floor for any non-zero stat rows to avoid zero-TOI anomalies
                 if 'toi_sec' in periods.columns:
                     mask_nonzero = (periods[['shots','goals','assists','blocks','saves']].sum(axis=1) > 0)
                     periods.loc[mask_nonzero & (periods['toi_sec'] <= 0), 'toi_sec'] = 60.0
+                    # Also apply a small TOI floor for any period rows with zero TOI (e.g., shift events missing duration)
+                    periods.loc[periods['toi_sec'] <= 0, 'toi_sec'] = 30.0
                 # Recompute totals across periods (period=0) with integer sums
                 key_cols = ['team','player_id','player','game_home','game_away','date']
                 totals = periods.groupby(key_cols, as_index=False)[['shots','goals','assists','points','blocks','saves','toi_sec']].sum()
@@ -8646,6 +8697,8 @@ def props_recommendations_combined(
     date: str = typer.Option(..., help="Slate date YYYY-MM-DD (ET)"),
     include_nolines: bool = typer.Option(True, help="Include nolines recommendations if present"),
     out_json: bool = typer.Option(True, help="Also write a JSON alongside CSV"),
+    filter_starting_goalies: bool = typer.Option(True, help="For SAVES market, keep only starting goalies for the team"),
+    dedupe_goalie_lines: bool = typer.Option(True, help="For SAVES market, keep best line per player+book to reduce duplicates"),
 ):
     """Merge EV-based sim recommendations and nolines recommendations into one output.
 
@@ -8689,6 +8742,51 @@ def props_recommendations_combined(
     # Preferred ordering
     cols = [c for c in ["date","player","team","opp","market","line","book","over_price","under_price","proj_lambda","p_over","side","ev","chosen_prob","source"] if c in df.columns]
     final = df[cols].copy()
+    # Optional: filter to starting goalies for SAVES
+    if filter_starting_goalies and "market" in final.columns and "player" in final.columns and "team" in final.columns:
+        try:
+            import pandas as pd
+            from .utils.io import PROC_DIR
+            sg_path = PROC_DIR / f"starting_goalies_{date}.csv"
+            if sg_path.exists():
+                sg = pd.read_csv(sg_path)
+                if not sg.empty and {"team","goalie"}.issubset(set(sg.columns)):
+                    sg = sg.copy()
+                    sg["team_norm"] = sg["team"].astype(str).str.upper()
+                    sg["goalie_norm"] = sg["goalie"].astype(str).str.strip().str.lower()
+                    starters = sg[["team_norm","goalie_norm"]].dropna()
+                    final = final.copy()
+                    final["team_norm"] = final["team"].astype(str).str.upper()
+                    final["player_norm"] = final["player"].astype(str).str.strip().str.lower()
+                    is_saves = (final["market"].astype(str).str.upper() == "SAVES")
+                    keep_mask = is_saves & final.apply(lambda r: ((r["team_norm"], r["player_norm"]) in set(map(tuple, starters.values))), axis=1)
+                    # Keep non-SAVES rows and matching SAVES rows
+                    final = pd.concat([final[~is_saves], final[keep_mask]], ignore_index=True)
+        except Exception:
+            pass
+    # Optional: dedupe goalie lines per player+book (keep highest EV/prob)
+    if dedupe_goalie_lines and {"market","player"}.issubset(set(final.columns)):
+        try:
+            import numpy as np
+            is_saves = (final["market"].astype(str).str.upper() == "SAVES")
+            saves_df = final[is_saves].copy()
+            others_df = final[~is_saves].copy()
+            if not saves_df.empty:
+                # Create a sort key: prefer 'ev' if present else 'p_over' else 'chosen_prob'
+                for col in ["ev","p_over","chosen_prob"]:
+                    if col not in saves_df.columns:
+                        saves_df[col] = np.nan
+                saves_df["_score"] = saves_df["ev"].where(saves_df["ev"].notna(), saves_df["p_over"].where(saves_df["p_over"].notna(), saves_df["chosen_prob"]))
+                # Group by player+book if book exists, else by player+line
+                group_cols = [c for c in ["player","book"] if c in saves_df.columns]
+                if not group_cols:
+                    group_cols = [c for c in ["player","line"] if c in saves_df.columns]
+                if group_cols:
+                    saves_df = saves_df.sort_values(by="_score", ascending=False)
+                    saves_df = saves_df.drop_duplicates(subset=group_cols, keep="first")
+                final = pd.concat([others_df, saves_df.drop(columns=["_score"], errors="ignore")], ignore_index=True)
+        except Exception:
+            pass
     out_csv = PROC_DIR / f"props_recommendations_combined_{date}.csv"
     save_df(final, out_csv)
     print(f"[props-recs-combined] wrote {out_csv} with {len(final)} rows")
@@ -12683,6 +12781,264 @@ if __name__ == "__main__":
             save_df(events_df, out_e)
         print({"saved": {"games": str(out_g), "boxscores": str(out_b), "events": (str(out_e) if not events_df.empty else None)}, "counts": {"games": len(games_df), "box": len(boxes_df), "events": len(events_df)}})
 
+    @app.command(name="sim-slate")
+    def sim_slate(
+        date: str = typer.Option(..., help="Slate date YYYY-MM-DD (ET)"),
+        n_sims: int = typer.Option(10000, help="Number of play-level simulations per game"),
+        seed: Optional[int] = typer.Option(42, help="Random seed for reproducibility"),
+    ):
+        """Run play-by-play simulations for the slate and write sim_summary_{date}.csv.
+
+        Outputs per-game expected goals (home/away), period splits P1..P3, ML win prob,
+        and first-10 metrics. If totals lines available in predictions_{date}.csv,
+        also computes p_over_sim/p_under_sim and records total_line_used.
+        """
+        import pandas as pd
+        from math import exp
+        from .data.nhl_api_web import NHLWebClient
+        from .web.teams import get_team_assets
+        from .sim.engine import GameSimulator, SimConfig
+        from .sim.models import RateModels
+        from .utils.io import PROC_DIR, save_df
+
+        d = date
+        # Load schedule
+        try:
+            web = NHLWebClient()
+            games = web.schedule_day(d)
+        except Exception:
+            games = []
+        if not games:
+            print("No games on slate for", d)
+            raise typer.Exit(code=0)
+
+        # Load optional special-teams calibration and team PP/PK stats
+        st_cal: Dict[str, float] = {}
+        try:
+            mc_path = PROC_DIR / "model_calibration.json"
+            if mc_path.exists() and getattr(mc_path.stat(), "st_size", 0) > 0:
+                import json
+                mc = json.loads(mc_path.read_text(encoding="utf-8"))
+                st_cal = dict(mc.get("special_teams", {}) or {})
+        except Exception:
+            st_cal = {}
+        try:
+            from .data.team_stats import load_team_special_teams
+            team_st = load_team_special_teams(d) or {}
+        except Exception:
+            team_st = {}
+        try:
+            from .data.penalty_rates import load_team_penalty_rates
+            team_pr = load_team_penalty_rates(d) or {}
+        except Exception:
+            team_pr = {}
+
+        # Helper to build roster and lineup rows for a team name
+        from .data.rosters import fetch_current_roster as _fetch
+        def _roster_for_name(nm: str) -> tuple[list[dict], list[dict]]:
+            rows: list[dict] = []
+            lineups: list[dict] = []
+            try:
+                abbr = (get_team_assets(nm).get('abbr') or '').upper()
+            except Exception:
+                abbr = ''
+            # Try processed roster files first
+            try:
+                p_dated = PROC_DIR / f"roster_{d}.csv"
+                p_master = PROC_DIR / "roster_master.csv"
+                df_src = None
+                if p_dated.exists():
+                    df_src = pd.read_csv(p_dated)
+                elif p_master.exists():
+                    df_src = pd.read_csv(p_master)
+                if df_src is not None and not df_src.empty:
+                    df_src = df_src.copy()
+                    team_col = 'team_abbr' if 'team_abbr' in df_src.columns else ('team' if 'team' in df_src.columns else None)
+                    if team_col:
+                        df_src = df_src[df_src[team_col].astype(str).str.upper() == abbr]
+                    for _, rr in df_src.iterrows():
+                        try:
+                            pid = int(float(rr.get('player_id') or 0))
+                        except Exception:
+                            pid = 0
+                        rows.append({
+                            'player_id': pid,
+                            'full_name': str(rr.get('full_name') or rr.get('player') or ''),
+                            'position': str(rr.get('position') or ''),
+                            'proj_toi': float(rr.get('proj_toi') or rr.get('avg_toi') or 0.0),
+                        })
+                        ls = rr.get('line_slot'); pp = rr.get('pp_unit'); pk = rr.get('pk_unit')
+                        if ls or pp or pk:
+                            lineups.append({'player_id': pid, 'line_slot': ls, 'pp_unit': pp, 'pk_unit': pk})
+                    if rows:
+                        return rows, lineups
+            except Exception:
+                pass
+            # Fallback: Web API current roster
+            if abbr:
+                try:
+                    players = _fetch(abbr)
+                except Exception:
+                    players = []
+                for p in players or []:
+                    rows.append({
+                        'player_id': int(getattr(p, 'player_id', 0) or 0),
+                        'full_name': str(getattr(p, 'full_name', '') or ''),
+                        'position': str(getattr(p, 'position', '') or ''),
+                        'proj_toi': float(getattr(p, 'avg_toi', 0.0) or 0.0),
+                    })
+            return rows, lineups
+
+        # Predict totals line mapping from predictions file (optional)
+        total_line_map: dict[tuple[str, str], float] = {}
+        try:
+            pred_path = PROC_DIR / f"predictions_{d}.csv"
+            if pred_path.exists():
+                p = pd.read_csv(pred_path)
+                if not p.empty and {'home','away'}.issubset(p.columns):
+                    def _abbr(x: str) -> str:
+                        try:
+                            return (get_team_assets(str(x)).get('abbr') or '').upper()
+                        except Exception:
+                            return str(x).upper()
+                    for _, r in p.iterrows():
+                        h = _abbr(r.get('home')); a = _abbr(r.get('away'))
+                        tl = r.get('total_line_used')
+                        if pd.isna(tl) or tl is None:
+                            tl = r.get('close_total_line_used')
+                        try:
+                            if tl is not None and not pd.isna(tl):
+                                total_line_map[(h, a)] = float(tl)
+                        except Exception:
+                            continue
+        except Exception:
+            total_line_map = {}
+
+        # Run sims per game and aggregate
+        out_rows: list[dict] = []
+        base_mu = 3.0
+        try:
+            cfg_path = MODEL_DIR / "config.json"
+            if cfg_path.exists():
+                obj = json.loads(cfg_path.read_text(encoding="utf-8"))
+                base_mu = float(obj.get("base_mu", base_mu))
+        except Exception:
+            pass
+        sim_cfg = SimConfig(seed=int(seed) if seed is not None else None)
+        sim_rates = RateModels.baseline(base_mu=base_mu)
+
+        for g in games:
+            home = str(getattr(g, 'home', ''))
+            away = str(getattr(g, 'away', ''))
+            if not home or not away:
+                continue
+            h_ab = (get_team_assets(home).get('abbr') or '').upper()
+            a_ab = (get_team_assets(away).get('abbr') or '').upper()
+            roster_home, lineup_home = _roster_for_name(home)
+            roster_away, lineup_away = _roster_for_name(away)
+            if not roster_home or not roster_away:
+                continue
+            st_h = team_st.get(h_ab) or {"pp_pct": 0.2, "pk_pct": 0.8, "drawn_per_game": 3.0, "committed_per_game": 3.0}
+            st_a = team_st.get(a_ab) or {"pp_pct": 0.2, "pk_pct": 0.8, "drawn_per_game": 3.0, "committed_per_game": 3.0}
+            try:
+                pr_h = team_pr.get(h_ab) or {}
+                pr_a = team_pr.get(a_ab) or {}
+                if pr_h:
+                    if pr_h.get("drawn_per60") is not None:
+                        st_h["drawn_per_game"] = float(pr_h.get("drawn_per60"))
+                    if pr_h.get("committed_per60") is not None:
+                        st_h["committed_per_game"] = float(pr_h.get("committed_per60"))
+                if pr_a:
+                    if pr_a.get("drawn_per60") is not None:
+                        st_a["drawn_per_game"] = float(pr_a.get("drawn_per60"))
+                    if pr_a.get("committed_per60") is not None:
+                        st_a["committed_per_game"] = float(pr_a.get("committed_per60"))
+            except Exception:
+                pass
+
+            period_goals_h = [0.0, 0.0, 0.0]
+            period_goals_a = [0.0, 0.0, 0.0]
+            total_goals = []
+            f10_any = 0
+            home_wins = 0
+            sim = GameSimulator(cfg=sim_cfg, rates=sim_rates)
+            for _ in range(int(n_sims)):
+                gs, ev = sim.simulate_with_lineups(
+                    home_name=home, away_name=away,
+                    roster_home=roster_home, roster_away=roster_away,
+                    lineup_home=lineup_home or [], lineup_away=lineup_away or [],
+                    st_home=st_h, st_away=st_a, special_teams_cal=st_cal
+                )
+                # Period goal counts from events
+                for pi in (1, 2, 3):
+                    gh = sum(1 for e in ev if e.kind == "goal" and e.team == home and int(e.period) == pi)
+                    ga = sum(1 for e in ev if e.kind == "goal" and e.team == away and int(e.period) == pi)
+                    period_goals_h[pi-1] += gh
+                    period_goals_a[pi-1] += ga
+                total = int(gs.home.score) + int(gs.away.score)
+                total_goals.append(total)
+                if int(gs.home.score) > int(gs.away.score):
+                    home_wins += 1
+                # First 10 minutes: any goal across both teams
+                any10 = any((e.kind == "goal" and float(e.t or 0.0) <= 600.0) for e in ev)
+                if any10:
+                    f10_any += 1
+            # Means
+            p1h = period_goals_h[0] / float(n_sims); p2h = period_goals_h[1] / float(n_sims); p3h = period_goals_h[2] / float(n_sims)
+            p1a = period_goals_a[0] / float(n_sims); p2a = period_goals_a[1] / float(n_sims); p3a = period_goals_a[2] / float(n_sims)
+            lam_h = p1h + p2h + p3h
+            lam_a = p1a + p2a + p3a
+            total_mean = lam_h + lam_a
+            spread_mean = lam_h - lam_a
+            p_home_ml = home_wins / float(n_sims)
+            # First 10: record mean goals and empirical probability yes
+            lam10 = 0.55 * ((p1h + p1a))  # consistent with cards fallback factor
+            p_f10_yes = f10_any / float(n_sims)
+            # Totals over/under if line exists
+            p_over_sim = None; p_under_sim = None; used_line = None
+            tl = total_line_map.get((h_ab, a_ab)) or total_line_map.get((a_ab, h_ab))
+            if tl is not None:
+                try:
+                    used_line = float(tl)
+                    if abs(used_line - round(used_line)) < 1e-9:
+                        k = int(round(used_line))
+                        over_count = sum(1 for x in total_goals if x > k)
+                        under_count = sum(1 for x in total_goals if x < k)
+                        p_over_sim = over_count / float(n_sims)
+                        p_under_sim = under_count / float(n_sims)
+                    else:
+                        k = int(used_line // 1)
+                        over_count = sum(1 for x in total_goals if x > k)
+                        p_over_sim = over_count / float(n_sims)
+                        p_under_sim = 1.0 - p_over_sim
+                except Exception:
+                    p_over_sim = None; p_under_sim = None; used_line = None
+            out_rows.append({
+                "date": d,
+                "home": home,
+                "away": away,
+                "proj_home_goals": round(float(lam_h), 3),
+                "proj_away_goals": round(float(lam_a), 3),
+                "model_total": round(float(total_mean), 3),
+                "model_spread": round(float(spread_mean), 3),
+                "period1_home_proj": round(float(p1h), 3),
+                "period2_home_proj": round(float(p2h), 3),
+                "period3_home_proj": round(float(p3h), 3),
+                "period1_away_proj": round(float(p1a), 3),
+                "period2_away_proj": round(float(p2a), 3),
+                "period3_away_proj": round(float(p3a), 3),
+                "first_10min_proj": round(float(lam10), 3),
+                "p_f10_yes": round(float(p_f10_yes), 6),
+                "p_home_ml_sim": round(float(p_home_ml), 6),
+                "p_over_sim": (round(float(p_over_sim), 6) if p_over_sim is not None else None),
+                "p_under_sim": (round(float(p_under_sim), 6) if p_under_sim is not None else None),
+                "total_line_used": used_line,
+            })
+        df = pd.DataFrame(out_rows)
+        out_path = PROC_DIR / f"sim_summary_{d}.csv"
+        save_df(df, out_path)
+        print({"saved": str(out_path), "rows": len(df)})
+
     @app.command(name="game-calibrate-special-teams")
     def game_calibrate_special_teams_cmd(
         start: str = typer.Option(..., help="Start ET date YYYY-MM-DD"),
@@ -13063,6 +13419,203 @@ def props_validate_boxscores(
             print("[sanity] Violations detected:")
             for k, v in result["violations_count"].items():
                 print(f" - {k}: {v}")
+
+
+@app.command(name="props-compare-boxscores")
+def props_compare_boxscores(
+    date: str = typer.Option(..., help="Slate date YYYY-MM-DD (ET)"),
+    output_prefix: str = typer.Option("props_boxscores_compare_", help="Prefix for output files in data/processed"),
+    verbose: bool = typer.Option(False, help="Verbose messages"),
+):
+    """Compare simulated player boxscores vs actual player stats for a given date.
+
+    Reads:
+      - data/processed/props_boxscores_sim_{date}.csv (period=0 totals per player)
+      - data/raw/player_game_stats.csv filtered to ET date
+
+    Writes:
+      - data/processed/{output_prefix}{date}.csv (per-player comparison)
+      - data/processed/{output_prefix}{date}.json (summary MAE per market)
+    """
+    import pandas as pd
+    from .utils.io import RAW_DIR, PROC_DIR
+    from .data.collect import collect_player_game_stats
+    # Ensure actual stats are available
+    try:
+        collect_player_game_stats(date, date, source="stats")
+    except Exception:
+        pass
+    stats_path = RAW_DIR / "player_game_stats.csv"
+    if not stats_path.exists() or stats_path.stat().st_size == 0:
+        print(f"[compare] No player_game_stats.csv; backfill failed or unavailable for {date}.")
+        raise typer.Exit(code=1)
+    try:
+        stats = pd.read_csv(stats_path)
+    except Exception as e:
+        print(f"[compare] Failed to read player_game_stats.csv: {e}")
+        raise typer.Exit(code=1)
+    # Normalize to ET calendar day
+    try:
+        dt_utc = pd.to_datetime(stats["date"], utc=True, errors="coerce")
+        stats["date_et"] = dt_utc.dt.tz_convert("America/New_York").dt.strftime("%Y-%m-%d")
+    except Exception:
+        stats["date_et"] = pd.to_datetime(stats["date"], errors="coerce").dt.strftime("%Y-%m-%d")
+    stats = stats[stats["date_et"] == date].copy()
+    if stats.empty:
+        print(f"[compare] No actual stats for {date}.")
+        raise typer.Exit(code=1)
+    # Extract player display text robustly
+    import ast, re, unicodedata, json as _json
+    def _extract_player_text(v):
+        if v is None:
+            return ""
+        try:
+            if isinstance(v, str) and v.strip().startswith("{") and v.strip().endswith("}"):
+                d = ast.literal_eval(v)
+                if isinstance(d, dict):
+                    for k in ("default","en","name","fullName","full_name"):
+                        if d.get(k):
+                            return str(d.get(k))
+            if isinstance(v, dict):
+                for k in ("default","en","name","fullName","full_name"):
+                    if v.get(k):
+                        return str(v.get(k))
+            return str(v)
+        except Exception:
+            return str(v)
+    def _norm_name(s: str) -> str:
+        s = (str(s) or "").strip()
+        s = unicodedata.normalize("NFKD", s).encode("ascii","ignore").decode()
+        s = re.sub(r"\s+"," ", s)
+        return s.lower()
+    stats["player_text"] = stats["player"].apply(_extract_player_text)
+    stats["player_norm"] = stats["player_text"].apply(_norm_name)
+    stats["player_nodot"] = stats["player_norm"].str.replace(".", "", regex=False)
+    # Load sim totals
+    sim_path = PROC_DIR / f"props_boxscores_sim_{date}.csv"
+    if not sim_path.exists() or sim_path.stat().st_size == 0:
+        print(f"[compare] Missing {sim_path}. Run props-simulate-boxscores first.")
+        raise typer.Exit(code=1)
+    try:
+        sim = pd.read_csv(sim_path)
+    except Exception as e:
+        print(f"[compare] Failed to read sim boxscores: {e}")
+        raise typer.Exit(code=1)
+    sim = sim[sim["period"] == 0].copy()
+    # Ensure types for reliable matching
+    try:
+        sim["player_id"] = pd.to_numeric(sim["player_id"], errors="coerce")
+    except Exception:
+        pass
+    if sim.empty:
+        print(f"[compare] Sim boxscores have no totals rows for {date}.")
+        raise typer.Exit(code=1)
+    # Build variants for matching
+    def _variants(full: str):
+        full = (full or "").strip()
+        parts = [p for p in full.split(" ") if p]
+        vs = set()
+        if full:
+            n = _norm_name(full)
+            vs.add(n)
+            vs.add(n.replace(".", ""))
+        if len(parts) >= 2:
+            first, last = parts[0], parts[-1]
+            init_last = f"{first[0]}. {last}"
+            n2 = _norm_name(init_last)
+            vs.add(n2)
+            vs.add(n2.replace(".", ""))
+        return vs
+    # Prepare comparison rows
+    # Prepare stats types for id-based matching
+    try:
+        stats["player_id"] = pd.to_numeric(stats["player_id"], errors="coerce")
+    except Exception:
+        pass
+    rows = []
+    for _, r in sim.iterrows():
+        player = str(r.get("player") or "")
+        team = str(r.get("team") or "").upper()
+        if not player:
+            continue
+        # Prefer exact player_id + team match when available
+        sim_pid = r.get("player_id")
+        ps = pd.DataFrame()
+        try:
+            if pd.notna(sim_pid):
+                ps = stats[(stats["player_id"] == sim_pid) & (stats["team"].str.upper() == team)]
+        except Exception:
+            ps = pd.DataFrame()
+        # Fallback to name-variant matching
+        if ps.empty:
+            vs = _variants(player)
+            ps = stats[(stats["player_norm"].isin(vs)) | (stats["player_nodot"].isin(vs))]
+        # Extract actuals
+        actual = {
+            "SOG": None,
+            "GOALS": None,
+            "ASSISTS": None,
+            "POINTS": None,
+            "SAVES": None,
+            "BLOCKS": None,
+        }
+        if not ps.empty:
+            row = ps.iloc[0]
+            actual["SOG"] = row.get("shots")
+            actual["GOALS"] = row.get("goals")
+            actual["ASSISTS"] = row.get("assists")
+            try:
+                actual["POINTS"] = float((row.get("goals") or 0)) + float((row.get("assists") or 0))
+            except Exception:
+                actual["POINTS"] = None
+            actual["SAVES"] = row.get("saves")
+            actual["BLOCKS"] = row.get("blocked")
+        rows.append({
+            "date": date,
+            "player": player,
+            "team": team,
+            "sog_sim": r.get("shots"),
+            "goals_sim": r.get("goals"),
+            "assists_sim": r.get("assists"),
+            "points_sim": r.get("points"),
+            "saves_sim": r.get("saves"),
+            "blocks_sim": r.get("blocks"),
+            "sog_act": actual["SOG"],
+            "goals_act": actual["GOALS"],
+            "assists_act": actual["ASSISTS"],
+            "points_act": actual["POINTS"],
+            "saves_act": actual["SAVES"],
+            "blocks_act": actual["BLOCKS"],
+        })
+    out_df = pd.DataFrame(rows)
+    out_csv = PROC_DIR / f"{output_prefix}{date}.csv"
+    save_df(out_df, out_csv)
+    # Summary MAE per market
+    def _mae(a, b):
+        try:
+            x = pd.to_numeric(a, errors="coerce")
+            y = pd.to_numeric(b, errors="coerce")
+            d = (x - y).abs()
+            d = d.dropna()
+            return float(d.mean()) if len(d) > 0 else None
+        except Exception:
+            return None
+    summary = {
+        "date": date,
+        "mae_sog": _mae(out_df["sog_sim"], out_df["sog_act"]),
+        "mae_goals": _mae(out_df["goals_sim"], out_df["goals_act"]),
+        "mae_assists": _mae(out_df["assists_sim"], out_df["assists_act"]),
+        "mae_points": _mae(out_df["points_sim"], out_df["points_act"]),
+        "mae_saves": _mae(out_df["saves_sim"], out_df["saves_act"]),
+        "mae_blocks": _mae(out_df["blocks_sim"], out_df["blocks_act"]),
+        "rows": int(len(out_df)),
+        "csv_path": str(out_csv),
+    }
+    out_json = PROC_DIR / f"{output_prefix}{date}.json"
+    with out_json.open("w", encoding="utf-8") as f:
+        _json.dump(summary, f, indent=2)
+    if verbose:
+        print(f"[compare] Wrote {out_csv} and {out_json}")
 
 if __name__ == "__main__":
     app()

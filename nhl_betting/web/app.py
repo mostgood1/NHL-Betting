@@ -3088,7 +3088,56 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
                         v = r.get(k)
                         if _isnan(v):
                             r[k] = None
-        # After projection fallback, compute Dixon–Coles probabilities and apply market anchoring
+        # If sim summary exists for this ET date, override projections with sim-derived values before probabilities
+        try:
+            sim_path = PROC_DIR / f"sim_summary_{date}.csv"
+            sim_df = _read_csv_fallback(sim_path) if sim_path.exists() else pd.DataFrame()
+        except Exception:
+            sim_df = pd.DataFrame()
+        sim_idx = {}
+        try:
+            def _abbr3(x: str) -> str:
+                try:
+                    return (get_team_assets(str(x)).get("abbr") or "").upper()
+                except Exception:
+                    return ""
+            if sim_df is not None and not sim_df.empty:
+                for _, sr in sim_df.iterrows():
+                    try:
+                        hk = _abbr3(sr.get("home")); ak = _abbr3(sr.get("away"))
+                        if hk and ak:
+                            sim_idx[(hk, ak)] = sr
+                    except Exception:
+                        pass
+            # Apply to rows
+            for r in rows:
+                try:
+                    hk = _abbr3(r.get("home")); ak = _abbr3(r.get("away"))
+                    sr = sim_idx.get((hk, ak)) or sim_idx.get((ak, hk))
+                    if not sr:
+                        continue
+                    # Override lambdas and period splits from sim means
+                    for k in ("proj_home_goals","proj_away_goals","model_total","model_spread",
+                              "period1_home_proj","period2_home_proj","period3_home_proj",
+                              "period1_away_proj","period2_away_proj","period3_away_proj",
+                              "first_10min_proj","p_f10_yes"):
+                        if k in sr:
+                            r[k] = sr.get(k)
+                    # Optionally carry over sim ML probabilities (will still be blended below)
+                    if sr.get("p_home_ml_sim") is not None:
+                        r["p_home_ml"] = float(sr.get("p_home_ml_sim"))
+                        r["p_away_ml"] = float(max(0.0, 1.0 - float(sr.get("p_home_ml_sim"))))
+                    # If sim provided p_over/p_under at a known line, attach as hints
+                    if sr.get("p_over_sim") is not None and (r.get("total_line_used") or r.get("close_total_line_used") or sr.get("total_line_used") is not None):
+                        r["p_over_hint_sim"] = float(sr.get("p_over_sim"))
+                        r["p_under_hint_sim"] = float(sr.get("p_under_sim")) if sr.get("p_under_sim") is not None else None
+                        if r.get("total_line_used") is None and sr.get("total_line_used") is not None:
+                            r["total_line_used"] = sr.get("total_line_used")
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        # After projection fallback (and optional sim overrides), compute Dixon–Coles probabilities and apply market anchoring
         try:
             import os
             from ..utils.odds import american_to_decimal, decimal_to_implied_prob, remove_vig_two_way
@@ -3994,6 +4043,24 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
                     except Exception:
                         pass
                 # Group into mapping
+                def _clean_book(val: Any) -> Any:
+                    try:
+                        s = str(val or "").strip()
+                    except Exception:
+                        return val
+                    if not s:
+                        return None
+                    # If it looks like a path, strip to basename and drop extension
+                    if ("/" in s) or ("\\" in s) or s.endswith(".csv"):
+                        import os as _os
+                        base = _os.path.basename(s)
+                        if base.lower().endswith('.csv'):
+                            base = base[:-4]
+                        s = base
+                    # Sanity: overly long tokens are likely not bookmaker names
+                    if len(s) > 32:
+                        return None
+                    return s
                 for _, rr in dfc.iterrows():
                     team_key = str(rr.get("team_norm") or "").upper()
                     if not team_key:
@@ -4006,7 +4073,7 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
                         "side": rr.get("side"),
                         "ev": float(rr.get("ev")) if pd.notna(rr.get("ev")) else None,
                         "p_over": float(rr.get("p_over")) if pd.notna(rr.get("p_over")) else None,
-                        "book": rr.get("book"),
+                        "book": _clean_book(rr.get("book")),
                         # Choose matching price by side
                         "price": (rr.get("over_price") if str(rr.get("side") or "").upper()=="OVER" else rr.get("under_price")),
                     }
@@ -4353,6 +4420,212 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
 
 
     
+
+
+@app.get("/api/cards/debug-game")
+async def api_cards_debug_game(
+    date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD (ET)"),
+    home: Optional[str] = Query(None, description="Home team name"),
+    away: Optional[str] = Query(None, description="Away team name"),
+    home_abbr: Optional[str] = Query(None, description="Home team abbreviation"),
+    away_abbr: Optional[str] = Query(None, description="Away team abbreviation"),
+    sample: int = Query(5, description="Sample size for boxscore lists"),
+):
+    """Debug endpoint showing how the cards view assembles data for a game.
+
+    Returns predictions row, props recommendations (top per team when available),
+    and simulated boxscores joined by team for a specific game on an ET date.
+    """
+    try:
+        d = date or _today_ymd()
+    except Exception:
+        d = date
+    # Resolve abbreviations from names when not provided
+    try:
+        if home_abbr is None and home:
+            home_abbr = (get_team_assets(str(home)).get("abbr") or "").upper()
+        if away_abbr is None and away:
+            away_abbr = (get_team_assets(str(away)).get("abbr") or "").upper()
+    except Exception:
+        pass
+    def _abbr(x: str) -> str:
+        try:
+            return (get_team_assets(str(x)).get("abbr") or "").upper()
+        except Exception:
+            return ""
+    # Load predictions for date and neighbors, then filter to ET bucket
+    def _load_predictions_et_bucket(d_ymd: str) -> pd.DataFrame:
+        try:
+            base = _read_csv_fallback(PROC_DIR / f"predictions_{d_ymd}.csv")
+        except Exception:
+            base = pd.DataFrame()
+        frames = []
+        if base is not None and not base.empty:
+            frames.append(base)
+        try:
+            base_dt = datetime.fromisoformat(d_ymd)
+            for d_nei in [ (base_dt - timedelta(days=1)).strftime("%Y-%m-%d"), (base_dt + timedelta(days=1)).strftime("%Y-%m-%d") ]:
+                p = PROC_DIR / f"predictions_{d_nei}.csv"
+                if p.exists():
+                    df_n = _read_csv_fallback(p)
+                    if df_n is not None and not df_n.empty:
+                        frames.append(df_n)
+        except Exception:
+            pass
+        if not frames:
+            return pd.DataFrame()
+        dfall = pd.concat(frames, ignore_index=True)
+        try:
+            et_dates = dfall.apply(lambda r: _iso_to_et_date(r.get("date") if pd.notna(r.get("date")) else r.get("gameDate")), axis=1)
+            dfall = dfall[et_dates == d_ymd]
+        except Exception:
+            pass
+        # Drop potential duplicates
+        try:
+            if {"home","away"}.issubset(dfall.columns):
+                dfall = dfall.drop_duplicates(subset=["home","away"], keep="first")
+        except Exception:
+            pass
+        return dfall
+    df_pred = _load_predictions_et_bucket(d or _today_ymd())
+    # Find the predictions row by abbr first, then fallback to names
+    pred_row = None
+    try:
+        if not df_pred.empty:
+            for _, r in df_pred.iterrows():
+                try:
+                    h_ab = _abbr(r.get("home")); a_ab = _abbr(r.get("away"))
+                    if home_abbr and away_abbr and h_ab == (home_abbr or "").upper() and a_ab == (away_abbr or "").upper():
+                        pred_row = r; break
+                except Exception:
+                    pass
+            if pred_row is None and home and away:
+                for _, r in df_pred.iterrows():
+                    try:
+                        if str(r.get("home")).strip() == str(home).strip() and str(r.get("away")).strip() == str(away).strip():
+                            pred_row = r; break
+                    except Exception:
+                        pass
+    except Exception:
+        pred_row = None
+    # Load props recommendations and map by team
+    recs_by_team = {}
+    try:
+        rec_path = PROC_DIR / f"props_recommendations_{d}.csv"
+        df_recs = _read_csv_fallback(rec_path) if rec_path.exists() else pd.DataFrame()
+        if df_recs is not None and not df_recs.empty:
+            dfc = df_recs.copy()
+            dfc["team_norm"] = dfc.get("team", "").astype(str).str.upper().str.strip()
+            # Keep limited fields
+            keep = [c for c in ["player","team_norm","market","line","side","ev","p_over","over_price","under_price","book"] if c in dfc.columns]
+            dfc = dfc[keep]
+            try:
+                dfc = dfc.sort_values("ev", ascending=False)
+            except Exception:
+                pass
+            for _, rr in dfc.iterrows():
+                tm = str(rr.get("team_norm") or "").upper()
+                if not tm:
+                    continue
+                obj = {
+                    "player": rr.get("player"),
+                    "team": tm,
+                    "market": rr.get("market"),
+                    "line": rr.get("line"),
+                    "side": rr.get("side"),
+                    "ev": float(rr.get("ev")) if pd.notna(rr.get("ev")) else None,
+                    "p_over": float(rr.get("p_over")) if pd.notna(rr.get("p_over")) else None,
+                    "book": rr.get("book"),
+                    "price": (rr.get("over_price") if str(rr.get("side") or "").upper()=="OVER" else rr.get("under_price")),
+                }
+                recs_by_team.setdefault(tm, []).append(obj)
+    except Exception:
+        recs_by_team = {}
+    # Load sim boxscores and split by team
+    box_home = []; box_away = []
+    try:
+        box_path = PROC_DIR / f"props_boxscores_sim_{d}.csv"
+        df_box = _read_csv_fallback(box_path) if box_path.exists() else pd.DataFrame()
+        if df_box is not None and not df_box.empty:
+            db = df_box.copy()
+            if "period" in db.columns:
+                db = db[db["period"].fillna(0).astype(int) == 0]
+            # Filter by game context if available
+            if home and away and {"game_home","game_away"}.issubset(set(db.columns)):
+                try:
+                    db = db[(db["game_home"].astype(str)==str(home)) & (db["game_away"].astype(str)==str(away))]
+                except Exception:
+                    pass
+            # Map team field to abbreviations for matching
+            if "team" in db.columns:
+                try:
+                    db["team_abbr"] = db["team"].apply(lambda v: (get_team_assets(str(v)).get("abbr") or "").upper())
+                except Exception:
+                    db["team_abbr"] = ""
+            # Resolve target abbreviations
+            h_ab = (home_abbr or (home and _abbr(home)) or "").upper()
+            a_ab = (away_abbr or (away and _abbr(away)) or "").upper()
+            hb = db[db.get("team_abbr", pd.Series([])).astype(str).str.upper() == h_ab] if h_ab else db.head(0)
+            ab = db[db.get("team_abbr", pd.Series([])).astype(str).str.upper() == a_ab] if a_ab else db.head(0)
+            def _fmt_row(rr: pd.Series) -> dict:
+                def _f(k):
+                    try:
+                        v = rr.get(k)
+                        return float(v) if v is not None and pd.notna(v) else None
+                    except Exception:
+                        return None
+                return {
+                    "player": rr.get("player") or rr.get("player_id"),
+                    "shots": _f("shots"),
+                    "goals": _f("goals"),
+                    "assists": _f("assists"),
+                    "points": _f("points"),
+                    "blocks": _f("blocks"),
+                    "saves": _f("saves"),
+                    "toi_sec": _f("toi_sec"),
+                }
+            box_home = [ _fmt_row(rr) for _, rr in hb.sort_values(["toi_sec","points","shots","saves"], ascending=[False, False, False, False]).head(sample).iterrows() ]
+            box_away = [ _fmt_row(rr) for _, rr in ab.sort_values(["toi_sec","points","shots","saves"], ascending=[False, False, False, False]).head(sample).iterrows() ]
+    except Exception:
+        box_home = []; box_away = []
+    # Assemble result
+    try:
+        pred_summary = None
+        if pred_row is not None:
+            pr = pred_row.to_dict()
+            # keep a compact subset of key fields
+            keys = [
+                "home","away","date","home_abbr","away_abbr","model_total","model_spread",
+                "p_home_ml","p_away_ml","p_over","p_under","total_line_used","close_total_line_used",
+                "home_ml_odds","away_ml_odds","over_odds","under_odds","game_state",
+                "final_home_goals","final_away_goals"
+            ]
+            pred_summary = {k: pr.get(k) for k in keys if k in pr}
+            # attach abbrs
+            try:
+                pred_summary["home_abbr"] = _abbr(pr.get("home"))
+                pred_summary["away_abbr"] = _abbr(pr.get("away"))
+            except Exception:
+                pass
+    except Exception:
+        pred_summary = None
+    # Props recs samples per team
+    rec_home = recs_by_team.get((home_abbr or "").upper(), [])[:3]
+    rec_away = recs_by_team.get((away_abbr or "").upper(), [])[:3]
+    return JSONResponse({
+        "date": d,
+        "home": home,
+        "away": away,
+        "home_abbr": (home_abbr or ""),
+        "away_abbr": (away_abbr or ""),
+        "predictions_row": pred_summary,
+        "props_top_home": rec_home,
+        "props_top_away": rec_away,
+        "box_home_count": int(len(box_home)),
+        "box_away_count": int(len(box_away)),
+        "box_home_sample": box_home,
+        "box_away_sample": box_away,
+    })
 
 
 def _capture_openers_for_day(date: str) -> dict:

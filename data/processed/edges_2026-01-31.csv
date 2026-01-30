@@ -28,6 +28,7 @@ date,home,away,market,ev
 2026-02-01T00:00:00Z,Ottawa Senators,New Jersey Devils,ev_away_pl_+1.5,0.0577
 2026-01-31T18:00:00Z,Detroit Red Wings,Colorado Avalanche,ev_under,0.043
 2026-02-01T00:00:00Z,New York Islanders,Nashville Predators,ev_home_ml,0.0341
+2026-02-01T03:00:00Z,Vegas Golden Knights,Seattle Kraken,ev_f10_yes,0.0336
 2026-01-31T21:00:00Z,Calgary Flames,San Jose Sharks,ev_away_pl_+1.5,0.01
 2026-02-01T03:00:00Z,Vegas Golden Knights,Seattle Kraken,ev_home_ml,-0.0097
 2026-02-01T00:00:00Z,St. Louis Blues,Columbus Blue Jackets,ev_away_pl_+1.5,-0.0124
@@ -69,6 +70,7 @@ date,home,away,market,ev
 2026-02-01T03:00:00Z,Vegas Golden Knights,Seattle Kraken,ev_over,-0.3253
 2026-02-01T00:00:00Z,Vancouver Canucks,Toronto Maple Leafs,ev_over,-0.3263
 2026-01-31T21:00:00Z,Calgary Flames,San Jose Sharks,ev_away_ml,-0.3412
+2026-02-01T03:00:00Z,Vegas Golden Knights,Seattle Kraken,ev_f10_no,-0.3669
 2026-01-31T21:00:00Z,Florida Panthers,Winnipeg Jets,ev_home_pl_-1.5,-0.367
 2026-01-31T20:30:00Z,Pittsburgh Penguins,New York Rangers,ev_home_pl_-1.5,-0.458
 2026-02-01T03:00:00Z,Edmonton Oilers,Minnesota Wild,ev_away_ml,-0.4679

@@ -5516,6 +5516,47 @@ def props_collect(
     print(f"[collect:{src}] raw={res.get('raw_count')} combined={res.get('combined_count')} path={res.get('output_path')} ({dt}s)")
 
 
+@app.command(name="props-collect-range")
+def props_collect_range(
+    start: str = typer.Option(..., help="Start date YYYY-MM-DD (ET)"),
+    end: str = typer.Option(..., help="End date YYYY-MM-DD (ET)"),
+    source: str = typer.Option("oddsapi", help="Source to collect: oddsapi"),
+):
+    """Collect player props lines for each day in [start, end] and write canonical files.
+
+    Uses the same event-level props pipeline as props-collect. Intended for historical backfill
+    on plans with historical odds access. Writes per-day to data/props/player_props_lines/date=YYYY-MM-DD/.
+    """
+    import time
+    from datetime import datetime as _dt, timedelta as _td
+    from .data import player_props as _pp
+    t0 = time.monotonic()
+    try:
+        s_dt = _dt.strptime(start, "%Y-%m-%d"); e_dt = _dt.strptime(end, "%Y-%m-%d")
+    except Exception:
+        print("Invalid date format; use YYYY-MM-DD"); raise typer.Exit(code=1)
+    if e_dt < s_dt:
+        s_dt, e_dt = e_dt, s_dt
+    src = (source or "oddsapi").strip().lower()
+    if src != "oddsapi":
+        print("Unsupported source. Only 'oddsapi' is supported now."); raise typer.Exit(code=1)
+    cfg = _pp.PropsCollectionConfig(output_root="data/props", book="oddsapi", source="oddsapi")
+    d = s_dt; totals = {"raw": 0, "combined": 0, "days": 0}
+    while d <= e_dt:
+        day = d.strftime('%Y-%m-%d')
+        try:
+            res = _pp.collect_and_write(day, roster_df=None, cfg=cfg)
+            totals["raw"] += int(res.get("raw_count") or 0)
+            totals["combined"] += int(res.get("combined_count") or 0)
+            totals["days"] += 1
+            print(f"[collect-range:{src}] {day} raw={res.get('raw_count')} combined={res.get('combined_count')} -> {res.get('output_path')}")
+        except Exception as e:
+            print(f"[collect-range:{src}] {day} failed: {e}")
+        d += _td(days=1)
+    dt = round(time.monotonic() - t0, 2)
+    print({"days": totals["days"], "raw_total": totals["raw"], "combined_total": totals["combined"], "sec": dt})
+
+
 @app.command(name="props-collect-bovada-page")
 def props_collect_bovada_page(
     url: str = typer.Option(..., help="Bovada event URL (e.g., https://www.bovada.lv/sports/hockey/nhl/...)"),
@@ -6038,73 +6079,78 @@ def props_simulate_boxscores(
     if not games:
         print("No games on slate for", date)
         raise typer.Exit(code=0)
-    # Helper: fetch roster for team name
-    from .data.rosters import fetch_current_roster as _fetch
+    # Load lineup snapshot for date (preferred source of line slots/PP/PK)
+    try:
+        from .utils.io import PROC_DIR as _PROC
+        lineups_all = pd.read_csv(_PROC / f"lineups_{date}.csv") if (_PROC / f"lineups_{date}.csv").exists() else pd.DataFrame(columns=["player_id","full_name","position","line_slot","pp_unit","pk_unit","proj_toi","confidence","team"])
+    except Exception:
+        lineups_all = pd.DataFrame(columns=["player_id","full_name","position","line_slot","pp_unit","pk_unit","proj_toi","confidence","team"])
+    # Prefer processed roster snapshot for the given date to avoid live API dependency
+    roster_snapshot_df = None
+    try:
+        from .utils.io import PROC_DIR as _PROC
+        r_path = _PROC / f"roster_snapshot_{date}.csv"
+        if r_path.exists() and getattr(r_path.stat(), "st_size", 0) > 64:
+            tmp = pd.read_csv(r_path)
+            if tmp is not None and not tmp.empty:
+                # Normalize columns to expected fields
+                name_col = 'full_name' if 'full_name' in tmp.columns else ('player' if 'player' in tmp.columns else None)
+                if name_col:
+                    tmp = tmp.rename(columns={name_col: 'full_name'})
+                if 'team' not in tmp.columns:
+                    # Attempt to map any team-like field
+                    for cand in ('team_abbr','teamAbbrev','team_abbrev','team_abbreviation'):
+                        if cand in tmp.columns:
+                            tmp['team'] = tmp[cand]
+                            break
+                # Ensure necessary columns exist
+                for c in ['full_name','player_id','team']:
+                    if c not in tmp.columns:
+                        tmp[c] = None
+                # Uppercase team abbreviations
+                tmp['team'] = tmp['team'].astype(str).str.upper()
+                roster_snapshot_df = tmp[['full_name','player_id','team','position']].copy() if 'position' in tmp.columns else tmp[['full_name','player_id','team']].copy()
+    except Exception:
+        roster_snapshot_df = None
+    # Helper: fetch roster + lineup rows for a slate team name using canonical snapshots
+    from .data.rosters import build_roster_snapshot as _build_roster
     def _roster_for_name(nm: str) -> tuple[list[dict], list[dict]]:
-        """Return (roster_rows, lineup_rows) for a team name.
+        """Return (roster_rows, lineup_rows) for a team name using canonical snapshots.
 
-        Prefer using processed roster files for the exact date to capture line slots and special teams units.
-        Fallback to Web API current roster when processed files are unavailable.
+        - Roster: build_roster_snapshot(abbr) for accurate team filtering and positions
+        - Lineups: from lineups_{date}.csv filtered by team abbr (includes line_slot/PP/PK/proj_toi)
         """
         rows: list[dict] = []
         lineups: list[dict] = []
-        # Resolve team abbreviation
         try:
             abbr = (get_team_assets(nm).get('abbr') or '').upper()
         except Exception:
             abbr = ''
-        # Try processed roster files first
+        # Build roster snapshot: prefer processed cache, fallback to live Web API
         try:
-            from .utils.io import PROC_DIR as _PROC
-            p_dated = _PROC / f"roster_{date}.csv"
-            p_master = _PROC / "roster_master.csv"
-            df_src = None
-            if p_dated.exists():
-                df_src = pd.read_csv(p_dated)
-            elif p_master.exists():
-                df_src = pd.read_csv(p_master)
-            if df_src is not None and not df_src.empty:
-                df_src = df_src.copy()
-                # Filter to team abbreviation
-                team_col = 'team_abbr' if 'team_abbr' in df_src.columns else ('team' if 'team' in df_src.columns else None)
-                if team_col:
-                    df_src = df_src[df_src[team_col].astype(str).str.upper() == abbr]
-                # Build roster rows
-                for _, rr in df_src.iterrows():
-                    try:
-                        pid = int(float(rr.get('player_id') or 0))
-                    except Exception:
-                        pid = 0
-                    pos = str(rr.get('position') or '')
-                    rows.append({
-                        'player_id': pid,
-                        'full_name': str(rr.get('full_name') or rr.get('player') or ''),
-                        'position': pos,
-                        'proj_toi': float(rr.get('proj_toi') or rr.get('avg_toi') or 0.0),
-                    })
-                    # Capture lineup slots if available
-                    ls = rr.get('line_slot'); pp = rr.get('pp_unit'); pk = rr.get('pk_unit')
-                    if ls or pp or pk:
-                        lineups.append({'player_id': pid, 'line_slot': ls, 'pp_unit': pp, 'pk_unit': pk})
-                if rows:
-                    return rows, lineups
+            if roster_snapshot_df is not None and not roster_snapshot_df.empty and abbr:
+                r_df = roster_snapshot_df[roster_snapshot_df['team'].astype(str).str.upper() == abbr]
+                if r_df is not None and not r_df.empty:
+                    r_df = r_df.copy()
+                    # Ensure position field exists
+                    if 'position' not in r_df.columns:
+                        r_df['position'] = r_df.get('pos', '').astype(str).str.upper()
+                    # Ensure proj_toi present (fallback to 15.0 minutes)
+                    if 'proj_toi' not in r_df.columns:
+                        r_df['proj_toi'] = 15.0
+                    r_df['proj_toi'] = r_df['proj_toi'].fillna(15.0)
+                    rows = r_df[['player_id','full_name','position','proj_toi']].to_dict(orient='records')
+            else:
+                r_df = _build_roster_snapshot(abbr)
+                if r_df is not None and not r_df.empty:
+                    r_df = r_df.copy()
+                    if 'proj_toi' not in r_df.columns:
+                        r_df['proj_toi'] = 15.0
+                    r_df['proj_toi'] = r_df['proj_toi'].fillna(15.0)
+                    rows = r_df.to_dict(orient='records')
         except Exception:
-            pass
-        # Fallback: Web API current roster
-        players = []
-        if abbr:
-            try:
-                players = _fetch(abbr)
-            except Exception:
-                players = []
-            for p in players or []:
-                rows.append({
-                    'player_id': int(getattr(p, 'player_id', 0) or 0),
-                    'full_name': str(getattr(p, 'full_name', '') or ''),
-                    'position': str(getattr(p, 'position', '') or ''),
-                    'proj_toi': float(getattr(p, 'avg_toi', 0.0) or 0.0),
-                })
-        # Fallback enrichment if Web API empty
+            rows = []
+        # Fallback enrichment if roster snapshot is unavailable
         if not rows:
             try:
                 from .data import player_props as _pp
@@ -6112,18 +6158,31 @@ def props_simulate_boxscores(
             except Exception:
                 enrich = None
             if enrich is not None and not enrich.empty:
-                for _, rr in enrich.iterrows():
-                    tm = str(rr.get('team') or rr.get('team_abbr') or '').upper()
-                    if abbr and tm != abbr:
-                        continue
-                    pos_raw = str(rr.get('position') or '')
-                    pos = 'G' if pos_raw.upper().startswith('G') else ('D' if pos_raw.upper().startswith('D') else 'F')
-                    rows.append({
-                        'player_id': int(rr.get('player_id') or 0),
-                        'full_name': str(rr.get('full_name') or rr.get('player') or ''),
-                        'position': pos,
-                        'proj_toi': float(rr.get('avg_toi') or 0.0),
-                    })
+                e = enrich.copy()
+                # Filter to team abbr strictly
+                tm_col = 'team'
+                e[tm_col] = e[tm_col].astype(str).str.upper()
+                e = e[e[tm_col] == abbr]
+                if not e.empty:
+                    # Normalize positions to F/D/G when available
+                    def _pos_map(s: str) -> str:
+                        s = str(s or '').upper()
+                        if s.startswith('G'):
+                            return 'G'
+                        if s.startswith('D'):
+                            return 'D'
+                        return 'F'
+                    e['position'] = e.get('position', '').map(_pos_map)
+                    e['proj_toi'] = e.get('proj_toi', e.get('avg_toi', 0.0)).fillna(15.0)
+                    rows = e[['player_id','full_name','position','proj_toi']].to_dict(orient='records')
+        # Lineups from snapshot file
+        try:
+            if lineups_all is not None and not lineups_all.empty:
+                sub = lineups_all[lineups_all['team'].astype(str).str.upper() == abbr]
+                if not sub.empty:
+                    lineups = sub[['player_id','line_slot','pp_unit','pk_unit']].to_dict(orient='records')
+        except Exception:
+            lineups = []
         return rows, lineups
     # Aggregate across games and sims
     agg_all: list[pd.DataFrame] = []
@@ -6246,6 +6305,18 @@ def props_simulate_boxscores(
             df_sum = _normalize_boxscores(df_sum)
             agg_all.append(df_sum)
     if not agg_all:
+        # Fallback: if possession-level boxscores exist for the date, write a copy for props
+        try:
+            pos_path = PROC_DIR / f"sim_boxscores_pos_{date}.csv"
+            if pos_path.exists() and getattr(pos_path.stat(), "st_size", 0) > 0:
+                df_pos = pd.read_csv(pos_path)
+                if df_pos is not None and not df_pos.empty:
+                    out_path = PROC_DIR / f"props_boxscores_sim_{date}.csv"
+                    save_df(df_pos, out_path)
+                    print(f"[props-sim-boxscores] no play-level agg; copied possession-level {pos_path} -> {out_path} rows={len(df_pos)}")
+                    return
+        except Exception:
+            pass
         print("No aggregated boxscores generated.")
         raise typer.Exit(code=0)
     out = pd.concat(agg_all, ignore_index=True)

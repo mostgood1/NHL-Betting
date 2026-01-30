@@ -42,6 +42,9 @@ Param (
   [double]$PropsMinProb = 0.0,
   [string]$PropsMinProbPerMarket = "",
   [switch]$PropsIncludeGoalies,
+  # Props historical backfill (OddsAPI historical event props)
+  [switch]$PropsBackfillRange,
+  [int]$PropsBackfillDays = 30,
   # Props backtests (projections)
   [switch]$RunPropsBacktests,
   [int]$PropsBacktestDays = 30,
@@ -164,6 +167,21 @@ try {
   Write-Warning "[daily_update] roster/lineup/injuries update failed: $($_.Exception.Message)"
 }
 
+# Generate simulated player boxscores for today & tomorrow (play-level aggregation for web cards)
+try {
+  $dates = @((Get-Date).ToString('yyyy-MM-dd'), (Get-Date).AddDays(1).ToString('yyyy-MM-dd'))
+  foreach ($d in $dates) {
+    Write-Host "[daily_update] Generating simulated player boxscores for $d …" -ForegroundColor DarkYellow
+    try {
+      python -m nhl_betting.cli props-simulate-boxscores --date $d --n-sims 6000
+    } catch {
+      Write-Warning "[daily_update] props-simulate-boxscores failed for ${d}: $($_.Exception.Message)"
+    }
+  }
+} catch {
+  Write-Warning "[daily_update] props-simulate-boxscores block failed: $($_.Exception.Message)"
+}
+
 # Ensure props lines are saved once per slate (CSV+Parquet) without refetching repeatedly
 try {
   $dates = @((Get-Date).ToString('yyyy-MM-dd'), (Get-Date).AddDays(1).ToString('yyyy-MM-dd'))
@@ -189,6 +207,23 @@ try {
     }
   }
 } catch { Write-Warning "[daily_update] props lines ensure failed: $($_.Exception.Message)" }
+
+# Optional: backfill historical player props via OddsAPI (per-day partitions)
+try {
+  if ($PropsBackfillRange) {
+    $start = (Get-Date).AddDays(-1 * [int]$PropsBackfillDays).ToString('yyyy-MM-dd')
+    $end = (Get-Date).ToString('yyyy-MM-dd')
+    Write-Host "[daily_update] Backfilling OddsAPI player props $start..$end …" -ForegroundColor Yellow
+    # Broaden coverage to US/US2/EU and allow any bookmaker (collector has fallbacks)
+    $env:PROPS_ODDSAPI_REGIONS = 'us,us2,eu'
+    $env:PROPS_ODDSAPI_BOOKMAKERS = ''
+    try {
+      python -m nhl_betting.cli props-collect-range --start $start --end $end --source oddsapi
+    } catch {
+      Write-Warning "[daily_update] props-collect-range failed: $($_.Exception.Message)"
+    }
+  }
+} catch { Write-Warning "[daily_update] props historical backfill block failed: $($_.Exception.Message)" }
 
 # Ensure team odds (ML/PL/Totals) and scoreboard snapshots are archived daily
 try {

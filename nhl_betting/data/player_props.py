@@ -48,34 +48,13 @@ def collect_oddsapi_props(date: str) -> pd.DataFrame:
     regions = os.environ.get("PROPS_ODDSAPI_REGIONS", "us").strip()
     max_workers = int(os.environ.get("PROPS_ODDSAPI_WORKERS", "6"))
     # Include core NHL player markets with broad bookmaker support.
-    # Note: Some books return 422 for unsupported player markets; to maximize coverage
-    # and avoid per-event probing, we limit to the most reliable keys.
-    # Keys per OddsAPI docs commonly available: player_shots_on_goal, player_goals, player_assists, player_points
-    # Include common base + alternate keys and known synonyms across books.
-    # Notes:
-    # - "player_goal_scorer_anytime" is a yes/no market without a numeric line; we skip it here.
-    # - Some books use synonyms like "shots_on_goal" or "player_shots"; include them for coverage.
+    # IMPORTANT: Requesting unsupported markets yields 422; restrict to keys confirmed by provider docs
+    # and our live probes: player_points, player_assists, player_goals, player_shots_on_goal.
     markets = ",".join([
-        # Shots/SOG
-        "player_shots_on_goal",
-        "player_shots_on_goal_alternate",
-        "shots_on_goal",
-        "player_shots",
-        # Goals
-        "player_goals",
-        "player_goals_alternate",
-        # Assists
-        "player_assists",
-        "player_assists_alternate",
-        # Points
         "player_points",
-        "player_points_alternate",
-        # Saves (goalies)
-        "player_saves",
-        "goalie_saves",
-        # Blocks (skaters)
-        "player_blocks",
-        "player_blocked_shots",
+        "player_assists",
+        "player_goals",
+        "player_shots_on_goal",
     ])
     rows: List[Dict] = []
     # Map Odds API market keys to our canonical markets
@@ -135,7 +114,7 @@ def collect_oddsapi_props(date: str) -> pd.DataFrame:
                         "date": date,
                         "collected_at": _utc_now_iso(),
                     })
-    # Fast path: current events + concurrent per-event odds
+    # Fast path: current events + concurrent per-event odds (no pre-probe to avoid empty keys)
     try:
         client = OddsAPIClient(rate_limit_per_sec=10.0)
         # CRITICAL: NHL games on an ET calendar day can extend into the next UTC day
@@ -161,27 +140,30 @@ def collect_oddsapi_props(date: str) -> pd.DataFrame:
         if isinstance(evs, list) and evs:
             # Fallback-aware fetch: probe event-specific available market keys first, then request odds
             def fetch(ev_id: str):
-                try:
-                    mkts, _ = client.event_markets("icehockey_nhl", ev_id, regions=regions, bookmakers=(bk_pref or None))
-                except Exception:
-                    mkts = None
-                keys: List[str] = []
-                try:
-                    if isinstance(mkts, dict):
-                        # mkts example: {"markets": [{"key": "player_points"}, ...]}
-                        cand = [str(m.get("key") or "") for m in mkts.get("markets", [])]
-                        # keep only supported keys
-                        keys = [k for k in cand if k in m_map]
-                except Exception:
-                    keys = []
-                # If no probe keys, fall back to our full list (some APIs return 404 for probe)
-                use_keys = keys or [k for k in markets.split(",")]
-                # Request odds for the filtered keys
+                use_keys = [k for k in markets.split(",")]
+                # Request odds for the supported keys; try preferred bookmakers first, then all
                 try:
                     eo, _ = client.event_odds("icehockey_nhl", ev_id, markets=",".join(use_keys), regions=regions, bookmakers=(bk_pref or None))
-                    return eo
+                    if isinstance(eo, dict) and eo.get("bookmakers"):
+                        return eo
                 except Exception:
-                    return None
+                    pass
+                # Fallback: no bookmaker filter
+                try:
+                    eo2, _ = client.event_odds("icehockey_nhl", ev_id, markets=",".join(use_keys), regions=regions, bookmakers=None)
+                    if isinstance(eo2, dict) and eo2.get("bookmakers"):
+                        return eo2
+                except Exception:
+                    pass
+                # Final fallback: try each market individually to salvage partial coverage
+                for single in use_keys:
+                    try:
+                        eo3, _ = client.event_odds("icehockey_nhl", ev_id, markets=single, regions=regions, bookmakers=None)
+                        if isinstance(eo3, dict) and eo3.get("bookmakers"):
+                            return eo3
+                    except Exception:
+                        continue
+                return None
             with ThreadPoolExecutor(max_workers=max_workers) as ex:
                 futs = {ex.submit(fetch, str(ev.get("id"))): ev for ev in evs if ev.get("id")}
                 for fut in as_completed(futs):
@@ -194,15 +176,17 @@ def collect_oddsapi_props(date: str) -> pd.DataFrame:
     except Exception:
         # Continue to fallback
         pass
-    # Fallback: slower historical snapshot loop (limited scope to NHL only for speed)
+    # Fallback: historical snapshots near each event's commence time (paid plans)
     try:
+        # Base snapshot around 17:00Z for the ET day
         dt = datetime.strptime(date, "%Y-%m-%d")
-        snapshot = dt.strftime("%Y-%m-%dT17:00:00Z")
+        base_snapshot = dt.strftime("%Y-%m-%dT17:00:00Z")
     except Exception:
-        snapshot = f"{date}T17:00:00Z"
+        base_snapshot = f"{date}T17:00:00Z"
     client = OddsAPIClient()
     try:
-        snap, _ = client.historical_list_events("icehockey_nhl", snapshot)
+        # List snapshot events; if empty, still attempt with base snapshot only
+        snap, _ = client.historical_list_events("icehockey_nhl", base_snapshot)
         data = snap.get("data", []) if isinstance(snap, dict) else []
         def _is_same_day(ev: Dict) -> bool:
             try:
@@ -212,16 +196,71 @@ def collect_oddsapi_props(date: str) -> pd.DataFrame:
             except Exception:
                 return False
         events = [e for e in data if _is_same_day(e)]
-        for ev in events:
+        # If no events resolved via snapshot, still try a generic set of snapshots across the day
+        generic_snapshots = [
+            base_snapshot,
+            f"{date}T19:00:00Z",
+            f"{date}T22:00:00Z",
+            # early next day window in UTC for late PT games on ET slate
+            (datetime.strptime(date, "%Y-%m-%d").replace(hour=2, minute=0).strftime("%Y-%m-%dT%H:%M:00Z") if True else base_snapshot),
+        ]
+        # Region fallback strategy (broaden coverage)
+        region_sets = [regions]
+        if regions.strip().lower() != "us,us2,eu":
+            region_sets.append("us,us2,eu")
+        # For each event, try snapshots near commence time
+        for ev in (events or []):
             ev_id = ev.get("id")
-            if not ev_id:
-                continue
+            ct = ev.get("commence_time")
+            snaps_for_ev: List[str] = []
             try:
-                eo, _ = client.historical_event_odds("icehockey_nhl", ev_id, markets=markets, snapshot_iso=snapshot, regions=regions, bookmakers=(bk_pref or None))
-                if isinstance(eo, dict) and eo.get("bookmakers"):
-                    _parse_event_markets(eo)
+                cdt = datetime.fromisoformat(str(ct).replace("Z", "+00:00"))
+                snaps_for_ev = [
+                    (cdt).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    (cdt.replace(minute=0)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    (cdt.replace(minute=0) - timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    (cdt.replace(minute=0) + timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                ]
             except Exception:
-                continue
+                snaps_for_ev = [base_snapshot]
+            for reg in region_sets:
+                for snap_iso in snaps_for_ev:
+                    if not ev_id:
+                        continue
+                    try:
+                        eo, _ = client.historical_event_odds("icehockey_nhl", ev_id, markets=markets, snapshot_iso=snap_iso, regions=reg, bookmakers=(bk_pref or None))
+                        if isinstance(eo, dict) and eo.get("bookmakers"):
+                            _parse_event_markets(eo)
+                            # continue trying others to maximize coverage across books
+                        else:
+                            # Fallback: try without bookmaker filter
+                            try:
+                                eo2, _ = client.historical_event_odds("icehockey_nhl", ev_id, markets=markets, snapshot_iso=snap_iso, regions=reg, bookmakers=None)
+                                if isinstance(eo2, dict) and eo2.get("bookmakers"):
+                                    _parse_event_markets(eo2)
+                            except Exception:
+                                pass
+                    except Exception:
+                        continue
+        # If still empty and we had no events, try generic snapshots without event context (unlikely but cheap)
+        if not rows:
+            for snap_iso in generic_snapshots:
+                try:
+                    snap2, _ = client.historical_list_events("icehockey_nhl", snap_iso)
+                    data2 = snap2.get("data", []) if isinstance(snap2, dict) else []
+                    events2 = [e for e in data2 if _is_same_day(e)]
+                    for ev2 in events2:
+                        ev_id2 = ev2.get("id")
+                        if not ev_id2:
+                            continue
+                        try:
+                            eo3, _ = client.historical_event_odds("icehockey_nhl", ev_id2, markets=markets, snapshot_iso=snap_iso, regions=regions, bookmakers=None)
+                            if isinstance(eo3, dict) and eo3.get("bookmakers"):
+                                _parse_event_markets(eo3)
+                        except Exception:
+                            continue
+                except Exception:
+                    continue
     except Exception:
         pass
     return pd.DataFrame(rows)

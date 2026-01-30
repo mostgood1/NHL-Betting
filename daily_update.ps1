@@ -56,6 +56,20 @@ try {
 # Enable NPU-accelerated NN model precomputation for props
 $env:PROPS_PRECOMPUTE_ALL = "1"
 
+# Ensure OddsAPI props lines are collected for today & tomorrow (event-level props)
+try {
+  $today = (Get-Date).ToString('yyyy-MM-dd')
+  $tomorrow = (Get-Date).AddDays(1).ToString('yyyy-MM-dd')
+  # Broaden coverage per provider docs
+  if (-not $env:PROPS_ODDSAPI_REGIONS) { $env:PROPS_ODDSAPI_REGIONS = 'us,us2' }
+  if (-not $env:PROPS_ODDSAPI_BOOKMAKERS) { $env:PROPS_ODDSAPI_BOOKMAKERS = '' }
+  if (-not $Quiet) { Write-Host "[oddsapi] Collecting props lines for $today & $tomorrow" -ForegroundColor Cyan }
+  python -m nhl_betting.cli props-collect --date $today --source oddsapi | Out-Null
+  python -m nhl_betting.cli props-collect --date $tomorrow --source oddsapi | Out-Null
+} catch {
+  Write-Warning "[oddsapi] Props collection failed: $($_.Exception.Message)"
+}
+
 # Optional: allow callers to skip heavy props projections or calibration via switches
 if ($SkipPropsProjections) { $env:PROPS_SKIP_PROJECTIONS = '1' }
 if ($SkipPropsCalibration) { $env:SKIP_PROPS_CALIBRATION = '1' }

@@ -57,13 +57,14 @@ def list_games(date: str) -> List[Dict[str, Any]]:
 
 
 def load_edges(date: str) -> pd.DataFrame:
-    p = PROC / f'edges_{date}.csv'
-    if not p.exists():
-        return pd.DataFrame()
-    try:
-        return pd.read_csv(p)
-    except Exception:
-        return pd.DataFrame()
+    # Prefer sim-based edges when available
+    for p in [PROC / f'edges_sim_{date}.csv', PROC / f'edges_{date}.csv']:
+        if p.exists():
+            try:
+                return pd.read_csv(p)
+            except Exception:
+                continue
+    return pd.DataFrame()
 
 
 def load_team_odds(date: str) -> pd.DataFrame:
@@ -129,8 +130,8 @@ def load_team_odds(date: str) -> pd.DataFrame:
 
 
 def load_props_recs(date: str) -> pd.DataFrame:
-    # prefer combined, then sim, then model-only
-    for name in [PROC / f'props_recommendations_combined_{date}.csv', PROC / f'props_recommendations_sim_{date}.csv', PROC / f'props_recommendations_{date}.csv']:
+    # Prefer sim-based recommendations, then combined, then model-only
+    for name in [PROC / f'props_recommendations_sim_{date}.csv', PROC / f'props_recommendations_combined_{date}.csv', PROC / f'props_recommendations_{date}.csv']:
         if name.exists():
             try:
                 df = pd.read_csv(name)
@@ -342,6 +343,11 @@ def aggregate_player_boxscores(samples: pd.DataFrame, team_abbr: str, top_n: int
     if 'player' not in df.columns:
         df['player'] = df.get('full_name', '')
     agg = df.groupby(['team','player'])[cols].mean().reset_index()
+    # Mask empty TOI to None for cleaner display
+    try:
+        agg['toi_min'] = agg['toi_min'].apply(lambda x: None if (pd.isna(x) or x <= 0) else round(float(x), 1))
+    except Exception:
+        pass
     # rank by points then shots
     agg['rank_key'] = agg['points']*3 + agg['shots']
     agg = agg.sort_values('rank_key', ascending=False)
@@ -397,7 +403,17 @@ def props_table(recs_df: pd.DataFrame, teams: Tuple[str,str]) -> List[Dict[str, 
     for k in keep:
         if k not in df.columns:
             df[k] = None
-    # basic rank by ev
+    # Deduplicate: one row per (team, player, market, line, side) with best EV
+    try:
+        df['ev'] = pd.to_numeric(df['ev'], errors='coerce')
+    except Exception:
+        pass
+    dedup_cols = ['team','player','market','line','side']
+    try:
+        idx = df.groupby(dedup_cols)['ev'].idxmax()
+        df = df.loc[idx]
+    except Exception:
+        df = df.drop_duplicates(subset=dedup_cols, keep='first')
     df = df.sort_values(by=['ev'], ascending=False)
     return df[keep].head(30).to_dict(orient='records')
 
@@ -417,7 +433,7 @@ def player_table_from_projections(proj_df: pd.DataFrame, team_abbr: str, toi_cac
     # Filter to team abbreviations directly present in projections
     df['team'] = df.get('team', '').astype(str).str.upper()
     df = df[df['team'] == str(team_abbr).upper()]
-    wanted = ['SOG', 'BLOCKS', 'POINTS']
+    wanted = ['SOG', 'BLOCKS', 'POINTS', 'GOALS', 'ASSISTS']
     df = df[df['market'].isin(wanted)] if 'market' in df.columns else df
     # Pivot to player rows: columns shots, blocked, points
     if not {'player', 'market', 'proj_lambda'}.issubset(df.columns):
@@ -427,7 +443,7 @@ def player_table_from_projections(proj_df: pd.DataFrame, team_abbr: str, toi_cac
     for c in wanted:
         if c not in piv.columns:
             piv[c] = 0.0
-    piv = piv.rename(columns={'SOG': 'shots', 'BLOCKS': 'blocked', 'POINTS': 'points'})
+    piv = piv.rename(columns={'SOG': 'shots', 'BLOCKS': 'blocked', 'POINTS': 'points', 'GOALS': 'goals', 'ASSISTS': 'assists'})
     # Attach TOI from cache if available (by player name)
     toi_map = {}
     for r in toi_cache or []:
@@ -438,7 +454,11 @@ def player_table_from_projections(proj_df: pd.DataFrame, team_abbr: str, toi_cac
     # Ranking key
     piv['rank_key'] = piv['points']*3 + piv['shots']
     piv = piv.sort_values('rank_key', ascending=False)
-    cols = ['player', 'points', 'shots', 'blocked', 'toi_min']
+    # Ensure numeric and fill missing G/A
+    for c in ['goals','assists']:
+        if c not in piv.columns:
+            piv[c] = 0.0
+    cols = ['player', 'goals', 'assists', 'points', 'shots', 'blocked', 'toi_min']
     return piv[cols].head(top_n).to_dict(orient='records')
 
 

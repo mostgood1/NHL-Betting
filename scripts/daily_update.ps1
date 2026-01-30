@@ -177,6 +177,13 @@ try {
     } catch {
       Write-Warning "[daily_update] props-simulate-boxscores failed for ${d}: $($_.Exception.Message)"
     }
+    # Produce sim-native game predictions and edges (ML/Totals) directly from per-sim samples
+    try {
+      Write-Host "[daily_update] Computing sim-native game predictions for $d …" -ForegroundColor DarkYellow
+      python -m nhl_betting.cli game-recommendations-sim --date $d --top 200
+    } catch {
+      Write-Warning "[daily_update] game-recommendations-sim failed for ${d}: $($_.Exception.Message)"
+    }
   }
 } catch {
   Write-Warning "[daily_update] props-simulate-boxscores block failed: $($_.Exception.Message)"
@@ -369,11 +376,11 @@ if ($SimRecommendations) {
       $d = $base.AddDays($i).ToString('yyyy-MM-dd')
       $totFlag = if ($SimIncludeTotals) { "--include-totals" } else { "--no-include-totals" }
       Write-Host "[daily_update] Generating sim recommendations for $d (ML>=$SimMLThr, PL>=$SimPLThr, Tot>=$SimTotThr, includeTotals=$SimIncludeTotals) …" -ForegroundColor Cyan
-      python -m nhl_betting.cli game-recommendations-sim --date $d --include-ml --include-puckline $totFlag --ml-thr $SimMLThr --tot-thr $SimTotThr --pl-thr $SimPLThr
+      python -m nhl_betting.cli game-predictions-sim --date $d --include-ml --include-puckline $totFlag --ml-thr $SimMLThr --tot-thr $SimTotThr --pl-thr $SimPLThr
     }
     Write-Host "[daily_update] Sim picks written to data/processed/sim_picks_YYYY-MM-DD.csv"
   } catch {
-    Write-Warning "[daily_update] game-recommendations-sim failed: $($_.Exception.Message)"
+    Write-Warning "[daily_update] game-predictions-sim failed: $($_.Exception.Message)"
   }
 }
 

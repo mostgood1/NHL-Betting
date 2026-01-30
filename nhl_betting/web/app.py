@@ -1547,7 +1547,9 @@ def _fmt_et(iso_utc: Optional[str]) -> Optional[str]:
 def _last_update_info(date: str) -> dict:
     """Collect last update timestamps for predictions (odds) and recommendations for a date."""
     try:
-        pred_p = PROC_DIR / f"predictions_{date}.csv"
+        # Prefer sim-native predictions when available
+        pred_sim_p = PROC_DIR / f"predictions_sim_{date}.csv"
+        pred_p = pred_sim_p if pred_sim_p.exists() else (PROC_DIR / f"predictions_{date}.csv")
         rec_p = PROC_DIR / f"recommendations_{date}.csv"
         pred_iso = _file_mtime_iso(pred_p)
         rec_iso = _file_mtime_iso(rec_p)
@@ -1564,12 +1566,14 @@ def _last_update_info(date: str) -> dict:
 async def _recompute_edges_and_recommendations(date: str) -> None:
     """Recompute EVs/edges and persist edges/recommendations CSVs for a date.
 
-    - Reads predictions_{date}.csv
+    - Reads predictions_sim_{date}.csv if present, else predictions_{date}.csv
     - Ensures EV columns exist (if odds present). If missing, recompute from p_* and *_odds
     - Writes edges_{date}.csv (long format) and recommendations_{date}.csv (top-N style via API)
     """
     try:
-        pred_path = PROC_DIR / f"predictions_{date}.csv"
+        # Prefer sim-native predictions file
+        pred_sim = PROC_DIR / f"predictions_sim_{date}.csv"
+        pred_path = pred_sim if pred_sim.exists() else (PROC_DIR / f"predictions_{date}.csv")
         if not pred_path.exists():
             return
         df = _read_csv_fallback(pred_path)
@@ -4978,7 +4982,9 @@ async def api_capture_closing(
 @app.get("/api/predictions")
 async def api_predictions(date: Optional[str] = Query(None)):
     date = date or _today_ymd()
-    path = PROC_DIR / f"predictions_{date}.csv"
+    # Prefer sim-native predictions when available
+    sim_path = PROC_DIR / f"predictions_sim_{date}.csv"
+    path = sim_path if sim_path.exists() else (PROC_DIR / f"predictions_{date}.csv")
     if not path.exists():
         return JSONResponse({"error": "No predictions for date", "date": date}, status_code=404)
     # Robust read to avoid decode/empty errors across environments

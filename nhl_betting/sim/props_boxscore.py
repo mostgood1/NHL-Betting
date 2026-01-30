@@ -138,6 +138,41 @@ def aggregate_events_to_boxscores(gs: GameState, events: List[Event], starter_go
     # Game-total rows (period=0)
     if not df.empty:
         agg = df.groupby(["team", "player_id"], as_index=False)[["shots","goals","assists","points","blocks","saves","toi_sec"]].sum()
+        # TOI sanity fallback: if total TOI is unrealistically low, fallback to projected TOI from GameState
+        try:
+            # Build proj_toi seconds map from game state
+            proj_map = {}
+            for team_state in [gs.home, gs.away]:
+                for pid, p in team_state.players.items():
+                    try:
+                        proj_map[int(pid)] = float(getattr(p, "toi_proj", 0.0) or 0.0) * 60.0
+                    except Exception:
+                        continue
+            # Define a minimal threshold (e.g., 120 seconds); if below, set to projected
+            thr_sec = 120.0
+            for i, r in agg.iterrows():
+                try:
+                    total_toi = float(r.get("toi_sec") or 0.0)
+                    pid = int(r.get("player_id"))
+                    # If goalie with any saves but tiny TOI, set to full regulation
+                    is_goalie = False
+                    try:
+                        team_state = gs.home if str(r.get("team")) == gs.home.name else gs.away
+                        pstate = team_state.players.get(pid)
+                        is_goalie = str(getattr(pstate, "position", "")).upper() == "G"
+                    except Exception:
+                        is_goalie = False
+                    if is_goalie and total_toi < thr_sec:
+                        agg.at[i, "toi_sec"] = max(total_toi, float(60*60))
+                        continue
+                    if total_toi < thr_sec:
+                        fallback = float(proj_map.get(pid, 0.0))
+                        if fallback > 0:
+                            agg.at[i, "toi_sec"] = fallback
+                except Exception:
+                    continue
+        except Exception:
+            pass
         agg["period"] = 0
         df = pd.concat([df, agg], ignore_index=True)
     return df

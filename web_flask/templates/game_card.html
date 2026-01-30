@@ -89,15 +89,17 @@
         <h6>{{ home }}</h6>
         {% if home_players and home_players|length > 0 %}
         <table class="table table-sm table-striped">
-          <thead><tr><th>Player</th><th>P</th><th>SOG</th><th>BLK</th><th>TOI</th></tr></thead>
+          <thead><tr><th>Player</th><th>G</th><th>A</th><th>P</th><th>SOG</th><th>BLK</th><th>TOI</th></tr></thead>
           <tbody>
             {% for r in home_players %}
             <tr>
               <td>{{ r.player }}</td>
+              <td>{{ r.goals }}</td>
+              <td>{{ r.assists }}</td>
               <td>{{ r.points }}</td>
               <td>{{ r.shots }}</td>
               <td>{{ r.blocked }}</td>
-              <td>{{ r.toi_min }}</td>
+              <td>{% if r.toi_min and r.toi_min > 0 %}{{ r.toi_min }}{% endif %}</td>
             </tr>
             {% endfor %}
           </tbody>
@@ -108,15 +110,17 @@
         <h6>{{ away }}</h6>
         {% if away_players and away_players|length > 0 %}
         <table class="table table-sm table-striped">
-          <thead><tr><th>Player</th><th>P</th><th>SOG</th><th>BLK</th><th>TOI</th></tr></thead>
+          <thead><tr><th>Player</th><th>G</th><th>A</th><th>P</th><th>SOG</th><th>BLK</th><th>TOI</th></tr></thead>
           <tbody>
             {% for r in away_players %}
             <tr>
               <td>{{ r.player }}</td>
+              <td>{{ r.goals }}</td>
+              <td>{{ r.assists }}</td>
               <td>{{ r.points }}</td>
               <td>{{ r.shots }}</td>
               <td>{{ r.blocked }}</td>
-              <td>{{ r.toi_min }}</td>
+              <td>{% if r.toi_min and r.toi_min > 0 %}{{ r.toi_min }}{% endif %}</td>
             </tr>
             {% endfor %}
           </tbody>

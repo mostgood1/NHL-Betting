@@ -80,7 +80,9 @@ def build_lineup_snapshot_from_source(team_abbr: str, date: str, overrides: Opti
             "proj_toi": None,
             "confidence": float(it.get("confidence", 0.5)),
         })
-    df = pd.DataFrame(rows)
+    # Ensure expected columns exist even when rows are empty due to source schema changes
+    expected_cols = ["player_id","full_name","position","line_slot","pp_unit","pk_unit","proj_toi","confidence"]
+    df = pd.DataFrame(rows, columns=expected_cols)
     # Compute projected TOI when roster is available using inference baseline for matched players
     try:
         if not roster.empty:

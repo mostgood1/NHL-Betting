@@ -3385,8 +3385,8 @@ def game_backtest_sim_thresholds(
     print(f"Saved thresholds summary to {out_path}")
 
 
-@app.command(name="game-recommendations-sim")
-def game_recommendations_sim(
+@app.command(name="game-predictions-sim")
+def game_predictions_sim(
     date: str = typer.Option(..., help="Slate date YYYY-MM-DD (ET)"),
     include_ml: bool = typer.Option(True, help="Include moneyline picks"),
     include_totals: bool = typer.Option(False, help="Include totals picks (over/under)"),
@@ -5009,6 +5009,16 @@ def props_recommendations(
         pass
     _dbg(f"player_team_map has {len(player_team_map)} entries")
     
+    # Normalize CLI/func-invocation differences for optional args
+    try:
+        # When called directly as a function, Typer's default may pass OptionInfo objects
+        if not isinstance(min_ev_per_market, str):
+            min_ev_per_market = ""
+        if not isinstance(market, str):
+            market = ""
+    except Exception:
+        pass
+
     # Prefer precomputed per-player lambdas to avoid expensive history scans
     # data/processed/props_projections_all_{date}.csv: [date, player, team, position, market, proj_lambda]
     lam_map: dict[tuple[str, str], float] = {}
@@ -6255,6 +6265,7 @@ def props_simulate_boxscores(
             df_i['game_home'] = home; df_i['game_away'] = away; df_i['date'] = date
             # Collect per-sim totals (period=0) in long format for markets
             if write_samples:
+                # Game totals (period=0) for player props
                 d0 = df_i[df_i['period'] == 0].copy()
                 if not d0.empty:
                     d0['sim_idx'] = int(i)
@@ -6266,7 +6277,20 @@ def props_simulate_boxscores(
                     long['market'] = long['market_raw'].astype(str).str.upper().map({
                         'SHOTS':'SOG', 'GOALS':'GOALS', 'ASSISTS':'ASSISTS', 'POINTS':'POINTS', 'BLOCKS':'BLOCKS', 'SAVES':'SAVES'
                     }).fillna(long['market_raw'].astype(str).str.upper())
-                    samples_all.append(long[['team','player_id','player','market','value','sim_idx','game_home','game_away','date']])
+                    samples_all.append(long[['team','player_id','player','market','value','sim_idx','game_home','game_away','date','period']])
+                # Per-period per-player values to support period totals aggregation
+                dper = df_i[df_i['period'] > 0].copy()
+                if not dper.empty:
+                    dper['sim_idx'] = int(i)
+                    long_per = dper.melt(
+                        id_vars=['team','player_id','player','game_home','game_away','date','period','sim_idx'],
+                        value_vars=['shots','goals','assists','points','blocks','saves'],
+                        var_name='market_raw', value_name='value'
+                    )
+                    long_per['market'] = long_per['market_raw'].astype(str).str.upper().map({
+                        'SHOTS':'SOG', 'GOALS':'GOALS', 'ASSISTS':'ASSISTS', 'POINTS':'POINTS', 'BLOCKS':'BLOCKS', 'SAVES':'SAVES'
+                    }).fillna(long_per['market_raw'].astype(str).str.upper())
+                    samples_all.append(long_per[['team','player_id','player','market','value','sim_idx','game_home','game_away','date','period']])
             df_parts.append(df_i)
         # Average over sims
         if df_parts:
@@ -6866,10 +6890,23 @@ def props_recommendations_sim(
         out = out[(out["chosen_prob"].notna()) & (out["chosen_prob"].astype(float) >= prob_series)]
     out = out.sort_values("ev", ascending=False).head(int(top))
     final = out[["date","player","team","market","line","proj_lambda","p_over_sim","over_price","under_price","book","side","ev","chosen_prob"]].copy()
+    # Deduplicate: one row per (team, player, market, line, side) by best EV
+    try:
+        final["ev"] = pd.to_numeric(final["ev"], errors="coerce")
+        idx = final.groupby(["team","player","market","line","side"])['ev'].idxmax()
+        final = final.loc[idx]
+    except Exception:
+        final = final.drop_duplicates(subset=["team","player","market","line","side"], keep="first")
     final.rename(columns={"p_over_sim":"p_over"}, inplace=True)
     out_path = PROC_DIR / f"props_recommendations_{date}.csv"
     save_df(final, out_path)
-    print(f"[props-recs-sim] wrote {out_path} with {len(final)} rows")
+    # Also write sim-specific filename for downstream consumers
+    out_path_sim = PROC_DIR / f"props_recommendations_sim_{date}.csv"
+    try:
+        save_df(final, out_path_sim)
+    except Exception:
+        pass
+    print(f"[props-recs-sim] wrote {out_path} and {out_path_sim.name} with {len(final)} rows")
 
 
 @app.command(name="props-recommendations-boxscores")
@@ -6990,6 +7027,11 @@ def props_recommendations_boxscores(
     if merged is None or merged.empty:
         print("No joinable samples/lines; aborting.")
         raise typer.Exit(code=0)
+    # Ensure a singular 'date' column exists for grouping
+    try:
+        merged['date'] = str(date)
+    except Exception:
+        pass
     # Compute p_over from sample counts per (player, market, line, book)
     # For each group, proportion of sims with value > line_num
     merged["over_win"] = (merged["value"].astype(float) > merged["line_num"].astype(float)).astype(int)
@@ -7026,6 +7068,14 @@ def props_recommendations_boxscores(
             except Exception:
                 continue
         return d
+    # Normalize optional args when called as a function (Typer OptionInfo defaults)
+    try:
+        if not isinstance(min_ev_per_market, str):
+            min_ev_per_market = ""
+        if not isinstance(min_prob_per_market, str):
+            min_prob_per_market = ""
+    except Exception:
+        pass
     thr_map = _parse_thresholds(min_ev_per_market)
     prob_thr_map = _parse_thresholds(min_prob_per_market)
     if thr_map:
@@ -7039,9 +7089,226 @@ def props_recommendations_boxscores(
     out = out.sort_values("ev", ascending=False).head(int(top))
     final = out.rename(columns={"line_num":"line"})[["date","player","team_abbr","market","line","p_over_sim","over_price","under_price","book","side","ev","chosen_prob"]].copy()
     final.rename(columns={"team_abbr":"team","p_over_sim":"p_over"}, inplace=True)
+    # Deduplicate: one row per (team, player, market, line, side) by best EV
+    try:
+        final["ev"] = pd.to_numeric(final["ev"], errors="coerce")
+        idx = final.groupby(["team","player","market","line","side"])['ev'].idxmax()
+        final = final.loc[idx]
+    except Exception:
+        final = final.drop_duplicates(subset=["team","player","market","line","side"], keep="first")
     out_path = PROC_DIR / f"props_recommendations_{date}.csv"
     save_df(final, out_path)
-    print(f"[props-recs-boxscores] wrote {out_path} with {len(final)} rows")
+    # Also write sim-specific filename for downstream consumers
+    out_path_sim = PROC_DIR / f"props_recommendations_sim_{date}.csv"
+    try:
+        save_df(final, out_path_sim)
+    except Exception:
+        pass
+    print(f"[props-recs-boxscores] wrote {out_path} and {out_path_sim.name} with {len(final)} rows")
+
+
+@app.command(name="game-recommendations-sim")
+def game_recommendations_sim(
+    date: str = typer.Option(..., help="Slate date YYYY-MM-DD (ET)"),
+    top: int = typer.Option(100, help="Top N markets to keep after sorting by EV desc"),
+):
+    """Compute sim-backed game probabilities and EV (ML and Totals) from per-sim boxscore samples.
+
+    Reads props_boxscores_sim_samples_{date}.{parquet|csv} and team odds (oddsapi).
+    Aggregates per-sim team goals to compute ML and Totals probabilities and EVs, then writes
+    edges_sim_{date}.csv and predictions_sim_{date}.csv with key fields.
+    """
+    import pandas as pd
+    import numpy as _np
+    from pathlib import Path as _Path
+    from .web.teams import get_team_assets as _assets
+    from .utils.io import PROC_DIR, save_df
+    # Load per-sim samples
+    p_parq = PROC_DIR / f"props_boxscores_sim_samples_{date}.parquet"
+    p_csv = PROC_DIR / f"props_boxscores_sim_samples_{date}.csv"
+    if p_parq.exists():
+        try:
+            samples = pd.read_parquet(p_parq, engine='pyarrow')
+        except Exception:
+            import duckdb as _duck
+            f_posix = str(p_parq).replace('\\', '/')
+            samples = _duck.query(f"SELECT * FROM read_parquet('{f_posix}')").df()
+    elif p_csv.exists():
+        samples = pd.read_csv(p_csv)
+    else:
+        print("No sim samples found for", date)
+        raise typer.Exit(code=0)
+    if samples is None or samples.empty:
+        print("Empty samples; aborting.")
+        raise typer.Exit(code=0)
+    # Filter to goal totals (period=0 totals already baked in the samples)
+    s = samples.copy()
+    s = s[s.get('market').astype(str).str.upper() == 'GOALS']
+    if s.empty:
+        print("No GOALS market in samples; aborting.")
+        raise typer.Exit(code=0)
+    # Normalize to team abbreviations and matchup keys
+    def _abbr(n: str | None) -> str:
+        try:
+            a = _assets(str(n)).get('abbr')
+            return str(a or '').upper()
+        except Exception:
+            return ''
+    s['team_abbr'] = s.get('team').map(_abbr)
+    s['home_abbr'] = s.get('game_home').map(_abbr)
+    s['away_abbr'] = s.get('game_away').map(_abbr)
+    # Aggregate per-sim team goals
+    agg = s.groupby(['sim_idx','game_home','game_away','home_abbr','away_abbr','team_abbr'], as_index=False)['value'].sum().rename(columns={'value':'team_goals'})
+    # Extract home/away goals per sim by matching team_abbr
+    hg = agg[agg['team_abbr'] == agg['home_abbr']][['sim_idx','game_home','game_away','home_abbr','team_goals']].rename(columns={'team_goals':'home_goals'})
+    ag = agg[agg['team_abbr'] == agg['away_abbr']][['sim_idx','game_home','game_away','away_abbr','team_goals']].rename(columns={'team_goals':'away_goals'})
+    sim_games = pd.merge(hg, ag, on=['sim_idx','game_home','game_away'], how='inner')
+    if sim_games.empty:
+        print("No matched home/away goals per sim; aborting.")
+        raise typer.Exit(code=0)
+    # Probabilities and projections (full game)
+    sim_games['total_goals'] = sim_games['home_goals'] + sim_games['away_goals']
+    # Win probs: split ties evenly (shootout goals may not be in player goals)
+    sim_games['home_win'] = (sim_games['home_goals'] > sim_games['away_goals']).astype(float) + 0.5*(sim_games['home_goals'] == sim_games['away_goals']).astype(float)
+    sim_games['away_win'] = 1.0 - sim_games['home_win']
+    grp = sim_games.groupby(['game_home','game_away'], as_index=False)
+    summary = grp.agg({
+        'home_goals':'mean',
+        'away_goals':'mean',
+        'total_goals':'mean',
+        'home_win':'mean',
+        'away_win':'mean',
+    }).rename(columns={'home_goals':'proj_home_goals','away_goals':'proj_away_goals','total_goals':'model_total','home_win':'p_home_ml','away_win':'p_away_ml'})
+    summary['date'] = str(date)
+    # Per-period projections (expected goals per team per period)
+    try:
+        s_per = samples.copy()
+        s_per = s_per[(s_per.get('market').astype(str).str.upper() == 'GOALS') & (pd.to_numeric(s_per.get('period'), errors='coerce') > 0)]
+        if not s_per.empty:
+            # Aggregate team goals per sim per period
+            s_per['team_abbr'] = s_per.get('team').map(_abbr)
+            s_per['home_abbr'] = s_per.get('game_home').map(_abbr)
+            s_per['away_abbr'] = s_per.get('game_away').map(_abbr)
+            agg_per = s_per.groupby(['sim_idx','game_home','game_away','home_abbr','away_abbr','team_abbr','period'], as_index=False)['value'].sum().rename(columns={'value':'team_goals'})
+            # Home/away by period
+            hg_per = agg_per[agg_per['team_abbr'] == agg_per['home_abbr']][['sim_idx','game_home','game_away','period','team_goals']].rename(columns={'team_goals':'home_goals'})
+            ag_per = agg_per[agg_per['team_abbr'] == agg_per['away_abbr']][['sim_idx','game_home','game_away','period','team_goals']].rename(columns={'team_goals':'away_goals'})
+            sim_per = pd.merge(hg_per, ag_per, on=['sim_idx','game_home','game_away','period'], how='inner')
+            if not sim_per.empty:
+                # Expected goals per period
+                per_summ = sim_per.groupby(['game_home','game_away','period'], as_index=False).agg({'home_goals':'mean','away_goals':'mean'})
+                # Pivot to columns period1_home_proj, period1_away_proj, ...
+                for pn in (1, 2, 3):
+                    sub = per_summ[per_summ['period'] == pn]
+                    if not sub.empty:
+                        sub = sub.rename(columns={'home_goals':f'period{pn}_home_proj','away_goals':f'period{pn}_away_proj'})
+                        summary = summary.merge(sub[['game_home','game_away',f'period{pn}_home_proj',f'period{pn}_away_proj']], on=['game_home','game_away'], how='left')
+                # Approximate first-10 min probability from P1 expected goals using calibrated factor
+                if {'period1_home_proj','period1_away_proj'}.issubset(summary.columns):
+                    def _approx_f10(row) -> float:
+                        try:
+                            h1 = float(row.get('period1_home_proj')) if pd.notna(row.get('period1_home_proj')) else None
+                            a1 = float(row.get('period1_away_proj')) if pd.notna(row.get('period1_away_proj')) else None
+                            if h1 is None or a1 is None:
+                                return np.nan
+                            # Factor can be tuned downstream; use sensible default 0.55
+                            f = 0.55
+                            lam10 = f * (h1 + a1)
+                            return float(1.0 - np.exp(-lam10)) if lam10 >= 0 else np.nan
+                        except Exception:
+                            return np.nan
+                    summary['p_f10_yes'] = summary.apply(_approx_f10, axis=1)
+                    summary['p_f10_no'] = 1.0 - summary['p_f10_yes']
+    except Exception:
+        pass
+    # Attach totals line from predictions (if available) for EV on totals
+    pred_path = PROC_DIR / f"predictions_{date}.csv"
+    totals_line = None
+    if pred_path.exists():
+        try:
+            pred = pd.read_csv(pred_path)
+            if not pred.empty and {'home','away'}.issubset(pred.columns):
+                pred_cols = [c for c in ['total_line_used','totals_line','close_total_line_used'] if c in pred.columns]
+                if pred_cols:
+                    pred_lin = pred[['home','away',pred_cols[0]]].rename(columns={pred_cols[0]:'totals_line_used'})
+                    summary = summary.merge(pred_lin, left_on=['game_home','game_away'], right_on=['home','away'], how='left').drop(columns=['home','away'])
+        except Exception:
+            pass
+    # Load team odds (The Odds API team-level) for prices
+    team_odds_dir = _Path('data') / 'odds' / 'team' / f'date={date}'
+    team_odds = pd.read_csv(team_odds_dir / 'oddsapi.csv') if (team_odds_dir / 'oddsapi.csv').exists() else pd.DataFrame()
+    def _pick_price(g: pd.DataFrame, team_name: str) -> float:
+        if g is None or g.empty:
+            return _np.nan
+        try:
+            # Prefer DraftKings if present
+            if 'bookmaker_key' in g.columns:
+                dk = g[g['bookmaker_key'].astype(str).str.lower() == 'draftkings']
+                if not dk.empty:
+                    g = dk
+            r = g.iloc[0]
+            return float(r.get('outcome_price'))
+        except Exception:
+            return _np.nan
+    def _amer_to_dec(x: float) -> float:
+        try:
+            x = float(x)
+            return 1.0 + (x/100.0) if x > 0 else 1.0 + (100.0/abs(x))
+        except Exception:
+            return _np.nan
+    # Build a per-game odds table
+    odds_rows = []
+    if not team_odds.empty and {'home','away','market','outcome_name','outcome_price'}.issubset(team_odds.columns):
+        for (h,a), g in team_odds.groupby(['home','away']):
+            gg = g.copy()
+            h2 = gg[(gg['market']=='h2h') & (gg['outcome_name']==h)]
+            a2 = gg[(gg['market']=='h2h') & (gg['outcome_name']==a)]
+            to = gg[gg['market']=='totals']
+            odds_rows.append({
+                'game_home': h,
+                'game_away': a,
+                'home_ml_odds': _pick_price(h2, h),
+                'away_ml_odds': _pick_price(a2, a),
+                'over_odds': _pick_price(to[to['outcome_name'].astype(str).str.lower()=='over'], None),
+                'under_odds': _pick_price(to[to['outcome_name'].astype(str).str.lower()=='under'], None),
+            })
+    odds_df = pd.DataFrame(odds_rows)
+    pred_sim = summary.merge(odds_df, on=['game_home','game_away'], how='left')
+    # Totals probabilities
+    if 'totals_line_used' in pred_sim.columns:
+        try:
+            pred_sim['p_over'] = _np.nan
+            for i, r in pred_sim.iterrows():
+                try:
+                    ln = float(r.get('totals_line_used'))
+                    h = sim_games[(sim_games['game_home']==r['game_home']) & (sim_games['game_away']==r['game_away'])]
+                    if not h.empty:
+                        over = (h['total_goals'] > ln).mean()
+                        pred_sim.at[i,'p_over'] = float(over)
+                except Exception:
+                    continue
+            pred_sim['p_under'] = 1.0 - pred_sim['p_over']
+        except Exception:
+            pass
+    # EVs using available prices
+    for (p_key, o_key, ev_key) in [('p_home_ml','home_ml_odds','ev_home_ml'), ('p_away_ml','away_ml_odds','ev_away_ml'), ('p_over','over_odds','ev_over'), ('p_under','under_odds','ev_under')]:
+        if p_key in pred_sim.columns and o_key in pred_sim.columns:
+            try:
+                dec = pred_sim[o_key].map(_amer_to_dec)
+                p = pd.to_numeric(pred_sim[p_key], errors='coerce')
+                pred_sim[ev_key] = p * (dec - 1.0) - (1.0 - p)
+            except Exception:
+                pred_sim[ev_key] = _np.nan
+    # Persist predictions_sim and edges_sim
+    pred_sim.rename(columns={'game_home':'home','game_away':'away'}, inplace=True)
+    save_df(pred_sim, PROC_DIR / f"predictions_sim_{date}.csv")
+    # Long-form edges
+    ev_cols = [c for c in ['ev_home_ml','ev_away_ml','ev_over','ev_under'] if c in pred_sim.columns]
+    if ev_cols:
+        edges = pred_sim.melt(id_vars=['date','home','away'], value_vars=ev_cols, var_name='market', value_name='ev').dropna()
+        edges = edges.sort_values('ev', ascending=False).head(int(top))
+        save_df(edges, PROC_DIR / f"edges_sim_{date}.csv")
+    print(f"[game-preds-sim] wrote predictions_sim_{date}.csv and edges_sim_{date}.csv")
 
 @app.command(name="props-projections-from-sim")
 def props_projections_from_sim(

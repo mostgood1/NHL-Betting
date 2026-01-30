@@ -118,6 +118,17 @@ if (-not $SkipProps) {
   }
 }
 
+# Sim-based game recommendations (ML/Totals) built from play-level sim samples
+try {
+  $today = (Get-Date).ToString('yyyy-MM-dd')
+  $tomorrow = (Get-Date).AddDays(1).ToString('yyyy-MM-dd')
+  if (-not $Quiet) { Write-Host "[game-sim] Game recommendations (ML/Totals) $today & $tomorrow" -ForegroundColor Cyan }
+  python -m nhl_betting.cli game-recommendations-sim --date $today | Out-Null
+  python -m nhl_betting.cli game-recommendations-sim --date $tomorrow | Out-Null
+} catch {
+  Write-Warning "[game-sim] Failed to compute game recommendations: $($_.Exception.Message)"
+}
+
 # Automatically calibrate game model parameters (dc_rho, market anchor weights, totals temp)
 if (-not $SkipGameCalibration) {
   try {

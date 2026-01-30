@@ -87,6 +87,13 @@ class PeriodSimulator:
         events: List[Event] = []
         home_goals = 0
         away_goals = 0
+        # Small deterministic per-period pace bias to reduce uniformity across periods
+        # Slightly boosts or reduces base pace for this period (applies to both sides)
+        period_bias_table = [0.98, 1.03, 0.99, 1.00]
+        try:
+            period_pace_bias = float(period_bias_table[min(max(0, period_idx), len(period_bias_table)-1)])
+        except Exception:
+            period_pace_bias = 1.0
         # Build ordered line groups (L1->L4, D1->D3); fallback to roster
         def _line_order(lineup: List[Dict], prefix: str) -> List[List[int]]:
             df = lineup
@@ -204,8 +211,8 @@ class PeriodSimulator:
             else:
                 p_empty_mult = 1.0
             # Expected shots in segment
-            lam_h = max(1e-6, rates.home.shots_per_60 * seg_len / 3600.0 * home_factor)
-            lam_a = max(1e-6, rates.away.shots_per_60 * seg_len / 3600.0 * away_factor)
+            lam_h = max(1e-6, rates.home.shots_per_60 * seg_len / 3600.0 * home_factor * period_pace_bias)
+            lam_a = max(1e-6, rates.away.shots_per_60 * seg_len / 3600.0 * away_factor * period_pace_bias)
             sh_h = int(np.random.poisson(lam_h))
             sh_a = int(np.random.poisson(lam_a))
             # Goals proportional to shots vs base conversion

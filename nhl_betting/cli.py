@@ -6069,23 +6069,67 @@ def props_simulate_boxscores(
     n_sims: int = typer.Option(5000, help="Number of play-level simulations per game"),
     seed: int = typer.Option(42, help="Random seed for reproducibility"),
     write_samples: bool = typer.Option(True, help="Also write per-sim totals samples for p_over computation"),
+    dispersion_shots: float = typer.Option(0.0, help="Lognormal dispersion for shots (per-segment)"),
+    dispersion_goals: float = typer.Option(0.0, help="Logit-normal dispersion for goal conversion (per-segment)"),
+    pp_shots_mult: float = typer.Option(1.4, help="PP shots rate multiplier (base)"),
+    pk_shots_mult: float = typer.Option(0.7, help="PK shots rate multiplier (base)"),
+    pp_goals_mult: float = typer.Option(1.0, help="Additional PP goal conversion multiplier"),
+    pk_goals_mult: float = typer.Option(1.0, help="Additional PK goal conversion multiplier"),
+    slate: Optional[str] = typer.Option(None, help="Forced slate list like 'CBJ@CHI, BOS@TOR' to bypass Web schedule"),
 ):
     """Generate period and game-level simulated player boxscores from the play-level sim engine.
 
     Writes data/processed/props_boxscores_sim_{date}.csv (per-period and totals per player).
     """
     import pandas as pd
+    import warnings as _warn
+    # Silence common pandas warnings to keep output clean
+    try:
+        _warn.filterwarnings("ignore", category=FutureWarning)
+        _warn.simplefilter("ignore", category=pd.errors.SettingWithCopyWarning)
+    except Exception:
+        pass
     from .data.nhl_api_web import NHLWebClient
     from .web.teams import get_team_assets
     from .sim.engine import GameSimulator, SimConfig
     from .sim.models import RateModels
     from .sim.props_boxscore import aggregate_events_to_boxscores
     # Build slate via schedule
-    try:
-        web = NHLWebClient()
-        games = web.schedule_day(date)
-    except Exception:
-        games = []
+    games = []
+    # Forced slate parsing if provided
+    if slate:
+        from types import SimpleNamespace as _NS
+        items = [s.strip() for s in str(slate).split(',') if s.strip()]
+        for it in items:
+            # Accept formats: AWAY@HOME or HOME vs AWAY
+            if '@' in it:
+                away, home = [x.strip() for x in it.split('@', 1)]
+            elif 'vs' in it.lower():
+                parts = [x.strip() for x in it.lower().split('vs', 1)]
+                home, away = parts[0], parts[1]
+            else:
+                # Single token unsupported; skip
+                continue
+            games.append(_NS(home=home, away=away))
+    # If no forced slate, use Web schedule then predictions fallback
+    if not games:
+        try:
+            web = NHLWebClient()
+            games = web.schedule_day(date)
+        except Exception:
+            games = []
+        if not games:
+            # Fallback: try predictions_{date}.csv to derive slate when Web schedule is unavailable
+            try:
+                from types import SimpleNamespace as _NS
+                from .utils.io import PROC_DIR as _PROC
+                pred_path = _PROC / f"predictions_{date}.csv"
+                if pred_path.exists() and getattr(pred_path.stat(), "st_size", 0) > 0:
+                    p = pd.read_csv(pred_path)
+                    if p is not None and not p.empty and {'home','away'}.issubset(p.columns):
+                        games = [ _NS(home=str(r.get('home')), away=str(r.get('away'))) for _, r in p.iterrows() if r.get('home') and r.get('away') ]
+            except Exception:
+                games = []
     if not games:
         print("No games on slate for", date)
         raise typer.Exit(code=0)
@@ -6122,6 +6166,39 @@ def props_simulate_boxscores(
                 roster_snapshot_df = tmp[['full_name','player_id','team','position']].copy() if 'position' in tmp.columns else tmp[['full_name','player_id','team']].copy()
     except Exception:
         roster_snapshot_df = None
+    # Load projections to derive player-level attribution weights (shots/goals/blocks)
+    import pandas as _pd
+    from .utils.io import PROC_DIR as _PROC
+    _weights_by_name: dict[str, dict] = {}
+    try:
+        _proj_path = _PROC / f"props_projections_all_{date}.csv"
+        if _proj_path.exists() and getattr(_proj_path.stat(), "st_size", 0) > 0:
+            _dfp = _pd.read_csv(_proj_path)
+            if _dfp is not None and not _dfp.empty and {'player','market','proj_lambda'}.issubset(_dfp.columns):
+                # Normalize player display names
+                def _norm_name(s: str) -> str:
+                    try:
+                        x = str(s or '').strip()
+                        return ' '.join(x.split())
+                    except Exception:
+                        return str(s or '')
+                _dfp['player'] = _dfp['player'].astype(str).map(_norm_name)
+                # Keep only markets relevant to attribution weights
+                _dfw = _dfp[_dfp['market'].astype(str).str.upper().isin(['SOG','GOALS','BLOCKS'])].copy()
+                if not _dfw.empty:
+                    _dfw['market'] = _dfw['market'].astype(str).str.upper()
+                    # Pivot to wide per player: columns SOG, GOALS, BLOCKS with proj_lambda values
+                    _piv = _dfw.pivot_table(index='player', columns='market', values='proj_lambda', aggfunc='last').reset_index()
+                    for _, r in _piv.iterrows():
+                        nm = str(r.get('player') or '')
+                        sog = r.get('SOG'); gls = r.get('GOALS'); blk = r.get('BLOCKS')
+                        _weights_by_name[nm] = {
+                            'shot_weight': float(sog) if (sog is not None) else None,
+                            'goal_weight': float(gls) if (gls is not None) else None,
+                            'block_weight': float(blk) if (blk is not None) else None,
+                        }
+    except Exception:
+        _weights_by_name = {}
     # Helper: fetch roster + lineup rows for a slate team name using canonical snapshots
     from .data.rosters import build_roster_snapshot as _build_roster
     def _roster_for_name(nm: str) -> tuple[list[dict], list[dict]]:
@@ -6134,8 +6211,11 @@ def props_simulate_boxscores(
         lineups: list[dict] = []
         try:
             abbr = (get_team_assets(nm).get('abbr') or '').upper()
+            if not abbr:
+                nm_u = str(nm or '').strip().upper()
+                abbr = nm_u
         except Exception:
-            abbr = ''
+            abbr = str(nm or '').strip().upper()
         # Build roster snapshot: prefer processed cache, fallback to live Web API
         try:
             if roster_snapshot_df is not None and not roster_snapshot_df.empty and abbr:
@@ -6160,6 +6240,65 @@ def props_simulate_boxscores(
                     rows = r_df.to_dict(orient='records')
         except Exception:
             rows = []
+        # Live API fallback when rows remain empty: fetch current roster by team abbreviation
+        if not rows:
+            try:
+                from .data.rosters import list_teams as _list_teams, fetch_current_roster as _fetch
+                teams = _list_teams()
+                abbr_to_id = { str(t.get('abbreviation') or '').strip().upper(): int(t.get('id')) for t in teams }
+                tid = abbr_to_id.get(abbr)
+                players = _fetch(tid) if tid else []
+                if players:
+                    tmp = []
+                    for p in players:
+                        pos_raw = str(getattr(p, 'position', '') or '').upper()
+                        pos = 'G' if pos_raw.startswith('G') else ('D' if pos_raw.startswith('D') else 'F')
+                        tmp.append({'player_id': p.player_id, 'full_name': p.full_name, 'position': pos, 'proj_toi': 15.0})
+                    rows = tmp
+            except Exception:
+                pass
+        # Latest processed roster fallback when live API fails
+        if not rows:
+            try:
+                from .utils.io import PROC_DIR as _PROC
+                import re as _re, os as _os
+                candidates = [str(p) for p in _PROC.glob('roster_*.csv')]
+                # Sort by date descending
+                def _date_key(path: str) -> tuple:
+                    m = _re.search(r'roster_(\d{4}-\d{2}-\d{2})\.csv$', _os.path.basename(path))
+                    return (m.group(1) if m else '')
+                candidates = sorted(candidates, key=_date_key, reverse=True)
+                for cpath in candidates:
+                    try:
+                        cdf = _pd.read_csv(cpath)
+                    except Exception:
+                        continue
+                    name_col = 'full_name' if 'full_name' in cdf.columns else ('player' if 'player' in cdf.columns else None)
+                    team_col = 'team_abbr' if 'team_abbr' in cdf.columns else ('team' if 'team' in cdf.columns else None)
+                    pos_col = 'position' if 'position' in cdf.columns else None
+                    if not name_col or not team_col:
+                        continue
+                    cdf[name_col] = cdf[name_col].astype(str).str.strip()
+                    cdf[team_col] = cdf[team_col].astype(str).str.upper()
+                    sub = cdf[cdf[team_col] == abbr].copy()
+                    if sub is None or sub.empty:
+                        continue
+                    # Normalize positions and proj_toi
+                    if pos_col:
+                        sub.loc[:, 'position'] = sub[pos_col].astype(str).str.upper().map(lambda s: 'G' if s.startswith('G') else ('D' if s.startswith('D') else 'F'))
+                    else:
+                        sub.loc[:, 'position'] = 'F'
+                    if 'proj_toi' not in sub.columns:
+                        sub.loc[:, 'proj_toi'] = 15.0
+                    sub.loc[:, 'proj_toi'] = sub['proj_toi'].fillna(15.0)
+                    rows = sub[[name_col,'position','proj_toi']].rename(columns={name_col: 'full_name'}).to_dict(orient='records')
+                    # Attempt to map player_id if present
+                    if 'player_id' in sub.columns:
+                        for i, rr in enumerate(rows):
+                            rows[i]['player_id'] = int(sub.iloc[i]['player_id']) if _pd.notna(sub.iloc[i]['player_id']) else None
+                    break
+            except Exception:
+                pass
         # Fallback enrichment if roster snapshot is unavailable
         if not rows:
             try:
@@ -6193,6 +6332,46 @@ def props_simulate_boxscores(
                     lineups = sub[['player_id','line_slot','pp_unit','pk_unit']].to_dict(orient='records')
         except Exception:
             lineups = []
+        # Attach projections-derived weights to roster rows when available (skip goalies)
+        try:
+            import math as _math
+            def _norm_name(s: str) -> str:
+                try:
+                    x = str(s or '').strip()
+                    return ' '.join(x.split())
+                except Exception:
+                    return str(s or '')
+            for rr in rows or []:
+                pos = str(rr.get('position') or '').upper()
+                if pos == 'G':
+                    # Goalies do not receive shots/goals/blocks weights; engine will fallback
+                    continue
+                nm = _norm_name(rr.get('full_name') or rr.get('player'))
+                w = _weights_by_name.get(nm)
+                if w:
+                    sw = w.get('shot_weight'); gw = w.get('goal_weight'); bw = w.get('block_weight')
+                    if sw is not None and not _math.isnan(sw):
+                        rr['shot_weight'] = float(sw)
+                    if gw is not None and not _math.isnan(gw):
+                        rr['goal_weight'] = float(gw)
+                    if bw is not None and not _math.isnan(bw):
+                        rr['block_weight'] = float(bw)
+        except Exception:
+            pass
+        # Ensure player_id exists; synthesize stable IDs when missing
+        try:
+            import math as _math
+            def _mk_id(name: str) -> int:
+                s = str(name or '').strip()
+                base = abs(hash(s)) % 9000000
+                return int(1000000 + base)
+            for rr in rows or []:
+                pid = rr.get('player_id')
+                if pid is None or (isinstance(pid, float) and _math.isnan(pid)):
+                    nm = rr.get('full_name') or rr.get('player')
+                    rr['player_id'] = _mk_id(nm)
+        except Exception:
+            pass
         return rows, lineups
     # Aggregate across games and sims
     agg_all: list[pd.DataFrame] = []
@@ -6252,12 +6431,73 @@ def props_simulate_boxscores(
             pass
         # Simple baseline rates per game; future: inject team-specific rates
         rates = RateModels.baseline()
-        cfg = SimConfig(periods=3, seed=seed)
+        # Calibrate team rates from projections-derived weights to improve stat accuracy
+        try:
+            def _exp_totals(rows: list[dict]) -> tuple[float, float, float]:
+                sog = 0.0; gls = 0.0; blk = 0.0
+                import math as _math
+                for rr in rows or []:
+                    nm = str(rr.get('full_name') or rr.get('player') or '').strip()
+                    w = _weights_by_name.get(nm)
+                    if not w:
+                        continue
+                    if w.get('shot_weight') is not None and not _math.isnan(w['shot_weight']):
+                        sog += float(w['shot_weight'])
+                    if w.get('goal_weight') is not None and not _math.isnan(w['goal_weight']):
+                        gls += float(w['goal_weight'])
+                    if w.get('block_weight') is not None and not _math.isnan(w['block_weight']):
+                        blk += float(w['block_weight'])
+                return sog, gls, blk
+            sog_h, gls_h, blk_h = _exp_totals(roster_home)
+            sog_a, gls_a, blk_a = _exp_totals(roster_away)
+            # Expected per-60 approximates per-game for regulation; set team rates directly
+            if sog_h > 0: rates.home.shots_per_60 = float(sog_h)
+            if sog_a > 0: rates.away.shots_per_60 = float(sog_a)
+            if gls_h > 0: rates.home.goals_per_60 = float(gls_h)
+            if gls_a > 0: rates.away.goals_per_60 = float(gls_a)
+            # Optional: pass block calibration via special_teams_cal base rates (EV/PK/PP-def)
+            # Distribute target blocks across strengths roughly: EV ~70%, PK ~20%, PP-def ~10%
+            total_blk = (blk_h + blk_a)
+            if total_blk and total_blk > 0:
+                ev_share = 0.70; pk_share = 0.20; ppd_share = 0.10
+                # Base probabilities per opponent shot; anchor around ~0.22 EV
+                base_ev = 0.22; base_pk = 0.28; base_ppd = 0.18
+                scale = 1.0
+                try:
+                    # Approximate opponent shots from calibrated shots rates
+                    exp_sh_home = float(rates.home.shots_per_60 or 60.0)
+                    exp_sh_away = float(rates.away.shots_per_60 or 60.0)
+                    exp_sh_total = exp_sh_home + exp_sh_away
+                    # Baseline expected blocks
+                    base_blk_total = base_ev * ev_share * exp_sh_total + base_pk * pk_share * exp_sh_total + base_ppd * ppd_share * exp_sh_total
+                    if base_blk_total > 0:
+                        scale = max(0.5, min(1.8, float(total_blk) / float(base_blk_total)))
+                except Exception:
+                    scale = 1.0
+                special_cal = {
+                    "blocks_ev_rate": base_ev * scale,
+                    "blocks_pk_rate": base_pk * scale,
+                    "blocks_pp_def_rate": base_ppd * scale,
+                }
+            else:
+                special_cal = None
+        except Exception:
+            special_cal = None
+        cfg = SimConfig(
+            periods=3,
+            seed=seed,
+            dispersion_shots=float(dispersion_shots or 0.0),
+            dispersion_goals=float(dispersion_goals or 0.0),
+            pp_shots_mult=float(pp_shots_mult or 1.4),
+            pk_shots_mult=float(pk_shots_mult or 0.7),
+            pp_goals_mult=float(pp_goals_mult or 1.0),
+            pk_goals_mult=float(pk_goals_mult or 1.0),
+        )
         sim = GameSimulator(cfg=cfg, rates=rates)
         # Run sims and aggregate per-sim boxscores
         df_parts = []
         for i in range(int(n_sims)):
-            gs, ev = sim.simulate_with_lineups(home_name=home, away_name=away, roster_home=roster_home, roster_away=roster_away, lineup_home=lineup_home or [], lineup_away=lineup_away or [])
+            gs, ev = sim.simulate_with_lineups(home_name=home, away_name=away, roster_home=roster_home, roster_away=roster_away, lineup_home=lineup_home or [], lineup_away=lineup_away or [], special_teams_cal=special_cal)
             df_i = aggregate_events_to_boxscores(gs, ev, starter_goalies=starter_ids or None)
             # Attach player names for convenience
             name_map = { int(p['player_id']): str(p['full_name']) for p in (roster_home + roster_away) if p.get('player_id') }
@@ -6363,6 +6603,7 @@ def props_simulate_boxscores(
 @app.command(name="props-precompute-all")
 def props_precompute_all(
     date: str = typer.Option(..., help="Slate date YYYY-MM-DD (ET)"),
+    slate: Optional[str] = typer.Option(None, help="Forced slate list like 'CBJ@CHI, BOS@TOR' to bypass Web schedule"),
 ):
     """Compute model-only projections (lambda) for all rostered players on the slate and write props_projections_all_{date}.csv.
 
@@ -6390,9 +6631,37 @@ def props_precompute_all(
             hist = pd.DataFrame()
     except Exception:
         hist = pd.DataFrame()
-    # Slate teams via Web API
+    # Slate teams via forced input, predictions, or Web API
     slate_abbrs = set()
-    # Prefer predictions file to define slate, fallback to Web schedule
+    # 1) Forced slate parsing if provided
+    if slate:
+        items = [s.strip() for s in str(slate).split(',') if s.strip()]
+        def _to_abbr_forced(x: str) -> str | None:
+            s = str(x or '').strip()
+            if not s:
+                return None
+            su = s.upper()
+            # Heuristic: short token likely already an abbreviation
+            if 2 <= len(su) <= 4:
+                return su
+            try:
+                a = get_team_assets(s).get('abbr')
+                return str(a).upper() if a else None
+            except Exception:
+                return None
+        for it in items:
+            if '@' in it:
+                away, home = [x.strip() for x in it.split('@', 1)]
+            elif 'vs' in it.lower():
+                parts = [x.strip() for x in it.lower().split('vs', 1)]
+                home, away = parts[0], parts[1]
+            else:
+                continue
+            for tkn in (home, away):
+                ab = _to_abbr_forced(tkn)
+                if ab:
+                    slate_abbrs.add(ab)
+    # 2) Prefer predictions file to define slate, fallback to Web schedule
     try:
         pred_path = PROC_DIR / f"predictions_{date}.csv"
         if pred_path.exists():
@@ -6576,6 +6845,102 @@ def props_precompute_all(
             pos = 'G' if str(pos_raw).upper().startswith('G') else ('D' if str(pos_raw).upper().startswith('D') else 'F')
             rows.append({'player_id': rr.get('player_id'), 'player': nm, 'position': pos, 'team': ab})
         roster_df = pd.DataFrame(rows)
+    # Final fallback: derive roster from props lines if all sources failed
+    if roster_df is None or roster_df.empty:
+        try:
+            base = Path("data/props") / f"player_props_lines/date={date}"
+            parts = []
+            for prov in ("oddsapi", "bovada"):
+                p_parq = base / f"{prov}.parquet"; p_csv = base / f"{prov}.csv"
+                if p_parq.exists():
+                    try:
+                        import pandas as _pd
+                        parts.append(_pd.read_parquet(p_parq))
+                    except Exception:
+                        pass
+                elif p_csv.exists():
+                    try:
+                        import pandas as _pd
+                        parts.append(_pd.read_csv(p_csv))
+                    except Exception:
+                        pass
+            import pandas as pd
+            lines_df = pd.concat(parts, ignore_index=True) if parts else pd.DataFrame()
+            if lines_df is not None and not lines_df.empty:
+                # Normalize player display name and team abbreviation
+                def _norm(s: str | None) -> str:
+                    try:
+                        return " ".join(str(s or "").split())
+                    except Exception:
+                        return str(s or "")
+                import ast as _ast
+                def _norm_player(x):
+                    s = str(x or "").strip()
+                    if s.startswith("{") and s.endswith("}"):
+                        try:
+                            d = _ast.literal_eval(s)
+                            v = d.get("default") or d.get("name")
+                            if isinstance(v, str):
+                                s = v.strip()
+                        except Exception:
+                            pass
+                    return " ".join(s.split())
+                name_cols = [c for c in ["player_name","player","name","display_name"] if c in lines_df.columns]
+                if name_cols:
+                    s = lines_df[name_cols[0]].copy()
+                    for c in name_cols[1:]:
+                        try:
+                            s = s.where(s.notna() & (s.astype(str).str.strip() != ""), lines_df[c])
+                        except Exception:
+                            continue
+                    lines_df["player_display"] = s.map(_norm_player)
+                else:
+                    lines_df["player_display"] = lines_df.index.map(lambda _: "")
+                # Team abbreviation: prefer explicit team column; fallback via assets
+                lines_df["team_abbr"] = lines_df.get("team").astype(str).str.upper()
+                try:
+                    from .web.teams import get_team_assets as _assets
+                    def _to_abbr(x):
+                        s = str(x or "").strip()
+                        if not s:
+                            return None
+                        su = s.upper()
+                        if 2 <= len(su) <= 4:
+                            return su
+                        a = _assets(s)
+                        return str(a.get("abbr") or "").upper() if a else None
+                    lines_df["team_abbr"] = lines_df["team_abbr"].where(lines_df["team_abbr"].astype(str).str.len() > 0, lines_df["player_display"].map(_to_abbr))
+                except Exception:
+                    pass
+                # Infer position from history when available
+                pos_map = {}
+                try:
+                    if hist is not None and not hist.empty and {"player","primary_position"}.issubset(hist.columns):
+                        tmp = hist.dropna(subset=["player"]).copy()
+                        tmp["player"] = tmp["player"].astype(str)
+                        last_pos = tmp.dropna(subset=["primary_position"]).groupby("player")["primary_position"].last()
+                        pos_map = {k: v for k, v in last_pos.items() if isinstance(k, str)}
+                except Exception:
+                    pos_map = {}
+                def _infer_pos(nm: str) -> str:
+                    raw = str(pos_map.get(str(nm), "")).upper()
+                    if raw.startswith("G"): return "G"
+                    if raw.startswith("D"): return "D"
+                    if raw: return "F"
+                    return "F"
+                rows = []
+                for _, rr in lines_df.iterrows():
+                    nm = _norm(str(rr.get("player_display")))
+                    ab = str(rr.get("team_abbr") or "").upper()
+                    if not nm:
+                        continue
+                    # If forced slate known, filter by it
+                    if slate_abbrs and ab and (ab not in slate_abbrs):
+                        continue
+                    rows.append({"player": nm, "position": _infer_pos(nm), "team": ab})
+                roster_df = pd.DataFrame(rows)
+        except Exception:
+            roster_df = pd.DataFrame()
     if roster_df is None or roster_df.empty:
         save_df(pd.DataFrame(columns=["date","player","team","position","market","proj_lambda"]), PROC_DIR / f"props_projections_all_{date}.csv")
         print(f"[props-precompute] wrote empty projections for {date}")
@@ -6636,10 +7001,11 @@ def props_project_all(
     date: str = typer.Option(..., help="Slate date YYYY-MM-DD (ET)"),
     ensure_history_days: int = typer.Option(365, help="Minimum history window to ensure is collected"),
     include_goalies: bool = typer.Option(True, help="Include goalies (SAVES) in projections"),
+    slate: Optional[str] = typer.Option(None, help="Forced slate list like 'CBJ@CHI, BOS@TOR' to bypass Web schedule"),
 ):
     """Alias for props_precompute_all with compatible options used by scripts/daily_update.ps1."""
     # Currently props_precompute_all always includes goalies and uses ~365 days history; options provided for compatibility
-    return props_precompute_all(date=date)
+    return props_precompute_all(date=date, slate=slate)
 
 
 @app.command(name="props-fix-projections-teams")
@@ -6788,6 +7154,321 @@ def props_projections_force(
     df = pd.DataFrame(out_rows)
     save_df(df, PROC_DIR / f"props_projections_all_{date}.csv")
     print(f"[props-force] wrote props_projections_all_{date}.csv rows={len(df)}")
+
+
+@app.command(name="props-sanity-sim-averages")
+def props_sanity_sim_averages(
+    date: str = typer.Option(..., help="Slate date YYYY-MM-DD (ET)"),
+    rolling_games: int = typer.Option(10, help="Rolling window size for averages when history is available"),
+    out_csv: Optional[str] = typer.Option(None, help="Optional override output path for the report CSV"),
+):
+    import warnings as _warn
+    import pandas as pd
+    # Silence common pandas warnings
+    try:
+        _warn.filterwarnings("ignore", category=FutureWarning)
+        _warn.simplefilter("ignore", category=pd.errors.SettingWithCopyWarning)
+    except Exception:
+        pass
+    """Sanity-check simulated boxscores by comparing per-player sim means to season and rolling averages.
+
+    Reads data/processed/props_boxscores_sim_{date}.csv (period=0 rows) and RAW player game stats when available.
+    Writes a report CSV with per-player comparisons and flags large deviations.
+    """
+    import pandas as pd
+    import numpy as _np
+    from datetime import datetime
+    from .utils.io import PROC_DIR, RAW_DIR, save_df
+    def _norm_name(s: str) -> str:
+        try:
+            x = str(s or '').strip()
+            return ' '.join(x.split())
+        except Exception:
+            return str(s or '')
+    # Load sim totals
+    sim_path = PROC_DIR / f"props_boxscores_sim_{date}.csv"
+    if not sim_path.exists() or getattr(sim_path.stat(), "st_size", 0) == 0:
+        print("No sim boxscores found:", sim_path)
+        raise typer.Exit(code=0)
+    try:
+        sim_df = pd.read_csv(sim_path)
+    except Exception:
+        print("Failed to read sim boxscores:", sim_path)
+        raise typer.Exit(code=1)
+    sim0 = sim_df[sim_df.get('period', 0) == 0].copy()
+    if sim0 is None or sim0.empty:
+        print("No period=0 totals found in sim boxscores.")
+        raise typer.Exit(code=0)
+    # Normalize player names
+    sim0['player'] = sim0.get('player', sim0.get('player_id')).astype(str).map(_norm_name)
+    # Derive minutes for TOI
+    if 'toi_sec' in sim0.columns:
+        sim0['sim_toi_min'] = _np.where(sim0['toi_sec'].notna(), sim0['toi_sec'].astype(float)/60.0, _np.nan)
+    # Load history best-effort
+    hist = pd.DataFrame()
+    try:
+        hp = RAW_DIR / 'player_game_stats.csv'
+        if hp.exists() and getattr(hp.stat(), 'st_size', 0) > 0:
+            hist = pd.read_csv(hp)
+    except Exception:
+        hist = pd.DataFrame()
+    # Prepare historical aggregates
+    have_date = hist is not None and not hist.empty and ('game_date' in hist.columns)
+    if hist is None or hist.empty:
+        print("History file missing or empty; will compute season averages as NaN.")
+        hist = pd.DataFrame(columns=['player','shots','goals','assists','points','blocks','saves','toi_min'])
+    # Normalize name column
+    if 'player' in hist.columns:
+        hist['player'] = hist['player'].astype(str).map(_norm_name)
+    # Derive minutes from any TOI-like field when present
+    toi_cols = [c for c in hist.columns if c.lower() in ('toi','timeonice','toi_min','time_on_ice_min')]
+    if toi_cols:
+        c = toi_cols[0]
+        hist['toi_min'] = pd.to_numeric(hist[c], errors='coerce')
+    else:
+        sec_cols = [c for c in hist.columns if c.lower() in ('toi_sec','time_on_ice_sec')]
+        if sec_cols:
+            c = sec_cols[0]
+            hist['toi_min'] = pd.to_numeric(hist[c], errors='coerce')/60.0
+        else:
+            hist['toi_min'] = _np.nan
+    # Filter history to pre-date when dates are present
+    if have_date:
+        try:
+            hist['game_date'] = pd.to_datetime(hist['game_date'])
+            cutoff = datetime.strptime(date, "%Y-%m-%d")
+            hist = hist[hist['game_date'] <= cutoff]
+        except Exception:
+            pass
+    # Compute per-player season averages
+    agg_cols = {c: 'mean' for c in ['shots','goals','assists','points','blocks','saves','toi_min'] if c in hist.columns}
+    season_avg = pd.DataFrame()
+    if agg_cols:
+        season_avg = hist.groupby('player', as_index=False).agg(agg_cols)
+        season_avg = season_avg.rename(columns={k: f"avg_{k}" for k in agg_cols.keys()})
+    # Compute rolling averages (last N games) when dates present; else use last N rows per player
+    roll_avg = pd.DataFrame()
+    if agg_cols:
+        cols = list(agg_cols.keys())
+        def _roll_grp(df: pd.DataFrame) -> pd.Series:
+            x = df.sort_values('game_date') if 'game_date' in df.columns else df.copy()
+            x = x.tail(int(rolling_games))
+            return pd.Series({ f"roll_{c}": pd.to_numeric(x.get(c), errors='coerce').mean() for c in cols })
+        # Avoid FutureWarning by excluding grouping columns from apply
+        try:
+            sel_cols = cols + ([ 'game_date' ] if 'game_date' in hist.columns else [])
+            try:
+                roll_avg = hist.groupby('player')[sel_cols].apply(_roll_grp).reset_index()
+            except Exception:
+                # Fallback to original behavior
+                roll_avg = hist.groupby('player', group_keys=False).apply(_roll_grp).reset_index()
+        except TypeError:
+            # Fallback for older pandas without include_groups
+            roll_avg = hist.groupby('player', group_keys=False).apply(_roll_grp).reset_index()
+    # Merge sim means with averages
+    keep_cols = ['team','player_id','player','shots','goals','assists','points','blocks','saves','sim_toi_min']
+    for c in keep_cols:
+        if c not in sim0.columns:
+            sim0[c] = _np.nan
+    base = sim0[keep_cols].copy()
+    out = base.merge(season_avg, on='player', how='left') if (season_avg is not None and not season_avg.empty) else base.copy()
+    out = out.merge(roll_avg, on='player', how='left') if (roll_avg is not None and not roll_avg.empty) else out
+    # Compute deltas
+    for c in ['shots','goals','assists','points','blocks','saves','sim_toi_min']:
+        ac = f"avg_{c}" if c != 'sim_toi_min' else 'avg_toi_min'
+        rc = f"roll_{c}" if c != 'sim_toi_min' else 'roll_toi_min'
+        if c in out.columns and ac in out.columns:
+            out[f"delta_sim_vs_season_{c}"] = out[c].astype(float) - out[ac].astype(float)
+        if c in out.columns and rc in out.columns:
+            out[f"delta_sim_vs_rolling_{c}"] = out[c].astype(float) - out[rc].astype(float)
+    # Flag large deviations
+    def _flag(row):
+        flags = []
+        for c in ['shots','goals','assists','points','blocks','saves']:
+            ds = row.get(f"delta_sim_vs_season_{c}")
+            dr = row.get(f"delta_sim_vs_rolling_{c}")
+            try:
+                if pd.notna(ds) and abs(float(ds)) >= 1.5:
+                    flags.append(f"season_{c}")
+                if pd.notna(dr) and abs(float(dr)) >= 1.2:
+                    flags.append(f"rolling_{c}")
+            except Exception:
+                pass
+        return ','.join(flags)
+    out['deviation_flags'] = out.apply(_flag, axis=1)
+    # Order columns for readability
+    order = ['team','player_id','player','shots','goals','assists','points','blocks','saves','sim_toi_min',
+             'avg_shots','avg_goals','avg_assists','avg_points','avg_blocks','avg_saves','avg_toi_min',
+             'roll_shots','roll_goals','roll_assists','roll_points','roll_blocks','roll_saves','roll_toi_min',
+             'delta_sim_vs_season_shots','delta_sim_vs_season_goals','delta_sim_vs_season_assists','delta_sim_vs_season_points','delta_sim_vs_season_blocks','delta_sim_vs_season_saves','delta_sim_vs_season_sim_toi_min',
+             'delta_sim_vs_rolling_shots','delta_sim_vs_rolling_goals','delta_sim_vs_rolling_assists','delta_sim_vs_rolling_points','delta_sim_vs_rolling_blocks','delta_sim_vs_rolling_saves','delta_sim_vs_rolling_sim_toi_min',
+             'deviation_flags']
+    for c in order:
+        if c not in out.columns:
+            out[c] = _np.nan
+    out = out[order]
+    # Write report
+    out_path = PROC_DIR / (out_csv if out_csv else f"sanity_sim_vs_averages_{date}.csv")
+    save_df(out, out_path)
+    # Summary
+    deviants = int((out['deviation_flags'].astype(str).str.len() > 0).sum())
+    print(f"[sanity] wrote {out_path} rows={len(out)} deviants={deviants}")
+
+
+@app.command(name="props-sanity-sim-variance")
+def props_sanity_sim_variance(
+    date: str = typer.Option(..., help="Slate date YYYY-MM-DD (ET)"),
+    rolling_games: int = typer.Option(10, help="Rolling window size for variance when history is available"),
+    out_csv: Optional[str] = typer.Option(None, help="Optional override output path for the variance report CSV"),
+):
+    import warnings as _warn
+    import pandas as pd
+    # Silence common pandas warnings
+    try:
+        _warn.filterwarnings("ignore", category=FutureWarning)
+        _warn.simplefilter("ignore", category=pd.errors.SettingWithCopyWarning)
+    except Exception:
+        pass
+    """Compare per-player per-market variance from sim samples against historical season and rolling variance.
+
+    Requires props_boxscores_sim_samples_{date}.parquet or .csv. Falls back gracefully when history is incomplete.
+    """
+    import pandas as pd
+    import numpy as _np
+    from datetime import datetime
+    from .utils.io import PROC_DIR, RAW_DIR, save_df
+    def _norm_name(s: str) -> str:
+        try:
+            x = str(s or '').strip(); return ' '.join(x.split())
+        except Exception:
+            return str(s or '')
+    # Load sim samples (prefer parquet)
+    samp = pd.DataFrame()
+    parq = PROC_DIR / f"props_boxscores_sim_samples_{date}.parquet"
+    csvp = PROC_DIR / f"props_boxscores_sim_samples_{date}.csv"
+    if parq.exists():
+        try:
+            samp = pd.read_parquet(parq)
+        except Exception:
+            samp = pd.DataFrame()
+    if (samp is None or samp.empty) and csvp.exists():
+        try:
+            samp = pd.read_csv(csvp)
+        except Exception:
+            samp = pd.DataFrame()
+    if samp is None or samp.empty:
+        print("No sim samples present. Run props-simulate-boxscores with write_samples=True.")
+        raise typer.Exit(code=0)
+    # Normalize player names and market
+    samp['player'] = samp.get('player', samp.get('player_id')).astype(str).map(_norm_name)
+    samp['market'] = samp['market'].astype(str).str.upper()
+    # Compute sim stats per player & market
+    def _agg_sim(g: pd.DataFrame) -> pd.Series:
+        v = pd.to_numeric(g['value'], errors='coerce')
+        return pd.Series({
+            'sim_mean': v.mean(),
+            'sim_var': v.var(ddof=1),
+            'sim_std': v.std(ddof=1),
+            'sim_n': int(v.count()),
+        })
+    # Exclude grouping cols in apply to avoid FutureWarning
+    # Explicitly select value column to avoid FutureWarning
+    try:
+        sim_stats = samp.groupby(['player','market'], as_index=False)[['value']].apply(_agg_sim).reset_index()
+    except Exception:
+        sim_stats = samp.groupby(['player','market'], as_index=False, group_keys=False)[['value']].apply(_agg_sim).reset_index()
+    # Load history best-effort
+    hist = pd.DataFrame()
+    try:
+        hp = RAW_DIR / 'player_game_stats.csv'
+        if hp.exists() and getattr(hp.stat(), 'st_size', 0) > 0:
+            hist = pd.read_csv(hp)
+    except Exception:
+        hist = pd.DataFrame()
+    have_date = hist is not None and not hist.empty and ('game_date' in hist.columns)
+    if hist is None or hist.empty:
+        # Create empty with expected columns
+        hist = pd.DataFrame(columns=['player','shots','goals','assists','points','blocks','saves'])
+    hist['player'] = hist.get('player', '').astype(str).map(_norm_name)
+    # Filter history to <= date
+    if have_date:
+        try:
+            hist['game_date'] = pd.to_datetime(hist['game_date'])
+            cutoff = datetime.strptime(date, "%Y-%m-%d")
+            hist = hist[hist['game_date'] <= cutoff]
+        except Exception:
+            pass
+    # Map hist columns to markets
+    market_map = {
+        'SOG': 'shots', 'GOALS': 'goals', 'ASSISTS': 'assists', 'POINTS': 'points', 'BLOCKS': 'blocks', 'SAVES': 'saves'
+    }
+    # Compute season variance per player per market
+    rows = []
+    for mk, col in market_map.items():
+        if col in hist.columns:
+            tmp = hist[['player', col]].copy()
+            tmp[col] = pd.to_numeric(tmp[col], errors='coerce')
+            agg = tmp.groupby('player')[col].agg(['mean', lambda x: x.var(ddof=1)]).reset_index()
+            agg.columns = ['player', 'hist_mean', 'hist_var']
+            agg['market'] = mk
+            rows.append(agg)
+    hist_season = pd.concat(rows, ignore_index=True) if rows else pd.DataFrame(columns=['player','market','hist_mean','hist_var'])
+    # Compute rolling variance
+    roll_rows = []
+    for mk, col in market_map.items():
+        if col in hist.columns:
+            tmp = hist[['player', 'game_date', col]].copy() if 'game_date' in hist.columns else hist[['player', col]].copy()
+            tmp[col] = pd.to_numeric(tmp[col], errors='coerce')
+            def _roll(g: pd.DataFrame) -> pd.Series:
+                x = g.sort_values('game_date') if 'game_date' in g.columns else g
+                x = x.tail(int(rolling_games))
+                v = pd.to_numeric(x[col], errors='coerce')
+                return pd.Series({'roll_mean': v.mean(), 'roll_var': v.var(ddof=1)})
+            try:
+                agg = tmp.groupby('player', include_groups=False).apply(_roll).reset_index()
+            except TypeError:
+                agg = tmp.groupby('player', group_keys=False).apply(_roll).reset_index()
+            agg['market'] = mk
+            roll_rows.append(agg)
+    hist_roll = pd.concat(roll_rows, ignore_index=True) if roll_rows else pd.DataFrame(columns=['player','market','roll_mean','roll_var'])
+    # Merge sim stats with history
+    out = sim_stats.merge(hist_season, on=['player','market'], how='left').merge(hist_roll, on=['player','market'], how='left')
+    # Ratios and flags
+    def _safe_ratio(a, b):
+        try:
+            a = float(a); b = float(b)
+            if b is None or _np.isnan(b) or b == 0.0:
+                return _np.nan
+            return a / b
+        except Exception:
+            return _np.nan
+    out['ratio_var_vs_season'] = out.apply(lambda r: _safe_ratio(r.get('sim_var'), r.get('hist_var')), axis=1)
+    out['ratio_var_vs_rolling'] = out.apply(lambda r: _safe_ratio(r.get('sim_var'), r.get('roll_var')), axis=1)
+    def _disp_flag(r):
+        flags = []
+        rv = r.get('ratio_var_vs_season'); rr = r.get('ratio_var_vs_rolling')
+        try:
+            if pd.notna(rv):
+                if rv < 0.7: flags.append('under_season')
+                elif rv > 1.3: flags.append('over_season')
+            if pd.notna(rr):
+                if rr < 0.7: flags.append('under_rolling')
+                elif rr > 1.3: flags.append('over_rolling')
+        except Exception:
+            pass
+        return ','.join(flags)
+    out['dispersion_flags'] = out.apply(_disp_flag, axis=1)
+    # Order columns
+    cols = ['player','market','sim_mean','sim_var','sim_std','sim_n','hist_mean','hist_var','roll_mean','roll_var','ratio_var_vs_season','ratio_var_vs_rolling','dispersion_flags']
+    for c in cols:
+        if c not in out.columns:
+            out[c] = _np.nan
+    out = out[cols].sort_values(['market','player'])
+    # Write
+    out_path = PROC_DIR / (out_csv if out_csv else f"sanity_sim_variance_{date}.csv")
+    save_df(out, out_path)
+    flagged = int((out['dispersion_flags'].astype(str).str.len() > 0).sum())
+    print(f"[sanity-var] wrote {out_path} rows={len(out)} flagged={flagged}")
 
 
 @app.command(name="props-recommendations-sim")
@@ -12184,6 +12865,436 @@ def props_backtest_from_simulations(
     print(json.dumps({"overall": overall, "by_market": by_market}, indent=2))
     print(f"Saved rows to {rows_path} and summary to {summ_path}")
 
+
+@app.command()
+def props_backtest_from_boxscores(
+    start: str = typer.Option(..., help="Start date YYYY-MM-DD (ET)"),
+    end: str = typer.Option(..., help="End date YYYY-MM-DD (ET)"),
+    stake: float = typer.Option(100.0, help="Flat stake per play for ROI calc"),
+    markets: str = typer.Option("SOG,SAVES,GOALS,ASSISTS,POINTS,BLOCKS", help="Comma list of markets to include"),
+    min_ev: float = typer.Option(-1.0, help="Filter to plays with EV >= min_ev; set -1 to include all"),
+    out_prefix: str = typer.Option("boxscores", help="Output filename prefix under data/processed/"),
+    min_ev_per_market: str = typer.Option("", help="Optional per-market EV thresholds, e.g., 'SOG=0.00,GOALS=0.04'"),
+):
+    """Backtest using play-level boxscore simulation samples joined to canonical lines.
+
+    For each day in [start, end]:
+      - Load data/processed/props_boxscores_sim_samples_{date}.{parquet|csv}
+      - Load canonical player props lines for that date (bovada/oddsapi)
+      - Join on player+market, compute p_over from sample wins vs line
+      - Compute EV and choose side; evaluate outcomes from data/raw/player_game_stats.csv
+      - Aggregate ROI and calibration stats by market and overall
+    Writes rows and summary to data/processed with a prefix.
+    """
+    from datetime import datetime, timedelta
+    from zoneinfo import ZoneInfo as _Z
+    import json
+    import numpy as np
+    import pandas as pd
+    from pathlib import Path
+    from .utils.io import RAW_DIR, PROC_DIR
+    from .utils.odds import american_to_decimal
+    from .web.teams import get_team_assets as _assets
+
+    # Load realized player stats for outcomes
+    stats_path = RAW_DIR / "player_game_stats.csv"
+    if not stats_path.exists():
+        print("player_game_stats.csv missing; run props-stats-backfill first.")
+        raise typer.Exit(code=1)
+    try:
+        stats_all = pd.read_csv(stats_path)
+    except Exception:
+        print("Failed to read player_game_stats.csv; is the file empty or malformed?")
+        raise typer.Exit(code=1)
+
+    def _iso_to_et(iso_utc: str) -> str | None:
+        try:
+            s = str(iso_utc or "").replace("Z", "+00:00")
+            dt = datetime.fromisoformat(s)
+        except Exception:
+            try:
+                dt = datetime.fromisoformat(str(iso_utc)[:19]).replace(tzinfo=datetime.timezone.utc)  # type: ignore
+            except Exception:
+                return None
+        try:
+            return dt.astimezone(_Z("America/New_York")).strftime("%Y-%m-%d")
+        except Exception:
+            return None
+
+    import ast, re, unicodedata
+    def _extract_player_text(v) -> str:
+        if v is None:
+            return ""
+        try:
+            if isinstance(v, str) and v.strip().startswith("{") and v.strip().endswith("}"):
+                d = ast.literal_eval(v)
+                if isinstance(d, dict):
+                    for k in ("default", "en", "name", "fullName", "full_name"):
+                        if d.get(k):
+                            return str(d.get(k))
+                return str(v)
+            if isinstance(v, dict):
+                for k in ("default", "en", "name", "fullName", "full_name"):
+                    if v.get(k):
+                        return str(v.get(k))
+                return str(v)
+            return str(v)
+        except Exception:
+            return str(v)
+
+    def _norm_name(s: str) -> str:
+        s = (s or "").strip()
+        s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode()
+        s = re.sub(r"\s+", " ", s)
+        return s.lower()
+
+    stats_all["date_et"] = stats_all["date"].apply(_iso_to_et)
+    stats_all["player_text_raw"] = stats_all["player"].apply(_extract_player_text)
+    stats_all["player_text_norm"] = stats_all["player_text_raw"].apply(_norm_name)
+    stats_all["player_text_nodot"] = stats_all["player_text_norm"].str.replace(".", "", regex=False)
+
+    allowed_markets = [m.strip().upper() for m in (markets or "").split(",") if m.strip()]
+
+    def _parse_thresholds(s: str) -> dict[str, float]:
+        d: dict[str, float] = {}
+        for part in (s or "").split(","):
+            part = part.strip()
+            if not part or "=" not in part:
+                continue
+            k, v = part.split("=", 1)
+            try:
+                d[str(k).strip().upper()] = float(str(v).strip())
+            except Exception:
+                continue
+        return d
+    per_thr = _parse_thresholds(min_ev_per_market)
+
+    def to_dt(s: str) -> datetime:
+        return datetime.strptime(s, "%Y-%m-%d")
+    cur = to_dt(start); end_dt = to_dt(end)
+    rows = []
+    calib = []
+
+    while cur <= end_dt:
+        d = cur.strftime("%Y-%m-%d")
+        # Load samples for date d
+        samp_path_parq = PROC_DIR / f"props_boxscores_sim_samples_{d}.parquet"
+        samp_path_csv = PROC_DIR / f"props_boxscores_sim_samples_{d}.csv"
+        if samp_path_parq.exists():
+            try:
+                samples = pd.read_parquet(samp_path_parq, engine='pyarrow')
+            except Exception:
+                try:
+                    import duckdb as _duck
+                    f_posix = str(samp_path_parq).replace('\\', '/')
+                    samples = _duck.query(f"SELECT * FROM read_parquet('{f_posix}')").df()
+                except Exception:
+                    samples = pd.DataFrame()
+        elif samp_path_csv.exists():
+            try:
+                samples = pd.read_csv(samp_path_csv)
+            except Exception:
+                samples = pd.DataFrame()
+        else:
+            cur += timedelta(days=1)
+            continue
+        if samples is None or samples.empty:
+            cur += timedelta(days=1)
+            continue
+
+        # Load lines for date d
+        base_lines_dir = Path("data/props") / f"player_props_lines/date={d}"
+        parts = []
+        for prov in ("oddsapi", "bovada"):
+            p_parq = base_lines_dir / f"{prov}.parquet"
+            p_csv = base_lines_dir / f"{prov}.csv"
+            if p_parq.exists():
+                try:
+                    parts.append(pd.read_parquet(p_parq))
+                except Exception:
+                    pass
+            elif p_csv.exists():
+                try:
+                    parts.append(pd.read_csv(p_csv))
+                except Exception:
+                    pass
+        if parts:
+            lines = pd.concat(parts, ignore_index=True)
+        else:
+            cur += timedelta(days=1)
+            continue
+        if lines is None or lines.empty:
+            cur += timedelta(days=1)
+            continue
+
+        def _norm(s: str | None) -> str:
+            try:
+                return " ".join(str(s or "").split())
+            except Exception:
+                return str(s or "")
+        import ast as _ast
+        def _norm_player(x):
+            s = str(x or "").strip()
+            if s.startswith("{") and s.endswith("}"):
+                try:
+                    d = _ast.literal_eval(s)
+                    v = d.get("default") or d.get("name")
+                    if isinstance(v, str):
+                        s = v.strip()
+                except Exception:
+                    pass
+            return " ".join(s.split())
+        lines = lines.copy()
+        name_cols = [c for c in ["player_name","player","name","display_name"] if c in lines.columns]
+        if name_cols:
+            s = lines[name_cols[0]].copy()
+            for c in name_cols[1:]:
+                try:
+                    s = s.where(s.notna() & (s.astype(str).str.strip() != ""), lines[c])
+                except Exception:
+                    continue
+            lines["player_display"] = s.map(_norm_player)
+        else:
+            lines["player_display"] = lines.index.map(lambda _: "")
+        lines["market"] = lines.get("market").astype(str).str.upper()
+        lines["line_num"] = pd.to_numeric(lines.get("line"), errors="coerce")
+        lines = lines[lines["line_num"].notna()].copy()
+        # Create simple join on normalized name
+        def _create_name_variants(name: str) -> list[str]:
+            name = (name or "").strip()
+            if not name:
+                return []
+            norm = " ".join(name.split())
+            out = [norm.lower()]
+            if "." in norm:
+                out.append(norm.replace(".", "").lower())
+            parts2 = [p for p in norm.split() if p and not p.endswith(".")]
+            if len(parts2) >= 2:
+                f, l = parts2[0], parts2[-1]
+                ab = f"{f[0].upper()}. {l}"; out += [ab.lower(), ab.replace(".", "").lower(), f"{f[0].upper()} {l}".lower()]
+            return list(set(out))
+        def _for_join(name: str) -> str:
+            v = _create_name_variants(name)
+            return (min(v, key=len) if v else "")
+        lines["player_norm"] = lines["player_display"].map(_for_join)
+        samples = samples.copy()
+        samples["player_norm"] = samples["player"].astype(str).map(lambda s: min(_create_name_variants(s) or [s], key=len))
+        # Team abbr for samples
+        def _abbr_team(n: str | None) -> str | None:
+            if not n:
+                return None
+            try:
+                a = _assets(str(n)) or {}
+                return str(a.get("abbr") or "").upper() or None
+            except Exception:
+                return None
+        samples["team_abbr"] = samples["team"].map(_abbr_team)
+        # Filter markets
+        samples["market"] = samples["market"].astype(str).str.upper()
+        lines = lines[lines["market"].isin(allowed_markets)]
+        samples = samples[samples["market"].isin(allowed_markets)]
+        merged = lines.merge(samples, on=["player_norm","market"], how="inner")
+        if merged is None or merged.empty:
+            cur += timedelta(days=1)
+            continue
+        try:
+            merged['date'] = str(d)
+        except Exception:
+            pass
+
+        # Compute p_over from sample counts per group
+        merged["over_win"] = (pd.to_numeric(merged["value"], errors="coerce") > pd.to_numeric(merged["line_num"], errors="coerce")).astype(int)
+        grp_cols = ["date","player","team_abbr","market","line_num","book","over_price","under_price"]
+        prob = merged.groupby(grp_cols, as_index=False)["over_win"].mean().rename(columns={"over_win":"p_over"})
+
+        # Prices to decimal and EV
+        prob["dec_over"] = prob["over_price"].map(american_to_decimal)
+        prob["dec_under"] = prob["under_price"].map(american_to_decimal)
+        p = pd.to_numeric(prob["p_over"], errors="coerce").astype(float)
+        ev_over = p * (prob["dec_over"].astype(float) - 1.0) - (1.0 - p)
+        p_under = (1.0 - p).clip(lower=0.0, upper=1.0)
+        ev_under = p_under * (prob["dec_under"].astype(float) - 1.0) - (1.0 - p_under)
+        over_better = ev_under.isna() | (~ev_over.isna() & (ev_over >= ev_under))
+        side = np.where(over_better, "Over", "Under")
+        ev_chosen = np.where(over_better, ev_over, ev_under)
+        chosen_prob = np.where(over_better, p, (1.0 - p))
+        out = prob.assign(side=side, ev=ev_chosen, chosen_prob=chosen_prob)
+
+        # Thresholds
+        if per_thr:
+            thr_series = out["market"].astype(str).str.upper().map(lambda m: per_thr.get(m, float(min_ev))).astype(float)
+            out = out[(out["ev"].notna()) & (out["ev"].astype(float) >= thr_series)]
+        else:
+            out = out[(out["ev"].notna()) & (out["ev"].astype(float) >= float(min_ev))]
+
+        # Evaluate outcomes
+        day_stats = stats_all[stats_all["date_et"] == d]
+        for _, r in out.iterrows():
+            m = str(r.get("market") or "").upper()
+            if allowed_markets and m not in allowed_markets:
+                continue
+            player_disp = r.get("player")
+            ln = r.get("line_num")
+            try:
+                ln = float(ln)
+            except Exception:
+                continue
+            # Name variants: exact, no-dot, initial-last
+            _full = str(player_disp or "").strip()
+            _parts = [p2 for p2 in _full.split(" ") if p2]
+            _vars = set()
+            if _full:
+                _nm = _norm_name(_full)
+                _vars.add(_nm); _vars.add(_nm.replace(".", ""))
+            if len(_parts) >= 2:
+                _first, _last = _parts[0], _parts[-1]
+                _init_last = f"{_first[0]}. {_last}"
+                _nm2 = _norm_name(_init_last)
+                _vars.add(_nm2); _vars.add(_nm2.replace(".", ""))
+            ps = day_stats[day_stats["player_text_norm"].isin(_vars) | day_stats["player_text_nodot"].isin(_vars)]
+            actual = None
+            if not ps.empty:
+                row = ps.iloc[0]
+                if m == "SOG":
+                    actual = row.get("shots")
+                elif m == "SAVES":
+                    actual = row.get("saves")
+                elif m == "GOALS":
+                    actual = row.get("goals")
+                elif m == "ASSISTS":
+                    actual = row.get("assists")
+                elif m == "POINTS":
+                    try:
+                        actual = float((row.get("goals") or 0)) + float((row.get("assists") or 0))
+                    except Exception:
+                        actual = None
+                elif m == "BLOCKS":
+                    actual = row.get("blocked")
+            result = None
+            if actual is not None and pd.notna(actual):
+                try:
+                    av = float(actual)
+                    if av > ln:
+                        over_res = "win"
+                    elif av < ln:
+                        over_res = "loss"
+                    else:
+                        over_res = "push"
+                    if str(r.get("side")) == "Over":
+                        result = over_res
+                    else:
+                        if over_res == "win":
+                            result = "loss"
+                        elif over_res == "loss":
+                            result = "win"
+                        else:
+                            result = "push"
+                except Exception:
+                    result = None
+
+            payout = None
+            if result is not None:
+                dec = american_to_decimal(r.get("over_price") if str(r.get("side"))=="Over" else r.get("under_price"))
+                if result == "win" and dec is not None:
+                    payout = stake * (dec - 1.0)
+                elif result == "loss":
+                    payout = -stake
+                elif result == "push":
+                    payout = 0.0
+
+            rows.append({
+                "date": d,
+                "market": m,
+                "player": player_disp,
+                "line": float(ln),
+                "book": r.get("book"),
+                "over_price": r.get("over_price"),
+                "under_price": r.get("under_price"),
+                "p_over": float(r.get("chosen_prob")) if pd.notna(r.get("chosen_prob")) else float(r.get("p_over")),
+                "side": r.get("side"),
+                "ev": float(r.get("ev")) if pd.notna(r.get("ev")) else None,
+                "actual": actual,
+                "result": result,
+                "stake": stake,
+                "payout": payout,
+            })
+            if actual is not None and pd.notna(actual) and (abs(ln - round(ln)) > 1e-9 or float(actual) != float(round(ln))):
+                calib.append({
+                    "date": d,
+                    "market": m,
+                    "p_over": float(r.get("p_over")) if pd.notna(r.get("p_over")) else None,
+                    "over_won": bool(float(actual) > float(ln)),
+                })
+        cur += timedelta(days=1)
+
+    rows_df = pd.DataFrame(rows)
+    if rows_df.empty:
+        print("No backtest rows generated. Ensure boxscore samples and lines exist for the range.")
+        raise typer.Exit(code=0)
+
+    def summarize(df: pd.DataFrame) -> dict:
+        out: dict[str, object] = {
+            "picks": int(len(df)),
+            "decided": int(df["result"].isin(["win", "loss"]).sum()),
+            "wins": int((df["result"] == "win").sum()),
+            "losses": int((df["result"] == "loss").sum()),
+            "pushes": int((df["result"] == "push").sum()),
+        }
+        try:
+            decided = df[df["result"].isin(["win", "loss"])].copy()
+            if not decided.empty:
+                p_sel = np.where(
+                    decided["side"].astype(str) == "Over",
+                    pd.to_numeric(decided["p_over"], errors="coerce").astype(float),
+                    1.0 - pd.to_numeric(decided["p_over"], errors="coerce").astype(float),
+                )
+                y = (decided["result"] == "win").astype(float).to_numpy()
+                p_sel = np.clip(p_sel, 0.0, 1.0)
+                acc = float((y == 1.0).mean()) if len(y) > 0 else None
+                brier = float(np.mean((p_sel - y) ** 2)) if len(y) > 0 else None
+                out["accuracy"] = acc
+                out["brier"] = brier
+                out["avg_prob"] = float(np.mean(p_sel))
+            else:
+                out["accuracy"] = None
+                out["brier"] = None
+                out["avg_prob"] = None
+        except Exception:
+            out["accuracy"] = None
+            out["brier"] = None
+            out["avg_prob"] = None
+        return out
+
+    overall = summarize(rows_df)
+    by_market = {mkt: summarize(g) for mkt, g in rows_df.groupby("market")}
+
+    calib_df = pd.DataFrame(calib)
+    calib_bins = []
+    if not calib_df.empty:
+        bins = np.linspace(0.0, 1.0, 11)
+        calib_df["bin"] = pd.cut(calib_df["p_over"], bins=bins, include_lowest=True)
+        for b, g in calib_df.groupby("bin"):
+            try:
+                exp = float(g["p_over"].mean())
+                obs = float(g["over_won"].mean())
+                cnt = int(len(g))
+                calib_bins.append({"bin": str(b), "expected": exp, "observed": obs, "count": cnt})
+            except Exception:
+                continue
+
+    pref = (out_prefix.strip() + "_") if out_prefix.strip() else ""
+    rows_path = PROC_DIR / f"{pref}props_backtest_boxscores_rows_{start}_to_{end}.csv"
+    summ_path = PROC_DIR / f"{pref}props_backtest_boxscores_summary_{start}_to_{end}.json"
+    rows_df.to_csv(rows_path, index=False)
+    with open(summ_path, "w", encoding="utf-8") as f:
+        json.dump({
+            "overall": overall,
+            "by_market": by_market,
+            "calibration": calib_bins,
+            "filters": {"markets": allowed_markets, "min_ev": min_ev}
+        }, f, indent=2)
+    print(json.dumps({"overall": overall, "by_market": by_market}, indent=2))
+    print(f"Saved rows to {rows_path} and summary to {summ_path}")
 
 @app.command()
 def props_stats_features(

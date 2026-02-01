@@ -196,12 +196,12 @@ date,player,team,market,line,proj_lambda,p_over,over_price,under_price,book,ev_o
 
 ### View Props Recommendations UI
 ```
-http://localhost:8000/props/recommendations?date=2025-10-17
+http://localhost:8080/props/recommendations?date=2025-10-17
 ```
 
 ### View Player Props (All Projections)
 ```
-http://localhost:8000/props/players?date=2025-10-17&market=SOG
+http://localhost:8080/props/players?date=2025-10-17&market=SOG
 ```
 
 ## Data Flow Diagram
@@ -322,7 +322,7 @@ python -m nhl_betting.cli props-recommendations --date 2025-10-17 --min-ev 0.0 -
 .\launch_local.ps1
 
 # Open browser
-http://localhost:8000/props/recommendations?date=2025-10-17
+http://localhost:8080/props/recommendations?date=2025-10-17
 ```
 
 ### 4. Run Full Daily Update

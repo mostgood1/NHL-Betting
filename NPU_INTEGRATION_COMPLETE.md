@@ -178,7 +178,7 @@ props_recommendations_history.csv    - Rolling history
 - [ ] Integrate into production if superior
 
 #### Phase C: Render Deployment ⏳ **PENDING**
-- [ ] Test local frontend (http://127.0.0.1:8000)
+- [ ] Test local frontend (http://127.0.0.1:8080)
 - [ ] Verify all API endpoints work
 - [ ] Create `render.yaml` with cron jobs
 - [ ] Set environment variables

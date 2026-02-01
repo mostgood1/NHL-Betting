@@ -19,6 +19,17 @@ class SimConfig:
     ot_enabled: bool = True
     shootout_enabled: bool = True
     seed: Optional[int] = None
+    # Overdispersion controls: increase variance while preserving means
+    # shots: multiplicative lognormal noise per segment
+    dispersion_shots: float = 0.0
+    # goals: logit-normal noise on per-shot conversion probability
+    dispersion_goals: float = 0.0
+    # Special teams multipliers for shots (base factors)
+    pp_shots_mult: float = 1.4
+    pk_shots_mult: float = 0.7
+    # Additional goal conversion multipliers applied after PP/PK adjustments
+    pp_goals_mult: float = 1.0
+    pk_goals_mult: float = 1.0
 
 
 class PossessionSimulator:
@@ -124,6 +135,37 @@ class PeriodSimulator:
             return out
         def _chunk(lst: List[int], size: int) -> List[List[int]]:
             return [lst[i:i+size] for i in range(0, len(lst), size)] or [[]]
+        # Weighted selection helpers based on player on-ice stats/weights
+        def _weighted_choice(pid_group: List[int], team: TeamState, kind: str) -> Optional[int]:
+            if not pid_group:
+                return None
+            cands = []
+            weights = []
+            for pid in pid_group:
+                ps = team.players.get(int(pid))
+                if not ps:
+                    continue
+                cands.append(int(pid))
+                if kind == "shot":
+                    w = max(0.01, float(ps.shot_weight or 0.0))
+                elif kind == "goal":
+                    w = max(0.01, float(ps.goal_weight or (ps.shot_weight or 0.0) * 0.30))
+                elif kind == "block":
+                    w = max(0.01, float(ps.block_weight or 0.0))
+                else:
+                    w = 1.0
+                weights.append(w)
+            if not cands:
+                return None
+            # Normalize and sample
+            total = sum(weights) or 1.0
+            probs = [w/total for w in weights]
+            import numpy as _np
+            try:
+                idx = int(_np.random.choice(list(range(len(cands))), size=1, replace=True, p=_np.array(probs))[0])
+                return cands[idx]
+            except Exception:
+                return cands[0]
         # Fallback lines from full roster when lineup slots are missing
         def _sorted_top(lst: List[Tuple[int, float]], k: int) -> List[int]:
             return [pid for pid, _ in sorted(lst, key=lambda x: x[1], reverse=True)[:k]]
@@ -138,7 +180,41 @@ class PeriodSimulator:
         d_home = _line_order(lineup_home, "D") or _chunk(d_home_top, 2)
         l_away = _line_order(lineup_away, "L") or _chunk(f_away_top, 3)
         d_away = _line_order(lineup_away, "D") or _chunk(d_away_top, 2)
-        # Simple rotation indexes
+        # Rotation sequences weighted by projected TOI
+        def _line_weights(pid_groups: List[List[int]], team: TeamState) -> List[float]:
+            vals = []
+            for grp in pid_groups:
+                if grp:
+                    avg_toi = sum([max(0.0, float(team.players.get(int(pid)).toi_proj or 0.0)) for pid in grp if team.players.get(int(pid))]) / max(1, len(grp))
+                else:
+                    avg_toi = 15.0
+                vals.append(max(0.1, avg_toi))
+            s = sum(vals) or 1.0
+            return [v/s for v in vals]
+        def _alloc_indices(weights: List[float], n: int) -> List[int]:
+            # Proportional allocation of n slots to indices by weights
+            if not weights:
+                return [0]*n
+            raw = [w * n for w in weights]
+            base = [int(x) for x in raw]
+            rem = n - sum(base)
+            frac = sorted([(i, (raw[i] - base[i])) for i in range(len(weights))], key=lambda x: x[1], reverse=True)
+            for k in range(rem):
+                base[frac[k % len(frac)][0]] += 1
+            seq = []
+            for i, count in enumerate(base):
+                seq.extend([i]*int(count))
+            # Interleave to avoid long runs of the same line
+            out = []
+            for i in range(n):
+                out.append(seq[i % len(seq)])
+            return out
+        w_lh = _line_weights(l_home, gs.home); w_dh = _line_weights(d_home, gs.home)
+        w_la = _line_weights(l_away, gs.away); w_da = _line_weights(d_away, gs.away)
+        rot_lh = _alloc_indices(w_lh, segments) if l_home else []
+        rot_dh = _alloc_indices(w_dh, segments) if d_home else []
+        rot_la = _alloc_indices(w_la, segments) if l_away else []
+        rot_da = _alloc_indices(w_da, segments) if d_away else []
         idx_lh = 0; idx_da = 0; idx_la = 0; idx_dh = 0
         # Special teams units
         pp_home = _pp_units(lineup_home)
@@ -181,8 +257,8 @@ class PeriodSimulator:
                 seg_is_home_pp = False
                 seg_is_away_pp = False
             # Base PP/PK shot factors further scaled by calibration
-            pp_mult_shots = 1.4 * cal_pp_sh_mult
-            pk_mult_shots = 0.7 * cal_pk_sh_mult
+            pp_mult_shots = float(self.cfg.pp_shots_mult) * cal_pp_sh_mult
+            pk_mult_shots = float(self.cfg.pk_shots_mult) * cal_pk_sh_mult
             if seg_is_home_pp:
                 home_factor *= pp_mult_shots
                 away_factor *= pk_mult_shots
@@ -213,6 +289,14 @@ class PeriodSimulator:
             # Expected shots in segment
             lam_h = max(1e-6, rates.home.shots_per_60 * seg_len / 3600.0 * home_factor * period_pace_bias)
             lam_a = max(1e-6, rates.away.shots_per_60 * seg_len / 3600.0 * away_factor * period_pace_bias)
+            # Apply overdispersion via lognormal multiplicative noise
+            if float(self.cfg.dispersion_shots or 0.0) > 0.0:
+                try:
+                    sigma = float(self.cfg.dispersion_shots)
+                    lam_h = max(1e-6, float(lam_h) * float(np.random.lognormal(mean=0.0, sigma=sigma)))
+                    lam_a = max(1e-6, float(lam_a) * float(np.random.lognormal(mean=0.0, sigma=sigma)))
+                except Exception:
+                    pass
             sh_h = int(np.random.poisson(lam_h))
             sh_a = int(np.random.poisson(lam_a))
             # Goals proportional to shots vs base conversion
@@ -228,12 +312,33 @@ class PeriodSimulator:
                 p_goal_away = min(0.45, p_goal_away)
                 p_goal_home = p_goal_home * (0.9 * float(st_home.get("pk_pct", 0.8))) * cal_pk_gl_mult
                 p_goal_home = max(0.01, p_goal_home)
+            # Apply additional PP/PK goal conversion multipliers from config
+            if seg_is_home_pp:
+                p_goal_home *= float(self.cfg.pp_goals_mult)
+                p_goal_away *= float(self.cfg.pk_goals_mult)
+            elif seg_is_away_pp:
+                p_goal_away *= float(self.cfg.pp_goals_mult)
+                p_goal_home *= float(self.cfg.pk_goals_mult)
             # Apply empty-net multiplier to the leading team's conversion, if any
             if period_idx == 2 and p_empty_mult != 1.0:
                 if diff < 0:  # away leading
                     p_goal_away = min(0.65, p_goal_away * p_empty_mult)
                 elif diff > 0:  # home leading
                     p_goal_home = min(0.65, p_goal_home * p_empty_mult)
+            # Apply goals overdispersion via logit-normal noise
+            if float(self.cfg.dispersion_goals or 0.0) > 0.0:
+                try:
+                    sigma_g = float(self.cfg.dispersion_goals)
+                    def _perturb_prob(p: float) -> float:
+                        p = max(1e-4, min(0.99, float(p)))
+                        logit = math.log(p / (1.0 - p))
+                        noisy = logit + float(np.random.normal(loc=0.0, scale=sigma_g))
+                        val = 1.0 / (1.0 + math.exp(-noisy))
+                        return max(0.005, min(0.95, float(val)))
+                    p_goal_home = _perturb_prob(p_goal_home)
+                    p_goal_away = _perturb_prob(p_goal_away)
+                except Exception:
+                    pass
             g_h = sum(1 for _ in range(sh_h) if self.rng.random() < p_goal_home)
             g_a = sum(1 for _ in range(sh_a) if self.rng.random() < p_goal_away)
             home_goals += g_h; away_goals += g_a
@@ -252,9 +357,9 @@ class PeriodSimulator:
                         idx_pp_h = (idx_pp_h + 1) % max(1, len(pp_home))
                 else:
                     # Fallback to EV group if PP units unknown
-                    ice_h = (l_home[idx_lh % len(l_home)] if l_home else []) + (d_home[idx_dh % len(d_home)] if d_home else [])
-                    idx_lh = (idx_lh + 1) % max(1, len(l_home))
-                    idx_dh = (idx_dh + 1) % max(1, len(d_home))
+                    ice_h = ((l_home[rot_lh[idx_lh]] if l_home else []) + (d_home[rot_dh[idx_dh]] if d_home else []))
+                    idx_lh = (idx_lh + 1) % max(1, len(rot_lh) or 1)
+                    idx_dh = (idx_dh + 1) % max(1, len(rot_dh) or 1)
                 # Away team on PK if units available
                 if pk_away:
                     if len(pk_away) > 1 and self.rng.random() < 0.60:
@@ -263,9 +368,9 @@ class PeriodSimulator:
                         ice_a = pk_away[idx_pk_a % len(pk_away)]
                         idx_pk_a = (idx_pk_a + 1) % max(1, len(pk_away))
                 else:
-                    ice_a = (l_away[idx_la % len(l_away)] if l_away else []) + (d_away[idx_da % len(d_away)] if d_away else [])
-                    idx_la = (idx_la + 1) % max(1, len(l_away))
-                    idx_da = (idx_da + 1) % max(1, len(d_away))
+                    ice_a = ((l_away[rot_la[idx_la]] if l_away else []) + (d_away[rot_da[idx_da]] if d_away else []))
+                    idx_la = (idx_la + 1) % max(1, len(rot_la) or 1)
+                    idx_da = (idx_da + 1) % max(1, len(rot_da) or 1)
                 # Enforce typical skater counts: PP ~5, PK ~4
                 ice_h = (ice_h or [])[:5]
                 ice_a = (ice_a or [])[:4]
@@ -278,9 +383,9 @@ class PeriodSimulator:
                         ice_a = pp_away[idx_pp_a % len(pp_away)]
                         idx_pp_a = (idx_pp_a + 1) % max(1, len(pp_away))
                 else:
-                    ice_a = (l_away[idx_la % len(l_away)] if l_away else []) + (d_away[idx_da % len(d_away)] if d_away else [])
-                    idx_la = (idx_la + 1) % max(1, len(l_away))
-                    idx_da = (idx_da + 1) % max(1, len(d_away))
+                    ice_a = ((l_away[rot_la[idx_la]] if l_away else []) + (d_away[rot_da[idx_da]] if d_away else []))
+                    idx_la = (idx_la + 1) % max(1, len(rot_la) or 1)
+                    idx_da = (idx_da + 1) % max(1, len(rot_da) or 1)
                 # Home team on PK if units available
                 if pk_home:
                     if len(pk_home) > 1 and self.rng.random() < 0.60:
@@ -289,9 +394,9 @@ class PeriodSimulator:
                         ice_h = pk_home[idx_pk_h % len(pk_home)]
                         idx_pk_h = (idx_pk_h + 1) % max(1, len(pk_home))
                 else:
-                    ice_h = (l_home[idx_lh % len(l_home)] if l_home else []) + (d_home[idx_dh % len(d_home)] if d_home else [])
-                    idx_lh = (idx_lh + 1) % max(1, len(l_home))
-                    idx_dh = (idx_dh + 1) % max(1, len(d_home))
+                    ice_h = ((l_home[rot_lh[idx_lh]] if l_home else []) + (d_home[rot_dh[idx_dh]] if d_home else []))
+                    idx_lh = (idx_lh + 1) % max(1, len(rot_lh) or 1)
+                    idx_dh = (idx_dh + 1) % max(1, len(rot_dh) or 1)
                 # Enforce typical skater counts: PP ~5, PK ~4
                 ice_a = (ice_a or [])[:5]
                 ice_h = (ice_h or [])[:4]
@@ -299,8 +404,8 @@ class PeriodSimulator:
                 # EV: 5 skaters or 3v3 in OT
                 is_ot = (T != self.cfg.seconds_per_period)
                 if not is_ot:
-                    ice_h = (l_home[idx_lh % len(l_home)] if l_home else []) + (d_home[idx_dh % len(d_home)] if d_home else [])
-                    ice_a = (l_away[idx_la % len(l_away)] if l_away else []) + (d_away[idx_da % len(d_away)] if d_away else [])
+                    ice_h = ((l_home[rot_lh[idx_lh]] if l_home else []) + (d_home[rot_dh[idx_dh]] if d_home else []))
+                    ice_a = ((l_away[rot_la[idx_la]] if l_away else []) + (d_away[rot_da[idx_da]] if d_away else []))
                     # cap to 5 skaters
                     ice_h = (ice_h or [])[:5]
                     ice_a = (ice_a or [])[:5]
@@ -316,15 +421,25 @@ class PeriodSimulator:
                         return (f_sel + d_sel), idx_f, idx_d
                     ice_h, idx_lh, idx_dh = _pick_3v3(l_home, d_home, idx_lh, idx_dh)
                     ice_a, idx_la, idx_da = _pick_3v3(l_away, d_away, idx_la, idx_da)
-                idx_lh = (idx_lh + 1) % max(1, len(l_home))
-                idx_dh = (idx_dh + 1) % max(1, len(d_home))
-                idx_la = (idx_la + 1) % max(1, len(l_away))
-                idx_da = (idx_da + 1) % max(1, len(d_away))
+                idx_lh = (idx_lh + 1) % max(1, len(rot_lh) or 1)
+                idx_dh = (idx_dh + 1) % max(1, len(rot_dh) or 1)
+                idx_la = (idx_la + 1) % max(1, len(rot_la) or 1)
+                idx_da = (idx_da + 1) % max(1, len(rot_da) or 1)
             # Emit shift events for TOI attribution for all players on ice
+            # Use coverage fraction within segment to approximate actual shift durations
+            if seg_is_home_pp:
+                dur_h = min(90.0, seg_len * 0.60)
+                dur_a = min(80.0, seg_len * 0.60)
+            elif seg_is_away_pp:
+                dur_h = min(80.0, seg_len * 0.60)
+                dur_a = min(90.0, seg_len * 0.60)
+            else:
+                dur_h = min(60.0, seg_len * 0.33)
+                dur_a = min(60.0, seg_len * 0.33)
             for pid in (ice_h or []):
-                events.append(Event(t=t0, period=period_idx + 1, team=gs.home.name, kind="shift", player_id=pid, meta={"dur": seg_len, "strength": strength_h}))
+                events.append(Event(t=t0, period=period_idx + 1, team=gs.home.name, kind="shift", player_id=pid, meta={"dur": dur_h, "strength": strength_h}))
             for pid in (ice_a or []):
-                events.append(Event(t=t0, period=period_idx + 1, team=gs.away.name, kind="shift", player_id=pid, meta={"dur": seg_len, "strength": strength_a}))
+                events.append(Event(t=t0, period=period_idx + 1, team=gs.away.name, kind="shift", player_id=pid, meta={"dur": dur_a, "strength": strength_a}))
             # Goalies are on ice entire segment; ensure TOI is accrued
             def _starter_goalie(team: TeamState) -> Optional[int]:
                 goalies = [p for p in team.players.values() if str(p.position) == "G"]
@@ -339,16 +454,16 @@ class PeriodSimulator:
                 events.append(Event(t=t0, period=period_idx + 1, team=gs.away.name, kind="shift", player_id=g_away_id, meta={"dur": seg_len, "strength": strength_a}))
             # Attribute shots and goals to players on ice
             for _ in range(sh_h):
-                pid = (self.rng.choice(ice_h) if ice_h else None)
+                pid = _weighted_choice(ice_h, gs.home, "shot") if ice_h else None
                 events.append(Event(t=t0 + self.rng.random() * seg_len, period=period_idx + 1, team=gs.home.name, kind="shot", player_id=pid, meta={"strength": strength_h}))
             for _ in range(sh_a):
-                pid = (self.rng.choice(ice_a) if ice_a else None)
+                pid = _weighted_choice(ice_a, gs.away, "shot") if ice_a else None
                 events.append(Event(t=t0 + self.rng.random() * seg_len, period=period_idx + 1, team=gs.away.name, kind="shot", player_id=pid, meta={"strength": strength_a}))
             for _ in range(g_h):
-                pid = (self.rng.choice(ice_h) if ice_h else None)
+                pid = _weighted_choice(ice_h, gs.home, "goal") if ice_h else None
                 events.append(Event(t=t0 + self.rng.random() * seg_len, period=period_idx + 1, team=gs.home.name, kind="goal", player_id=pid, meta={"strength": strength_h}))
             for _ in range(g_a):
-                pid = (self.rng.choice(ice_a) if ice_a else None)
+                pid = _weighted_choice(ice_a, gs.away, "goal") if ice_a else None
                 events.append(Event(t=t0 + self.rng.random() * seg_len, period=period_idx + 1, team=gs.away.name, kind="goal", player_id=pid, meta={"strength": strength_a}))
             # Attribute blocks to defending players on ice (approximate fraction of opponent SOG)
             # Higher block rate on PK segments vs EV; lower on PP defending side
@@ -375,17 +490,17 @@ class PeriodSimulator:
             def _defenders_for_home() -> List[int]:
                 if seg_is_away_pp and pk_home:
                     return pk_home[0 if len(pk_home)==1 else (idx_pk_h % len(pk_home))]
-                return (d_home[idx_dh % len(d_home)] if d_home else [])
+                return (d_home[rot_dh[idx_dh % max(1, len(rot_dh) or 1)]] if d_home else [])
             def _defenders_for_away() -> List[int]:
                 if seg_is_home_pp and pk_away:
                     return pk_away[0 if len(pk_away)==1 else (idx_pk_a % len(pk_away))]
-                return (d_away[idx_da % len(d_away)] if d_away else [])
+                return (d_away[rot_da[idx_da % max(1, len(rot_da) or 1)]] if d_away else [])
             def_h = _defenders_for_home(); def_a = _defenders_for_away()
             for _ in range(b_home):
-                pid = (self.rng.choice(def_h) if def_h else None)
+                pid = _weighted_choice(def_h, gs.home, "block") if def_h else None
                 events.append(Event(t=t0 + self.rng.random() * seg_len, period=period_idx + 1, team=gs.home.name, kind="block", player_id=pid, meta={"strength": strength_h}))
             for _ in range(b_away):
-                pid = (self.rng.choice(def_a) if def_a else None)
+                pid = _weighted_choice(def_a, gs.away, "block") if def_a else None
                 events.append(Event(t=t0 + self.rng.random() * seg_len, period=period_idx + 1, team=gs.away.name, kind="block", player_id=pid, meta={"strength": strength_a}))
             # rotate
             idx_lh = (idx_lh + 1) % max(1, len(l_home)); idx_dh = (idx_dh + 1) % max(1, len(d_home))
@@ -407,11 +522,37 @@ class GameSimulator:
         away = TeamState(name=away_name, players={})
         for row in roster_home:
             pid = int(row.get("player_id"))
-            p = PlayerState(player_id=pid, full_name=row.get("full_name"), position=row.get("position"), team=home_name, toi_proj=float(row.get("proj_toi", 0.0)))
+            toi = float(row.get("proj_toi", 0.0))
+            pos = str(row.get("position"))
+            # Use provided weights if present; else derive heuristics
+            sw = row.get("shot_weight")
+            gw = row.get("goal_weight")
+            bw = row.get("block_weight")
+            if sw is None or gw is None or bw is None:
+                # Baseline heuristic
+                sw_h = toi * (1.25 if str(pos).upper() in ("F","C","LW","RW") else (0.65 if str(pos).upper()=="D" else 0.10))
+                bw_h = toi * (1.20 if str(pos).upper()=="D" else (0.60 if str(pos).upper() in ("F","C","LW","RW") else 0.05))
+                gw_h = max(0.01, sw_h * 0.30)
+                sw = float(sw if sw is not None else sw_h)
+                bw = float(bw if bw is not None else bw_h)
+                gw = float(gw if gw is not None else gw_h)
+            p = PlayerState(player_id=pid, full_name=row.get("full_name"), position=pos, team=home_name, toi_proj=toi, shot_weight=float(sw), goal_weight=float(gw), block_weight=float(bw))
             home.players[pid] = p
         for row in roster_away:
             pid = int(row.get("player_id"))
-            p = PlayerState(player_id=pid, full_name=row.get("full_name"), position=row.get("position"), team=away_name, toi_proj=float(row.get("proj_toi", 0.0)))
+            toi = float(row.get("proj_toi", 0.0))
+            pos = str(row.get("position"))
+            sw = row.get("shot_weight")
+            gw = row.get("goal_weight")
+            bw = row.get("block_weight")
+            if sw is None or gw is None or bw is None:
+                sw_h = toi * (1.25 if str(pos).upper() in ("F","C","LW","RW") else (0.65 if str(pos).upper()=="D" else 0.10))
+                bw_h = toi * (1.20 if str(pos).upper()=="D" else (0.60 if str(pos).upper() in ("F","C","LW","RW") else 0.05))
+                gw_h = max(0.01, sw_h * 0.30)
+                sw = float(sw if sw is not None else sw_h)
+                bw = float(bw if bw is not None else bw_h)
+                gw = float(gw if gw is not None else gw_h)
+            p = PlayerState(player_id=pid, full_name=row.get("full_name"), position=pos, team=away_name, toi_proj=toi, shot_weight=float(sw), goal_weight=float(gw), block_weight=float(bw))
             away.players[pid] = p
         return GameState(home=home, away=away, period=0, clock=self.cfg.seconds_per_period)
 

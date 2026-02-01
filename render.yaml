@@ -10,7 +10,7 @@ services:
     healthCheckPath: /health
     buildCommand: pip install --no-cache-dir -r requirements.txt
     # Use a lightweight ASGI wrapper and a single worker to keep memory within plan limits.
-    startCommand: uvicorn nhl_betting.web.asgi:app --host 0.0.0.0 --port $PORT --workers 1 --log-level info
+    startCommand: uvicorn nhl_betting.web.app:app --host 0.0.0.0 --port $PORT --workers 1 --log-level info
     envVars:
       - key: ODDS_API_KEY
         sync: false

@@ -4184,12 +4184,46 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
                 except Exception:
                     pos_cache = {}
                 # Build estimated skater TOI (minutes) from co-TOI pairs for the slate
+                # Store under multiple name keys to improve matching (e.g., "J. Smith" and "John Smith")
                 est_toi_by_player_name: Dict[str, float] = {}
+                def _name_keys(full: str) -> list[str]:
+                    try:
+                        full = str(full or "").strip()
+                        if not full:
+                            return []
+                        parts = full.split()
+                        keys = [full]
+                        if len(parts) >= 2:
+                            ini_key = f"{parts[0][0]}. {parts[-1]}"
+                            keys.append(ini_key)
+                        return list(dict.fromkeys([k.strip() for k in keys if k and k.strip()]))
+                    except Exception:
+                        return [str(full or "").strip()]
                 try:
                     co_path = PROC_DIR / f"lineups_co_toi_{date}.csv"
                     if co_path.exists():
                         df_co = _read_csv_fallback(co_path)
                         if df_co is not None and not df_co.empty:
+                            # Optional: build id->name map from roster snapshots
+                            id_to_name: Dict[int, str] = {}
+                            try:
+                                # Prefer date-stamped snapshot; fallback to roster_{date} then roster_master
+                                for cand in [PROC_DIR / f"roster_snapshot_{date}.csv", PROC_DIR / f"roster_{date}.csv", PROC_DIR / "roster_master.csv"]:
+                                    if cand.exists():
+                                        rdf = _read_csv_fallback(cand)
+                                        if rdf is not None and not rdf.empty and "player_id" in rdf.columns:
+                                            for _, rr_ in rdf.iterrows():
+                                                try:
+                                                    pid = rr_.get("player_id")
+                                                    nm = rr_.get("full_name") or rr_.get("player")
+                                                    if pid is not None and pd.notna(pid) and nm and pd.notna(nm):
+                                                        id_to_name[int(pid)] = str(nm).strip()
+                                                except Exception:
+                                                    pass
+                                            if id_to_name:
+                                                break
+                            except Exception:
+                                id_to_name = {}
                             def _get_name(rr_: pd.Series, keys: list[str]) -> Optional[str]:
                                 try:
                                     for k in keys:
@@ -4202,7 +4236,7 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
                                     pass
                                 return None
                             def _get_min(rr_: pd.Series) -> Optional[float]:
-                                for k in ["co_toi_min","co_toi_minutes","toi_min","ev_toi_min"]:
+                                for k in ["co_toi_min","co_toi_minutes","toi_min","ev_toi_min","co_toi_ev","ev_co_toi_min"]:
                                     try:
                                         v = rr_.get(k)
                                         if v is not None and pd.notna(v):
@@ -4224,10 +4258,22 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
                                         continue
                                     n1 = _get_name(rr0, ["p1_name","player1","p1","player_a","name_a","skater_a"]) or _get_name(rr0, ["name1","a_name"]) 
                                     n2 = _get_name(rr0, ["p2_name","player2","p2","player_b","name_b","skater_b"]) or _get_name(rr0, ["name2","b_name"]) 
+                                    # If names are missing but ids are present, resolve via id_to_name
+                                    if (not n1) and ("player_id_a" in rr0 and pd.notna(rr0.get("player_id_a"))):
+                                        try:
+                                            n1 = id_to_name.get(int(float(rr0.get("player_id_a"))))
+                                        except Exception:
+                                            n1 = n1
+                                    if (not n2) and ("player_id_b" in rr0 and pd.notna(rr0.get("player_id_b"))):
+                                        try:
+                                            n2 = id_to_name.get(int(float(rr0.get("player_id_b"))))
+                                        except Exception:
+                                            n2 = n2
                                     for nm in [n1, n2]:
                                         if nm:
-                                            prev = est_toi_by_player_name.get(nm)
-                                            est_toi_by_player_name[nm] = max(float(prev or 0.0), float(m))
+                                            for key in _name_keys(nm):
+                                                prev = est_toi_by_player_name.get(key)
+                                                est_toi_by_player_name[key] = max(float(prev or 0.0), float(m))
                                 except Exception:
                                     pass
                 except Exception:
@@ -4315,14 +4361,35 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
                             if (d.get("pos") or "") == "G":
                                 d["toi_min"] = orig_min
                             else:
-                                # Skaters: use estimated TOI from co-TOI mapping when available
+                                # Skaters: prefer estimated TOI from co-TOI mapping (match on multiple name keys), else fall back to sim-derived minutes
                                 nm = str(d.get("player") or "").strip()
                                 est = None
                                 try:
-                                    est = est_toi_by_player_name.get(nm)
+                                    for key in _name_keys(nm):
+                                        v = est_toi_by_player_name.get(key)
+                                        if v is not None and v > 0:
+                                            est = float(v)
+                                            break
                                 except Exception:
                                     est = None
-                                d["toi_min"] = float(est) if (est is not None and est > 0) else None
+                                d["toi_min"] = float(est) if (est is not None and est > 0) else orig_min
+                            # Add clock format mm:ss for TOI
+                            try:
+                                def _fmt_clock(mins: float | None) -> str | None:
+                                    try:
+                                        if mins is None:
+                                            return None
+                                        m = int(mins)
+                                        s = int(round((float(mins) - float(m)) * 60.0))
+                                        if s >= 60:
+                                            m += 1
+                                            s = 0
+                                        return f"{m}:{s:02d}"
+                                    except Exception:
+                                        return None
+                                d["toi_clock"] = _fmt_clock(d.get("toi_min"))
+                            except Exception:
+                                d["toi_clock"] = None
                         except Exception:
                             pass
                         return d
@@ -4349,6 +4416,7 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
                                 home_rows = sub[sub[side_col].astype(str).str.upper() == str(h).upper()]
                                 away_rows = sub[sub[side_col].astype(str).str.upper() == str(a).upper()]
                             # Filter to players in roster_master for this team when available to avoid cross-team artifacts
+                            # Apply this only if the roster slice looks plausible to avoid issues when the cache is stale/corrupted.
                             try:
                                 roster_path = PROC_DIR / "roster_master.csv"
                                 if roster_path.exists():
@@ -4359,22 +4427,43 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
                                         if col_ab:
                                             rm_h = rm[rm[col_ab].astype(str).str.upper() == h_ab]
                                             rm_a = rm[rm[col_ab].astype(str).str.upper() == a_ab]
-                                            valid_h_ids = set([int(x) for x in rm_h['player_id'].dropna().astype(int).tolist()]) if 'player_id' in rm_h.columns else set()
-                                            valid_h_names = set([str(x).strip() for x in rm_h.get('player', rm_h.get('full_name', pd.Series([]))).dropna().astype(str).tolist()])
-                                            valid_a_ids = set([int(x) for x in rm_a['player_id'].dropna().astype(int).tolist()]) if 'player_id' in rm_a.columns else set()
-                                            valid_a_names = set([str(x).strip() for x in rm_a.get('player', rm_a.get('full_name', pd.Series([]))).dropna().astype(str).tolist()])
-                                            def _filter(df_, ids, names):
+                                            # Plausibility guard: skip filtering if slices look wrong
+                                            def _plausible(df_team: pd.DataFrame) -> bool:
                                                 try:
-                                                    df_ = df_.copy()
-                                                    if 'player_id' in df_.columns:
-                                                        df_ = df_[df_['player_id'].astype(str).isin(set([str(i) for i in ids])) | df_['player'].astype(str).isin(names)]
-                                                    else:
-                                                        df_ = df_[df_['player'].astype(str).isin(names)]
+                                                    n = int(len(df_team))
+                                                    return 8 <= n <= 35
                                                 except Exception:
-                                                    pass
-                                                return df_
-                                            home_rows = _filter(home_rows, valid_h_ids, valid_h_names)
-                                            away_rows = _filter(away_rows, valid_a_ids, valid_a_names)
+                                                    return False
+                                            do_filter_h = _plausible(rm_h)
+                                            do_filter_a = _plausible(rm_a)
+                                            if do_filter_h:
+                                                valid_h_ids = set([int(x) for x in rm_h['player_id'].dropna().astype(int).tolist()]) if 'player_id' in rm_h.columns else set()
+                                                valid_h_names = set([str(x).strip() for x in rm_h.get('player', rm_h.get('full_name', pd.Series([]))).dropna().astype(str).tolist()])
+                                                def _filter(df_):
+                                                    try:
+                                                        df_ = df_.copy()
+                                                        if 'player_id' in df_.columns:
+                                                            df_ = df_[df_['player_id'].astype(str).isin(set([str(i) for i in valid_h_ids])) | df_['player'].astype(str).isin(valid_h_names)]
+                                                        else:
+                                                            df_ = df_[df_['player'].astype(str).isin(valid_h_names)]
+                                                    except Exception:
+                                                        pass
+                                                    return df_
+                                                home_rows = _filter(home_rows)
+                                            if do_filter_a:
+                                                valid_a_ids = set([int(x) for x in rm_a['player_id'].dropna().astype(int).tolist()]) if 'player_id' in rm_a.columns else set()
+                                                valid_a_names = set([str(x).strip() for x in rm_a.get('player', rm_a.get('full_name', pd.Series([]))).dropna().astype(str).tolist()])
+                                                def _filter(df_):
+                                                    try:
+                                                        df_ = df_.copy()
+                                                        if 'player_id' in df_.columns:
+                                                            df_ = df_[df_['player_id'].astype(str).isin(set([str(i) for i in valid_a_ids])) | df_['player'].astype(str).isin(valid_a_names)]
+                                                        else:
+                                                            df_ = df_[df_['player'].astype(str).isin(valid_a_names)]
+                                                    except Exception:
+                                                        pass
+                                                    return df_
+                                                away_rows = _filter(away_rows)
                             except Exception:
                                 pass
                         except Exception:
@@ -4616,7 +4705,7 @@ async def api_cards_debug_game(
     # Props recs samples per team
     rec_home = recs_by_team.get((home_abbr or "").upper(), [])[:3]
     rec_away = recs_by_team.get((away_abbr or "").upper(), [])[:3]
-    return JSONResponse({
+    payload = {
         "date": d,
         "home": home,
         "away": away,
@@ -4629,7 +4718,12 @@ async def api_cards_debug_game(
         "box_away_count": int(len(box_away)),
         "box_home_sample": box_home,
         "box_away_sample": box_away,
-    })
+    }
+    try:
+        payload = _json_sanitize(payload)
+    except Exception:
+        pass
+    return JSONResponse(payload)
 
 
 def _capture_openers_for_day(date: str) -> dict:

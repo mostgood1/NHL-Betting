@@ -11,6 +11,10 @@ class PlayerState:
     position: str  # F/D/G
     team: str
     toi_proj: float = 0.0
+    # Weights to bias event attribution while on ice
+    shot_weight: float = 0.0
+    goal_weight: float = 0.0
+    block_weight: float = 0.0
     stats: Dict[str, float] = field(default_factory=dict)  # shots, goals, assists, blocks, saves
 
 

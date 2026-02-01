@@ -72,6 +72,24 @@ class Simulator:
         self.on_ice_home = self.lines_home[0]
         self.on_ice_away = self.lines_away[0]
         self.player_stats: Dict[str, Dict[int, PlayerStats]] = {}
+        # Rotation timers and weights
+        self.shift_base_sec = 45  # typical forward shift length
+        self.shift_timer_home = self.shift_base_sec
+        self.shift_timer_away = self.shift_base_sec
+        # Line weights from average toi_target per line (fallback uniform)
+        def _line_weights(lines: List[Line]) -> List[float]:
+            vals = []
+            for ln in lines:
+                sk = ln.forwards + ln.defenders
+                if sk:
+                    avg_toi = sum([max(0.0, float(p.toi_target or 0.0)) for p in sk]) / len(sk)
+                else:
+                    avg_toi = 16.0
+                vals.append(max(0.1, avg_toi))
+            s = sum(vals) or 1.0
+            return [v / s for v in vals]
+        self.line_weights_home = _line_weights(self.lines_home)
+        self.line_weights_away = _line_weights(self.lines_away)
 
     def _players_on_ice(self, side: str) -> List[Player]:
         if self.state.manpower == 'PP':
@@ -92,12 +110,44 @@ class Simulator:
         return self.on_ice_away.forwards + self.on_ice_away.defenders
 
     def _rotate_lines_if_needed(self, dt: int):
-        # Rotate roughly every 45 seconds of elapsed time
-        if (self.state.time_sec // 45) % 1 == 0 and dt >= 45:
-            self.state.home_line_idx = (self.state.home_line_idx + 1) % len(self.lines_home)
-            self.state.away_line_idx = (self.state.away_line_idx + 1) % len(self.lines_away)
-            self.on_ice_home = self.lines_home[self.state.home_line_idx]
-            self.on_ice_away = self.lines_away[self.state.away_line_idx]
+        # Reduce timers; when expired, choose next line by weighted usage
+        if self.state.manpower == '5v5':
+            self.shift_timer_home -= dt
+            self.shift_timer_away -= dt
+            if self.shift_timer_home <= 0 and len(self.lines_home) > 0:
+                # Weighted choice excluding current line
+                cur = self.state.home_line_idx
+                weights = self.line_weights_home[:]
+                if 0 <= cur < len(weights):
+                    # avoid immediate repeat
+                    weights[cur] = max(0.0, weights[cur] * 0.35)
+                r = random.random() * (sum(weights) or 1.0)
+                s = 0.0
+                next_idx = 0
+                for i, w in enumerate(weights):
+                    s += w
+                    if r <= s:
+                        next_idx = i
+                        break
+                self.state.home_line_idx = next_idx
+                self.on_ice_home = self.lines_home[self.state.home_line_idx]
+                self.shift_timer_home = self.shift_base_sec
+            if self.shift_timer_away <= 0 and len(self.lines_away) > 0:
+                cur = self.state.away_line_idx
+                weights = self.line_weights_away[:]
+                if 0 <= cur < len(weights):
+                    weights[cur] = max(0.0, weights[cur] * 0.35)
+                r = random.random() * (sum(weights) or 1.0)
+                s = 0.0
+                next_idx = 0
+                for i, w in enumerate(weights):
+                    s += w
+                    if r <= s:
+                        next_idx = i
+                        break
+                self.state.away_line_idx = next_idx
+                self.on_ice_away = self.lines_away[self.state.away_line_idx]
+                self.shift_timer_away = self.shift_base_sec
 
     def _advance_time(self, mean_sec: float = 6.0) -> int:
         # Exponential time advance for next micro-event
@@ -426,31 +476,57 @@ def build_team_from_roster(date: str, team_abbr: str, projections: Optional[pd.D
         goalie = Player(name=f"{team_abbr}_G1", position='G')
     return Team(abbr=team_abbr, roster=players, goalie=goalie)
 
-def build_lines(team: Team) -> List[Line]:
-    fwds = [p for p in team.roster if p.position == 'F']
-    defs = [p for p in team.roster if p.position == 'D']
-    # Sort forwards by shot_rate desc; defenders by block_rate desc
-    fwds.sort(key=lambda x: x.shot_rate, reverse=True)
-    defs.sort(key=lambda x: x.block_rate, reverse=True)
+def build_lines(team: Team, date: Optional[str] = None) -> List[Line]:
+    # Prefer lineup-based lines with 'line_slot' per team when available
     lines: List[Line] = []
-    for i in range(0, min(len(fwds), 12), 3):
-        fgrp = fwds[i:i+3]
-        didx = (i // 3) * 2
-        dgrp = defs[didx:didx+2] if didx+1 < len(defs) else defs[-2:]
-        if len(fgrp) == 3 and len(dgrp) == 2:
-            lines.append(Line(forwards=fgrp, defenders=dgrp))
-    # Ensure at least 3 lines
-    while len(lines) < 3 and len(fwds) >= 3 and len(defs) >= 2:
-        lines.append(Line(forwards=fwds[:3], defenders=defs[:2]))
-    # Robust fallback: if still empty, build a generic line from top skaters
+    df = _read_lineups(date or '')
+    if df is not None and not df.empty and {'team','full_name','position','line_slot'}.issubset(df.columns):
+        dft = df[df['team'] == team.abbr].copy()
+        # Normalize line_slot to int if possible
+        try:
+            dft['line_slot'] = pd.to_numeric(dft['line_slot'], errors='coerce')
+        except Exception:
+            pass
+        for slot in [1,2,3,4]:
+            fw_names = [str(x) for x in dft[(dft['position'].astype(str).str.upper().str[:1)=='F') & (dft['line_slot']==slot)]['full_name'].tolist()]
+            df_names = [str(x) for x in dft[(dft['position'].astype(str).str.upper().str[:1)=='D') & (dft['line_slot']==slot)]['full_name'].tolist()]
+            fw_players = []
+            df_players = []
+            for nm in fw_names:
+                p = next((q for q in team.roster if q.name == nm), None)
+                if p:
+                    fw_players.append(p)
+            for nm in df_names:
+                p = next((q for q in team.roster if q.name == nm), None)
+                if p:
+                    df_players.append(p)
+            if len(fw_players) >= 3:
+                # pad defenders if fewer than 2 by best available
+                if len(df_players) < 2:
+                    best_defs = sorted([p for p in team.roster if p.position=='D' and p not in df_players], key=lambda x: x.block_rate, reverse=True)
+                    df_players = (df_players + best_defs)[:2]
+                lines.append(Line(forwards=fw_players[:3], defenders=df_players[:2]))
     if not lines:
-        skaters = [p for p in team.roster if p.position in ('F','D')]
-        skaters.sort(key=lambda x: (x.toi_target, x.shot_rate), reverse=True)
-        if len(skaters) >= 5:
-            lines.append(Line(forwards=skaters[:3], defenders=skaters[3:5]))
-        elif len(skaters) >= 3:
-            lines.append(Line(forwards=skaters[:3], defenders=[]))
-    return lines
+        # Fallback: derive by rates
+        fwds = [p for p in team.roster if p.position == 'F']
+        defs = [p for p in team.roster if p.position == 'D']
+        fwds.sort(key=lambda x: x.shot_rate, reverse=True)
+        defs.sort(key=lambda x: x.block_rate, reverse=True)
+        for i in range(0, min(len(fwds), 12), 3):
+            fgrp = fwds[i:i+3]
+            didx = (i // 3) * 2
+            dgrp = defs[didx:didx+2] if didx+1 < len(defs) else defs[-2:]
+            if len(fgrp) == 3 and len(dgrp) == 2:
+                lines.append(Line(forwards=fgrp, defenders=dgrp))
+        while len(lines) < 3 and len(fwds) >= 3 and len(defs) >= 2:
+            lines.append(Line(forwards=fwds[:3], defenders=defs[:2]))
+        if not lines:
+            skaters = [p for p in team.roster if p.position in ('F','D')]
+            skaters.sort(key=lambda x: (x.toi_target, x.shot_rate), reverse=True)
+            if len(skaters) >= 5:
+                lines.append(Line(forwards=skaters[:3], defenders=skaters[3:5]))
+            elif len(skaters) >= 3:
+                lines.append(Line(forwards=skaters[:3], defenders=[]))
     return lines
 
 def build_special_units(date: str, team: Team) -> None:
@@ -542,8 +618,8 @@ def simulate_game(home_abbr: str, away_abbr: str, date: Optional[str] = None, se
                 away.pace_rate = max(0.6, min(1.6, 0.9 + 0.2 * (pa / 3.1)))
             except Exception:
                 pass
-    lines_home = build_lines(home)
-    lines_away = build_lines(away)
+    lines_home = build_lines(home, date=date)
+    lines_away = build_lines(away, date=date)
     if date:
         build_special_units(date, home)
         build_special_units(date, away)

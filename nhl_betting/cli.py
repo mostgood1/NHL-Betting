@@ -6284,6 +6284,214 @@ def props_simulate_boxscores(
         _weights_by_name = {}
     # Helper: fetch roster + lineup rows for a slate team name using canonical snapshots
     from .data.rosters import build_roster_snapshot as _build_roster
+
+    def _norm_pos(raw: object) -> str:
+        s = str(raw or "").strip().upper()
+        if not s:
+            return "F"
+        if s in ("G", "GOALIE", "GOALTENDER") or s.startswith("G"):
+            return "G"
+        if s in ("D", "DEF", "DEFENSE", "DEFENCEMAN") or s.startswith("D"):
+            return "D"
+        return "F"
+
+    def _select_dressed_roster(
+        roster_rows: list[dict],
+        lineup_rows: list[dict],
+        starter_goalie_pid: int | None,
+    ) -> tuple[list[dict], list[dict], list[dict], set[int], int | None]:
+        """Return (dressed_roster, undressed_roster, dressed_lineup_rows, dressed_ids, dressed_goalie_id)."""
+        rr = [dict(x) for x in (roster_rows or [])]
+        for r in rr:
+            r["position"] = _norm_pos(r.get("position"))
+            try:
+                r["player_id"] = int(r.get("player_id"))
+            except Exception:
+                pass
+            try:
+                r["proj_toi"] = float(r.get("proj_toi")) if r.get("proj_toi") is not None else r.get("proj_toi")
+            except Exception:
+                pass
+
+        # Pools
+        forwards = [r for r in rr if _norm_pos(r.get("position")) == "F"]
+        defense = [r for r in rr if _norm_pos(r.get("position")) == "D"]
+        goalies = [r for r in rr if _norm_pos(r.get("position")) == "G"]
+
+        # Lineup hints
+        lu = [dict(x) for x in (lineup_rows or [])]
+        # Normalize and keep only pids present in roster
+        roster_pid_set = set()
+        for r in rr:
+            try:
+                roster_pid_set.add(int(r.get("player_id")))
+            except Exception:
+                continue
+        for x in lu:
+            try:
+                x["player_id"] = int(x.get("player_id"))
+            except Exception:
+                x["player_id"] = None
+        lu = [x for x in lu if x.get("player_id") in roster_pid_set]
+
+        # Identify dressed skaters from lineup slots when present
+        def _slot_key(x: dict) -> tuple[int, int]:
+            s = str(x.get("line_slot") or "").strip().upper()
+            if not s:
+                return (9, 9)
+            # L1..L4, D1..D3
+            try:
+                pfx = 0 if s.startswith("L") else (1 if s.startswith("D") else 9)
+                num = int(s[1:]) if len(s) >= 2 and s[1:].isdigit() else 9
+                return (pfx, num)
+            except Exception:
+                return (9, 9)
+
+        lu_sorted = sorted(lu, key=_slot_key)
+        lu_f = [x for x in lu_sorted if str(x.get("line_slot") or "").strip().upper().startswith("L")]
+        lu_d = [x for x in lu_sorted if str(x.get("line_slot") or "").strip().upper().startswith("D")]
+
+        def _top_by_toi(rows: list[dict], k: int) -> list[dict]:
+            def _toi(r: dict) -> float:
+                try:
+                    return float(r.get("proj_toi") or 0.0)
+                except Exception:
+                    return 0.0
+            return sorted(rows, key=_toi, reverse=True)[:k]
+
+        # Choose 12F / 6D
+        dressed_f_ids: list[int] = []
+        for x in lu_f:
+            try:
+                dressed_f_ids.append(int(x["player_id"]))
+            except Exception:
+                continue
+        dressed_f_ids = list(dict.fromkeys(dressed_f_ids))
+        # Filter to actual forward pool
+        forward_ids_set = set(int(r.get("player_id")) for r in forwards if r.get("player_id") is not None)
+        dressed_f_ids = [pid for pid in dressed_f_ids if pid in forward_ids_set]
+        if len(dressed_f_ids) < 12:
+            for r in _top_by_toi(forwards, 12):
+                pid = int(r.get("player_id"))
+                if pid not in dressed_f_ids:
+                    dressed_f_ids.append(pid)
+                if len(dressed_f_ids) >= 12:
+                    break
+        dressed_f_ids = dressed_f_ids[:12]
+
+        dressed_d_ids: list[int] = []
+        for x in lu_d:
+            try:
+                dressed_d_ids.append(int(x["player_id"]))
+            except Exception:
+                continue
+        dressed_d_ids = list(dict.fromkeys(dressed_d_ids))
+        defense_ids_set = set(int(r.get("player_id")) for r in defense if r.get("player_id") is not None)
+        dressed_d_ids = [pid for pid in dressed_d_ids if pid in defense_ids_set]
+        if len(dressed_d_ids) < 6:
+            for r in _top_by_toi(defense, 6):
+                pid = int(r.get("player_id"))
+                if pid not in dressed_d_ids:
+                    dressed_d_ids.append(pid)
+                if len(dressed_d_ids) >= 6:
+                    break
+        dressed_d_ids = dressed_d_ids[:6]
+
+        # Choose 1 goalie (starter if available)
+        dressed_goalie_id: int | None = None
+        goalie_ids = [int(r.get("player_id")) for r in goalies if r.get("player_id") is not None]
+        if starter_goalie_pid is not None:
+            try:
+                sp = int(starter_goalie_pid)
+                if sp in goalie_ids:
+                    dressed_goalie_id = sp
+            except Exception:
+                pass
+        if dressed_goalie_id is None and goalie_ids:
+            # Highest proj_toi goalie, else first
+            try:
+                dressed_goalie_id = int(sorted(goalies, key=lambda r: float(r.get("proj_toi") or 0.0), reverse=True)[0]["player_id"])
+            except Exception:
+                dressed_goalie_id = int(goalie_ids[0])
+
+        dressed_ids = set(dressed_f_ids + dressed_d_ids + ([dressed_goalie_id] if dressed_goalie_id is not None else []))
+        dressed_roster = [r for r in rr if (r.get("player_id") in dressed_ids)]
+        undressed_roster = [r for r in rr if (r.get("player_id") not in dressed_ids)]
+
+        # Rescale TOI projections so totals match a real game.
+        # Forwards: 3 skaters * 60 = 180 skater-minutes; Defense: 2 skaters * 60 = 120 skater-minutes.
+        try:
+            def _clip(x: float, lo: float, hi: float) -> float:
+                return float(max(lo, min(hi, float(x))))
+            def _rescale(rows: list[dict], target_sum: float, lo: float, hi: float) -> None:
+                vals = []
+                for r in rows:
+                    try:
+                        vals.append(float(r.get("proj_toi") or 0.0))
+                    except Exception:
+                        vals.append(0.0)
+                s = float(sum(vals) or 0.0)
+                if s <= 0.0:
+                    # fallback equal split
+                    per = float(target_sum) / float(max(1, len(rows)))
+                    for r in rows:
+                        r["proj_toi"] = _clip(per, lo, hi)
+                    return
+                scale = float(target_sum) / s
+                for r in rows:
+                    try:
+                        r["proj_toi"] = _clip(float(r.get("proj_toi") or 0.0) * scale, lo, hi)
+                    except Exception:
+                        r["proj_toi"] = _clip((float(target_sum) / float(max(1, len(rows)))), lo, hi)
+            f_rows = [r for r in dressed_roster if _norm_pos(r.get("position")) == "F"]
+            d_rows = [r for r in dressed_roster if _norm_pos(r.get("position")) == "D"]
+            g_rows = [r for r in dressed_roster if _norm_pos(r.get("position")) == "G"]
+            _rescale(f_rows, target_sum=180.0, lo=7.0, hi=23.0)
+            _rescale(d_rows, target_sum=120.0, lo=12.0, hi=28.0)
+            # Goalie TOI stays ~60
+            for r in g_rows:
+                r["proj_toi"] = 60.0
+        except Exception:
+            pass
+
+        # Build lineup rows for engine: keep existing where present, fill synthetic otherwise.
+        existing = {int(x["player_id"]): x for x in lu_sorted if x.get("player_id") is not None}
+        dressed_lineup: list[dict] = []
+
+        # Synthetic line slots
+        for idx, pid in enumerate(dressed_f_ids):
+            slot = f"L{1 + (idx // 3)}"
+            src = existing.get(int(pid), {})
+            dressed_lineup.append({
+                "player_id": int(pid),
+                "line_slot": str(src.get("line_slot") or slot),
+                "pp_unit": src.get("pp_unit"),
+                "pk_unit": src.get("pk_unit"),
+            })
+        for idx, pid in enumerate(dressed_d_ids):
+            slot = f"D{1 + (idx // 2)}"
+            src = existing.get(int(pid), {})
+            dressed_lineup.append({
+                "player_id": int(pid),
+                "line_slot": str(src.get("line_slot") or slot),
+                "pp_unit": src.get("pp_unit"),
+                "pk_unit": src.get("pk_unit"),
+            })
+
+        # Normalize PP/PK units to ints where possible
+        for x in dressed_lineup:
+            try:
+                if x.get("pp_unit") is not None and str(x.get("pp_unit")).strip() != "":
+                    x["pp_unit"] = int(float(x.get("pp_unit")))
+            except Exception:
+                pass
+            try:
+                if x.get("pk_unit") is not None and str(x.get("pk_unit")).strip() != "":
+                    x["pk_unit"] = int(float(x.get("pk_unit")))
+            except Exception:
+                pass
+
+        return dressed_roster, undressed_roster, dressed_lineup, dressed_ids, dressed_goalie_id
     def _roster_for_name(nm: str) -> tuple[list[dict], list[dict]]:
         """Return (roster_rows, lineup_rows) for a team name using canonical snapshots.
 
@@ -6445,14 +6653,33 @@ def props_simulate_boxscores(
                 except Exception:
                     continue
                 pos = str(rr.get("position") or "").upper()
-                # Priority order
-                v = toi_by_team_pid_lineup.get((abbr, pid))
-                if v is None:
-                    v = toi_by_team_pid_shifts.get((abbr, pid))
-                if v is None:
-                    v = toi_by_team_pid_hist.get((abbr, pid))
-                if v is None:
-                    v = rr.get("proj_toi")
+                def _to_float(x):
+                    try:
+                        return float(x) if (x is not None and pd.notna(x)) else None
+                    except Exception:
+                        return None
+
+                def _valid_toi_minutes(x: float | None, position: str) -> bool:
+                    if x is None:
+                        return False
+                    try:
+                        x = float(x)
+                    except Exception:
+                        return False
+                    # Goalies: expect near full game
+                    if position == "G":
+                        return (x >= 35.0) and (x <= 75.0)
+                    # Skaters: extremely low values are almost always bad inputs (would imply < ~5min TOI)
+                    return (x >= 5.0) and (x <= 40.0)
+
+                # Priority order (but skip obviously invalid values)
+                v = _to_float(toi_by_team_pid_lineup.get((abbr, pid)))
+                if not _valid_toi_minutes(v, pos):
+                    v = _to_float(toi_by_team_pid_shifts.get((abbr, pid)))
+                if not _valid_toi_minutes(v, pos):
+                    v = _to_float(toi_by_team_pid_hist.get((abbr, pid)))
+                if not _valid_toi_minutes(v, pos):
+                    v = _to_float(rr.get("proj_toi"))
                 try:
                     v = float(v) if (v is not None and pd.notna(v)) else None
                 except Exception:
@@ -6564,6 +6791,22 @@ def props_simulate_boxscores(
                 starter_ids[away] = int(pid_a)
         except Exception:
             pass
+
+        # Enforce a realistic dressed lineup: 12F / 6D / 1G
+        dressed_home, undressed_home, lineup_home_dressed, dressed_home_ids, home_goalie_id = _select_dressed_roster(
+            roster_home, lineup_home or [], starter_ids.get(home)
+        )
+        dressed_away, undressed_away, lineup_away_dressed, dressed_away_ids, away_goalie_id = _select_dressed_roster(
+            roster_away, lineup_away or [], starter_ids.get(away)
+        )
+        # Ensure starter goalie mapping exists for save attribution
+        try:
+            if home_goalie_id is not None:
+                starter_ids[home] = int(home_goalie_id)
+            if away_goalie_id is not None:
+                starter_ids[away] = int(away_goalie_id)
+        except Exception:
+            pass
         # Simple baseline rates per game; future: inject team-specific rates
         rates = RateModels.baseline()
         # Calibrate team rates from projections-derived weights to improve stat accuracy
@@ -6583,13 +6826,17 @@ def props_simulate_boxscores(
                     if w.get('block_weight') is not None and not _math.isnan(w['block_weight']):
                         blk += float(w['block_weight'])
                 return sog, gls, blk
-            sog_h, gls_h, blk_h = _exp_totals(roster_home)
-            sog_a, gls_a, blk_a = _exp_totals(roster_away)
-            # Expected per-60 approximates per-game for regulation; set team rates directly
-            if sog_h > 0: rates.home.shots_per_60 = float(sog_h)
-            if sog_a > 0: rates.away.shots_per_60 = float(sog_a)
-            if gls_h > 0: rates.home.goals_per_60 = float(gls_h)
-            if gls_a > 0: rates.away.goals_per_60 = float(gls_a)
+            sog_h, gls_h, blk_h = _exp_totals(dressed_home)
+            sog_a, gls_a, blk_a = _exp_totals(dressed_away)
+            # Expected per-60 ~ per-game in regulation; clamp to sane team-level ranges
+            if sog_h > 0:
+                rates.home.shots_per_60 = float(max(15.0, min(45.0, sog_h)))
+            if sog_a > 0:
+                rates.away.shots_per_60 = float(max(15.0, min(45.0, sog_a)))
+            if gls_h > 0:
+                rates.home.goals_per_60 = float(max(1.0, min(6.5, gls_h)))
+            if gls_a > 0:
+                rates.away.goals_per_60 = float(max(1.0, min(6.5, gls_a)))
             # Optional: pass block calibration via special_teams_cal base rates (EV/PK/PP-def)
             # Distribute target blocks across strengths roughly: EV ~70%, PK ~20%, PP-def ~10%
             total_blk = (blk_h + blk_a)
@@ -6632,7 +6879,15 @@ def props_simulate_boxscores(
         # Run sims and aggregate per-sim boxscores
         df_parts = []
         for i in range(int(n_sims)):
-            gs, ev = sim.simulate_with_lineups(home_name=home, away_name=away, roster_home=roster_home, roster_away=roster_away, lineup_home=lineup_home or [], lineup_away=lineup_away or [], special_teams_cal=special_cal)
+            gs, ev = sim.simulate_with_lineups(
+                home_name=home,
+                away_name=away,
+                roster_home=dressed_home,
+                roster_away=dressed_away,
+                lineup_home=lineup_home_dressed or [],
+                lineup_away=lineup_away_dressed or [],
+                special_teams_cal=special_cal,
+            )
             df_i = aggregate_events_to_boxscores(gs, ev, starter_goalies=starter_ids or None)
             # Attach player names for convenience
             name_map = { int(p['player_id']): str(p['full_name']) for p in (roster_home + roster_away) if p.get('player_id') }
@@ -6679,6 +6934,7 @@ def props_simulate_boxscores(
                 df = df.copy()
                 # Separate period rows and totals
                 periods = df[df['period'] > 0].copy()
+                totals_existing = df[df['period'] == 0].copy()
                 # Keep per-period expected values as floats; ensure non-negative
                 for col in ['shots','goals','assists','blocks','saves','points']:
                     if col in periods.columns:
@@ -6693,15 +6949,95 @@ def props_simulate_boxscores(
                     periods.loc[mask_nonzero & (periods['toi_sec'] <= 0), 'toi_sec'] = 60.0
                     # Also apply a small TOI floor for any period rows with zero TOI (e.g., shift events missing duration)
                     periods.loc[periods['toi_sec'] <= 0, 'toi_sec'] = 30.0
-                # Recompute totals across periods (period=0) with integer sums
+                # Totals (period=0): prefer the period=0 rows produced per-sim (preserves TOI fallback to projected),
+                # but enforce consistency with period sums (e.g., TOI floors applied above).
                 key_cols = ['team','player_id','player','game_home','game_away','date']
-                totals = periods.groupby(key_cols, as_index=False)[['shots','goals','assists','points','blocks','saves','toi_sec']].sum()
-                totals['period'] = 0
+                sum_periods = periods.groupby(key_cols, as_index=False)[['shots','goals','assists','points','blocks','saves','toi_sec']].sum()
+                if totals_existing is not None and not totals_existing.empty:
+                    totals = totals_existing.copy()
+                    # Keep only needed cols and ensure period=0
+                    totals = totals[key_cols + ['shots','goals','assists','points','blocks','saves','toi_sec']].copy()
+                    totals['period'] = 0
+                    # Ensure points consistency
+                    if {'goals','assists'}.issubset(totals.columns):
+                        totals['points'] = (totals['goals'].astype(float) + totals['assists'].astype(float))
+                    # Ensure totals are at least the summed per-period values (important for TOI floors)
+                    try:
+                        merged = totals.merge(sum_periods[key_cols + ['toi_sec']], on=key_cols, how='left', suffixes=('', '_sum'))
+                        merged['toi_sec'] = merged[['toi_sec','toi_sec_sum']].max(axis=1)
+                        totals = merged.drop(columns=['toi_sec_sum'])
+                    except Exception:
+                        pass
+                else:
+                    totals = sum_periods
+                    totals['period'] = 0
                 cols = ['team','player_id','period','player','game_home','game_away','date','shots','goals','assists','points','blocks','saves','toi_sec']
                 # Combine back
                 out_df = pd.concat([periods[cols], totals[cols]], ignore_index=True)
                 return out_df
             df_sum = _normalize_boxscores(df_sum)
+
+            # Tag dressed players and append undressed players as a separate section (period=0 only)
+            try:
+                df_sum["is_dressed"] = 1
+            except Exception:
+                pass
+            try:
+                undressed_rows = []
+                for rr in (undressed_home or []):
+                    try:
+                        undressed_rows.append({
+                            "team": home,
+                            "player_id": int(rr.get("player_id")),
+                            "period": 0,
+                            "player": str(rr.get("full_name") or rr.get("player") or rr.get("player_id")),
+                            "game_home": home,
+                            "game_away": away,
+                            "date": date,
+                            "shots": 0.0,
+                            "goals": 0.0,
+                            "assists": 0.0,
+                            "points": 0.0,
+                            "blocks": 0.0,
+                            "saves": 0.0,
+                            "toi_sec": 0.0,
+                            "is_dressed": 0,
+                        })
+                    except Exception:
+                        continue
+                for rr in (undressed_away or []):
+                    try:
+                        undressed_rows.append({
+                            "team": away,
+                            "player_id": int(rr.get("player_id")),
+                            "period": 0,
+                            "player": str(rr.get("full_name") or rr.get("player") or rr.get("player_id")),
+                            "game_home": home,
+                            "game_away": away,
+                            "date": date,
+                            "shots": 0.0,
+                            "goals": 0.0,
+                            "assists": 0.0,
+                            "points": 0.0,
+                            "blocks": 0.0,
+                            "saves": 0.0,
+                            "toi_sec": 0.0,
+                            "is_dressed": 0,
+                        })
+                    except Exception:
+                        continue
+                if undressed_rows:
+                    df_ud = pd.DataFrame(undressed_rows)
+                    # Avoid duplicates if a player already exists in sim output
+                    try:
+                        existing = set(zip(df_sum["team"].astype(str), df_sum["player_id"].astype(int), df_sum["period"].astype(int)))
+                        df_ud = df_ud[~df_ud.apply(lambda r: (str(r.get("team")), int(r.get("player_id")), int(r.get("period"))) in existing, axis=1)]
+                    except Exception:
+                        pass
+                    if not df_ud.empty:
+                        df_sum = pd.concat([df_sum, df_ud], ignore_index=True)
+            except Exception:
+                pass
             agg_all.append(df_sum)
     if not agg_all:
         # Fallback: if possession-level boxscores exist for the date, write a copy for props

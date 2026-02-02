@@ -91,7 +91,7 @@ def aggregate_events_to_boxscores(gs: GameState, events: List[Event], starter_go
         if starter_goalies and team_name in starter_goalies:
             return int(starter_goalies.get(team_name))
         team = gs.home if team_name == gs.home.name else gs.away
-        goalies = [p for p in team.players.values() if str(p.position) == "G"]
+        goalies = [p for p in team.players.values() if str(getattr(p, "position", "")).strip().upper() == "G"]
         if not goalies:
             return None
         # choose highest projected TOI as starter
@@ -118,6 +118,7 @@ def aggregate_events_to_boxscores(gs: GameState, events: List[Event], starter_go
                 # Ensure a minimal TOI presence when saves occur to avoid zero-TOI anomalies
                 s.toi = max(float(s.toi), 60.0)
 
+
     # Convert to DataFrame and also include game totals per player
     rows = []
     # Per-period rows
@@ -138,7 +139,9 @@ def aggregate_events_to_boxscores(gs: GameState, events: List[Event], starter_go
     # Game-total rows (period=0)
     if not df.empty:
         agg = df.groupby(["team", "player_id"], as_index=False)[["shots","goals","assists","points","blocks","saves","toi_sec"]].sum()
-        # TOI sanity fallback: if total TOI is unrealistically low, fallback to projected TOI from GameState
+        # TOI sanity fallback: if total TOI is unrealistically low, fallback to projected TOI from GameState.
+        # For goalies, we also apply a stronger sanity rule because saves can be attributed via
+        # `starter_goalies` even when goalie shift events are missing (e.g., roster/goalie-id mismatch).
         try:
             # Build proj_toi seconds map from game state
             proj_map = {}
@@ -150,21 +153,40 @@ def aggregate_events_to_boxscores(gs: GameState, events: List[Event], starter_go
                         continue
             # Define a minimal threshold (e.g., 120 seconds); if below, set to projected
             thr_sec = 120.0
+            goalie_full_game_sec = 60.0 * 60.0
+            goalie_min_reasonable_sec = 40.0 * 60.0
             for i, r in agg.iterrows():
                 try:
                     total_toi = float(r.get("toi_sec") or 0.0)
                     pid = int(r.get("player_id"))
-                    # If goalie with any saves but tiny TOI, set to full regulation
+                    team_name = str(r.get("team") or "")
+                    # Identify goalies robustly using GameState and/or starter map
                     is_goalie = False
                     try:
-                        team_state = gs.home if str(r.get("team")) == gs.home.name else gs.away
+                        team_state = gs.home if team_name == gs.home.name else gs.away
                         pstate = team_state.players.get(pid)
-                        is_goalie = str(getattr(pstate, "position", "")).upper() == "G"
+                        is_goalie = str(getattr(pstate, "position", "")).strip().upper() == "G"
                     except Exception:
                         is_goalie = False
-                    if is_goalie and total_toi < thr_sec:
-                        agg.at[i, "toi_sec"] = max(total_toi, float(60*60))
+                    if starter_goalies and team_name in starter_goalies:
+                        try:
+                            if int(starter_goalies.get(team_name)) == int(pid):
+                                is_goalie = True
+                        except Exception:
+                            pass
+
+                    # If goalie has saves but low TOI, treat as missing goalie shift events and
+                    # set to a full-game value to restore realism.
+                    if is_goalie and int(r.get("saves") or 0) > 0 and total_toi < goalie_min_reasonable_sec:
+                        agg.at[i, "toi_sec"] = max(total_toi, goalie_full_game_sec)
                         continue
+
+                    # If goalie is the designated starter, ensure non-trivial TOI even if saves
+                    # happen to be 0 in this sim aggregate.
+                    if is_goalie and total_toi < thr_sec and starter_goalies and team_name in starter_goalies:
+                        agg.at[i, "toi_sec"] = max(total_toi, goalie_full_game_sec)
+                        continue
+
                     if total_toi < thr_sec:
                         fallback = float(proj_map.get(pid, 0.0))
                         if fallback > 0:

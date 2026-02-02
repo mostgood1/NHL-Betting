@@ -295,6 +295,8 @@
             <style>
               .boxscores { margin: 12px 0; padding: 12px; border: 1px solid var(--border, #243356); border-radius: 8px; background: rgba(255,255,255,0.02); }
               .boxscores .title { font-size: 12px; font-weight: 600; color: var(--text-muted, #9fb0ff); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+              .boxscores .subtitle { font-size: 12px; font-weight: 600; color: var(--text-muted, #9fb0ff); text-transform: uppercase; letter-spacing: 0.5px; margin: 10px 0 4px; }
+              .boxscores .subtitle.tight { margin: 6px 0 4px; }
               .team-box { margin-top: 8px; }
               .team-box h4 { margin: 8px 0 6px; font-size: 12px; color: var(--text, #cfe0ff); }
               .team-box table { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
@@ -316,53 +318,74 @@
               <div class="team-box">
                 <h4>{{ r.away }} ({{ r.away_abbr }})</h4>
                 <div>
-                  <div class="title" style="margin:6px 0 4px;">Skaters</div>
-                  <table>
+                  <div class="subtitle tight">Skaters</div>
+                  {% set away_skaters = r.get('box_away_dressed') if r.get('box_away_dressed') is not none else (r.get('box_away') or []) %}
+                  {% set away_undressed = r.get('box_away_undressed') or [] %}
+                  <table class="sortable" data-sort-default="toi_min" data-sort-default-dir="desc">
                     <thead>
                       <tr>
-                        <th class="pos-col">Pos</th>
-                        <th class="name-col">Player</th>
-                        <th class="val-col">SOG</th>
-                        <th class="val-col">G</th>
-                        <th class="val-col">A</th>
-                        <th class="val-col">Pts</th>
-                        <th class="val-col">Blk</th>
-                        <th class="val-col toi">TOI</th>
+                        <th class="pos-col sort" data-key="pos">Pos</th>
+                        <th class="name-col sort" data-key="player">Player</th>
+                        <th class="val-col sort" data-key="shots">SOG</th>
+                        <th class="val-col sort" data-key="goals">G</th>
+                        <th class="val-col sort" data-key="assists">A</th>
+                        <th class="val-col sort" data-key="points">Pts</th>
+                        <th class="val-col sort" data-key="blocks">Blk</th>
+                        <th class="val-col toi sort" data-key="toi_min">TOI</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {% for p in r.get('box_away') or [] %}
+                      {% for p in away_skaters %}
                       {% if p.pos != 'G' %}
                       <tr>
                         <td class="pos-col">{{ p.pos if p.pos else '' }}</td>
                         <td class="name-col">{{ p.player }}</td>
-                        <td class="val-col">{{ '%.1f' % p.shots if p.shots is not none else '—' }}</td>
-                        <td class="val-col">{{ '%.1f' % p.goals if p.goals is not none else '—' }}</td>
-                        <td class="val-col">{{ '%.1f' % p.assists if p.assists is not none else '—' }}</td>
-                        <td class="val-col">{{ '%.1f' % p.points if p.points is not none else '—' }}</td>
-                        <td class="val-col">{{ '%.1f' % p.blocks if p.blocks is not none else '—' }}</td>
-                        <td class="val-col toi">{{ p.toi_clock if p.toi_clock is not none else '—' }}</td>
+                        <td class="val-col" data-sort="{{ p.shots if p.shots is not none else -1 }}">{{ '%.1f' % p.shots if p.shots is not none else '—' }}</td>
+                        <td class="val-col" data-sort="{{ p.goals if p.goals is not none else -1 }}">{{ '%.1f' % p.goals if p.goals is not none else '—' }}</td>
+                        <td class="val-col" data-sort="{{ p.assists if p.assists is not none else -1 }}">{{ '%.1f' % p.assists if p.assists is not none else '—' }}</td>
+                        <td class="val-col" data-sort="{{ p.points if p.points is not none else -1 }}">{{ '%.1f' % p.points if p.points is not none else '—' }}</td>
+                        <td class="val-col" data-sort="{{ p.blocks if p.blocks is not none else -1 }}">{{ '%.1f' % p.blocks if p.blocks is not none else '—' }}</td>
+                        <td class="val-col toi" data-sort="{{ p.toi_min if p.toi_min is not none else -1 }}">{{ p.toi_clock if p.toi_clock is not none else '—' }}</td>
                       </tr>
                       {% endif %}
                       {% endfor %}
                     </tbody>
                   </table>
-                  <div class="title" style="margin:10px 0 4px;">Goalies</div>
-                  <table>
+                  {% if away_undressed and away_undressed|length > 0 %}
+                  <div class="subtitle">Undressed Players</div>
+                  <table class="sortable" data-sort-default="player" data-sort-default-dir="asc">
                     <thead>
                       <tr>
-                        <th class="name-col">Player</th>
-                        <th class="val-col">Sv</th>
-                        <th class="val-col toi">TOI</th>
+                        <th class="pos-col sort" data-key="pos">Pos</th>
+                        <th class="name-col sort" data-key="player">Player</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {% for p in r.get('box_away') or [] %}
+                      {% for p in away_undressed %}
+                      <tr>
+                        <td class="pos-col">{{ p.pos if p.pos else '' }}</td>
+                        <td class="name-col">{{ p.player }}</td>
+                      </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                  {% endif %}
+                  <div class="subtitle">Goalies</div>
+                  <table class="sortable" data-sort-default="saves" data-sort-default-dir="desc">
+                    <thead>
+                      <tr>
+                        <th class="name-col sort" data-key="player">Player</th>
+                        <th class="val-col sort" data-key="saves">Sv</th>
+                        <th class="val-col toi sort" data-key="toi_min">TOI</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for p in away_skaters %}
                       {% if p.pos == 'G' %}
                       <tr>
                         <td class="name-col">{{ p.player }}</td>
-                        <td class="val-col">{{ '%.1f' % p.saves if p.saves is not none else '—' }}</td>
-                        <td class="val-col toi">{{ p.toi_clock if p.toi_clock is not none else '—' }}</td>
+                        <td class="val-col" data-sort="{{ p.saves if p.saves is not none else -1 }}">{{ '%.1f' % p.saves if p.saves is not none else '—' }}</td>
+                        <td class="val-col toi" data-sort="{{ p.toi_min if p.toi_min is not none else -1 }}">{{ p.toi_clock if p.toi_clock is not none else '—' }}</td>
                       </tr>
                       {% endif %}
                       {% endfor %}
@@ -373,53 +396,74 @@
               <div class="team-box">
                 <h4>{{ r.home }} ({{ r.home_abbr }})</h4>
                 <div>
-                  <div class="title" style="margin:6px 0 4px;">Skaters</div>
-                  <table>
+                  <div class="subtitle tight">Skaters</div>
+                  {% set home_skaters = r.get('box_home_dressed') if r.get('box_home_dressed') is not none else (r.get('box_home') or []) %}
+                  {% set home_undressed = r.get('box_home_undressed') or [] %}
+                  <table class="sortable" data-sort-default="toi_min" data-sort-default-dir="desc">
                     <thead>
                       <tr>
-                        <th class="pos-col">Pos</th>
-                        <th class="name-col">Player</th>
-                        <th class="val-col">SOG</th>
-                        <th class="val-col">G</th>
-                        <th class="val-col">A</th>
-                        <th class="val-col">Pts</th>
-                        <th class="val-col">Blk</th>
-                        <th class="val-col toi">TOI</th>
+                        <th class="pos-col sort" data-key="pos">Pos</th>
+                        <th class="name-col sort" data-key="player">Player</th>
+                        <th class="val-col sort" data-key="shots">SOG</th>
+                        <th class="val-col sort" data-key="goals">G</th>
+                        <th class="val-col sort" data-key="assists">A</th>
+                        <th class="val-col sort" data-key="points">Pts</th>
+                        <th class="val-col sort" data-key="blocks">Blk</th>
+                        <th class="val-col toi sort" data-key="toi_min">TOI</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {% for p in r.get('box_home') or [] %}
+                      {% for p in home_skaters %}
                       {% if p.pos != 'G' %}
                       <tr>
                         <td class="pos-col">{{ p.pos if p.pos else '' }}</td>
                         <td class="name-col">{{ p.player }}</td>
-                        <td class="val-col">{{ '%.1f' % p.shots if p.shots is not none else '—' }}</td>
-                        <td class="val-col">{{ '%.1f' % p.goals if p.goals is not none else '—' }}</td>
-                        <td class="val-col">{{ '%.1f' % p.assists if p.assists is not none else '—' }}</td>
-                        <td class="val-col">{{ '%.1f' % p.points if p.points is not none else '—' }}</td>
-                        <td class="val-col">{{ '%.1f' % p.blocks if p.blocks is not none else '—' }}</td>
-                        <td class="val-col toi">{{ p.toi_clock if p.toi_clock is not none else '—' }}</td>
+                        <td class="val-col" data-sort="{{ p.shots if p.shots is not none else -1 }}">{{ '%.1f' % p.shots if p.shots is not none else '—' }}</td>
+                        <td class="val-col" data-sort="{{ p.goals if p.goals is not none else -1 }}">{{ '%.1f' % p.goals if p.goals is not none else '—' }}</td>
+                        <td class="val-col" data-sort="{{ p.assists if p.assists is not none else -1 }}">{{ '%.1f' % p.assists if p.assists is not none else '—' }}</td>
+                        <td class="val-col" data-sort="{{ p.points if p.points is not none else -1 }}">{{ '%.1f' % p.points if p.points is not none else '—' }}</td>
+                        <td class="val-col" data-sort="{{ p.blocks if p.blocks is not none else -1 }}">{{ '%.1f' % p.blocks if p.blocks is not none else '—' }}</td>
+                        <td class="val-col toi" data-sort="{{ p.toi_min if p.toi_min is not none else -1 }}">{{ p.toi_clock if p.toi_clock is not none else '—' }}</td>
                       </tr>
                       {% endif %}
                       {% endfor %}
                     </tbody>
                   </table>
-                  <div class="title" style="margin:10px 0 4px;">Goalies</div>
-                  <table>
+                  {% if home_undressed and home_undressed|length > 0 %}
+                  <div class="subtitle">Undressed Players</div>
+                  <table class="sortable" data-sort-default="player" data-sort-default-dir="asc">
                     <thead>
                       <tr>
-                        <th class="name-col">Player</th>
-                        <th class="val-col">Sv</th>
-                        <th class="val-col toi">TOI</th>
+                        <th class="pos-col sort" data-key="pos">Pos</th>
+                        <th class="name-col sort" data-key="player">Player</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {% for p in r.get('box_home') or [] %}
+                      {% for p in home_undressed %}
+                      <tr>
+                        <td class="pos-col">{{ p.pos if p.pos else '' }}</td>
+                        <td class="name-col">{{ p.player }}</td>
+                      </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                  {% endif %}
+                  <div class="subtitle">Goalies</div>
+                  <table class="sortable" data-sort-default="saves" data-sort-default-dir="desc">
+                    <thead>
+                      <tr>
+                        <th class="name-col sort" data-key="player">Player</th>
+                        <th class="val-col sort" data-key="saves">Sv</th>
+                        <th class="val-col toi sort" data-key="toi_min">TOI</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for p in home_skaters %}
                       {% if p.pos == 'G' %}
                       <tr>
                         <td class="name-col">{{ p.player }}</td>
-                        <td class="val-col">{{ '%.1f' % p.saves if p.saves is not none else '—' }}</td>
-                        <td class="val-col toi">{{ p.toi_clock if p.toi_clock is not none else '—' }}</td>
+                        <td class="val-col" data-sort="{{ p.saves if p.saves is not none else -1 }}">{{ '%.1f' % p.saves if p.saves is not none else '—' }}</td>
+                        <td class="val-col toi" data-sort="{{ p.toi_min if p.toi_min is not none else -1 }}">{{ p.toi_clock if p.toi_clock is not none else '—' }}</td>
                       </tr>
                       {% endif %}
                       {% endfor %}
@@ -428,6 +472,82 @@
                 </div>
               </div>
             </div>
+
+            <script>
+              // Simple client-side table sorting for boxscores
+              (function() {
+                function parseVal(td, key) {
+                  if (!td) return null;
+                  var attr = td.getAttribute('data-sort');
+                  if (attr !== null && attr !== '') {
+                    var f = parseFloat(attr);
+                    if (!isNaN(f)) return f;
+                    return attr.toString().toLowerCase();
+                  }
+                  var txt = (td.textContent || '').trim();
+                  if (!txt || txt === '—') return null;
+                  // TOI like m:ss
+                  if (key === 'toi_min' && txt.indexOf(':') !== -1) {
+                    var parts = txt.split(':');
+                    var m = parseInt(parts[0], 10);
+                    var s = parseInt(parts[1], 10);
+                    if (!isNaN(m) && !isNaN(s)) return (m + s/60.0);
+                  }
+                  var n = parseFloat(txt);
+                  if (!isNaN(n)) return n;
+                  return txt.toLowerCase();
+                }
+                function sortTable(table, colIndex, key, dir) {
+                  var tbody = table.querySelector('tbody');
+                  if (!tbody) return;
+                  var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr'));
+                  rows.sort(function(a, b) {
+                    var ta = a.children[colIndex];
+                    var tb = b.children[colIndex];
+                    var va = parseVal(ta, key);
+                    var vb = parseVal(tb, key);
+                    if (va === null && vb === null) return 0;
+                    if (va === null) return 1;
+                    if (vb === null) return -1;
+                    var cmp = 0;
+                    if (typeof va === 'number' && typeof vb === 'number') {
+                      cmp = va - vb;
+                    } else {
+                      cmp = va.toString().localeCompare(vb.toString());
+                    }
+                    return dir === 'asc' ? cmp : -cmp;
+                  });
+                  rows.forEach(function(r) { tbody.appendChild(r); });
+                }
+                function initTable(table) {
+                  var ths = table.querySelectorAll('thead th.sort');
+                  if (!ths || ths.length === 0) return;
+                  ths.forEach(function(th, idx) {
+                    th.style.cursor = 'pointer';
+                    th.addEventListener('click', function() {
+                      var key = th.getAttribute('data-key') || '';
+                      var current = th.getAttribute('data-dir') || 'desc';
+                      var next = (current === 'asc') ? 'desc' : 'asc';
+                      ths.forEach(function(o) { o.removeAttribute('data-dir'); });
+                      th.setAttribute('data-dir', next);
+                      sortTable(table, idx, key, next);
+                    });
+                  });
+                  // Apply default sort
+                  var defKey = table.getAttribute('data-sort-default');
+                  var defDir = table.getAttribute('data-sort-default-dir') || 'desc';
+                  if (defKey) {
+                    var defTh = table.querySelector('thead th.sort[data-key="' + defKey + '"]');
+                    if (defTh) {
+                      var i = Array.prototype.indexOf.call(defTh.parentNode.children, defTh);
+                      defTh.setAttribute('data-dir', defDir);
+                      sortTable(table, i, defKey, defDir);
+                    }
+                  }
+                }
+                document.querySelectorAll('table.sortable').forEach(initTable);
+              })();
+            </script>
             {% endif %}
             {% endif %}
             <div class="row chips">

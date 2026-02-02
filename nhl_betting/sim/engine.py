@@ -425,17 +425,12 @@ class PeriodSimulator:
                 idx_dh = (idx_dh + 1) % max(1, len(rot_dh) or 1)
                 idx_la = (idx_la + 1) % max(1, len(rot_la) or 1)
                 idx_da = (idx_da + 1) % max(1, len(rot_da) or 1)
-            # Emit shift events for TOI attribution for all players on ice
-            # Use coverage fraction within segment to approximate actual shift durations
-            if seg_is_home_pp:
-                dur_h = min(90.0, seg_len * 0.60)
-                dur_a = min(80.0, seg_len * 0.60)
-            elif seg_is_away_pp:
-                dur_h = min(80.0, seg_len * 0.60)
-                dur_a = min(90.0, seg_len * 0.60)
-            else:
-                dur_h = min(60.0, seg_len * 0.33)
-                dur_a = min(60.0, seg_len * 0.33)
+            # Emit shift events for TOI attribution for all players on ice.
+            # NOTE: `segments` is a coarse rotation count per period; the selected units are assumed to
+            # be on ice for the full segment duration. Using a fractional multiplier here severely
+            # undercounts TOI and breaks TOI/stat consistency.
+            dur_h = float(seg_len)
+            dur_a = float(seg_len)
             for pid in (ice_h or []):
                 events.append(Event(t=t0, period=period_idx + 1, team=gs.home.name, kind="shift", player_id=pid, meta={"dur": dur_h, "strength": strength_h}))
             for pid in (ice_a or []):
@@ -502,9 +497,10 @@ class PeriodSimulator:
             for _ in range(b_away):
                 pid = _weighted_choice(def_a, gs.away, "block") if def_a else None
                 events.append(Event(t=t0 + self.rng.random() * seg_len, period=period_idx + 1, team=gs.away.name, kind="block", player_id=pid, meta={"strength": strength_a}))
-            # rotate
-            idx_lh = (idx_lh + 1) % max(1, len(l_home)); idx_dh = (idx_dh + 1) % max(1, len(d_home))
-            idx_la = (idx_la + 1) % max(1, len(l_away)); idx_da = (idx_da + 1) % max(1, len(d_away))
+            # NOTE: Do not rotate idx_l*/idx_d* here.
+            # They are advanced in-branch using the appropriate rotation arrays (rot_*),
+            # and rotating again here (especially with the wrong modulo) over-allocates TOI
+            # to early rotation entries and creates unrealistic TOI/stat extremes.
         return home_goals, away_goals, events
 
 
@@ -518,20 +514,32 @@ class GameSimulator:
         self.period_sim = PeriodSimulator(cfg, self.rng)
 
     def _init_game_state(self, home_name: str, away_name: str, roster_home: List[Dict], roster_away: List[Dict]) -> GameState:
+        def _norm_pos(raw: object) -> str:
+            s = str(raw or "").strip().upper()
+            if not s:
+                return ""
+            if s in {"G", "GOL", "GOALIE", "GOALTENDER"} or s.startswith("G"):
+                return "G"
+            if s in {"D", "DEF", "DEFENSE", "DEFENCE"} or s.startswith("D"):
+                return "D"
+            if s in {"F", "C", "LW", "RW", "W"}:
+                return "F"
+            return s
+
         home = TeamState(name=home_name, players={})
         away = TeamState(name=away_name, players={})
         for row in roster_home:
             pid = int(row.get("player_id"))
             toi = float(row.get("proj_toi", 0.0))
-            pos = str(row.get("position"))
+            pos = _norm_pos(row.get("position"))
             # Use provided weights if present; else derive heuristics
             sw = row.get("shot_weight")
             gw = row.get("goal_weight")
             bw = row.get("block_weight")
             if sw is None or gw is None or bw is None:
                 # Baseline heuristic
-                sw_h = toi * (1.25 if str(pos).upper() in ("F","C","LW","RW") else (0.65 if str(pos).upper()=="D" else 0.10))
-                bw_h = toi * (1.20 if str(pos).upper()=="D" else (0.60 if str(pos).upper() in ("F","C","LW","RW") else 0.05))
+                sw_h = toi * (1.25 if pos == "F" else (0.65 if pos == "D" else 0.10))
+                bw_h = toi * (1.20 if pos == "D" else (0.60 if pos == "F" else 0.05))
                 gw_h = max(0.01, sw_h * 0.30)
                 sw = float(sw if sw is not None else sw_h)
                 bw = float(bw if bw is not None else bw_h)
@@ -541,13 +549,13 @@ class GameSimulator:
         for row in roster_away:
             pid = int(row.get("player_id"))
             toi = float(row.get("proj_toi", 0.0))
-            pos = str(row.get("position"))
+            pos = _norm_pos(row.get("position"))
             sw = row.get("shot_weight")
             gw = row.get("goal_weight")
             bw = row.get("block_weight")
             if sw is None or gw is None or bw is None:
-                sw_h = toi * (1.25 if str(pos).upper() in ("F","C","LW","RW") else (0.65 if str(pos).upper()=="D" else 0.10))
-                bw_h = toi * (1.20 if str(pos).upper()=="D" else (0.60 if str(pos).upper() in ("F","C","LW","RW") else 0.05))
+                sw_h = toi * (1.25 if pos == "F" else (0.65 if pos == "D" else 0.10))
+                bw_h = toi * (1.20 if pos == "D" else (0.60 if pos == "F" else 0.05))
                 gw_h = max(0.01, sw_h * 0.30)
                 sw = float(sw if sw is not None else sw_h)
                 bw = float(bw if bw is not None else bw_h)

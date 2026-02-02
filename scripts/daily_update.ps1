@@ -2,6 +2,10 @@ Param (
   [int]$DaysAhead = 2,
   [int]$YearsBack = 2,
   [int]$CoreTimeoutSec = 600,
+  [int]$PropsBoxscoreNSims = 6000,
+  [int]$PropsBoxscoreTimeoutSec = 1200,
+  [int]$GameSimTimeoutSec = 600,
+  [switch]$StrictOutputs,
   [switch]$NoReconcile,
   [switch]$Postgame,
   [string]$PostgameDate = "yesterday",
@@ -60,6 +64,52 @@ $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot = Split-Path -Parent $ScriptDir
 $ProcessedDir = Join-Path $RepoRoot 'data/processed'
 $NpuScript = Join-Path $RepoRoot "activate_npu.ps1"
+
+function Assert-AnyPath {
+  Param(
+    [Parameter(Mandatory=$true)][string]$Label,
+    [Parameter(Mandatory=$true)][string[]]$Paths,
+    [switch]$NonEmpty,
+    [switch]$Strict
+  )
+  $found = $false
+  foreach ($p in $Paths) {
+    if (Test-Path $p) {
+      if ($NonEmpty) {
+        try {
+          $len = (Get-Item $p).Length
+          if ($len -gt 0) { $found = $true; break }
+        } catch {
+          # If we can't stat it, treat existence as sufficient
+          $found = $true; break
+        }
+      } else {
+        $found = $true; break
+      }
+    }
+  }
+  if (-not $found) {
+    $msg = "[daily_update] Missing expected output for $Label. Checked: $($Paths -join '; ')"
+    if ($Strict) { throw $msg } else { Write-Warning $msg }
+  }
+}
+
+function _PathInProcessed {
+  Param([Parameter(Mandatory=$true)][string]$FileName)
+  return (Join-Path $ProcessedDir $FileName)
+}
+
+function Has-NonEmptyCsv {
+  Param([Parameter(Mandatory=$true)][string]$Path)
+  try {
+    if (-not (Test-Path $Path)) { return $false }
+    # Read first two lines: header + at least one data row
+    $lines = Get-Content -LiteralPath $Path -TotalCount 2 -ErrorAction Stop
+    return ($lines.Count -ge 2)
+  } catch {
+    return $false
+  }
+}
 
 # Ensure QNN env (optional). Dot-source if available so QNN EP is found in this session.
 if (Test-Path $NpuScript) {
@@ -171,6 +221,11 @@ try {
   python -m nhl_betting.cli injury-update --date $today
   Write-Host "[daily_update] Updating lineup + co-TOI for $tomorrow …" -ForegroundColor Yellow
   python -m nhl_betting.cli lineup-update --date $tomorrow
+
+  # Sanity checks (lineups are foundational; shifts can be missing and will fall back to TOI history)
+  Assert-AnyPath -Label "lineups $today" -Paths @(_PathInProcessed "lineups_${today}.csv") -NonEmpty -Strict:$StrictOutputs
+  Assert-AnyPath -Label "lineups $tomorrow" -Paths @(_PathInProcessed "lineups_${tomorrow}.csv") -NonEmpty -Strict:$StrictOutputs
+  Assert-AnyPath -Label "shifts $today (optional)" -Paths @(_PathInProcessed "shifts_${today}.csv") -NonEmpty -Strict:$false
 } catch {
   Write-Warning "[daily_update] roster/lineup/injuries update failed: $($_.Exception.Message)"
 }
@@ -179,42 +234,70 @@ try {
 try {
   $dates = @((Get-Date).ToString('yyyy-MM-dd'), (Get-Date).AddDays(1).ToString('yyyy-MM-dd'))
   foreach ($d in $dates) {
+    $lineupsPath = _PathInProcessed "lineups_${d}.csv"
+    $hasSlate = Has-NonEmptyCsv $lineupsPath
+    if (-not $hasSlate) {
+      Write-Host "[daily_update] No slate detected for ${d} (lineups empty/missing); skipping sims." -ForegroundColor DarkGray
+      continue
+    }
     Write-Host "[daily_update] Generating simulated player boxscores for $d …" -ForegroundColor DarkYellow
     try {
       # Run with timeout to prevent stalls on future slates
-      $job1 = Start-Job -ScriptBlock { & $using:PyExe -m nhl_betting.cli props-simulate-boxscores --date $using:d --n-sims 6000 }
-      $done1 = Wait-Job $job1 -Timeout 180
+      $job1 = Start-Job -ScriptBlock { Set-Location $using:RepoRoot; & $using:PyExe -m nhl_betting.cli props-simulate-boxscores --date $using:d --n-sims $using:PropsBoxscoreNSims }
+      $done1 = Wait-Job $job1 -Timeout $PropsBoxscoreTimeoutSec
       if (-not $done1) {
         try { Stop-Job $job1 -Force } catch {}
         Remove-Job $job1 -Force
         Write-Warning "[daily_update] props-simulate-boxscores timed out for ${d}; skipping."
+        if ($StrictOutputs) { throw "[daily_update] props-simulate-boxscores timed out for ${d} (timeout=${PropsBoxscoreTimeoutSec}s)" }
       } else {
         Receive-Job $job1 | Write-Host
         Remove-Job $job1 -Force
+
+        # Verify expected sim artifacts were produced (only if slate exists)
+        if ($StrictOutputs) {
+          Assert-AnyPath -Label "props_boxscores_sim $d" -Paths @(
+            (_PathInProcessed "props_boxscores_sim_${d}.csv")
+          ) -NonEmpty -Strict:$StrictOutputs
+          Assert-AnyPath -Label "props_boxscores_sim_samples $d" -Paths @(
+            (_PathInProcessed "props_boxscores_sim_samples_${d}.parquet"),
+            (_PathInProcessed "props_boxscores_sim_samples_${d}.csv")
+          ) -NonEmpty -Strict:$StrictOutputs
+        }
       }
     } catch {
       Write-Warning "[daily_update] props-simulate-boxscores failed for ${d}: $($_.Exception.Message)"
+      if ($StrictOutputs) { throw }
     }
     # Produce sim-native game predictions and edges (ML/Totals) directly from per-sim samples
     try {
       Write-Host "[daily_update] Computing sim-native game predictions for $d …" -ForegroundColor DarkYellow
       # Run with timeout to prevent stalls if samples are unavailable
-      $job2 = Start-Job -ScriptBlock { & $using:PyExe -m nhl_betting.cli game-recommendations-sim --date $using:d --top 200 }
-      $done2 = Wait-Job $job2 -Timeout 120
+      $job2 = Start-Job -ScriptBlock { Set-Location $using:RepoRoot; & $using:PyExe -m nhl_betting.cli game-recommendations-sim --date $using:d --top 200 }
+      $done2 = Wait-Job $job2 -Timeout $GameSimTimeoutSec
       if (-not $done2) {
         try { Stop-Job $job2 -Force } catch {}
         Remove-Job $job2 -Force
         Write-Warning "[daily_update] game-recommendations-sim timed out for ${d}; skipping."
+        if ($StrictOutputs) { throw "[daily_update] game-recommendations-sim timed out for ${d} (timeout=${GameSimTimeoutSec}s)" }
       } else {
         Receive-Job $job2 | Write-Host
         Remove-Job $job2 -Force
+
+        # Verify expected sim-native game outputs were produced (only if slate exists)
+        if ($StrictOutputs) {
+          Assert-AnyPath -Label "predictions_sim $d" -Paths @((_PathInProcessed "predictions_sim_${d}.csv")) -NonEmpty -Strict:$StrictOutputs
+          Assert-AnyPath -Label "edges_sim $d" -Paths @((_PathInProcessed "edges_sim_${d}.csv")) -NonEmpty -Strict:$StrictOutputs
+        }
       }
     } catch {
       Write-Warning "[daily_update] game-recommendations-sim failed for ${d}: $($_.Exception.Message)"
+      if ($StrictOutputs) { throw }
     }
   }
 } catch {
   Write-Warning "[daily_update] props-simulate-boxscores block failed: $($_.Exception.Message)"
+  if ($StrictOutputs) { throw }
 }
 
 # Ensure props lines are saved once per slate (CSV+Parquet) without refetching repeatedly
@@ -323,7 +406,7 @@ $argsList = @("-m", "nhl_betting.scripts.daily_update", "--days-ahead", "$DaysAh
 if ($NoReconcile) { $argsList += "--no-reconcile" }
 Write-Host "[daily_update] Running core daily_update module with timeout=${CoreTimeoutSec}s …" -ForegroundColor Yellow
 try {
-  $coreJob = Start-Job -ScriptBlock { & $using:PyExe @using:argsList }
+  $coreJob = Start-Job -ScriptBlock { Set-Location $using:RepoRoot; & $using:PyExe @using:argsList }
   $coreDone = Wait-Job $coreJob -Timeout $CoreTimeoutSec
   if (-not $coreDone) {
     try { Stop-Job $coreJob -Force } catch {}

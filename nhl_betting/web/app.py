@@ -4288,7 +4288,10 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
                 for r in rows:
                     h = str(r.get("home") or ""); a = str(r.get("away") or "")
                     if not h or not a:
-                        r["box_home"] = []; r["box_away"] = []; continue
+                        r["box_home"] = []; r["box_away"] = []
+                        r["box_home_dressed"] = []; r["box_home_undressed"] = []
+                        r["box_away_dressed"] = []; r["box_away_undressed"] = []
+                        continue
                     # match game context columns if present
                     sub = db.copy()
                     if {"game_home","game_away"}.issubset(sub.columns):
@@ -4306,6 +4309,14 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
                                 return float(v) if v is not None and pd.notna(v) else None
                             except Exception:
                                 return None
+                        def _is_dressed(rr_: pd.Series) -> bool:
+                            try:
+                                v = rr_.get("is_dressed")
+                                if v is None or (isinstance(v, float) and pd.isna(v)):
+                                    return True
+                                return bool(int(float(v)) == 1)
+                            except Exception:
+                                return True
                         def _pos_for(rr_: pd.Series) -> Optional[str]:
                             # 1) roster-master by player_id
                             try:
@@ -4348,6 +4359,7 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
                             "saves": _f("saves"),
                             "toi": _f("toi_sec"),
                             "pos": _pos_for(rr),
+                            "is_dressed": _is_dressed(rr),
                         }
                         # convert TOI seconds to minutes for display
                         try:
@@ -4357,8 +4369,11 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
                                     orig_min = round(float(d["toi"]) / 60.0, 1)
                                 except Exception:
                                     orig_min = None
+                            # Undressed: force 0 TOI in display
+                            if not d.get("is_dressed", True):
+                                d["toi_min"] = 0.0
                             # Goalies: show original TOI (often ~60m)
-                            if (d.get("pos") or "") == "G":
+                            elif (d.get("pos") or "") == "G":
                                 d["toi_min"] = orig_min
                             else:
                                 # Skaters: prefer estimated TOI from co-TOI mapping (match on multiple name keys), else fall back to sim-derived minutes
@@ -4372,7 +4387,11 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
                                             break
                                 except Exception:
                                     est = None
-                                d["toi_min"] = float(est) if (est is not None and est > 0) else orig_min
+                                # Prefer sim-derived TOI when present; only fall back to estimate when missing/zero
+                                if orig_min is not None and orig_min > 0:
+                                    d["toi_min"] = orig_min
+                                else:
+                                    d["toi_min"] = float(est) if (est is not None and est > 0) else orig_min
                             # Add clock format mm:ss for TOI
                             try:
                                 def _fmt_clock(mins: float | None) -> str | None:
@@ -4484,22 +4503,61 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
                             return df_
                     home_rows = _sort_df(home_rows)
                     away_rows = _sort_df(away_rows)
-                    # No cap: show all players (traditional box score)
+                    # Split dressed vs undressed when is_dressed is present
+                    def _split(df_: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+                        try:
+                            if df_ is None or df_.empty:
+                                return df_.head(0), df_.head(0)
+                            if "is_dressed" not in df_.columns:
+                                return df_, df_.head(0)
+                            dd = df_[df_["is_dressed"].fillna(1).astype(float).astype(int) == 1]
+                            uu = df_[df_["is_dressed"].fillna(1).astype(float).astype(int) != 1]
+                            return dd, uu
+                        except Exception:
+                            return df_, df_.head(0)
+                    home_dressed, home_undressed = _split(home_rows)
+                    away_dressed, away_undressed = _split(away_rows)
+                    # Keep legacy keys for compatibility
                     r["box_home"] = [ _fmt_row(rr) for _, rr in home_rows.iterrows() ]
                     r["box_away"] = [ _fmt_row(rr) for _, rr in away_rows.iterrows() ]
+                    r["box_home_dressed"] = [ _fmt_row(rr) for _, rr in home_dressed.iterrows() ]
+                    r["box_away_dressed"] = [ _fmt_row(rr) for _, rr in away_dressed.iterrows() ]
+                    # Undressed: default alphabetical, show as names-only in UI
+                    try:
+                        home_undressed = home_undressed.sort_values(["player"], ascending=[True]) if (home_undressed is not None and not home_undressed.empty and "player" in home_undressed.columns) else home_undressed
+                    except Exception:
+                        pass
+                    try:
+                        away_undressed = away_undressed.sort_values(["player"], ascending=[True]) if (away_undressed is not None and not away_undressed.empty and "player" in away_undressed.columns) else away_undressed
+                    except Exception:
+                        pass
+                    r["box_home_undressed"] = [ _fmt_row(rr) for _, rr in home_undressed.iterrows() ]
+                    r["box_away_undressed"] = [ _fmt_row(rr) for _, rr in away_undressed.iterrows() ]
             except Exception:
                 # On any failure, ensure keys exist
                 for r in rows:
                     r["box_home"] = r.get("box_home") or []
                     r["box_away"] = r.get("box_away") or []
+                    r["box_home_dressed"] = r.get("box_home_dressed") or []
+                    r["box_home_undressed"] = r.get("box_home_undressed") or []
+                    r["box_away_dressed"] = r.get("box_away_dressed") or []
+                    r["box_away_undressed"] = r.get("box_away_undressed") or []
         else:
             for r in rows:
                 r["box_home"] = []
                 r["box_away"] = []
+                r["box_home_dressed"] = []
+                r["box_home_undressed"] = []
+                r["box_away_dressed"] = []
+                r["box_away_undressed"] = []
     except Exception:
         for r in rows:
             r["box_home"] = r.get("box_home") or []
             r["box_away"] = r.get("box_away") or []
+            r["box_home_dressed"] = r.get("box_home_dressed") or []
+            r["box_home_undressed"] = r.get("box_home_undressed") or []
+            r["box_away_dressed"] = r.get("box_away_dressed") or []
+            r["box_away_undressed"] = r.get("box_away_undressed") or []
     html = template.render(
         date=date,
         original_date=requested_date,

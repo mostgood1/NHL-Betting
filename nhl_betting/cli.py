@@ -62,7 +62,7 @@ from .data.lineups_sources import fetch_dailyfaceoff_starting_goalies
 from .data.lineups_sources import fetch_dailyfaceoff_starting_goalies
 from .data.injuries import build_injury_snapshot
 from .data.co_toi import build_co_toi_from_lineups
-from .data.shifts_api import shifts_frame, co_toi_from_shifts, player_toi_from_shifts
+from .data.shifts_api import shifts_frame, co_toi_from_shifts, player_toi_from_shifts, avg_toi_from_processed_shift_files
 from .sim.engine import GameSimulator, SimConfig
 from .sim.models import RateModels
 from .web.teams import get_team_assets
@@ -6171,6 +6171,57 @@ def props_simulate_boxscores(
         lineups_all = pd.read_csv(_PROC / f"lineups_{date}.csv") if (_PROC / f"lineups_{date}.csv").exists() else pd.DataFrame(columns=["player_id","full_name","position","line_slot","pp_unit","pk_unit","proj_toi","confidence","team"])
     except Exception:
         lineups_all = pd.DataFrame(columns=["player_id","full_name","position","line_slot","pp_unit","pk_unit","proj_toi","confidence","team"])
+
+    # Build TOI projections lookup (priority: lineup snapshot > same-day shifts > rolling shift history)
+    toi_by_team_pid_lineup: dict[tuple[str, int], float] = {}
+    toi_by_team_pid_shifts: dict[tuple[str, int], float] = {}
+    toi_by_team_pid_hist: dict[tuple[str, int], float] = {}
+    try:
+        if lineups_all is not None and not lineups_all.empty and {"team", "player_id", "proj_toi"}.issubset(lineups_all.columns):
+            _lu = lineups_all[["team", "player_id", "proj_toi"]].copy()
+            _lu["team"] = _lu["team"].astype(str).str.upper()
+            for _, r in _lu.iterrows():
+                try:
+                    tm = str(r.get("team") or "").upper()
+                    pid = int(r.get("player_id"))
+                    v = r.get("proj_toi")
+                    if tm and v is not None and pd.notna(v):
+                        toi_by_team_pid_lineup[(tm, pid)] = float(v)
+                except Exception:
+                    continue
+    except Exception:
+        toi_by_team_pid_lineup = {}
+    try:
+        shifts_path = _PROC / f"shifts_{date}.csv"
+        if shifts_path.exists() and getattr(shifts_path.stat(), "st_size", 0) > 0:
+            sh = pd.read_csv(shifts_path)
+            ptoi = player_toi_from_shifts(sh)
+            if ptoi is not None and not ptoi.empty:
+                for _, r in ptoi.iterrows():
+                    try:
+                        tm = str(r.get("team") or "").upper()
+                        pid = int(r.get("player_id"))
+                        v = r.get("toi_ev_minutes")
+                        if tm and v is not None and pd.notna(v):
+                            toi_by_team_pid_shifts[(tm, pid)] = float(v)
+                    except Exception:
+                        continue
+    except Exception:
+        toi_by_team_pid_shifts = {}
+    try:
+        hist = avg_toi_from_processed_shift_files(_PROC, end_date=str(date), days=45)
+        if hist is not None and not hist.empty:
+            for _, r in hist.iterrows():
+                try:
+                    tm = str(r.get("team") or "").upper()
+                    pid = int(r.get("player_id"))
+                    v = r.get("avg_toi_minutes")
+                    if tm and v is not None and pd.notna(v):
+                        toi_by_team_pid_hist[(tm, pid)] = float(v)
+                except Exception:
+                    continue
+    except Exception:
+        toi_by_team_pid_hist = {}
     # Prefer processed roster snapshot for the given date to avoid live API dependency
     roster_snapshot_df = None
     try:
@@ -6364,6 +6415,58 @@ def props_simulate_boxscores(
                     lineups = sub[['player_id','line_slot','pp_unit','pk_unit']].to_dict(orient='records')
         except Exception:
             lineups = []
+
+        # Apply best-available TOI projections to roster rows (used by engine lineup weights)
+        try:
+            # Build PP/PK flags for minor TOI boosts (helps pregame when only EV TOI is known)
+            pp_boost: dict[int, float] = {}
+            pk_boost: dict[int, float] = {}
+            for lr in lineups or []:
+                try:
+                    pid = int(lr.get("player_id"))
+                except Exception:
+                    continue
+                try:
+                    pp = lr.get("pp_unit")
+                    if pp is not None and str(pp).strip() not in ("", "0", "None", "nan"):
+                        pp_boost[pid] = 1.5
+                except Exception:
+                    pass
+                try:
+                    pk = lr.get("pk_unit")
+                    if pk is not None and str(pk).strip() not in ("", "0", "None", "nan"):
+                        pk_boost[pid] = 0.8
+                except Exception:
+                    pass
+
+            for rr in rows or []:
+                try:
+                    pid = int(rr.get("player_id"))
+                except Exception:
+                    continue
+                pos = str(rr.get("position") or "").upper()
+                # Priority order
+                v = toi_by_team_pid_lineup.get((abbr, pid))
+                if v is None:
+                    v = toi_by_team_pid_shifts.get((abbr, pid))
+                if v is None:
+                    v = toi_by_team_pid_hist.get((abbr, pid))
+                if v is None:
+                    v = rr.get("proj_toi")
+                try:
+                    v = float(v) if (v is not None and pd.notna(v)) else None
+                except Exception:
+                    v = None
+                if pos == "G":
+                    rr["proj_toi"] = float(v) if (v is not None and v > 0.0) else 60.0
+                    continue
+                if v is None or v <= 0.0:
+                    v = 15.0
+                # Small PP/PK usage bumps
+                v = float(v) + float(pp_boost.get(pid, 0.0)) + float(pk_boost.get(pid, 0.0))
+                rr["proj_toi"] = float(v)
+        except Exception:
+            pass
         # Attach projections-derived weights to roster rows when available (skip goalies)
         try:
             import math as _math
@@ -14254,25 +14357,23 @@ if __name__ == "__main__":
             print(f"Missing {lineup_path}; run lineup-update first.")
             raise typer.Exit(code=1)
         lineups_all = pd.read_csv(lineup_path)
-        # Optional: enrich TOI projections from shiftcharts if available
-        shifts_path = PROC_DIR / f"shifts_{d}.csv"
-        toi_map_home = {}; toi_map_away = {}
-        if shifts_path.exists():
-            try:
+        # Optional: enrich TOI projections from shifts (same-day) and rolling shift history
+        ptoi_all = pd.DataFrame()
+        try:
+            shifts_path = PROC_DIR / f"shifts_{d}.csv"
+            if shifts_path.exists() and getattr(shifts_path.stat(), "st_size", 0) > 0:
                 sh = pd.read_csv(shifts_path)
-                ptoi = player_toi_from_shifts(sh)
-                # Build maps per team for quick lookup
-                for _, r in ptoi.iterrows():
-                    tm = str(r["team"]).upper(); pid = int(r["player_id"]); m = float(r["toi_ev_minutes"]) if pd.notna(r["toi_ev_minutes"]) else 0.0
-                    # Assign sets after we know home/away abbrevs
-                    # We'll map by abbr later when we know h_ab/a_ab
-                    pass
-                # We'll re-compute per game below once h_ab/a_ab known
-                ptoi_all = ptoi
-            except Exception:
-                ptoi_all = pd.DataFrame()
-        else:
+                ptoi_all = player_toi_from_shifts(sh)
+                if ptoi_all is None:
+                    ptoi_all = pd.DataFrame()
+        except Exception:
             ptoi_all = pd.DataFrame()
+        try:
+            hist = avg_toi_from_processed_shift_files(PROC_DIR, end_date=str(d), days=45)
+            if hist is None:
+                hist = pd.DataFrame()
+        except Exception:
+            hist = pd.DataFrame()
         game_rows = []
         box_rows = []
         evt_rows = []
@@ -14282,19 +14383,53 @@ if __name__ == "__main__":
                 a_ab = get_team_assets(g.away).get("abbr") or g.away
                 roster_home_df = build_roster_snapshot(h_ab)
                 roster_away_df = build_roster_snapshot(a_ab)
-                # Merge shift-based TOI if available
-                if not ptoi_all.empty:
-                    try:
-                        p_h = ptoi_all[ptoi_all["team"].eq(h_ab)].rename(columns={"toi_ev_minutes":"proj_toi"})[["player_id","proj_toi"]]
-                        p_a = ptoi_all[ptoi_all["team"].eq(a_ab)].rename(columns={"toi_ev_minutes":"proj_toi"})[["player_id","proj_toi"]]
+                # Merge TOI projections (priority: lineup snapshot > same-day shifts > rolling history > default)
+                try:
+                    # Start with any existing proj_toi in roster snapshot
+                    if "proj_toi" not in roster_home_df.columns:
+                        roster_home_df["proj_toi"] = pd.NA
+                    if "proj_toi" not in roster_away_df.columns:
+                        roster_away_df["proj_toi"] = pd.NA
+                    # Lineup projections
+                    if {"team", "player_id", "proj_toi"}.issubset(lineups_all.columns):
+                        lu_h = lineups_all[lineups_all["team"].astype(str).str.upper().eq(h_ab)][["player_id", "proj_toi"]].rename(columns={"proj_toi": "proj_toi_lineup"})
+                        lu_a = lineups_all[lineups_all["team"].astype(str).str.upper().eq(a_ab)][["player_id", "proj_toi"]].rename(columns={"proj_toi": "proj_toi_lineup"})
+                        roster_home_df = roster_home_df.merge(lu_h, on="player_id", how="left")
+                        roster_away_df = roster_away_df.merge(lu_a, on="player_id", how="left")
+                    else:
+                        roster_home_df["proj_toi_lineup"] = pd.NA
+                        roster_away_df["proj_toi_lineup"] = pd.NA
+                    # Shift-based TOI
+                    if not ptoi_all.empty and {"team", "player_id", "toi_ev_minutes"}.issubset(ptoi_all.columns):
+                        p_h = ptoi_all[ptoi_all["team"].astype(str).str.upper().eq(h_ab)].rename(columns={"toi_ev_minutes": "proj_toi_shifts"})[["player_id", "proj_toi_shifts"]]
+                        p_a = ptoi_all[ptoi_all["team"].astype(str).str.upper().eq(a_ab)].rename(columns={"toi_ev_minutes": "proj_toi_shifts"})[["player_id", "proj_toi_shifts"]]
                         roster_home_df = roster_home_df.merge(p_h, on="player_id", how="left")
                         roster_away_df = roster_away_df.merge(p_a, on="player_id", how="left")
-                        roster_home_df["proj_toi"] = roster_home_df["proj_toi"].fillna(15.0)
-                        roster_away_df["proj_toi"] = roster_away_df["proj_toi"].fillna(15.0)
+                    else:
+                        roster_home_df["proj_toi_shifts"] = pd.NA
+                        roster_away_df["proj_toi_shifts"] = pd.NA
+                    # Rolling history TOI
+                    if not hist.empty and {"team", "player_id", "avg_toi_minutes"}.issubset(hist.columns):
+                        h_h = hist[hist["team"].astype(str).str.upper().eq(h_ab)][["player_id", "avg_toi_minutes"]].rename(columns={"avg_toi_minutes": "proj_toi_hist"})
+                        h_a = hist[hist["team"].astype(str).str.upper().eq(a_ab)][["player_id", "avg_toi_minutes"]].rename(columns={"avg_toi_minutes": "proj_toi_hist"})
+                        roster_home_df = roster_home_df.merge(h_h, on="player_id", how="left")
+                        roster_away_df = roster_away_df.merge(h_a, on="player_id", how="left")
+                    else:
+                        roster_home_df["proj_toi_hist"] = pd.NA
+                        roster_away_df["proj_toi_hist"] = pd.NA
+
+                    roster_home_df["proj_toi"] = roster_home_df["proj_toi_lineup"].combine_first(roster_home_df["proj_toi_shifts"]).combine_first(roster_home_df["proj_toi_hist"]).combine_first(roster_home_df["proj_toi"]).fillna(15.0)
+                    roster_away_df["proj_toi"] = roster_away_df["proj_toi_lineup"].combine_first(roster_away_df["proj_toi_shifts"]).combine_first(roster_away_df["proj_toi_hist"]).combine_first(roster_away_df["proj_toi"]).fillna(15.0)
+
+                    # Better goalie defaults for save attribution
+                    try:
+                        if "position" in roster_home_df.columns:
+                            roster_home_df.loc[roster_home_df["position"].astype(str).str.upper().str.startswith("G"), "proj_toi"] = roster_home_df.loc[roster_home_df["position"].astype(str).str.upper().str.startswith("G"), "proj_toi"].fillna(60.0)
+                        if "position" in roster_away_df.columns:
+                            roster_away_df.loc[roster_away_df["position"].astype(str).str.upper().str.startswith("G"), "proj_toi"] = roster_away_df.loc[roster_away_df["position"].astype(str).str.upper().str.startswith("G"), "proj_toi"].fillna(60.0)
                     except Exception:
-                        roster_home_df["proj_toi"] = 15.0
-                        roster_away_df["proj_toi"] = 15.0
-                else:
+                        pass
+                except Exception:
                     roster_home_df["proj_toi"] = 15.0
                     roster_away_df["proj_toi"] = 15.0
                 roster_home = roster_home_df.to_dict(orient="records")

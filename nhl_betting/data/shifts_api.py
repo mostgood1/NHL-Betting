@@ -13,6 +13,9 @@ Notes:
 import time
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
+from datetime import datetime, timedelta
+from pathlib import Path
+import re
 
 import pandas as pd
 import requests
@@ -110,6 +113,69 @@ def co_toi_from_shifts(df: pd.DataFrame) -> pd.DataFrame:
 
 
 __all__ = ["shifts_frame", "co_toi_from_shifts"]
+
+
+def avg_toi_from_processed_shift_files(
+    processed_dir: Path,
+    end_date: str,
+    days: int = 45,
+) -> pd.DataFrame:
+    """Compute rolling average TOI minutes per player from saved shifts_YYYY-MM-DD.csv files.
+
+    Returns columns: team, player_id, avg_toi_minutes
+    """
+    try:
+        end_dt = datetime.strptime(str(end_date), "%Y-%m-%d")
+    except Exception:
+        return pd.DataFrame(columns=["team", "player_id", "avg_toi_minutes"])
+    start_dt = end_dt - timedelta(days=int(days))
+    rows: List[Dict] = []
+    if processed_dir is None:
+        return pd.DataFrame(columns=["team", "player_id", "avg_toi_minutes"])
+    try:
+        files = list(Path(processed_dir).glob("shifts_*.csv"))
+    except Exception:
+        files = []
+    for fp in files:
+        m = re.match(r"shifts_(\d{4}-\d{2}-\d{2})\.csv$", fp.name)
+        if not m:
+            continue
+        try:
+            dt = datetime.strptime(m.group(1), "%Y-%m-%d")
+        except Exception:
+            continue
+        if not (start_dt <= dt <= end_dt):
+            continue
+        try:
+            df = pd.read_csv(fp)
+        except Exception:
+            continue
+        if df is None or df.empty:
+            continue
+        if not {"team", "player_id", "start_s", "end_s"}.issubset(df.columns):
+            continue
+        df2 = df.copy()
+        df2["dur"] = (pd.to_numeric(df2["end_s"], errors="coerce") - pd.to_numeric(df2["start_s"], errors="coerce")).clip(lower=0.0)
+        g = df2.groupby(["team", "player_id"], as_index=False)["dur"].sum()
+        g["toi_minutes"] = g["dur"].astype(float) / 60.0
+        for _, r in g.iterrows():
+            try:
+                rows.append({
+                    "team": str(r.get("team") or "").upper(),
+                    "player_id": int(r.get("player_id")),
+                    "toi_minutes": float(r.get("toi_minutes") or 0.0),
+                })
+            except Exception:
+                continue
+    if not rows:
+        return pd.DataFrame(columns=["team", "player_id", "avg_toi_minutes"])
+    hist = pd.DataFrame(rows)
+    out = hist.groupby(["team", "player_id"], as_index=False)["toi_minutes"].mean()
+    out = out.rename(columns={"toi_minutes": "avg_toi_minutes"})
+    return out
+
+
+__all__ = ["shifts_frame", "co_toi_from_shifts", "player_toi_from_shifts", "avg_toi_from_processed_shift_files"]
 
 def player_toi_from_shifts(df: pd.DataFrame) -> pd.DataFrame:
     """Aggregate per-player total EV TOI minutes from shift intervals.

@@ -7,6 +7,7 @@ $ErrorActionPreference = 'Stop'
 $RepoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 # Prefer FastAPI app (uvicorn) to match the desired version on 8080.
+
 if (-not $UseLegacyFlask) {
   # Ensure NPU/venv environment
   $NpuScript = Join-Path $RepoRoot 'activate_npu.ps1'
@@ -25,6 +26,6 @@ if (-not $UseLegacyFlask) {
   . (Join-Path $RepoRoot '.venv/Scripts/Activate.ps1')
   $env:FLASK_APP = $AppPath
   $env:FLASK_ENV = 'development'
-  Write-Host ("[flask] Starting on http://{0}:{1} …" -f $BindHost, $Port) -ForegroundColor Cyan
+  Write-Host ("[flask] Starting on http://{0}:{1} (app={2}) …" -f $BindHost, $Port, $AppPath) -ForegroundColor Cyan
   python -m flask run --host $BindHost --port $Port
 }

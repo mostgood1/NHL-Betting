@@ -1,6 +1,7 @@
 Param (
   [int]$DaysAhead = 2,
   [int]$YearsBack = 2,
+  [int]$CoreTimeoutSec = 600,
   [switch]$NoReconcile,
   [switch]$Postgame,
   [string]$PostgameDate = "yesterday",
@@ -70,6 +71,11 @@ if (-not $PSBoundParameters.ContainsKey('SimIncludeTotals')) { $SimIncludeTotals
 # Enable PBP backfill by default unless explicitly disabled
 if (-not $PSBoundParameters.ContainsKey('PBPBackfill')) { $PBPBackfill = $true }
 if (-not $PSBoundParameters.ContainsKey('PropsIncludeGoalies')) { $PropsIncludeGoalies = $true }
+if (-not $PSBoundParameters.ContainsKey('PropsRecs')) { $PropsRecs = $true }
+if (-not $PSBoundParameters.ContainsKey('PropsUseSim')) { $PropsUseSim = $true }
+if (-not $PSBoundParameters.ContainsKey('PropsMinProbPerMarket') -or [string]::IsNullOrWhiteSpace($PropsMinProbPerMarket)) {
+  $PropsMinProbPerMarket = 'SOG=0.75,GOALS=0.60,ASSISTS=0.60,POINTS=0.60,SAVES=0.60,BLOCKS=0.60'
+}
 
 # Defaults for props backtests EV gates if not provided
 if (-not $PropsBacktestMinEvPerMarket -or $PropsBacktestMinEvPerMarket.Trim() -eq '') {
@@ -315,7 +321,21 @@ try {
 # Run daily update workflow
 $argsList = @("-m", "nhl_betting.scripts.daily_update", "--days-ahead", "$DaysAhead", "--years-back", "$YearsBack")
 if ($NoReconcile) { $argsList += "--no-reconcile" }
-python @argsList
+Write-Host "[daily_update] Running core daily_update module with timeout=${CoreTimeoutSec}s …" -ForegroundColor Yellow
+try {
+  $coreJob = Start-Job -ScriptBlock { & $using:PyExe @using:argsList }
+  $coreDone = Wait-Job $coreJob -Timeout $CoreTimeoutSec
+  if (-not $coreDone) {
+    try { Stop-Job $coreJob -Force } catch {}
+    Remove-Job $coreJob -Force
+    Write-Warning "[daily_update] Core daily_update timed out after ${CoreTimeoutSec}s; continuing with downstream steps."
+  } else {
+    Receive-Job $coreJob | Write-Host
+    Remove-Job $coreJob -Force
+  }
+} catch {
+  Write-Warning "[daily_update] Core daily_update failed: $($_.Exception.Message)"
+}
 
 # After core daily update, recompute edges for today and forward DaysAhead-1 days
 try {
@@ -595,7 +615,7 @@ if ($PropsRecs) {
 
     if ($PropsUseSim) {
       Write-Host "[daily_update] Simulating props for $today & $tomorrow …" -ForegroundColor Yellow
-      $simArgsBase = @("-m", "nhl_betting.cli", "props-simulate", "--markets", "SOG,GOALS,ASSISTS,POINTS,SAVES,BLOCKS", "--n-sims", "16000", "--sim-shared-k", "1.2")
+      $simArgsBase = @("-m", "nhl_betting.cli", "props-simulate", "--markets", "SOG,GOALS,ASSISTS,POINTS,SAVES,BLOCKS", "--n-sims", "16000", "--sim-shared-k", "1.2", "--props-sog-dispersion", "0.20", "--props-sog-pp-gamma", "0.40", "--props-sog-pk-gamma", "0.30")
       if ($PropsXGGamma) { $simArgsBase += @("--props-xg-gamma", "$PropsXGGamma") } else { $simArgsBase += @("--props-xg-gamma", "0.02") }
       if ($PropsPenaltyGamma) { $simArgsBase += @("--props-penalty-gamma", "$PropsPenaltyGamma") } else { $simArgsBase += @("--props-penalty-gamma", "0.06") }
       if ($PropsGoalieFormGamma) { $simArgsBase += @("--props-goalie-form-gamma", "$PropsGoalieFormGamma") } else { $simArgsBase += @("--props-goalie-form-gamma", "0.02") }

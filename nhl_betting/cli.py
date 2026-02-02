@@ -5746,6 +5746,9 @@ def props_simulate(
     props_goalie_form_gamma: float = typer.Option(0.02, help="Opponent goalie sv% (L10) dampening for GOALS/ASSISTS/POINTS"),
     props_refs_gamma: float = typer.Option(0.0, help="Referee penalty-rate impact (if assignments available) [reserved]"),
     props_strength_gamma: float = typer.Option(0.04, help="Strength-aware adjustment for SAVES using sim PP shot fraction vs league average"),
+    props_sog_dispersion: float = typer.Option(0.0, help="Additional lognormal dispersion for SOG lambda per draw (0=off)"),
+    props_sog_pp_gamma: float = typer.Option(0.0, help="SOG boost from team PP fraction relative to league (0=off)"),
+    props_sog_pk_gamma: float = typer.Option(0.0, help="SOG dampening from opponent PP fraction relative to league (0=off)"),
 ):
     """Monte Carlo simulate player props using model lambdas + shared game pace + team features.
 
@@ -6029,9 +6032,37 @@ def props_simulate(
         mk = str(rr["market"]).upper(); ln = float(rr["line_num"]); lam0 = float(rr["proj_lambda"]); mmean = float(rr["lam_scale_mean"])
         if lam0 <= 0 or mmean <= 0:
             continue
+        # Additional SOG multipliers from PP/PK exposure
+        if mk == "SOG":
+            try:
+                team_ab = str(rr.get("team_abbr") or "").upper()
+                opp_ab = str(rr.get("opp_abbr") or "").upper()
+                tpp = float(team_pp_frac_map.get(team_ab)) if team_ab in team_pp_frac_map else None
+                opppp = float(opp_pp_frac_map.get(team_ab)) if team_ab in opp_pp_frac_map else None
+                # Use league PP fraction baseline if available
+                base = float(league_pp_frac) if ("league_pp_frac" in locals() and league_pp_frac is not None) else None
+                boost = 1.0
+                if (props_sog_pp_gamma or 0.0) != 0.0 and (tpp is not None):
+                    delta = (tpp - base) if base is not None else tpp
+                    boost *= (1.0 + float(props_sog_pp_gamma) * float(delta))
+                if (props_sog_pk_gamma or 0.0) != 0.0 and (oppp is not None):
+                    delta_o = (oppp - base) if base is not None else opppp
+                    boost *= (1.0 - float(props_sog_pk_gamma) * float(delta_o))
+                # Cap boost to avoid extremes
+                boost = max(0.5, min(1.6, float(boost)))
+                mmean = float(mmean) * boost
+            except Exception:
+                pass
         lam_eff = lam0 * mmean
         g = int(rr["grp_id"]) if pd.notna(rr.get("grp_id")) else 0
         lam_arr = lam_eff * pace_draws[g]
+        # Apply additional per-draw dispersion for SOG
+        if mk == "SOG" and float(props_sog_dispersion or 0.0) > 0.0:
+            try:
+                sigma = float(props_sog_dispersion)
+                lam_arr = lam_arr * rs.lognormal(mean=0.0, sigma=sigma, size=n_sims).astype(_np.float32)
+            except Exception:
+                pass
         # Discrete line handling
         k_line = int(_np.floor(ln + 1e-9))
         # Approximate via survival function of Poisson per draw using normal approximation is poor; sample directly
@@ -6076,6 +6107,7 @@ def props_simulate_boxscores(
     pp_goals_mult: float = typer.Option(1.0, help="Additional PP goal conversion multiplier"),
     pk_goals_mult: float = typer.Option(1.0, help="Additional PK goal conversion multiplier"),
     slate: Optional[str] = typer.Option(None, help="Forced slate list like 'CBJ@CHI, BOS@TOR' to bypass Web schedule"),
+    out_prefix: str = typer.Option("", help="Optional output filename prefix to distinguish calibration variants"),
 ):
     """Generate period and game-level simulated player boxscores from the play-level sim engine.
 
@@ -6584,18 +6616,19 @@ def props_simulate_boxscores(
         print("No aggregated boxscores generated.")
         raise typer.Exit(code=0)
     out = pd.concat(agg_all, ignore_index=True)
-    out_path = PROC_DIR / f"props_boxscores_sim_{date}.csv"
+    pref = (out_prefix.strip() + "_") if str(out_prefix or '').strip() else ""
+    out_path = PROC_DIR / f"{pref}props_boxscores_sim_{date}.csv"
     save_df(out, out_path)
     print(f"[props-sim-boxscores] wrote {out_path} rows={len(out)}")
     if write_samples and samples_all:
         samp = pd.concat(samples_all, ignore_index=True)
-        samp_path = PROC_DIR / f"props_boxscores_sim_samples_{date}.parquet"
+        samp_path = PROC_DIR / f"{pref}props_boxscores_sim_samples_{date}.parquet"
         try:
             import pyarrow as _pa  # noqa: F401
             samp.to_parquet(samp_path, engine='pyarrow')
         except Exception:
             # fallback to CSV if parquet fails
-            samp_path = PROC_DIR / f"props_boxscores_sim_samples_{date}.csv"
+            samp_path = PROC_DIR / f"{pref}props_boxscores_sim_samples_{date}.csv"
             save_df(samp, samp_path)
         print(f"[props-sim-boxscores] wrote samples {samp_path}")
 
@@ -6975,6 +7008,143 @@ def props_precompute_all(
     try:
         if not df.empty:
             df = df.sort_values(['team','position','player','market'])
+    except Exception:
+        pass
+    # Guard: if projections are unexpectedly small, derive roster from props lines and recompute
+    try:
+        min_proj_rows = 200
+        if df is None or df.empty or (len(df) < min_proj_rows):
+            print(f"[props-precompute] projections rows={len(df) if df is not None else 0} below {min_proj_rows}; deriving roster from lines as fallback")
+            lines_roster_df = pd.DataFrame()
+            try:
+                base = Path("data/props") / f"player_props_lines/date={date}"
+                parts = []
+                for prov in ("oddsapi", "bovada"):
+                    p_parq = base / f"{prov}.parquet"; p_csv = base / f"{prov}.csv"
+                    if p_parq.exists():
+                        try:
+                            import pandas as _pd
+                            parts.append(_pd.read_parquet(p_parq))
+                        except Exception:
+                            pass
+                    elif p_csv.exists():
+                        try:
+                            import pandas as _pd
+                            parts.append(_pd.read_csv(p_csv))
+                        except Exception:
+                            pass
+                # Note: avoid overshadowing pandas; keep existing aliasing consistent
+                lines_df = pd.concat(parts, ignore_index=True) if parts else pd.DataFrame()
+                if lines_df is not None and not lines_df.empty:
+                    def _norm(s: str | None) -> str:
+                        try:
+                            return " ".join(str(s or "").split())
+                        except Exception:
+                            return str(s or "")
+                    import ast as _ast
+                    def _norm_player(x):
+                        s = str(x or "").strip()
+                        if s.startswith("{") and s.endswith("}"):
+                            try:
+                                d = _ast.literal_eval(s)
+                                v = d.get("default") or d.get("name")
+                                if isinstance(v, str):
+                                    s = v.strip()
+                            except Exception:
+                                pass
+                        return " ".join(s.split())
+                    name_cols = [c for c in ["player_name","player","name","display_name"] if c in lines_df.columns]
+                    if name_cols:
+                        s = lines_df[name_cols[0]].copy()
+                        for c in name_cols[1:]:
+                            try:
+                                s = s.where(s.notna() & (s.astype(str).str.strip() != ""), lines_df[c])
+                            except Exception:
+                                continue
+                        lines_df["player_display"] = s.map(_norm_player)
+                    else:
+                        lines_df["player_display"] = lines_df.index.map(lambda _: "")
+                    try:
+                        from .web.teams import get_team_assets as _assets
+                        def _to_abbr(x):
+                            s = str(x or "").strip()
+                            if not s:
+                                return None
+                            su = s.upper()
+                            # If already looks like an abbreviation, keep it
+                            if 2 <= len(su) <= 4:
+                                return su
+                            a = _assets(s)
+                            return str(a.get("abbr") or "").upper() if a else None
+                        # Prefer explicit team column if available, and normalize every value
+                        if "team" in lines_df.columns:
+                            lines_df["team_abbr"] = lines_df["team"].map(_to_abbr)
+                        elif "team_abbr" in lines_df.columns:
+                            lines_df["team_abbr"] = lines_df["team_abbr"].map(_to_abbr)
+                        else:
+                            # As last resort, try to infer from player display name token (often includes team in some feeds)
+                            lines_df["team_abbr"] = lines_df["player_display"].map(_to_abbr)
+                    except Exception:
+                        lines_df["team_abbr"] = lines_df.get("team", "").astype(str)
+                    # Infer position from history when available
+                    pos_map = {}
+                    try:
+                        if hist is not None and not hist.empty and {"player","primary_position"}.issubset(hist.columns):
+                            tmp = hist.dropna(subset=["player"]).copy()
+                            tmp["player"] = tmp["player"].astype(str)
+                            last_pos = tmp.dropna(subset=["primary_position"]).groupby("player")["primary_position"].last()
+                            pos_map = {k: v for k, v in last_pos.items() if isinstance(k, str)}
+                    except Exception:
+                        pos_map = {}
+                    def _infer_pos(nm: str) -> str:
+                        raw = str(pos_map.get(str(nm), "")).upper()
+                        if raw.startswith("G"): return "G"
+                        if raw.startswith("D"): return "D"
+                        if raw: return "F"
+                        return "F"
+                    rows2 = []
+                    for _, rr in lines_df.iterrows():
+                        nm = _norm(str(rr.get("player_display")))
+                        ab = str(rr.get("team_abbr") or "").upper()
+                        if not nm:
+                            continue
+                        rows2.append({"player": nm, "position": _infer_pos(nm), "team": ab})
+                    lines_roster_df = pd.DataFrame(rows2)
+                    try:
+                        if not lines_roster_df.empty:
+                            lines_roster_df = lines_roster_df.drop_duplicates(subset=["player"])  # ensure one row per player
+                    except Exception:
+                        pass
+            except Exception:
+                lines_roster_df = pd.DataFrame()
+            if lines_roster_df is not None and not lines_roster_df.empty:
+                roster_df = lines_roster_df
+                # Recompute projections with the new roster
+                out_rows2 = []
+                for _, r in roster_df.iterrows():
+                    player = _clean_player_display_name(str(r.get('player') or ''))
+                    pos = str(r.get('position') or '').upper()
+                    team = r.get('team')
+                    if not player:
+                        continue
+                    try:
+                        if pos == 'G':
+                            lam = saves.player_lambda(hist, player)
+                            out_rows2.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'SAVES', 'proj_lambda': float(lam) if lam is not None else None})
+                        else:
+                            lam = shots.player_lambda(hist, player); out_rows2.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'SOG', 'proj_lambda': float(lam) if lam is not None else None})
+                            lam = goals.player_lambda(hist, player); out_rows2.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'GOALS', 'proj_lambda': float(lam) if lam is not None else None})
+                            lam = assists.player_lambda(hist, player); out_rows2.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'ASSISTS', 'proj_lambda': float(lam) if lam is not None else None})
+                            lam = points.player_lambda(hist, player); out_rows2.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'POINTS', 'proj_lambda': float(lam) if lam is not None else None})
+                            lam = blocks.player_lambda(hist, player); out_rows2.append({'date': date, 'player': player, 'team': team, 'position': pos, 'market': 'BLOCKS', 'proj_lambda': float(lam) if lam is not None else None})
+                    except Exception:
+                        continue
+                df = pd.DataFrame(out_rows2)
+                try:
+                    if not df.empty:
+                        df = df.sort_values(['team','position','player','market'])
+                except Exception:
+                    pass
     except Exception:
         pass
     # Correct team assignments using roster snapshot when available
@@ -12875,6 +13045,7 @@ def props_backtest_from_boxscores(
     min_ev: float = typer.Option(-1.0, help="Filter to plays with EV >= min_ev; set -1 to include all"),
     out_prefix: str = typer.Option("boxscores", help="Output filename prefix under data/processed/"),
     min_ev_per_market: str = typer.Option("", help="Optional per-market EV thresholds, e.g., 'SOG=0.00,GOALS=0.04'"),
+    read_prefix: str = typer.Option("", help="Optional input filename prefix matching props-simulate-boxscores --out-prefix"),
 ):
     """Backtest using play-level boxscore simulation samples joined to canonical lines.
 
@@ -12978,8 +13149,9 @@ def props_backtest_from_boxscores(
     while cur <= end_dt:
         d = cur.strftime("%Y-%m-%d")
         # Load samples for date d
-        samp_path_parq = PROC_DIR / f"props_boxscores_sim_samples_{d}.parquet"
-        samp_path_csv = PROC_DIR / f"props_boxscores_sim_samples_{d}.csv"
+        _pref = (read_prefix.strip() + "_") if str(read_prefix or '').strip() else ""
+        samp_path_parq = PROC_DIR / f"{_pref}props_boxscores_sim_samples_{d}.parquet"
+        samp_path_csv = PROC_DIR / f"{_pref}props_boxscores_sim_samples_{d}.csv"
         if samp_path_parq.exists():
             try:
                 samples = pd.read_parquet(samp_path_parq, engine='pyarrow')

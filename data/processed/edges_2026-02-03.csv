@@ -1,0 +1,15 @@
+date,home,away,market,ev
+2026-02-04T00:00:00Z,New Jersey Devils,Columbus Blue Jackets,ev_home_ml,0.2896
+2026-02-04T00:30:00Z,Tampa Bay Lightning,Buffalo Sabres,ev_home_ml,0.1936
+2026-02-04T00:30:00Z,New York Islanders,Pittsburgh Penguins,ev_home_ml,0.1397
+2026-02-04T00:00:00Z,Carolina Hurricanes,Ottawa Senators,ev_home_ml,0.1081
+2026-02-04T00:00:00Z,Philadelphia Flyers,Washington Capitals,ev_away_ml,0.0739
+2026-02-04T01:30:00Z,Edmonton Oilers,Toronto Maple Leafs,ev_home_ml,0.067
+2026-02-04T03:00:00Z,Anaheim Ducks,Seattle Kraken,ev_away_ml,-0.0477
+2026-02-04T03:00:00Z,Anaheim Ducks,Seattle Kraken,ev_home_ml,-0.0532
+2026-02-04T00:00:00Z,Philadelphia Flyers,Washington Capitals,ev_home_ml,-0.1811
+2026-02-04T01:30:00Z,Edmonton Oilers,Toronto Maple Leafs,ev_away_ml,-0.2368
+2026-02-04T00:30:00Z,New York Islanders,Pittsburgh Penguins,ev_away_ml,-0.2852
+2026-02-04T00:00:00Z,Carolina Hurricanes,Ottawa Senators,ev_away_ml,-0.357
+2026-02-04T00:30:00Z,Tampa Bay Lightning,Buffalo Sabres,ev_away_ml,-0.4725
+2026-02-04T00:00:00Z,New Jersey Devils,Columbus Blue Jackets,ev_away_ml,-0.4816

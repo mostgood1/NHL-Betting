@@ -8,6 +8,8 @@
 body { background-color: #121417; color: var(--text); }
 .navbar { border-bottom: 1px solid var(--border); }
 .card { background: var(--card-bg); border: 1px solid var(--border); }
+.row > .col-12 { flex: 0 0 100%; max-width: 100%; }
+.card { width: 100%; }
 .card-header-primary { background-color: #222833; color: var(--text); }
 .section-title { font-weight: 600; color: var(--text); }
 .table thead th { background: rgba(255,255,255,0.12); color: var(--text); }

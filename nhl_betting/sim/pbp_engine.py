@@ -1,6 +1,8 @@
 from __future__ import annotations
 import dataclasses
 import random
+import re
+from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 import pandas as pd
 from pathlib import Path
@@ -73,7 +75,7 @@ class Simulator:
         self.on_ice_away = self.lines_away[0]
         self.player_stats: Dict[str, Dict[int, PlayerStats]] = {}
         # Rotation timers and weights
-        self.shift_base_sec = 45  # typical forward shift length
+        self.shift_base_sec = 45  # typical forward shift length baseline
         self.shift_timer_home = self.shift_base_sec
         self.shift_timer_away = self.shift_base_sec
         # Line weights from average toi_target per line (fallback uniform)
@@ -90,6 +92,17 @@ class Simulator:
             return [v / s for v in vals]
         self.line_weights_home = _line_weights(self.lines_home)
         self.line_weights_away = _line_weights(self.lines_away)
+        # Targets in seconds per player for usage-aware rotation
+        self._target_sec: Dict[str, float] = {}
+        for tm in (self.home, self.away):
+            for p in (tm.roster + ([tm.goalie] if tm.goalie else [])):
+                if p:
+                    self._target_sec[p.name] = max(60.0, float(p.toi_target or 0.0) * 60.0)
+
+    def _total_toi_sec(self, player_name: str) -> float:
+        # Sum across periods for current totals
+        per = self.player_stats.get(player_name, {})
+        return sum([float(s.toi_sec) for s in per.values()])
 
     def _players_on_ice(self, side: str) -> List[Player]:
         if self.state.manpower == 'PP':
@@ -115,41 +128,74 @@ class Simulator:
             self.shift_timer_home -= dt
             self.shift_timer_away -= dt
             if self.shift_timer_home <= 0 and len(self.lines_home) > 0:
-                # Weighted choice excluding current line
+                # Usage-aware choice: favor lines whose skaters are behind target
                 cur = self.state.home_line_idx
-                weights = self.line_weights_home[:]
-                if 0 <= cur < len(weights):
-                    # avoid immediate repeat
-                    weights[cur] = max(0.0, weights[cur] * 0.35)
-                r = random.random() * (sum(weights) or 1.0)
+                candidates = list(range(len(self.lines_home)))
+                # compute deficit score per line
+                scores: List[float] = []
+                for i in candidates:
+                    ln = self.lines_home[i]
+                    skaters = ln.forwards + ln.defenders
+                    deficit = 0.0
+                    for p in skaters:
+                        tgt = self._target_sec.get(p.name, 16.0 * 60.0)
+                        cur_t = self._total_toi_sec(p.name)
+                        deficit += max(0.0, tgt - cur_t)
+                    # add small prior from line_weights to keep cadence
+                    prior = self.line_weights_home[i] * 120.0
+                    # amplify scores for stronger separation
+                    sc = max(0.0, deficit + prior) ** 1.35
+                    scores.append(sc)
+                # dampen immediate repeat
+                if 0 <= cur < len(scores):
+                    scores[cur] = max(0.0, scores[cur] * 0.50)
+                # sample by scores
+                total = sum(scores) or 1.0
+                r = random.random() * total
                 s = 0.0
                 next_idx = 0
-                for i, w in enumerate(weights):
-                    s += w
+                for i, sc in enumerate(scores):
+                    s += sc
                     if r <= s:
                         next_idx = i
                         break
                 self.state.home_line_idx = next_idx
                 self.on_ice_home = self.lines_home[self.state.home_line_idx]
-                self.shift_timer_home = self.shift_base_sec
+                # jitter shift length for realism; slightly longer for stronger lines
+                base = self.shift_base_sec + int(6 * self.line_weights_home[self.state.home_line_idx])
+                self.shift_timer_home = max(30, min(80, int(random.gauss(base, 7))))
             if self.shift_timer_away <= 0 and len(self.lines_away) > 0:
                 cur = self.state.away_line_idx
-                weights = self.line_weights_away[:]
-                if 0 <= cur < len(weights):
-                    weights[cur] = max(0.0, weights[cur] * 0.35)
-                r = random.random() * (sum(weights) or 1.0)
+                candidates = list(range(len(self.lines_away)))
+                scores: List[float] = []
+                for i in candidates:
+                    ln = self.lines_away[i]
+                    skaters = ln.forwards + ln.defenders
+                    deficit = 0.0
+                    for p in skaters:
+                        tgt = self._target_sec.get(p.name, 16.0 * 60.0)
+                        cur_t = self._total_toi_sec(p.name)
+                        deficit += max(0.0, tgt - cur_t)
+                    prior = self.line_weights_away[i] * 120.0
+                    sc = max(0.0, deficit + prior) ** 1.35
+                    scores.append(sc)
+                if 0 <= cur < len(scores):
+                    scores[cur] = max(0.0, scores[cur] * 0.50)
+                total = sum(scores) or 1.0
+                r = random.random() * total
                 s = 0.0
                 next_idx = 0
-                for i, w in enumerate(weights):
-                    s += w
+                for i, sc in enumerate(scores):
+                    s += sc
                     if r <= s:
                         next_idx = i
                         break
                 self.state.away_line_idx = next_idx
                 self.on_ice_away = self.lines_away[self.state.away_line_idx]
-                self.shift_timer_away = self.shift_base_sec
+                base = self.shift_base_sec + int(6 * self.line_weights_away[self.state.away_line_idx])
+                self.shift_timer_away = max(30, min(80, int(random.gauss(base, 7))))
 
-    def _advance_time(self, mean_sec: float = 6.0) -> int:
+    def _advance_time(self, mean_sec: float = 8.0) -> int:
         # Exponential time advance for next micro-event
         inc = max(1, int(random.expovariate(1.0/max(mean_sec,1e-3))))
         prev = self.state.time_sec
@@ -166,10 +212,16 @@ class Simulator:
         return min(inc, 20*60 - prev)
 
     def _tick_toi(self, dt: int):
+        # Skaters on ice
         for p in self._players_on_ice('HOME'):
             self._stats(p.name, self.state.period).toi_sec += dt
         for p in self._players_on_ice('AWAY'):
             self._stats(p.name, self.state.period).toi_sec += dt
+        # Goalies: assume on ice unless modeling empty net
+        if self.home.goalie:
+            self._stats(self.home.goalie.name, self.state.period).toi_sec += dt
+        if self.away.goalie:
+            self._stats(self.away.goalie.name, self.state.period).toi_sec += dt
 
     def _stats(self, player_name: str, period: int) -> PlayerStats:
         if player_name not in self.player_stats:
@@ -185,13 +237,14 @@ class Simulator:
             pace = self.home.pace_rate
         else:
             pace = self.away.pace_rate
+        # Tune shot frequency to produce ~25–35 SOG per team
         w_pass = 3.0 * pace
-        w_shot = 1.2 * pace
-        w_pen = 0.02
+        w_shot = 0.7 * pace
+        w_pen = 0.015
         if self.state.manpower == 'PP':
-            w_shot *= 1.5
+            w_shot *= 1.3
         elif self.state.manpower == 'PK':
-            w_shot *= 0.8
+            w_shot *= 0.75
         total = w_pass + w_shot + w_pen
         r = random.random() * total
         if r < w_pass:
@@ -226,16 +279,16 @@ class Simulator:
     def _handle_shot(self, team_key: str):
         opp_key = 'AWAY' if team_key == 'HOME' else 'HOME'
         shooter = self._choose_shooter(team_key)
-        self._stats(shooter.name, self.state.period).shots += 1
-        # Chained outcome probabilities
-        p_block = 0.22
-        p_save = 0.70
+        # Chained outcome probabilities calibrated closer to NHL rates
+        # Roughly: ~35% of attempts blocked; among SOG, ~92% saved
+        p_block = 0.35
+        p_save = 0.92
         if self.state.manpower == 'PP':
             p_block *= 0.8
-            p_save *= 0.9
+            p_save *= 0.90
         elif self.state.manpower == 'PK':
-            p_block *= 1.1
-            p_save *= 1.05
+            p_block *= 1.10
+            p_save *= 1.02
         # Goalie calibration: boost saves based on team setting
         opp_team = self.home if opp_key == 'HOME' else self.away
         p_save *= (1.0 + max(0.0, float(opp_team.pk_save_boost or 0.0)))
@@ -245,6 +298,8 @@ class Simulator:
             if blocker:
                 self._stats(blocker.name, self.state.period).blocked += 1
             return 'block'
+        # Count shot on goal only if not blocked
+        self._stats(shooter.name, self.state.period).shots += 1
         r2 = random.random()
         if r2 < p_save:
             goalie = self.home.goalie if opp_key == 'HOME' else self.away.goalie
@@ -256,31 +311,49 @@ class Simulator:
             return 'save'
         # Goal
         self._stats(shooter.name, self.state.period).goals += 1
-        # assist assignment from teammates on ice
+        # Assist assignment (allow up to two assists with realistic rates)
         teammates = [p for p in self._players_on_ice(team_key) if p.name != shooter.name]
-        if teammates and random.random() < shooter.assist_chance:
-            # Weight assister by co-TOI pair minutes and pass_rate
-            team = self.home if team_key == 'HOME' else self.away
+        team = self.home if team_key == 'HOME' else self.away
+        def _weighted_choice(cands: List[Player]) -> Optional[Player]:
+            if not cands:
+                return None
             weights = []
-            for cand in teammates:
-                base = cand.pass_rate
+            for cand in cands:
+                base = max(0.01, cand.pass_rate)
                 co = 0.0
                 if team.co_toi_pairs and shooter.name in team.co_toi_pairs:
                     co = float(team.co_toi_pairs[shooter.name].get(cand.name, 0.0))
                 weights.append(max(0.01, base + 0.05 * co))
-            r = random.random() * sum(weights)
-            s = 0.0
-            assister = teammates[0]
-            for cand, w in zip(teammates, weights):
-                s += w
-                if r <= s:
-                    assister = cand
-                    break
-            self._stats(assister.name, self.state.period).assists += 1
-        # Update points
-        self._stats(shooter.name, self.state.period).points = (
-            self._stats(shooter.name, self.state.period).goals + self._stats(shooter.name, self.state.period).assists
-        )
+            rloc = random.random() * sum(weights)
+            ssum = 0.0
+            for cand, w in zip(cands, weights):
+                ssum += w
+                if rloc <= ssum:
+                    return cand
+            return cands[0]
+        # Primary assist chance ~72%
+        p_primary = 0.72
+        # Secondary assist chance conditional ~36%
+        p_secondary = 0.36
+        primary: Optional[Player] = None
+        secondary: Optional[Player] = None
+        if teammates and random.random() < p_primary:
+            primary = _weighted_choice(teammates)
+            if primary:
+                self._stats(primary.name, self.state.period).assists += 1
+                # update points for assister
+                ps = self._stats(primary.name, self.state.period)
+                ps.points = ps.goals + ps.assists
+        if teammates and random.random() < p_secondary:
+            pool = [p for p in teammates if (primary is None or p.name != primary.name)]
+            secondary = _weighted_choice(pool)
+            if secondary:
+                self._stats(secondary.name, self.state.period).assists += 1
+                ps = self._stats(secondary.name, self.state.period)
+                ps.points = ps.goals + ps.assists
+        # Update points for shooter
+        shs = self._stats(shooter.name, self.state.period)
+        shs.points = shs.goals + shs.assists
         # Score and reset possession after faceoff
         if team_key == 'HOME':
             self.state.home_score += 1
@@ -359,23 +432,24 @@ def _read_starting_goalies(date: str) -> Optional[pd.DataFrame]:
     return _safe_read_csv(p)
 
 def _read_shifts(date: str) -> Optional[pd.DataFrame]:
-    def _read_co_toi(date: str) -> Optional[pd.DataFrame]:
-        proc = Path('data/processed')
-        p = proc / f'lineups_co_toi_{date}.csv'
-        return _safe_read_csv(p)
-
-    def _read_predictions(date: str) -> Optional[pd.DataFrame]:
-        proc = Path('data/processed')
-        p = proc / f'predictions_{date}.csv'
-        return _safe_read_csv(p)
-
-    def abbr_to_name(abbr: str) -> Optional[str]:
-        a = get_team_assets(abbr)
-        nm = a.get('name') if a else None
-        return str(nm) if nm else None
     proc = Path('data/processed')
     p = proc / f'shifts_{date}.csv'
     return _safe_read_csv(p)
+
+def _read_co_toi(date: str) -> Optional[pd.DataFrame]:
+    proc = Path('data/processed')
+    p = proc / f'lineups_co_toi_{date}.csv'
+    return _safe_read_csv(p)
+
+def _read_predictions(date: str) -> Optional[pd.DataFrame]:
+    proc = Path('data/processed')
+    p = proc / f'predictions_{date}.csv'
+    return _safe_read_csv(p)
+
+def abbr_to_name(abbr: str) -> Optional[str]:
+    a = get_team_assets(abbr)
+    nm = a.get('name') if a else None
+    return str(nm) if nm else None
 
 def build_team_from_roster(date: str, team_abbr: str, projections: Optional[pd.DataFrame] = None) -> Team:
     proc = Path('data/processed')
@@ -385,6 +459,7 @@ def build_team_from_roster(date: str, team_abbr: str, projections: Optional[pd.D
     df = _safe_read_csv(roster_path)
     players: List[Player] = []
     goalie: Optional[Player] = None
+    pk_save_boost_val: float = 0.05
     # Prefer lineup snapshot when available to get line slots and PP/PK units
     shifts_df = _read_shifts(date)
     toi_map: Dict[str, float] = {}
@@ -397,6 +472,43 @@ def build_team_from_roster(date: str, team_abbr: str, projections: Optional[pd.D
                 toi_map[int(rr['player_id'])] = float(rr['dur'])/60.0
             except Exception:
                 pass
+    # If no per-game shifts found, use rolling TOI history across recent games
+    if (not toi_map) and date:
+        def _avg_toi_history(team_abbr: str, end_date: str, days: int = 45) -> Dict[int, float]:
+            proc = Path('data/processed')
+            end_dt = datetime.strptime(end_date, '%Y-%m-%d')
+            start_dt = end_dt - timedelta(days=days)
+            avg_map: Dict[int, List[float]] = {}
+            # Scan available shift files and aggregate per-player durations
+            for fp in proc.glob('shifts_*.csv'):
+                m = re.match(r'shifts_(\d{4}-\d{2}-\d{2})\.csv$', fp.name)
+                if not m:
+                    continue
+                dt = datetime.strptime(m.group(1), '%Y-%m-%d')
+                if not (start_dt <= dt <= end_dt):
+                    continue
+                try:
+                    sdf = pd.read_csv(fp)
+                except Exception:
+                    continue
+                if {'team','player_id','start_s','end_s'}.issubset(sdf.columns):
+                    dftoi = sdf[sdf['team'] == team_abbr].copy()
+                    dftoi['dur'] = pd.to_numeric(dftoi['end_s'], errors='coerce') - pd.to_numeric(dftoi['start_s'], errors='coerce')
+                    dsum = dftoi.groupby('player_id', as_index=False)['dur'].sum()
+                    for _, rr in dsum.iterrows():
+                        try:
+                            pid = int(rr['player_id'])
+                            mins = float(rr['dur'])/60.0
+                            avg_map.setdefault(pid, []).append(mins)
+                        except Exception:
+                            pass
+            # Compute averages
+            return {pid: (sum(vals)/len(vals)) for pid, vals in avg_map.items() if vals}
+        hist_map = _avg_toi_history(team_abbr, date, days=45)
+        # Convert to string-key map for consistency
+        for pid, mins in hist_map.items():
+            toi_map[pid] = mins
+
     if lineup_df is not None and not lineup_df.empty and {'team','full_name','position','line_slot','pp_unit','pk_unit','proj_toi','player_id'}.issubset(lineup_df.columns):
         dft = lineup_df[lineup_df['team'] == team_abbr]
         for _, r in dft.iterrows():
@@ -406,13 +518,37 @@ def build_team_from_roster(date: str, team_abbr: str, projections: Optional[pd.D
             block = 1.0
             assist = 0.4
             toi = float(r.get('proj_toi') or 16.0)
-            # Override TOI from shiftcharts if available
+            # Override TOI from shiftcharts or history if available
             try:
                 pid = int(r.get('player_id'))
                 if pid in toi_map:
                     toi = float(toi_map[pid])
             except Exception:
                 pass
+            # Special teams expected minutes (only apply when not using per-game shifts)
+            try:
+                pid = int(r.get('player_id'))
+            except Exception:
+                pid = None
+            pp_unit = r.get('pp_unit')
+            pk_unit = r.get('pk_unit')
+            def _to_int(x):
+                try:
+                    return int(float(x))
+                except Exception:
+                    return None
+            pp_u = _to_int(pp_unit)
+            pk_u = _to_int(pk_unit)
+            if pid is not None and pid not in toi_map:
+                # Baseline boosts: PP1 +2.0, PP2 +1.0; PK1 +1.5, PK2 +1.0; defenders get +0.5 on PK
+                if pp_u == 1:
+                    toi += 2.0
+                elif pp_u == 2:
+                    toi += 1.0
+                if pk_u == 1:
+                    toi += 1.5 + (0.5 if pos == 'D' else 0.0)
+                elif pk_u == 2:
+                    toi += 1.0 + (0.5 if pos == 'D' else 0.0)
             if projections is not None and {'player','team_abbr','market','value'}.issubset(projections.columns):
                 pp = projections[(projections['player'] == name) & (projections['team_abbr'] == team_abbr)]
                 sog = pp[pp['market']=='SOG']['value'].mean() if not pp.empty else None
@@ -428,7 +564,7 @@ def build_team_from_roster(date: str, team_abbr: str, projections: Optional[pd.D
                 # Goalies: use SAVES projection to calibrate save boost
                 if pos == 'G' and pd.notnull(svs):
                     # map higher saves to higher save baseline via pk_save_boost
-                    team.pk_save_boost = 0.03 + min(0.12, float(svs) * 0.002)
+                    pk_save_boost_val = 0.03 + min(0.12, float(svs) * 0.002)
             p = Player(name=name, position=pos, shot_rate=shot, block_rate=block, assist_chance=assist, toi_target=toi)
             if pos == 'G':
                 goalie = p
@@ -474,7 +610,7 @@ def build_team_from_roster(date: str, team_abbr: str, projections: Optional[pd.D
         for i in range(6):
             players.append(Player(name=f"{team_abbr}_D{i+1}", position='D', block_rate=1.2 + 0.1*i, shot_rate=0.6))
         goalie = Player(name=f"{team_abbr}_G1", position='G')
-    return Team(abbr=team_abbr, roster=players, goalie=goalie)
+    return Team(abbr=team_abbr, roster=players, goalie=goalie, pk_save_boost=pk_save_boost_val)
 
 def build_lines(team: Team, date: Optional[str] = None) -> List[Line]:
     # Prefer lineup-based lines with 'line_slot' per team when available
@@ -488,8 +624,10 @@ def build_lines(team: Team, date: Optional[str] = None) -> List[Line]:
         except Exception:
             pass
         for slot in [1,2,3,4]:
-            fw_names = [str(x) for x in dft[(dft['position'].astype(str).str.upper().str[:1)=='F') & (dft['line_slot']==slot)]['full_name'].tolist()]
-            df_names = [str(x) for x in dft[(dft['position'].astype(str).str.upper().str[:1)=='D') & (dft['line_slot']==slot)]['full_name'].tolist()]
+            mask_f = (dft['position'].astype(str).str.upper().str[:1] == 'F') & (dft['line_slot'] == slot)
+            mask_d = (dft['position'].astype(str).str.upper().str[:1] == 'D') & (dft['line_slot'] == slot)
+            fw_names = [str(x) for x in dft.loc[mask_f, 'full_name'].tolist()]
+            df_names = [str(x) for x in dft.loc[mask_d, 'full_name'].tolist()]
             fw_players = []
             df_players = []
             for nm in fw_names:

@@ -6629,11 +6629,18 @@ def props_simulate_boxscores(
             # Build PP/PK flags for minor TOI boosts (helps pregame when only EV TOI is known)
             pp_boost: dict[int, float] = {}
             pk_boost: dict[int, float] = {}
+            slot_by_pid: dict[int, str] = {}
             for lr in lineups or []:
                 try:
                     pid = int(lr.get("player_id"))
                 except Exception:
                     continue
+                try:
+                    s = str(lr.get("line_slot") or "").strip().upper()
+                    if s:
+                        slot_by_pid[pid] = s
+                except Exception:
+                    pass
                 try:
                     pp = lr.get("pp_unit")
                     if pp is not None and str(pp).strip() not in ("", "0", "None", "nan"):
@@ -6673,13 +6680,22 @@ def props_simulate_boxscores(
                     return (x >= 5.0) and (x <= 40.0)
 
                 # Priority order (but skip obviously invalid values)
+                source = None
                 v = _to_float(toi_by_team_pid_lineup.get((abbr, pid)))
+                if v is not None:
+                    source = 'lineup'
                 if not _valid_toi_minutes(v, pos):
                     v = _to_float(toi_by_team_pid_shifts.get((abbr, pid)))
+                    if v is not None:
+                        source = 'shifts'
                 if not _valid_toi_minutes(v, pos):
                     v = _to_float(toi_by_team_pid_hist.get((abbr, pid)))
+                    if v is not None:
+                        source = 'hist'
                 if not _valid_toi_minutes(v, pos):
                     v = _to_float(rr.get("proj_toi"))
+                    if v is not None:
+                        source = 'roster'
                 try:
                     v = float(v) if (v is not None and pd.notna(v)) else None
                 except Exception:
@@ -6689,6 +6705,24 @@ def props_simulate_boxscores(
                     continue
                 if v is None or v <= 0.0:
                     v = 15.0
+
+                # If our TOI came from a non-informative default (common when lineup snapshots
+                # don't have real TOI), use line-slot priors to shape rotation minutes.
+                try:
+                    slot = slot_by_pid.get(pid, '')
+                    if slot and (source in (None, 'lineup', 'roster')) and (abs(float(v) - 15.0) <= 0.25):
+                        priors = {
+                            'L1': 18.5,
+                            'L2': 16.0,
+                            'L3': 13.0,
+                            'L4': 10.5,
+                            'D1': 23.5,
+                            'D2': 21.0,
+                            'D3': 18.5,
+                        }
+                        v = float(priors.get(slot, v))
+                except Exception:
+                    pass
                 # Small PP/PK usage bumps
                 v = float(v) + float(pp_boost.get(pid, 0.0)) + float(pk_boost.get(pid, 0.0))
                 rr["proj_toi"] = float(v)

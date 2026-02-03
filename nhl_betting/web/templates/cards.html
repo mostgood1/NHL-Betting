@@ -321,6 +321,17 @@
                   <div class="subtitle tight">Skaters</div>
                   {% set away_skaters = r.get('box_away_dressed') if r.get('box_away_dressed') is not none else (r.get('box_away') or []) %}
                   {% set away_undressed = r.get('box_away_undressed') or [] %}
+                  {% set ns = namespace(shots=0.0, goals=0.0, assists=0.0, points=0.0, blocks=0.0, toi_min=0.0) %}
+                  {% for p in away_skaters %}
+                    {% if p.pos != 'G' %}
+                      {% set ns.shots = ns.shots + (p.shots if p.shots is not none else 0) %}
+                      {% set ns.goals = ns.goals + (p.goals if p.goals is not none else 0) %}
+                      {% set ns.assists = ns.assists + (p.assists if p.assists is not none else 0) %}
+                      {% set ns.points = ns.points + (p.points if p.points is not none else 0) %}
+                      {% set ns.blocks = ns.blocks + (p.blocks if p.blocks is not none else 0) %}
+                      {% set ns.toi_min = ns.toi_min + (p.toi_min if p.toi_min is not none else 0) %}
+                    {% endif %}
+                  {% endfor %}
                   <table class="sortable" data-sort-default="toi_min" data-sort-default-dir="desc">
                     <thead>
                       <tr>
@@ -350,6 +361,18 @@
                       {% endif %}
                       {% endfor %}
                     </tbody>
+                    <tfoot>
+                      <tr>
+                        <td class="pos-col"></td>
+                        <td class="name-col">Totals</td>
+                        <td class="val-col">{{ '%.1f' % ns.shots }}</td>
+                        <td class="val-col">{{ '%.1f' % ns.goals }}</td>
+                        <td class="val-col">{{ '%.1f' % ns.assists }}</td>
+                        <td class="val-col">{{ '%.1f' % ns.points }}</td>
+                        <td class="val-col">{{ '%.1f' % ns.blocks }}</td>
+                        <td class="val-col toi">{{ '%.1f' % ns.toi_min }}</td>
+                      </tr>
+                    </tfoot>
                   </table>
                   {% if away_undressed and away_undressed|length > 0 %}
                   <div class="subtitle">Undressed Players</div>
@@ -399,6 +422,17 @@
                   <div class="subtitle tight">Skaters</div>
                   {% set home_skaters = r.get('box_home_dressed') if r.get('box_home_dressed') is not none else (r.get('box_home') or []) %}
                   {% set home_undressed = r.get('box_home_undressed') or [] %}
+                  {% set ns = namespace(shots=0.0, goals=0.0, assists=0.0, points=0.0, blocks=0.0, toi_min=0.0) %}
+                  {% for p in home_skaters %}
+                    {% if p.pos != 'G' %}
+                      {% set ns.shots = ns.shots + (p.shots if p.shots is not none else 0) %}
+                      {% set ns.goals = ns.goals + (p.goals if p.goals is not none else 0) %}
+                      {% set ns.assists = ns.assists + (p.assists if p.assists is not none else 0) %}
+                      {% set ns.points = ns.points + (p.points if p.points is not none else 0) %}
+                      {% set ns.blocks = ns.blocks + (p.blocks if p.blocks is not none else 0) %}
+                      {% set ns.toi_min = ns.toi_min + (p.toi_min if p.toi_min is not none else 0) %}
+                    {% endif %}
+                  {% endfor %}
                   <table class="sortable" data-sort-default="toi_min" data-sort-default-dir="desc">
                     <thead>
                       <tr>
@@ -428,6 +462,18 @@
                       {% endif %}
                       {% endfor %}
                     </tbody>
+                    <tfoot>
+                      <tr>
+                        <td class="pos-col"></td>
+                        <td class="name-col">Totals</td>
+                        <td class="val-col">{{ '%.1f' % ns.shots }}</td>
+                        <td class="val-col">{{ '%.1f' % ns.goals }}</td>
+                        <td class="val-col">{{ '%.1f' % ns.assists }}</td>
+                        <td class="val-col">{{ '%.1f' % ns.points }}</td>
+                        <td class="val-col">{{ '%.1f' % ns.blocks }}</td>
+                        <td class="val-col toi">{{ '%.1f' % ns.toi_min }}</td>
+                      </tr>
+                    </tfoot>
                   </table>
                   {% if home_undressed and home_undressed|length > 0 %}
                   <div class="subtitle">Undressed Players</div>

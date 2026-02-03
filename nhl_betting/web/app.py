@@ -4018,17 +4018,135 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
     lu = _last_update_info(date)
     # Attach top props recommendations per game card
     try:
-        rec_path = PROC_DIR / f"props_recommendations_{date}.csv"
+        # NEW: Prefer raw sim probabilities for top props so we can rank by sim support directly
+        # and not be constrained by EV-based side selection.
+        sim_path = PROC_DIR / f"props_simulations_{date}.csv"
+
+        # If missing and not read-only, attempt to generate simulations
+        if (not sim_path.exists()) and (not _read_only(date)):
+            try:
+                # Uses model lambdas + shared pace; writes props_simulations_{date}.csv
+                props_simulate(date=date)
+            except Exception:
+                pass
+
+        df_sim = _read_csv_fallback(sim_path) if sim_path.exists() else pd.DataFrame()
+
+        # Fallback: sim-backed recommendations (still EV-derived) if simulations missing
+        rec_path_sim = PROC_DIR / f"props_recommendations_sim_{date}.csv"
+        rec_path = rec_path_sim if rec_path_sim.exists() else (PROC_DIR / f"props_recommendations_{date}.csv")
         df_recs = _read_csv_fallback(rec_path) if rec_path.exists() else pd.DataFrame()
         # If missing and not read-only, attempt a lightweight refresh from precomputed projections
         if (df_recs is None or df_recs.empty) and (not _read_only(date)):
             try:
                 _ = _refresh_props_recommendations(date, min_ev=0.0, top=400)
+                # Refresh may have written the non-sim file; re-check both
+                rec_path_sim = PROC_DIR / f"props_recommendations_sim_{date}.csv"
+                rec_path = rec_path_sim if rec_path_sim.exists() else (PROC_DIR / f"props_recommendations_{date}.csv")
                 df_recs = _read_csv_fallback(rec_path) if rec_path.exists() else pd.DataFrame()
             except Exception:
                 df_recs = pd.DataFrame()
         # Build team-abbr → recs mapping
         recs_by_team: dict[str, list[dict]] = {}
+
+        # 1) Primary path: use sim probabilities to surface OVERS
+        if df_sim is not None and not df_sim.empty:
+            try:
+                dfs = df_sim.copy()
+                # Normalize team and market
+                if "team" in dfs.columns:
+                    dfs["team_norm"] = dfs["team"].astype(str).str.upper().str.strip()
+                else:
+                    dfs["team_norm"] = ""
+                if "market" in dfs.columns:
+                    dfs["market_norm"] = dfs["market"].astype(str).str.upper().str.strip()
+                else:
+                    dfs["market_norm"] = ""
+
+                # Exclude GOALS from the strip
+                try:
+                    dfs = dfs[dfs["market_norm"] != "GOALS"]
+                except Exception:
+                    pass
+
+                # Pull over probability from sim file
+                pcol = "p_over_sim" if "p_over_sim" in dfs.columns else ("p_over" if "p_over" in dfs.columns else None)
+                if not pcol:
+                    dfs = pd.DataFrame()
+                else:
+                    dfs["p_over_num"] = pd.to_numeric(dfs.get(pcol), errors="coerce")
+                    dfs = dfs[dfs["p_over_num"].notna()].copy()
+
+                    # Basic probability floors (keep a little permissive; we are ranking by p_over)
+                    # and we want OVERS to actually show up.
+                    try:
+                        # Market-specific floors (SOG is typically harder)
+                        def _floor(mk: str) -> float:
+                            mk = str(mk or "").upper().strip()
+                            if mk == "SOG":
+                                return 0.52
+                            if mk in ("ASSISTS", "POINTS"):
+                                return 0.50
+                            if mk in ("SAVES", "BLOCKS"):
+                                return 0.52
+                            return 0.50
+                        dfs["p_floor"] = dfs["market_norm"].map(_floor)
+                        dfs = dfs[dfs["p_over_num"] >= dfs["p_floor"]]
+                    except Exception:
+                        pass
+
+                    # Deduplicate across books: keep the row with the highest p_over per (player,team,market,line)
+                    try:
+                        keys = [c for c in ["player", "team_norm", "market_norm", "line"] if c in dfs.columns]
+                        if keys:
+                            dfs = dfs.sort_values("p_over_num", ascending=False)
+                            dfs = dfs.drop_duplicates(subset=keys, keep="first")
+                    except Exception:
+                        pass
+
+                    # Rank within team
+                    try:
+                        dfs = dfs.sort_values(["team_norm", "p_over_num"], ascending=[True, False])
+                    except Exception:
+                        dfs = dfs.sort_values("p_over_num", ascending=False)
+
+                    def _clean_book(val: Any) -> Any:
+                        try:
+                            s = str(val or "").strip()
+                        except Exception:
+                            return val
+                        if not s:
+                            return None
+                        if ("/" in s) or ("\\" in s) or s.endswith(".csv"):
+                            import os as _os
+                            base = _os.path.basename(s)
+                            if base.lower().endswith('.csv'):
+                                base = base[:-4]
+                            s = base
+                        if len(s) > 32:
+                            return None
+                        return s
+
+                    for _, rr in dfs.iterrows():
+                        team_key = str(rr.get("team_norm") or "").upper()
+                        if not team_key:
+                            continue
+                        obj = {
+                            "player": rr.get("player"),
+                            "team": team_key,
+                            "market": rr.get("market"),
+                            "line": rr.get("line"),
+                            "side": "Over",
+                            "ev": None,
+                            "p_over": float(rr.get("p_over_num")) if pd.notna(rr.get("p_over_num")) else None,
+                            "book": _clean_book(rr.get("book")),
+                            "price": rr.get("over_price"),
+                        }
+                        recs_by_team.setdefault(team_key, []).append(obj)
+            except Exception:
+                # If sim path fails, fall back to recommendations path below
+                recs_by_team = {}
+
         if df_recs is not None and not df_recs.empty:
             try:
                 dfc = df_recs.copy()
@@ -4037,13 +4155,78 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
                     dfc["team_norm"] = dfc["team"].astype(str).str.upper().str.strip()
                 else:
                     dfc["team_norm"] = ""
+                # Normalize market/side for filtering and sim support
+                if "market" in dfc.columns:
+                    dfc["market_norm"] = dfc["market"].astype(str).str.upper().str.strip()
+                else:
+                    dfc["market_norm"] = ""
+                if "side" in dfc.columns:
+                    dfc["side_norm"] = dfc["side"].astype(str).str.upper().str.strip()
+                else:
+                    dfc["side_norm"] = ""
                 # Keep relevant fields
-                keep = [c for c in ["player","team_norm","market","line","side","ev","p_over","over_price","under_price","book"] if c in dfc.columns]
+                keep = [c for c in ["player","team_norm","market_norm","market","line","side_norm","side","ev","p_over","chosen_prob","over_price","under_price","book"] if c in dfc.columns]
                 dfc = dfc[keep]
-                # Sort by EV desc
-                if "ev" in dfc.columns:
+
+                # Exclude GOALS from the "top props" strip (still available elsewhere)
+                try:
+                    if "market_norm" in dfc.columns:
+                        dfc = dfc[dfc["market_norm"] != "GOALS"]
+                except Exception:
+                    pass
+
+                # Compute numeric EV + sim-supported probability of the chosen side
+                try:
+                    if "ev" in dfc.columns:
+                        dfc["ev_num"] = pd.to_numeric(dfc.get("ev"), errors="coerce")
+                    else:
+                        dfc["ev_num"] = pd.NA
+                except Exception:
+                    dfc["ev_num"] = pd.NA
+
+                if "chosen_prob" in dfc.columns:
                     try:
-                        dfc = dfc.sort_values("ev", ascending=False)
+                        dfc["chosen_prob_num"] = pd.to_numeric(dfc.get("chosen_prob"), errors="coerce")
+                    except Exception:
+                        dfc["chosen_prob_num"] = pd.NA
+                else:
+                    # Fallback: infer chosen prob from p_over + side
+                    try:
+                        p_over = pd.to_numeric(dfc.get("p_over"), errors="coerce")
+                        side = dfc.get("side_norm") if "side_norm" in dfc.columns else ""
+                        if isinstance(side, pd.Series):
+                            dfc["chosen_prob_num"] = np.where(side == "UNDER", 1.0 - p_over, p_over)
+                        else:
+                            dfc["chosen_prob_num"] = p_over
+                    except Exception:
+                        dfc["chosen_prob_num"] = pd.NA
+
+                # NOTE: We no longer require +EV here for top-props display.
+                # EV-based filtering can be applied elsewhere (grid view / recs page).
+                try:
+                    dfc = dfc[dfc["chosen_prob_num"].notna()]
+                    # Side-aware gating: unders tend to dominate when using a single threshold
+                    # because p_under is often high on 0.5 lines. Allow slightly lower threshold
+                    # for OVERS so the strip can show both sides.
+                    try:
+                        side_s = dfc["side_norm"] if "side_norm" in dfc.columns else None
+                        if side_s is not None:
+                            over_thr = 0.52
+                            under_thr = 0.58
+                            dfc = dfc[((side_s == "OVER") & (dfc["chosen_prob_num"] >= over_thr)) | ((side_s == "UNDER") & (dfc["chosen_prob_num"] >= under_thr))]
+                        else:
+                            dfc = dfc[dfc["chosen_prob_num"] >= 0.58]
+                    except Exception:
+                        dfc = dfc[dfc["chosen_prob_num"] >= 0.58]
+                except Exception:
+                    pass
+
+                # Rank: prioritize sim support, then EV
+                try:
+                    dfc = dfc.sort_values(["team_norm", "chosen_prob_num", "ev_num"], ascending=[True, False, False])
+                except Exception:
+                    try:
+                        dfc = dfc.sort_values(["chosen_prob_num", "ev_num"], ascending=[False, False])
                     except Exception:
                         pass
                 # Group into mapping
@@ -4075,7 +4258,7 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
                         "market": rr.get("market"),
                         "line": rr.get("line"),
                         "side": rr.get("side"),
-                        "ev": float(rr.get("ev")) if pd.notna(rr.get("ev")) else None,
+                        "ev": float(rr.get("ev_num")) if pd.notna(rr.get("ev_num")) else (float(rr.get("ev")) if pd.notna(rr.get("ev")) else None),
                         "p_over": float(rr.get("p_over")) if pd.notna(rr.get("p_over")) else None,
                         "book": _clean_book(rr.get("book")),
                         # Choose matching price by side
@@ -4094,6 +4277,11 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
                 try:
                     dfp = proj_all.copy()
                     dfp["team_norm"] = dfp["team"].astype(str).str.upper().str.strip()
+                    try:
+                        dfp["market_norm"] = dfp["market"].astype(str).str.upper().str.strip()
+                        dfp = dfp[dfp["market_norm"] != "GOALS"]
+                    except Exception:
+                        pass
                     dfp["p_over_num"] = pd.to_numeric(dfp.get("p_over"), errors="coerce")
                     dfp = dfp[dfp["p_over_num"].notna()]
                     # Basic filter to avoid noise
@@ -4130,10 +4318,44 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
                 a_ab = str(r.get("away_abbr") or "").upper()
                 home_list = list(recs_by_team.get(h_ab, []))
                 away_list = list(recs_by_team.get(a_ab, []))
-                # Take top per team (compact)
+
+                def _pick_over_under(lst: list[dict], n_total: int = 3, n_over: int = 2) -> list[dict]:
+                    try:
+                        n_total = int(n_total)
+                        n_over = int(n_over)
+                    except Exception:
+                        n_total, n_over = 3, 2
+                    n_total = max(0, n_total)
+                    n_over = max(0, min(n_over, n_total))
+                    n_under = max(0, n_total - n_over)
+
+                    overs: list[dict] = []
+                    unders: list[dict] = []
+                    other: list[dict] = []
+                    for it in lst:
+                        side = str((it or {}).get("side") or "").upper().strip()
+                        if side == "OVER":
+                            overs.append(it)
+                        elif side == "UNDER":
+                            unders.append(it)
+                        else:
+                            other.append(it)
+                    picked: list[dict] = []
+                    picked.extend(overs[:n_over])
+                    picked.extend(unders[:n_under])
+                    # Fill remaining slots, preserving original ordering as much as possible
+                    if len(picked) < n_total:
+                        for it in (overs[n_over:] + unders[n_under:] + other):
+                            if len(picked) >= n_total:
+                                break
+                            if it not in picked:
+                                picked.append(it)
+                    return picked[:n_total]
+
+                # Take top per team (compact) with Over/Under emphasis
                 top_per_team = 3
-                home_top = home_list[:top_per_team]
-                away_top = away_list[:top_per_team]
+                home_top = _pick_over_under(home_list, n_total=top_per_team, n_over=2)
+                away_top = _pick_over_under(away_list, n_total=top_per_team, n_over=2)
                 # Combined list capped
                 combined = []
                 combined.extend(home_top)

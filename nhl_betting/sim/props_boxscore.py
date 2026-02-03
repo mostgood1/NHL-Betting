@@ -161,19 +161,24 @@ def aggregate_events_to_boxscores(gs: GameState, events: List[Event], starter_go
                     pid = int(r.get("player_id"))
                     team_name = str(r.get("team") or "")
                     # Identify goalies robustly using GameState and/or starter map
+                    starter_pid = None
+                    if starter_goalies and team_name in starter_goalies:
+                        try:
+                            starter_pid = int(starter_goalies.get(team_name))
+                        except Exception:
+                            starter_pid = None
+
                     is_goalie = False
+                    is_starter_goalie = False
                     try:
                         team_state = gs.home if team_name == gs.home.name else gs.away
                         pstate = team_state.players.get(pid)
                         is_goalie = str(getattr(pstate, "position", "")).strip().upper() == "G"
                     except Exception:
                         is_goalie = False
-                    if starter_goalies and team_name in starter_goalies:
-                        try:
-                            if int(starter_goalies.get(team_name)) == int(pid):
-                                is_goalie = True
-                        except Exception:
-                            pass
+                    if starter_pid is not None and int(pid) == int(starter_pid):
+                        is_starter_goalie = True
+                        is_goalie = True
 
                     # If goalie has saves but low TOI, treat as missing goalie shift events and
                     # set to a full-game value to restore realism.
@@ -183,8 +188,13 @@ def aggregate_events_to_boxscores(gs: GameState, events: List[Event], starter_go
 
                     # If goalie is the designated starter, ensure non-trivial TOI even if saves
                     # happen to be 0 in this sim aggregate.
-                    if is_goalie and total_toi < thr_sec and starter_goalies and team_name in starter_goalies:
+                    if is_starter_goalie and total_toi < thr_sec:
                         agg.at[i, "toi_sec"] = max(total_toi, goalie_full_game_sec)
+                        continue
+
+                    # Backup goalies should not receive generic projection-based TOI.
+                    if is_goalie and (not is_starter_goalie) and total_toi < thr_sec:
+                        agg.at[i, "toi_sec"] = 0.0
                         continue
 
                     if total_toi < thr_sec:

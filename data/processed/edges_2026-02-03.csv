@@ -1,43 +1,43 @@
 date,home,away,market,ev
-2026-02-04T03:00:00Z,Anaheim Ducks,Seattle Kraken,ev_away_ml,0.4374
-2026-02-04T01:30:00Z,Edmonton Oilers,Toronto Maple Leafs,ev_away_ml,0.3496
-2026-02-04T00:00:00Z,New Jersey Devils,Columbus Blue Jackets,ev_home_ml,0.3431
-2026-02-04T00:00:00Z,Philadelphia Flyers,Washington Capitals,ev_away_ml,0.2627
-2026-02-04T00:00:00Z,Carolina Hurricanes,Ottawa Senators,ev_under,0.257
+2026-02-04T00:00:00Z,New Jersey Devils,Columbus Blue Jackets,ev_home_ml,0.3898
+2026-02-04T03:00:00Z,Anaheim Ducks,Seattle Kraken,ev_away_ml,0.3753
+2026-02-04T00:00:00Z,Carolina Hurricanes,Ottawa Senators,ev_under,0.3072
+2026-02-04T01:30:00Z,Edmonton Oilers,Toronto Maple Leafs,ev_away_ml,0.2961
+2026-02-04T00:00:00Z,Philadelphia Flyers,Washington Capitals,ev_away_ml,0.2622
 2026-02-04T03:00:00Z,Anaheim Ducks,Seattle Kraken,ev_under,0.2361
-2026-02-04T00:30:00Z,New York Islanders,Pittsburgh Penguins,ev_home_ml,0.1773
-2026-02-04T01:30:00Z,Edmonton Oilers,Toronto Maple Leafs,ev_under,0.1755
-2026-02-04T01:30:00Z,Edmonton Oilers,Toronto Maple Leafs,ev_away_pl_+1.5,0.1529
-2026-02-04T00:00:00Z,Carolina Hurricanes,Ottawa Senators,ev_home_ml,0.1358
-2026-02-04T00:30:00Z,New York Islanders,Pittsburgh Penguins,ev_under,0.1089
-2026-02-04T00:00:00Z,Philadelphia Flyers,Washington Capitals,ev_under,0.0913
-2026-02-04T03:00:00Z,Anaheim Ducks,Seattle Kraken,ev_away_pl_+1.5,0.0889
+2026-02-04T01:30:00Z,Edmonton Oilers,Toronto Maple Leafs,ev_under,0.1991
+2026-02-04T00:30:00Z,New York Islanders,Pittsburgh Penguins,ev_home_ml,0.1983
+2026-02-04T01:30:00Z,Edmonton Oilers,Toronto Maple Leafs,ev_away_pl_+1.5,0.1414
+2026-02-04T00:00:00Z,Carolina Hurricanes,Ottawa Senators,ev_home_ml,0.1413
+2026-02-04T00:30:00Z,Tampa Bay Lightning,Buffalo Sabres,ev_under,0.0847
+2026-02-04T00:30:00Z,New York Islanders,Pittsburgh Penguins,ev_under,0.0843
 2026-02-04T00:00:00Z,New Jersey Devils,Columbus Blue Jackets,ev_over,0.0841
-2026-02-04T00:30:00Z,Tampa Bay Lightning,Buffalo Sabres,ev_under,0.0832
-2026-02-04T00:30:00Z,New York Islanders,Pittsburgh Penguins,ev_away_pl_+1.5,0.0533
-2026-02-04T00:00:00Z,Philadelphia Flyers,Washington Capitals,ev_away_pl_+1.5,0.0459
-2026-02-04T00:30:00Z,Tampa Bay Lightning,Buffalo Sabres,ev_home_ml,0.0411
-2026-02-04T00:00:00Z,Carolina Hurricanes,Ottawa Senators,ev_away_pl_+1.5,0.0233
-2026-02-04T00:00:00Z,New Jersey Devils,Columbus Blue Jackets,ev_away_pl_+1.5,0.0051
-2026-02-04T00:30:00Z,Tampa Bay Lightning,Buffalo Sabres,ev_away_pl_+1.5,-0.0183
-2026-02-04T00:30:00Z,Tampa Bay Lightning,Buffalo Sabres,ev_home_pl_-1.5,-0.0673
-2026-02-04T00:00:00Z,Carolina Hurricanes,Ottawa Senators,ev_home_pl_-1.5,-0.1332
+2026-02-04T00:00:00Z,Philadelphia Flyers,Washington Capitals,ev_under,0.0823
+2026-02-04T03:00:00Z,Anaheim Ducks,Seattle Kraken,ev_away_pl_+1.5,0.0676
+2026-02-04T00:00:00Z,Philadelphia Flyers,Washington Capitals,ev_away_pl_+1.5,0.0505
+2026-02-04T00:30:00Z,New York Islanders,Pittsburgh Penguins,ev_away_pl_+1.5,0.0388
+2026-02-04T00:00:00Z,Carolina Hurricanes,Ottawa Senators,ev_away_pl_+1.5,0.0215
+2026-02-04T00:30:00Z,Tampa Bay Lightning,Buffalo Sabres,ev_home_ml,0.0014
+2026-02-04T00:00:00Z,New Jersey Devils,Columbus Blue Jackets,ev_away_pl_+1.5,-0.0074
+2026-02-04T00:30:00Z,Tampa Bay Lightning,Buffalo Sabres,ev_home_pl_-1.5,-0.0122
+2026-02-04T00:30:00Z,Tampa Bay Lightning,Buffalo Sabres,ev_away_pl_+1.5,-0.0614
+2026-02-04T00:30:00Z,Tampa Bay Lightning,Buffalo Sabres,ev_away_ml,-0.112
+2026-02-04T00:00:00Z,New Jersey Devils,Columbus Blue Jackets,ev_home_pl_-1.5,-0.1179
+2026-02-04T00:00:00Z,Carolina Hurricanes,Ottawa Senators,ev_home_pl_-1.5,-0.1306
 2026-02-04T00:00:00Z,New Jersey Devils,Columbus Blue Jackets,ev_under,-0.1441
-2026-02-04T00:00:00Z,New Jersey Devils,Columbus Blue Jackets,ev_home_pl_-1.5,-0.1455
-2026-02-04T00:30:00Z,New York Islanders,Pittsburgh Penguins,ev_over,-0.1613
-2026-02-04T00:30:00Z,Tampa Bay Lightning,Buffalo Sabres,ev_over,-0.1817
-2026-02-04T00:30:00Z,Tampa Bay Lightning,Buffalo Sabres,ev_away_ml,-0.1894
-2026-02-04T00:00:00Z,Philadelphia Flyers,Washington Capitals,ev_over,-0.1929
-2026-02-04T01:30:00Z,Edmonton Oilers,Toronto Maple Leafs,ev_over,-0.2063
-2026-02-04T00:00:00Z,Philadelphia Flyers,Washington Capitals,ev_home_pl_-1.5,-0.2135
-2026-02-04T00:30:00Z,New York Islanders,Pittsburgh Penguins,ev_home_pl_-1.5,-0.259
-2026-02-04T01:30:00Z,Edmonton Oilers,Toronto Maple Leafs,ev_home_ml,-0.2643
-2026-02-04T03:00:00Z,Anaheim Ducks,Seattle Kraken,ev_home_pl_-1.5,-0.2761
-2026-02-04T00:30:00Z,New York Islanders,Pittsburgh Penguins,ev_away_ml,-0.2843
-2026-02-04T00:00:00Z,Philadelphia Flyers,Washington Capitals,ev_home_ml,-0.2864
-2026-02-04T01:30:00Z,Edmonton Oilers,Toronto Maple Leafs,ev_home_pl_-1.5,-0.2883
-2026-02-04T00:00:00Z,Carolina Hurricanes,Ottawa Senators,ev_away_ml,-0.3327
+2026-02-04T00:30:00Z,New York Islanders,Pittsburgh Penguins,ev_over,-0.1443
+2026-02-04T00:00:00Z,Philadelphia Flyers,Washington Capitals,ev_over,-0.1826
+2026-02-04T00:30:00Z,Tampa Bay Lightning,Buffalo Sabres,ev_over,-0.1833
+2026-02-04T01:30:00Z,Edmonton Oilers,Toronto Maple Leafs,ev_over,-0.2213
+2026-02-04T00:00:00Z,Philadelphia Flyers,Washington Capitals,ev_home_pl_-1.5,-0.2228
+2026-02-04T00:30:00Z,New York Islanders,Pittsburgh Penguins,ev_home_pl_-1.5,-0.2328
+2026-02-04T01:30:00Z,Edmonton Oilers,Toronto Maple Leafs,ev_home_ml,-0.2456
+2026-02-04T03:00:00Z,Anaheim Ducks,Seattle Kraken,ev_home_pl_-1.5,-0.2493
+2026-02-04T01:30:00Z,Edmonton Oilers,Toronto Maple Leafs,ev_home_pl_-1.5,-0.2858
+2026-02-04T00:30:00Z,New York Islanders,Pittsburgh Penguins,ev_away_ml,-0.2933
+2026-02-04T00:00:00Z,Philadelphia Flyers,Washington Capitals,ev_home_ml,-0.2942
+2026-02-04T00:00:00Z,Carolina Hurricanes,Ottawa Senators,ev_away_ml,-0.3293
 2026-02-04T03:00:00Z,Anaheim Ducks,Seattle Kraken,ev_over,-0.3384
-2026-02-04T00:00:00Z,Carolina Hurricanes,Ottawa Senators,ev_over,-0.3603
-2026-02-04T03:00:00Z,Anaheim Ducks,Seattle Kraken,ev_home_ml,-0.3996
-2026-02-04T00:00:00Z,New Jersey Devils,Columbus Blue Jackets,ev_away_ml,-0.4651
+2026-02-04T03:00:00Z,Anaheim Ducks,Seattle Kraken,ev_home_ml,-0.378
+2026-02-04T00:00:00Z,Carolina Hurricanes,Ottawa Senators,ev_over,-0.3919
+2026-02-04T00:00:00Z,New Jersey Devils,Columbus Blue Jackets,ev_away_ml,-0.4731

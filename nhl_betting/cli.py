@@ -15547,9 +15547,334 @@ def props_validate_boxscores(
                 print(f" - {k}: {v}")
 
 
+def _props_compare__extract_player_text(v) -> str:
+    import ast
+
+    if v is None:
+        return ""
+    try:
+        if isinstance(v, str) and v.strip().startswith("{") and v.strip().endswith("}"):
+            d = ast.literal_eval(v)
+            if isinstance(d, dict):
+                for k in ("default", "en", "name", "fullName", "full_name"):
+                    if d.get(k):
+                        return str(d.get(k))
+        if isinstance(v, dict):
+            for k in ("default", "en", "name", "fullName", "full_name"):
+                if v.get(k):
+                    return str(v.get(k))
+        return str(v)
+    except Exception:
+        return str(v)
+
+
+def _props_compare__norm_name(s: str) -> str:
+    import re
+    import unicodedata
+
+    s = (str(s) or "").strip()
+    s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode()
+    s = re.sub(r"\s+", " ", s)
+    return s.lower()
+
+
+def _props_compare__toi_to_minutes(val) -> float | None:
+    import numpy as np
+
+    try:
+        if val is None or (isinstance(val, float) and np.isnan(val)):
+            return None
+        s = str(val).strip()
+        if not s:
+            return None
+        parts = s.split(":")
+        if len(parts) == 2:
+            m = int(parts[0])
+            sec = int(parts[1])
+            return float(m) + float(sec) / 60.0
+        v = float(s)
+        return float(v) / 60.0 if v > 300 else float(v)
+    except Exception:
+        return None
+
+
+def _props_compare__ensure_stats_date_et(df):
+    import pandas as pd
+
+    out = df.copy()
+    try:
+        dt_utc = pd.to_datetime(out["date"], utc=True, errors="coerce")
+        out["date_et"] = dt_utc.dt.tz_convert("America/New_York").dt.strftime("%Y-%m-%d")
+    except Exception:
+        out["date_et"] = pd.to_datetime(out["date"], errors="coerce").dt.strftime("%Y-%m-%d")
+    return out
+
+
+def _props_compare__prepare_stats_day(stats_all, day: str):
+    import pandas as pd
+
+    d = stats_all
+    if "date_et" not in d.columns:
+        d = _props_compare__ensure_stats_date_et(d)
+    d = d[d["date_et"] == day].copy()
+    if d.empty:
+        return d
+    try:
+        d["player_id"] = pd.to_numeric(d["player_id"], errors="coerce")
+    except Exception:
+        pass
+    d["team_key"] = d.get("team").astype(str).str.upper()
+    d["player_text"] = d.get("player").apply(_props_compare__extract_player_text)
+    d["player_norm"] = d["player_text"].apply(_props_compare__norm_name)
+    d["player_nodot"] = d["player_norm"].str.replace(".", "", regex=False)
+    d["points"] = pd.to_numeric(d.get("goals"), errors="coerce").fillna(0) + pd.to_numeric(d.get("assists"), errors="coerce").fillna(0)
+    d["toi_min"] = d.get("timeOnIce").apply(_props_compare__toi_to_minutes) if "timeOnIce" in d.columns else None
+    return d
+
+
+def _props_compare__load_sim_totals(day: str, sim_prefix: str = ""):
+    import pandas as pd
+
+    from .utils.io import PROC_DIR
+
+    pref = (str(sim_prefix).strip() + "_") if str(sim_prefix or "").strip() else ""
+    sim_path = PROC_DIR / f"{pref}props_boxscores_sim_{day}.csv"
+    if not sim_path.exists() or sim_path.stat().st_size == 0:
+        raise FileNotFoundError(f"Missing {sim_path}. Run props-simulate-boxscores first.")
+    sim = pd.read_csv(sim_path)
+    if "period" in sim.columns:
+        sim = sim[sim["period"].fillna(0).astype(int) == 0].copy()
+    if "is_dressed" in sim.columns:
+        sim = sim[sim["is_dressed"].fillna(1).astype(int) == 1].copy()
+    else:
+        # Legacy sim files didn't include `is_dressed` and often contain undressed rows
+        # with zero TOI. Approximate the dressed lineup by keeping top 19 by TOI per team/game.
+        if "toi_sec" in sim.columns and not sim.empty:
+            sim["_toi_sec_num"] = pd.to_numeric(sim.get("toi_sec"), errors="coerce").fillna(0.0)
+            group_cols = [c for c in ["date", "game_home", "game_away", "team"] if c in sim.columns]
+            if not group_cols:
+                group_cols = ["team"] if "team" in sim.columns else []
+            if group_cols:
+                sim = sim.sort_values(group_cols + ["_toi_sec_num"], ascending=[True] * len(group_cols) + [False])
+                sim = sim.groupby(group_cols, as_index=False, group_keys=False).head(19).copy()
+            sim = sim.drop(columns=["_toi_sec_num"], errors="ignore")
+    if sim.empty:
+        raise ValueError(f"Sim boxscores have no totals rows for {day}.")
+    try:
+        sim["player_id"] = pd.to_numeric(sim["player_id"], errors="coerce")
+    except Exception:
+        pass
+    sim["team_key"] = sim.get("team").astype(str).str.upper()
+    sim["player_norm"] = sim.get("player").astype(str).map(_props_compare__norm_name)
+    sim["player_nodot"] = sim["player_norm"].str.replace(".", "", regex=False)
+    return sim
+
+
+def _props_compare__metrics_block(df, sim_col: str, act_col: str) -> dict:
+    import numpy as np
+    import pandas as pd
+
+    x = pd.to_numeric(df.get(sim_col), errors="coerce")
+    y = pd.to_numeric(df.get(act_col), errors="coerce")
+    mask = x.notna() & y.notna()
+    if mask.sum() == 0:
+        return {"mae": None, "rmse": None, "bias": None, "corr": None, "n": int(mask.sum())}
+    dx = (x[mask] - y[mask]).astype(float)
+    mae = float(np.mean(np.abs(dx)))
+    rmse = float(np.sqrt(np.mean(dx * dx)))
+    bias = float(np.mean(dx))
+    corr = None
+    try:
+        if mask.sum() >= 10:
+            xx = x[mask].astype(float)
+            yy = y[mask].astype(float)
+            if xx.nunique(dropna=True) > 1 and yy.nunique(dropna=True) > 1:
+                corr = float(np.corrcoef(xx, yy)[0, 1])
+    except Exception:
+        corr = None
+    return {"mae": mae, "rmse": rmse, "bias": bias, "corr": corr, "n": int(mask.sum())}
+
+
+def _props_compare__load_player_game_stats_all():
+    import pandas as pd
+
+    from .utils.io import RAW_DIR
+
+    stats_path = RAW_DIR / "player_game_stats.csv"
+    if not stats_path.exists() or stats_path.stat().st_size == 0:
+        raise FileNotFoundError(f"Missing {stats_path}")
+    header_cols = []
+    try:
+        header_cols = list(pd.read_csv(stats_path, nrows=0).columns)
+    except Exception:
+        header_cols = []
+    usecols = [
+        "date",
+        "team",
+        "player_id",
+        "player",
+        "shots",
+        "goals",
+        "assists",
+        "blocked",
+        "saves",
+        "timeOnIce",
+    ]
+    cols = [c for c in usecols if (not header_cols) or (c in header_cols)]
+    try:
+        return pd.read_csv(stats_path, usecols=cols)
+    except Exception:
+        return pd.read_csv(stats_path)
+
+
+def _props_compare__compare_boxscores_single_day(
+    day: str,
+    stats_all,
+    output_prefix: str,
+    write_files: bool = True,
+    sim_prefix: str = "",
+):
+    import json as _json
+
+    import numpy as np
+    import pandas as pd
+
+    from .utils.io import PROC_DIR
+
+    sim = _props_compare__load_sim_totals(day, sim_prefix=sim_prefix)
+    act = _props_compare__prepare_stats_day(stats_all, day)
+    if act is None or act.empty:
+        return {"date": day, "status": "no-actuals", "rows_sim": int(len(sim)), "rows_out": 0}, None
+
+    act_id = act.dropna(subset=["player_id"]).copy()
+    merged = pd.merge(sim, act_id, on=["team_key", "player_id"], how="left", suffixes=("_sim", "_act"))
+    actual_cols = [c for c in ["shots_act", "goals_act", "assists_act", "points_act", "saves_act", "blocked", "toi_min"] if c in merged.columns]
+    has_actual = merged[actual_cols].notna().any(axis=1) if actual_cols else pd.Series([False] * len(merged), index=merged.index)
+    merged["match_method"] = np.where(has_actual, "id", "none")
+
+    missing = merged[merged["match_method"] == "none"].copy()
+    if not missing.empty:
+        act_name = act.dropna(subset=["player_nodot"]).copy()
+        sim_nodot_col = "player_nodot_sim" if "player_nodot_sim" in missing.columns else "player_nodot"
+        miss_keys = missing[["team_key", sim_nodot_col]].copy()
+        miss_keys = miss_keys.rename(columns={sim_nodot_col: "player_nodot"})
+        miss_keys["_row_idx"] = missing.index.values
+        j = pd.merge(miss_keys, act_name, on=["team_key", "player_nodot"], how="left")
+        if not j.empty:
+            fill_map = {
+                "shots_act": "shots",
+                "goals_act": "goals",
+                "assists_act": "assists",
+                "saves_act": "saves",
+                "points_act": "points",
+                "blocked": "blocked",
+                "toi_min": "toi_min",
+            }
+            for target_col, src_col in fill_map.items():
+                if target_col in merged.columns and src_col in j.columns:
+                    idx = j["_row_idx"].values
+                    fill_series = pd.Series(j[src_col].values, index=idx)
+                    fill_series = fill_series[~fill_series.index.duplicated(keep="first")]
+                    merged.loc[fill_series.index, target_col] = merged.loc[fill_series.index, target_col].fillna(fill_series)
+
+            # Mark rows as name-matched if any actual field got filled.
+            idx = j["_row_idx"].values
+            idx = pd.Index(idx).drop_duplicates(keep="first")
+            if len(idx) > 0 and actual_cols:
+                got_actual = merged.loc[idx, actual_cols].notna().any(axis=1)
+                merged.loc[got_actual[got_actual].index, "match_method"] = "name"
+
+    # Column names after merge use suffixes for overlaps.
+    out_df = pd.DataFrame({
+        "date": day,
+        "player": merged.get("player_sim") if "player_sim" in merged.columns else merged.get("player"),
+        "team": merged.get("team_key"),
+        "player_id": merged.get("player_id"),
+        "match_method": merged.get("match_method"),
+        "sog_sim": merged.get("shots_sim") if "shots_sim" in merged.columns else merged.get("shots"),
+        "goals_sim": merged.get("goals_sim") if "goals_sim" in merged.columns else merged.get("goals"),
+        "assists_sim": merged.get("assists_sim") if "assists_sim" in merged.columns else merged.get("assists"),
+        "points_sim": merged.get("points_sim") if "points_sim" in merged.columns else merged.get("points"),
+        "blocks_sim": merged.get("blocks"),
+        "saves_sim": merged.get("saves_sim") if "saves_sim" in merged.columns else merged.get("saves"),
+        "toi_sim_min": pd.to_numeric(merged.get("toi_sec"), errors="coerce") / 60.0,
+        "sog_act": merged.get("shots_act") if "shots_act" in merged.columns else merged.get("shots"),
+        "goals_act": merged.get("goals_act") if "goals_act" in merged.columns else merged.get("goals"),
+        "assists_act": merged.get("assists_act") if "assists_act" in merged.columns else merged.get("assists"),
+        "points_act": merged.get("points_act") if "points_act" in merged.columns else merged.get("points"),
+        "blocks_act": merged.get("blocked"),
+        "saves_act": merged.get("saves_act") if "saves_act" in merged.columns else merged.get("saves"),
+        "toi_act_min": merged.get("toi_min"),
+    })
+
+    # Heuristic goalie flag for evaluation splits (no explicit position in sim output)
+    out_df["is_goalie"] = (
+        pd.to_numeric(out_df.get("saves_sim"), errors="coerce").fillna(0) > 0
+    ) | (
+        pd.to_numeric(out_df.get("saves_act"), errors="coerce").fillna(0) > 0
+    ) | (
+        pd.to_numeric(out_df.get("toi_sim_min"), errors="coerce").fillna(0) > 45
+    ) | (
+        pd.to_numeric(out_df.get("toi_act_min"), errors="coerce").fillna(0) > 45
+    )
+    out_df["goalie_played"] = out_df["is_goalie"] & (pd.to_numeric(out_df.get("toi_act_min"), errors="coerce").fillna(0) > 1.0)
+
+    # Split summaries to avoid goalie starter-mismatch dominating TOI/SAVES signals.
+    sk = out_df[~out_df["is_goalie"]].copy()
+    gk = out_df[out_df["goalie_played"]].copy()
+
+    summary = {
+        "date": day,
+        "rows_sim": int(len(sim)),
+        "rows_out": int(len(out_df)),
+        "matched_id": int((out_df["match_method"] == "id").sum()),
+        "matched_name": int((out_df["match_method"] == "name").sum()),
+        "matched_total": int(out_df["match_method"].isin(["id", "name"]).sum()),
+        "mae_sog": _props_compare__metrics_block(out_df, "sog_sim", "sog_act")["mae"],
+        "mae_goals": _props_compare__metrics_block(out_df, "goals_sim", "goals_act")["mae"],
+        "mae_assists": _props_compare__metrics_block(out_df, "assists_sim", "assists_act")["mae"],
+        "mae_points": _props_compare__metrics_block(out_df, "points_sim", "points_act")["mae"],
+        "mae_saves": _props_compare__metrics_block(out_df, "saves_sim", "saves_act")["mae"],
+        "mae_blocks": _props_compare__metrics_block(out_df, "blocks_sim", "blocks_act")["mae"],
+        "mae_toi_min": _props_compare__metrics_block(out_df, "toi_sim_min", "toi_act_min")["mae"],
+        "metrics": {
+            "SOG": _props_compare__metrics_block(out_df, "sog_sim", "sog_act"),
+            "GOALS": _props_compare__metrics_block(out_df, "goals_sim", "goals_act"),
+            "ASSISTS": _props_compare__metrics_block(out_df, "assists_sim", "assists_act"),
+            "POINTS": _props_compare__metrics_block(out_df, "points_sim", "points_act"),
+            "BLOCKS": _props_compare__metrics_block(out_df, "blocks_sim", "blocks_act"),
+            "SAVES": _props_compare__metrics_block(out_df, "saves_sim", "saves_act"),
+            "TOI_MIN": _props_compare__metrics_block(out_df, "toi_sim_min", "toi_act_min"),
+            "SKATERS": {
+                "SOG": _props_compare__metrics_block(sk, "sog_sim", "sog_act"),
+                "GOALS": _props_compare__metrics_block(sk, "goals_sim", "goals_act"),
+                "ASSISTS": _props_compare__metrics_block(sk, "assists_sim", "assists_act"),
+                "POINTS": _props_compare__metrics_block(sk, "points_sim", "points_act"),
+                "BLOCKS": _props_compare__metrics_block(sk, "blocks_sim", "blocks_act"),
+                "TOI_MIN": _props_compare__metrics_block(sk, "toi_sim_min", "toi_act_min"),
+            },
+            "GOALIES_PLAYED": {
+                "SAVES": _props_compare__metrics_block(gk, "saves_sim", "saves_act"),
+                "TOI_MIN": _props_compare__metrics_block(gk, "toi_sim_min", "toi_act_min"),
+            },
+        },
+    }
+
+    if write_files:
+        out_csv = PROC_DIR / f"{output_prefix}{day}.csv"
+        save_df(out_df, out_csv)
+        summary["csv_path"] = str(out_csv)
+        out_json = PROC_DIR / f"{output_prefix}{day}.json"
+        with out_json.open("w", encoding="utf-8") as f:
+            _json.dump(summary, f, indent=2)
+        summary["json_path"] = str(out_json)
+    return summary, out_df
+
+
 @app.command(name="props-compare-boxscores")
 def props_compare_boxscores(
     date: str = typer.Option(..., help="Slate date YYYY-MM-DD (ET)"),
+    sim_prefix: str = typer.Option("", help="Optional sim filename prefix (matches props-simulate-boxscores --out-prefix)"),
     output_prefix: str = typer.Option("props_boxscores_compare_", help="Prefix for output files in data/processed"),
     verbose: bool = typer.Option(False, help="Verbose messages"),
 ):
@@ -15563,185 +15888,199 @@ def props_compare_boxscores(
       - data/processed/{output_prefix}{date}.csv (per-player comparison)
       - data/processed/{output_prefix}{date}.json (summary MAE per market)
     """
-    import pandas as pd
-    from .utils.io import RAW_DIR, PROC_DIR
     from .data.collect import collect_player_game_stats
-    # Ensure actual stats are available
+    # Ensure actual stats are available (best-effort)
     try:
         collect_player_game_stats(date, date, source="stats")
     except Exception:
         pass
-    stats_path = RAW_DIR / "player_game_stats.csv"
-    if not stats_path.exists() or stats_path.stat().st_size == 0:
-        print(f"[compare] No player_game_stats.csv; backfill failed or unavailable for {date}.")
-        raise typer.Exit(code=1)
     try:
-        stats = pd.read_csv(stats_path)
+        stats_all = _props_compare__load_player_game_stats_all()
     except Exception as e:
-        print(f"[compare] Failed to read player_game_stats.csv: {e}")
+        print(f"[compare] Failed to load player_game_stats.csv: {e}")
         raise typer.Exit(code=1)
-    # Normalize to ET calendar day
-    try:
-        dt_utc = pd.to_datetime(stats["date"], utc=True, errors="coerce")
-        stats["date_et"] = dt_utc.dt.tz_convert("America/New_York").dt.strftime("%Y-%m-%d")
-    except Exception:
-        stats["date_et"] = pd.to_datetime(stats["date"], errors="coerce").dt.strftime("%Y-%m-%d")
-    stats = stats[stats["date_et"] == date].copy()
-    if stats.empty:
-        print(f"[compare] No actual stats for {date}.")
-        raise typer.Exit(code=1)
-    # Extract player display text robustly
-    import ast, re, unicodedata, json as _json
-    def _extract_player_text(v):
-        if v is None:
-            return ""
-        try:
-            if isinstance(v, str) and v.strip().startswith("{") and v.strip().endswith("}"):
-                d = ast.literal_eval(v)
-                if isinstance(d, dict):
-                    for k in ("default","en","name","fullName","full_name"):
-                        if d.get(k):
-                            return str(d.get(k))
-            if isinstance(v, dict):
-                for k in ("default","en","name","fullName","full_name"):
-                    if v.get(k):
-                        return str(v.get(k))
-            return str(v)
-        except Exception:
-            return str(v)
-    def _norm_name(s: str) -> str:
-        s = (str(s) or "").strip()
-        s = unicodedata.normalize("NFKD", s).encode("ascii","ignore").decode()
-        s = re.sub(r"\s+"," ", s)
-        return s.lower()
-    stats["player_text"] = stats["player"].apply(_extract_player_text)
-    stats["player_norm"] = stats["player_text"].apply(_norm_name)
-    stats["player_nodot"] = stats["player_norm"].str.replace(".", "", regex=False)
-    # Load sim totals
-    sim_path = PROC_DIR / f"props_boxscores_sim_{date}.csv"
-    if not sim_path.exists() or sim_path.stat().st_size == 0:
-        print(f"[compare] Missing {sim_path}. Run props-simulate-boxscores first.")
-        raise typer.Exit(code=1)
-    try:
-        sim = pd.read_csv(sim_path)
-    except Exception as e:
-        print(f"[compare] Failed to read sim boxscores: {e}")
-        raise typer.Exit(code=1)
-    sim = sim[sim["period"] == 0].copy()
-    # Ensure types for reliable matching
-    try:
-        sim["player_id"] = pd.to_numeric(sim["player_id"], errors="coerce")
-    except Exception:
-        pass
-    if sim.empty:
-        print(f"[compare] Sim boxscores have no totals rows for {date}.")
-        raise typer.Exit(code=1)
-    # Build variants for matching
-    def _variants(full: str):
-        full = (full or "").strip()
-        parts = [p for p in full.split(" ") if p]
-        vs = set()
-        if full:
-            n = _norm_name(full)
-            vs.add(n)
-            vs.add(n.replace(".", ""))
-        if len(parts) >= 2:
-            first, last = parts[0], parts[-1]
-            init_last = f"{first[0]}. {last}"
-            n2 = _norm_name(init_last)
-            vs.add(n2)
-            vs.add(n2.replace(".", ""))
-        return vs
-    # Prepare comparison rows
-    # Prepare stats types for id-based matching
-    try:
-        stats["player_id"] = pd.to_numeric(stats["player_id"], errors="coerce")
-    except Exception:
-        pass
-    rows = []
-    for _, r in sim.iterrows():
-        player = str(r.get("player") or "")
-        team = str(r.get("team") or "").upper()
-        if not player:
-            continue
-        # Prefer exact player_id + team match when available
-        sim_pid = r.get("player_id")
-        ps = pd.DataFrame()
-        try:
-            if pd.notna(sim_pid):
-                ps = stats[(stats["player_id"] == sim_pid) & (stats["team"].str.upper() == team)]
-        except Exception:
-            ps = pd.DataFrame()
-        # Fallback to name-variant matching
-        if ps.empty:
-            vs = _variants(player)
-            ps = stats[(stats["player_norm"].isin(vs)) | (stats["player_nodot"].isin(vs))]
-        # Extract actuals
-        actual = {
-            "SOG": None,
-            "GOALS": None,
-            "ASSISTS": None,
-            "POINTS": None,
-            "SAVES": None,
-            "BLOCKS": None,
-        }
-        if not ps.empty:
-            row = ps.iloc[0]
-            actual["SOG"] = row.get("shots")
-            actual["GOALS"] = row.get("goals")
-            actual["ASSISTS"] = row.get("assists")
-            try:
-                actual["POINTS"] = float((row.get("goals") or 0)) + float((row.get("assists") or 0))
-            except Exception:
-                actual["POINTS"] = None
-            actual["SAVES"] = row.get("saves")
-            actual["BLOCKS"] = row.get("blocked")
-        rows.append({
-            "date": date,
-            "player": player,
-            "team": team,
-            "sog_sim": r.get("shots"),
-            "goals_sim": r.get("goals"),
-            "assists_sim": r.get("assists"),
-            "points_sim": r.get("points"),
-            "saves_sim": r.get("saves"),
-            "blocks_sim": r.get("blocks"),
-            "sog_act": actual["SOG"],
-            "goals_act": actual["GOALS"],
-            "assists_act": actual["ASSISTS"],
-            "points_act": actual["POINTS"],
-            "saves_act": actual["SAVES"],
-            "blocks_act": actual["BLOCKS"],
-        })
-    out_df = pd.DataFrame(rows)
-    out_csv = PROC_DIR / f"{output_prefix}{date}.csv"
-    save_df(out_df, out_csv)
-    # Summary MAE per market
-    def _mae(a, b):
-        try:
-            x = pd.to_numeric(a, errors="coerce")
-            y = pd.to_numeric(b, errors="coerce")
-            d = (x - y).abs()
-            d = d.dropna()
-            return float(d.mean()) if len(d) > 0 else None
-        except Exception:
-            return None
-    summary = {
-        "date": date,
-        "mae_sog": _mae(out_df["sog_sim"], out_df["sog_act"]),
-        "mae_goals": _mae(out_df["goals_sim"], out_df["goals_act"]),
-        "mae_assists": _mae(out_df["assists_sim"], out_df["assists_act"]),
-        "mae_points": _mae(out_df["points_sim"], out_df["points_act"]),
-        "mae_saves": _mae(out_df["saves_sim"], out_df["saves_act"]),
-        "mae_blocks": _mae(out_df["blocks_sim"], out_df["blocks_act"]),
-        "rows": int(len(out_df)),
-        "csv_path": str(out_csv),
-    }
-    out_json = PROC_DIR / f"{output_prefix}{date}.json"
-    with out_json.open("w", encoding="utf-8") as f:
-        _json.dump(summary, f, indent=2)
+
+    rep, _ = _props_compare__compare_boxscores_single_day(
+        date,
+        stats_all=stats_all,
+        output_prefix=output_prefix,
+        write_files=True,
+        sim_prefix=sim_prefix,
+    )
     if verbose:
-        print(f"[compare] Wrote {out_csv} and {out_json}")
+        print(f"[compare] {date}: matched={rep.get('matched_total')}/{rep.get('rows_out')} mae_sog={rep.get('mae_sog')} mae_toi={rep.get('mae_toi_min')}")
+
+
+@app.command(name="props-compare-boxscores-range")
+def props_compare_boxscores_range(
+    end: str = typer.Option(None, help="End date YYYY-MM-DD (ET). Default: yesterday ET"),
+    days: int = typer.Option(14, help="Window length (days) counting backwards from end"),
+    start: str = typer.Option(None, help="Start date YYYY-MM-DD (ET). If provided, overrides --days"),
+    sim_prefix: str = typer.Option("", help="Optional sim filename prefix (matches props-simulate-boxscores --out-prefix)"),
+    output_prefix: str = typer.Option("props_boxscores_compare_", help="Prefix for per-day output files in data/processed"),
+    out_json: str = typer.Option("props_boxscores_compare_range.json", help="Range summary JSON path (in data/processed if relative)"),
+    write_per_day: bool = typer.Option(False, help="Write per-day CSV/JSON outputs"),
+    verbose: bool = typer.Option(False, help="Verbose messages"),
+):
+    """Compare simulated player boxscores vs actuals over a rolling window.
+
+    Uses local data/raw/player_game_stats.csv for actuals and existing
+    data/processed/props_boxscores_sim_{date}.csv for sims.
+
+    Writes a single range summary JSON (and optionally per-day outputs).
+    """
+    import datetime as _dt
+    import json as _json
+    from pathlib import Path
+
+    import numpy as np
+    import pandas as pd
+
+    from .utils.io import PROC_DIR
+
+    def _today_et_date() -> _dt.date:
+        try:
+            import pytz
+
+            tz = pytz.timezone("America/New_York")
+            return _dt.datetime.now(tz=tz).date()
+        except Exception:
+            return _dt.datetime.now().date()
+
+    if not end:
+        end_dt = _today_et_date() - _dt.timedelta(days=1)
+        end = end_dt.strftime("%Y-%m-%d")
+    else:
+        end_dt = _dt.datetime.strptime(end, "%Y-%m-%d").date()
+
+    if start:
+        start_dt = _dt.datetime.strptime(start, "%Y-%m-%d").date()
+    else:
+        start_dt = end_dt - _dt.timedelta(days=max(0, int(days) - 1))
+        start = start_dt.strftime("%Y-%m-%d")
+
+    try:
+        stats_all = _props_compare__load_player_game_stats_all()
+    except Exception as e:
+        print(f"[compare-range] Failed to load player_game_stats.csv: {e}")
+        raise typer.Exit(code=1)
+
+    # Build list of dates inclusive
+    cur = start_dt
+    days_list: list[str] = []
+    while cur <= end_dt:
+        days_list.append(cur.strftime("%Y-%m-%d"))
+        cur = cur + _dt.timedelta(days=1)
+
+    per_day: list[dict] = []
+    missing_sim: list[str] = []
+    all_rows: list[pd.DataFrame] = []
+
+    for d in days_list:
+        pref = (str(sim_prefix).strip() + "_") if str(sim_prefix or "").strip() else ""
+        sim_path = PROC_DIR / f"{pref}props_boxscores_sim_{d}.csv"
+        if not sim_path.exists() or sim_path.stat().st_size == 0:
+            missing_sim.append(d)
+            continue
+        try:
+            rep, out_df = _props_compare__compare_boxscores_single_day(
+                d,
+                stats_all=stats_all,
+                output_prefix=output_prefix,
+                write_files=write_per_day,
+                sim_prefix=sim_prefix,
+            )
+            per_day.append(rep)
+            if out_df is not None and not out_df.empty:
+                all_rows.append(out_df)
+            if verbose:
+                print(f"[compare-range] {d}: mae_sog={rep.get('mae_sog')} mae_toi={rep.get('mae_toi_min')} matched={rep.get('matched_total')}/{rep.get('rows_out')}")
+        except Exception as e:
+            per_day.append({"date": d, "status": "error", "error": str(e)})
+
+    overall = {}
+    top_errors = {}
+    if all_rows:
+        df_all = pd.concat(all_rows, ignore_index=True)
+        # same goalie heuristic as single-day
+        df_all["is_goalie"] = (
+            pd.to_numeric(df_all.get("saves_sim"), errors="coerce").fillna(0) > 0
+        ) | (
+            pd.to_numeric(df_all.get("saves_act"), errors="coerce").fillna(0) > 0
+        ) | (
+            pd.to_numeric(df_all.get("toi_sim_min"), errors="coerce").fillna(0) > 45
+        ) | (
+            pd.to_numeric(df_all.get("toi_act_min"), errors="coerce").fillna(0) > 45
+        )
+        df_all["goalie_played"] = df_all["is_goalie"] & (pd.to_numeric(df_all.get("toi_act_min"), errors="coerce").fillna(0) > 1.0)
+        sk_all = df_all[~df_all["is_goalie"]].copy()
+        gk_played_all = df_all[df_all["goalie_played"]].copy()
+
+        overall = {
+            "SOG": _props_compare__metrics_block(df_all, "sog_sim", "sog_act"),
+            "GOALS": _props_compare__metrics_block(df_all, "goals_sim", "goals_act"),
+            "ASSISTS": _props_compare__metrics_block(df_all, "assists_sim", "assists_act"),
+            "POINTS": _props_compare__metrics_block(df_all, "points_sim", "points_act"),
+            "BLOCKS": _props_compare__metrics_block(df_all, "blocks_sim", "blocks_act"),
+            "SAVES": _props_compare__metrics_block(df_all, "saves_sim", "saves_act"),
+            "TOI_MIN": _props_compare__metrics_block(df_all, "toi_sim_min", "toi_act_min"),
+            "SKATERS": {
+                "SOG": _props_compare__metrics_block(sk_all, "sog_sim", "sog_act"),
+                "GOALS": _props_compare__metrics_block(sk_all, "goals_sim", "goals_act"),
+                "ASSISTS": _props_compare__metrics_block(sk_all, "assists_sim", "assists_act"),
+                "POINTS": _props_compare__metrics_block(sk_all, "points_sim", "points_act"),
+                "BLOCKS": _props_compare__metrics_block(sk_all, "blocks_sim", "blocks_act"),
+                "TOI_MIN": _props_compare__metrics_block(sk_all, "toi_sim_min", "toi_act_min"),
+            },
+            "GOALIES_PLAYED": {
+                "SAVES": _props_compare__metrics_block(gk_played_all, "saves_sim", "saves_act"),
+                "TOI_MIN": _props_compare__metrics_block(gk_played_all, "toi_sim_min", "toi_act_min"),
+            },
+        }
+
+        def _top_abs_on(df: pd.DataFrame, sim_col: str, act_col: str, n: int = 25) -> list[dict]:
+            if df is None or df.empty:
+                return []
+            s = pd.to_numeric(df.get(sim_col), errors="coerce")
+            a = pd.to_numeric(df.get(act_col), errors="coerce")
+            m = s.notna() & a.notna()
+            if m.sum() == 0:
+                return []
+            tmp = df.loc[m, ["date", "team", "player", "player_id", sim_col, act_col]].copy()
+            tmp["diff"] = (s[m] - a[m]).astype(float)
+            tmp["abs_diff"] = tmp["diff"].abs()
+            tmp = tmp.sort_values("abs_diff", ascending=False).head(n)
+            return tmp.to_dict(orient="records")
+
+        top_errors = {
+            "SOG": _top_abs_on(df_all, "sog_sim", "sog_act"),
+            "BLOCKS": _top_abs_on(df_all, "blocks_sim", "blocks_act"),
+            "TOI_MIN": _top_abs_on(df_all, "toi_sim_min", "toi_act_min"),
+            "TOI_MIN_SKATERS": _top_abs_on(sk_all, "toi_sim_min", "toi_act_min"),
+            "SAVES": _top_abs_on(df_all, "saves_sim", "saves_act"),
+            "SAVES_GOALIES_PLAYED": _top_abs_on(gk_played_all, "saves_sim", "saves_act"),
+        }
+
+    out = {
+        "start": start,
+        "end": end,
+        "days_requested": int(days),
+        "days_considered": int(len(days_list)),
+        "days_with_sim": int(len(days_list) - len(missing_sim)),
+        "missing_sim_days": missing_sim,
+        "per_day": per_day,
+        "overall": overall,
+        "top_errors": top_errors,
+    }
+
+    out_path = (PROC_DIR / out_json) if ("/" not in out_json and "\\" not in out_json) else Path(out_json)
+    try:
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        pass
+    out_path.write_text(_json.dumps(out, indent=2), encoding="utf-8")
+    if verbose:
+        print(f"[compare-range] wrote {out_path} (days={len(per_day)})")
 
 if __name__ == "__main__":
     app()

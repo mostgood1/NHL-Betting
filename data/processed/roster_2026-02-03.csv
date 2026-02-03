@@ -32,7 +32,6 @@ Brandon Hagel,F,TBL
 Justin Brazeau,F,PIT
 Jacob Bryson,F,BUF
 Charle-Edouard D'Astous,F,TBL
-Brady Tkachuk,F,OTT
 Ryan McLeod,F,BUF
 Mattias Samuelsson,F,BUF
 Rasmus Dahlin,F,BUF
@@ -43,7 +42,6 @@ Pontus Holmberg,F,TBL
 Peyton Krebs,F,BUF
 Bowen Byram,F,BUF
 Shane Pinto,F,OTT
-Matias Maccelli,F,TOR
 Ridly Greig,F,OTT
 Jack Quinn,F,BUF
 Tim Stützle,F,OTT
@@ -60,6 +58,7 @@ Zach Benson,F,BUF
 Konsta Helenius,F,BUF
 Sidney Crosby,F,PIT
 Claude Giroux,F,OTT
+Jordan Staal,F,CAR
 Erik Karlsson,F,PIT
 Jordan Eberle,F,SEA
 John Tavares,F,TOR
@@ -69,11 +68,13 @@ Mattias Ekholm,F,EDM
 Charlie Coyle,F,CBJ
 Jaden Schwartz,F,SEA
 Zach Hyman,F,EDM
+Taylor Hall,F,CAR
 Mikael Granlund,F,ANA
 Bryan Rust,F,PIT
 Boone Jenner,F,CBJ
 Ryan Nugent-Hopkins,F,EDM
 Adam Larsson,F,SEA
+Sean Couturier,F,PHI
 Dougie Hamilton,F,NJD
 Rickard Rakell,F,PIT
 Tom Wilson,F,WSH
@@ -81,6 +82,7 @@ Jacob Trouba,F,ANA
 Shayne Gostisbehere,F,CAR
 Damon Severson,F,CBJ
 Connor Brown,F,NJD
+Sean Monahan,F,CBJ
 Darnell Nurse,F,EDM
 Bo Horvat,F,NYI
 Max Domi,F,TOR
@@ -112,7 +114,9 @@ Nico Hischier,F,NJD
 Eeli Tolvanen,F,SEA
 Owen Tippett,F,PHI
 Drake Batherson,F,OTT
+Noah Cates,F,PHI
 Sean Walker,F,CAR
+Brady Tkachuk,F,OTT
 Evan Bouchard,F,EDM
 K'Andre Miller,F,CAR
 Andrei Svechnikov,F,CAR
@@ -123,7 +127,10 @@ Bobby Brink,F,PHI
 Kaapo Kakko,F,SEA
 Simon Holmstrom,F,NYI
 Jackson LaCombe,F,ANA
+Vasily Podkolzin,F,EDM
 Aliaksei Protas,F,WSH
+Matias Maccelli,F,TOR
+Dmitri Voronkov,F,CBJ
 Arseny Gritsyuk,F,NJD
 Justin Sourdif,F,WSH
 Seth Jarvis,F,CAR
@@ -131,14 +138,17 @@ Jake Sanderson,F,OTT
 Dawson Mercer,F,NJD
 Jamie Drysdale,F,PHI
 Emil Heineman,F,NYI
+Kent Johnson,F,CBJ
 Matty Beniers,F,SEA
 Logan Stankoven,F,CAR
 Matthew Knies,F,TOR
 Mason McTavish,F,ANA
+Jackson Blake,F,CAR
 Cutter Gauthier,F,ANA
 Simon Nemec,F,NJD
 Shane Wright,F,SEA
 Adam Fantilli,F,CBJ
+Lenni Hameenaho,F,NJD
 Ryan Leonard,F,WSH
 Matvei Michkov,F,PHI
 Beckett Sennecke,F,ANA

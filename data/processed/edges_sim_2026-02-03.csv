@@ -1,0 +1,29 @@
+date,home,away,market,ev
+2026-02-03,Carolina Hurricanes,Ottawa Senators,ev_away_ml,0.8590683333333334
+2026-02-03,Tampa Bay Lightning,Buffalo Sabres,ev_away_ml,0.73655
+2026-02-03,Tampa Bay Lightning,Buffalo Sabres,ev_over,0.6406666666666667
+2026-02-03,Edmonton Oilers,Toronto Maple Leafs,ev_over,0.3446338028169015
+2026-02-03,Anaheim Ducks,Seattle Kraken,ev_away_ml,0.3352266666666667
+2026-02-03,Philadelphia Flyers,Washington Capitals,ev_under,0.2621000000000001
+2026-02-03,Anaheim Ducks,Seattle Kraken,ev_over,0.22121428571428559
+2026-02-03,New York Islanders,Pittsburgh Penguins,ev_over,0.1680370370370371
+2026-02-03,Philadelphia Flyers,Washington Capitals,ev_away_ml,0.1422249999999997
+2026-02-03,New York Islanders,Pittsburgh Penguins,ev_away_ml,0.14100000000000001
+2026-02-03,New Jersey Devils,Columbus Blue Jackets,ev_under,0.09839743589743588
+2026-02-03,Edmonton Oilers,Toronto Maple Leafs,ev_home_ml,0.06294191919191938
+2026-02-03,Carolina Hurricanes,Ottawa Senators,ev_over,0.03606349206349191
+2026-02-03,New Jersey Devils,Columbus Blue Jackets,ev_home_ml,-0.007097222222222199
+2026-02-03,New Jersey Devils,Columbus Blue Jackets,ev_away_ml,-0.08316666666666667
+2026-02-03,Carolina Hurricanes,Ottawa Senators,ev_under,-0.12255072463768113
+2026-02-03,Philadelphia Flyers,Washington Capitals,ev_home_ml,-0.18837962962962962
+2026-02-03,New Jersey Devils,Columbus Blue Jackets,ev_over,-0.20375
+2026-02-03,New York Islanders,Pittsburgh Penguins,ev_home_ml,-0.2125833333333333
+2026-02-03,Edmonton Oilers,Toronto Maple Leafs,ev_away_ml,-0.22450000000000014
+2026-02-03,New York Islanders,Pittsburgh Penguins,ev_under,-0.2959400000000002
+2026-02-03,Anaheim Ducks,Seattle Kraken,ev_under,-0.2998478260869565
+2026-02-03,Anaheim Ducks,Seattle Kraken,ev_home_ml,-0.32316666666666666
+2026-02-03,Philadelphia Flyers,Washington Capitals,ev_over,-0.38739166666666675
+2026-02-03,Tampa Bay Lightning,Buffalo Sabres,ev_home_ml,-0.46910162601626015
+2026-02-03,Edmonton Oilers,Toronto Maple Leafs,ev_under,-0.5358
+2026-02-03,Carolina Hurricanes,Ottawa Senators,ev_home_ml,-0.5870067567567567
+2026-02-03,Tampa Bay Lightning,Buffalo Sabres,ev_under,-0.6706111111111112

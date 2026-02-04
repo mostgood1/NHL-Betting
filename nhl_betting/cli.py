@@ -6108,6 +6108,14 @@ def props_simulate_boxscores(
     pk_goals_mult: float = typer.Option(1.0, help="Additional PK goal conversion multiplier"),
     slate: Optional[str] = typer.Option(None, help="Forced slate list like 'CBJ@CHI, BOS@TOR' to bypass Web schedule"),
     out_prefix: str = typer.Option("", help="Optional output filename prefix to distinguish calibration variants"),
+    toi_mode: str = typer.Option(
+        "auto",
+        help="TOI source mode: 'auto' (preferred) uses lineup/shifts/shift-history plus stats-based TOI fallback when needed; 'legacy' disables stats fallback and does not suppress placeholder lineups.",
+    ),
+    starter_source: str = typer.Option(
+        "auto",
+        help="Goalie starter source: 'auto' uses actual played goalie for past dates when available, otherwise uses starting_goalies_{date}.csv; 'snapshot' uses starting_goalies_{date}.csv only; 'proj' uses highest projected TOI goalie.",
+    ),
 ):
     """Generate period and game-level simulated player boxscores from the play-level sim engine.
 
@@ -6172,10 +6180,35 @@ def props_simulate_boxscores(
     except Exception:
         lineups_all = pd.DataFrame(columns=["player_id","full_name","position","line_slot","pp_unit","pk_unit","proj_toi","confidence","team"])
 
+    toi_mode_norm = str(toi_mode or "auto").strip().lower()
+    if toi_mode_norm not in ("auto", "legacy"):
+        print("Invalid --toi-mode. Use 'auto' or 'legacy'.")
+        raise typer.Exit(code=2)
+
+    # Guard: sometimes the lineup snapshot is a placeholder (all proj_toi=15, confidence=0.5).
+    # In that case, it's actively harmful to use for TOI/line-slot/PP/PK shaping.
+    try:
+        if toi_mode_norm != "legacy" and lineups_all is not None and not lineups_all.empty and {"proj_toi", "confidence"}.issubset(set(lineups_all.columns)):
+            _pt = pd.to_numeric(lineups_all["proj_toi"], errors="coerce")
+            _cf = pd.to_numeric(lineups_all["confidence"], errors="coerce")
+            if (
+                _pt.notna().mean() >= 0.95
+                and _pt.nunique(dropna=True) <= 1
+                and float(_pt.dropna().iloc[0]) == 15.0
+                and _cf.notna().mean() >= 0.95
+                and _cf.nunique(dropna=True) <= 1
+                and float(_cf.dropna().iloc[0]) <= 0.6
+            ):
+                lineups_all = pd.DataFrame(columns=["player_id","full_name","position","line_slot","pp_unit","pk_unit","proj_toi","confidence","team"])
+    except Exception:
+        pass
+
     # Build TOI projections lookup (priority: lineup snapshot > same-day shifts > rolling shift history)
     toi_by_team_pid_lineup: dict[tuple[str, int], float] = {}
     toi_by_team_pid_shifts: dict[tuple[str, int], float] = {}
     toi_by_team_pid_hist: dict[tuple[str, int], float] = {}
+    toi_by_team_pid_stats: dict[tuple[str, int], float] = {}
+    toi_by_pid_stats: dict[int, float] = {}
     try:
         if lineups_all is not None and not lineups_all.empty and {"team", "player_id", "proj_toi"}.issubset(lineups_all.columns):
             _lu = lineups_all[["team", "player_id", "proj_toi"]].copy()
@@ -6222,6 +6255,94 @@ def props_simulate_boxscores(
                     continue
     except Exception:
         toi_by_team_pid_hist = {}
+
+    # Fallback: compute recent TOI from player_game_stats.csv (actuals).
+    # This is especially important when shifts files are empty and lineup snapshots are placeholders.
+    try:
+        if toi_mode_norm == "legacy":
+            raise RuntimeError("toi_mode=legacy")
+        import datetime as _dt
+        from .utils.io import RAW_DIR as _RAW
+        stats_path = _RAW / "player_game_stats.csv"
+        if stats_path.exists() and getattr(stats_path.stat(), "st_size", 0) > 1024:
+            usecols = ["date", "team", "player_id", "timeOnIce"]
+            st = pd.read_csv(stats_path, usecols=usecols, low_memory=False)
+            if st is not None and not st.empty:
+                st["player_id"] = pd.to_numeric(st.get("player_id"), errors="coerce")
+
+                def _clock_to_min(x):
+                    try:
+                        if x is None or (isinstance(x, float) and pd.isna(x)):
+                            return None
+                        s = str(x).strip()
+                        if not s or s.lower() in ("nan", "none"):
+                            return None
+                        # Common format: MM:SS
+                        if ":" in s:
+                            mm, ss = s.split(":", 1)
+                            mm_i = int(mm)
+                            ss_i = int(float(ss))
+                            if mm_i < 0 or ss_i < 0 or ss_i >= 60:
+                                return None
+                            return float(mm_i) + float(ss_i) / 60.0
+                        return None
+                    except Exception:
+                        return None
+
+                st["toi_min"] = st.get("timeOnIce").map(_clock_to_min)
+                # ET date bucket
+                dt_utc = pd.to_datetime(st.get("date"), errors="coerce", utc=True)
+                try:
+                    dt_et = dt_utc.dt.tz_convert("America/New_York")
+                except Exception:
+                    dt_et = dt_utc
+                st["et_date"] = dt_et.dt.date
+
+                cutoff = _dt.datetime.strptime(str(date), "%Y-%m-%d").date() - _dt.timedelta(days=1)
+                start_dt = cutoff - _dt.timedelta(days=60)
+                st = st[(st["et_date"].notna()) & (st["et_date"] >= start_dt) & (st["et_date"] <= cutoff)]
+
+                # Map full team names to abbr using the existing team-assets mapping
+                try:
+                    from .web.teams import get_team_assets as _gta
+
+                    uniq = [t for t in st.get("team").dropna().astype(str).unique().tolist()]
+                    tmap = {t: (_gta(t) or {}).get("abbr") for t in uniq}
+                    st["team_abbr"] = st.get("team").map(tmap)
+                except Exception:
+                    st["team_abbr"] = None
+
+                st = st[(st["player_id"].notna()) & (st["toi_min"].notna())]
+                st["player_id"] = st["player_id"].astype(int)
+
+                n_hist = 10
+                # Team-specific last-N games
+                st_team = st[(st["team_abbr"].notna()) & (st["team_abbr"].astype(str).str.len() > 0)].copy()
+                if not st_team.empty:
+                    st_team["team_abbr"] = st_team["team_abbr"].astype(str).str.upper()
+                    st_team = st_team.sort_values(["team_abbr", "player_id", "et_date"])
+                    tail = st_team.groupby(["team_abbr", "player_id"], sort=False).tail(n_hist)
+                    means = tail.groupby(["team_abbr", "player_id"], sort=False)["toi_min"].mean()
+                    for (tm, pid), v in means.items():
+                        try:
+                            if tm and v is not None and pd.notna(v):
+                                toi_by_team_pid_stats[(str(tm).upper(), int(pid))] = float(v)
+                        except Exception:
+                            continue
+
+                # Player-only fallback last-N games
+                st_any = st.sort_values(["player_id", "et_date"])
+                tail2 = st_any.groupby(["player_id"], sort=False).tail(n_hist)
+                means2 = tail2.groupby(["player_id"], sort=False)["toi_min"].mean()
+                for pid, v in means2.items():
+                    try:
+                        if v is not None and pd.notna(v):
+                            toi_by_pid_stats[int(pid)] = float(v)
+                    except Exception:
+                        continue
+    except Exception:
+        toi_by_team_pid_stats = {}
+        toi_by_pid_stats = {}
     # Prefer processed roster snapshot for the given date to avoid live API dependency
     roster_snapshot_df = None
     try:
@@ -6688,6 +6809,15 @@ def props_simulate_boxscores(
                     v = _to_float(toi_by_team_pid_shifts.get((abbr, pid)))
                     if v is not None:
                         source = 'shifts'
+                if toi_mode_norm != 'legacy':
+                    if not _valid_toi_minutes(v, pos):
+                        v = _to_float(toi_by_team_pid_stats.get((abbr, pid)))
+                        if v is not None:
+                            source = 'stats'
+                    if not _valid_toi_minutes(v, pos):
+                        v = _to_float(toi_by_pid_stats.get(pid))
+                        if v is not None:
+                            source = 'stats_any'
                 if not _valid_toi_minutes(v, pos):
                     v = _to_float(toi_by_team_pid_hist.get((abbr, pid)))
                     if v is not None:
@@ -6789,6 +6919,53 @@ def props_simulate_boxscores(
     except Exception:
         starter_map_by_teamname = {}
 
+    # Optional: for historical validation, override starters with the actual played goalie.
+    # This prevents massive evaluation distortion when starting_goalies_{date}.csv is missing/wrong.
+    actual_goalie_pid_by_abbr: dict[str, int] = {}
+    try:
+        src = str(starter_source or "").strip().lower()
+    except Exception:
+        src = "auto"
+    try:
+        # Determine if this date is in the past (yesterday or earlier, ET)
+        import datetime as _dt
+        try:
+            import pytz
+
+            _tz = pytz.timezone("America/New_York")
+            today_et = _dt.datetime.now(tz=_tz).date()
+        except Exception:
+            today_et = _dt.datetime.now().date()
+        day_dt = _dt.date.fromisoformat(str(date))
+        is_past = day_dt < today_et
+
+        use_actual = (src in {"actual", "auto"}) and bool(is_past)
+        if use_actual:
+            stats_all = _props_compare__load_player_game_stats_all()
+            act = _props_compare__prepare_stats_day(stats_all, str(date))
+            if act is not None and not act.empty:
+                # Identify goalies by saves/TOI heuristics, then pick the max-TOI goalie per team.
+                import pandas as _pd
+
+                act = act.copy()
+                act["saves_num"] = _pd.to_numeric(act.get("saves"), errors="coerce").fillna(0.0)
+                act["toi_num"] = _pd.to_numeric(act.get("toi_min"), errors="coerce").fillna(0.0)
+                act["is_goalie"] = (act["saves_num"] > 0) | (act["toi_num"] > 45)
+                act = act[act["is_goalie"] & (act["toi_num"] > 1.0)].copy()
+                if not act.empty:
+                    act = act.sort_values(["team_key", "toi_num"], ascending=[True, False])
+                    top = act.groupby("team_key", as_index=False).head(1)
+                    for _, r in top.iterrows():
+                        try:
+                            ab = str(r.get("team_key") or "").upper()
+                            pid = int(_pd.to_numeric(r.get("player_id"), errors="coerce"))
+                            if ab and pid:
+                                actual_goalie_pid_by_abbr[ab] = pid
+                        except Exception:
+                            continue
+    except Exception:
+        actual_goalie_pid_by_abbr = {}
+
     for g in games:
         home = str(getattr(g, 'home', ''))
         away = str(getattr(g, 'away', ''))
@@ -6803,6 +6980,23 @@ def props_simulate_boxscores(
         try:
             h_ab = (get_team_assets(home).get('abbr') or '').upper()
             a_ab = (get_team_assets(away).get('abbr') or '').upper()
+
+            # Historical override: use actual played goalie when available
+            if actual_goalie_pid_by_abbr:
+                try:
+                    pid_h_actual = actual_goalie_pid_by_abbr.get(h_ab)
+                    pid_a_actual = actual_goalie_pid_by_abbr.get(a_ab)
+                    if pid_h_actual:
+                        starter_ids[home] = int(pid_h_actual)
+                    if pid_a_actual:
+                        starter_ids[away] = int(pid_a_actual)
+                except Exception:
+                    pass
+
+            # If configured to avoid snapshot, skip snapshot resolution.
+            if src == "proj":
+                raise Exception("starter_source=proj")
+
             name_h = starter_map_by_teamname.get(h_ab)
             name_a = starter_map_by_teamname.get(a_ab)
             # helper to find player_id by full name within roster
@@ -6819,9 +7013,9 @@ def props_simulate_boxscores(
                 return None
             pid_h = _pid_for(roster_home, name_h)
             pid_a = _pid_for(roster_away, name_a)
-            if pid_h:
+            if pid_h and (home not in starter_ids):
                 starter_ids[home] = int(pid_h)
-            if pid_a:
+            if pid_a and (away not in starter_ids):
                 starter_ids[away] = int(pid_a)
         except Exception:
             pass
@@ -8236,6 +8430,7 @@ def props_recommendations_sim(
 @app.command(name="props-recommendations-boxscores")
 def props_recommendations_boxscores(
     date: str = typer.Option(..., help="Slate date YYYY-MM-DD (ET)"),
+    read_prefix: str = typer.Option("", help="Optional input filename prefix matching props-simulate-boxscores --out-prefix"),
     min_ev: float = typer.Option(0.0, help="Minimum EV threshold for ev_over"),
     top: int = typer.Option(400, help="Top N to keep after sorting by EV desc"),
     min_ev_per_market: str = typer.Option("", help="Optional per-market EV thresholds"),
@@ -8251,8 +8446,9 @@ def props_recommendations_boxscores(
     from glob import glob as _glob
     from .web.teams import get_team_assets as _assets
     # Load samples
-    samp_path_parq = PROC_DIR / f"props_boxscores_sim_samples_{date}.parquet"
-    samp_path_csv = PROC_DIR / f"props_boxscores_sim_samples_{date}.csv"
+    _pref = (str(read_prefix).strip() + "_") if str(read_prefix or "").strip() else ""
+    samp_path_parq = PROC_DIR / f"{_pref}props_boxscores_sim_samples_{date}.parquet"
+    samp_path_csv = PROC_DIR / f"{_pref}props_boxscores_sim_samples_{date}.csv"
     if samp_path_parq.exists():
         try:
             samples = pd.read_parquet(samp_path_parq, engine='pyarrow')
@@ -8434,6 +8630,7 @@ def props_recommendations_boxscores(
 @app.command(name="game-recommendations-sim")
 def game_recommendations_sim(
     date: str = typer.Option(..., help="Slate date YYYY-MM-DD (ET)"),
+    read_prefix: str = typer.Option("", help="Optional input filename prefix matching props-simulate-boxscores --out-prefix"),
     top: int = typer.Option(100, help="Top N markets to keep after sorting by EV desc"),
 ):
     """Compute sim-backed game probabilities and EV (ML and Totals) from per-sim boxscore samples.
@@ -8448,8 +8645,9 @@ def game_recommendations_sim(
     from .web.teams import get_team_assets as _assets
     from .utils.io import PROC_DIR, save_df
     # Load per-sim samples
-    p_parq = PROC_DIR / f"props_boxscores_sim_samples_{date}.parquet"
-    p_csv = PROC_DIR / f"props_boxscores_sim_samples_{date}.csv"
+    _pref = (str(read_prefix).strip() + "_") if str(read_prefix or "").strip() else ""
+    p_parq = PROC_DIR / f"{_pref}props_boxscores_sim_samples_{date}.parquet"
+    p_csv = PROC_DIR / f"{_pref}props_boxscores_sim_samples_{date}.csv"
     if p_parq.exists():
         try:
             samples = pd.read_parquet(p_parq, engine='pyarrow')

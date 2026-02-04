@@ -251,7 +251,7 @@ class PeriodSimulator:
         # Weighted selection helpers based on player on-ice stats/weights
         def _weighted_choice(pid_group: List[int], team: TeamState, kind: str) -> Optional[int]:
             if not pid_group:
-                return None
+                pid_group = []
             cands = []
             weights = []
             for pid in pid_group:
@@ -278,8 +278,42 @@ class PeriodSimulator:
                 except Exception:
                     pass
                 weights.append(w)
+
+            # Last-resort fallback: if the on-ice group contains no valid roster IDs (e.g.,
+            # lineup data references unknown pids), fall back to the roster pool so we do not
+            # emit unattributed events (player_id=None). Unattributed shots inflate goalie
+            # saves (team shots) without appearing in skater SOG, biasing both.
             if not cands:
-                return None
+                if kind in {"shot", "goal"}:
+                    pool = [int(pid) for pid, ps in team.players.items() if str(ps.position) in ("F", "D")]
+                elif kind == "block":
+                    pool = [int(pid) for pid, ps in team.players.items() if str(ps.position) == "D"]
+                else:
+                    pool = [int(pid) for pid in team.players.keys()]
+                if not pool:
+                    return None
+                cands = pool
+                weights = []
+                for pid in cands:
+                    ps = team.players.get(int(pid))
+                    if not ps:
+                        continue
+                    if kind == "shot":
+                        w = max(0.01, float(ps.shot_weight or 0.0))
+                    elif kind == "goal":
+                        w = max(0.01, float(ps.goal_weight or (ps.shot_weight or 0.0) * 0.30))
+                    elif kind == "block":
+                        w = max(0.01, float(ps.block_weight or 0.0))
+                    else:
+                        w = 1.0
+                    # Keep the same per-minute propensity adjustment as the on-ice path
+                    try:
+                        toi = float(ps.toi_proj or 0.0)
+                        if toi > 1e-6:
+                            w = float(w) / toi
+                    except Exception:
+                        pass
+                    weights.append(w)
 
             # Normalize, smooth, and cap probabilities to prevent a single skater from soaking up
             # an implausible share of team shots in expectation.
@@ -321,6 +355,75 @@ class PeriodSimulator:
         d_home = _normalize_groups(d_home, size=2, max_groups=3)
         l_away = _normalize_groups(l_away, size=3, max_groups=4)
         d_away = _normalize_groups(d_away, size=2, max_groups=3)
+
+        # Sanitize EV groups against the roster so on-ice selection never references unknown pids.
+        # Forward lines should only contain forwards; D pairs should only contain defensemen.
+        def _toi(team: TeamState, pid: int) -> float:
+            try:
+                return float(team.players[int(pid)].toi_proj or 0.0)
+            except Exception:
+                return 0.0
+
+        def _fill_forwards(group: List[int], team: TeamState, n: int) -> List[int]:
+            uniq = []
+            seen = set()
+            for pid in (group or []):
+                try:
+                    pid_i = int(pid)
+                except Exception:
+                    continue
+                if pid_i in seen:
+                    continue
+                ps = team.players.get(pid_i)
+                if not ps:
+                    continue
+                if str(ps.position) != "F":
+                    continue
+                seen.add(pid_i)
+                uniq.append(pid_i)
+            uniq = sorted(uniq, key=lambda p: _toi(team, p), reverse=True)
+            unit = uniq[:n]
+            if len(unit) < n:
+                pool = [int(pid) for pid, ps in team.players.items() if str(ps.position) == "F" and int(pid) not in unit]
+                pool = sorted(pool, key=lambda p: _toi(team, p), reverse=True)
+                for pid in pool:
+                    unit.append(pid)
+                    if len(unit) >= n:
+                        break
+            return unit[:n]
+
+        def _fill_defense(group: List[int], team: TeamState, n: int) -> List[int]:
+            uniq = []
+            seen = set()
+            for pid in (group or []):
+                try:
+                    pid_i = int(pid)
+                except Exception:
+                    continue
+                if pid_i in seen:
+                    continue
+                ps = team.players.get(pid_i)
+                if not ps:
+                    continue
+                if str(ps.position) != "D":
+                    continue
+                seen.add(pid_i)
+                uniq.append(pid_i)
+            uniq = sorted(uniq, key=lambda p: _toi(team, p), reverse=True)
+            unit = uniq[:n]
+            if len(unit) < n:
+                pool = [int(pid) for pid, ps in team.players.items() if str(ps.position) == "D" and int(pid) not in unit]
+                pool = sorted(pool, key=lambda p: _toi(team, p), reverse=True)
+                for pid in pool:
+                    unit.append(pid)
+                    if len(unit) >= n:
+                        break
+            return unit[:n]
+
+        l_home = [_fill_forwards(g, gs.home, 3) for g in (l_home or [])]
+        l_away = [_fill_forwards(g, gs.away, 3) for g in (l_away or [])]
+        d_home = [_fill_defense(g, gs.home, 2) for g in (d_home or [])]
+        d_away = [_fill_defense(g, gs.away, 2) for g in (d_away or [])]
         # Rotation sequences weighted by projected TOI
         def _line_weights(pid_groups: List[List[int]], team: TeamState) -> List[float]:
             vals = []

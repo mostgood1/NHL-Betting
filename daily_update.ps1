@@ -106,8 +106,8 @@ if (-not $SkipProps) {
     $today = (Get-Date).ToString('yyyy-MM-dd')
     $tomorrow = (Get-Date).AddDays(1).ToString('yyyy-MM-dd')
     if (-not $Quiet) { Write-Host "[props-sim] Boxscores $today & $tomorrow" -ForegroundColor Cyan }
-    python -m nhl_betting.cli props-simulate-boxscores --date $today --n-sims 2000 --seed 42 | Out-Null
-    python -m nhl_betting.cli props-simulate-boxscores --date $tomorrow --n-sims 2000 --seed 42 | Out-Null
+    python -m nhl_betting.cli props-simulate-boxscores --date $today --n-sims 2000 --seed 42 --toi-mode auto --starter-source auto --saves-cal 0.85 | Out-Null
+    python -m nhl_betting.cli props-simulate-boxscores --date $tomorrow --n-sims 2000 --seed 42 --toi-mode auto --starter-source auto --saves-cal 0.85 | Out-Null
     if (-not $Quiet) { Write-Host "[props-recs] From boxscores $today & $tomorrow (prob gating)" -ForegroundColor Cyan }
     # Apply per-market probability gates to improve daily accuracy (especially SOG)
     $probGates = 'SOG=0.68,GOALS=0.60,ASSISTS=0.60,POINTS=0.62,SAVES=0.60,BLOCKS=0.60'

@@ -1,0 +1,29 @@
+date,home,away,market,ev
+2026-02-05,New York Rangers,Carolina Hurricanes,ev_over,0.9033200000000001
+2026-02-05,New Jersey Devils,New York Islanders,ev_over,0.8209545454545455
+2026-02-05,Washington Capitals,Nashville Predators,ev_over,0.8147200000000001
+2026-02-05,Philadelphia Flyers,Ottawa Senators,ev_over,0.8071733333333334
+2026-02-05,Buffalo Sabres,Pittsburgh Penguins,ev_over,0.6558181818181819
+2026-02-05,Vegas Golden Knights,Los Angeles Kings,ev_over,0.4720000000000002
+2026-02-05,Tampa Bay Lightning,Florida Panthers,ev_over,0.3896565656565656
+2026-02-05,New York Rangers,Carolina Hurricanes,ev_home_ml,0.38551999999999986
+2026-02-05,Vegas Golden Knights,Los Angeles Kings,ev_home_ml,0.20915789473684204
+2026-02-05,Washington Capitals,Nashville Predators,ev_away_ml,0.16193999999999986
+2026-02-05,Buffalo Sabres,Pittsburgh Penguins,ev_away_ml,0.06821666666666648
+2026-02-05,Philadelphia Flyers,Ottawa Senators,ev_home_ml,-0.002675000000000205
+2026-02-05,Tampa Bay Lightning,Florida Panthers,ev_home_ml,-0.021470486111111076
+2026-02-05,New Jersey Devils,New York Islanders,ev_home_ml,-0.042272727272727184
+2026-02-05,New Jersey Devils,New York Islanders,ev_away_ml,-0.048636363636363644
+2026-02-05,Philadelphia Flyers,Ottawa Senators,ev_away_ml,-0.07896031746031762
+2026-02-05,Tampa Bay Lightning,Florida Panthers,ev_away_ml,-0.08001500000000006
+2026-02-05,Buffalo Sabres,Pittsburgh Penguins,ev_home_ml,-0.13359489051094886
+2026-02-05,Washington Capitals,Nashville Predators,ev_home_ml,-0.17589138576779034
+2026-02-05,New York Rangers,Carolina Hurricanes,ev_away_ml,-0.2703720930232558
+2026-02-05,Vegas Golden Knights,Los Angeles Kings,ev_away_ml,-0.38829333333333343
+2026-02-05,Tampa Bay Lightning,Florida Panthers,ev_under,-0.5645866666666666
+2026-02-05,Vegas Golden Knights,Los Angeles Kings,ev_under,-0.7003733333333334
+2026-02-05,Buffalo Sabres,Pittsburgh Penguins,ev_under,-0.7467272727272727
+2026-02-05,Washington Capitals,Nashville Predators,ev_under,-0.7531428571428571
+2026-02-05,Philadelphia Flyers,Ottawa Senators,ev_under,-0.7694646464646465
+2026-02-05,New York Rangers,Carolina Hurricanes,ev_under,-0.797481220657277
+2026-02-05,New Jersey Devils,New York Islanders,ev_under,-0.9118636363636363

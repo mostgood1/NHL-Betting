@@ -82,6 +82,14 @@ data/props/**
 !data/processed/props_recommendations_history.csv
 !data/processed/player_props_vs_actuals_*.csv
 
+## Allow committing sim artifacts used by web /api/sim/* (small CSVs; no Parquet samples)
+data/processed/props_boxscores_sim_samples_*
+!data/processed/props_boxscores_sim_????-??-??.csv
+!data/processed/sim_games_*.csv
+!data/processed/sim_games_pos_*.csv
+!data/processed/sim_events_pos_*.csv
+!data/processed/sim_boxscores_pos_*.csv
+
 ## Also allow daily predictions/edges so web (Render) can use GitHub raw fallback
 !data/processed/predictions_*.csv
 !data/processed/edges_*.csv

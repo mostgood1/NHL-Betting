@@ -6116,6 +6116,7 @@ def props_simulate_boxscores(
         "auto",
         help="Goalie starter source: 'auto' uses actual played goalie for past dates when available, otherwise uses starting_goalies_{date}.csv; 'snapshot' uses starting_goalies_{date}.csv only; 'proj' uses highest projected TOI goalie.",
     ),
+    saves_cal: float = typer.Option(1.0, help="Optional scalar multiplier applied to simulated goalie SAVES outputs (and samples)."),
 ):
     """Generate period and game-level simulated player boxscores from the play-level sim engine.
 
@@ -6134,6 +6135,12 @@ def props_simulate_boxscores(
     from .sim.engine import GameSimulator, SimConfig
     from .sim.models import RateModels
     from .sim.props_boxscore import aggregate_events_to_boxscores
+
+    # Best-effort mapping from (team_abbr, normalized player name) -> NHL player_id for this date.
+    # Used only when roster snapshots are missing player_id, to avoid synthesizing hashed IDs that
+    # cannot be matched to actuals during validation.
+    actual_pid_by_team_nodot: dict[tuple[str, str], int] = {}
+    act_stats_for_day = None
     # Build slate via schedule
     games = []
     # Forced slate parsing if provided
@@ -6630,6 +6637,49 @@ def props_simulate_boxscores(
             abbr = str(nm or '').strip().upper()
         # Build roster snapshot: prefer processed cache, fallback to live Web API
         try:
+            # Historical validation mode: build roster directly from this day's actual stats.
+            # This prevents mismatches caused by current-roster drift and avoids synthetic IDs.
+            if act_stats_for_day is not None and not getattr(act_stats_for_day, "empty", True) and abbr:
+                try:
+                    import pandas as _pd
+
+                    sub = act_stats_for_day[act_stats_for_day["team_key"].astype(str).str.upper() == str(abbr).upper()].copy()
+                    if sub is not None and not sub.empty:
+                        sub["toi_num"] = _pd.to_numeric(sub.get("toi_min"), errors="coerce").fillna(0.0)
+                        sub["saves_num"] = _pd.to_numeric(sub.get("saves"), errors="coerce").fillna(0.0)
+                        sub["blk_num"] = _pd.to_numeric(sub.get("blocked"), errors="coerce").fillna(0.0)
+                        sub["is_goalie"] = (sub["saves_num"] > 0) | (sub["toi_num"] > 45.0)
+
+                        sk = sub[~sub["is_goalie"]].copy()
+                        sk = sk.sort_values(["blk_num", "toi_num"], ascending=[False, False])
+                        d_ids = set()
+                        try:
+                            d_ids = set(int(x) for x in sk.head(6)["player_id"].tolist())
+                        except Exception:
+                            d_ids = set()
+
+                        out_rows: list[dict] = []
+                        for _, r in sub.iterrows():
+                            try:
+                                pid = int(r.get("player_id"))
+                            except Exception:
+                                continue
+                            name = str(r.get("player") or r.get("full_name") or "").strip()
+                            toi = float(r.get("toi_num") or 0.0)
+                            if bool(r.get("is_goalie")):
+                                pos = "G"
+                                toi = max(toi, 50.0)
+                            else:
+                                pos = "D" if pid in d_ids else "F"
+                                if toi <= 0.0:
+                                    toi = 15.0
+                            out_rows.append({"player_id": pid, "full_name": name, "position": pos, "proj_toi": float(toi)})
+
+                        if out_rows:
+                            return out_rows, []
+                except Exception:
+                    pass
+
             if roster_snapshot_df is not None and not roster_snapshot_df.empty and abbr:
                 r_df = roster_snapshot_df[roster_snapshot_df['team'].astype(str).str.upper() == abbr]
                 if r_df is not None and not r_df.empty:
@@ -6893,8 +6943,30 @@ def props_simulate_boxscores(
                 return int(1000000 + base)
             for rr in rows or []:
                 pid = rr.get('player_id')
-                if pid is None or (isinstance(pid, float) and _math.isnan(pid)):
-                    nm = rr.get('full_name') or rr.get('player')
+                nm = rr.get('full_name') or rr.get('player')
+                pid_i = None
+                try:
+                    if pid is not None and not (isinstance(pid, float) and _math.isnan(pid)):
+                        pid_i = int(pid)
+                except Exception:
+                    pid_i = None
+
+                # Prefer real NHL IDs from historical actuals when available (validation mode).
+                # Also repair clearly-invalid synthetic IDs (some upstream sources omit NHL IDs
+                # and we previously hashed names into low numeric ranges).
+                needs_repair = (pid_i is None) or (pid_i < 5_000_000)
+                if needs_repair:
+                    try:
+                        nodot = _props_compare__norm_name(str(nm or '')).replace('.', '')
+                        nodot = str(nodot).strip().lower()
+                        real = actual_pid_by_team_nodot.get((str(abbr).upper(), nodot))
+                        if real:
+                            rr['player_id'] = int(real)
+                            continue
+                    except Exception:
+                        pass
+
+                if pid_i is None:
                     rr['player_id'] = _mk_id(nm)
         except Exception:
             pass
@@ -6921,7 +6993,7 @@ def props_simulate_boxscores(
 
     # Optional: for historical validation, override starters with the actual played goalie.
     # This prevents massive evaluation distortion when starting_goalies_{date}.csv is missing/wrong.
-    actual_goalie_pid_by_abbr: dict[str, int] = {}
+    actual_goalie_pid_by_teamkey: dict[str, int] = {}
     try:
         src = str(starter_source or "").strip().lower()
     except Exception:
@@ -6944,6 +7016,24 @@ def props_simulate_boxscores(
             stats_all = _props_compare__load_player_game_stats_all()
             act = _props_compare__prepare_stats_day(stats_all, str(date))
             if act is not None and not act.empty:
+                try:
+                    act_stats_for_day = act.copy()
+                except Exception:
+                    act_stats_for_day = act
+                # Build name->id map per team for missing roster IDs.
+                try:
+                    for _, r in act.iterrows():
+                        try:
+                            team_key = str(r.get("team_key") or "").strip().upper()
+                            pid = int(r.get("player_id"))
+                            nodot = str(r.get("player_nodot") or "").strip().lower()
+                            if team_key and pid and nodot:
+                                actual_pid_by_team_nodot[(team_key, nodot)] = pid
+                        except Exception:
+                            continue
+                except Exception:
+                    pass
+
                 # Identify goalies by saves/TOI heuristics, then pick the max-TOI goalie per team.
                 import pandas as _pd
 
@@ -6957,14 +7047,14 @@ def props_simulate_boxscores(
                     top = act.groupby("team_key", as_index=False).head(1)
                     for _, r in top.iterrows():
                         try:
-                            ab = str(r.get("team_key") or "").upper()
+                            tk = str(r.get("team_key") or "").upper()
                             pid = int(_pd.to_numeric(r.get("player_id"), errors="coerce"))
-                            if ab and pid:
-                                actual_goalie_pid_by_abbr[ab] = pid
+                            if tk and pid:
+                                actual_goalie_pid_by_teamkey[tk] = pid
                         except Exception:
                             continue
     except Exception:
-        actual_goalie_pid_by_abbr = {}
+        actual_goalie_pid_by_teamkey = {}
 
     for g in games:
         home = str(getattr(g, 'home', ''))
@@ -6982,10 +7072,10 @@ def props_simulate_boxscores(
             a_ab = (get_team_assets(away).get('abbr') or '').upper()
 
             # Historical override: use actual played goalie when available
-            if actual_goalie_pid_by_abbr:
+            if actual_goalie_pid_by_teamkey:
                 try:
-                    pid_h_actual = actual_goalie_pid_by_abbr.get(h_ab)
-                    pid_a_actual = actual_goalie_pid_by_abbr.get(a_ab)
+                    pid_h_actual = actual_goalie_pid_by_teamkey.get(str(home).upper())
+                    pid_a_actual = actual_goalie_pid_by_teamkey.get(str(away).upper())
                     if pid_h_actual:
                         starter_ids[home] = int(pid_h_actual)
                     if pid_a_actual:
@@ -7117,6 +7207,18 @@ def props_simulate_boxscores(
                 special_teams_cal=special_cal,
             )
             df_i = aggregate_events_to_boxscores(gs, ev, starter_goalies=starter_ids or None)
+            # Optional calibration of goalie SAVES market without changing the underlying shot process.
+            # Keep as float expectations (applied per-sim aggregation) so downstream averaging remains stable.
+            try:
+                sc = float(saves_cal)
+            except Exception:
+                sc = 1.0
+            if sc != 1.0 and (df_i is not None) and (not df_i.empty) and ("saves" in df_i.columns):
+                try:
+                    df_i["saves"] = pd.to_numeric(df_i.get("saves"), errors="coerce").fillna(0.0).astype(float) * float(sc)
+                    df_i["saves"] = df_i["saves"].clip(lower=0.0)
+                except Exception:
+                    pass
             # Attach player names for convenience
             name_map = { int(p['player_id']): str(p['full_name']) for p in (roster_home + roster_away) if p.get('player_id') }
             df_i['player'] = df_i['player_id'].map(lambda pid: name_map.get(int(pid)))
@@ -15810,6 +15912,7 @@ def _props_compare__ensure_stats_date_et(df):
 
 def _props_compare__prepare_stats_day(stats_all, day: str):
     import pandas as pd
+    from .web.teams import get_team_assets
 
     d = stats_all
     if "date_et" not in d.columns:
@@ -15821,7 +15924,17 @@ def _props_compare__prepare_stats_day(stats_all, day: str):
         d["player_id"] = pd.to_numeric(d["player_id"], errors="coerce")
     except Exception:
         pass
-    d["team_key"] = d.get("team").astype(str).str.upper()
+    # Normalize team identifiers to canonical abbreviation keys so sim/actual can match
+    # regardless of whether sources provide full names or abbreviations.
+    def _team_key(x: object) -> str:
+        try:
+            ab = (get_team_assets(str(x)).get("abbr") or "").strip().upper()
+            if ab:
+                return ab
+        except Exception:
+            pass
+        return str(x or "").strip().upper()
+    d["team_key"] = d.get("team").apply(_team_key)
     d["player_text"] = d.get("player").apply(_props_compare__extract_player_text)
     d["player_norm"] = d["player_text"].apply(_props_compare__norm_name)
     d["player_nodot"] = d["player_norm"].str.replace(".", "", regex=False)
@@ -15832,6 +15945,7 @@ def _props_compare__prepare_stats_day(stats_all, day: str):
 
 def _props_compare__load_sim_totals(day: str, sim_prefix: str = ""):
     import pandas as pd
+    from .web.teams import get_team_assets
 
     from .utils.io import PROC_DIR
 
@@ -15862,7 +15976,15 @@ def _props_compare__load_sim_totals(day: str, sim_prefix: str = ""):
         sim["player_id"] = pd.to_numeric(sim["player_id"], errors="coerce")
     except Exception:
         pass
-    sim["team_key"] = sim.get("team").astype(str).str.upper()
+    def _team_key(x: object) -> str:
+        try:
+            ab = (get_team_assets(str(x)).get("abbr") or "").strip().upper()
+            if ab:
+                return ab
+        except Exception:
+            pass
+        return str(x or "").strip().upper()
+    sim["team_key"] = sim.get("team").apply(_team_key)
     sim["player_norm"] = sim.get("player").astype(str).map(_props_compare__norm_name)
     sim["player_nodot"] = sim["player_norm"].str.replace(".", "", regex=False)
     return sim

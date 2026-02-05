@@ -3,7 +3,7 @@ Param (
   [int]$YearsBack = 2,
   [int]$CoreTimeoutSec = 600,
   [int]$PropsBoxscoreNSims = 6000,
-  [int]$PropsBoxscoreTimeoutSec = 1200,
+  [int]$PropsBoxscoreTimeoutSec = 3600,
   [int]$GameSimTimeoutSec = 600,
   [switch]$StrictOutputs,
   [switch]$NoReconcile,
@@ -57,7 +57,13 @@ Param (
   # Props backtests (sim-backed)
   [switch]$RunSimPropsBacktests,
   [int]$SimPropsBacktestDays = 13,
-  [string]$SimPropsBacktestMinEvPerMarket = ""
+  [string]$SimPropsBacktestMinEvPerMarket = "",
+
+  # Play-level props boxscore sim tuning (impacts web-facing props lambdas)
+  [string]$PropsToiMode = "auto",
+  [string]$PropsStarterSource = "auto",
+  [double]$PropsSavesCal = 0.85,
+  [int]$PropsSeed = 42
 )
 $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -66,9 +72,9 @@ $ProcessedDir = Join-Path $RepoRoot 'data/processed'
 $NpuScript = Join-Path $RepoRoot "activate_npu.ps1"
 
 function Assert-AnyPath {
-  Param(
-    [Parameter(Mandatory=$true)][string]$Label,
-    [Parameter(Mandatory=$true)][string[]]$Paths,
+  param(
+    [int]$CoreTimeoutSec = 600,
+    [int]$PropsBoxscoreTimeoutSec = 3600,
     [switch]$NonEmpty,
     [switch]$Strict
   )
@@ -213,6 +219,8 @@ try {
   $tomorrow = (Get-Date).AddDays(1).ToString('yyyy-MM-dd')
   Write-Host "[daily_update] Updating roster snapshot for $today …" -ForegroundColor Yellow
   python -m nhl_betting.cli roster-update --date $today
+  Write-Host "[daily_update] Updating roster snapshot for $tomorrow …" -ForegroundColor Yellow
+  python -m nhl_betting.cli roster-update --date $tomorrow
   Write-Host "[daily_update] Updating lineup + co-TOI for $today …" -ForegroundColor Yellow
   python -m nhl_betting.cli lineup-update --date $today
   Write-Host "[daily_update] Fetching shiftcharts + co-TOI for $today …" -ForegroundColor Yellow
@@ -243,7 +251,10 @@ try {
     Write-Host "[daily_update] Generating simulated player boxscores for $d …" -ForegroundColor DarkYellow
     try {
       # Run with timeout to prevent stalls on future slates
-      $job1 = Start-Job -ScriptBlock { Set-Location $using:RepoRoot; & $using:PyExe -m nhl_betting.cli props-simulate-boxscores --date $using:d --n-sims $using:PropsBoxscoreNSims }
+      $job1 = Start-Job -ScriptBlock {
+        Set-Location $using:RepoRoot
+        & $using:PyExe -m nhl_betting.cli props-simulate-boxscores --date $using:d --n-sims $using:PropsBoxscoreNSims --seed $using:PropsSeed --toi-mode $using:PropsToiMode --starter-source $using:PropsStarterSource --saves-cal $using:PropsSavesCal 2>&1
+      }
       $done1 = Wait-Job $job1 -Timeout $PropsBoxscoreTimeoutSec
       if (-not $done1) {
         try { Stop-Job $job1 -Force } catch {}
@@ -273,7 +284,7 @@ try {
     try {
       Write-Host "[daily_update] Computing sim-native game predictions for $d …" -ForegroundColor DarkYellow
       # Run with timeout to prevent stalls if samples are unavailable
-      $job2 = Start-Job -ScriptBlock { Set-Location $using:RepoRoot; & $using:PyExe -m nhl_betting.cli game-recommendations-sim --date $using:d --top 200 }
+      $job2 = Start-Job -ScriptBlock { Set-Location $using:RepoRoot; & $using:PyExe -m nhl_betting.cli game-recommendations-sim --date $using:d --top 200 2>&1 }
       $done2 = Wait-Job $job2 -Timeout $GameSimTimeoutSec
       if (-not $done2) {
         try { Stop-Job $job2 -Force } catch {}
@@ -623,7 +634,7 @@ try {
     if ($mon.overall -and $mon.overall.roi -lt -0.08) { $needLearn = $true }
   }
   if ($needLearn) {
-    $seasonStart = if ((Get-Date).Month -ge 9) { "$(Get-Date).Year-09-01" } else { "$(Get-Date).AddYears(-1).Year-09-01" }
+    $seasonStart = if ((Get-Date).Month -ge 9) { "$((Get-Date).Year)-09-01" } else { "$((Get-Date).AddYears(-1).Year)-09-01" }
     Write-Host "[daily_update] EV gate re-learn triggered (seasonStart=$seasonStart -> today)" -ForegroundColor Magenta
     python -m nhl_betting.cli game-learn-ev-gates --start $seasonStart --end $today
   } else {
@@ -767,11 +778,41 @@ if ($PropsRecs) {
     if (-not $NoReconcile) {
       $yesterday = (Get-Date).AddDays(-1).ToString('yyyy-MM-dd')
       Write-Host "[daily_update] Backfilling actuals for $yesterday …" -ForegroundColor Yellow
-      try { python .\scripts\backfill_actuals_day.py $yesterday } catch { Write-Warning "[daily_update] backfill_actuals_day failed: $($_.Exception.Message)" }
+      $oldPythonPath = $env:PYTHONPATH
+      try {
+        $env:PYTHONPATH = $RepoRoot
+        Push-Location $RepoRoot
+        & $PyExe .\scripts\backfill_actuals_day.py $yesterday
+      } catch {
+        Write-Warning "[daily_update] backfill_actuals_day failed: $($_.Exception.Message)"
+      } finally {
+        Pop-Location
+        $env:PYTHONPATH = $oldPythonPath
+      }
       Write-Host "[daily_update] Reconciling props for $yesterday …" -ForegroundColor Cyan
-      try { python .\scripts\props_reconcile_day.py $yesterday } catch { Write-Warning "[daily_update] props_reconcile_day failed: $($_.Exception.Message)" }
+      $oldPythonPath = $env:PYTHONPATH
+      try {
+        $env:PYTHONPATH = $RepoRoot
+        Push-Location $RepoRoot
+        & $PyExe .\scripts\props_reconcile_day.py $yesterday
+      } catch {
+        Write-Warning "[daily_update] props_reconcile_day failed: $($_.Exception.Message)"
+      } finally {
+        Pop-Location
+        $env:PYTHONPATH = $oldPythonPath
+      }
       Write-Host "[daily_update] Aggregating reconciliation summaries …" -ForegroundColor DarkGreen
-      try { python .\scripts\props_reconciliations_aggregate.py $yesterday } catch { Write-Warning "[daily_update] props_reconciliations_aggregate failed: $($_.Exception.Message)" }
+      $oldPythonPath = $env:PYTHONPATH
+      try {
+        $env:PYTHONPATH = $RepoRoot
+        Push-Location $RepoRoot
+        & $PyExe .\scripts\props_reconciliations_aggregate.py $yesterday
+      } catch {
+        Write-Warning "[daily_update] props_reconciliations_aggregate failed: $($_.Exception.Message)"
+      } finally {
+        Pop-Location
+        $env:PYTHONPATH = $oldPythonPath
+      }
     } else {
       Write-Host "[daily_update] Props reconciliation skipped (-NoReconcile)" -ForegroundColor DarkGreen
     }

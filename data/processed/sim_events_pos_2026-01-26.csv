@@ -1,0 +1,5 @@
+gamePk,date,home,away,shots_ev_home,shots_pp_home,shots_pk_home,shots_ev_away,shots_pp_away,shots_pk_away,goals_ev_home,goals_pp_home,goals_pk_home,goals_ev_away,goals_pp_away,goals_pk_away,blocks_ev_home,blocks_pp_home,blocks_pk_home,blocks_ev_away,blocks_pp_away,blocks_pk_away,saves_ev_home,saves_pp_home,saves_pk_home,saves_ev_away,saves_pp_away,saves_pk_away
+2025020825,2026-01-26,Tampa Bay Lightning,Utah Mammoth,23,8,1,17,4,5,3,0,1,2,1,0,2,1,2,5,0,2,15,3,5,20,8,0
+2025020826,2026-01-26,New York Rangers,Boston Bruins,18,6,6,28,19,0,0,0,1,4,4,0,5,0,3,5,0,2,24,15,0,18,6,5
+2025020827,2026-01-26,Philadelphia Flyers,New York Islanders,17,3,2,19,6,0,3,1,1,1,0,0,5,0,1,9,0,2,18,6,0,14,2,1
+2025020829,2026-01-26,Edmonton Oilers,Anaheim Ducks,25,13,3,16,0,3,0,1,1,2,0,0,4,0,0,6,0,7,14,0,3,25,12,2

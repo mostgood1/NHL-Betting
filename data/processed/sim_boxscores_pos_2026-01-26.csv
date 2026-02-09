@@ -1,0 +1,208 @@
+gamePk,date,team,player_id,full_name,position,shots,goals,saves,blocks
+2025020825,2026-01-26,Tampa Bay Lightning,8477416,Oliver Bjorkstrand,F,5,1,0,0
+2025020825,2026-01-26,Tampa Bay Lightning,8478519,Anthony Cirelli,F,2,1,0,0
+2025020825,2026-01-26,Tampa Bay Lightning,8480876,Curtis Douglas,F,0,0,0,0
+2025020825,2026-01-26,Tampa Bay Lightning,8482090,Jack Finley,F,1,1,0,0
+2025020825,2026-01-26,Tampa Bay Lightning,8476878,Zemgus Girgensons,F,2,0,0,0
+2025020825,2026-01-26,Tampa Bay Lightning,8482201,Gage Goncalves,F,1,0,0,0
+2025020825,2026-01-26,Tampa Bay Lightning,8476826,Yanni Gourde,F,0,0,0,0
+2025020825,2026-01-26,Tampa Bay Lightning,8477404,Jake Guentzel,F,1,0,0,0
+2025020825,2026-01-26,Tampa Bay Lightning,8479542,Brandon Hagel,F,0,0,0,0
+2025020825,2026-01-26,Tampa Bay Lightning,8480995,Pontus Holmberg,F,0,0,0,0
+2025020825,2026-01-26,Tampa Bay Lightning,8483752,Dominic James,F,2,0,0,0
+2025020825,2026-01-26,Tampa Bay Lightning,8476453,Nikita Kucherov,F,1,0,0,0
+2025020825,2026-01-26,Tampa Bay Lightning,8477426,Nick Paul,F,0,0,0,0
+2025020825,2026-01-26,Tampa Bay Lightning,8481592,Jakob Pelletier,F,0,0,0,0
+2025020825,2026-01-26,Tampa Bay Lightning,8478010,Brayden Point,F,0,0,0,0
+2025020825,2026-01-26,Tampa Bay Lightning,8483398,Declan Carlile,D,4,0,0,2
+2025020825,2026-01-26,Tampa Bay Lightning,8478416,Erik Cernak,D,0,1,0,1
+2025020825,2026-01-26,Tampa Bay Lightning,8481719,Max Crozier,D,1,0,0,0
+2025020825,2026-01-26,Tampa Bay Lightning,8480426,Charle-Edouard D'Astous,D,3,0,0,0
+2025020825,2026-01-26,Tampa Bay Lightning,8482168,Maxim Groshev,D,1,0,0,0
+2025020825,2026-01-26,Tampa Bay Lightning,8475167,Victor Hedman,D,3,0,0,0
+2025020825,2026-01-26,Tampa Bay Lightning,8482929,Emil Lilleberg,D,0,0,0,0
+2025020825,2026-01-26,Tampa Bay Lightning,8481547,Simon Lundmark,D,2,0,0,0
+2025020825,2026-01-26,Tampa Bay Lightning,8474151,Ryan McDonagh,D,2,0,0,1
+2025020825,2026-01-26,Tampa Bay Lightning,8482655,J.J. Moser,D,1,0,0,1
+2025020825,2026-01-26,Tampa Bay Lightning,8478178,Darren Raddysh,D,0,0,0,0
+2025020825,2026-01-26,Tampa Bay Lightning,8477992,Jonas Johansson,G,0,0,23,0
+2025020825,2026-01-26,Tampa Bay Lightning,8476883,Andrei Vasilevskiy,G,0,0,0,0
+2025020825,2026-01-26,Utah Mammoth,8484388,Daniil But,F,0,0,0,0
+2025020825,2026-01-26,Utah Mammoth,8479619,Michael Carcone,F,1,0,0,0
+2025020825,2026-01-26,Utah Mammoth,8483431,Logan Cooley,F,0,0,0,0
+2025020825,2026-01-26,Utah Mammoth,8478474,Lawson Crouse,F,0,0,0,0
+2025020825,2026-01-26,Utah Mammoth,8482699,Dylan Guenther,F,0,0,0,0
+2025020825,2026-01-26,Utah Mammoth,8480849,Barrett Hayton,F,0,0,0,0
+2025020825,2026-01-26,Utah Mammoth,8479656,Cam Hebig,F,3,0,0,0
+2025020825,2026-01-26,Utah Mammoth,8479343,Clayton Keller,F,0,0,0,0
+2025020825,2026-01-26,Utah Mammoth,8477021,Alexander Kerfoot,F,1,0,0,0
+2025020825,2026-01-26,Utah Mammoth,8480855,Jack McBain,F,0,0,0,0
+2025020825,2026-01-26,Utah Mammoth,8477070,Liam O'Brien,F,0,0,0,0
+2025020825,2026-01-26,Utah Mammoth,8482175,JJ Peterka,F,0,1,0,0
+2025020825,2026-01-26,Utah Mammoth,8477951,Nick Schmaltz,F,4,1,0,0
+2025020825,2026-01-26,Utah Mammoth,8478831,Kevin Stenlund,F,0,0,0,0
+2025020825,2026-01-26,Utah Mammoth,8479293,Brandon Tanev,F,0,0,0,0
+2025020825,2026-01-26,Utah Mammoth,8479977,Kailer Yamamoto,F,0,0,0,0
+2025020825,2026-01-26,Utah Mammoth,8474013,Ian Cole,D,3,0,0,2
+2025020825,2026-01-26,Utah Mammoth,8480084,Nick DeSimone,D,3,0,0,1
+2025020825,2026-01-26,Utah Mammoth,8480434,Sean Durzi,D,3,0,0,1
+2025020825,2026-01-26,Utah Mammoth,8478507,John Marino,D,0,0,0,2
+2025020825,2026-01-26,Utah Mammoth,8476874,Olli Määttä,D,5,0,0,1
+2025020825,2026-01-26,Utah Mammoth,8477220,Nate Schmidt,D,3,1,0,0
+2025020825,2026-01-26,Utah Mammoth,8479410,Mikhail Sergachev,D,0,0,0,0
+2025020825,2026-01-26,Utah Mammoth,8477970,Vitek Vanecek,G,0,0,28,0
+2025020825,2026-01-26,Utah Mammoth,8478872,Karel Vejmelka,G,0,0,0,0
+2025020826,2026-01-26,New York Rangers,8477380,Jonny Brodzinski,F,3,0,0,0
+2025020826,2026-01-26,New York Rangers,8475842,Sam Carrick,F,5,1,0,1
+2025020826,2026-01-26,New York Rangers,8482157,Will Cuylle,F,1,0,0,0
+2025020826,2026-01-26,New York Rangers,8481726,Adam Edstrom,F,5,0,0,0
+2025020826,2026-01-26,New York Rangers,8483690,Noah Laba,F,0,0,0,0
+2025020826,2026-01-26,New York Rangers,8482109,Alexis Lafrenière,F,1,0,0,0
+2025020826,2026-01-26,New York Rangers,8476468,J.T. Miller,F,2,0,0,0
+2025020826,2026-01-26,New York Rangers,8482747,Brennan Othmann,F,0,0,0,0
+2025020826,2026-01-26,New York Rangers,8478550,Artemi Panarin,F,0,0,0,0
+2025020826,2026-01-26,New York Rangers,8484210,Gabe Perreault,F,0,0,0,0
+2025020826,2026-01-26,New York Rangers,8479390,Taylor Raddysh,F,0,0,0,0
+2025020826,2026-01-26,New York Rangers,8482460,Matt Rempe,F,1,0,0,0
+2025020826,2026-01-26,New York Rangers,8477839,Conor Sheary,F,0,0,0,0
+2025020826,2026-01-26,New York Rangers,8476389,Vincent Trocheck,F,0,0,0,0
+2025020826,2026-01-26,New York Rangers,8476459,Mika Zibanejad,F,0,0,0,0
+2025020826,2026-01-26,New York Rangers,8478840,Will Borgen,D,2,0,0,1
+2025020826,2026-01-26,New York Rangers,8479323,Adam Fox,D,0,0,0,1
+2025020826,2026-01-26,New York Rangers,8478882,Vladislav Gavrikov,D,2,0,0,3
+2025020826,2026-01-26,New York Rangers,8482067,Connor Mackey,D,0,0,0,0
+2025020826,2026-01-26,New York Rangers,8482666,Scott Morrow,D,1,0,0,1
+2025020826,2026-01-26,New York Rangers,8481525,Matthew Robertson,D,3,0,0,0
+2025020826,2026-01-26,New York Rangers,8482073,Braden Schneider,D,1,0,0,1
+2025020826,2026-01-26,New York Rangers,8477369,Carson Soucy,D,3,0,0,0
+2025020826,2026-01-26,New York Rangers,8480001,Urho Vaakanainen,D,0,0,0,0
+2025020826,2026-01-26,New York Rangers,8477484,Spencer Martin,G,0,0,39,0
+2025020826,2026-01-26,New York Rangers,8471734,Jonathan Quick,G,0,0,0,0
+2025020826,2026-01-26,New York Rangers,8478048,Igor Shesterkin,G,0,0,0,0
+2025020826,2026-01-26,Boston Bruins,8478042,Viktor Arvidsson,F,9,2,0,0
+2025020826,2026-01-26,Boston Bruins,8479591,Michael Eyssimont,F,2,0,0,0
+2025020826,2026-01-26,Boston Bruins,8479987,Morgan Geekie,F,1,1,0,0
+2025020826,2026-01-26,Boston Bruins,8479661,Tanner Jeannot,F,2,0,0,0
+2025020826,2026-01-26,Boston Bruins,8480355,Mark Kastelic,F,2,0,0,0
+2025020826,2026-01-26,Boston Bruins,8482177,Marat Khusnutdinov,F,0,0,0,0
+2025020826,2026-01-26,Boston Bruins,8476374,Sean Kuraly,F,1,0,0,0
+2025020826,2026-01-26,Boston Bruins,8477496,Elias Lindholm,F,3,0,0,0
+2025020826,2026-01-26,Boston Bruins,8483489,Fraser Minten,F,0,0,0,0
+2025020826,2026-01-26,Boston Bruins,8479999,Casey Mittelstadt,F,1,0,0,0
+2025020826,2026-01-26,Boston Bruins,8477956,David Pastrnak,F,1,0,0,0
+2025020826,2026-01-26,Boston Bruins,8482634,Alex Steeves,F,4,0,0,0
+2025020826,2026-01-26,Boston Bruins,8478401,Pavel Zacha,F,0,0,0,0
+2025020826,2026-01-26,Boston Bruins,8481219,Jonathan Aspirot,D,3,0,0,0
+2025020826,2026-01-26,Boston Bruins,8480887,Jordan Harris,D,1,1,0,2
+2025020826,2026-01-26,Boston Bruins,8480035,Henri Jokiharju,D,4,0,0,0
+2025020826,2026-01-26,Boston Bruins,8476854,Hampus Lindholm,D,4,0,0,1
+2025020826,2026-01-26,Boston Bruins,8482511,Mason Lohrei,D,7,0,0,1
+2025020826,2026-01-26,Boston Bruins,8479325,Charlie McAvoy,D,1,3,0,2
+2025020826,2026-01-26,Boston Bruins,8479369,Andrew Peeke,D,1,1,0,1
+2025020826,2026-01-26,Boston Bruins,8477507,Nikita Zadorov,D,0,0,0,0
+2025020826,2026-01-26,Boston Bruins,8476914,Joonas Korpisalo,G,0,0,29,0
+2025020826,2026-01-26,Boston Bruins,8480280,Jeremy Swayman,G,0,0,0,0
+2025020827,2026-01-26,Philadelphia Flyers,8479022,Rodrigo Abols,F,1,0,0,0
+2025020827,2026-01-26,Philadelphia Flyers,8484142,Denver Barkey,F,5,1,0,0
+2025020827,2026-01-26,Philadelphia Flyers,8481553,Bobby Brink,F,1,1,0,0
+2025020827,2026-01-26,Philadelphia Flyers,8480220,Noah Cates,F,0,0,0,0
+2025020827,2026-01-26,Philadelphia Flyers,8476461,Sean Couturier,F,1,0,0,0
+2025020827,2026-01-26,Philadelphia Flyers,8475235,Nicolas Deslauriers,F,1,0,0,0
+2025020827,2026-01-26,Philadelphia Flyers,8477989,Christian Dvorak,F,1,0,0,0
+2025020827,2026-01-26,Philadelphia Flyers,8482159,Tyson Foerster,F,0,0,0,0
+2025020827,2026-01-26,Philadelphia Flyers,8483733,Nikita Grebenkin,F,0,0,0,0
+2025020827,2026-01-26,Philadelphia Flyers,8479336,Carl Grundstrom,F,1,0,0,0
+2025020827,2026-01-26,Philadelphia Flyers,8477903,Garnet Hathaway,F,0,1,0,0
+2025020827,2026-01-26,Philadelphia Flyers,8478439,Travis Konecny,F,1,1,0,0
+2025020827,2026-01-26,Philadelphia Flyers,8484387,Matvei Michkov,F,0,0,0,0
+2025020827,2026-01-26,Philadelphia Flyers,8478967,Lane Pederson,F,0,0,0,0
+2025020827,2026-01-26,Philadelphia Flyers,8480015,Owen Tippett,F,0,0,0,0
+2025020827,2026-01-26,Philadelphia Flyers,8481533,Trevor Zegras,F,0,0,0,0
+2025020827,2026-01-26,Philadelphia Flyers,8482126,Emil Andrae,D,2,0,0,1
+2025020827,2026-01-26,Philadelphia Flyers,8482142,Jamie Drysdale,D,0,0,0,1
+2025020827,2026-01-26,Philadelphia Flyers,8478454,Noah Juulsen,D,2,0,0,2
+2025020827,2026-01-26,Philadelphia Flyers,8483760,Hunter McDonald,D,2,0,0,1
+2025020827,2026-01-26,Philadelphia Flyers,8477499,Rasmus Ristolainen,D,2,0,0,0
+2025020827,2026-01-26,Philadelphia Flyers,8477948,Travis Sanheim,D,1,1,0,1
+2025020827,2026-01-26,Philadelphia Flyers,8476372,Nick Seeler,D,1,0,0,0
+2025020827,2026-01-26,Philadelphia Flyers,8481546,Cam York,D,0,0,0,0
+2025020827,2026-01-26,Philadelphia Flyers,8481035,Samuel Ersson,G,0,0,24,0
+2025020827,2026-01-26,Philadelphia Flyers,8482783,Aleksei Kolosov,G,0,0,0,0
+2025020827,2026-01-26,Philadelphia Flyers,8478435,Dan Vladar,G,0,0,0,0
+2025020827,2026-01-26,New York Islanders,8478445,Mathew Barzal,F,0,0,0,0
+2025020827,2026-01-26,New York Islanders,8475231,Casey Cizikas,F,1,0,0,0
+2025020827,2026-01-26,New York Islanders,8477494,Jonathan Drouin,F,0,0,0,0
+2025020827,2026-01-26,New York Islanders,8477407,Anthony Duclair,F,0,0,0,0
+2025020827,2026-01-26,New York Islanders,8483553,Marc Gatcomb,F,0,0,0,0
+2025020827,2026-01-26,New York Islanders,8482476,Emil Heineman,F,0,0,0,0
+2025020827,2026-01-26,New York Islanders,8481601,Simon Holmstrom,F,1,0,0,0
+2025020827,2026-01-26,New York Islanders,8477500,Bo Horvat,F,0,0,0,0
+2025020827,2026-01-26,New York Islanders,8475314,Anders Lee,F,0,0,0,0
+2025020827,2026-01-26,New York Islanders,8481237,Kyle MacLean,F,2,0,0,0
+2025020827,2026-01-26,New York Islanders,8476419,Jean-Gabriel Pageau,F,3,0,0,0
+2025020827,2026-01-26,New York Islanders,8475151,Kyle Palmieri,F,1,1,0,0
+2025020827,2026-01-26,New York Islanders,8484221,Calum Ritchie,F,3,0,0,0
+2025020827,2026-01-26,New York Islanders,8485702,Max Shabanov,F,0,0,0,0
+2025020827,2026-01-26,New York Islanders,8484958,Maxim Tsyplakov,F,0,0,0,0
+2025020827,2026-01-26,New York Islanders,8480871,Adam Boqvist,D,4,0,0,1
+2025020827,2026-01-26,New York Islanders,8477950,Tony DeAngelo,D,2,0,0,3
+2025020827,2026-01-26,New York Islanders,8483448,Isaiah George,D,3,0,0,3
+2025020827,2026-01-26,New York Islanders,8476429,Scott Mayfield,D,1,0,0,2
+2025020827,2026-01-26,New York Islanders,8476917,Adam Pelech,D,2,0,0,2
+2025020827,2026-01-26,New York Islanders,8477506,Ryan Pulock,D,1,0,0,0
+2025020827,2026-01-26,New York Islanders,8481014,Alexander Romanov,D,1,0,0,0
+2025020827,2026-01-26,New York Islanders,8485366,Matthew Schaefer,D,0,0,0,0
+2025020827,2026-01-26,New York Islanders,8479496,David Rittich,G,0,0,17,0
+2025020827,2026-01-26,New York Islanders,8478009,Ilya Sorokin,G,0,0,0,0
+2025020827,2026-01-26,New York Islanders,8473575,Semyon Varlamov,G,0,0,0,0
+2025020829,2026-01-26,Edmonton Oilers,8477934,Leon Draisaitl,F,6,0,0,0
+2025020829,2026-01-26,Edmonton Oilers,8479365,Trent Frederic,F,1,0,0,0
+2025020829,2026-01-26,Edmonton Oilers,8474641,Adam Henrique,F,1,0,0,0
+2025020829,2026-01-26,Edmonton Oilers,8475786,Zach Hyman,F,1,0,0,0
+2025020829,2026-01-26,Edmonton Oilers,8477406,Mattias Janmark,F,0,0,0,0
+2025020829,2026-01-26,Edmonton Oilers,8477953,Kasperi Kapanen,F,2,0,0,0
+2025020829,2026-01-26,Edmonton Oilers,8477508,Curtis Lazar,F,0,0,0,0
+2025020829,2026-01-26,Edmonton Oilers,8478233,Andrew Mangiapane,F,0,0,0,0
+2025020829,2026-01-26,Edmonton Oilers,8478402,Connor McDavid,F,0,0,0,0
+2025020829,2026-01-26,Edmonton Oilers,8476454,Ryan Nugent-Hopkins,F,2,0,0,0
+2025020829,2026-01-26,Edmonton Oilers,8481617,Vasily Podkolzin,F,4,0,0,0
+2025020829,2026-01-26,Edmonton Oilers,8478458,Jack Roslovic,F,3,0,0,0
+2025020829,2026-01-26,Edmonton Oilers,8484509,Josh Samanski,F,0,0,0,0
+2025020829,2026-01-26,Edmonton Oilers,8483512,Matt Savoie,F,0,0,0,0
+2025020829,2026-01-26,Edmonton Oilers,8480803,Evan Bouchard,D,1,0,0,0
+2025020829,2026-01-26,Edmonton Oilers,8475218,Mattias Ekholm,D,1,0,0,0
+2025020829,2026-01-26,Edmonton Oilers,8480834,Ty Emberson,D,7,0,0,2
+2025020829,2026-01-26,Edmonton Oilers,8477498,Darnell Nurse,D,6,0,0,1
+2025020829,2026-01-26,Edmonton Oilers,8480831,Alec Regula,D,3,1,0,0
+2025020829,2026-01-26,Edmonton Oilers,8481056,Spencer Stastney,D,3,1,0,1
+2025020829,2026-01-26,Edmonton Oilers,8478013,Jake Walman,D,0,0,0,0
+2025020829,2026-01-26,Edmonton Oilers,8478971,Connor Ingram,G,0,0,17,0
+2025020829,2026-01-26,Edmonton Oilers,8477465,Tristan Jarry,G,0,0,0,0
+2025020829,2026-01-26,Edmonton Oilers,8475717,Calvin Pickard,G,0,0,0,0
+2025020829,2026-01-26,Anaheim Ducks,8484153,Leo Carlsson,F,2,0,0,1
+2025020829,2026-01-26,Anaheim Ducks,8482118,Sam Colangelo,F,1,1,0,0
+2025020829,2026-01-26,Anaheim Ducks,8483445,Cutter Gauthier,F,0,0,0,0
+2025020829,2026-01-26,Anaheim Ducks,8475798,Mikael Granlund,F,0,0,0,0
+2025020829,2026-01-26,Anaheim Ducks,8478424,Jansen Harkins,F,0,0,0,0
+2025020829,2026-01-26,Anaheim Ducks,8477527,Ross Johnston,F,0,0,0,0
+2025020829,2026-01-26,Anaheim Ducks,8473986,Alex Killorn,F,0,0,0,0
+2025020829,2026-01-26,Anaheim Ducks,8475184,Chris Kreider,F,0,0,0,0
+2025020829,2026-01-26,Anaheim Ducks,8482745,Mason McTavish,F,1,0,0,0
+2025020829,2026-01-26,Anaheim Ducks,8481754,Nikita Nesterenko,F,0,0,0,1
+2025020829,2026-01-26,Anaheim Ducks,8480068,Ryan Poehling,F,0,0,0,0
+2025020829,2026-01-26,Anaheim Ducks,8484762,Beckett Sennecke,F,0,0,0,0
+2025020829,2026-01-26,Anaheim Ducks,8476458,Ryan Strome,F,0,0,0,0
+2025020829,2026-01-26,Anaheim Ducks,8478873,Troy Terry,F,1,0,0,0
+2025020829,2026-01-26,Anaheim Ducks,8478366,Frank Vatrano,F,1,0,0,0
+2025020829,2026-01-26,Anaheim Ducks,8479705,Jeffrey Viel,F,1,0,0,0
+2025020829,2026-01-26,Anaheim Ducks,8485512,Tim Washe,F,0,0,0,0
+2025020829,2026-01-26,Anaheim Ducks,8475462,Radko Gudas,D,2,0,0,3
+2025020829,2026-01-26,Anaheim Ducks,8481563,Drew Helleson,D,2,0,0,2
+2025020829,2026-01-26,Anaheim Ducks,8481605,Jackson LaCombe,D,1,1,0,3
+2025020829,2026-01-26,Anaheim Ducks,8483490,Pavel Mintyukov,D,4,0,0,2
+2025020829,2026-01-26,Anaheim Ducks,8482178,Ian Moore,D,3,0,0,1
+2025020829,2026-01-26,Anaheim Ducks,8476885,Jacob Trouba,D,0,0,0,0
+2025020829,2026-01-26,Anaheim Ducks,8482803,Olen Zellweger,D,0,0,0,0
+2025020829,2026-01-26,Anaheim Ducks,8480843,Lukas Dostal,G,0,0,39,0
+2025020829,2026-01-26,Anaheim Ducks,8478024,Ville Husso,G,0,0,0,0
+2025020829,2026-01-26,Anaheim Ducks,8475852,Petr Mrazek,G,0,0,0,0

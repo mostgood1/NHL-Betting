@@ -1,0 +1,11 @@
+gamePk,date,home,away,shots_ev_home,shots_pp_home,shots_pk_home,shots_ev_away,shots_pp_away,shots_pk_away,goals_ev_home,goals_pp_home,goals_pk_home,goals_ev_away,goals_pp_away,goals_pk_away,blocks_ev_home,blocks_pp_home,blocks_pk_home,blocks_ev_away,blocks_pp_away,blocks_pk_away,saves_ev_home,saves_pp_home,saves_pk_home,saves_ev_away,saves_pp_away,saves_pk_away
+2025020622,2025-12-31,Washington Capitals,New York Rangers,9,7,6,20,7,4,0,1,1,1,0,0,4,1,2,1,2,1,19,7,4,9,6,5
+2025020623,2025-12-31,Vegas Golden Knights,Nashville Predators,26,2,3,26,4,0,5,0,1,4,0,0,4,0,0,6,0,1,22,4,0,21,2,2
+2025020624,2025-12-31,Anaheim Ducks,Tampa Bay Lightning,41,1,3,25,10,1,1,0,0,4,0,0,9,1,3,10,1,1,21,10,1,40,1,3
+2025020625,2025-12-31,San Jose Sharks,Minnesota Wild,25,10,2,16,1,5,2,2,0,1,0,0,3,1,0,6,0,1,15,1,5,23,8,2
+2025020626,2025-12-31,Detroit Red Wings,Winnipeg Jets,26,2,0,24,2,2,1,1,0,2,1,0,5,0,1,5,0,1,22,1,2,25,1,0
+2025020627,2025-12-31,Columbus Blue Jackets,New Jersey Devils,30,8,6,24,12,1,2,0,0,5,0,0,6,0,6,7,0,1,19,12,1,28,8,6
+2025020628,2025-12-31,Dallas Stars,Buffalo Sabres,29,5,1,29,6,2,0,2,0,1,1,0,5,0,2,10,0,2,28,5,2,29,3,1
+2025020629,2025-12-31,Colorado Avalanche,St. Louis Blues,41,0,0,33,2,0,6,0,0,2,0,0,9,0,0,9,0,0,31,2,0,35,0,0
+2025020630,2025-12-31,Calgary Flames,Philadelphia Flyers,17,8,0,30,0,7,1,2,0,2,0,0,9,0,0,2,0,2,28,0,7,16,6,0
+2025020631,2025-12-31,Edmonton Oilers,Boston Bruins,14,5,2,26,8,2,0,1,0,3,1,1,9,0,2,0,0,1,23,7,1,14,4,2

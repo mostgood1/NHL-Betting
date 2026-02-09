@@ -1,0 +1,10 @@
+gamePk,date,home,away,shots_ev_home,shots_pp_home,shots_pk_home,shots_ev_away,shots_pp_away,shots_pk_away,goals_ev_home,goals_pp_home,goals_pk_home,goals_ev_away,goals_pp_away,goals_pk_away,blocks_ev_home,blocks_pp_home,blocks_pk_home,blocks_ev_away,blocks_pp_away,blocks_pk_away,saves_ev_home,saves_pp_home,saves_pk_home,saves_ev_away,saves_pp_away,saves_pk_away
+2025020716,2026-01-12,Buffalo Sabres,Florida Panthers,21,7,0,33,0,3,2,2,0,1,0,2,8,0,0,9,0,3,32,0,1,19,5,0
+2025020717,2026-01-12,Detroit Red Wings,Carolina Hurricanes,22,5,3,28,1,3,5,2,0,2,0,0,2,1,1,7,0,1,26,1,3,17,3,3
+2025020718,2026-01-12,New York Rangers,Seattle Kraken,28,3,3,27,3,2,2,0,0,6,0,0,8,0,0,4,0,1,21,3,2,26,3,3
+2025020719,2026-01-12,Philadelphia Flyers,Tampa Bay Lightning,25,0,10,27,6,0,2,0,0,2,0,0,4,0,1,12,2,0,25,6,0,23,0,10
+2025020720,2026-01-12,Montréal Canadiens,Vancouver Canucks,24,4,0,31,1,4,2,0,0,3,0,0,9,1,1,7,0,1,28,1,4,22,4,0
+2025020721,2026-01-12,Minnesota Wild,New Jersey Devils,19,5,1,23,0,3,0,1,1,2,0,1,5,0,0,4,1,3,21,0,2,19,4,0
+2025020722,2026-01-12,Chicago Blackhawks,Edmonton Oilers,14,4,3,31,3,1,2,0,0,1,0,0,11,0,1,2,1,3,30,3,1,12,4,3
+2025020723,2026-01-12,Colorado Avalanche,Toronto Maple Leafs,22,2,2,23,3,2,4,0,0,2,0,0,6,1,2,7,0,1,21,3,2,18,2,2
+2025020724,2026-01-12,Los Angeles Kings,Dallas Stars,33,2,1,31,1,0,3,0,0,7,0,0,6,0,0,9,0,0,24,1,0,30,2,1

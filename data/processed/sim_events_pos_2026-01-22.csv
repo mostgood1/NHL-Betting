@@ -1,0 +1,9 @@
+gamePk,date,home,away,shots_ev_home,shots_pp_home,shots_pk_home,shots_ev_away,shots_pp_away,shots_pk_away,goals_ev_home,goals_pp_home,goals_pk_home,goals_ev_away,goals_pp_away,goals_pk_away
+2025020794,2026-01-22,Boston Bruins,Vegas Golden Knights,29,8,1,23,1,4,2,1,0,2,0,0
+2025020795,2026-01-22,Montréal Canadiens,Buffalo Sabres,22,0,1,19,3,0,2,0,0,1,0,0
+2025020796,2026-01-22,Carolina Hurricanes,Chicago Blackhawks,26,1,0,27,0,3,4,0,0,1,0,1
+2025020797,2026-01-22,Columbus Blue Jackets,Dallas Stars,22,7,2,33,3,4,3,1,0,3,0,0
+2025020798,2026-01-22,Nashville Predators,Ottawa Senators,23,6,4,18,3,3,2,0,0,5,0,0
+2025020799,2026-01-22,Winnipeg Jets,Florida Panthers,18,1,2,23,7,3,5,0,0,1,1,0
+2025020800,2026-01-22,Edmonton Oilers,Pittsburgh Penguins,29,4,4,24,3,3,2,0,0,4,1,0
+2025020801,2026-01-22,Minnesota Wild,Detroit Red Wings,25,13,2,14,2,3,0,1,0,4,1,0

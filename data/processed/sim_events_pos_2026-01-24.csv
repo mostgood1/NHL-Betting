@@ -1,0 +1,10 @@
+gamePk,date,home,away,shots_ev_home,shots_pp_home,shots_pk_home,shots_ev_away,shots_pp_away,shots_pk_away,goals_ev_home,goals_pp_home,goals_pk_home,goals_ev_away,goals_pp_away,goals_pk_away,blocks_ev_home,blocks_pp_home,blocks_pk_home,blocks_ev_away,blocks_pp_away,blocks_pk_away,saves_ev_home,saves_pp_home,saves_pk_home,saves_ev_away,saves_pp_away,saves_pk_away
+2025020810,2026-01-24,New York Islanders,Buffalo Sabres,24,6,5,24,7,1,3,0,1,1,2,0,0,0,0,1,0,0,23,5,1,21,6,4
+2025020811,2026-01-24,Nashville Predators,Utah Mammoth,24,0,0,28,3,0,3,0,0,1,0,0,1,0,0,1,0,0,27,3,0,21,0,0
+2025020812,2026-01-24,Boston Bruins,Montréal Canadiens,22,9,2,19,6,3,3,0,0,2,1,0,0,0,0,0,0,0,17,5,3,19,9,2
+2025020813,2026-01-24,Ottawa Senators,Carolina Hurricanes,18,5,2,26,5,4,5,0,0,6,2,0,2,0,0,0,0,0,20,3,4,13,5,2
+2025020814,2026-01-24,Columbus Blue Jackets,Tampa Bay Lightning,29,11,0,20,6,3,1,1,0,5,0,1,0,0,0,0,0,0,15,6,2,28,10,0
+2025020815,2026-01-24,Winnipeg Jets,Detroit Red Wings,32,4,0,33,1,0,3,0,0,2,0,0,1,0,0,0,0,3,31,1,0,29,4,0
+2025020816,2026-01-24,St. Louis Blues,Los Angeles Kings,21,5,2,24,9,1,0,1,0,2,1,0,0,0,1,0,0,0,22,8,1,21,4,2
+2025020817,2026-01-24,Minnesota Wild,Florida Panthers,24,8,0,17,7,2,1,2,0,0,0,0,0,0,1,3,0,0,17,7,2,23,6,0
+2025020818,2026-01-24,Edmonton Oilers,Washington Capitals,24,20,0,21,2,6,2,2,0,0,0,0,1,0,0,0,0,2,21,2,6,22,18,0

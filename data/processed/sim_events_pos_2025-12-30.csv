@@ -1,0 +1,6 @@
+gamePk,date,home,away,shots_ev_home,shots_pp_home,shots_pk_home,shots_ev_away,shots_pp_away,shots_pk_away,goals_ev_home,goals_pp_home,goals_pk_home,goals_ev_away,goals_pp_away,goals_pk_away,blocks_ev_home,blocks_pp_home,blocks_pk_home,blocks_ev_away,blocks_pp_away,blocks_pk_away,saves_ev_home,saves_pp_home,saves_pk_home,saves_ev_away,saves_pp_away,saves_pk_away
+2025020617,2025-12-30,Toronto Maple Leafs,New Jersey Devils,33,7,0,22,0,7,4,0,0,3,0,2,5,1,0,9,0,0,19,0,5,29,7,0
+2025020618,2025-12-30,Florida Panthers,Montréal Canadiens,21,9,0,28,2,10,2,1,0,2,0,2,4,1,0,2,0,3,26,2,8,19,8,0
+2025020619,2025-12-30,Pittsburgh Penguins,Carolina Hurricanes,23,2,2,26,4,2,2,0,0,1,0,0,4,0,0,2,1,1,25,4,2,21,2,2
+2025020620,2025-12-30,Chicago Blackhawks,New York Islanders,26,3,3,22,4,2,4,0,0,3,2,0,8,0,0,4,1,1,19,2,2,22,3,3
+2025020621,2025-12-30,Vancouver Canucks,Philadelphia Flyers,28,3,1,28,4,2,3,0,0,5,1,0,6,0,0,6,0,0,23,3,2,25,3,1

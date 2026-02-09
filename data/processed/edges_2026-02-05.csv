@@ -1,41 +1,39 @@
 date,home,away,market,ev
 2026-02-06T00:00:00Z,Philadelphia Flyers,Ottawa Senators,ev_home_ml,0.6442
-2026-02-06T00:00:00Z,New Jersey Devils,New York Islanders,ev_over,0.3298
+2026-02-06T00:00:00Z,New Jersey Devils,New York Islanders,ev_over,0.4303
 2026-02-06T00:00:00Z,New Jersey Devils,New York Islanders,ev_home_ml,0.3114
-2026-02-06T00:00:00Z,Washington Capitals,Nashville Predators,ev_home_ml,0.239
-2026-02-06T00:30:00Z,Tampa Bay Lightning,Florida Panthers,ev_home_ml,0.1784
-2026-02-06T00:00:00Z,Philadelphia Flyers,Ottawa Senators,ev_under,0.1697
-2026-02-06T00:00:00Z,New York Rangers,Carolina Hurricanes,ev_home_ml,0.1639
+2026-02-06T00:00:00Z,Washington Capitals,Nashville Predators,ev_home_ml,0.2617
+2026-02-06T00:00:00Z,Philadelphia Flyers,Ottawa Senators,ev_under,0.2227
+2026-02-06T00:30:00Z,Tampa Bay Lightning,Florida Panthers,ev_home_ml,0.1649
+2026-02-06T00:00:00Z,Buffalo Sabres,Pittsburgh Penguins,ev_under,0.1389
+2026-02-06T00:00:00Z,New York Rangers,Carolina Hurricanes,ev_home_ml,0.1237
+2026-02-06T00:30:00Z,Tampa Bay Lightning,Florida Panthers,ev_under,0.1166
+2026-02-06T00:00:00Z,Washington Capitals,Nashville Predators,ev_under,0.1123
 2026-02-06T00:00:00Z,Buffalo Sabres,Pittsburgh Penguins,ev_away_pl_+1.5,0.1119
-2026-02-06T00:00:00Z,Buffalo Sabres,Pittsburgh Penguins,ev_under,0.1111
 2026-02-06T03:00:00Z,Vegas Golden Knights,Los Angeles Kings,ev_under,0.1025
-2026-02-06T00:00:00Z,Washington Capitals,Nashville Predators,ev_under,0.0932
+2026-02-06T00:30:00Z,Tampa Bay Lightning,Florida Panthers,ev_away_pl_+1.5,0.0841
 2026-02-06T00:00:00Z,New York Rangers,Carolina Hurricanes,ev_under,0.084
-2026-02-06T00:30:00Z,Tampa Bay Lightning,Florida Panthers,ev_under,0.0799
 2026-02-06T00:00:00Z,Buffalo Sabres,Pittsburgh Penguins,ev_home_ml,0.0493
-2026-02-06T03:00:00Z,Vegas Golden Knights,Los Angeles Kings,ev_f10_yes,0.044
-2026-02-06T00:30:00Z,Tampa Bay Lightning,Florida Panthers,ev_away_pl_+1.5,0.0288
-2026-02-06T00:00:00Z,Washington Capitals,Nashville Predators,ev_away_pl_+1.5,0.0186
-2026-02-06T03:00:00Z,Vegas Golden Knights,Los Angeles Kings,ev_home_ml,0.0182
-2026-02-06T03:00:00Z,Vegas Golden Knights,Los Angeles Kings,ev_away_pl_+1.5,-0.0146
+2026-02-06T03:00:00Z,Vegas Golden Knights,Los Angeles Kings,ev_home_ml,0.0349
+2026-02-06T00:00:00Z,Washington Capitals,Nashville Predators,ev_away_pl_+1.5,0.0078
+2026-02-06T03:00:00Z,Vegas Golden Knights,Los Angeles Kings,ev_away_pl_+1.5,-0.0307
 2026-02-06T00:00:00Z,New Jersey Devils,New York Islanders,ev_away_pl_+1.5,-0.0383
 2026-02-06T00:00:00Z,New Jersey Devils,New York Islanders,ev_home_pl_-1.5,-0.0487
-2026-02-06T03:00:00Z,Vegas Golden Knights,Los Angeles Kings,ev_home_pl_-1.5,-0.0915
-2026-02-06T03:00:00Z,Vegas Golden Knights,Los Angeles Kings,ev_away_ml,-0.1117
-2026-02-06T00:00:00Z,Washington Capitals,Nashville Predators,ev_home_pl_-1.5,-0.1321
-2026-02-06T00:00:00Z,New York Rangers,Carolina Hurricanes,ev_away_ml,-0.141
-2026-02-06T00:30:00Z,Tampa Bay Lightning,Florida Panthers,ev_home_pl_-1.5,-0.1413
+2026-02-06T03:00:00Z,Vegas Golden Knights,Los Angeles Kings,ev_home_pl_-1.5,-0.0591
+2026-02-06T00:00:00Z,Washington Capitals,Nashville Predators,ev_home_pl_-1.5,-0.1213
+2026-02-06T00:00:00Z,New York Rangers,Carolina Hurricanes,ev_away_ml,-0.1267
+2026-02-06T03:00:00Z,Vegas Golden Knights,Los Angeles Kings,ev_away_ml,-0.1283
 2026-02-06T00:00:00Z,Buffalo Sabres,Pittsburgh Penguins,ev_away_ml,-0.1451
 2026-02-06T03:00:00Z,Vegas Golden Knights,Los Angeles Kings,ev_over,-0.168
 2026-02-06T00:00:00Z,New York Rangers,Carolina Hurricanes,ev_over,-0.1846
-2026-02-06T00:00:00Z,Buffalo Sabres,Pittsburgh Penguins,ev_over,-0.1852
-2026-02-06T00:00:00Z,Washington Capitals,Nashville Predators,ev_over,-0.1864
-2026-02-06T00:30:00Z,Tampa Bay Lightning,Florida Panthers,ev_over,-0.1875
-2026-02-06T00:00:00Z,Philadelphia Flyers,Ottawa Senators,ev_over,-0.298
+2026-02-06T00:30:00Z,Tampa Bay Lightning,Florida Panthers,ev_home_pl_-1.5,-0.1995
+2026-02-06T00:00:00Z,Buffalo Sabres,Pittsburgh Penguins,ev_over,-0.2
+2026-02-06T00:00:00Z,Washington Capitals,Nashville Predators,ev_over,-0.2004
+2026-02-06T00:30:00Z,Tampa Bay Lightning,Florida Panthers,ev_over,-0.2217
 2026-02-06T00:00:00Z,Buffalo Sabres,Pittsburgh Penguins,ev_home_pl_-1.5,-0.3343
-2026-02-06T03:00:00Z,Vegas Golden Knights,Los Angeles Kings,ev_f10_no,-0.3773
+2026-02-06T00:00:00Z,Philadelphia Flyers,Ottawa Senators,ev_over,-0.3373
 2026-02-06T00:00:00Z,New Jersey Devils,New York Islanders,ev_away_ml,-0.4023
-2026-02-06T00:00:00Z,New Jersey Devils,New York Islanders,ev_under,-0.4038
-2026-02-06T00:30:00Z,Tampa Bay Lightning,Florida Panthers,ev_away_ml,-0.427
-2026-02-06T00:00:00Z,Washington Capitals,Nashville Predators,ev_away_ml,-0.4679
+2026-02-06T00:30:00Z,Tampa Bay Lightning,Florida Panthers,ev_away_ml,-0.4139
+2026-02-06T00:00:00Z,New Jersey Devils,New York Islanders,ev_under,-0.4358
+2026-02-06T00:00:00Z,Washington Capitals,Nashville Predators,ev_away_ml,-0.4811
 2026-02-06T00:00:00Z,Philadelphia Flyers,Ottawa Senators,ev_away_ml,-0.616

@@ -1,0 +1,508 @@
+gamePk,date,team,player_id,full_name,position,shots,goals,saves,blocks
+2025020622,2025-12-31,Washington Capitals,8478463,Anthony Beauvillier,F,4,0,0,1
+2025020622,2025-12-31,Washington Capitals,8475343,Nic Dowd,F,2,0,0,1
+2025020622,2025-12-31,Washington Capitals,8479400,Pierre-Luc Dubois,F,0,0,0,0
+2025020622,2025-12-31,Washington Capitals,8479520,Brandon Duhaime,F,0,0,0,0
+2025020622,2025-12-31,Washington Capitals,8483573,Ethen Frank,F,0,0,0,0
+2025020622,2025-12-31,Washington Capitals,8482148,Hendrix Lapierre,F,0,0,0,0
+2025020622,2025-12-31,Washington Capitals,8484186,Ryan Leonard,F,2,0,0,0
+2025020622,2025-12-31,Washington Capitals,8481580,Connor McMichael,F,0,0,0,0
+2025020622,2025-12-31,Washington Capitals,8477947,Sonny Milano,F,1,0,0,0
+2025020622,2025-12-31,Washington Capitals,8471214,Alex Ovechkin,F,0,0,0,0
+2025020622,2025-12-31,Washington Capitals,8481656,Aliaksei Protas,F,1,0,0,0
+2025020622,2025-12-31,Washington Capitals,8482088,Justin Sourdif,F,0,0,0,0
+2025020622,2025-12-31,Washington Capitals,8478440,Dylan Strome,F,0,0,0,0
+2025020622,2025-12-31,Washington Capitals,8476880,Tom Wilson,F,0,0,0,0
+2025020622,2025-12-31,Washington Capitals,8474590,John Carlson,D,1,0,0,2
+2025020622,2025-12-31,Washington Capitals,8480990,Declan Chisholm,D,1,0,0,1
+2025020622,2025-12-31,Washington Capitals,8479345,Jakob Chychrun,D,1,0,0,1
+2025020622,2025-12-31,Washington Capitals,8480796,Martin Fehérváry,D,1,0,0,0
+2025020622,2025-12-31,Washington Capitals,8475795,Dylan McIlrath,D,4,1,0,1
+2025020622,2025-12-31,Washington Capitals,8478911,Matt Roy,D,2,1,0,0
+2025020622,2025-12-31,Washington Capitals,8480873,Rasmus Sandin,D,2,0,0,0
+2025020622,2025-12-31,Washington Capitals,8477845,Trevor van Riemsdyk,D,0,0,0,0
+2025020622,2025-12-31,Washington Capitals,8479292,Charlie Lindgren,G,0,0,30,0
+2025020622,2025-12-31,Washington Capitals,8480313,Logan Thompson,G,0,0,0,0
+2025020622,2025-12-31,New York Rangers,8477380,Jonny Brodzinski,F,3,1,0,0
+2025020622,2025-12-31,New York Rangers,8475842,Sam Carrick,F,3,0,0,0
+2025020622,2025-12-31,New York Rangers,8482157,Will Cuylle,F,3,0,0,0
+2025020622,2025-12-31,New York Rangers,8481726,Adam Edstrom,F,1,0,0,0
+2025020622,2025-12-31,New York Rangers,8483690,Noah Laba,F,0,0,0,0
+2025020622,2025-12-31,New York Rangers,8482109,Alexis Lafrenière,F,0,0,0,0
+2025020622,2025-12-31,New York Rangers,8476468,J.T. Miller,F,0,0,0,0
+2025020622,2025-12-31,New York Rangers,8482747,Brennan Othmann,F,1,0,0,0
+2025020622,2025-12-31,New York Rangers,8478550,Artemi Panarin,F,1,0,0,0
+2025020622,2025-12-31,New York Rangers,8484210,Gabe Perreault,F,1,0,0,0
+2025020622,2025-12-31,New York Rangers,8479390,Taylor Raddysh,F,0,0,0,0
+2025020622,2025-12-31,New York Rangers,8482460,Matt Rempe,F,1,0,0,0
+2025020622,2025-12-31,New York Rangers,8477839,Conor Sheary,F,4,0,0,0
+2025020622,2025-12-31,New York Rangers,8476389,Vincent Trocheck,F,0,0,0,0
+2025020622,2025-12-31,New York Rangers,8476459,Mika Zibanejad,F,0,0,0,0
+2025020622,2025-12-31,New York Rangers,8478840,Will Borgen,D,4,0,0,0
+2025020622,2025-12-31,New York Rangers,8479323,Adam Fox,D,1,0,0,0
+2025020622,2025-12-31,New York Rangers,8478882,Vladislav Gavrikov,D,0,0,0,1
+2025020622,2025-12-31,New York Rangers,8482666,Scott Morrow,D,1,0,0,0
+2025020622,2025-12-31,New York Rangers,8481525,Matthew Robertson,D,4,0,0,1
+2025020622,2025-12-31,New York Rangers,8482073,Braden Schneider,D,1,0,0,2
+2025020622,2025-12-31,New York Rangers,8477369,Carson Soucy,D,2,0,0,0
+2025020622,2025-12-31,New York Rangers,8480001,Urho Vaakanainen,D,0,0,0,0
+2025020622,2025-12-31,New York Rangers,8477484,Spencer Martin,G,0,0,0,0
+2025020622,2025-12-31,New York Rangers,8471734,Jonathan Quick,G,0,0,20,0
+2025020622,2025-12-31,New York Rangers,8478048,Igor Shesterkin,G,0,0,0,0
+2025020623,2025-12-31,Vegas Golden Knights,8477964,Ivan Barbashev,F,1,0,0,0
+2025020623,2025-12-31,Vegas Golden Knights,8483890,Braeden Bowman,F,0,0,0,0
+2025020623,2025-12-31,Vegas Golden Knights,8481604,Pavel Dorofeyev,F,0,0,0,0
+2025020623,2025-12-31,Vegas Golden Knights,8478403,Jack Eichel,F,0,0,0,0
+2025020623,2025-12-31,Vegas Golden Knights,8476881,Tomas Hertl,F,1,0,0,0
+2025020623,2025-12-31,Vegas Golden Knights,8482125,Alexander Holtz,F,0,0,0,0
+2025020623,2025-12-31,Vegas Golden Knights,8479353,Brett Howden,F,2,0,0,0
+2025020623,2025-12-31,Vegas Golden Knights,8476448,William Karlsson,F,0,0,0,0
+2025020623,2025-12-31,Vegas Golden Knights,8478434,Keegan Kolesar,F,0,2,0,0
+2025020623,2025-12-31,Vegas Golden Knights,8479550,Tanner Laczynski,F,2,0,0,0
+2025020623,2025-12-31,Vegas Golden Knights,8478483,Mitch Marner,F,4,0,0,0
+2025020623,2025-12-31,Vegas Golden Knights,8481133,Cole Reinhardt,F,0,1,0,0
+2025020623,2025-12-31,Vegas Golden Knights,8480007,Jonas Rondbjerg,F,1,1,0,0
+2025020623,2025-12-31,Vegas Golden Knights,8476438,Brandon Saad,F,0,0,0,0
+2025020623,2025-12-31,Vegas Golden Knights,8476925,Colton Sissons,F,1,1,0,0
+2025020623,2025-12-31,Vegas Golden Knights,8475191,Reilly Smith,F,1,0,0,0
+2025020623,2025-12-31,Vegas Golden Knights,8475913,Mark Stone,F,0,0,0,0
+2025020623,2025-12-31,Vegas Golden Knights,8478397,Rasmus Andersson,D,3,0,0,0
+2025020623,2025-12-31,Vegas Golden Knights,8479639,Dylan Coghlan,D,3,0,0,1
+2025020623,2025-12-31,Vegas Golden Knights,8478396,Noah Hanifin,D,3,0,0,1
+2025020623,2025-12-31,Vegas Golden Knights,8477018,Ben Hutton,D,2,0,0,0
+2025020623,2025-12-31,Vegas Golden Knights,8481527,Kaedan Korczak,D,4,0,0,1
+2025020623,2025-12-31,Vegas Golden Knights,8478468,Jeremy Lauzon,D,2,0,0,1
+2025020623,2025-12-31,Vegas Golden Knights,8475188,Brayden McNabb,D,1,1,0,0
+2025020623,2025-12-31,Vegas Golden Knights,8477447,Shea Theodore,D,0,0,0,0
+2025020623,2025-12-31,Vegas Golden Knights,8479394,Carter Hart,G,0,0,0,0
+2025020623,2025-12-31,Vegas Golden Knights,8478499,Adin Hill,G,0,0,0,0
+2025020623,2025-12-31,Vegas Golden Knights,8481033,Akira Schmid,G,0,0,26,0
+2025020623,2025-12-31,Nashville Predators,8478047,Michael Bunting,F,2,0,0,0
+2025020623,2025-12-31,Nashville Predators,8482146,Luke Evangelista,F,2,0,0,0
+2025020623,2025-12-31,Nashville Predators,8476887,Filip Forsberg,F,0,0,0,0
+2025020623,2025-12-31,Nashville Predators,8475287,Erik Haula,F,3,0,0,0
+2025020623,2025-12-31,Nashville Predators,8479370,Tyson Jost,F,2,0,0,0
+2025020623,2025-12-31,Nashville Predators,8476539,Jonathan Marchessault,F,1,0,0,0
+2025020623,2025-12-31,Nashville Predators,8477446,Michael McCarron,F,0,0,0,0
+2025020623,2025-12-31,Nashville Predators,8475158,Ryan O'Reilly,F,3,0,0,0
+2025020623,2025-12-31,Nashville Predators,8482062,Cole Smith,F,3,1,0,0
+2025020623,2025-12-31,Nashville Predators,8474564,Steven Stamkos,F,0,1,0,0
+2025020623,2025-12-31,Nashville Predators,8482768,Fedor Svechkov,F,2,0,0,0
+2025020623,2025-12-31,Nashville Predators,8482103,Ozzy Wiesblatt,F,0,0,0,0
+2025020623,2025-12-31,Nashville Predators,8484241,Matthew Wood,F,0,0,0,0
+2025020623,2025-12-31,Nashville Predators,8482111,Justin Barron,D,2,2,0,2
+2025020623,2025-12-31,Nashville Predators,8483565,Nick Blankenburg,D,2,0,0,4
+2025020623,2025-12-31,Nashville Predators,8479980,Nicolas Hague,D,2,0,0,1
+2025020623,2025-12-31,Nashville Predators,8474600,Roman Josi,D,4,0,0,0
+2025020623,2025-12-31,Nashville Predators,8480246,Nick Perbix,D,1,0,0,0
+2025020623,2025-12-31,Nashville Predators,8476869,Brady Skjei,D,1,0,0,0
+2025020623,2025-12-31,Nashville Predators,8482482,Adam Wilsby,D,0,0,0,0
+2025020623,2025-12-31,Nashville Predators,8481020,Justus Annunen,G,0,0,25,0
+2025020623,2025-12-31,Nashville Predators,8477424,Juuse Saros,G,0,0,0,0
+2025020624,2025-12-31,Anaheim Ducks,8484153,Leo Carlsson,F,1,0,0,1
+2025020624,2025-12-31,Anaheim Ducks,8482118,Sam Colangelo,F,4,0,0,0
+2025020624,2025-12-31,Anaheim Ducks,8483445,Cutter Gauthier,F,0,0,0,0
+2025020624,2025-12-31,Anaheim Ducks,8475798,Mikael Granlund,F,0,0,0,0
+2025020624,2025-12-31,Anaheim Ducks,8478424,Jansen Harkins,F,0,0,0,0
+2025020624,2025-12-31,Anaheim Ducks,8477527,Ross Johnston,F,0,0,0,0
+2025020624,2025-12-31,Anaheim Ducks,8473986,Alex Killorn,F,3,0,0,0
+2025020624,2025-12-31,Anaheim Ducks,8475184,Chris Kreider,F,2,0,0,0
+2025020624,2025-12-31,Anaheim Ducks,8482745,Mason McTavish,F,2,0,0,0
+2025020624,2025-12-31,Anaheim Ducks,8481754,Nikita Nesterenko,F,1,0,0,0
+2025020624,2025-12-31,Anaheim Ducks,8480068,Ryan Poehling,F,3,0,0,0
+2025020624,2025-12-31,Anaheim Ducks,8484762,Beckett Sennecke,F,2,0,0,0
+2025020624,2025-12-31,Anaheim Ducks,8476458,Ryan Strome,F,0,0,0,0
+2025020624,2025-12-31,Anaheim Ducks,8478873,Troy Terry,F,4,1,0,0
+2025020624,2025-12-31,Anaheim Ducks,8478366,Frank Vatrano,F,4,0,0,0
+2025020624,2025-12-31,Anaheim Ducks,8479705,Jeffrey Viel,F,0,0,0,0
+2025020624,2025-12-31,Anaheim Ducks,8485512,Tim Washe,F,0,0,0,0
+2025020624,2025-12-31,Anaheim Ducks,8475462,Radko Gudas,D,1,0,0,0
+2025020624,2025-12-31,Anaheim Ducks,8481563,Drew Helleson,D,5,0,0,4
+2025020624,2025-12-31,Anaheim Ducks,8481605,Jackson LaCombe,D,3,0,0,0
+2025020624,2025-12-31,Anaheim Ducks,8483490,Pavel Mintyukov,D,2,0,0,1
+2025020624,2025-12-31,Anaheim Ducks,8482178,Ian Moore,D,2,0,0,2
+2025020624,2025-12-31,Anaheim Ducks,8476885,Jacob Trouba,D,6,0,0,5
+2025020624,2025-12-31,Anaheim Ducks,8482803,Olen Zellweger,D,0,0,0,0
+2025020624,2025-12-31,Anaheim Ducks,8480843,Lukas Dostal,G,0,0,32,0
+2025020624,2025-12-31,Anaheim Ducks,8478024,Ville Husso,G,0,0,0,0
+2025020624,2025-12-31,Anaheim Ducks,8475852,Petr Mrazek,G,0,0,0,0
+2025020624,2025-12-31,Tampa Bay Lightning,8477416,Oliver Bjorkstrand,F,1,0,0,0
+2025020624,2025-12-31,Tampa Bay Lightning,8478519,Anthony Cirelli,F,0,0,0,0
+2025020624,2025-12-31,Tampa Bay Lightning,8480876,Curtis Douglas,F,0,0,0,0
+2025020624,2025-12-31,Tampa Bay Lightning,8482090,Jack Finley,F,0,0,0,0
+2025020624,2025-12-31,Tampa Bay Lightning,8476878,Zemgus Girgensons,F,1,0,0,0
+2025020624,2025-12-31,Tampa Bay Lightning,8482201,Gage Goncalves,F,1,0,0,0
+2025020624,2025-12-31,Tampa Bay Lightning,8476826,Yanni Gourde,F,3,0,0,0
+2025020624,2025-12-31,Tampa Bay Lightning,8477404,Jake Guentzel,F,2,3,0,0
+2025020624,2025-12-31,Tampa Bay Lightning,8479542,Brandon Hagel,F,3,0,0,0
+2025020624,2025-12-31,Tampa Bay Lightning,8480995,Pontus Holmberg,F,0,0,0,0
+2025020624,2025-12-31,Tampa Bay Lightning,8483752,Dominic James,F,0,0,0,0
+2025020624,2025-12-31,Tampa Bay Lightning,8476453,Nikita Kucherov,F,0,1,0,0
+2025020624,2025-12-31,Tampa Bay Lightning,8477426,Nick Paul,F,0,0,0,0
+2025020624,2025-12-31,Tampa Bay Lightning,8481592,Jakob Pelletier,F,2,0,0,0
+2025020624,2025-12-31,Tampa Bay Lightning,8478010,Brayden Point,F,0,0,0,0
+2025020624,2025-12-31,Tampa Bay Lightning,8483398,Declan Carlile,D,2,0,0,2
+2025020624,2025-12-31,Tampa Bay Lightning,8478416,Erik Cernak,D,3,0,0,2
+2025020624,2025-12-31,Tampa Bay Lightning,8481719,Max Crozier,D,4,0,0,3
+2025020624,2025-12-31,Tampa Bay Lightning,8480426,Charle-Edouard D'Astous,D,2,0,0,2
+2025020624,2025-12-31,Tampa Bay Lightning,8475167,Victor Hedman,D,2,0,0,1
+2025020624,2025-12-31,Tampa Bay Lightning,8482929,Emil Lilleberg,D,5,0,0,1
+2025020624,2025-12-31,Tampa Bay Lightning,8481547,Simon Lundmark,D,0,0,0,0
+2025020624,2025-12-31,Tampa Bay Lightning,8474151,Ryan McDonagh,D,3,0,0,0
+2025020624,2025-12-31,Tampa Bay Lightning,8482655,J.J. Moser,D,2,0,0,1
+2025020624,2025-12-31,Tampa Bay Lightning,8478178,Darren Raddysh,D,0,0,0,0
+2025020624,2025-12-31,Tampa Bay Lightning,8477992,Jonas Johansson,G,0,0,0,0
+2025020624,2025-12-31,Tampa Bay Lightning,8476883,Andrei Vasilevskiy,G,0,0,44,0
+2025020625,2025-12-31,San Jose Sharks,8484801,Macklin Celebrini,F,3,0,0,0
+2025020625,2025-12-31,San Jose Sharks,8480848,Ty Dellandrea,F,3,2,0,0
+2025020625,2025-12-31,San Jose Sharks,8482667,William Eklund,F,3,0,0,0
+2025020625,2025-12-31,San Jose Sharks,8478874,Adam Gaudette,F,1,0,0,0
+2025020625,2025-12-31,San Jose Sharks,8476624,Barclay Goodrow,F,1,0,0,0
+2025020625,2025-12-31,San Jose Sharks,8484911,Collin Graf,F,1,0,0,0
+2025020625,2025-12-31,San Jose Sharks,8480798,Philipp Kurashev,F,0,0,0,0
+2025020625,2025-12-31,San Jose Sharks,8485402,Michael Misa,F,3,0,0,0
+2025020625,2025-12-31,San Jose Sharks,8482859,Zack Ostapchuk,F,2,0,0,0
+2025020625,2025-12-31,San Jose Sharks,8471817,Ryan Reaves,F,0,0,0,0
+2025020625,2025-12-31,San Jose Sharks,8483630,Pavol Regenda,F,0,1,0,0
+2025020625,2025-12-31,San Jose Sharks,8480748,Kiefer Sherwood,F,1,0,0,0
+2025020625,2025-12-31,San Jose Sharks,8475784,Jeff Skinner,F,0,0,0,0
+2025020625,2025-12-31,San Jose Sharks,8484227,Will Smith,F,0,0,0,0
+2025020625,2025-12-31,San Jose Sharks,8475726,Tyler Toffoli,F,0,0,0,0
+2025020625,2025-12-31,San Jose Sharks,8477505,Alexander Wennberg,F,0,0,0,0
+2025020625,2025-12-31,San Jose Sharks,8479576,Vincent Desharnais,D,1,0,0,0
+2025020625,2025-12-31,San Jose Sharks,8484806,Sam Dickinson,D,4,0,0,1
+2025020625,2025-12-31,San Jose Sharks,8479983,Mario Ferraro,D,2,0,0,0
+2025020625,2025-12-31,San Jose Sharks,8482861,Vincent Iorio,D,1,0,0,1
+2025020625,2025-12-31,San Jose Sharks,8475906,John Klingberg,D,3,0,0,0
+2025020625,2025-12-31,San Jose Sharks,8480043,Timothy Liljegren,D,4,1,0,2
+2025020625,2025-12-31,San Jose Sharks,8482166,Shakir Mukhamadullin,D,4,0,0,0
+2025020625,2025-12-31,San Jose Sharks,8475200,Dmitry Orlov,D,0,0,0,0
+2025020625,2025-12-31,San Jose Sharks,8482137,Yaroslav Askarov,G,0,0,21,0
+2025020625,2025-12-31,San Jose Sharks,8477968,Alex Nedeljkovic,G,0,0,0,0
+2025020625,2025-12-31,Minnesota Wild,8481557,Matt Boldy,F,3,0,0,0
+2025020625,2025-12-31,Minnesota Wild,8478493,Joel Eriksson Ek,F,0,0,0,0
+2025020625,2025-12-31,Minnesota Wild,8475220,Marcus Foligno,F,0,0,0,0
+2025020625,2025-12-31,Minnesota Wild,8477451,Ryan Hartman,F,0,0,0,0
+2025020625,2025-12-31,Minnesota Wild,8476994,Vinnie Hinostroza,F,0,0,0,0
+2025020625,2025-12-31,Minnesota Wild,8475149,Marcus Johansson,F,1,0,0,0
+2025020625,2025-12-31,Minnesota Wild,8478864,Kirill Kaprizov,F,2,0,0,0
+2025020625,2025-12-31,Minnesota Wild,8475752,Tyler Pitlick,F,0,0,0,0
+2025020625,2025-12-31,Minnesota Wild,8481477,Nico Sturm,F,2,0,0,0
+2025020625,2025-12-31,Minnesota Wild,8475765,Vladimir Tarasenko,F,0,0,0,0
+2025020625,2025-12-31,Minnesota Wild,8478508,Yakov Trenin,F,0,0,0,0
+2025020625,2025-12-31,Minnesota Wild,8483525,Danila Yurov,F,2,0,0,0
+2025020625,2025-12-31,Minnesota Wild,8475692,Mats Zuccarello,F,0,0,0,0
+2025020625,2025-12-31,Minnesota Wild,8474567,Zach Bogosian,D,2,0,0,1
+2025020625,2025-12-31,Minnesota Wild,8476463,Jonas Brodin,D,0,1,0,1
+2025020625,2025-12-31,Minnesota Wild,8482122,Brock Faber,D,1,0,0,0
+2025020625,2025-12-31,Minnesota Wild,8480800,Quinn Hughes,D,2,0,0,4
+2025020625,2025-12-31,Minnesota Wild,8482094,Daemon Hunt,D,4,0,0,0
+2025020625,2025-12-31,Minnesota Wild,8483460,David Jiricek,D,1,0,0,0
+2025020625,2025-12-31,Minnesota Wild,8478136,Jake Middleton,D,1,0,0,0
+2025020625,2025-12-31,Minnesota Wild,8483766,David Spacek,D,1,0,0,1
+2025020625,2025-12-31,Minnesota Wild,8474716,Jared Spurgeon,D,0,0,0,0
+2025020625,2025-12-31,Minnesota Wild,8479406,Filip Gustavsson,G,0,0,0,0
+2025020625,2025-12-31,Minnesota Wild,8482661,Jesper Wallstedt,G,0,0,33,0
+2025020626,2025-12-31,Detroit Red Wings,8478891,Mason Appleton,F,1,1,0,0
+2025020626,2025-12-31,Detroit Red Wings,8477456,J.T. Compher,F,2,0,0,0
+2025020626,2025-12-31,Detroit Red Wings,8477429,Andrew Copp,F,0,0,0,0
+2025020626,2025-12-31,Detroit Red Wings,8479337,Alex DeBrincat,F,3,0,0,0
+2025020626,2025-12-31,Detroit Red Wings,8484471,Emmitt Finnie,F,0,0,0,0
+2025020626,2025-12-31,Detroit Red Wings,8474141,Patrick Kane,F,1,0,0,0
+2025020626,2025-12-31,Detroit Red Wings,8483464,Marco Kasper,F,3,0,0,0
+2025020626,2025-12-31,Detroit Red Wings,8477946,Dylan Larkin,F,1,0,0,0
+2025020626,2025-12-31,Detroit Red Wings,8479992,Michael Rasmussen,F,3,0,0,0
+2025020626,2025-12-31,Detroit Red Wings,8482078,Lucas Raymond,F,0,0,0,0
+2025020626,2025-12-31,Detroit Red Wings,8481725,Elmer Soderblom,F,3,0,0,0
+2025020626,2025-12-31,Detroit Red Wings,8474037,James van Riemsdyk,F,0,1,0,0
+2025020626,2025-12-31,Detroit Red Wings,8480879,Jacob Bernard-Docker,D,2,0,0,2
+2025020626,2025-12-31,Detroit Red Wings,8475279,Ben Chiarot,D,1,0,0,0
+2025020626,2025-12-31,Detroit Red Wings,8482762,Simon Edvinsson,D,2,0,0,1
+2025020626,2025-12-31,Detroit Red Wings,8476979,Erik Gustafsson,D,2,0,0,1
+2025020626,2025-12-31,Detroit Red Wings,8474612,Travis Hamonic,D,2,0,0,1
+2025020626,2025-12-31,Detroit Red Wings,8481607,Albert Johansson,D,2,0,0,1
+2025020626,2025-12-31,Detroit Red Wings,8484223,Axel Sandin-Pellikka,D,0,0,0,0
+2025020626,2025-12-31,Detroit Red Wings,8481542,Moritz Seider,D,0,0,0,0
+2025020626,2025-12-31,Detroit Red Wings,8476434,John Gibson,G,0,0,25,0
+2025020626,2025-12-31,Detroit Red Wings,8475660,Cam Talbot,G,0,0,0,0
+2025020626,2025-12-31,Winnipeg Jets,8480289,Morgan Barron,F,2,0,0,1
+2025020626,2025-12-31,Winnipeg Jets,8478398,Kyle Connor,F,1,0,0,0
+2025020626,2025-12-31,Winnipeg Jets,8480113,Alex Iafallo,F,4,0,0,0
+2025020626,2025-12-31,Winnipeg Jets,8481043,Cole Koepke,F,2,0,0,0
+2025020626,2025-12-31,Winnipeg Jets,8476392,Adam Lowry,F,2,0,0,0
+2025020626,2025-12-31,Winnipeg Jets,8476480,Vladislav Namestnikov,F,1,0,0,0
+2025020626,2025-12-31,Winnipeg Jets,8475799,Nino Niederreiter,F,0,0,0,0
+2025020626,2025-12-31,Winnipeg Jets,8474679,Gustav Nyquist,F,0,0,0,0
+2025020626,2025-12-31,Winnipeg Jets,8476871,Tanner Pearson,F,1,0,0,0
+2025020626,2025-12-31,Winnipeg Jets,8482149,Cole Perfetti,F,3,0,0,0
+2025020626,2025-12-31,Winnipeg Jets,8476460,Mark Scheifele,F,0,0,0,0
+2025020626,2025-12-31,Winnipeg Jets,8473604,Jonathan Toews,F,1,0,0,0
+2025020626,2025-12-31,Winnipeg Jets,8480014,Gabriel Vilardi,F,0,0,0,0
+2025020626,2025-12-31,Winnipeg Jets,8476331,Dylan DeMelo,D,0,1,0,1
+2025020626,2025-12-31,Winnipeg Jets,8477938,Haydn Fleury,D,3,0,0,1
+2025020626,2025-12-31,Winnipeg Jets,8476525,Colin Miller,D,1,1,0,1
+2025020626,2025-12-31,Winnipeg Jets,8477504,Josh Morrissey,D,2,0,0,1
+2025020626,2025-12-31,Winnipeg Jets,8480145,Neal Pionk,D,1,0,0,1
+2025020626,2025-12-31,Winnipeg Jets,8483510,Elias Salomonsson,D,1,0,0,0
+2025020626,2025-12-31,Winnipeg Jets,8480049,Dylan Samberg,D,3,1,0,0
+2025020626,2025-12-31,Winnipeg Jets,8474568,Luke Schenn,D,0,0,0,0
+2025020626,2025-12-31,Winnipeg Jets,8479378,Logan Stanley,D,0,0,0,0
+2025020626,2025-12-31,Winnipeg Jets,8477480,Eric Comrie,G,0,0,0,0
+2025020626,2025-12-31,Winnipeg Jets,8476945,Connor Hellebuyck,G,0,0,26,0
+2025020627,2025-12-31,Columbus Blue Jackets,8479944,Zachary Aston-Reese,F,4,0,0,0
+2025020627,2025-12-31,Columbus Blue Jackets,8475745,Charlie Coyle,F,7,0,0,0
+2025020627,2025-12-31,Columbus Blue Jackets,8484166,Adam Fantilli,F,2,0,0,0
+2025020627,2025-12-31,Columbus Blue Jackets,8476867,Brendan Gaunce,F,1,0,0,0
+2025020627,2025-12-31,Columbus Blue Jackets,8478046,Danton Heinen,F,3,0,0,0
+2025020627,2025-12-31,Columbus Blue Jackets,8476432,Boone Jenner,F,2,0,0,0
+2025020627,2025-12-31,Columbus Blue Jackets,8482660,Kent Johnson,F,1,0,0,0
+2025020627,2025-12-31,Columbus Blue Jackets,8480806,Isac Lundeström,F,1,0,0,0
+2025020627,2025-12-31,Columbus Blue Jackets,8480893,Kirill Marchenko,F,3,0,0,0
+2025020627,2025-12-31,Columbus Blue Jackets,8478975,Mason Marchment,F,1,0,0,0
+2025020627,2025-12-31,Columbus Blue Jackets,8477497,Sean Monahan,F,0,0,0,0
+2025020627,2025-12-31,Columbus Blue Jackets,8479671,Mathieu Olivier,F,1,0,0,0
+2025020627,2025-12-31,Columbus Blue Jackets,8482705,Cole Sillinger,F,0,0,0,0
+2025020627,2025-12-31,Columbus Blue Jackets,8481716,Dmitri Voronkov,F,0,0,0,0
+2025020627,2025-12-31,Columbus Blue Jackets,8477425,Miles Wood,F,0,0,0,0
+2025020627,2025-12-31,Columbus Blue Jackets,8481161,Jake Christiansen,D,5,0,0,0
+2025020627,2025-12-31,Columbus Blue Jackets,8479371,Dante Fabbro,D,0,0,0,0
+2025020627,2025-12-31,Columbus Blue Jackets,8475790,Erik Gudbranson,D,0,0,0,2
+2025020627,2025-12-31,Columbus Blue Jackets,8483485,Denton Mateychuk,D,0,0,0,5
+2025020627,2025-12-31,Columbus Blue Jackets,8478500,Ivan Provorov,D,3,1,0,3
+2025020627,2025-12-31,Columbus Blue Jackets,8476923,Damon Severson,D,7,1,0,1
+2025020627,2025-12-31,Columbus Blue Jackets,8474090,Brendan Smith,D,2,0,0,1
+2025020627,2025-12-31,Columbus Blue Jackets,8478460,Zach Werenski,D,1,0,0,0
+2025020627,2025-12-31,Columbus Blue Jackets,8481178,Egor Zamula,D,0,0,0,0
+2025020627,2025-12-31,Columbus Blue Jackets,8482982,Jet Greaves,G,0,0,32,0
+2025020627,2025-12-31,Columbus Blue Jackets,8478007,Elvis Merzlikins,G,0,0,0,0
+2025020627,2025-12-31,New Jersey Devils,8479407,Jesper Bratt,F,4,0,0,0
+2025020627,2025-12-31,New Jersey Devils,8477015,Connor Brown,F,0,0,0,0
+2025020627,2025-12-31,New Jersey Devils,8481032,Paul Cotter,F,0,0,0,0
+2025020627,2025-12-31,New Jersey Devils,8474149,Evgenii Dadonov,F,0,0,0,0
+2025020627,2025-12-31,New Jersey Devils,8479996,Cody Glass,F,4,0,0,0
+2025020627,2025-12-31,New Jersey Devils,8476822,Luke Glendening,F,0,0,0,0
+2025020627,2025-12-31,New Jersey Devils,8481721,Arseny Gritsyuk,F,0,0,0,0
+2025020627,2025-12-31,New Jersey Devils,8484177,Lenni Hameenaho,F,0,0,0,0
+2025020627,2025-12-31,New Jersey Devils,8480002,Nico Hischier,F,2,0,0,0
+2025020627,2025-12-31,New Jersey Devils,8481559,Jack Hughes,F,0,0,0,0
+2025020627,2025-12-31,New Jersey Devils,8477996,Juho Lammikko,F,0,0,0,0
+2025020627,2025-12-31,New Jersey Devils,8479772,Zack MacEwen,F,3,0,0,0
+2025020627,2025-12-31,New Jersey Devils,8483397,Marc McLaughlin,F,1,0,0,0
+2025020627,2025-12-31,New Jersey Devils,8478414,Timo Meier,F,1,1,0,0
+2025020627,2025-12-31,New Jersey Devils,8482110,Dawson Mercer,F,2,0,0,0
+2025020627,2025-12-31,New Jersey Devils,8476474,Stefan Noesen,F,1,1,0,0
+2025020627,2025-12-31,New Jersey Devils,8476292,Ondrej Palat,F,0,0,0,0
+2025020627,2025-12-31,New Jersey Devils,8475455,Brenden Dillon,D,1,0,0,0
+2025020627,2025-12-31,New Jersey Devils,8476462,Dougie Hamilton,D,3,1,0,4
+2025020627,2025-12-31,New Jersey Devils,8482684,Luke Hughes,D,1,1,0,0
+2025020627,2025-12-31,New Jersey Devils,8480192,Johnathan Kovacevic,D,3,0,0,1
+2025020627,2025-12-31,New Jersey Devils,8483495,Simon Nemec,D,4,1,0,0
+2025020627,2025-12-31,New Jersey Devils,8477488,Brett Pesce,D,3,0,0,3
+2025020627,2025-12-31,New Jersey Devils,8478399,Jonas Siegenthaler,D,4,0,0,0
+2025020627,2025-12-31,New Jersey Devils,8478841,Colton White,D,0,0,0,0
+2025020627,2025-12-31,New Jersey Devils,8474596,Jake Allen,G,0,0,42,0
+2025020627,2025-12-31,New Jersey Devils,8474593,Jacob Markstrom,G,0,0,0,0
+2025020628,2025-12-31,Dallas Stars,8479414,Nathan Bastian,F,2,1,0,0
+2025020628,2025-12-31,Dallas Stars,8473994,Jamie Benn,F,2,0,0,0
+2025020628,2025-12-31,Dallas Stars,8476278,Colin Blackwell,F,1,0,0,0
+2025020628,2025-12-31,Dallas Stars,8482145,Mavrik Bourque,F,1,0,0,0
+2025020628,2025-12-31,Dallas Stars,8480840,Oskar Bäck,F,0,0,0,0
+2025020628,2025-12-31,Dallas Stars,8475168,Matt Duchene,F,0,0,0,0
+2025020628,2025-12-31,Dallas Stars,8477454,Adam Erne,F,3,0,0,0
+2025020628,2025-12-31,Dallas Stars,8476889,Radek Faksa,F,1,0,0,0
+2025020628,2025-12-31,Dallas Stars,8478449,Roope Hintz,F,1,0,0,0
+2025020628,2025-12-31,Dallas Stars,8484829,Justin Hryckowian,F,1,0,0,0
+2025020628,2025-12-31,Dallas Stars,8482740,Wyatt Johnston,F,2,0,0,0
+2025020628,2025-12-31,Dallas Stars,8478420,Mikko Rantanen,F,1,0,0,0
+2025020628,2025-12-31,Dallas Stars,8480027,Jason Robertson,F,1,0,0,0
+2025020628,2025-12-31,Dallas Stars,8475794,Tyler Seguin,F,0,0,0,0
+2025020628,2025-12-31,Dallas Stars,8479351,Sam Steel,F,0,0,0,0
+2025020628,2025-12-31,Dallas Stars,8483425,Lian Bichsel,D,4,0,0,0
+2025020628,2025-12-31,Dallas Stars,8478476,Kyle Capobianco,D,4,0,0,0
+2025020628,2025-12-31,Dallas Stars,8481581,Thomas Harley,D,0,0,0,3
+2025020628,2025-12-31,Dallas Stars,8480036,Miro Heiskanen,D,3,0,0,0
+2025020628,2025-12-31,Dallas Stars,8476902,Esa Lindell,D,4,0,0,2
+2025020628,2025-12-31,Dallas Stars,8480878,Nils Lundkvist,D,3,1,0,2
+2025020628,2025-12-31,Dallas Stars,8480950,Ilya Lyubushkin,D,1,0,0,0
+2025020628,2025-12-31,Dallas Stars,8475755,Alexander Petrovic,D,0,0,0,0
+2025020628,2025-12-31,Dallas Stars,8479193,Casey DeSmith,G,0,0,35,0
+2025020628,2025-12-31,Dallas Stars,8479979,Jake Oettinger,G,0,0,0,0
+2025020628,2025-12-31,Buffalo Sabres,8484145,Zach Benson,F,4,0,0,1
+2025020628,2025-12-31,Buffalo Sabres,8479941,Justin Danforth,F,1,0,0,0
+2025020628,2025-12-31,Buffalo Sabres,8482659,Josh Doan,F,0,0,0,0
+2025020628,2025-12-31,Buffalo Sabres,8482623,Josh Dunne,F,0,0,0,0
+2025020628,2025-12-31,Buffalo Sabres,8478413,Jordan Greenway,F,0,0,0,0
+2025020628,2025-12-31,Buffalo Sabres,8484797,Konsta Helenius,F,0,0,0,0
+2025020628,2025-12-31,Buffalo Sabres,8482896,Tyson Kozak,F,1,1,0,0
+2025020628,2025-12-31,Buffalo Sabres,8481522,Peyton Krebs,F,2,0,0,0
+2025020628,2025-12-31,Buffalo Sabres,8483468,Jiri Kulich,F,2,0,0,0
+2025020628,2025-12-31,Buffalo Sabres,8479359,Beck Malenstyn,F,2,0,0,0
+2025020628,2025-12-31,Buffalo Sabres,8480802,Ryan McLeod,F,2,0,0,0
+2025020628,2025-12-31,Buffalo Sabres,8480064,Josh Norris,F,2,0,0,0
+2025020628,2025-12-31,Buffalo Sabres,8483500,Noah Ostlund,F,0,0,0,0
+2025020628,2025-12-31,Buffalo Sabres,8482097,Jack Quinn,F,3,0,0,0
+2025020628,2025-12-31,Buffalo Sabres,8479420,Tage Thompson,F,1,0,0,0
+2025020628,2025-12-31,Buffalo Sabres,8477949,Alex Tuch,F,1,0,0,0
+2025020628,2025-12-31,Buffalo Sabres,8475722,Jason Zucker,F,0,0,0,0
+2025020628,2025-12-31,Buffalo Sabres,8480196,Jacob Bryson,D,2,0,0,3
+2025020628,2025-12-31,Buffalo Sabres,8481524,Bowen Byram,D,2,0,0,3
+2025020628,2025-12-31,Buffalo Sabres,8480839,Rasmus Dahlin,D,2,0,0,2
+2025020628,2025-12-31,Buffalo Sabres,8481708,Zac Jones,D,3,0,0,0
+2025020628,2025-12-31,Buffalo Sabres,8480891,Michael Kesselring,D,2,0,0,2
+2025020628,2025-12-31,Buffalo Sabres,8484305,Zach Metsa,D,1,0,0,0
+2025020628,2025-12-31,Buffalo Sabres,8482671,Owen Power,D,1,0,0,0
+2025020628,2025-12-31,Buffalo Sabres,8480807,Mattias Samuelsson,D,3,1,0,1
+2025020628,2025-12-31,Buffalo Sabres,8479982,Conor Timmins,D,0,0,0,0
+2025020628,2025-12-31,Buffalo Sabres,8481551,Colten Ellis,G,0,0,0,0
+2025020628,2025-12-31,Buffalo Sabres,8480045,Ukko-Pekka Luukkonen,G,0,0,33,0
+2025020628,2025-12-31,Buffalo Sabres,8479312,Alex Lyon,G,0,0,0,0
+2025020629,2025-12-31,Colorado Avalanche,8482947,Zakhar Bardakov,F,2,0,0,0
+2025020629,2025-12-31,Colorado Avalanche,8484149,Gavin Brindley,F,1,0,0,0
+2025020629,2025-12-31,Colorado Avalanche,8479525,Ross Colton,F,4,0,0,0
+2025020629,2025-12-31,Colorado Avalanche,8480835,Jack Drury,F,3,0,0,0
+2025020629,2025-12-31,Colorado Avalanche,8480448,Parker Kelly,F,3,1,0,0
+2025020629,2025-12-31,Colorado Avalanche,8481641,Joel Kiviranta,F,1,0,0,0
+2025020629,2025-12-31,Colorado Avalanche,8476455,Gabriel Landeskog,F,1,0,0,0
+2025020629,2025-12-31,Colorado Avalanche,8477476,Artturi Lehkonen,F,0,0,0,0
+2025020629,2025-12-31,Colorado Avalanche,8477492,Nathan MacKinnon,F,3,0,0,0
+2025020629,2025-12-31,Colorado Avalanche,8482953,Taylor Makar,F,2,0,0,0
+2025020629,2025-12-31,Colorado Avalanche,8480039,Martin Necas,F,2,0,0,0
+2025020629,2025-12-31,Colorado Avalanche,8475754,Brock Nelson,F,1,2,0,0
+2025020629,2025-12-31,Colorado Avalanche,8477501,Valeri Nichushkin,F,0,0,0,0
+2025020629,2025-12-31,Colorado Avalanche,8478109,Victor Olofsson,F,0,0,0,0
+2025020629,2025-12-31,Colorado Avalanche,8482072,Jack Ahcan,D,3,0,0,1
+2025020629,2025-12-31,Colorado Avalanche,8470613,Brent Burns,D,2,1,0,3
+2025020629,2025-12-31,Colorado Avalanche,8479398,Samuel Girard,D,4,0,0,2
+2025020629,2025-12-31,Colorado Avalanche,8480069,Cale Makar,D,4,1,0,0
+2025020629,2025-12-31,Colorado Avalanche,8484258,Sam Malinski,D,3,1,0,2
+2025020629,2025-12-31,Colorado Avalanche,8476312,Josh Manson,D,2,0,0,1
+2025020629,2025-12-31,Colorado Avalanche,8478038,Devon Toews,D,0,0,0,0
+2025020629,2025-12-31,Colorado Avalanche,8478406,Mackenzie Blackwood,G,0,0,33,0
+2025020629,2025-12-31,Colorado Avalanche,8485473,Isak Posch,G,0,0,0,0
+2025020629,2025-12-31,St. Louis Blues,8481013,Jonatan Berggren,F,0,0,0,0
+2025020629,2025-12-31,St. Louis Blues,8475760,Nick Bjugstad,F,2,0,0,0
+2025020629,2025-12-31,St. Louis Blues,8477402,Pavel Buchnevich,F,0,0,0,0
+2025020629,2025-12-31,St. Louis Blues,8484164,Dalibor Dvorsky,F,0,0,0,0
+2025020629,2025-12-31,St. Louis Blues,8477952,Robby Fabbri,F,0,0,0,0
+2025020629,2025-12-31,St. Louis Blues,8482077,Dylan Holloway,F,0,0,0,0
+2025020629,2025-12-31,St. Louis Blues,8478472,Mathieu Joseph,F,2,0,0,0
+2025020629,2025-12-31,St. Louis Blues,8479385,Jordan Kyrou,F,1,0,0,0
+2025020629,2025-12-31,St. Louis Blues,8482089,Jake Neighbours,F,0,0,0,0
+2025020629,2025-12-31,St. Louis Blues,8475170,Brayden Schenn,F,3,2,0,0
+2025020629,2025-12-31,St. Louis Blues,8483516,Jimmy Snuggerud,F,1,0,0,0
+2025020629,2025-12-31,St. Louis Blues,8484230,Otto Stenberg,F,5,0,0,0
+2025020629,2025-12-31,St. Louis Blues,8476897,Oskar Sundqvist,F,1,0,0,0
+2025020629,2025-12-31,St. Louis Blues,8480459,Pius Suter,F,3,0,0,0
+2025020629,2025-12-31,St. Louis Blues,8480023,Robert Thomas,F,2,0,0,0
+2025020629,2025-12-31,St. Louis Blues,8480281,Alexey Toropchenko,F,0,0,0,0
+2025020629,2025-12-31,St. Louis Blues,8477573,Nathan Walker,F,0,0,0,0
+2025020629,2025-12-31,St. Louis Blues,8481598,Philip Broberg,D,3,0,0,1
+2025020629,2025-12-31,St. Louis Blues,8475753,Justin Faulk,D,2,0,0,2
+2025020629,2025-12-31,St. Louis Blues,8475764,Cam Fowler,D,5,0,0,4
+2025020629,2025-12-31,St. Louis Blues,8482516,Matthew Kessel,D,3,0,0,0
+2025020629,2025-12-31,St. Louis Blues,8482733,Logan Mailloux,D,1,0,0,2
+2025020629,2025-12-31,St. Louis Blues,8476892,Colton Parayko,D,1,0,0,0
+2025020629,2025-12-31,St. Louis Blues,8481006,Tyler Tucker,D,0,0,0,0
+2025020629,2025-12-31,St. Louis Blues,8476412,Jordan Binnington,G,0,0,35,0
+2025020629,2025-12-31,St. Louis Blues,8480981,Joel Hofer,G,0,0,0,0
+2025020630,2025-12-31,Calgary Flames,8474150,Mikael Backlund,F,2,0,0,0
+2025020630,2025-12-31,Calgary Flames,8481556,John Beecher,F,1,0,0,0
+2025020630,2025-12-31,Calgary Flames,8476399,Blake Coleman,F,3,0,0,0
+2025020630,2025-12-31,Calgary Flames,8482679,Matt Coronato,F,1,1,0,0
+2025020630,2025-12-31,Calgary Flames,8480797,Joel Farabee,F,0,0,0,0
+2025020630,2025-12-31,Calgary Flames,8480028,Morgan Frost,F,2,0,0,0
+2025020630,2025-12-31,Calgary Flames,8484860,Matvei Gridin,F,2,0,0,0
+2025020630,2025-12-31,Calgary Flames,8484180,Samuel Honzek,F,2,0,0,0
+2025020630,2025-12-31,Calgary Flames,8476456,Jonathan Huberdeau,F,1,0,0,0
+2025020630,2025-12-31,Calgary Flames,8475172,Nazem Kadri,F,1,0,0,0
+2025020630,2025-12-31,Calgary Flames,8477993,Justin Kirkland,F,0,0,0,0
+2025020630,2025-12-31,Calgary Flames,8483609,Adam Klapka,F,1,0,0,0
+2025020630,2025-12-31,Calgary Flames,8479066,Ryan Lomberg,F,0,0,0,0
+2025020630,2025-12-31,Calgary Flames,8481028,Martin Pospisil,F,1,1,0,0
+2025020630,2025-12-31,Calgary Flames,8481068,Yegor Sharangovich,F,0,0,0,0
+2025020630,2025-12-31,Calgary Flames,8482074,Connor Zary,F,0,0,0,0
+2025020630,2025-12-31,Calgary Flames,8480860,Kevin Bahl,D,0,0,0,2
+2025020630,2025-12-31,Calgary Flames,8479402,Jake Bean,D,2,0,0,3
+2025020630,2025-12-31,Calgary Flames,8484150,Hunter Brzustewicz,D,0,0,0,3
+2025020630,2025-12-31,Calgary Flames,8477810,Joel Hanley,D,0,0,0,1
+2025020630,2025-12-31,Calgary Flames,8482165,Yan Kuznetsov,D,0,0,0,0
+2025020630,2025-12-31,Calgary Flames,8481167,Brayden Pachal,D,3,0,0,0
+2025020630,2025-12-31,Calgary Flames,8484768,Zayne Parekh,D,1,1,0,0
+2025020630,2025-12-31,Calgary Flames,8477346,MacKenzie Weegar,D,2,0,0,0
+2025020630,2025-12-31,Calgary Flames,8480727,Zach Whitecloud,D,0,0,0,0
+2025020630,2025-12-31,Calgary Flames,8482445,Devin Cooley,G,0,0,0,0
+2025020630,2025-12-31,Calgary Flames,8481692,Dustin Wolf,G,0,0,35,0
+2025020630,2025-12-31,Philadelphia Flyers,8479022,Rodrigo Abols,F,6,0,0,0
+2025020630,2025-12-31,Philadelphia Flyers,8484142,Denver Barkey,F,2,0,0,0
+2025020630,2025-12-31,Philadelphia Flyers,8481553,Bobby Brink,F,3,0,0,0
+2025020630,2025-12-31,Philadelphia Flyers,8480220,Noah Cates,F,0,0,0,0
+2025020630,2025-12-31,Philadelphia Flyers,8476461,Sean Couturier,F,0,0,0,0
+2025020630,2025-12-31,Philadelphia Flyers,8475235,Nicolas Deslauriers,F,2,0,0,0
+2025020630,2025-12-31,Philadelphia Flyers,8477989,Christian Dvorak,F,2,0,0,0
+2025020630,2025-12-31,Philadelphia Flyers,8482159,Tyson Foerster,F,1,0,0,0
+2025020630,2025-12-31,Philadelphia Flyers,8483733,Nikita Grebenkin,F,1,0,0,0
+2025020630,2025-12-31,Philadelphia Flyers,8479336,Carl Grundstrom,F,2,0,0,0
+2025020630,2025-12-31,Philadelphia Flyers,8477903,Garnet Hathaway,F,0,0,0,0
+2025020630,2025-12-31,Philadelphia Flyers,8478439,Travis Konecny,F,2,1,0,0
+2025020630,2025-12-31,Philadelphia Flyers,8484387,Matvei Michkov,F,0,0,0,0
+2025020630,2025-12-31,Philadelphia Flyers,8478967,Lane Pederson,F,0,0,0,0
+2025020630,2025-12-31,Philadelphia Flyers,8480015,Owen Tippett,F,0,0,0,0
+2025020630,2025-12-31,Philadelphia Flyers,8481533,Trevor Zegras,F,0,0,0,0
+2025020630,2025-12-31,Philadelphia Flyers,8482126,Emil Andrae,D,4,0,0,0
+2025020630,2025-12-31,Philadelphia Flyers,8482142,Jamie Drysdale,D,3,0,0,1
+2025020630,2025-12-31,Philadelphia Flyers,8478454,Noah Juulsen,D,2,0,0,0
+2025020630,2025-12-31,Philadelphia Flyers,8483760,Hunter McDonald,D,3,0,0,1
+2025020630,2025-12-31,Philadelphia Flyers,8477499,Rasmus Ristolainen,D,3,1,0,0
+2025020630,2025-12-31,Philadelphia Flyers,8477948,Travis Sanheim,D,1,0,0,2
+2025020630,2025-12-31,Philadelphia Flyers,8476372,Nick Seeler,D,0,0,0,0
+2025020630,2025-12-31,Philadelphia Flyers,8481546,Cam York,D,0,0,0,0
+2025020630,2025-12-31,Philadelphia Flyers,8481035,Samuel Ersson,G,0,0,22,0
+2025020630,2025-12-31,Philadelphia Flyers,8482783,Aleksei Kolosov,G,0,0,0,0
+2025020630,2025-12-31,Philadelphia Flyers,8478435,Dan Vladar,G,0,0,0,0
+2025020631,2025-12-31,Edmonton Oilers,8477934,Leon Draisaitl,F,1,0,0,0
+2025020631,2025-12-31,Edmonton Oilers,8479365,Trent Frederic,F,1,0,0,0
+2025020631,2025-12-31,Edmonton Oilers,8474641,Adam Henrique,F,2,0,0,0
+2025020631,2025-12-31,Edmonton Oilers,8483455,Isaac Howard,F,1,0,0,0
+2025020631,2025-12-31,Edmonton Oilers,8475786,Zach Hyman,F,0,0,0,0
+2025020631,2025-12-31,Edmonton Oilers,8477406,Mattias Janmark,F,2,0,0,0
+2025020631,2025-12-31,Edmonton Oilers,8477953,Kasperi Kapanen,F,1,0,0,0
+2025020631,2025-12-31,Edmonton Oilers,8477508,Curtis Lazar,F,0,0,0,0
+2025020631,2025-12-31,Edmonton Oilers,8478233,Andrew Mangiapane,F,0,0,0,0
+2025020631,2025-12-31,Edmonton Oilers,8478402,Connor McDavid,F,0,0,0,0
+2025020631,2025-12-31,Edmonton Oilers,8476454,Ryan Nugent-Hopkins,F,1,0,0,0
+2025020631,2025-12-31,Edmonton Oilers,8481617,Vasily Podkolzin,F,4,0,0,0
+2025020631,2025-12-31,Edmonton Oilers,8478458,Jack Roslovic,F,0,0,0,0
+2025020631,2025-12-31,Edmonton Oilers,8483512,Matt Savoie,F,0,0,0,0
+2025020631,2025-12-31,Edmonton Oilers,8480803,Evan Bouchard,D,1,0,0,4
+2025020631,2025-12-31,Edmonton Oilers,8475218,Mattias Ekholm,D,0,0,0,1
+2025020631,2025-12-31,Edmonton Oilers,8480834,Ty Emberson,D,3,0,0,3
+2025020631,2025-12-31,Edmonton Oilers,8477498,Darnell Nurse,D,1,0,0,2
+2025020631,2025-12-31,Edmonton Oilers,8480831,Alec Regula,D,1,0,0,0
+2025020631,2025-12-31,Edmonton Oilers,8481056,Spencer Stastney,D,2,1,0,1
+2025020631,2025-12-31,Edmonton Oilers,8478013,Jake Walman,D,0,0,0,0
+2025020631,2025-12-31,Edmonton Oilers,8478971,Connor Ingram,G,0,0,31,0
+2025020631,2025-12-31,Edmonton Oilers,8477465,Tristan Jarry,G,0,0,0,0
+2025020631,2025-12-31,Edmonton Oilers,8475717,Calvin Pickard,G,0,0,0,0
+2025020631,2025-12-31,Boston Bruins,8478042,Viktor Arvidsson,F,4,0,0,0
+2025020631,2025-12-31,Boston Bruins,8479591,Michael Eyssimont,F,1,0,0,0
+2025020631,2025-12-31,Boston Bruins,8479987,Morgan Geekie,F,0,1,0,0
+2025020631,2025-12-31,Boston Bruins,8479661,Tanner Jeannot,F,2,0,0,0
+2025020631,2025-12-31,Boston Bruins,8480355,Mark Kastelic,F,0,0,0,0
+2025020631,2025-12-31,Boston Bruins,8482177,Marat Khusnutdinov,F,2,0,0,0
+2025020631,2025-12-31,Boston Bruins,8476374,Sean Kuraly,F,0,0,0,0
+2025020631,2025-12-31,Boston Bruins,8477496,Elias Lindholm,F,0,0,0,0
+2025020631,2025-12-31,Boston Bruins,8483489,Fraser Minten,F,1,0,0,0
+2025020631,2025-12-31,Boston Bruins,8479999,Casey Mittelstadt,F,1,0,0,0
+2025020631,2025-12-31,Boston Bruins,8477956,David Pastrnak,F,0,0,0,0
+2025020631,2025-12-31,Boston Bruins,8482634,Alex Steeves,F,3,2,0,0
+2025020631,2025-12-31,Boston Bruins,8478401,Pavel Zacha,F,0,0,0,0
+2025020631,2025-12-31,Boston Bruins,8481219,Jonathan Aspirot,D,3,0,0,0
+2025020631,2025-12-31,Boston Bruins,8480887,Jordan Harris,D,3,0,0,0
+2025020631,2025-12-31,Boston Bruins,8480035,Henri Jokiharju,D,3,0,0,1
+2025020631,2025-12-31,Boston Bruins,8476854,Hampus Lindholm,D,4,0,0,0
+2025020631,2025-12-31,Boston Bruins,8482511,Mason Lohrei,D,4,0,0,0
+2025020631,2025-12-31,Boston Bruins,8479325,Charlie McAvoy,D,4,1,0,0
+2025020631,2025-12-31,Boston Bruins,8479369,Andrew Peeke,D,1,1,0,0
+2025020631,2025-12-31,Boston Bruins,8477507,Nikita Zadorov,D,0,0,0,0
+2025020631,2025-12-31,Boston Bruins,8476914,Joonas Korpisalo,G,0,0,0,0
+2025020631,2025-12-31,Boston Bruins,8480280,Jeremy Swayman,G,0,0,20,0

@@ -1,0 +1,671 @@
+team,player_id,period,player,game_home,game_away,date,shots,goals,assists,points,blocks,saves,toi_sec
+New York Islanders,8475151,1,Kyle Palmieri,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.054,0.054,0.0,0.0,60.0
+New York Islanders,8475151,2,Kyle Palmieri,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0624,0.0624,0.0,0.0,60.0
+New York Islanders,8475151,3,Kyle Palmieri,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0618,0.0618,0.0,0.0,60.0
+New York Islanders,8475231,1,Casey Cizikas,New York Islanders,New York Rangers,2026-01-28,1.0376,0.0996,0.0614,0.161,0.0,0.0,600.0
+New York Islanders,8475231,2,Casey Cizikas,New York Islanders,New York Rangers,2026-01-28,1.054,0.1008,0.0554,0.1562,0.0,0.0,600.0
+New York Islanders,8475231,3,Casey Cizikas,New York Islanders,New York Rangers,2026-01-28,1.033,0.0994,0.0568,0.1562,0.0,0.0,600.0
+New York Islanders,8475231,4,Casey Cizikas,New York Islanders,New York Rangers,2026-01-28,0.0424,0.003,0.0,0.003,0.0,0.0,15.8775
+New York Islanders,8475314,1,Anders Lee,New York Islanders,New York Rangers,2026-01-28,1.0298,0.1,0.0548,0.1548,0.0,0.0,600.0
+New York Islanders,8475314,2,Anders Lee,New York Islanders,New York Rangers,2026-01-28,1.0472,0.1072,0.054,0.1612,0.0,0.0,600.0
+New York Islanders,8475314,3,Anders Lee,New York Islanders,New York Rangers,2026-01-28,1.0826,0.1134,0.0574,0.1708,0.0,0.0,600.0
+New York Islanders,8475314,4,Anders Lee,New York Islanders,New York Rangers,2026-01-28,0.0012,0.0,0.0,0.0,0.0,0.0,1.1775
+New York Islanders,8476292,1,Ondrej Palat,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.066,0.066,0.0,0.0,60.0
+New York Islanders,8476292,2,Ondrej Palat,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.06,0.06,0.0,0.0,60.0
+New York Islanders,8476292,3,Ondrej Palat,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0662,0.0662,0.0,0.0,60.0
+New York Islanders,8476292,4,Ondrej Palat,New York Islanders,New York Rangers,2026-01-28,0.0038,0.0004,0.0,0.0004,0.0,0.0,1.425
+New York Islanders,8476419,1,Jean-Gabriel Pageau,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.065,0.065,0.0,0.0,60.0
+New York Islanders,8476419,2,Jean-Gabriel Pageau,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0628,0.0628,0.0,0.0,60.0
+New York Islanders,8476419,3,Jean-Gabriel Pageau,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0612,0.0612,0.0,0.0,60.0
+New York Islanders,8476419,4,Jean-Gabriel Pageau,New York Islanders,New York Rangers,2026-01-28,0.036,0.004,0.0,0.004,0.0,0.0,13.0425
+New York Islanders,8476429,1,Scott Mayfield,New York Islanders,New York Rangers,2026-01-28,0.5058,0.0516,0.0522,0.1038,0.4162,0.0,300.0
+New York Islanders,8476429,2,Scott Mayfield,New York Islanders,New York Rangers,2026-01-28,0.5312,0.0496,0.054,0.1036,0.4234,0.0,300.0
+New York Islanders,8476429,3,Scott Mayfield,New York Islanders,New York Rangers,2026-01-28,0.5174,0.0534,0.0606,0.114,0.3992,0.0,300.0
+New York Islanders,8476429,4,Scott Mayfield,New York Islanders,New York Rangers,2026-01-28,0.0074,0.0006,0.0,0.0006,0.0132,0.0,2.9775
+New York Islanders,8476917,1,Adam Pelech,New York Islanders,New York Rangers,2026-01-28,0.515,0.0514,0.056,0.1074,0.4312,0.0,300.0
+New York Islanders,8476917,2,Adam Pelech,New York Islanders,New York Rangers,2026-01-28,0.5228,0.049,0.056,0.10500000000000001,0.4276,0.0,300.0
+New York Islanders,8476917,3,Adam Pelech,New York Islanders,New York Rangers,2026-01-28,0.5234,0.046,0.0686,0.1146,0.4174,0.0,300.0
+New York Islanders,8476917,4,Adam Pelech,New York Islanders,New York Rangers,2026-01-28,0.0006,0.0,0.0,0.0,0.0124,0.0,0.3225
+New York Islanders,8477369,1,Carson Soucy,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0618,0.0618,0.0,0.0,60.0
+New York Islanders,8477369,2,Carson Soucy,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0678,0.0678,0.0,0.0,60.0
+New York Islanders,8477369,3,Carson Soucy,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0652,0.0652,0.0,0.0,60.0
+New York Islanders,8477407,1,Anthony Duclair,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0602,0.0602,0.0,0.0,60.0
+New York Islanders,8477407,2,Anthony Duclair,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0664,0.0664,0.0,0.0,60.0
+New York Islanders,8477407,3,Anthony Duclair,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.069,0.069,0.0,0.0,60.0
+New York Islanders,8477407,4,Anthony Duclair,New York Islanders,New York Rangers,2026-01-28,0.0366,0.0026,0.0,0.0026,0.0,0.0,12.1875
+New York Islanders,8477494,1,Jonathan Drouin,New York Islanders,New York Rangers,2026-01-28,1.0548,0.1,0.057,0.157,0.0,0.0,600.0
+New York Islanders,8477494,2,Jonathan Drouin,New York Islanders,New York Rangers,2026-01-28,1.05,0.102,0.0566,0.1586,0.0,0.0,600.0
+New York Islanders,8477494,3,Jonathan Drouin,New York Islanders,New York Rangers,2026-01-28,1.0498,0.1006,0.057,0.1576,0.0,0.0,600.0
+New York Islanders,8477494,4,Jonathan Drouin,New York Islanders,New York Rangers,2026-01-28,0.0034,0.0002,0.0,0.0002,0.0,0.0,1.635
+New York Islanders,8477500,1,Bo Horvat,New York Islanders,New York Rangers,2026-01-28,1.0376,0.1024,0.0546,0.157,0.0,0.0,600.0
+New York Islanders,8477500,2,Bo Horvat,New York Islanders,New York Rangers,2026-01-28,1.0388,0.0974,0.0532,0.1506,0.0,0.0,600.0
+New York Islanders,8477500,3,Bo Horvat,New York Islanders,New York Rangers,2026-01-28,1.0806,0.1072,0.0568,0.164,0.0,0.0,600.0
+New York Islanders,8477500,4,Bo Horvat,New York Islanders,New York Rangers,2026-01-28,0.03,0.0042,0.0,0.0042,0.0,0.0,12.2325
+New York Islanders,8477506,1,Ryan Pulock,New York Islanders,New York Rangers,2026-01-28,0.7914,0.0794,0.0644,0.14379999999999998,0.287,0.0,450.0
+New York Islanders,8477506,2,Ryan Pulock,New York Islanders,New York Rangers,2026-01-28,0.8006,0.075,0.0572,0.13219999999999998,0.2912,0.0,450.0
+New York Islanders,8477506,3,Ryan Pulock,New York Islanders,New York Rangers,2026-01-28,0.8118,0.0786,0.062,0.1406,0.2784,0.0,450.0
+New York Islanders,8477506,4,Ryan Pulock,New York Islanders,New York Rangers,2026-01-28,0.035,0.003,0.0,0.003,0.038,0.0,12.0
+New York Islanders,8477950,1,Tony DeAngelo,New York Islanders,New York Rangers,2026-01-28,0.7844,0.071,0.0544,0.12539999999999998,0.4206,0.0,450.0
+New York Islanders,8477950,2,Tony DeAngelo,New York Islanders,New York Rangers,2026-01-28,0.7768,0.073,0.0608,0.1338,0.4496,0.0,450.0
+New York Islanders,8477950,3,Tony DeAngelo,New York Islanders,New York Rangers,2026-01-28,0.7834,0.0784,0.0602,0.1386,0.4292,0.0,450.0
+New York Islanders,8477950,4,Tony DeAngelo,New York Islanders,New York Rangers,2026-01-28,0.0098,0.0016,0.0,0.0016,0.0042,0.0,3.765
+New York Islanders,8478445,1,Mathew Barzal,New York Islanders,New York Rangers,2026-01-28,1.0342,0.1,0.0572,0.1572,0.0,0.0,600.0
+New York Islanders,8478445,2,Mathew Barzal,New York Islanders,New York Rangers,2026-01-28,1.0688,0.0988,0.056,0.1548,0.0,0.0,600.0
+New York Islanders,8478445,3,Mathew Barzal,New York Islanders,New York Rangers,2026-01-28,1.0412,0.11,0.0592,0.16920000000000002,0.0,0.0,600.0
+New York Islanders,8478445,4,Mathew Barzal,New York Islanders,New York Rangers,2026-01-28,0.0432,0.0026,0.0,0.0026,0.0,0.0,15.8775
+New York Islanders,8479496,1,David Rittich,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0,0.0,0.0,9.0422,1200.0
+New York Islanders,8479496,2,David Rittich,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0,0.0,0.0,9.0898,1200.0
+New York Islanders,8479496,3,David Rittich,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0,0.0,0.0,9.1708,1200.0
+New York Islanders,8479496,4,David Rittich,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0,0.0,0.0,0.4,53.34
+New York Islanders,8480871,1,Adam Boqvist,New York Islanders,New York Rangers,2026-01-28,0.7766,0.071,0.0666,0.1376,0.4186,0.0,450.0
+New York Islanders,8480871,2,Adam Boqvist,New York Islanders,New York Rangers,2026-01-28,0.7768,0.0746,0.0506,0.1252,0.4306,0.0,450.0
+New York Islanders,8480871,3,Adam Boqvist,New York Islanders,New York Rangers,2026-01-28,0.7738,0.0816,0.0622,0.1438,0.452,0.0,450.0
+New York Islanders,8480871,4,Adam Boqvist,New York Islanders,New York Rangers,2026-01-28,0.105,0.007,0.0,0.007,0.0026,0.0,38.3625
+New York Islanders,8481014,1,Alexander Romanov,New York Islanders,New York Rangers,2026-01-28,0.7786,0.0766,0.0492,0.1258,0.2842,0.0,450.0
+New York Islanders,8481014,2,Alexander Romanov,New York Islanders,New York Rangers,2026-01-28,0.8088,0.0822,0.0602,0.1424,0.2816,0.0,450.0
+New York Islanders,8481014,3,Alexander Romanov,New York Islanders,New York Rangers,2026-01-28,0.8264,0.081,0.0582,0.1392,0.2838,0.0,450.0
+New York Islanders,8481014,4,Alexander Romanov,New York Islanders,New York Rangers,2026-01-28,0.004,0.0002,0.0,0.0002,0.0366,0.0,1.3425
+New York Islanders,8481237,1,Kyle MacLean,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0594,0.0594,0.0,0.0,60.0
+New York Islanders,8481237,2,Kyle MacLean,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0654,0.0654,0.0,0.0,60.0
+New York Islanders,8481237,3,Kyle MacLean,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.064,0.064,0.0,0.0,60.0
+New York Islanders,8481237,4,Kyle MacLean,New York Islanders,New York Rangers,2026-01-28,0.0346,0.0044,0.0,0.0044,0.0,0.0,13.0425
+New York Islanders,8481601,1,Simon Holmstrom,New York Islanders,New York Rangers,2026-01-28,1.0302,0.1098,0.0588,0.1686,0.0,0.0,600.0
+New York Islanders,8481601,2,Simon Holmstrom,New York Islanders,New York Rangers,2026-01-28,1.0394,0.1012,0.0546,0.1558,0.0,0.0,600.0
+New York Islanders,8481601,3,Simon Holmstrom,New York Islanders,New York Rangers,2026-01-28,1.0726,0.1062,0.0598,0.166,0.0,0.0,600.0
+New York Islanders,8481601,4,Simon Holmstrom,New York Islanders,New York Rangers,2026-01-28,0.0354,0.0036,0.0,0.0036,0.0,0.0,12.2325
+New York Islanders,8482476,1,Emil Heineman,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0694,0.0694,0.0,0.0,60.0
+New York Islanders,8482476,2,Emil Heineman,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0584,0.0584,0.0,0.0,60.0
+New York Islanders,8482476,3,Emil Heineman,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0676,0.0676,0.0,0.0,60.0
+New York Islanders,8482476,4,Emil Heineman,New York Islanders,New York Rangers,2026-01-28,0.0014,0.0002,0.0,0.0002,0.0,0.0,1.1925
+New York Islanders,8483553,1,Marc Gatcomb,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.066,0.066,0.0,0.0,60.0
+New York Islanders,8483553,2,Marc Gatcomb,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0618,0.0618,0.0,0.0,60.0
+New York Islanders,8483553,3,Marc Gatcomb,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0658,0.0658,0.0,0.0,60.0
+New York Islanders,8483553,4,Marc Gatcomb,New York Islanders,New York Rangers,2026-01-28,0.0342,0.003,0.0,0.003,0.0,0.0,12.1875
+New York Islanders,8484221,1,Calum Ritchie,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0638,0.0638,0.0,0.0,60.0
+New York Islanders,8484221,2,Calum Ritchie,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0594,0.0594,0.0,0.0,60.0
+New York Islanders,8484221,3,Calum Ritchie,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0662,0.0662,0.0,0.0,60.0
+New York Islanders,8485366,1,Matthew Schaefer,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0534,0.0534,0.0,0.0,60.0
+New York Islanders,8485366,2,Matthew Schaefer,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0584,0.0584,0.0,0.0,60.0
+New York Islanders,8485366,3,Matthew Schaefer,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0634,0.0634,0.0,0.0,60.0
+New York Islanders,8485702,1,Max Shabanov,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0568,0.0568,0.0,0.0,60.0
+New York Islanders,8485702,2,Max Shabanov,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0652,0.0652,0.0,0.0,60.0
+New York Islanders,8485702,3,Max Shabanov,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0684,0.0684,0.0,0.0,60.0
+New York Rangers,8475842,1,Sam Carrick,New York Islanders,New York Rangers,2026-01-28,1.0246,0.098,0.0632,0.1612,0.0,0.0,600.0
+New York Rangers,8475842,2,Sam Carrick,New York Islanders,New York Rangers,2026-01-28,1.0326,0.102,0.0556,0.1576,0.0,0.0,600.0
+New York Rangers,8475842,3,Sam Carrick,New York Islanders,New York Rangers,2026-01-28,1.0504,0.1078,0.0558,0.16360000000000002,0.0,0.0,600.0
+New York Rangers,8475842,4,Sam Carrick,New York Islanders,New York Rangers,2026-01-28,0.0408,0.0044,0.0,0.0044,0.0,0.0,15.8775
+New York Rangers,8476389,1,Vincent Trocheck,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0556,0.0556,0.0,0.0,60.0
+New York Rangers,8476389,2,Vincent Trocheck,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0652,0.0652,0.0,0.0,60.0
+New York Rangers,8476389,3,Vincent Trocheck,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0686,0.0686,0.0,0.0,60.0
+New York Rangers,8476459,1,Mika Zibanejad,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0602,0.0602,0.0,0.0,60.0
+New York Rangers,8476459,2,Mika Zibanejad,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0604,0.0604,0.0,0.0,60.0
+New York Rangers,8476459,3,Mika Zibanejad,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0658,0.0658,0.0,0.0,60.0
+New York Rangers,8476468,1,J.T. Miller,New York Islanders,New York Rangers,2026-01-28,1.0182,0.112,0.0524,0.1644,0.0,0.0,600.0
+New York Rangers,8476468,2,J.T. Miller,New York Islanders,New York Rangers,2026-01-28,1.0126,0.1024,0.054,0.1564,0.0,0.0,600.0
+New York Rangers,8476468,3,J.T. Miller,New York Islanders,New York Rangers,2026-01-28,1.0528,0.1164,0.063,0.1794,0.0,0.0,600.0
+New York Rangers,8476468,4,J.T. Miller,New York Islanders,New York Rangers,2026-01-28,0.034,0.004,0.0,0.004,0.0,0.0,12.2325
+New York Rangers,8477380,1,Jonny Brodzinski,New York Islanders,New York Rangers,2026-01-28,1.0526,0.1048,0.0572,0.162,0.0,0.0,600.0
+New York Rangers,8477380,2,Jonny Brodzinski,New York Islanders,New York Rangers,2026-01-28,1.0422,0.099,0.0554,0.1544,0.0,0.0,600.0
+New York Rangers,8477380,3,Jonny Brodzinski,New York Islanders,New York Rangers,2026-01-28,1.032,0.1074,0.0616,0.16899999999999998,0.0,0.0,600.0
+New York Rangers,8477380,4,Jonny Brodzinski,New York Islanders,New York Rangers,2026-01-28,0.0448,0.0044,0.0,0.0044,0.0,0.0,15.8775
+New York Rangers,8477484,1,Spencer Martin,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0,0.0,0.0,9.3632,1200.0
+New York Rangers,8477484,2,Spencer Martin,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0,0.0,0.0,9.5044,1200.0
+New York Rangers,8477484,3,Spencer Martin,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0,0.0,0.0,9.5402,1200.0
+New York Rangers,8477484,4,Spencer Martin,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0,0.0,0.0,0.4234,53.34
+New York Rangers,8477839,1,Conor Sheary,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0606,0.0606,0.0,0.0,60.0
+New York Rangers,8477839,2,Conor Sheary,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.062,0.062,0.0,0.0,60.0
+New York Rangers,8477839,3,Conor Sheary,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0632,0.0632,0.0,0.0,60.0
+New York Rangers,8478550,1,Artemi Panarin,New York Islanders,New York Rangers,2026-01-28,1.0342,0.1,0.0584,0.1584,0.0,0.0,600.0
+New York Rangers,8478550,2,Artemi Panarin,New York Islanders,New York Rangers,2026-01-28,1.0322,0.101,0.0518,0.1528,0.0,0.0,600.0
+New York Rangers,8478550,3,Artemi Panarin,New York Islanders,New York Rangers,2026-01-28,1.05,0.1054,0.0556,0.16099999999999998,0.0,0.0,600.0
+New York Rangers,8478550,4,Artemi Panarin,New York Islanders,New York Rangers,2026-01-28,0.0012,0.0,0.0,0.0,0.0,0.0,1.1775
+New York Rangers,8478840,1,Will Borgen,New York Islanders,New York Rangers,2026-01-28,0.7594,0.0784,0.06,0.1384,0.4448,0.0,450.0
+New York Rangers,8478840,2,Will Borgen,New York Islanders,New York Rangers,2026-01-28,0.7864,0.0806,0.0548,0.13540000000000002,0.4228,0.0,450.0
+New York Rangers,8478840,3,Will Borgen,New York Islanders,New York Rangers,2026-01-28,0.7732,0.0806,0.0594,0.14,0.4598,0.0,450.0
+New York Rangers,8478840,4,Will Borgen,New York Islanders,New York Rangers,2026-01-28,0.1064,0.0104,0.0,0.0104,0.005,0.0,38.3625
+New York Rangers,8478882,1,Vladislav Gavrikov,New York Islanders,New York Rangers,2026-01-28,0.5036,0.0544,0.065,0.1194,0.429,0.0,300.0
+New York Rangers,8478882,2,Vladislav Gavrikov,New York Islanders,New York Rangers,2026-01-28,0.5214,0.0568,0.0586,0.1154,0.437,0.0,300.0
+New York Rangers,8478882,3,Vladislav Gavrikov,New York Islanders,New York Rangers,2026-01-28,0.51,0.0514,0.0604,0.11180000000000001,0.4408,0.0,300.0
+New York Rangers,8478882,4,Vladislav Gavrikov,New York Islanders,New York Rangers,2026-01-28,0.0082,0.001,0.0,0.001,0.0182,0.0,2.9775
+New York Rangers,8479323,1,Adam Fox,New York Islanders,New York Rangers,2026-01-28,0.7098,0.0728,0.0538,0.1266,0.4514,0.0,404.13
+New York Rangers,8479323,2,Adam Fox,New York Islanders,New York Rangers,2026-01-28,0.7114,0.08,0.058,0.138,0.4622,0.0,404.25
+New York Rangers,8479323,3,Adam Fox,New York Islanders,New York Rangers,2026-01-28,0.6836,0.0676,0.0634,0.131,0.446,0.0,405.18
+New York Rangers,8479323,4,Adam Fox,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0,0.0,0.0046,0.0,60.0
+New York Rangers,8479390,1,Taylor Raddysh,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0582,0.0582,0.0,0.0,60.0
+New York Rangers,8479390,2,Taylor Raddysh,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.066,0.066,0.0,0.0,60.0
+New York Rangers,8479390,3,Taylor Raddysh,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.062,0.062,0.0,0.0,60.0
+New York Rangers,8479390,4,Taylor Raddysh,New York Islanders,New York Rangers,2026-01-28,0.0322,0.0026,0.0,0.0026,0.0,0.0,13.0425
+New York Rangers,8480001,1,Urho Vaakanainen,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0644,0.0644,0.0,0.0,60.0
+New York Rangers,8480001,2,Urho Vaakanainen,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.065,0.065,0.0,0.0,60.0
+New York Rangers,8480001,3,Urho Vaakanainen,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0666,0.0666,0.0,0.0,60.0
+New York Rangers,8481525,1,Matthew Robertson,New York Islanders,New York Rangers,2026-01-28,0.7042,0.079,0.0526,0.1316,0.2854,0.0,405.96
+New York Rangers,8481525,2,Matthew Robertson,New York Islanders,New York Rangers,2026-01-28,0.703,0.0726,0.0596,0.13219999999999998,0.296,0.0,407.16
+New York Rangers,8481525,3,Matthew Robertson,New York Islanders,New York Rangers,2026-01-28,0.7306,0.0736,0.0584,0.132,0.288,0.0,403.38
+New York Rangers,8481525,4,Matthew Robertson,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0,0.0,0.0332,0.0,60.0
+New York Rangers,8481726,1,Adam Edstrom,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0698,0.0698,0.0,0.0,60.0
+New York Rangers,8481726,2,Adam Edstrom,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0648,0.0648,0.0,0.0,60.0
+New York Rangers,8481726,3,Adam Edstrom,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0656,0.0656,0.0,0.0,60.0
+New York Rangers,8481726,4,Adam Edstrom,New York Islanders,New York Rangers,2026-01-28,0.0344,0.005,0.0,0.005,0.0,0.0,12.1875
+New York Rangers,8482067,1,Connor Mackey,New York Islanders,New York Rangers,2026-01-28,0.468,0.0482,0.0622,0.1104,0.4422,0.0,270.81
+New York Rangers,8482067,2,Connor Mackey,New York Islanders,New York Rangers,2026-01-28,0.4814,0.0484,0.067,0.1154,0.4396,0.0,270.75
+New York Rangers,8482067,3,Connor Mackey,New York Islanders,New York Rangers,2026-01-28,0.483,0.0454,0.056,0.1014,0.4454,0.0,270.96
+New York Rangers,8482067,4,Connor Mackey,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0,0.0,0.019,0.0,60.0
+New York Rangers,8482073,1,Braden Schneider,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0628,0.0628,0.0,0.0,60.0
+New York Rangers,8482073,2,Braden Schneider,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0606,0.0606,0.0,0.0,60.0
+New York Rangers,8482073,3,Braden Schneider,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0564,0.0564,0.0,0.0,60.0
+New York Rangers,8482109,1,Alexis Lafrenière,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0674,0.0674,0.0,0.0,60.0
+New York Rangers,8482109,2,Alexis Lafrenière,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0622,0.0622,0.0,0.0,60.0
+New York Rangers,8482109,3,Alexis Lafrenière,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0628,0.0628,0.0,0.0,60.0
+New York Rangers,8482109,4,Alexis Lafrenière,New York Islanders,New York Rangers,2026-01-28,0.0014,0.0,0.0,0.0,0.0,0.0,1.1925
+New York Rangers,8482157,1,Will Cuylle,New York Islanders,New York Rangers,2026-01-28,1.0324,0.104,0.0612,0.16519999999999999,0.0,0.0,600.0
+New York Rangers,8482157,2,Will Cuylle,New York Islanders,New York Rangers,2026-01-28,1.0368,0.1092,0.0606,0.1698,0.0,0.0,600.0
+New York Rangers,8482157,3,Will Cuylle,New York Islanders,New York Rangers,2026-01-28,1.0222,0.1018,0.0602,0.162,0.0,0.0,600.0
+New York Rangers,8482157,4,Will Cuylle,New York Islanders,New York Rangers,2026-01-28,0.0038,0.0002,0.0,0.0002,0.0,0.0,1.635
+New York Rangers,8482460,1,Matt Rempe,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0584,0.0584,0.0,0.0,60.0
+New York Rangers,8482460,2,Matt Rempe,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0682,0.0682,0.0,0.0,60.0
+New York Rangers,8482460,3,Matt Rempe,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0592,0.0592,0.0,0.0,60.0
+New York Rangers,8482460,4,Matt Rempe,New York Islanders,New York Rangers,2026-01-28,0.0014,0.0,0.0,0.0,0.0,0.0,1.425
+New York Rangers,8482666,1,Scott Morrow,New York Islanders,New York Rangers,2026-01-28,0.7622,0.0756,0.0626,0.1382,0.2798,0.0,450.0
+New York Rangers,8482666,2,Scott Morrow,New York Islanders,New York Rangers,2026-01-28,0.7462,0.0788,0.0522,0.131,0.3008,0.0,450.0
+New York Rangers,8482666,3,Scott Morrow,New York Islanders,New York Rangers,2026-01-28,0.7722,0.0818,0.0594,0.1412,0.2928,0.0,450.0
+New York Rangers,8482666,4,Scott Morrow,New York Islanders,New York Rangers,2026-01-28,0.0308,0.003,0.0,0.003,0.0296,0.0,12.0
+New York Rangers,8482747,1,Brennan Othmann,New York Islanders,New York Rangers,2026-01-28,1.0028,0.1026,0.059,0.1616,0.0,0.0,600.0
+New York Rangers,8482747,2,Brennan Othmann,New York Islanders,New York Rangers,2026-01-28,1.0188,0.1044,0.0558,0.1602,0.0,0.0,600.0
+New York Rangers,8482747,3,Brennan Othmann,New York Islanders,New York Rangers,2026-01-28,1.0524,0.1024,0.0632,0.16560000000000002,0.0,0.0,600.0
+New York Rangers,8482747,4,Brennan Othmann,New York Islanders,New York Rangers,2026-01-28,0.0348,0.0044,0.0,0.0044,0.0,0.0,12.2325
+New York Rangers,8483690,1,Noah Laba,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0642,0.0642,0.0,0.0,60.0
+New York Rangers,8483690,2,Noah Laba,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.063,0.063,0.0,0.0,60.0
+New York Rangers,8483690,3,Noah Laba,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0586,0.0586,0.0,0.0,60.0
+New York Rangers,8483690,4,Noah Laba,New York Islanders,New York Rangers,2026-01-28,0.0348,0.0028,0.0,0.0028,0.0,0.0,12.1875
+New York Rangers,8484210,1,Gabe Perreault,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0628,0.0628,0.0,0.0,60.0
+New York Rangers,8484210,2,Gabe Perreault,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0716,0.0716,0.0,0.0,60.0
+New York Rangers,8484210,3,Gabe Perreault,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0606,0.0606,0.0,0.0,60.0
+New York Rangers,8484210,4,Gabe Perreault,New York Islanders,New York Rangers,2026-01-28,0.036,0.0028,0.0,0.0028,0.0,0.0,13.0425
+New York Islanders,8475151,0,Kyle Palmieri,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.1782,0.1782,0.0,0.0,180.0
+New York Islanders,8475231,0,Casey Cizikas,New York Islanders,New York Rangers,2026-01-28,3.1670000000000003,0.3028,0.1736,0.4764,0.0,0.0,1815.8775
+New York Islanders,8475314,0,Anders Lee,New York Islanders,New York Rangers,2026-01-28,3.1608,0.3206,0.16620000000000001,0.4868,0.0,0.0,1801.1775
+New York Islanders,8476292,0,Ondrej Palat,New York Islanders,New York Rangers,2026-01-28,0.0038,0.0004,0.19219999999999998,0.1926,0.0,0.0,181.425
+New York Islanders,8476419,0,Jean-Gabriel Pageau,New York Islanders,New York Rangers,2026-01-28,0.036,0.004,0.189,0.193,0.0,0.0,193.0425
+New York Islanders,8476429,0,Scott Mayfield,New York Islanders,New York Rangers,2026-01-28,1.5618,0.1552,0.1668,0.322,1.252,0.0,902.9775
+New York Islanders,8476917,0,Adam Pelech,New York Islanders,New York Rangers,2026-01-28,1.5618,0.1464,0.18059999999999998,0.327,1.2886,0.0,900.3225
+New York Islanders,8477369,0,Carson Soucy,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.19479999999999997,0.19479999999999997,0.0,0.0,180.0
+New York Islanders,8477407,0,Anthony Duclair,New York Islanders,New York Rangers,2026-01-28,0.0366,0.0026,0.1956,0.19820000000000002,0.0,0.0,192.1875
+New York Islanders,8477494,0,Jonathan Drouin,New York Islanders,New York Rangers,2026-01-28,3.158,0.3028,0.1706,0.4734,0.0,0.0,1801.635
+New York Islanders,8477500,0,Bo Horvat,New York Islanders,New York Rangers,2026-01-28,3.187,0.31120000000000003,0.1646,0.4758,0.0,0.0,1812.2325
+New York Islanders,8477506,0,Ryan Pulock,New York Islanders,New York Rangers,2026-01-28,2.4388,0.236,0.18359999999999999,0.4196,0.8946,0.0,1362.0
+New York Islanders,8477950,0,Tony DeAngelo,New York Islanders,New York Rangers,2026-01-28,2.3544,0.22399999999999998,0.1754,0.3994,1.3036,0.0,1353.765
+New York Islanders,8478445,0,Mathew Barzal,New York Islanders,New York Rangers,2026-01-28,3.1874,0.3114,0.1724,0.4838,0.0,0.0,1815.8775
+New York Islanders,8479496,0,David Rittich,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0,0.0,0.0,27.7028,3653.34
+New York Islanders,8480871,0,Adam Boqvist,New York Islanders,New York Rangers,2026-01-28,2.4322,0.2342,0.1794,0.4136,1.3038,0.0,1388.3625
+New York Islanders,8481014,0,Alexander Romanov,New York Islanders,New York Rangers,2026-01-28,2.4177999999999997,0.24,0.1676,0.40759999999999996,0.8862,0.0,1351.3425
+New York Islanders,8481237,0,Kyle MacLean,New York Islanders,New York Rangers,2026-01-28,0.0346,0.0044,0.18880000000000002,0.1932,0.0,0.0,193.0425
+New York Islanders,8481601,0,Simon Holmstrom,New York Islanders,New York Rangers,2026-01-28,3.1776,0.3208,0.1732,0.494,0.0,0.0,1812.2325
+New York Islanders,8482476,0,Emil Heineman,New York Islanders,New York Rangers,2026-01-28,0.0014,0.0002,0.1954,0.1956,0.0,0.0,181.1925
+New York Islanders,8483553,0,Marc Gatcomb,New York Islanders,New York Rangers,2026-01-28,0.0342,0.003,0.1936,0.1966,0.0,0.0,192.1875
+New York Islanders,8484221,0,Calum Ritchie,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.18939999999999999,0.18939999999999999,0.0,0.0,180.0
+New York Islanders,8485366,0,Matthew Schaefer,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.1752,0.1752,0.0,0.0,180.0
+New York Islanders,8485702,0,Max Shabanov,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.1904,0.1904,0.0,0.0,180.0
+New York Rangers,8475842,0,Sam Carrick,New York Islanders,New York Rangers,2026-01-28,3.1484,0.3122,0.1746,0.4868,0.0,0.0,1815.8775
+New York Rangers,8476389,0,Vincent Trocheck,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.18939999999999999,0.18939999999999999,0.0,0.0,180.0
+New York Rangers,8476459,0,Mika Zibanejad,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.1864,0.1864,0.0,0.0,180.0
+New York Rangers,8476468,0,J.T. Miller,New York Islanders,New York Rangers,2026-01-28,3.1176,0.3348,0.1694,0.5042,0.0,0.0,1812.2325
+New York Rangers,8477380,0,Jonny Brodzinski,New York Islanders,New York Rangers,2026-01-28,3.1716,0.3156,0.1742,0.4898,0.0,0.0,1815.8775
+New York Rangers,8477484,0,Spencer Martin,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.0,0.0,0.0,28.831200000000003,3653.34
+New York Rangers,8477839,0,Conor Sheary,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.18580000000000002,0.18580000000000002,0.0,0.0,180.0
+New York Rangers,8478550,0,Artemi Panarin,New York Islanders,New York Rangers,2026-01-28,3.1176,0.3064,0.1658,0.47219999999999995,0.0,0.0,1801.1775
+New York Rangers,8478840,0,Will Borgen,New York Islanders,New York Rangers,2026-01-28,2.4254,0.25,0.1742,0.4242,1.3324,0.0,1388.3625
+New York Rangers,8478882,0,Vladislav Gavrikov,New York Islanders,New York Rangers,2026-01-28,1.5432000000000001,0.1636,0.184,0.3476,1.325,0.0,902.9775
+New York Rangers,8479323,0,Adam Fox,New York Islanders,New York Rangers,2026-01-28,2.1048,0.22039999999999998,0.1752,0.3956,1.3642,0.0,1273.56
+New York Rangers,8479390,0,Taylor Raddysh,New York Islanders,New York Rangers,2026-01-28,0.0322,0.0026,0.1862,0.1888,0.0,0.0,193.0425
+New York Rangers,8480001,0,Urho Vaakanainen,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.196,0.196,0.0,0.0,180.0
+New York Rangers,8481525,0,Matthew Robertson,New York Islanders,New York Rangers,2026-01-28,2.1378,0.2252,0.1706,0.3958,0.9026,0.0,1276.5
+New York Rangers,8481726,0,Adam Edstrom,New York Islanders,New York Rangers,2026-01-28,0.0344,0.005,0.2002,0.2052,0.0,0.0,192.1875
+New York Rangers,8482067,0,Connor Mackey,New York Islanders,New York Rangers,2026-01-28,1.4324,0.14200000000000002,0.1852,0.3272,1.3462,0.0,872.52
+New York Rangers,8482073,0,Braden Schneider,New York Islanders,New York Rangers,2026-01-28,0.0,0.0,0.1798,0.1798,0.0,0.0,180.0
+New York Rangers,8482109,0,Alexis Lafrenière,New York Islanders,New York Rangers,2026-01-28,0.0014,0.0,0.1924,0.1924,0.0,0.0,181.1925
+New York Rangers,8482157,0,Will Cuylle,New York Islanders,New York Rangers,2026-01-28,3.0951999999999997,0.3152,0.182,0.4972,0.0,0.0,1801.635
+New York Rangers,8482460,0,Matt Rempe,New York Islanders,New York Rangers,2026-01-28,0.0014,0.0,0.18580000000000002,0.18580000000000002,0.0,0.0,181.425
+New York Rangers,8482666,0,Scott Morrow,New York Islanders,New York Rangers,2026-01-28,2.3114,0.2392,0.17420000000000002,0.4134,0.903,0.0,1362.0
+New York Rangers,8482747,0,Brennan Othmann,New York Islanders,New York Rangers,2026-01-28,3.1088,0.3138,0.178,0.4918,0.0,0.0,1812.2325
+New York Rangers,8483690,0,Noah Laba,New York Islanders,New York Rangers,2026-01-28,0.0348,0.0028,0.1858,0.1886,0.0,0.0,192.1875
+New York Rangers,8484210,0,Gabe Perreault,New York Islanders,New York Rangers,2026-01-28,0.036,0.0028,0.195,0.1978,0.0,0.0,193.0425
+Columbus Blue Jackets,8474090,1,Brendan Smith,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0704,0.0704,0.0,0.0,60.0
+Columbus Blue Jackets,8474090,2,Brendan Smith,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0644,0.0644,0.0,0.0,60.0
+Columbus Blue Jackets,8474090,3,Brendan Smith,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0696,0.0696,0.0,0.0,60.0
+Columbus Blue Jackets,8475745,1,Charlie Coyle,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,1.0282,0.0984,0.0632,0.16160000000000002,0.0,0.0,600.0
+Columbus Blue Jackets,8475745,2,Charlie Coyle,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,1.0056,0.1008,0.0574,0.1582,0.0,0.0,600.0
+Columbus Blue Jackets,8475745,3,Charlie Coyle,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,1.0584,0.1036,0.0614,0.165,0.0,0.0,600.0
+Columbus Blue Jackets,8475745,4,Charlie Coyle,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0456,0.003,0.0,0.003,0.0,0.0,16.77
+Columbus Blue Jackets,8475790,1,Erik Gudbranson,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.528,0.0496,0.0634,0.11299999999999999,0.4288,0.0,300.0
+Columbus Blue Jackets,8475790,2,Erik Gudbranson,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.5446,0.052,0.059,0.11099999999999999,0.4342,0.0,300.0
+Columbus Blue Jackets,8475790,3,Erik Gudbranson,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.5242,0.0498,0.0628,0.11259999999999999,0.4396,0.0,300.0
+Columbus Blue Jackets,8475790,4,Erik Gudbranson,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0062,0.0014,0.0,0.0014,0.0126,0.0,2.4225
+Columbus Blue Jackets,8476432,1,Boone Jenner,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0664,0.0664,0.0,0.0,60.0
+Columbus Blue Jackets,8476432,2,Boone Jenner,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0746,0.0746,0.0,0.0,60.0
+Columbus Blue Jackets,8476432,3,Boone Jenner,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0674,0.0674,0.0,0.0,60.0
+Columbus Blue Jackets,8476432,4,Boone Jenner,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0324,0.004,0.0,0.004,0.0,0.0,12.6975
+Columbus Blue Jackets,8476923,1,Damon Severson,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.7648,0.0784,0.0652,0.1436,0.2824,0.0,450.0
+Columbus Blue Jackets,8476923,2,Damon Severson,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.799,0.0804,0.0632,0.1436,0.276,0.0,450.0
+Columbus Blue Jackets,8476923,3,Damon Severson,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.7798,0.0844,0.0568,0.1412,0.2916,0.0,450.0
+Columbus Blue Jackets,8476923,4,Damon Severson,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0052,0.0004,0.0,0.0004,0.0358,0.0,1.2225
+Columbus Blue Jackets,8477425,1,Miles Wood,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.063,0.063,0.0,0.0,60.0
+Columbus Blue Jackets,8477425,2,Miles Wood,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0622,0.0622,0.0,0.0,60.0
+Columbus Blue Jackets,8477425,3,Miles Wood,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0662,0.0662,0.0,0.0,60.0
+Columbus Blue Jackets,8477497,1,Sean Monahan,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,1.0644,0.097,0.0584,0.1554,0.0,0.0,600.0
+Columbus Blue Jackets,8477497,2,Sean Monahan,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,1.0702,0.1026,0.0656,0.16820000000000002,0.0,0.0,600.0
+Columbus Blue Jackets,8477497,3,Sean Monahan,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,1.0782,0.1016,0.0556,0.1572,0.0,0.0,600.0
+Columbus Blue Jackets,8477497,4,Sean Monahan,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.002,0.0008,0.0,0.0008,0.0,0.0,1.275
+Columbus Blue Jackets,8478046,1,Danton Heinen,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,1.0526,0.1024,0.0584,0.1608,0.0,0.0,600.0
+Columbus Blue Jackets,8478046,2,Danton Heinen,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,1.052,0.1094,0.0568,0.16620000000000001,0.0,0.0,600.0
+Columbus Blue Jackets,8478046,3,Danton Heinen,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,1.0182,0.0974,0.0644,0.1618,0.0,0.0,600.0
+Columbus Blue Jackets,8478046,4,Danton Heinen,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0026,0.0004,0.0,0.0004,0.0,0.0,1.485
+Columbus Blue Jackets,8478460,1,Zach Werenski,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0636,0.0636,0.0,0.0,60.0
+Columbus Blue Jackets,8478460,2,Zach Werenski,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0672,0.0672,0.0,0.0,60.0
+Columbus Blue Jackets,8478460,3,Zach Werenski,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0638,0.0638,0.0,0.0,60.0
+Columbus Blue Jackets,8478500,1,Ivan Provorov,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.7922,0.0802,0.061,0.1412,0.2872,0.0,450.0
+Columbus Blue Jackets,8478500,2,Ivan Provorov,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.7884,0.0736,0.0632,0.1368,0.282,0.0,450.0
+Columbus Blue Jackets,8478500,3,Ivan Provorov,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.81,0.0818,0.0574,0.1392,0.288,0.0,450.0
+Columbus Blue Jackets,8478500,4,Ivan Provorov,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.047,0.0022,0.0,0.0022,0.0358,0.0,13.305
+Columbus Blue Jackets,8478975,1,Mason Marchment,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,1.0218,0.1062,0.057,0.1632,0.0,0.0,600.0
+Columbus Blue Jackets,8478975,2,Mason Marchment,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,1.036,0.1142,0.066,0.1802,0.0,0.0,600.0
+Columbus Blue Jackets,8478975,3,Mason Marchment,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,1.0648,0.1116,0.063,0.1746,0.0,0.0,600.0
+Columbus Blue Jackets,8478975,4,Mason Marchment,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.036,0.0024,0.0,0.0024,0.0,0.0,12.69
+Columbus Blue Jackets,8479371,1,Dante Fabbro,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.7782,0.0822,0.0612,0.1434,0.428,0.0,450.0
+Columbus Blue Jackets,8479371,2,Dante Fabbro,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.7922,0.0762,0.0612,0.1374,0.4234,0.0,450.0
+Columbus Blue Jackets,8479371,3,Dante Fabbro,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.7712,0.0792,0.0622,0.1414,0.4318,0.0,450.0
+Columbus Blue Jackets,8479371,4,Dante Fabbro,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0098,0.0008,0.0,0.0008,0.0036,0.0,3.96
+Columbus Blue Jackets,8479671,1,Mathieu Olivier,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0726,0.0726,0.0,0.0,60.0
+Columbus Blue Jackets,8479671,2,Mathieu Olivier,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.071,0.071,0.0,0.0,60.0
+Columbus Blue Jackets,8479671,3,Mathieu Olivier,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0744,0.0744,0.0,0.0,60.0
+Columbus Blue Jackets,8479671,4,Mathieu Olivier,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0394,0.003,0.0,0.003,0.0,0.0,13.7025
+Columbus Blue Jackets,8480806,1,Isac Lundeström,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0672,0.0672,0.0,0.0,60.0
+Columbus Blue Jackets,8480806,2,Isac Lundeström,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0622,0.0622,0.0,0.0,60.0
+Columbus Blue Jackets,8480806,3,Isac Lundeström,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.067,0.067,0.0,0.0,60.0
+Columbus Blue Jackets,8480806,4,Isac Lundeström,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.004,0.0,0.0,0.0,0.0,0.0,1.1475
+Columbus Blue Jackets,8480893,1,Kirill Marchenko,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,1.0526,0.1018,0.059,0.1608,0.0,0.0,600.0
+Columbus Blue Jackets,8480893,2,Kirill Marchenko,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,1.053,0.1026,0.054,0.1566,0.0,0.0,600.0
+Columbus Blue Jackets,8480893,3,Kirill Marchenko,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,1.059,0.1036,0.0648,0.1684,0.0,0.0,600.0
+Columbus Blue Jackets,8480893,4,Kirill Marchenko,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0344,0.0032,0.0,0.0032,0.0,0.0,12.69
+Columbus Blue Jackets,8481161,1,Jake Christiansen,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.7932,0.0742,0.0618,0.136,0.4276,0.0,450.0
+Columbus Blue Jackets,8481161,2,Jake Christiansen,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.767,0.0766,0.0642,0.14079999999999998,0.4208,0.0,450.0
+Columbus Blue Jackets,8481161,3,Jake Christiansen,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.7972,0.0768,0.0604,0.1372,0.4588,0.0,450.0
+Columbus Blue Jackets,8481161,4,Jake Christiansen,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.1066,0.0116,0.0,0.0116,0.0028,0.0,40.1325
+Columbus Blue Jackets,8481178,1,Egor Zamula,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.065,0.065,0.0,0.0,60.0
+Columbus Blue Jackets,8481178,2,Egor Zamula,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0678,0.0678,0.0,0.0,60.0
+Columbus Blue Jackets,8481178,3,Egor Zamula,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0628,0.0628,0.0,0.0,60.0
+Columbus Blue Jackets,8481716,1,Dmitri Voronkov,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0598,0.0598,0.0,0.0,60.0
+Columbus Blue Jackets,8481716,2,Dmitri Voronkov,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0736,0.0736,0.0,0.0,60.0
+Columbus Blue Jackets,8481716,3,Dmitri Voronkov,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0626,0.0626,0.0,0.0,60.0
+Columbus Blue Jackets,8481716,4,Dmitri Voronkov,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0028,0.0006,0.0,0.0006,0.0,0.0,1.4475
+Columbus Blue Jackets,8482660,1,Kent Johnson,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0642,0.0642,0.0,0.0,60.0
+Columbus Blue Jackets,8482660,2,Kent Johnson,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0696,0.0696,0.0,0.0,60.0
+Columbus Blue Jackets,8482660,3,Kent Johnson,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0684,0.0684,0.0,0.0,60.0
+Columbus Blue Jackets,8482660,4,Kent Johnson,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0316,0.0032,0.0,0.0032,0.0,0.0,12.6975
+Columbus Blue Jackets,8482705,1,Cole Sillinger,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0702,0.0702,0.0,0.0,60.0
+Columbus Blue Jackets,8482705,2,Cole Sillinger,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0624,0.0624,0.0,0.0,60.0
+Columbus Blue Jackets,8482705,3,Cole Sillinger,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0714,0.0714,0.0,0.0,60.0
+Columbus Blue Jackets,8482705,4,Cole Sillinger,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0346,0.0032,0.0,0.0032,0.0,0.0,13.7025
+Columbus Blue Jackets,8482982,1,Jet Greaves,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0,0.0,0.0,9.0928,1200.0
+Columbus Blue Jackets,8482982,2,Jet Greaves,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0,0.0,0.0,9.0334,1200.0
+Columbus Blue Jackets,8482982,3,Jet Greaves,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0,0.0,0.0,9.2202,1200.0
+Columbus Blue Jackets,8482982,4,Jet Greaves,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0,0.0,0.0,0.4242,55.86
+Columbus Blue Jackets,8483485,1,Denton Mateychuk,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.5232,0.05,0.0614,0.1114,0.438,0.0,300.0
+Columbus Blue Jackets,8483485,2,Denton Mateychuk,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.5064,0.055,0.0624,0.1174,0.4204,0.0,300.0
+Columbus Blue Jackets,8483485,3,Denton Mateychuk,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.5368,0.0534,0.0608,0.1142,0.4296,0.0,300.0
+Columbus Blue Jackets,8483485,4,Denton Mateychuk,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0006,0.0002,0.0,0.0002,0.0146,0.0,0.1725
+Columbus Blue Jackets,8484166,1,Adam Fantilli,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,1.028,0.1092,0.0636,0.1728,0.0,0.0,600.0
+Columbus Blue Jackets,8484166,2,Adam Fantilli,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,1.0464,0.1032,0.0612,0.1644,0.0,0.0,600.0
+Columbus Blue Jackets,8484166,3,Adam Fantilli,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,1.0338,0.1024,0.0568,0.1592,0.0,0.0,600.0
+Columbus Blue Jackets,8484166,4,Adam Fantilli,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0462,0.0046,0.0,0.0046,0.0,0.0,16.77
+Philadelphia Flyers,8475235,1,Nicolas Deslauriers,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0646,0.0646,0.0,0.0,60.0
+Philadelphia Flyers,8475235,2,Nicolas Deslauriers,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0626,0.0626,0.0,0.0,60.0
+Philadelphia Flyers,8475235,3,Nicolas Deslauriers,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0682,0.0682,0.0,0.0,60.0
+Philadelphia Flyers,8475235,4,Nicolas Deslauriers,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.001,0.0,0.0,0.0,0.0,0.0,1.1475
+Philadelphia Flyers,8476372,1,Nick Seeler,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.6868,0.0806,0.0534,0.134,0.2894,0.0,403.83
+Philadelphia Flyers,8476372,2,Nick Seeler,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.6914,0.075,0.0628,0.13779999999999998,0.2904,0.0,402.21
+Philadelphia Flyers,8476372,3,Nick Seeler,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.754,0.07,0.0584,0.12840000000000001,0.2906,0.0,405.81
+Philadelphia Flyers,8476372,4,Nick Seeler,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0,0.0,0.0326,0.0,60.0
+Philadelphia Flyers,8476461,1,Sean Couturier,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0628,0.0628,0.0,0.0,60.0
+Philadelphia Flyers,8476461,2,Sean Couturier,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0634,0.0634,0.0,0.0,60.0
+Philadelphia Flyers,8476461,3,Sean Couturier,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0614,0.0614,0.0,0.0,60.0
+Philadelphia Flyers,8476461,4,Sean Couturier,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0386,0.0036,0.0,0.0036,0.0,0.0,12.6975
+Philadelphia Flyers,8477499,1,Rasmus Ristolainen,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.4832,0.054,0.0598,0.1138,0.4392,0.0,270.66
+Philadelphia Flyers,8477499,2,Rasmus Ristolainen,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.4712,0.045,0.06,0.105,0.4528,0.0,270.96
+Philadelphia Flyers,8477499,3,Rasmus Ristolainen,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.4818,0.0496,0.0616,0.1112,0.4454,0.0,271.65
+Philadelphia Flyers,8477499,4,Rasmus Ristolainen,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0,0.0,0.02,0.0,60.0
+Philadelphia Flyers,8477903,1,Garnet Hathaway,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0624,0.0624,0.0,0.0,60.0
+Philadelphia Flyers,8477903,2,Garnet Hathaway,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0656,0.0656,0.0,0.0,60.0
+Philadelphia Flyers,8477903,3,Garnet Hathaway,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0612,0.0612,0.0,0.0,60.0
+Philadelphia Flyers,8477903,4,Garnet Hathaway,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.046,0.0054,0.0,0.0054,0.0,0.0,13.7025
+Philadelphia Flyers,8477948,1,Travis Sanheim,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.7584,0.0786,0.064,0.1426,0.2916,0.0,450.0
+Philadelphia Flyers,8477948,2,Travis Sanheim,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.7452,0.0784,0.0564,0.1348,0.2952,0.0,450.0
+Philadelphia Flyers,8477948,3,Travis Sanheim,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.7852,0.0818,0.0578,0.1396,0.3026,0.0,450.0
+Philadelphia Flyers,8477948,4,Travis Sanheim,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0354,0.0054,0.0,0.0054,0.0298,0.0,13.305
+Philadelphia Flyers,8477989,1,Christian Dvorak,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,1.0314,0.1034,0.055,0.1584,0.0,0.0,600.0
+Philadelphia Flyers,8477989,2,Christian Dvorak,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,1.0288,0.1094,0.0512,0.1606,0.0,0.0,600.0
+Philadelphia Flyers,8477989,3,Christian Dvorak,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,1.0588,0.1118,0.061,0.1728,0.0,0.0,600.0
+Philadelphia Flyers,8477989,4,Christian Dvorak,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0352,0.0022,0.0,0.0022,0.0,0.0,12.69
+Philadelphia Flyers,8478439,1,Travis Konecny,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0568,0.0568,0.0,0.0,60.0
+Philadelphia Flyers,8478439,2,Travis Konecny,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0662,0.0662,0.0,0.0,60.0
+Philadelphia Flyers,8478439,3,Travis Konecny,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0628,0.0628,0.0,0.0,60.0
+Philadelphia Flyers,8478439,4,Travis Konecny,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.001,0.0004,0.0,0.0004,0.0,0.0,1.4475
+Philadelphia Flyers,8478454,1,Noah Juulsen,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.519,0.0486,0.0604,0.109,0.436,0.0,300.0
+Philadelphia Flyers,8478454,2,Noah Juulsen,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.5148,0.0534,0.0644,0.1178,0.4446,0.0,300.0
+Philadelphia Flyers,8478454,3,Noah Juulsen,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.537,0.0546,0.0566,0.1112,0.4372,0.0,300.0
+Philadelphia Flyers,8478454,4,Noah Juulsen,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0064,0.0004,0.0,0.0004,0.0204,0.0,2.4225
+Philadelphia Flyers,8478967,1,Lane Pederson,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0688,0.0688,0.0,0.0,60.0
+Philadelphia Flyers,8478967,2,Lane Pederson,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0594,0.0594,0.0,0.0,60.0
+Philadelphia Flyers,8478967,3,Lane Pederson,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0688,0.0688,0.0,0.0,60.0
+Philadelphia Flyers,8479022,1,Rodrigo Abols,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,1.0404,0.1096,0.0666,0.17620000000000002,0.0,0.0,600.0
+Philadelphia Flyers,8479022,2,Rodrigo Abols,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,1.0514,0.1048,0.057,0.1618,0.0,0.0,600.0
+Philadelphia Flyers,8479022,3,Rodrigo Abols,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,1.025,0.1082,0.058,0.16620000000000001,0.0,0.0,600.0
+Philadelphia Flyers,8479022,4,Rodrigo Abols,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0428,0.0056,0.0,0.0056,0.0,0.0,16.77
+Philadelphia Flyers,8479336,1,Carl Grundstrom,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0642,0.0642,0.0,0.0,60.0
+Philadelphia Flyers,8479336,2,Carl Grundstrom,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0702,0.0702,0.0,0.0,60.0
+Philadelphia Flyers,8479336,3,Carl Grundstrom,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0596,0.0596,0.0,0.0,60.0
+Philadelphia Flyers,8479336,4,Carl Grundstrom,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0366,0.004,0.0,0.004,0.0,0.0,13.7025
+Philadelphia Flyers,8480015,1,Owen Tippett,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0652,0.0652,0.0,0.0,60.0
+Philadelphia Flyers,8480015,2,Owen Tippett,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0626,0.0626,0.0,0.0,60.0
+Philadelphia Flyers,8480015,3,Owen Tippett,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0638,0.0638,0.0,0.0,60.0
+Philadelphia Flyers,8480220,1,Noah Cates,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.058,0.058,0.0,0.0,60.0
+Philadelphia Flyers,8480220,2,Noah Cates,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.059,0.059,0.0,0.0,60.0
+Philadelphia Flyers,8480220,3,Noah Cates,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0702,0.0702,0.0,0.0,60.0
+Philadelphia Flyers,8480220,4,Noah Cates,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0344,0.0046,0.0,0.0046,0.0,0.0,12.6975
+Philadelphia Flyers,8481035,1,Samuel Ersson,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0,0.0,0.0,9.3976,1200.0
+Philadelphia Flyers,8481035,2,Samuel Ersson,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0,0.0,0.0,9.4142,1200.0
+Philadelphia Flyers,8481035,3,Samuel Ersson,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0,0.0,0.0,9.486,1200.0
+Philadelphia Flyers,8481035,4,Samuel Ersson,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0,0.0,0.0,0.442,55.86
+Philadelphia Flyers,8481533,1,Trevor Zegras,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0632,0.0632,0.0,0.0,60.0
+Philadelphia Flyers,8481533,2,Trevor Zegras,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.063,0.063,0.0,0.0,60.0
+Philadelphia Flyers,8481533,3,Trevor Zegras,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.061,0.061,0.0,0.0,60.0
+Philadelphia Flyers,8481546,1,Cam York,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0664,0.0664,0.0,0.0,60.0
+Philadelphia Flyers,8481546,2,Cam York,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0612,0.0612,0.0,0.0,60.0
+Philadelphia Flyers,8481546,3,Cam York,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0618,0.0618,0.0,0.0,60.0
+Philadelphia Flyers,8481553,1,Bobby Brink,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,1.0242,0.096,0.0586,0.15460000000000002,0.0,0.0,600.0
+Philadelphia Flyers,8481553,2,Bobby Brink,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,1.0406,0.1002,0.0572,0.15739999999999998,0.0,0.0,600.0
+Philadelphia Flyers,8481553,3,Bobby Brink,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,1.0328,0.1048,0.056,0.1608,0.0,0.0,600.0
+Philadelphia Flyers,8481553,4,Bobby Brink,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0022,0.0,0.0,0.0,0.0,0.0,1.485
+Philadelphia Flyers,8482126,1,Emil Andrae,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.7874,0.0746,0.057,0.1316,0.4386,0.0,450.0
+Philadelphia Flyers,8482126,2,Emil Andrae,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.7692,0.0786,0.0572,0.1358,0.4384,0.0,450.0
+Philadelphia Flyers,8482126,3,Emil Andrae,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.7688,0.073,0.0582,0.13119999999999998,0.4486,0.0,450.0
+Philadelphia Flyers,8482126,4,Emil Andrae,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.108,0.0122,0.0,0.0122,0.0038,0.0,40.1325
+Philadelphia Flyers,8482142,1,Jamie Drysdale,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.6976,0.0772,0.0576,0.1348,0.4334,0.0,405.18
+Philadelphia Flyers,8482142,2,Jamie Drysdale,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.6832,0.0752,0.0562,0.13140000000000002,0.4504,0.0,405.81
+Philadelphia Flyers,8482142,3,Jamie Drysdale,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.7008,0.068,0.0624,0.13040000000000002,0.4446,0.0,405.54
+Philadelphia Flyers,8482142,4,Jamie Drysdale,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0,0.0,0.0044,0.0,60.0
+Philadelphia Flyers,8482159,1,Tyson Foerster,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,1.0226,0.1066,0.062,0.1686,0.0,0.0,600.0
+Philadelphia Flyers,8482159,2,Tyson Foerster,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,1.0224,0.1098,0.059,0.1688,0.0,0.0,600.0
+Philadelphia Flyers,8482159,3,Tyson Foerster,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,1.0286,0.1128,0.0568,0.1696,0.0,0.0,600.0
+Philadelphia Flyers,8482159,4,Tyson Foerster,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0406,0.0026,0.0,0.0026,0.0,0.0,12.69
+Philadelphia Flyers,8483733,1,Nikita Grebenkin,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,1.0318,0.1004,0.0508,0.1512,0.0,0.0,600.0
+Philadelphia Flyers,8483733,2,Nikita Grebenkin,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,1.0326,0.0904,0.0554,0.14579999999999999,0.0,0.0,600.0
+Philadelphia Flyers,8483733,3,Nikita Grebenkin,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,1.0626,0.1072,0.0602,0.1674,0.0,0.0,600.0
+Philadelphia Flyers,8483733,4,Nikita Grebenkin,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.002,0.0002,0.0,0.0002,0.0,0.0,1.275
+Philadelphia Flyers,8484142,1,Denver Barkey,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,1.0416,0.102,0.0592,0.1612,0.0,0.0,600.0
+Philadelphia Flyers,8484142,2,Denver Barkey,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,1.0132,0.1104,0.0516,0.162,0.0,0.0,600.0
+Philadelphia Flyers,8484142,3,Denver Barkey,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,1.0286,0.102,0.0626,0.1646,0.0,0.0,600.0
+Philadelphia Flyers,8484142,4,Denver Barkey,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0454,0.0048,0.0,0.0048,0.0,0.0,16.77
+Philadelphia Flyers,8484387,1,Matvei Michkov,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.059,0.059,0.0,0.0,60.0
+Philadelphia Flyers,8484387,2,Matvei Michkov,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0614,0.0614,0.0,0.0,60.0
+Philadelphia Flyers,8484387,3,Matvei Michkov,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0602,0.0602,0.0,0.0,60.0
+Columbus Blue Jackets,8474090,0,Brendan Smith,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.2044,0.2044,0.0,0.0,180.0
+Columbus Blue Jackets,8475745,0,Charlie Coyle,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,3.1378,0.3058,0.182,0.4878,0.0,0.0,1816.77
+Columbus Blue Jackets,8475790,0,Erik Gudbranson,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,1.603,0.1528,0.18519999999999998,0.33799999999999997,1.3152,0.0,902.4225
+Columbus Blue Jackets,8476432,0,Boone Jenner,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0324,0.004,0.2084,0.2124,0.0,0.0,192.6975
+Columbus Blue Jackets,8476923,0,Damon Severson,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,2.3488,0.2436,0.1852,0.4288,0.8858,0.0,1351.2225
+Columbus Blue Jackets,8477425,0,Miles Wood,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.1914,0.1914,0.0,0.0,180.0
+Columbus Blue Jackets,8477497,0,Sean Monahan,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,3.2148,0.302,0.1796,0.48160000000000003,0.0,0.0,1801.275
+Columbus Blue Jackets,8478046,0,Danton Heinen,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,3.1254,0.3096,0.1796,0.4892,0.0,0.0,1801.485
+Columbus Blue Jackets,8478460,0,Zach Werenski,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.1946,0.1946,0.0,0.0,180.0
+Columbus Blue Jackets,8478500,0,Ivan Provorov,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,2.4376,0.23779999999999998,0.1816,0.4194,0.893,0.0,1363.305
+Columbus Blue Jackets,8478975,0,Mason Marchment,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,3.1586,0.33440000000000003,0.186,0.5204,0.0,0.0,1812.69
+Columbus Blue Jackets,8479371,0,Dante Fabbro,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,2.3514,0.2384,0.1846,0.423,1.2868,0.0,1353.96
+Columbus Blue Jackets,8479671,0,Mathieu Olivier,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0394,0.003,0.21799999999999997,0.22099999999999997,0.0,0.0,193.7025
+Columbus Blue Jackets,8480806,0,Isac Lundeström,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.004,0.0,0.1964,0.1964,0.0,0.0,181.1475
+Columbus Blue Jackets,8480893,0,Kirill Marchenko,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,3.199,0.3112,0.17779999999999999,0.489,0.0,0.0,1812.69
+Columbus Blue Jackets,8481161,0,Jake Christiansen,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,2.464,0.2392,0.18639999999999998,0.4256,1.31,0.0,1390.1325
+Columbus Blue Jackets,8481178,0,Egor Zamula,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.1956,0.1956,0.0,0.0,180.0
+Columbus Blue Jackets,8481716,0,Dmitri Voronkov,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0028,0.0006,0.196,0.1966,0.0,0.0,181.4475
+Columbus Blue Jackets,8482660,0,Kent Johnson,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0316,0.0032,0.2022,0.2054,0.0,0.0,192.6975
+Columbus Blue Jackets,8482705,0,Cole Sillinger,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0346,0.0032,0.20400000000000001,0.2072,0.0,0.0,193.7025
+Columbus Blue Jackets,8482982,0,Jet Greaves,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0,0.0,0.0,27.7706,3655.86
+Columbus Blue Jackets,8483485,0,Denton Mateychuk,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,1.567,0.15860000000000002,0.1846,0.3432,1.3026,0.0,900.1725
+Columbus Blue Jackets,8484166,0,Adam Fantilli,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,3.1544,0.3194,0.1816,0.501,0.0,0.0,1816.77
+Philadelphia Flyers,8475235,0,Nicolas Deslauriers,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.001,0.0,0.19540000000000002,0.19540000000000002,0.0,0.0,181.1475
+Philadelphia Flyers,8476372,0,Nick Seeler,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,2.1322,0.22560000000000002,0.1746,0.4002,0.903,0.0,1271.85
+Philadelphia Flyers,8476461,0,Sean Couturier,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0386,0.0036,0.1876,0.1912,0.0,0.0,192.6975
+Philadelphia Flyers,8477499,0,Rasmus Ristolainen,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,1.4362,0.1486,0.1814,0.32999999999999996,1.3574,0.0,873.27
+Philadelphia Flyers,8477903,0,Garnet Hathaway,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.046,0.0054,0.1892,0.1946,0.0,0.0,193.7025
+Philadelphia Flyers,8477948,0,Travis Sanheim,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,2.3242,0.2442,0.1782,0.4224,0.9192,0.0,1363.305
+Philadelphia Flyers,8477989,0,Christian Dvorak,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,3.1542,0.3268,0.16720000000000002,0.494,0.0,0.0,1812.69
+Philadelphia Flyers,8478439,0,Travis Konecny,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.001,0.0004,0.1858,0.1862,0.0,0.0,181.4475
+Philadelphia Flyers,8478454,0,Noah Juulsen,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,1.5772000000000002,0.157,0.1814,0.3384,1.3382,0.0,902.4225
+Philadelphia Flyers,8478967,0,Lane Pederson,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.197,0.197,0.0,0.0,180.0
+Philadelphia Flyers,8479022,0,Rodrigo Abols,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,3.1595999999999997,0.3282,0.1816,0.5098,0.0,0.0,1816.77
+Philadelphia Flyers,8479336,0,Carl Grundstrom,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0366,0.004,0.194,0.19799999999999998,0.0,0.0,193.7025
+Philadelphia Flyers,8480015,0,Owen Tippett,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.1916,0.1916,0.0,0.0,180.0
+Philadelphia Flyers,8480220,0,Noah Cates,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0344,0.0046,0.1872,0.1918,0.0,0.0,192.6975
+Philadelphia Flyers,8481035,0,Samuel Ersson,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.0,0.0,0.0,28.7398,3655.86
+Philadelphia Flyers,8481533,0,Trevor Zegras,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.1872,0.1872,0.0,0.0,180.0
+Philadelphia Flyers,8481546,0,Cam York,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.1894,0.1894,0.0,0.0,180.0
+Philadelphia Flyers,8481553,0,Bobby Brink,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,3.0998,0.301,0.1718,0.4728,0.0,0.0,1801.485
+Philadelphia Flyers,8482126,0,Emil Andrae,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,2.4334000000000002,0.2384,0.1724,0.4108,1.3294,0.0,1390.1325
+Philadelphia Flyers,8482142,0,Jamie Drysdale,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,2.0816,0.2204,0.1762,0.39660000000000006,1.3328,0.0,1276.53
+Philadelphia Flyers,8482159,0,Tyson Foerster,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,3.1142,0.3318,0.1778,0.5096,0.0,0.0,1812.69
+Philadelphia Flyers,8483733,0,Nikita Grebenkin,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,3.129,0.2982,0.1664,0.46459999999999996,0.0,0.0,1801.275
+Philadelphia Flyers,8484142,0,Denver Barkey,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,3.1288,0.3192,0.1734,0.49260000000000004,0.0,0.0,1816.77
+Philadelphia Flyers,8484387,0,Matvei Michkov,Columbus Blue Jackets,Philadelphia Flyers,2026-01-28,0.0,0.0,0.18059999999999998,0.18059999999999998,0.0,0.0,180.0
+Colorado Avalanche,8470613,1,Brent Burns,Ottawa Senators,Colorado Avalanche,2026-01-28,0.7936,0.0864,0.0674,0.1538,0.4338,0.0,450.0
+Colorado Avalanche,8470613,2,Brent Burns,Ottawa Senators,Colorado Avalanche,2026-01-28,0.7742,0.0798,0.064,0.14379999999999998,0.4266,0.0,450.0
+Colorado Avalanche,8470613,3,Brent Burns,Ottawa Senators,Colorado Avalanche,2026-01-28,0.7754,0.077,0.0636,0.1406,0.4628,0.0,450.0
+Colorado Avalanche,8470613,4,Brent Burns,Ottawa Senators,Colorado Avalanche,2026-01-28,0.114,0.0106,0.0,0.0106,0.0042,0.0,41.835
+Colorado Avalanche,8475754,1,Brock Nelson,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0708,0.0708,0.0,0.0,60.0
+Colorado Avalanche,8475754,2,Brock Nelson,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0648,0.0648,0.0,0.0,60.0
+Colorado Avalanche,8475754,3,Brock Nelson,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0732,0.0732,0.0,0.0,60.0
+Colorado Avalanche,8475754,4,Brock Nelson,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0022,0.0,0.0,0.0,0.0,0.0,1.53
+Colorado Avalanche,8476312,1,Josh Manson,Ottawa Senators,Colorado Avalanche,2026-01-28,0.7728,0.0754,0.0644,0.13979999999999998,0.2914,0.0,450.0
+Colorado Avalanche,8476312,2,Josh Manson,Ottawa Senators,Colorado Avalanche,2026-01-28,0.7706,0.078,0.061,0.139,0.2836,0.0,450.0
+Colorado Avalanche,8476312,3,Josh Manson,Ottawa Senators,Colorado Avalanche,2026-01-28,0.781,0.0884,0.054,0.1424,0.2878,0.0,450.0
+Colorado Avalanche,8476312,4,Josh Manson,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0332,0.0046,0.0,0.0046,0.0402,0.0,11.9775
+Colorado Avalanche,8476455,1,Gabriel Landeskog,Ottawa Senators,Colorado Avalanche,2026-01-28,1.0444,0.1052,0.0664,0.1716,0.0,0.0,600.0
+Colorado Avalanche,8476455,2,Gabriel Landeskog,Ottawa Senators,Colorado Avalanche,2026-01-28,1.0012,0.0932,0.0584,0.1516,0.0,0.0,600.0
+Colorado Avalanche,8476455,3,Gabriel Landeskog,Ottawa Senators,Colorado Avalanche,2026-01-28,1.0808,0.109,0.0654,0.1744,0.0,0.0,600.0
+Colorado Avalanche,8476455,4,Gabriel Landeskog,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0354,0.0038,0.0,0.0038,0.0,0.0,12.855
+Colorado Avalanche,8477476,1,Artturi Lehkonen,Ottawa Senators,Colorado Avalanche,2026-01-28,1.0282,0.1086,0.0612,0.1698,0.0,0.0,600.0
+Colorado Avalanche,8477476,2,Artturi Lehkonen,Ottawa Senators,Colorado Avalanche,2026-01-28,1.001,0.1024,0.0646,0.167,0.0,0.0,600.0
+Colorado Avalanche,8477476,3,Artturi Lehkonen,Ottawa Senators,Colorado Avalanche,2026-01-28,1.037,0.1066,0.066,0.1726,0.0,0.0,600.0
+Colorado Avalanche,8477476,4,Artturi Lehkonen,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0352,0.0024,0.0,0.0024,0.0,0.0,12.855
+Colorado Avalanche,8477492,1,Nathan MacKinnon,Ottawa Senators,Colorado Avalanche,2026-01-28,1.0356,0.1062,0.0624,0.1686,0.0,0.0,600.0
+Colorado Avalanche,8477492,2,Nathan MacKinnon,Ottawa Senators,Colorado Avalanche,2026-01-28,1.019,0.105,0.057,0.162,0.0,0.0,600.0
+Colorado Avalanche,8477492,3,Nathan MacKinnon,Ottawa Senators,Colorado Avalanche,2026-01-28,1.038,0.1044,0.0632,0.16760000000000003,0.0,0.0,600.0
+Colorado Avalanche,8477492,4,Nathan MacKinnon,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0008,0.0,0.0,0.0,0.0,0.0,1.065
+Colorado Avalanche,8477501,1,Valeri Nichushkin,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0706,0.0706,0.0,0.0,60.0
+Colorado Avalanche,8477501,2,Valeri Nichushkin,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0708,0.0708,0.0,0.0,60.0
+Colorado Avalanche,8477501,3,Valeri Nichushkin,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0714,0.0714,0.0,0.0,60.0
+Colorado Avalanche,8478038,1,Devon Toews,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.073,0.073,0.0,0.0,60.0
+Colorado Avalanche,8478038,2,Devon Toews,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0698,0.0698,0.0,0.0,60.0
+Colorado Avalanche,8478038,3,Devon Toews,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.072,0.072,0.0,0.0,60.0
+Colorado Avalanche,8478109,1,Victor Olofsson,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0742,0.0742,0.0,0.0,60.0
+Colorado Avalanche,8478109,2,Victor Olofsson,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0654,0.0654,0.0,0.0,60.0
+Colorado Avalanche,8478109,3,Victor Olofsson,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0672,0.0672,0.0,0.0,60.0
+Colorado Avalanche,8478406,1,Mackenzie Blackwood,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0,0.0,0.0,9.4034,1200.0
+Colorado Avalanche,8478406,2,Mackenzie Blackwood,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0,0.0,0.0,9.3904,1200.0
+Colorado Avalanche,8478406,3,Mackenzie Blackwood,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0,0.0,0.0,9.4822,1200.0
+Colorado Avalanche,8478406,4,Mackenzie Blackwood,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0,0.0,0.0,0.4658,56.4
+Colorado Avalanche,8479387,1,Keaton Middleton,Ottawa Senators,Colorado Avalanche,2026-01-28,0.7164,0.0774,0.0646,0.14200000000000002,0.2998,0.0,404.91
+Colorado Avalanche,8479387,2,Keaton Middleton,Ottawa Senators,Colorado Avalanche,2026-01-28,0.694,0.0688,0.0638,0.1326,0.3082,0.0,403.86
+Colorado Avalanche,8479387,3,Keaton Middleton,Ottawa Senators,Colorado Avalanche,2026-01-28,0.7318,0.079,0.0636,0.1426,0.2902,0.0,405.78
+Colorado Avalanche,8479387,4,Keaton Middleton,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0,0.0,0.0336,0.0,60.0
+Colorado Avalanche,8479398,1,Samuel Girard,Ottawa Senators,Colorado Avalanche,2026-01-28,0.7,0.0768,0.0638,0.1406,0.44,0.0,405.39
+Colorado Avalanche,8479398,2,Samuel Girard,Ottawa Senators,Colorado Avalanche,2026-01-28,0.7016,0.0744,0.0672,0.1416,0.4454,0.0,404.82
+Colorado Avalanche,8479398,3,Samuel Girard,Ottawa Senators,Colorado Avalanche,2026-01-28,0.7174,0.0708,0.0648,0.1356,0.457,0.0,404.55
+Colorado Avalanche,8479398,4,Samuel Girard,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0,0.0,0.0034,0.0,60.0
+Colorado Avalanche,8479525,1,Ross Colton,Ottawa Senators,Colorado Avalanche,2026-01-28,1.0186,0.1104,0.0638,0.1742,0.0,0.0,600.0
+Colorado Avalanche,8479525,2,Ross Colton,Ottawa Senators,Colorado Avalanche,2026-01-28,0.9956,0.1046,0.0606,0.1652,0.0,0.0,600.0
+Colorado Avalanche,8479525,3,Ross Colton,Ottawa Senators,Colorado Avalanche,2026-01-28,1.0452,0.106,0.0664,0.1724,0.0,0.0,600.0
+Colorado Avalanche,8479525,4,Ross Colton,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0028,0.0002,0.0,0.0002,0.0,0.0,1.4625
+Colorado Avalanche,8480039,1,Martin Necas,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0728,0.0728,0.0,0.0,60.0
+Colorado Avalanche,8480039,2,Martin Necas,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0698,0.0698,0.0,0.0,60.0
+Colorado Avalanche,8480039,3,Martin Necas,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0774,0.0774,0.0,0.0,60.0
+Colorado Avalanche,8480039,4,Martin Necas,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0368,0.0036,0.0,0.0036,0.0,0.0,13.875
+Colorado Avalanche,8480069,1,Cale Makar,Ottawa Senators,Colorado Avalanche,2026-01-28,0.5288,0.0492,0.0664,0.11560000000000001,0.4436,0.0,300.0
+Colorado Avalanche,8480069,2,Cale Makar,Ottawa Senators,Colorado Avalanche,2026-01-28,0.5146,0.0492,0.0604,0.1096,0.4492,0.0,300.0
+Colorado Avalanche,8480069,3,Cale Makar,Ottawa Senators,Colorado Avalanche,2026-01-28,0.5094,0.0536,0.0708,0.12440000000000001,0.4432,0.0,300.0
+Colorado Avalanche,8480069,4,Cale Makar,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0068,0.0006,0.0,0.0006,0.0166,0.0,2.5875
+Colorado Avalanche,8480448,1,Parker Kelly,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0714,0.0714,0.0,0.0,60.0
+Colorado Avalanche,8480448,2,Parker Kelly,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0744,0.0744,0.0,0.0,60.0
+Colorado Avalanche,8480448,3,Parker Kelly,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0742,0.0742,0.0,0.0,60.0
+Colorado Avalanche,8480448,4,Parker Kelly,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0348,0.0064,0.0,0.0064,0.0,0.0,13.0875
+Colorado Avalanche,8480835,1,Jack Drury,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.067,0.067,0.0,0.0,60.0
+Colorado Avalanche,8480835,2,Jack Drury,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0638,0.0638,0.0,0.0,60.0
+Colorado Avalanche,8480835,3,Jack Drury,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0636,0.0636,0.0,0.0,60.0
+Colorado Avalanche,8480835,4,Jack Drury,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0354,0.0024,0.0,0.0024,0.0,0.0,13.0875
+Colorado Avalanche,8481641,1,Joel Kiviranta,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0766,0.0766,0.0,0.0,60.0
+Colorado Avalanche,8481641,2,Joel Kiviranta,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0658,0.0658,0.0,0.0,60.0
+Colorado Avalanche,8481641,3,Joel Kiviranta,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0716,0.0716,0.0,0.0,60.0
+Colorado Avalanche,8481641,4,Joel Kiviranta,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0026,0.0002,0.0,0.0002,0.0,0.0,1.2675
+Colorado Avalanche,8482947,1,Zakhar Bardakov,Ottawa Senators,Colorado Avalanche,2026-01-28,1.0432,0.1152,0.067,0.1822,0.0,0.0,600.0
+Colorado Avalanche,8482947,2,Zakhar Bardakov,Ottawa Senators,Colorado Avalanche,2026-01-28,1.0248,0.1044,0.058,0.16240000000000002,0.0,0.0,600.0
+Colorado Avalanche,8482947,3,Zakhar Bardakov,Ottawa Senators,Colorado Avalanche,2026-01-28,1.0444,0.1056,0.06,0.1656,0.0,0.0,600.0
+Colorado Avalanche,8482947,4,Zakhar Bardakov,Ottawa Senators,Colorado Avalanche,2026-01-28,0.049,0.005,0.0,0.005,0.0,0.0,16.5825
+Colorado Avalanche,8482953,1,Taylor Makar,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0714,0.0714,0.0,0.0,60.0
+Colorado Avalanche,8482953,2,Taylor Makar,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0622,0.0622,0.0,0.0,60.0
+Colorado Avalanche,8482953,3,Taylor Makar,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0648,0.0648,0.0,0.0,60.0
+Colorado Avalanche,8482953,4,Taylor Makar,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0334,0.005,0.0,0.005,0.0,0.0,13.875
+Colorado Avalanche,8484149,1,Gavin Brindley,Ottawa Senators,Colorado Avalanche,2026-01-28,1.0432,0.104,0.0668,0.1708,0.0,0.0,600.0
+Colorado Avalanche,8484149,2,Gavin Brindley,Ottawa Senators,Colorado Avalanche,2026-01-28,1.0216,0.0978,0.0642,0.16199999999999998,0.0,0.0,600.0
+Colorado Avalanche,8484149,3,Gavin Brindley,Ottawa Senators,Colorado Avalanche,2026-01-28,1.0264,0.103,0.065,0.16799999999999998,0.0,0.0,600.0
+Colorado Avalanche,8484149,4,Gavin Brindley,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0462,0.004,0.0,0.004,0.0,0.0,16.5825
+Colorado Avalanche,8484258,1,Sam Malinski,Ottawa Senators,Colorado Avalanche,2026-01-28,0.4894,0.0498,0.069,0.1188,0.4442,0.0,271.71
+Colorado Avalanche,8484258,2,Sam Malinski,Ottawa Senators,Colorado Avalanche,2026-01-28,0.4672,0.0482,0.0644,0.1126,0.4382,0.0,269.49
+Colorado Avalanche,8484258,3,Sam Malinski,Ottawa Senators,Colorado Avalanche,2026-01-28,0.47,0.0474,0.0654,0.1128,0.435,0.0,271.65
+Colorado Avalanche,8484258,4,Sam Malinski,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0,0.0,0.0164,0.0,60.0
+Ottawa Senators,8473503,1,James Reimer,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0,0.0,0.0,9.1496,1200.0
+Ottawa Senators,8473503,2,James Reimer,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0,0.0,0.0,8.9796,1200.0
+Ottawa Senators,8473503,3,James Reimer,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0,0.0,0.0,9.206,1200.0
+Ottawa Senators,8473503,4,James Reimer,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0,0.0,0.0,0.4198,56.4
+Ottawa Senators,8473512,1,Claude Giroux,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0762,0.0762,0.0,0.0,60.0
+Ottawa Senators,8473512,2,Claude Giroux,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0742,0.0742,0.0,0.0,60.0
+Ottawa Senators,8473512,3,Claude Giroux,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0668,0.0668,0.0,0.0,60.0
+Ottawa Senators,8473512,4,Claude Giroux,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0022,0.0004,0.0,0.0004,0.0,0.0,1.2675
+Ottawa Senators,8474102,1,David Perron,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0676,0.0676,0.0,0.0,60.0
+Ottawa Senators,8474102,2,David Perron,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0748,0.0748,0.0,0.0,60.0
+Ottawa Senators,8474102,3,David Perron,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0746,0.0746,0.0,0.0,60.0
+Ottawa Senators,8474102,4,David Perron,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0396,0.0026,0.0,0.0026,0.0,0.0,13.875
+Ottawa Senators,8474189,1,Lars Eller,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0666,0.0666,0.0,0.0,60.0
+Ottawa Senators,8474189,2,Lars Eller,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0716,0.0716,0.0,0.0,60.0
+Ottawa Senators,8474189,3,Lars Eller,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0672,0.0672,0.0,0.0,60.0
+Ottawa Senators,8474189,4,Lars Eller,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0394,0.0034,0.0,0.0034,0.0,0.0,13.0875
+Ottawa Senators,8475324,1,Nick Jensen,Ottawa Senators,Colorado Avalanche,2026-01-28,0.7926,0.082,0.0648,0.14679999999999999,0.4406,0.0,450.0
+Ottawa Senators,8475324,2,Nick Jensen,Ottawa Senators,Colorado Avalanche,2026-01-28,0.768,0.073,0.064,0.137,0.4254,0.0,450.0
+Ottawa Senators,8475324,3,Nick Jensen,Ottawa Senators,Colorado Avalanche,2026-01-28,0.7756,0.0738,0.073,0.14679999999999999,0.4394,0.0,450.0
+Ottawa Senators,8475324,4,Nick Jensen,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0104,0.002,0.0,0.002,0.0038,0.0,3.795
+Ottawa Senators,8476393,1,Nick Cousins,Ottawa Senators,Colorado Avalanche,2026-01-28,1.0468,0.1028,0.066,0.1688,0.0,0.0,600.0
+Ottawa Senators,8476393,2,Nick Cousins,Ottawa Senators,Colorado Avalanche,2026-01-28,1.0568,0.112,0.0608,0.1728,0.0,0.0,600.0
+Ottawa Senators,8476393,3,Nick Cousins,Ottawa Senators,Colorado Avalanche,2026-01-28,1.0566,0.1112,0.0674,0.17859999999999998,0.0,0.0,600.0
+Ottawa Senators,8476393,4,Nick Cousins,Ottawa Senators,Colorado Avalanche,2026-01-28,0.004,0.0004,0.0,0.0004,0.0,0.0,1.4625
+Ottawa Senators,8477073,1,Kurtis MacDermid,Ottawa Senators,Colorado Avalanche,2026-01-28,1.0666,0.106,0.0616,0.1676,0.0,0.0,600.0
+Ottawa Senators,8477073,2,Kurtis MacDermid,Ottawa Senators,Colorado Avalanche,2026-01-28,1.0542,0.1096,0.0626,0.17220000000000002,0.0,0.0,600.0
+Ottawa Senators,8477073,3,Kurtis MacDermid,Ottawa Senators,Colorado Avalanche,2026-01-28,1.0866,0.1068,0.0666,0.1734,0.0,0.0,600.0
+Ottawa Senators,8477073,4,Kurtis MacDermid,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0034,0.0002,0.0,0.0002,0.0,0.0,1.065
+Ottawa Senators,8478020,1,Michael Amadio,Ottawa Senators,Colorado Avalanche,2026-01-28,1.0454,0.1006,0.0594,0.16,0.0,0.0,600.0
+Ottawa Senators,8478020,2,Michael Amadio,Ottawa Senators,Colorado Avalanche,2026-01-28,1.0298,0.096,0.069,0.165,0.0,0.0,600.0
+Ottawa Senators,8478020,3,Michael Amadio,Ottawa Senators,Colorado Avalanche,2026-01-28,1.0228,0.1098,0.0594,0.1692,0.0,0.0,600.0
+Ottawa Senators,8478020,4,Michael Amadio,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0466,0.0048,0.0,0.0048,0.0,0.0,16.5825
+Ottawa Senators,8478469,1,Thomas Chabot,Ottawa Senators,Colorado Avalanche,2026-01-28,0.762,0.0784,0.0652,0.1436,0.4188,0.0,450.0
+Ottawa Senators,8478469,2,Thomas Chabot,Ottawa Senators,Colorado Avalanche,2026-01-28,0.793,0.0792,0.0662,0.1454,0.4128,0.0,450.0
+Ottawa Senators,8478469,3,Thomas Chabot,Ottawa Senators,Colorado Avalanche,2026-01-28,0.8,0.072,0.0728,0.14479999999999998,0.44,0.0,450.0
+Ottawa Senators,8478469,4,Thomas Chabot,Ottawa Senators,Colorado Avalanche,2026-01-28,0.1234,0.0124,0.0,0.0124,0.0032,0.0,41.835
+Ottawa Senators,8480188,1,Fabian Zetterlund,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0664,0.0664,0.0,0.0,60.0
+Ottawa Senators,8480188,2,Fabian Zetterlund,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.071,0.071,0.0,0.0,60.0
+Ottawa Senators,8480188,3,Fabian Zetterlund,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0708,0.0708,0.0,0.0,60.0
+Ottawa Senators,8480208,1,Drake Batherson,Ottawa Senators,Colorado Avalanche,2026-01-28,1.0404,0.1054,0.0688,0.1742,0.0,0.0,600.0
+Ottawa Senators,8480208,2,Drake Batherson,Ottawa Senators,Colorado Avalanche,2026-01-28,1.0292,0.0994,0.0652,0.1646,0.0,0.0,600.0
+Ottawa Senators,8480208,3,Drake Batherson,Ottawa Senators,Colorado Avalanche,2026-01-28,1.0376,0.1026,0.0694,0.172,0.0,0.0,600.0
+Ottawa Senators,8480208,4,Drake Batherson,Ottawa Senators,Colorado Avalanche,2026-01-28,0.049,0.0048,0.0,0.0048,0.0,0.0,16.5825
+Ottawa Senators,8480801,1,Brady Tkachuk,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0722,0.0722,0.0,0.0,60.0
+Ottawa Senators,8480801,2,Brady Tkachuk,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.074,0.074,0.0,0.0,60.0
+Ottawa Senators,8480801,3,Brady Tkachuk,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0718,0.0718,0.0,0.0,60.0
+Ottawa Senators,8481528,1,Dylan Cozens,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.073,0.073,0.0,0.0,60.0
+Ottawa Senators,8481528,2,Dylan Cozens,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0714,0.0714,0.0,0.0,60.0
+Ottawa Senators,8481528,3,Dylan Cozens,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0668,0.0668,0.0,0.0,60.0
+Ottawa Senators,8481528,4,Dylan Cozens,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0392,0.0014,0.0,0.0014,0.0,0.0,13.0875
+Ottawa Senators,8481596,1,Shane Pinto,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0704,0.0704,0.0,0.0,60.0
+Ottawa Senators,8481596,2,Shane Pinto,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.069,0.069,0.0,0.0,60.0
+Ottawa Senators,8481596,3,Shane Pinto,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.068,0.068,0.0,0.0,60.0
+Ottawa Senators,8481596,4,Shane Pinto,Ottawa Senators,Colorado Avalanche,2026-01-28,0.041,0.0058,0.0,0.0058,0.0,0.0,13.875
+Ottawa Senators,8481606,1,Jordan Spence,Ottawa Senators,Colorado Avalanche,2026-01-28,0.7696,0.078,0.0608,0.1388,0.2902,0.0,450.0
+Ottawa Senators,8481606,2,Jordan Spence,Ottawa Senators,Colorado Avalanche,2026-01-28,0.7996,0.076,0.0684,0.1444,0.2752,0.0,450.0
+Ottawa Senators,8481606,3,Jordan Spence,Ottawa Senators,Colorado Avalanche,2026-01-28,0.7934,0.0872,0.0692,0.15639999999999998,0.2892,0.0,450.0
+Ottawa Senators,8481606,4,Jordan Spence,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0044,0.001,0.0,0.001,0.0358,0.0,1.245
+Ottawa Senators,8482092,1,Ridly Greig,Ottawa Senators,Colorado Avalanche,2026-01-28,1.0508,0.0984,0.0658,0.1642,0.0,0.0,600.0
+Ottawa Senators,8482092,2,Ridly Greig,Ottawa Senators,Colorado Avalanche,2026-01-28,1.0386,0.1064,0.0602,0.1666,0.0,0.0,600.0
+Ottawa Senators,8482092,3,Ridly Greig,Ottawa Senators,Colorado Avalanche,2026-01-28,1.0626,0.1072,0.0718,0.179,0.0,0.0,600.0
+Ottawa Senators,8482092,4,Ridly Greig,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0336,0.0034,0.0,0.0034,0.0,0.0,12.855
+Ottawa Senators,8482095,1,Tyler Kleven,Ottawa Senators,Colorado Avalanche,2026-01-28,0.5092,0.0518,0.0656,0.1174,0.419,0.0,300.0
+Ottawa Senators,8482095,2,Tyler Kleven,Ottawa Senators,Colorado Avalanche,2026-01-28,0.5164,0.054,0.0684,0.12240000000000001,0.4248,0.0,300.0
+Ottawa Senators,8482095,3,Tyler Kleven,Ottawa Senators,Colorado Avalanche,2026-01-28,0.5242,0.049,0.0678,0.1168,0.419,0.0,300.0
+Ottawa Senators,8482095,4,Tyler Kleven,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0068,0.0016,0.0,0.0016,0.016,0.0,2.5875
+Ottawa Senators,8482105,1,Jake Sanderson,Ottawa Senators,Colorado Avalanche,2026-01-28,0.7944,0.0694,0.0636,0.133,0.2846,0.0,450.0
+Ottawa Senators,8482105,2,Jake Sanderson,Ottawa Senators,Colorado Avalanche,2026-01-28,0.798,0.0834,0.0624,0.14579999999999999,0.2926,0.0,450.0
+Ottawa Senators,8482105,3,Jake Sanderson,Ottawa Senators,Colorado Avalanche,2026-01-28,0.812,0.0784,0.0602,0.1386,0.2858,0.0,450.0
+Ottawa Senators,8482105,4,Jake Sanderson,Ottawa Senators,Colorado Avalanche,2026-01-28,0.03,0.0028,0.0,0.0028,0.0384,0.0,11.9775
+Ottawa Senators,8482116,1,Tim Stützle,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.071,0.071,0.0,0.0,60.0
+Ottawa Senators,8482116,2,Tim Stützle,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0706,0.0706,0.0,0.0,60.0
+Ottawa Senators,8482116,3,Tim Stützle,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0682,0.0682,0.0,0.0,60.0
+Ottawa Senators,8482116,4,Tim Stützle,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0034,0.0004,0.0,0.0004,0.0,0.0,1.53
+Ottawa Senators,8482245,1,Artem Zub,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0728,0.0728,0.0,0.0,60.0
+Ottawa Senators,8482245,2,Artem Zub,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.076,0.076,0.0,0.0,60.0
+Ottawa Senators,8482245,3,Artem Zub,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0714,0.0714,0.0,0.0,60.0
+Ottawa Senators,8483676,1,Stephen Halliday,Ottawa Senators,Colorado Avalanche,2026-01-28,1.0302,0.1082,0.0582,0.1664,0.0,0.0,600.0
+Ottawa Senators,8483676,2,Stephen Halliday,Ottawa Senators,Colorado Avalanche,2026-01-28,1.037,0.106,0.0614,0.1674,0.0,0.0,600.0
+Ottawa Senators,8483676,3,Stephen Halliday,Ottawa Senators,Colorado Avalanche,2026-01-28,1.0632,0.1006,0.0588,0.1594,0.0,0.0,600.0
+Ottawa Senators,8483676,4,Stephen Halliday,Ottawa Senators,Colorado Avalanche,2026-01-28,0.038,0.0018,0.0,0.0018,0.0,0.0,12.855
+Ottawa Senators,8484321,1,Nikolas Matinpalo,Ottawa Senators,Colorado Avalanche,2026-01-28,0.5296,0.0532,0.0658,0.119,0.429,0.0,300.0
+Ottawa Senators,8484321,2,Nikolas Matinpalo,Ottawa Senators,Colorado Avalanche,2026-01-28,0.5232,0.0584,0.0682,0.1266,0.4348,0.0,300.0
+Ottawa Senators,8484321,3,Nikolas Matinpalo,Ottawa Senators,Colorado Avalanche,2026-01-28,0.5004,0.0542,0.0736,0.1278,0.4356,0.0,300.0
+Ottawa Senators,8484321,4,Nikolas Matinpalo,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0008,0.0002,0.0,0.0002,0.0102,0.0,0.285
+Colorado Avalanche,8470613,0,Brent Burns,Ottawa Senators,Colorado Avalanche,2026-01-28,2.4572,0.2538,0.195,0.4488,1.3274,0.0,1391.835
+Colorado Avalanche,8475754,0,Brock Nelson,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0022,0.0,0.20879999999999999,0.20879999999999999,0.0,0.0,181.53
+Colorado Avalanche,8476312,0,Josh Manson,Ottawa Senators,Colorado Avalanche,2026-01-28,2.3576,0.2464,0.1794,0.4258,0.903,0.0,1361.9775
+Colorado Avalanche,8476455,0,Gabriel Landeskog,Ottawa Senators,Colorado Avalanche,2026-01-28,3.1618,0.31120000000000003,0.1902,0.5014000000000001,0.0,0.0,1812.855
+Colorado Avalanche,8477476,0,Artturi Lehkonen,Ottawa Senators,Colorado Avalanche,2026-01-28,3.1014,0.32,0.19180000000000003,0.5118,0.0,0.0,1812.855
+Colorado Avalanche,8477492,0,Nathan MacKinnon,Ottawa Senators,Colorado Avalanche,2026-01-28,3.0934,0.3156,0.1826,0.49820000000000003,0.0,0.0,1801.065
+Colorado Avalanche,8477501,0,Valeri Nichushkin,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.2128,0.2128,0.0,0.0,180.0
+Colorado Avalanche,8478038,0,Devon Toews,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.2148,0.2148,0.0,0.0,180.0
+Colorado Avalanche,8478109,0,Victor Olofsson,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.20679999999999998,0.20679999999999998,0.0,0.0,180.0
+Colorado Avalanche,8478406,0,Mackenzie Blackwood,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0,0.0,0.0,28.7418,3656.4
+Colorado Avalanche,8479387,0,Keaton Middleton,Ottawa Senators,Colorado Avalanche,2026-01-28,2.1422,0.2252,0.192,0.4172,0.9318,0.0,1274.55
+Colorado Avalanche,8479398,0,Samuel Girard,Ottawa Senators,Colorado Avalanche,2026-01-28,2.1189999999999998,0.22199999999999998,0.19579999999999997,0.4178,1.3458,0.0,1274.76
+Colorado Avalanche,8479525,0,Ross Colton,Ottawa Senators,Colorado Avalanche,2026-01-28,3.0622,0.3212,0.1908,0.512,0.0,0.0,1801.4625
+Colorado Avalanche,8480039,0,Martin Necas,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0368,0.0036,0.22,0.2236,0.0,0.0,193.875
+Colorado Avalanche,8480069,0,Cale Makar,Ottawa Senators,Colorado Avalanche,2026-01-28,1.5595999999999999,0.1526,0.1976,0.3502,1.3526,0.0,902.5875
+Colorado Avalanche,8480448,0,Parker Kelly,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0348,0.0064,0.22,0.2264,0.0,0.0,193.0875
+Colorado Avalanche,8480835,0,Jack Drury,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0354,0.0024,0.19440000000000002,0.1968,0.0,0.0,193.0875
+Colorado Avalanche,8481641,0,Joel Kiviranta,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0026,0.0002,0.214,0.2142,0.0,0.0,181.2675
+Colorado Avalanche,8482947,0,Zakhar Bardakov,Ottawa Senators,Colorado Avalanche,2026-01-28,3.1614,0.3302,0.185,0.5152,0.0,0.0,1816.5825
+Colorado Avalanche,8482953,0,Taylor Makar,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0334,0.005,0.1984,0.2034,0.0,0.0,193.875
+Colorado Avalanche,8484149,0,Gavin Brindley,Ottawa Senators,Colorado Avalanche,2026-01-28,3.1374,0.30879999999999996,0.196,0.5047999999999999,0.0,0.0,1816.5825
+Colorado Avalanche,8484258,0,Sam Malinski,Ottawa Senators,Colorado Avalanche,2026-01-28,1.4266,0.1454,0.1988,0.3442,1.3337999999999999,0.0,872.8499999999999
+Ottawa Senators,8473503,0,James Reimer,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.0,0.0,0.0,27.755,3656.4
+Ottawa Senators,8473512,0,Claude Giroux,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0022,0.0004,0.2172,0.21760000000000002,0.0,0.0,181.2675
+Ottawa Senators,8474102,0,David Perron,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0396,0.0026,0.217,0.2196,0.0,0.0,193.875
+Ottawa Senators,8474189,0,Lars Eller,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0394,0.0034,0.2054,0.20879999999999999,0.0,0.0,193.0875
+Ottawa Senators,8475324,0,Nick Jensen,Ottawa Senators,Colorado Avalanche,2026-01-28,2.3466,0.2308,0.20179999999999998,0.4326,1.3092,0.0,1353.795
+Ottawa Senators,8476393,0,Nick Cousins,Ottawa Senators,Colorado Avalanche,2026-01-28,3.1641999999999997,0.3264,0.1942,0.5206,0.0,0.0,1801.4625
+Ottawa Senators,8477073,0,Kurtis MacDermid,Ottawa Senators,Colorado Avalanche,2026-01-28,3.2108,0.3226,0.19080000000000003,0.5134,0.0,0.0,1801.065
+Ottawa Senators,8478020,0,Michael Amadio,Ottawa Senators,Colorado Avalanche,2026-01-28,3.1446,0.3112,0.18780000000000002,0.499,0.0,0.0,1816.5825
+Ottawa Senators,8478469,0,Thomas Chabot,Ottawa Senators,Colorado Avalanche,2026-01-28,2.4784,0.242,0.2042,0.4462,1.2748,0.0,1391.835
+Ottawa Senators,8480188,0,Fabian Zetterlund,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.2082,0.2082,0.0,0.0,180.0
+Ottawa Senators,8480208,0,Drake Batherson,Ottawa Senators,Colorado Avalanche,2026-01-28,3.1562,0.3122,0.2034,0.5156,0.0,0.0,1816.5825
+Ottawa Senators,8480801,0,Brady Tkachuk,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.218,0.218,0.0,0.0,180.0
+Ottawa Senators,8481528,0,Dylan Cozens,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0392,0.0014,0.2112,0.2126,0.0,0.0,193.0875
+Ottawa Senators,8481596,0,Shane Pinto,Ottawa Senators,Colorado Avalanche,2026-01-28,0.041,0.0058,0.20740000000000003,0.2132,0.0,0.0,193.875
+Ottawa Senators,8481606,0,Jordan Spence,Ottawa Senators,Colorado Avalanche,2026-01-28,2.367,0.2422,0.1984,0.4406,0.8904000000000001,0.0,1351.245
+Ottawa Senators,8482092,0,Ridly Greig,Ottawa Senators,Colorado Avalanche,2026-01-28,3.1856,0.3154,0.1978,0.5132,0.0,0.0,1812.855
+Ottawa Senators,8482095,0,Tyler Kleven,Ottawa Senators,Colorado Avalanche,2026-01-28,1.5566,0.1564,0.2018,0.3582,1.2788,0.0,902.5875
+Ottawa Senators,8482105,0,Jake Sanderson,Ottawa Senators,Colorado Avalanche,2026-01-28,2.4344,0.234,0.1862,0.4202,0.9014000000000001,0.0,1361.9775
+Ottawa Senators,8482116,0,Tim Stützle,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0034,0.0004,0.2098,0.2102,0.0,0.0,181.53
+Ottawa Senators,8482245,0,Artem Zub,Ottawa Senators,Colorado Avalanche,2026-01-28,0.0,0.0,0.2202,0.2202,0.0,0.0,180.0
+Ottawa Senators,8483676,0,Stephen Halliday,Ottawa Senators,Colorado Avalanche,2026-01-28,3.1683999999999997,0.3166,0.1784,0.495,0.0,0.0,1812.855
+Ottawa Senators,8484321,0,Nikolas Matinpalo,Ottawa Senators,Colorado Avalanche,2026-01-28,1.5539999999999998,0.166,0.2076,0.3736,1.3096,0.0,900.285

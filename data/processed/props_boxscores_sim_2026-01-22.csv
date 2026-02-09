@@ -1,0 +1,1268 @@
+team,player_id,period,player,game_home,game_away,date,shots,goals,assists,points,blocks,saves,toi_sec,is_dressed
+Boston Bruins,8476374,1,Sean Kuraly,Boston Bruins,Vegas Golden Knights,2026-01-22,0.3712,0.0338,0.0624,0.0962,0.0,0.0,202.60444444444445,1
+Boston Bruins,8476374,2,Sean Kuraly,Boston Bruins,Vegas Golden Knights,2026-01-22,0.4042,0.0416,0.0626,0.1042,0.0,0.0,202.60444444444445,1
+Boston Bruins,8476374,3,Sean Kuraly,Boston Bruins,Vegas Golden Knights,2026-01-22,0.3834,0.0338,0.0668,0.1006,0.0,0.0,201.9288888888889,1
+Boston Bruins,8476374,4,Sean Kuraly,Boston Bruins,Vegas Golden Knights,2026-01-22,0.0282,0.0048,0.0,0.0048,0.0,0.0,10.5525,1
+Boston Bruins,8476854,1,Hampus Lindholm,Boston Bruins,Vegas Golden Knights,2026-01-22,0.4746,0.0444,0.094,0.1384,0.038,0.0,345.8666666666667,1
+Boston Bruins,8476854,2,Hampus Lindholm,Boston Bruins,Vegas Golden Knights,2026-01-22,0.5214,0.049,0.0968,0.14579999999999999,0.0418,0.0,345.24444444444447,1
+Boston Bruins,8476854,3,Hampus Lindholm,Boston Bruins,Vegas Golden Knights,2026-01-22,0.5048,0.05,0.088,0.138,0.037,0.0,345.6177777777778,1
+Boston Bruins,8476854,4,Hampus Lindholm,Boston Bruins,Vegas Golden Knights,2026-01-22,0.0014,0.0,0.0,0.0,0.0026,0.0,0.5475,1
+Boston Bruins,8476914,1,Joonas Korpisalo,Boston Bruins,Vegas Golden Knights,2026-01-22,0.0,0.0,0.0,0.0,0.0,8.8604,1199.9999999999998,1
+Boston Bruins,8476914,2,Joonas Korpisalo,Boston Bruins,Vegas Golden Knights,2026-01-22,0.0,0.0,0.0,0.0,0.0,9.3572,1199.9999999999998,1
+Boston Bruins,8476914,3,Joonas Korpisalo,Boston Bruins,Vegas Golden Knights,2026-01-22,0.0,0.0,0.0,0.0,0.0,9.12,1199.9999999999998,1
+Boston Bruins,8476914,4,Joonas Korpisalo,Boston Bruins,Vegas Golden Knights,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.4224,55.86,1
+Boston Bruins,8477496,1,Elias Lindholm,Boston Bruins,Vegas Golden Knights,2026-01-22,0.3796,0.0332,0.0602,0.0934,0.0,0.0,202.60444444444445,1
+Boston Bruins,8477496,2,Elias Lindholm,Boston Bruins,Vegas Golden Knights,2026-01-22,0.3926,0.0424,0.0648,0.10719999999999999,0.0,0.0,202.60444444444445,1
+Boston Bruins,8477496,3,Elias Lindholm,Boston Bruins,Vegas Golden Knights,2026-01-22,0.3886,0.0334,0.0654,0.0988,0.0,0.0,201.9288888888889,1
+Boston Bruins,8477496,4,Elias Lindholm,Boston Bruins,Vegas Golden Knights,2026-01-22,0.034,0.0032,0.0,0.0032,0.0,0.0,10.5525,1
+Boston Bruins,8477956,1,David Pastrnak,Boston Bruins,Vegas Golden Knights,2026-01-22,0.3332,0.0346,0.05,0.08460000000000001,0.0,0.0,182.50666666666666,1
+Boston Bruins,8477956,2,David Pastrnak,Boston Bruins,Vegas Golden Knights,2026-01-22,0.353,0.0372,0.0522,0.08940000000000001,0.0,0.0,182.92444444444445,1
+Boston Bruins,8477956,3,David Pastrnak,Boston Bruins,Vegas Golden Knights,2026-01-22,0.3756,0.039,0.0494,0.0884,0.0,0.0,182.6311111111111,1
+Boston Bruins,8477956,4,David Pastrnak,Boston Bruins,Vegas Golden Knights,2026-01-22,0.0218,0.002,0.0,0.002,0.0,0.0,8.205,1
+Boston Bruins,8478042,1,Viktor Arvidsson,Boston Bruins,Vegas Golden Knights,2026-01-22,1.078,0.1214,0.0894,0.2108,0.0486,0.0,544.1422222222222,1
+Boston Bruins,8478042,2,Viktor Arvidsson,Boston Bruins,Vegas Golden Knights,2026-01-22,1.14,0.1108,0.0898,0.2006,0.0488,0.0,544.1422222222222,1
+Boston Bruins,8478042,3,Viktor Arvidsson,Boston Bruins,Vegas Golden Knights,2026-01-22,1.1014,0.1078,0.0866,0.19440000000000002,0.0472,0.0,544.6666666666667,1
+Boston Bruins,8478042,4,Viktor Arvidsson,Boston Bruins,Vegas Golden Knights,2026-01-22,0.0536,0.0064,0.0,0.0064,0.0026,0.0,24.36,1
+Boston Bruins,8479325,1,Charlie McAvoy,Boston Bruins,Vegas Golden Knights,2026-01-22,0.7464,0.0688,0.0812,0.15,0.059,0.0,504.7200000000001,1
+Boston Bruins,8479325,2,Charlie McAvoy,Boston Bruins,Vegas Golden Knights,2026-01-22,0.7892,0.0802,0.0884,0.1686,0.057,0.0,505.1555555555556,1
+Boston Bruins,8479325,3,Charlie McAvoy,Boston Bruins,Vegas Golden Knights,2026-01-22,0.807,0.0806,0.0774,0.158,0.0592,0.0,504.8711111111112,1
+Boston Bruins,8479325,4,Charlie McAvoy,Boston Bruins,Vegas Golden Knights,2026-01-22,0.0176,0.0016,0.0,0.0016,0.003,0.0,10.5975,1
+Boston Bruins,8479591,1,Michael Eyssimont,Boston Bruins,Vegas Golden Knights,2026-01-22,0.9048,0.0988,0.0814,0.1802,0.0,0.0,427.0133333333334,1
+Boston Bruins,8479591,2,Michael Eyssimont,Boston Bruins,Vegas Golden Knights,2026-01-22,0.9354,0.0966,0.0874,0.184,0.0,0.0,426.4177777777778,1
+Boston Bruins,8479591,3,Michael Eyssimont,Boston Bruins,Vegas Golden Knights,2026-01-22,0.894,0.0912,0.0868,0.178,0.0,0.0,427.4044444444445,1
+Boston Bruins,8479591,4,Michael Eyssimont,Boston Bruins,Vegas Golden Knights,2026-01-22,0.0446,0.0056,0.0,0.0056,0.0,0.0,18.795,1
+Boston Bruins,8479661,1,Tanner Jeannot,Boston Bruins,Vegas Golden Knights,2026-01-22,0.4818,0.0482,0.0744,0.12259999999999999,0.0,0.0,256.43555555555554,1
+Boston Bruins,8479661,2,Tanner Jeannot,Boston Bruins,Vegas Golden Knights,2026-01-22,0.5248,0.053,0.0796,0.1326,0.0,0.0,256.61333333333334,1
+Boston Bruins,8479661,3,Tanner Jeannot,Boston Bruins,Vegas Golden Knights,2026-01-22,0.5028,0.0504,0.0752,0.1256,0.0,0.0,256.56,1
+Boston Bruins,8479661,4,Tanner Jeannot,Boston Bruins,Vegas Golden Knights,2026-01-22,0.0344,0.004,0.0,0.004,0.0,0.0,12.4275,1
+Boston Bruins,8479987,1,Morgan Geekie,Boston Bruins,Vegas Golden Knights,2026-01-22,0.6156,0.057,0.0882,0.1452,0.0,0.0,318.32000000000005,1
+Boston Bruins,8479987,2,Morgan Geekie,Boston Bruins,Vegas Golden Knights,2026-01-22,0.6312,0.0618,0.0944,0.1562,0.0,0.0,318.5955555555556,1
+Boston Bruins,8479987,3,Morgan Geekie,Boston Bruins,Vegas Golden Knights,2026-01-22,0.5916,0.0574,0.0898,0.1472,0.0,0.0,318.4266666666667,1
+Boston Bruins,8479999,1,Casey Mittelstadt,Boston Bruins,Vegas Golden Knights,2026-01-22,0.3512,0.0314,0.0446,0.076,0.0,0.0,182.50666666666666,1
+Boston Bruins,8479999,2,Casey Mittelstadt,Boston Bruins,Vegas Golden Knights,2026-01-22,0.3542,0.037,0.0546,0.0916,0.0,0.0,182.92444444444445,1
+Boston Bruins,8479999,3,Casey Mittelstadt,Boston Bruins,Vegas Golden Knights,2026-01-22,0.3636,0.037,0.0558,0.0928,0.0,0.0,182.6311111111111,1
+Boston Bruins,8479999,4,Casey Mittelstadt,Boston Bruins,Vegas Golden Knights,2026-01-22,0.021,0.0034,0.0,0.0034,0.0,0.0,8.205,1
+Boston Bruins,8480035,1,Henri Jokiharju,Boston Bruins,Vegas Golden Knights,2026-01-22,0.4844,0.0454,0.0976,0.14300000000000002,0.045,0.0,345.8666666666667,1
+Boston Bruins,8480035,2,Henri Jokiharju,Boston Bruins,Vegas Golden Knights,2026-01-22,0.518,0.0498,0.0958,0.1456,0.047,0.0,345.24444444444447,1
+Boston Bruins,8480035,3,Henri Jokiharju,Boston Bruins,Vegas Golden Knights,2026-01-22,0.5068,0.0472,0.0958,0.143,0.0474,0.0,345.6177777777778,1
+Boston Bruins,8480035,4,Henri Jokiharju,Boston Bruins,Vegas Golden Knights,2026-01-22,0.0448,0.003,0.0,0.003,0.0022,0.0,15.3375,1
+Boston Bruins,8480355,1,Mark Kastelic,Boston Bruins,Vegas Golden Knights,2026-01-22,0.4748,0.0472,0.0754,0.12259999999999999,0.0,0.0,256.43555555555554,1
+Boston Bruins,8480355,2,Mark Kastelic,Boston Bruins,Vegas Golden Knights,2026-01-22,0.4998,0.0584,0.0752,0.1336,0.0,0.0,256.61333333333334,1
+Boston Bruins,8480355,3,Mark Kastelic,Boston Bruins,Vegas Golden Knights,2026-01-22,0.4804,0.0426,0.071,0.11359999999999999,0.0,0.0,256.56,1
+Boston Bruins,8480355,4,Mark Kastelic,Boston Bruins,Vegas Golden Knights,2026-01-22,0.0372,0.0034,0.0,0.0034,0.0,0.0,12.4275,1
+Boston Bruins,8480887,1,Jordan Harris,Boston Bruins,Vegas Golden Knights,2026-01-22,0.6836,0.0676,0.0962,0.1638,1.0204,0.0,480.8533333333334,1
+Boston Bruins,8480887,2,Jordan Harris,Boston Bruins,Vegas Golden Knights,2026-01-22,0.6918,0.0676,0.1034,0.17099999999999999,1.0746,0.0,481.0400000000001,1
+Boston Bruins,8480887,3,Jordan Harris,Boston Bruins,Vegas Golden Knights,2026-01-22,0.6876,0.069,0.1036,0.1726,1.0406,0.0,480.9866666666667,1
+Boston Bruins,8480887,4,Jordan Harris,Boston Bruins,Vegas Golden Knights,2026-01-22,0.008,0.001,0.0,0.001,0.047,0.0,5.88,1
+Boston Bruins,8481219,1,Jonathan Aspirot,Boston Bruins,Vegas Golden Knights,2026-01-22,0.511,0.0476,0.1022,0.1498,0.9188,0.0,361.1288888888889,1
+Boston Bruins,8481219,2,Jonathan Aspirot,Boston Bruins,Vegas Golden Knights,2026-01-22,0.5288,0.0526,0.1108,0.1634,0.9674,0.0,360.88888888888897,1
+Boston Bruins,8481219,3,Jonathan Aspirot,Boston Bruins,Vegas Golden Knights,2026-01-22,0.5026,0.0506,0.1088,0.1594,0.944,0.0,361.04,1
+Boston Bruins,8481219,4,Jonathan Aspirot,Boston Bruins,Vegas Golden Knights,2026-01-22,0.0498,0.004,0.0,0.004,0.0452,0.0,17.73,1
+Boston Bruins,8482177,1,Marat Khusnutdinov,Boston Bruins,Vegas Golden Knights,2026-01-22,0.4912,0.0514,0.0762,0.1276,0.0,0.0,256.43555555555554,1
+Boston Bruins,8482177,2,Marat Khusnutdinov,Boston Bruins,Vegas Golden Knights,2026-01-22,0.5108,0.0448,0.082,0.1268,0.0,0.0,256.61333333333334,1
+Boston Bruins,8482177,3,Marat Khusnutdinov,Boston Bruins,Vegas Golden Knights,2026-01-22,0.4926,0.0518,0.0758,0.1276,0.0,0.0,256.56,1
+Boston Bruins,8482511,1,Mason Lohrei,Boston Bruins,Vegas Golden Knights,2026-01-22,0.6398,0.0666,0.0852,0.1518,0.0436,0.0,413.61777777777786,1
+Boston Bruins,8482511,2,Mason Lohrei,Boston Bruins,Vegas Golden Knights,2026-01-22,0.666,0.0638,0.089,0.1528,0.0458,0.0,412.4355555555556,1
+Boston Bruins,8482511,3,Mason Lohrei,Boston Bruins,Vegas Golden Knights,2026-01-22,0.6502,0.0704,0.093,0.1634,0.0488,0.0,413.35111111111115,1
+Boston Bruins,8482511,4,Mason Lohrei,Boston Bruins,Vegas Golden Knights,2026-01-22,0.0462,0.0062,0.0,0.0062,0.0016,0.0,18.0075,1
+Boston Bruins,8482634,1,Alex Steeves,Boston Bruins,Vegas Golden Knights,2026-01-22,0.7908,0.0798,0.0554,0.1352,0.045,0.0,396.6133333333334,1
+Boston Bruins,8482634,2,Alex Steeves,Boston Bruins,Vegas Golden Knights,2026-01-22,0.8236,0.0886,0.0576,0.1462,0.0494,0.0,397.1822222222223,1
+Boston Bruins,8482634,3,Alex Steeves,Boston Bruins,Vegas Golden Knights,2026-01-22,0.838,0.092,0.0596,0.1516,0.0516,0.0,397.3422222222223,1
+Boston Bruins,8482634,4,Alex Steeves,Boston Bruins,Vegas Golden Knights,2026-01-22,0.0216,0.0016,0.0,0.0016,0.0036,0.0,10.5975,1
+Boston Bruins,8483489,1,Fraser Minten,Boston Bruins,Vegas Golden Knights,2026-01-22,0.3822,0.0388,0.0606,0.0994,0.0,0.0,202.60444444444445,1
+Boston Bruins,8483489,2,Fraser Minten,Boston Bruins,Vegas Golden Knights,2026-01-22,0.4096,0.0366,0.0654,0.10200000000000001,0.0,0.0,202.60444444444445,1
+Boston Bruins,8483489,3,Fraser Minten,Boston Bruins,Vegas Golden Knights,2026-01-22,0.3776,0.0392,0.0682,0.1074,0.0,0.0,201.9288888888889,1
+Vegas Golden Knights,8475188,1,Brayden McNabb,Boston Bruins,Vegas Golden Knights,2026-01-22,0.3676,0.0386,0.074,0.1126,0.0618,0.0,214.37333333333333,1
+Vegas Golden Knights,8475188,2,Brayden McNabb,Boston Bruins,Vegas Golden Knights,2026-01-22,0.3708,0.0414,0.0806,0.122,0.0572,0.0,213.9377777777778,1
+Vegas Golden Knights,8475188,3,Brayden McNabb,Boston Bruins,Vegas Golden Knights,2026-01-22,0.3954,0.0384,0.0798,0.1182,0.0582,0.0,214.69333333333336,1
+Vegas Golden Knights,8475188,4,Brayden McNabb,Boston Bruins,Vegas Golden Knights,2026-01-22,0.0152,0.0024,0.0,0.0024,0.0024,0.0,10.65,1
+Vegas Golden Knights,8475191,1,Reilly Smith,Boston Bruins,Vegas Golden Knights,2026-01-22,0.916,0.0964,0.079,0.1754,0.0,0.0,331.4044444444445,1
+Vegas Golden Knights,8475191,2,Reilly Smith,Boston Bruins,Vegas Golden Knights,2026-01-22,0.9596,0.0908,0.0916,0.1824,0.0,0.0,331.6266666666667,1
+Vegas Golden Knights,8475191,3,Reilly Smith,Boston Bruins,Vegas Golden Knights,2026-01-22,0.9062,0.0938,0.0802,0.174,0.0,0.0,331.5555555555556,1
+Vegas Golden Knights,8475191,4,Reilly Smith,Boston Bruins,Vegas Golden Knights,2026-01-22,0.0378,0.0022,0.0,0.0022,0.0,0.0,13.7325,1
+Vegas Golden Knights,8476438,1,Brandon Saad,Boston Bruins,Vegas Golden Knights,2026-01-22,0.4796,0.0496,0.069,0.11860000000000001,0.0,0.0,260.55111111111114,1
+Vegas Golden Knights,8476438,2,Brandon Saad,Boston Bruins,Vegas Golden Knights,2026-01-22,0.5226,0.0548,0.0786,0.13340000000000002,0.0,0.0,260.6933333333333,1
+Vegas Golden Knights,8476438,3,Brandon Saad,Boston Bruins,Vegas Golden Knights,2026-01-22,0.4964,0.0522,0.077,0.1292,0.0,0.0,260.72,1
+Vegas Golden Knights,8476438,4,Brandon Saad,Boston Bruins,Vegas Golden Knights,2026-01-22,0.0376,0.0036,0.0,0.0036,0.0,0.0,12.4275,1
+Vegas Golden Knights,8476448,1,William Karlsson,Boston Bruins,Vegas Golden Knights,2026-01-22,0.3192,0.0332,0.0506,0.0838,0.0,0.0,174.6311111111111,1
+Vegas Golden Knights,8476448,2,William Karlsson,Boston Bruins,Vegas Golden Knights,2026-01-22,0.3452,0.0388,0.0524,0.0912,0.0,0.0,174.69333333333333,1
+Vegas Golden Knights,8476448,3,William Karlsson,Boston Bruins,Vegas Golden Knights,2026-01-22,0.3536,0.0356,0.059,0.09459999999999999,0.0,0.0,174.5511111111111,1
+Vegas Golden Knights,8476448,4,William Karlsson,Boston Bruins,Vegas Golden Knights,2026-01-22,0.0194,0.0016,0.0,0.0016,0.0,0.0,8.205,1
+Vegas Golden Knights,8476881,1,Tomas Hertl,Boston Bruins,Vegas Golden Knights,2026-01-22,0.4464,0.0462,0.0816,0.1278,0.0576,0.0,214.37333333333333,1
+Vegas Golden Knights,8476881,2,Tomas Hertl,Boston Bruins,Vegas Golden Knights,2026-01-22,0.4582,0.053,0.0898,0.1428,0.054,0.0,213.9377777777778,1
+Vegas Golden Knights,8476881,3,Tomas Hertl,Boston Bruins,Vegas Golden Knights,2026-01-22,0.4584,0.0468,0.0818,0.1286,0.0566,0.0,214.69333333333336,1
+Vegas Golden Knights,8476881,4,Tomas Hertl,Boston Bruins,Vegas Golden Knights,2026-01-22,0.0264,0.0012,0.0,0.0012,0.0024,0.0,10.65,1
+Vegas Golden Knights,8476925,1,Colton Sissons,Boston Bruins,Vegas Golden Knights,2026-01-22,0.4878,0.0472,0.0752,0.12240000000000001,0.0,0.0,260.55111111111114,1
+Vegas Golden Knights,8476925,2,Colton Sissons,Boston Bruins,Vegas Golden Knights,2026-01-22,0.4886,0.0558,0.0778,0.1336,0.0,0.0,260.6933333333333,1
+Vegas Golden Knights,8476925,3,Colton Sissons,Boston Bruins,Vegas Golden Knights,2026-01-22,0.4924,0.0456,0.0736,0.1192,0.0,0.0,260.72,1
+Vegas Golden Knights,8476925,4,Colton Sissons,Boston Bruins,Vegas Golden Knights,2026-01-22,0.033,0.0042,0.0,0.0042,0.0,0.0,12.4275,1
+Vegas Golden Knights,8477018,1,Ben Hutton,Boston Bruins,Vegas Golden Knights,2026-01-22,0.4704,0.0512,0.1006,0.1518,0.0466,0.0,345.6,1
+Vegas Golden Knights,8477018,2,Ben Hutton,Boston Bruins,Vegas Golden Knights,2026-01-22,0.4818,0.051,0.1082,0.1592,0.0466,0.0,345.5644444444445,1
+Vegas Golden Knights,8477018,3,Ben Hutton,Boston Bruins,Vegas Golden Knights,2026-01-22,0.485,0.0434,0.0976,0.14100000000000001,0.0452,0.0,345.6355555555556,1
+Vegas Golden Knights,8477018,4,Ben Hutton,Boston Bruins,Vegas Golden Knights,2026-01-22,0.0006,0.0002,0.0,0.0002,0.0016,0.0,0.495,1
+Vegas Golden Knights,8477964,1,Ivan Barbashev,Boston Bruins,Vegas Golden Knights,2026-01-22,1.3592,0.1326,0.0958,0.2284,0.095,0.0,559.9733333333334,1
+Vegas Golden Knights,8477964,2,Ivan Barbashev,Boston Bruins,Vegas Golden Knights,2026-01-22,1.429,0.1446,0.0974,0.242,0.0976,0.0,559.5022222222223,1
+Vegas Golden Knights,8477964,3,Ivan Barbashev,Boston Bruins,Vegas Golden Knights,2026-01-22,1.4112,0.151,0.0926,0.24359999999999998,0.0998,0.0,560.3288888888889,1
+Vegas Golden Knights,8477964,4,Ivan Barbashev,Boston Bruins,Vegas Golden Knights,2026-01-22,0.0626,0.005,0.0,0.005,0.0036,0.0,24.675,1
+Vegas Golden Knights,8478396,1,Noah Hanifin,Boston Bruins,Vegas Golden Knights,2026-01-22,0.4664,0.0464,0.096,0.1424,0.0464,0.0,345.6,1
+Vegas Golden Knights,8478396,2,Noah Hanifin,Boston Bruins,Vegas Golden Knights,2026-01-22,0.4904,0.0486,0.105,0.1536,0.047,0.0,345.5644444444445,1
+Vegas Golden Knights,8478396,3,Noah Hanifin,Boston Bruins,Vegas Golden Knights,2026-01-22,0.477,0.0526,0.102,0.1546,0.0488,0.0,345.6355555555556,1
+Vegas Golden Knights,8478396,4,Noah Hanifin,Boston Bruins,Vegas Golden Knights,2026-01-22,0.0416,0.0046,0.0,0.0046,0.0026,0.0,15.285,1
+Vegas Golden Knights,8478397,1,Rasmus Andersson,Boston Bruins,Vegas Golden Knights,2026-01-22,0.9334,0.095,0.1008,0.1958,1.9428,0.0,360.9777777777778,1
+Vegas Golden Knights,8478397,2,Rasmus Andersson,Boston Bruins,Vegas Golden Knights,2026-01-22,1.0078,0.0984,0.1042,0.2026,1.9988,0.0,360.9866666666667,1
+Vegas Golden Knights,8478397,3,Rasmus Andersson,Boston Bruins,Vegas Golden Knights,2026-01-22,0.9594,0.1018,0.1002,0.202,1.926,0.0,361.1911111111111,1
+Vegas Golden Knights,8478397,4,Rasmus Andersson,Boston Bruins,Vegas Golden Knights,2026-01-22,0.05,0.003,0.0,0.003,0.0838,0.0,17.7,1
+Vegas Golden Knights,8478434,1,Keegan Kolesar,Boston Bruins,Vegas Golden Knights,2026-01-22,0.3912,0.0374,0.071,0.1084,0.0,0.0,204.84444444444446,1
+Vegas Golden Knights,8478434,2,Keegan Kolesar,Boston Bruins,Vegas Golden Knights,2026-01-22,0.3984,0.035,0.0678,0.1028,0.0,0.0,205.11111111111111,1
+Vegas Golden Knights,8478434,3,Keegan Kolesar,Boston Bruins,Vegas Golden Knights,2026-01-22,0.3596,0.0398,0.066,0.1058,0.0,0.0,204.4,1
+Vegas Golden Knights,8478468,1,Jeremy Lauzon,Boston Bruins,Vegas Golden Knights,2026-01-22,0.7498,0.0838,0.0812,0.16499999999999998,0.0604,0.0,504.9866666666667,1
+Vegas Golden Knights,8478468,2,Jeremy Lauzon,Boston Bruins,Vegas Golden Knights,2026-01-22,0.8038,0.0854,0.0854,0.1708,0.0574,0.0,504.8355555555556,1
+Vegas Golden Knights,8478468,3,Jeremy Lauzon,Boston Bruins,Vegas Golden Knights,2026-01-22,0.7744,0.0846,0.0868,0.1714,0.0554,0.0,504.8533333333334,1
+Vegas Golden Knights,8478468,4,Jeremy Lauzon,Boston Bruins,Vegas Golden Knights,2026-01-22,0.016,0.001,0.0,0.001,0.0028,0.0,10.65,1
+Vegas Golden Knights,8478483,1,Mitch Marner,Boston Bruins,Vegas Golden Knights,2026-01-22,0.3666,0.0394,0.064,0.10339999999999999,0.0,0.0,204.84444444444446,1
+Vegas Golden Knights,8478483,2,Mitch Marner,Boston Bruins,Vegas Golden Knights,2026-01-22,0.3908,0.0386,0.071,0.1096,0.0,0.0,205.11111111111111,1
+Vegas Golden Knights,8478483,3,Mitch Marner,Boston Bruins,Vegas Golden Knights,2026-01-22,0.3814,0.0348,0.0628,0.09759999999999999,0.0,0.0,204.4,1
+Vegas Golden Knights,8478483,4,Mitch Marner,Boston Bruins,Vegas Golden Knights,2026-01-22,0.0292,0.0038,0.0,0.0038,0.0,0.0,10.5525,1
+Vegas Golden Knights,8478499,1,Adin Hill,Boston Bruins,Vegas Golden Knights,2026-01-22,0.0,0.0,0.0,0.0,0.0,9.1782,1199.9999999999998,1
+Vegas Golden Knights,8478499,2,Adin Hill,Boston Bruins,Vegas Golden Knights,2026-01-22,0.0,0.0,0.0,0.0,0.0,9.6226,1199.9999999999998,1
+Vegas Golden Knights,8478499,3,Adin Hill,Boston Bruins,Vegas Golden Knights,2026-01-22,0.0,0.0,0.0,0.0,0.0,9.4052,1199.9999999999998,1
+Vegas Golden Knights,8478499,4,Adin Hill,Boston Bruins,Vegas Golden Knights,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.414,55.86,1
+Vegas Golden Knights,8479353,1,Brett Howden,Boston Bruins,Vegas Golden Knights,2026-01-22,0.3272,0.0294,0.0536,0.083,0.0,0.0,174.6311111111111,1
+Vegas Golden Knights,8479353,2,Brett Howden,Boston Bruins,Vegas Golden Knights,2026-01-22,0.3464,0.032,0.0584,0.09040000000000001,0.0,0.0,174.69333333333333,1
+Vegas Golden Knights,8479353,3,Brett Howden,Boston Bruins,Vegas Golden Knights,2026-01-22,0.3356,0.0342,0.0522,0.0864,0.0,0.0,174.5511111111111,1
+Vegas Golden Knights,8480007,1,Jonas Rondbjerg,Boston Bruins,Vegas Golden Knights,2026-01-22,0.4676,0.05,0.0778,0.1278,0.0,0.0,260.55111111111114,1
+Vegas Golden Knights,8480007,2,Jonas Rondbjerg,Boston Bruins,Vegas Golden Knights,2026-01-22,0.5218,0.048,0.0826,0.1306,0.0,0.0,260.6933333333333,1
+Vegas Golden Knights,8480007,3,Jonas Rondbjerg,Boston Bruins,Vegas Golden Knights,2026-01-22,0.507,0.049,0.0888,0.1378,0.0,0.0,260.72,1
+Vegas Golden Knights,8481133,1,Cole Reinhardt,Boston Bruins,Vegas Golden Knights,2026-01-22,0.373,0.037,0.0638,0.1008,0.0,0.0,204.84444444444446,1
+Vegas Golden Knights,8481133,2,Cole Reinhardt,Boston Bruins,Vegas Golden Knights,2026-01-22,0.391,0.0428,0.0622,0.105,0.0,0.0,205.11111111111111,1
+Vegas Golden Knights,8481133,3,Cole Reinhardt,Boston Bruins,Vegas Golden Knights,2026-01-22,0.3774,0.0312,0.0686,0.0998,0.0,0.0,204.4,1
+Vegas Golden Knights,8481133,4,Cole Reinhardt,Boston Bruins,Vegas Golden Knights,2026-01-22,0.0332,0.003,0.0,0.003,0.0,0.0,10.5525,1
+Vegas Golden Knights,8481527,1,Kaedan Korczak,Boston Bruins,Vegas Golden Knights,2026-01-22,0.6286,0.0642,0.0846,0.1488,0.0546,0.0,412.96888888888896,1
+Vegas Golden Knights,8481527,2,Kaedan Korczak,Boston Bruins,Vegas Golden Knights,2026-01-22,0.6702,0.078,0.0844,0.1624,0.0506,0.0,413.6,1
+Vegas Golden Knights,8481527,3,Kaedan Korczak,Boston Bruins,Vegas Golden Knights,2026-01-22,0.6568,0.0724,0.0928,0.1652,0.0396,0.0,412.5066666666667,1
+Vegas Golden Knights,8481527,4,Kaedan Korczak,Boston Bruins,Vegas Golden Knights,2026-01-22,0.0428,0.0058,0.0,0.0058,0.0034,0.0,18.165,1
+Vegas Golden Knights,8483890,1,Braeden Bowman,Boston Bruins,Vegas Golden Knights,2026-01-22,0.323,0.035,0.0536,0.08860000000000001,0.0,0.0,174.6311111111111,1
+Vegas Golden Knights,8483890,2,Braeden Bowman,Boston Bruins,Vegas Golden Knights,2026-01-22,0.3522,0.0344,0.0602,0.09459999999999999,0.0,0.0,174.69333333333333,1
+Vegas Golden Knights,8483890,3,Braeden Bowman,Boston Bruins,Vegas Golden Knights,2026-01-22,0.3382,0.0382,0.0484,0.0866,0.0,0.0,174.5511111111111,1
+Vegas Golden Knights,8483890,4,Braeden Bowman,Boston Bruins,Vegas Golden Knights,2026-01-22,0.0198,0.0012,0.0,0.0012,0.0,0.0,8.205,1
+Boston Bruins,8476374,0,Sean Kuraly,Boston Bruins,Vegas Golden Knights,2026-01-22,1.187,0.114,0.1918,0.3058,0.0,0.0,617.6902777777779,1
+Boston Bruins,8476854,0,Hampus Lindholm,Boston Bruins,Vegas Golden Knights,2026-01-22,1.5022,0.1434,0.2788,0.4222,0.1194,0.0,1037.276388888889,1
+Boston Bruins,8476914,0,Joonas Korpisalo,Boston Bruins,Vegas Golden Knights,2026-01-22,0.0,0.0,0.0,0.0,0.0,27.76,3655.859999999999,1
+Boston Bruins,8477496,0,Elias Lindholm,Boston Bruins,Vegas Golden Knights,2026-01-22,1.1948,0.1122,0.1904,0.3026,0.0,0.0,617.6902777777779,1
+Boston Bruins,8477956,0,David Pastrnak,Boston Bruins,Vegas Golden Knights,2026-01-22,1.0836,0.1128,0.1516,0.2644,0.0,0.0,556.2672222222222,1
+Boston Bruins,8478042,0,Viktor Arvidsson,Boston Bruins,Vegas Golden Knights,2026-01-22,3.373,0.3464,0.2658,0.6122,0.1472,0.0,1657.3111111111111,1
+Boston Bruins,8479325,0,Charlie McAvoy,Boston Bruins,Vegas Golden Knights,2026-01-22,2.3602,0.2312,0.247,0.47819999999999996,0.1782,0.0,1525.344166666667,1
+Boston Bruins,8479591,0,Michael Eyssimont,Boston Bruins,Vegas Golden Knights,2026-01-22,2.7788,0.2922,0.2556,0.5478000000000001,0.0,0.0,1299.6305555555557,1
+Boston Bruins,8479661,0,Tanner Jeannot,Boston Bruins,Vegas Golden Knights,2026-01-22,1.5438,0.1556,0.2292,0.3848,0.0,0.0,782.036388888889,1
+Boston Bruins,8479987,0,Morgan Geekie,Boston Bruins,Vegas Golden Knights,2026-01-22,1.8384,0.1762,0.2724,0.4486,0.0,0.0,955.3422222222224,1
+Boston Bruins,8479999,0,Casey Mittelstadt,Boston Bruins,Vegas Golden Knights,2026-01-22,1.09,0.1088,0.155,0.2638,0.0,0.0,556.2672222222222,1
+Boston Bruins,8480035,0,Henri Jokiharju,Boston Bruins,Vegas Golden Knights,2026-01-22,1.554,0.1454,0.2892,0.4346,0.1416,0.0,1052.066388888889,1
+Boston Bruins,8480355,0,Mark Kastelic,Boston Bruins,Vegas Golden Knights,2026-01-22,1.4922,0.1516,0.2216,0.3732,0.0,0.0,782.036388888889,1
+Boston Bruins,8480887,0,Jordan Harris,Boston Bruins,Vegas Golden Knights,2026-01-22,2.071,0.2052,0.3032,0.5084,3.1826,0.0,1448.7600000000002,1
+Boston Bruins,8481219,0,Jonathan Aspirot,Boston Bruins,Vegas Golden Knights,2026-01-22,1.5922,0.1548,0.3218,0.47659999999999997,2.8754,0.0,1100.787777777778,1
+Boston Bruins,8482177,0,Marat Khusnutdinov,Boston Bruins,Vegas Golden Knights,2026-01-22,1.4946,0.148,0.234,0.382,0.0,0.0,769.6088888888889,1
+Boston Bruins,8482511,0,Mason Lohrei,Boston Bruins,Vegas Golden Knights,2026-01-22,2.0022,0.207,0.2672,0.47419999999999995,0.1398,0.0,1257.4119444444445,1
+Boston Bruins,8482634,0,Alex Steeves,Boston Bruins,Vegas Golden Knights,2026-01-22,2.474,0.262,0.1726,0.4346,0.1496,0.0,1201.735277777778,1
+Boston Bruins,8483489,0,Fraser Minten,Boston Bruins,Vegas Golden Knights,2026-01-22,1.1694,0.1146,0.1942,0.3088,0.0,0.0,607.1377777777778,1
+Vegas Golden Knights,8475188,0,Brayden McNabb,Boston Bruins,Vegas Golden Knights,2026-01-22,1.149,0.1208,0.2344,0.3552,0.1796,0.0,653.6544444444445,1
+Vegas Golden Knights,8475191,0,Reilly Smith,Boston Bruins,Vegas Golden Knights,2026-01-22,2.8196,0.2832,0.2508,0.534,0.0,0.0,1008.3191666666668,1
+Vegas Golden Knights,8476438,0,Brandon Saad,Boston Bruins,Vegas Golden Knights,2026-01-22,1.5362,0.1602,0.2246,0.38480000000000003,0.0,0.0,794.3919444444444,1
+Vegas Golden Knights,8476448,0,William Karlsson,Boston Bruins,Vegas Golden Knights,2026-01-22,1.0374,0.1092,0.162,0.2712,0.0,0.0,532.0805555555555,1
+Vegas Golden Knights,8476881,0,Tomas Hertl,Boston Bruins,Vegas Golden Knights,2026-01-22,1.3894,0.1472,0.2532,0.4004,0.1706,0.0,653.6544444444445,1
+Vegas Golden Knights,8476925,0,Colton Sissons,Boston Bruins,Vegas Golden Knights,2026-01-22,1.5018,0.1528,0.2266,0.37939999999999996,0.0,0.0,794.3919444444444,1
+Vegas Golden Knights,8477018,0,Ben Hutton,Boston Bruins,Vegas Golden Knights,2026-01-22,1.4378,0.1458,0.3064,0.45220000000000005,0.14,0.0,1037.295,1
+Vegas Golden Knights,8477964,0,Ivan Barbashev,Boston Bruins,Vegas Golden Knights,2026-01-22,4.262,0.4332,0.2858,0.719,0.296,0.0,1704.4794444444449,1
+Vegas Golden Knights,8478396,0,Noah Hanifin,Boston Bruins,Vegas Golden Knights,2026-01-22,1.4754,0.1522,0.303,0.4552,0.1448,0.0,1052.0850000000003,1
+Vegas Golden Knights,8478397,0,Rasmus Andersson,Boston Bruins,Vegas Golden Knights,2026-01-22,2.9506,0.2982,0.3052,0.6034,5.9514,0.0,1100.8555555555558,1
+Vegas Golden Knights,8478434,0,Keegan Kolesar,Boston Bruins,Vegas Golden Knights,2026-01-22,1.1492,0.1122,0.2048,0.317,0.0,0.0,614.3555555555556,1
+Vegas Golden Knights,8478468,0,Jeremy Lauzon,Boston Bruins,Vegas Golden Knights,2026-01-22,2.344,0.2548,0.2534,0.5082,0.176,0.0,1525.3255555555559,1
+Vegas Golden Knights,8478483,0,Mitch Marner,Boston Bruins,Vegas Golden Knights,2026-01-22,1.168,0.1166,0.1978,0.3144,0.0,0.0,624.9080555555556,1
+Vegas Golden Knights,8478499,0,Adin Hill,Boston Bruins,Vegas Golden Knights,2026-01-22,0.0,0.0,0.0,0.0,0.0,28.62,3655.859999999999,1
+Vegas Golden Knights,8479353,0,Brett Howden,Boston Bruins,Vegas Golden Knights,2026-01-22,1.0092,0.0956,0.1642,0.25980000000000003,0.0,0.0,523.8755555555556,1
+Vegas Golden Knights,8480007,0,Jonas Rondbjerg,Boston Bruins,Vegas Golden Knights,2026-01-22,1.4964,0.147,0.2492,0.3962,0.0,0.0,781.9644444444446,1
+Vegas Golden Knights,8481133,0,Cole Reinhardt,Boston Bruins,Vegas Golden Knights,2026-01-22,1.1746,0.114,0.1946,0.3086,0.0,0.0,624.9080555555556,1
+Vegas Golden Knights,8481527,0,Kaedan Korczak,Boston Bruins,Vegas Golden Knights,2026-01-22,1.9984,0.2204,0.2618,0.48219999999999996,0.1482,0.0,1257.2405555555558,1
+Vegas Golden Knights,8483890,0,Braeden Bowman,Boston Bruins,Vegas Golden Knights,2026-01-22,1.0332,0.1088,0.1622,0.271,0.0,0.0,532.0805555555555,1
+Boston Bruins,8483505,0,Matthew Poitras,Boston Bruins,Vegas Golden Knights,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Boston Bruins,8478401,0,Pavel Zacha,Boston Bruins,Vegas Golden Knights,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Boston Bruins,8479369,0,Andrew Peeke,Boston Bruins,Vegas Golden Knights,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Boston Bruins,8477507,0,Nikita Zadorov,Boston Bruins,Vegas Golden Knights,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Boston Bruins,8480280,0,Jeremy Swayman,Boston Bruins,Vegas Golden Knights,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Vegas Golden Knights,8481604,0,Pavel Dorofeyev,Boston Bruins,Vegas Golden Knights,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Vegas Golden Knights,8478403,0,Jack Eichel,Boston Bruins,Vegas Golden Knights,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Vegas Golden Knights,8482125,0,Alexander Holtz,Boston Bruins,Vegas Golden Knights,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Vegas Golden Knights,8475913,0,Mark Stone,Boston Bruins,Vegas Golden Knights,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Vegas Golden Knights,8477447,0,Shea Theodore,Boston Bruins,Vegas Golden Knights,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Vegas Golden Knights,8479394,0,Carter Hart,Boston Bruins,Vegas Golden Knights,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Vegas Golden Knights,8481033,0,Akira Schmid,Boston Bruins,Vegas Golden Knights,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Buffalo Sabres,1558593,1,Ryan McLeod,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.7228,0.0804,0.1214,0.20179999999999998,0.0,0.0,264.72,1
+Buffalo Sabres,1558593,2,Ryan McLeod,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.7498,0.0692,0.1166,0.1858,0.0,0.0,264.1688888888889,1
+Buffalo Sabres,1558593,3,Ryan McLeod,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.7336,0.0788,0.1176,0.1964,0.0,0.0,265.08444444444444,1
+Buffalo Sabres,1558593,4,Ryan McLeod,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.0528,0.0066,0.0,0.0066,0.0,0.0,13.5675,1
+Buffalo Sabres,1938824,1,Mattias Samuelsson,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.7238,0.07,0.1172,0.1872,0.0,0.0,264.72,1
+Buffalo Sabres,1938824,2,Mattias Samuelsson,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.7612,0.0758,0.1208,0.1966,0.0,0.0,264.1688888888889,1
+Buffalo Sabres,1938824,3,Mattias Samuelsson,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.73,0.0722,0.1236,0.1958,0.0,0.0,265.08444444444444,1
+Buffalo Sabres,1938824,4,Mattias Samuelsson,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.058,0.0052,0.0,0.0052,0.0,0.0,13.5675,1
+Buffalo Sabres,2936073,1,Jordan Greenway,Montréal Canadiens,Buffalo Sabres,2026-01-22,1.131,0.119,0.1014,0.22039999999999998,0.0,0.0,404.0444444444445,1
+Buffalo Sabres,2936073,2,Jordan Greenway,Montréal Canadiens,Buffalo Sabres,2026-01-22,1.202,0.1296,0.111,0.24059999999999998,0.0,0.0,402.6044444444445,1
+Buffalo Sabres,2936073,3,Jordan Greenway,Montréal Canadiens,Buffalo Sabres,2026-01-22,1.1528,0.1232,0.121,0.2442,0.0,0.0,402.24000000000007,1
+Buffalo Sabres,2936073,4,Jordan Greenway,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.002,0.0,0.0,0.0,0.0,0.0,1.365,1
+Buffalo Sabres,2937037,1,Tage Thompson,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.7892,0.083,0.1188,0.2018,0.0,0.0,277.74222222222227,1
+Buffalo Sabres,2937037,2,Tage Thompson,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.8016,0.0796,0.122,0.2016,0.0,0.0,278.6044444444444,1
+Buffalo Sabres,2937037,3,Tage Thompson,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.796,0.0852,0.1186,0.20379999999999998,0.0,0.0,279.41333333333336,1
+Buffalo Sabres,2937037,4,Tage Thompson,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.0566,0.0058,0.0,0.0058,0.0,0.0,14.4825,1
+Buffalo Sabres,3966939,1,Peyton Krebs,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.6876,0.0722,0.1214,0.1936,0.0,0.0,253.49333333333334,1
+Buffalo Sabres,3966939,2,Peyton Krebs,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.705,0.0734,0.1204,0.1938,0.0,0.0,254.62222222222223,1
+Buffalo Sabres,3966939,3,Peyton Krebs,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.7214,0.0782,0.1266,0.20479999999999998,0.0,0.0,253.26222222222225,1
+Buffalo Sabres,3966939,4,Peyton Krebs,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.0446,0.0056,0.0,0.0056,0.0,0.0,11.205,1
+Buffalo Sabres,4194538,1,Jacob Bryson,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.7658,0.0802,0.1128,0.193,0.0,0.0,277.74222222222227,1
+Buffalo Sabres,4194538,2,Jacob Bryson,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.778,0.0814,0.125,0.2064,0.0,0.0,278.6044444444444,1
+Buffalo Sabres,4194538,3,Jacob Bryson,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.7712,0.0768,0.1254,0.2022,0.0,0.0,279.41333333333336,1
+Buffalo Sabres,4194538,4,Jacob Bryson,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.003,0.0002,0.0,0.0002,0.0,0.0,1.275,1
+Buffalo Sabres,4198967,1,Jason Zucker,Montréal Canadiens,Buffalo Sabres,2026-01-22,1.1084,0.1132,0.1114,0.2246,0.0,0.0,404.0444444444445,1
+Buffalo Sabres,4198967,2,Jason Zucker,Montréal Canadiens,Buffalo Sabres,2026-01-22,1.1962,0.1204,0.1122,0.23259999999999997,0.0,0.0,402.6044444444445,1
+Buffalo Sabres,4198967,3,Jason Zucker,Montréal Canadiens,Buffalo Sabres,2026-01-22,1.142,0.1236,0.1114,0.235,0.0,0.0,402.24000000000007,1
+Buffalo Sabres,4198967,4,Jason Zucker,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.062,0.007,0.0,0.007,0.0,0.0,14.865,1
+Buffalo Sabres,5285701,1,Alex Tuch,Montréal Canadiens,Buffalo Sabres,2026-01-22,1.128,0.1206,0.1102,0.2308,0.0,0.0,404.0444444444445,1
+Buffalo Sabres,5285701,2,Alex Tuch,Montréal Canadiens,Buffalo Sabres,2026-01-22,1.2046,0.1314,0.1096,0.241,0.0,0.0,402.6044444444445,1
+Buffalo Sabres,5285701,3,Alex Tuch,Montréal Canadiens,Buffalo Sabres,2026-01-22,1.1706,0.1262,0.1138,0.24,0.0,0.0,402.24000000000007,1
+Buffalo Sabres,5285701,4,Alex Tuch,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.058,0.005,0.0,0.005,0.0,0.0,14.865,1
+Buffalo Sabres,5289768,1,Michael Kesselring,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.6898,0.066,0.123,0.189,0.0,0.0,253.49333333333334,1
+Buffalo Sabres,5289768,2,Michael Kesselring,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.7122,0.0688,0.123,0.1918,0.0,0.0,254.62222222222223,1
+Buffalo Sabres,5289768,3,Michael Kesselring,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.7454,0.0668,0.1132,0.18,0.0,0.0,253.26222222222225,1
+Buffalo Sabres,5289768,4,Michael Kesselring,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.0446,0.004,0.0,0.004,0.0,0.0,11.205,1
+Buffalo Sabres,7767646,1,Bowen Byram,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.7068,0.0618,0.1156,0.1774,0.0,0.0,253.49333333333334,1
+Buffalo Sabres,7767646,2,Bowen Byram,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.7338,0.0758,0.1168,0.1926,0.0,0.0,254.62222222222223,1
+Buffalo Sabres,7767646,3,Bowen Byram,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.7118,0.0828,0.1206,0.2034,0.0,0.0,253.26222222222225,1
+Buffalo Sabres,7767646,4,Bowen Byram,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.0034,0.0002,0.0,0.0002,0.0,0.0,1.575,1
+Buffalo Sabres,8702841,1,Rasmus Dahlin,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.7258,0.074,0.1158,0.1898,0.0,0.0,264.72,1
+Buffalo Sabres,8702841,2,Rasmus Dahlin,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.7524,0.074,0.1268,0.20079999999999998,0.0,0.0,264.1688888888889,1
+Buffalo Sabres,8702841,3,Rasmus Dahlin,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.705,0.08,0.1202,0.2002,0.0,0.0,265.08444444444444,1
+Buffalo Sabres,8702841,4,Rasmus Dahlin,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.0024,0.0,0.0,0.0,0.0,0.0,1.4775,1
+Buffalo Sabres,9726103,1,Beck Malenstyn,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.7512,0.082,0.1126,0.1946,0.0,0.0,277.74222222222227,1
+Buffalo Sabres,9726103,2,Beck Malenstyn,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.7914,0.075,0.1268,0.20179999999999998,0.0,0.0,278.6044444444444,1
+Buffalo Sabres,9726103,3,Beck Malenstyn,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.786,0.0764,0.1248,0.2012,0.0,0.0,279.41333333333336,1
+Buffalo Sabres,9726103,4,Beck Malenstyn,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.0596,0.0046,0.0,0.0046,0.0,0.0,14.4825,1
+Montréal Canadiens,8475848,1,Brendan Gallagher,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.3634,0.0344,0.0604,0.0948,0.0,0.0,204.3022222222222,1
+Montréal Canadiens,8475848,2,Brendan Gallagher,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.3938,0.0412,0.0672,0.1084,0.0,0.0,205.30666666666667,1
+Montréal Canadiens,8475848,3,Brendan Gallagher,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.3706,0.0346,0.0552,0.08979999999999999,0.0,0.0,205.29777777777778,1
+Montréal Canadiens,8476479,1,Phillip Danault,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.465,0.0418,0.072,0.11379999999999998,0.0,0.0,262.9688888888889,1
+Montréal Canadiens,8476479,2,Phillip Danault,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.502,0.048,0.0864,0.13440000000000002,0.0,0.0,263.2977777777778,1
+Montréal Canadiens,8476479,3,Phillip Danault,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.4726,0.0482,0.0718,0.12,0.0,0.0,263.0755555555555,1
+Montréal Canadiens,8476875,1,Mike Matheson,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.617,0.0674,0.082,0.1494,0.1022,0.0,397.22666666666674,1
+Montréal Canadiens,8476875,2,Mike Matheson,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.6288,0.0756,0.0862,0.1618,0.1072,0.0,399.46666666666675,1
+Montréal Canadiens,8476875,3,Mike Matheson,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.6172,0.061,0.0846,0.1456,0.1058,0.0,398.5955555555556,1
+Montréal Canadiens,8476875,4,Mike Matheson,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.0474,0.0054,0.0,0.0054,0.0036,0.0,18.6075,1
+Montréal Canadiens,8476981,1,Josh Anderson,Montréal Canadiens,Buffalo Sabres,2026-01-22,1.1302,0.1166,0.0862,0.20279999999999998,0.0994,0.0,557.3777777777779,1
+Montréal Canadiens,8476981,2,Josh Anderson,Montréal Canadiens,Buffalo Sabres,2026-01-22,1.181,0.13,0.0906,0.22060000000000002,0.1046,0.0,555.8577777777778,1
+Montréal Canadiens,8476981,3,Josh Anderson,Montréal Canadiens,Buffalo Sabres,2026-01-22,1.1338,0.1242,0.0938,0.218,0.0908,0.0,556.1955555555556,1
+Montréal Canadiens,8476981,4,Josh Anderson,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.051,0.0068,0.0,0.0068,0.0032,0.0,19.1925,1
+Montréal Canadiens,8478104,1,Sammy Blais,Montréal Canadiens,Buffalo Sabres,2026-01-22,1.1166,0.1164,0.0792,0.1956,0.0936,0.0,557.3777777777779,1
+Montréal Canadiens,8478104,2,Sammy Blais,Montréal Canadiens,Buffalo Sabres,2026-01-22,1.1768,0.121,0.0922,0.2132,0.1002,0.0,555.8577777777778,1
+Montréal Canadiens,8478104,3,Sammy Blais,Montréal Canadiens,Buffalo Sabres,2026-01-22,1.137,0.1218,0.085,0.2068,0.094,0.0,556.1955555555556,1
+Montréal Canadiens,8478104,4,Sammy Blais,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.0524,0.0054,0.0,0.0054,0.0054,0.0,19.1925,1
+Montréal Canadiens,8478133,1,Jake Evans,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.3798,0.0334,0.0624,0.0958,0.0,0.0,204.3022222222222,1
+Montréal Canadiens,8478133,2,Jake Evans,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.3964,0.0346,0.0698,0.10439999999999999,0.0,0.0,205.30666666666667,1
+Montréal Canadiens,8478133,3,Jake Evans,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.3892,0.0382,0.06,0.0982,0.0,0.0,205.29777777777778,1
+Montréal Canadiens,8478133,4,Jake Evans,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.0356,0.0024,0.0,0.0024,0.0,0.0,12.09,1
+Montréal Canadiens,8478851,1,Alexandre Carrier,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.6546,0.06,0.1,0.16,0.927,0.0,481.9822222222223,1
+Montréal Canadiens,8478851,2,Alexandre Carrier,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.6882,0.0652,0.1036,0.1688,0.984,0.0,479.128888888889,1
+Montréal Canadiens,8478851,3,Alexandre Carrier,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.6538,0.0598,0.1008,0.1606,0.9484,0.0,480.6755555555556,1
+Montréal Canadiens,8478851,4,Alexandre Carrier,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.0602,0.004,0.0,0.004,0.04,0.0,19.1475,1
+Montréal Canadiens,8479339,1,Patrik Laine,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.3058,0.028,0.0524,0.0804,0.0,0.0,175.3511111111111,1
+Montréal Canadiens,8479339,2,Patrik Laine,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.3368,0.0308,0.0504,0.0812,0.0,0.0,175.53777777777776,1
+Montréal Canadiens,8479339,3,Patrik Laine,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.3386,0.0304,0.057,0.0874,0.0,0.0,175.4311111111111,1
+Montréal Canadiens,8479339,4,Patrik Laine,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.0286,0.0028,0.0,0.0028,0.0,0.0,9.63,1
+Montréal Canadiens,8480865,1,Noah Dobson,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.6666,0.058,0.1034,0.16140000000000002,0.9006,0.0,481.9822222222223,1
+Montréal Canadiens,8480865,2,Noah Dobson,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.6796,0.0636,0.1076,0.17120000000000002,0.9566,0.0,479.128888888889,1
+Montréal Canadiens,8480865,3,Noah Dobson,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.6682,0.0674,0.1028,0.17020000000000002,0.9252,0.0,480.6755555555556,1
+Montréal Canadiens,8480865,4,Noah Dobson,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.0018,0.0,0.0,0.0,0.044,0.0,0.2925,1
+Montréal Canadiens,8481523,1,Kirby Dach,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.471,0.0448,0.0774,0.1222,0.0,0.0,262.9688888888889,1
+Montréal Canadiens,8481523,2,Kirby Dach,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.496,0.047,0.0868,0.1338,0.0,0.0,263.2977777777778,1
+Montréal Canadiens,8481523,3,Kirby Dach,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.4648,0.0404,0.083,0.12340000000000001,0.0,0.0,263.0755555555555,1
+Montréal Canadiens,8481523,4,Kirby Dach,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.0338,0.003,0.0,0.003,0.0,0.0,13.2075,1
+Montréal Canadiens,8481540,1,Cole Caufield,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.4894,0.0452,0.0758,0.121,0.0,0.0,262.9688888888889,1
+Montréal Canadiens,8481540,2,Cole Caufield,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.4896,0.0498,0.081,0.1308,0.0,0.0,263.2977777777778,1
+Montréal Canadiens,8481540,3,Cole Caufield,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.4904,0.047,0.0846,0.1316,0.0,0.0,263.0755555555555,1
+Montréal Canadiens,8481540,4,Cole Caufield,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.0358,0.004,0.0,0.004,0.0,0.0,13.2075,1
+Montréal Canadiens,8481593,1,Jayden Struble,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.6036,0.0676,0.0866,0.1542,0.0942,0.0,397.22666666666674,1
+Montréal Canadiens,8481593,2,Jayden Struble,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.644,0.0666,0.0874,0.15400000000000003,0.1036,0.0,399.46666666666675,1
+Montréal Canadiens,8481593,3,Jayden Struble,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.6214,0.0682,0.0784,0.1466,0.0968,0.0,398.5955555555556,1
+Montréal Canadiens,8481593,4,Jayden Struble,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.0142,0.0012,0.0,0.0012,0.0044,0.0,5.4,1
+Montréal Canadiens,8481618,1,Alex Newhook,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.3388,0.0326,0.048,0.0806,0.0,0.0,175.3511111111111,1
+Montréal Canadiens,8481618,2,Alex Newhook,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.328,0.0324,0.053,0.0854,0.0,0.0,175.53777777777776,1
+Montréal Canadiens,8481618,3,Alex Newhook,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.3414,0.0328,0.0546,0.0874,0.0,0.0,175.4311111111111,1
+Montréal Canadiens,8482087,1,Kaiden Guhle,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.4478,0.043,0.0958,0.13879999999999998,0.0,0.0,332.5066666666667,1
+Montréal Canadiens,8482087,2,Kaiden Guhle,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.472,0.049,0.085,0.134,0.0,0.0,332.4444444444445,1
+Montréal Canadiens,8482087,3,Kaiden Guhle,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.4522,0.04,0.096,0.136,0.0,0.0,332.24000000000007,1
+Montréal Canadiens,8482087,4,Kaiden Guhle,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.049,0.005,0.0,0.005,0.0,0.0,16.6575,1
+Montréal Canadiens,8482487,1,Jakub Dobes,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.0,0.0,0.0,0.0,0.0,8.9078,1199.9999999999998,1
+Montréal Canadiens,8482487,2,Jakub Dobes,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.0,0.0,0.0,0.0,0.0,9.3338,1199.9999999999998,1
+Montréal Canadiens,8482487,3,Jakub Dobes,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.0,0.0,0.0,0.0,0.0,9.0956,1199.9999999999998,1
+Montréal Canadiens,8482487,4,Jakub Dobes,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.4028,54.12,1
+Montréal Canadiens,8482737,1,Zachary Bolduc,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.821,0.0838,0.0786,0.1624,0.0,0.0,438.5066666666667,1
+Montréal Canadiens,8482737,2,Zachary Bolduc,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.8356,0.0842,0.0946,0.17880000000000001,0.0,0.0,436.4177777777778,1
+Montréal Canadiens,8482737,3,Zachary Bolduc,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.8334,0.0762,0.0794,0.15560000000000002,0.0,0.0,437.1911111111112,1
+Montréal Canadiens,8482775,1,Oliver Kapanen,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.319,0.0294,0.0554,0.0848,0.0,0.0,175.3511111111111,1
+Montréal Canadiens,8482775,2,Oliver Kapanen,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.3482,0.0312,0.0562,0.0874,0.0,0.0,175.53777777777776,1
+Montréal Canadiens,8482775,3,Oliver Kapanen,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.318,0.027,0.0456,0.0726,0.0,0.0,175.4311111111111,1
+Montréal Canadiens,8482775,4,Oliver Kapanen,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.0266,0.0024,0.0,0.0024,0.0,0.0,9.63,1
+Montréal Canadiens,8483457,1,Lane Hutson,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.6564,0.0708,0.0914,0.1622,0.0,0.0,427.9466666666667,1
+Montréal Canadiens,8483457,2,Lane Hutson,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.6974,0.0802,0.1044,0.1846,0.0,0.0,429.80444444444447,1
+Montréal Canadiens,8483457,3,Lane Hutson,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.6678,0.0732,0.0838,0.157,0.0,0.0,428.2222222222223,1
+Montréal Canadiens,8483457,4,Lane Hutson,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.01,0.0018,0.0,0.0018,0.0,0.0,5.4,1
+Montréal Canadiens,8484984,1,Ivan Demidov,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.3814,0.0384,0.0566,0.095,0.0,0.0,204.3022222222222,1
+Montréal Canadiens,8484984,2,Ivan Demidov,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.3986,0.0376,0.0698,0.1074,0.0,0.0,205.30666666666667,1
+Montréal Canadiens,8484984,3,Ivan Demidov,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.3638,0.031,0.0634,0.0944,0.0,0.0,205.29777777777778,1
+Montréal Canadiens,8484984,4,Ivan Demidov,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.0344,0.002,0.0,0.002,0.0,0.0,12.09,1
+Buffalo Sabres,1558593,0,Ryan McLeod,Montréal Canadiens,Buffalo Sabres,2026-01-22,2.259,0.235,0.3556,0.5906,0.0,0.0,807.5408333333334,1
+Buffalo Sabres,1938824,0,Mattias Samuelsson,Montréal Canadiens,Buffalo Sabres,2026-01-22,2.273,0.2232,0.3616,0.5848,0.0,0.0,807.5408333333334,1
+Buffalo Sabres,2936073,0,Jordan Greenway,Montréal Canadiens,Buffalo Sabres,2026-01-22,3.4878,0.3718,0.3334,0.7052,0.0,0.0,1210.253888888889,1
+Buffalo Sabres,2937037,0,Tage Thompson,Montréal Canadiens,Buffalo Sabres,2026-01-22,2.4434,0.2536,0.3594,0.613,0.0,0.0,850.2425000000001,1
+Buffalo Sabres,3966939,0,Peyton Krebs,Montréal Canadiens,Buffalo Sabres,2026-01-22,2.1586,0.2294,0.3684,0.5978,0.0,0.0,772.5827777777778,1
+Buffalo Sabres,4194538,0,Jacob Bryson,Montréal Canadiens,Buffalo Sabres,2026-01-22,2.318,0.2386,0.3632,0.6018,0.0,0.0,837.0350000000001,1
+Buffalo Sabres,4198967,0,Jason Zucker,Montréal Canadiens,Buffalo Sabres,2026-01-22,3.5086,0.3642,0.335,0.6992,0.0,0.0,1223.753888888889,1
+Buffalo Sabres,5285701,0,Alex Tuch,Montréal Canadiens,Buffalo Sabres,2026-01-22,3.5612,0.3832,0.3336,0.7168,0.0,0.0,1223.753888888889,1
+Buffalo Sabres,5289768,0,Michael Kesselring,Montréal Canadiens,Buffalo Sabres,2026-01-22,2.192,0.2056,0.3592,0.5648,0.0,0.0,772.5827777777778,1
+Buffalo Sabres,7767646,0,Bowen Byram,Montréal Canadiens,Buffalo Sabres,2026-01-22,2.1558,0.2206,0.353,0.5736,0.0,0.0,762.9527777777778,1
+Buffalo Sabres,8702841,0,Rasmus Dahlin,Montréal Canadiens,Buffalo Sabres,2026-01-22,2.1856,0.228,0.3628,0.5908,0.0,0.0,795.4508333333334,1
+Buffalo Sabres,9726103,0,Beck Malenstyn,Montréal Canadiens,Buffalo Sabres,2026-01-22,2.3882,0.238,0.3642,0.6022000000000001,0.0,0.0,850.2425000000001,1
+Montréal Canadiens,8475848,0,Brendan Gallagher,Montréal Canadiens,Buffalo Sabres,2026-01-22,1.1278,0.1102,0.1828,0.293,0.0,0.0,614.9066666666668,1
+Montréal Canadiens,8476479,0,Phillip Danault,Montréal Canadiens,Buffalo Sabres,2026-01-22,1.4396,0.138,0.2302,0.36819999999999997,0.0,0.0,789.3422222222223,1
+Montréal Canadiens,8476875,0,Mike Matheson,Montréal Canadiens,Buffalo Sabres,2026-01-22,1.9104,0.2094,0.2528,0.46220000000000006,0.3188,0.0,1213.896388888889,1
+Montréal Canadiens,8476981,0,Josh Anderson,Montréal Canadiens,Buffalo Sabres,2026-01-22,3.496,0.3776,0.2706,0.6482,0.298,0.0,1688.6236111111114,1
+Montréal Canadiens,8478104,0,Sammy Blais,Montréal Canadiens,Buffalo Sabres,2026-01-22,3.4828,0.3646,0.2564,0.621,0.2932,0.0,1688.6236111111114,1
+Montréal Canadiens,8478133,0,Jake Evans,Montréal Canadiens,Buffalo Sabres,2026-01-22,1.201,0.1086,0.1922,0.3008,0.0,0.0,626.9966666666667,1
+Montréal Canadiens,8478851,0,Alexandre Carrier,Montréal Canadiens,Buffalo Sabres,2026-01-22,2.0568,0.189,0.3044,0.4934,2.8994,0.0,1460.934166666667,1
+Montréal Canadiens,8479339,0,Patrik Laine,Montréal Canadiens,Buffalo Sabres,2026-01-22,1.0098,0.092,0.1598,0.2518,0.0,0.0,535.9499999999999,1
+Montréal Canadiens,8480865,0,Noah Dobson,Montréal Canadiens,Buffalo Sabres,2026-01-22,2.0162,0.189,0.3138,0.5028,2.8264,0.0,1442.0791666666669,1
+Montréal Canadiens,8481523,0,Kirby Dach,Montréal Canadiens,Buffalo Sabres,2026-01-22,1.4656,0.1352,0.2472,0.38239999999999996,0.0,0.0,802.5497222222223,1
+Montréal Canadiens,8481540,0,Cole Caufield,Montréal Canadiens,Buffalo Sabres,2026-01-22,1.5052,0.146,0.2414,0.38739999999999997,0.0,0.0,802.5497222222223,1
+Montréal Canadiens,8481593,0,Jayden Struble,Montréal Canadiens,Buffalo Sabres,2026-01-22,1.8832,0.2036,0.2524,0.456,0.299,0.0,1200.688888888889,1
+Montréal Canadiens,8481618,0,Alex Newhook,Montréal Canadiens,Buffalo Sabres,2026-01-22,1.0082,0.0978,0.1556,0.25339999999999996,0.0,0.0,526.3199999999999,1
+Montréal Canadiens,8482087,0,Kaiden Guhle,Montréal Canadiens,Buffalo Sabres,2026-01-22,1.421,0.137,0.2768,0.4138,0.0,0.0,1013.8486111111113,1
+Montréal Canadiens,8482487,0,Jakub Dobes,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.0,0.0,0.0,0.0,0.0,27.74,3654.1199999999994,1
+Montréal Canadiens,8482737,0,Zachary Bolduc,Montréal Canadiens,Buffalo Sabres,2026-01-22,2.49,0.2442,0.2526,0.4968,0.0,0.0,1312.1155555555558,1
+Montréal Canadiens,8482775,0,Oliver Kapanen,Montréal Canadiens,Buffalo Sabres,2026-01-22,1.0118,0.09,0.1572,0.2472,0.0,0.0,535.9499999999999,1
+Montréal Canadiens,8483457,0,Lane Hutson,Montréal Canadiens,Buffalo Sabres,2026-01-22,2.0316,0.226,0.2796,0.5056,0.0,0.0,1291.3733333333337,1
+Montréal Canadiens,8484984,0,Ivan Demidov,Montréal Canadiens,Buffalo Sabres,2026-01-22,1.1782,0.109,0.1898,0.2988,0.0,0.0,626.9966666666667,1
+Montréal Canadiens,8483515,0,Juraj Slafkovský,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Montréal Canadiens,8480018,0,Nick Suzuki,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Montréal Canadiens,8480074,0,Alexandre Texier,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Montréal Canadiens,8480813,0,Joe Veleno,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Montréal Canadiens,8482964,0,Arber Xhekaj,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Montréal Canadiens,8478470,0,Samuel Montembeault,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Buffalo Sabres,7509596,0,Jack Quinn,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Buffalo Sabres,2460918,0,Josh Dunne,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Buffalo Sabres,3538459,0,Josh Doan,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Buffalo Sabres,2536743,0,Owen Power,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Buffalo Sabres,9282051,0,Isak Rosen,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Buffalo Sabres,1607739,0,Noah Östlund,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Buffalo Sabres,2583231,0,Zach Benson,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Buffalo Sabres,5875976,0,Konsta Helenius,Montréal Canadiens,Buffalo Sabres,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Carolina Hurricanes,2115812,1,Seth Jarvis,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.8248,0.0824,0.1234,0.20579999999999998,0.0,0.0,293.7066666666667,1
+Carolina Hurricanes,2115812,2,Seth Jarvis,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.8674,0.0848,0.1292,0.21400000000000002,0.0,0.0,294.0444444444444,1
+Carolina Hurricanes,2115812,3,Seth Jarvis,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.8528,0.0874,0.1252,0.2126,0.0,0.0,294.1777777777778,1
+Carolina Hurricanes,2115812,4,Seth Jarvis,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.0074,0.0006,0.0,0.0006,0.0,0.0,2.7375,1
+Carolina Hurricanes,2613409,1,Taylor Hall,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.89,0.083,0.1218,0.2048,0.0,0.0,317.3955555555556,1
+Carolina Hurricanes,2613409,2,Taylor Hall,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.9296,0.0894,0.1342,0.22360000000000002,0.0,0.0,316.0266666666667,1
+Carolina Hurricanes,2613409,3,Taylor Hall,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.931,0.0874,0.1292,0.21660000000000001,0.0,0.0,316.85333333333335,1
+Carolina Hurricanes,2613409,4,Taylor Hall,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.0612,0.0052,0.0,0.0052,0.0,0.0,15.8175,1
+Carolina Hurricanes,3025714,1,Sean Walker,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.8662,0.0832,0.1246,0.20779999999999998,0.0,0.0,305.68000000000006,1
+Carolina Hurricanes,3025714,2,Sean Walker,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.9204,0.0936,0.127,0.22060000000000002,0.0,0.0,307.0488888888889,1
+Carolina Hurricanes,3025714,3,Sean Walker,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.8714,0.0852,0.1308,0.216,0.0,0.0,306.0355555555556,1
+Carolina Hurricanes,3025714,4,Sean Walker,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.008,0.0004,0.0,0.0004,0.0,0.0,2.3325,1
+Carolina Hurricanes,3241796,1,Andrei Svechnikov,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.8536,0.0802,0.1208,0.201,0.0,0.0,293.7066666666667,1
+Carolina Hurricanes,3241796,2,Andrei Svechnikov,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.868,0.0882,0.1266,0.2148,0.0,0.0,294.0444444444444,1
+Carolina Hurricanes,3241796,3,Andrei Svechnikov,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.855,0.0854,0.127,0.2124,0.0,0.0,294.1777777777778,1
+Carolina Hurricanes,3241796,4,Andrei Svechnikov,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.0472,0.0036,0.0,0.0036,0.0,0.0,12.9675,1
+Carolina Hurricanes,3748554,1,Sebastian Aho,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.875,0.0866,0.1284,0.21499999999999997,0.0,0.0,305.68000000000006,1
+Carolina Hurricanes,3748554,2,Sebastian Aho,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.9162,0.0862,0.1318,0.218,0.0,0.0,307.0488888888889,1
+Carolina Hurricanes,3748554,3,Sebastian Aho,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.902,0.0904,0.1296,0.21999999999999997,0.0,0.0,306.0355555555556,1
+Carolina Hurricanes,3748554,4,Sebastian Aho,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.0668,0.005,0.0,0.005,0.0,0.0,14.505,1
+Carolina Hurricanes,4782701,1,Nikolaj Ehlers,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.88,0.0878,0.1258,0.2136,0.0,0.0,305.68000000000006,1
+Carolina Hurricanes,4782701,2,Nikolaj Ehlers,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.911,0.0952,0.133,0.22820000000000001,0.0,0.0,307.0488888888889,1
+Carolina Hurricanes,4782701,3,Nikolaj Ehlers,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.8742,0.0956,0.1268,0.2224,0.0,0.0,306.0355555555556,1
+Carolina Hurricanes,4782701,4,Nikolaj Ehlers,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.0576,0.0056,0.0,0.0056,0.0,0.0,14.505,1
+Carolina Hurricanes,5406928,1,K'Andre Miller,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.8128,0.0762,0.1258,0.202,0.0,0.0,293.7066666666667,1
+Carolina Hurricanes,5406928,2,K'Andre Miller,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.899,0.0822,0.1372,0.21939999999999998,0.0,0.0,294.0444444444444,1
+Carolina Hurricanes,5406928,3,K'Andre Miller,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.8536,0.0836,0.1238,0.20739999999999997,0.0,0.0,294.1777777777778,1
+Carolina Hurricanes,5406928,4,K'Andre Miller,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.051,0.006,0.0,0.006,0.0,0.0,12.9675,1
+Carolina Hurricanes,6004859,1,Logan Stankoven,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,1.1806,0.1194,0.1138,0.23320000000000002,0.0,0.0,283.2177777777778,1
+Carolina Hurricanes,6004859,2,Logan Stankoven,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,1.273,0.1348,0.1298,0.2646,0.0,0.0,282.88000000000005,1
+Carolina Hurricanes,6004859,3,Logan Stankoven,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,1.2658,0.1238,0.1202,0.244,0.0,0.0,282.93333333333334,1
+Carolina Hurricanes,6004859,4,Logan Stankoven,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.0414,0.0042,0.0,0.0042,0.0,0.0,10.47,1
+Carolina Hurricanes,6932456,1,Jackson Blake,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,1.191,0.1138,0.1158,0.2296,0.0,0.0,283.2177777777778,1
+Carolina Hurricanes,6932456,2,Jackson Blake,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,1.2694,0.127,0.1204,0.2474,0.0,0.0,282.88000000000005,1
+Carolina Hurricanes,6932456,3,Jackson Blake,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,1.2572,0.1282,0.127,0.2552,0.0,0.0,282.93333333333334,1
+Carolina Hurricanes,6932456,4,Jackson Blake,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.0454,0.0048,0.0,0.0048,0.0,0.0,10.47,1
+Carolina Hurricanes,8570961,1,Shayne Gostisbehere,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.911,0.093,0.118,0.211,0.0,0.0,317.3955555555556,1
+Carolina Hurricanes,8570961,2,Shayne Gostisbehere,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.9466,0.0832,0.1308,0.214,0.0,0.0,316.0266666666667,1
+Carolina Hurricanes,8570961,3,Shayne Gostisbehere,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.9046,0.0892,0.1306,0.2198,0.0,0.0,316.85333333333335,1
+Carolina Hurricanes,8570961,4,Shayne Gostisbehere,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.0104,0.001,0.0,0.001,0.0,0.0,2.7225,1
+Carolina Hurricanes,8743378,1,Jordan Staal,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.8978,0.0908,0.123,0.2138,0.0,0.0,317.3955555555556,1
+Carolina Hurricanes,8743378,2,Jordan Staal,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.9572,0.0876,0.1278,0.21539999999999998,0.0,0.0,316.0266666666667,1
+Carolina Hurricanes,8743378,3,Jordan Staal,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.9144,0.0884,0.1328,0.2212,0.0,0.0,316.85333333333335,1
+Carolina Hurricanes,8743378,4,Jordan Staal,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.0636,0.0076,0.0,0.0076,0.0,0.0,15.8175,1
+Chicago Blackhawks,8473422,1,Nick Foligno,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.364,0.0364,0.0592,0.0956,0.0,0.0,202.08,1
+Chicago Blackhawks,8473422,2,Nick Foligno,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.394,0.039,0.06,0.099,0.0,0.0,202.44444444444446,1
+Chicago Blackhawks,8473422,3,Nick Foligno,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.3718,0.037,0.0674,0.10439999999999999,0.0,0.0,202.6311111111111,1
+Chicago Blackhawks,8473422,4,Nick Foligno,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.0294,0.003,0.0,0.003,0.0,0.0,10.23,1
+Chicago Blackhawks,8476473,1,Connor Murphy,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.8696,0.0908,0.0866,0.1774,0.0556,0.0,482.7200000000001,1
+Chicago Blackhawks,8476473,2,Connor Murphy,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.9,0.0932,0.0852,0.1784,0.0598,0.0,482.0711111111112,1
+Chicago Blackhawks,8476473,3,Connor Murphy,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.8972,0.09,0.0842,0.1742,0.059,0.0,481.2622222222223,1
+Chicago Blackhawks,8476473,4,Connor Murphy,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.055,0.0066,0.0,0.0066,0.002,0.0,22.2375,1
+Chicago Blackhawks,8476882,1,Teuvo Teravainen,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.0484,0.005,0.077,0.082,0.0388,0.0,25.564444444444444,1
+Chicago Blackhawks,8476882,2,Teuvo Teravainen,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.0544,0.0062,0.0778,0.08399999999999999,0.0424,0.0,25.626666666666665,1
+Chicago Blackhawks,8476882,3,Teuvo Teravainen,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.053,0.0064,0.0888,0.0952,0.0424,0.0,25.6,1
+Chicago Blackhawks,8476882,4,Teuvo Teravainen,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.0012,0.0,0.0,0.0,0.0018,0.0,0.45,1
+Chicago Blackhawks,8476891,1,Matt Grzelcyk,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.521,0.0466,0.108,0.15460000000000002,1.0182,0.0,383.03111111111116,1
+Chicago Blackhawks,8476891,2,Matt Grzelcyk,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.5578,0.059,0.11,0.16899999999999998,1.0396,0.0,383.4844444444445,1
+Chicago Blackhawks,8476891,3,Matt Grzelcyk,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.5122,0.0502,0.1058,0.156,1.0234,0.0,383.7155555555556,1
+Chicago Blackhawks,8476891,4,Matt Grzelcyk,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.0008,0.0004,0.0,0.0004,0.047,0.0,0.45,1
+Chicago Blackhawks,8477444,1,Andre Burakovsky,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.584,0.0562,0.0836,0.13979999999999998,0.0,0.0,310.7377777777778,1
+Chicago Blackhawks,8477444,2,Andre Burakovsky,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.6016,0.0606,0.0806,0.1412,0.0,0.0,310.70222222222225,1
+Chicago Blackhawks,8477444,3,Andre Burakovsky,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.556,0.0584,0.0826,0.14100000000000001,0.0,0.0,311.35111111111115,1
+Chicago Blackhawks,8477450,1,Jason Dickinson,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.4592,0.0502,0.0692,0.1194,0.0,0.0,256.71111111111117,1
+Chicago Blackhawks,8477450,2,Jason Dickinson,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.502,0.0506,0.0706,0.1212,0.0,0.0,256.85333333333335,1
+Chicago Blackhawks,8477450,3,Jason Dickinson,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.4712,0.0498,0.0768,0.1266,0.0,0.0,257.1466666666667,1
+Chicago Blackhawks,8477450,4,Jason Dickinson,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.038,0.004,0.0,0.004,0.0,0.0,12.1725,1
+Chicago Blackhawks,8477479,1,Tyler Bertuzzi,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.608,0.0604,0.0828,0.1432,0.0,0.0,322.2666666666667,1
+Chicago Blackhawks,8477479,2,Tyler Bertuzzi,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.6076,0.061,0.0938,0.1548,0.0,0.0,322.29333333333335,1
+Chicago Blackhawks,8477479,3,Tyler Bertuzzi,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.604,0.0636,0.0824,0.14600000000000002,0.0,0.0,322.2844444444445,1
+Chicago Blackhawks,8477479,4,Tyler Bertuzzi,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.0382,0.0036,0.0,0.0036,0.0,0.0,13.29,1
+Chicago Blackhawks,8477987,1,Ryan Donato,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.4684,0.0492,0.0758,0.125,0.0,0.0,256.71111111111117,1
+Chicago Blackhawks,8477987,2,Ryan Donato,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.49,0.0452,0.0836,0.1288,0.0,0.0,256.85333333333335,1
+Chicago Blackhawks,8477987,3,Ryan Donato,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.47,0.0444,0.0778,0.1222,0.0,0.0,257.1466666666667,1
+Chicago Blackhawks,8478043,1,Sam Lafferty,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.3628,0.0368,0.064,0.1008,0.0,0.0,202.08,1
+Chicago Blackhawks,8478043,2,Sam Lafferty,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.3818,0.0378,0.0616,0.0994,0.0,0.0,202.44444444444446,1
+Chicago Blackhawks,8478043,3,Sam Lafferty,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.37,0.0408,0.0604,0.10120000000000001,0.0,0.0,202.6311111111111,1
+Chicago Blackhawks,8481519,1,Spencer Knight,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.0,0.0,0.0,0.0,0.0,9.1864,1199.9999999999998,1
+Chicago Blackhawks,8481519,2,Spencer Knight,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.0,0.0,0.0,0.0,0.0,9.7056,1199.9999999999998,1
+Chicago Blackhawks,8481519,3,Spencer Knight,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.0,0.0,0.0,0.0,0.0,9.4374,1199.9999999999998,1
+Chicago Blackhawks,8481519,4,Spencer Knight,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.416,53.76,1
+Chicago Blackhawks,8481568,1,Alex Vlasic,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.495,0.05,0.077,0.127,0.0,0.0,267.5111111111111,1
+Chicago Blackhawks,8481568,2,Alex Vlasic,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.5008,0.0556,0.08,0.1356,0.0,0.0,267.4488888888889,1
+Chicago Blackhawks,8481568,3,Alex Vlasic,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.5116,0.0608,0.0838,0.1446,0.0,0.0,268.0977777777778,1
+Chicago Blackhawks,8481624,1,Ilya Mikheyev,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.4004,0.0426,0.0418,0.0844,0.0,0.0,189.6977777777778,1
+Chicago Blackhawks,8481624,2,Ilya Mikheyev,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.4234,0.049,0.053,0.10200000000000001,0.0,0.0,189.7511111111111,1
+Chicago Blackhawks,8481624,3,Ilya Mikheyev,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.4006,0.0418,0.049,0.09079999999999999,0.0,0.0,190.10666666666668,1
+Chicago Blackhawks,8481624,4,Ilya Mikheyev,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.017,0.0016,0.0,0.0016,0.0,0.0,7.74,1
+Chicago Blackhawks,8481806,1,Louis Crevier,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.5002,0.0474,0.1042,0.1516,1.002,0.0,383.03111111111116,1
+Chicago Blackhawks,8481806,2,Louis Crevier,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.5408,0.0572,0.111,0.16820000000000002,1.0718,0.0,383.4844444444445,1
+Chicago Blackhawks,8481806,3,Louis Crevier,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.5346,0.058,0.1134,0.1714,1.009,0.0,383.7155555555556,1
+Chicago Blackhawks,8481806,4,Louis Crevier,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.0474,0.0042,0.0,0.0042,0.0466,0.0,17.34,1
+Chicago Blackhawks,8482176,1,Wyatt Kaiser,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.7018,0.0734,0.0848,0.1582,0.0444,0.0,456.8444444444445,1
+Chicago Blackhawks,8482176,2,Wyatt Kaiser,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.7346,0.0758,0.0976,0.1734,0.0458,0.0,457.9644444444445,1
+Chicago Blackhawks,8482176,3,Wyatt Kaiser,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.7094,0.0832,0.088,0.1712,0.0482,0.0,457.83111111111117,1
+Chicago Blackhawks,8482176,4,Wyatt Kaiser,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.0516,0.0066,0.0,0.0066,0.0014,0.0,19.6425,1
+Chicago Blackhawks,8482703,1,Colton Dach,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.4776,0.0458,0.0688,0.11460000000000001,0.0,0.0,256.71111111111117,1
+Chicago Blackhawks,8482703,2,Colton Dach,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.5004,0.053,0.0752,0.1282,0.0,0.0,256.85333333333335,1
+Chicago Blackhawks,8482703,3,Colton Dach,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.4724,0.0454,0.0728,0.1182,0.0,0.0,257.1466666666667,1
+Chicago Blackhawks,8482703,4,Colton Dach,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.0334,0.0024,0.0,0.0024,0.0,0.0,12.1725,1
+Chicago Blackhawks,8483450,1,Ryan Greene,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.3698,0.0368,0.0574,0.0942,0.0,0.0,202.08,1
+Chicago Blackhawks,8483450,2,Ryan Greene,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.401,0.0384,0.0694,0.1078,0.0,0.0,202.44444444444446,1
+Chicago Blackhawks,8483450,3,Ryan Greene,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.3724,0.0438,0.0598,0.1036,0.0,0.0,202.6311111111111,1
+Chicago Blackhawks,8483450,4,Ryan Greene,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.0286,0.0022,0.0,0.0022,0.0,0.0,10.23,1
+Chicago Blackhawks,8484144,1,Connor Bedard,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,1.0248,0.1138,0.0846,0.1984,0.0506,0.0,537.4755555555556,1
+Chicago Blackhawks,8484144,2,Connor Bedard,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,1.0746,0.1076,0.0868,0.19440000000000002,0.0564,0.0,536.9155555555556,1
+Chicago Blackhawks,8484144,3,Connor Bedard,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,1.0404,0.1104,0.096,0.2064,0.0518,0.0,535.448888888889,1
+Chicago Blackhawks,8484144,4,Connor Bedard,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.0606,0.0062,0.0,0.0062,0.0028,0.0,23.3625,1
+Chicago Blackhawks,8484197,1,Oliver Moore,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.8338,0.0928,0.048,0.14079999999999998,0.0526,0.0,404.90666666666675,1
+Chicago Blackhawks,8484197,2,Oliver Moore,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.9092,0.0902,0.0636,0.1538,0.053,0.0,404.3733333333334,1
+Chicago Blackhawks,8484197,3,Oliver Moore,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.901,0.1002,0.0642,0.1644,0.0546,0.0,403.27111111111117,1
+Chicago Blackhawks,8484197,4,Oliver Moore,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.0424,0.005,0.0,0.005,0.002,0.0,17.8125,1
+Chicago Blackhawks,8484783,1,Artyom Levshunov,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.8198,0.082,0.0928,0.1748,0.0522,0.0,549.4577777777778,1
+Chicago Blackhawks,8484783,2,Artyom Levshunov,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.8472,0.0978,0.0974,0.19519999999999998,0.0628,0.0,549.0666666666667,1
+Chicago Blackhawks,8484783,3,Artyom Levshunov,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.8084,0.0874,0.0928,0.1802,0.0538,0.0,548.1866666666667,1
+Chicago Blackhawks,8484783,4,Artyom Levshunov,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.0168,0.0014,0.0,0.0014,0.0022,0.0,10.0725,1
+Carolina Hurricanes,2115812,0,Seth Jarvis,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,2.5524,0.2552,0.3778,0.633,0.0,0.0,884.666388888889,1
+Carolina Hurricanes,2613409,0,Taylor Hall,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,2.8118,0.265,0.3852,0.6502,0.0,0.0,966.0930555555557,1
+Carolina Hurricanes,3025714,0,Sean Walker,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,2.666,0.2624,0.3824,0.6448,0.0,0.0,921.0969444444446,1
+Carolina Hurricanes,3241796,0,Andrei Svechnikov,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,2.6238,0.2574,0.3744,0.6318,0.0,0.0,894.896388888889,1
+Carolina Hurricanes,3748554,0,Sebastian Aho,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,2.76,0.2682,0.3898,0.6579999999999999,0.0,0.0,933.2694444444446,1
+Carolina Hurricanes,4782701,0,Nikolaj Ehlers,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,2.7228,0.2842,0.3856,0.6698,0.0,0.0,933.2694444444446,1
+Carolina Hurricanes,5406928,0,K'Andre Miller,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,2.6164,0.248,0.3868,0.6348,0.0,0.0,894.896388888889,1
+Carolina Hurricanes,6004859,0,Logan Stankoven,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,3.7608,0.3822,0.3638,0.746,0.0,0.0,859.5011111111112,1
+Carolina Hurricanes,6932456,0,Jackson Blake,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,3.763,0.3738,0.3632,0.7370000000000001,0.0,0.0,859.5011111111112,1
+Carolina Hurricanes,8570961,0,Shayne Gostisbehere,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,2.7726,0.2664,0.3794,0.6458,0.0,0.0,952.9980555555557,1
+Carolina Hurricanes,8743378,0,Jordan Staal,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,2.833,0.2744,0.3836,0.6579999999999999,0.0,0.0,966.0930555555557,1
+Chicago Blackhawks,8473422,0,Nick Foligno,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,1.1592,0.1154,0.1866,0.302,0.0,0.0,617.3855555555556,1
+Chicago Blackhawks,8476473,0,Connor Murphy,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,2.7218,0.2806,0.256,0.5366,0.1764,0.0,1468.2908333333337,1
+Chicago Blackhawks,8476882,0,Teuvo Teravainen,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.157,0.0176,0.2436,0.2612,0.1254,0.0,686.771046386192,1
+Chicago Blackhawks,8476891,0,Matt Grzelcyk,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,1.5918,0.1562,0.3238,0.48,3.1282,0.0,1150.6811111111112,1
+Chicago Blackhawks,8477444,0,Andre Burakovsky,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,1.7416,0.1752,0.2468,0.422,0.0,0.0,932.7911111111111,1
+Chicago Blackhawks,8477450,0,Jason Dickinson,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,1.4704,0.1546,0.2166,0.3712,0.0,0.0,782.8836111111112,1
+Chicago Blackhawks,8477479,0,Tyler Bertuzzi,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,1.8578,0.1886,0.259,0.4476,0.0,0.0,980.1344444444446,1
+Chicago Blackhawks,8477987,0,Ryan Donato,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,1.4284,0.1388,0.2372,0.376,0.0,0.0,770.7111111111112,1
+Chicago Blackhawks,8478043,0,Sam Lafferty,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,1.1146,0.1154,0.186,0.3014,0.0,0.0,607.1555555555556,1
+Chicago Blackhawks,8481519,0,Spencer Knight,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.0,0.0,0.0,0.0,0.0,28.7454,3653.7599999999993,1
+Chicago Blackhawks,8481568,0,Alex Vlasic,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,1.5074,0.1664,0.2408,0.4072,0.0,0.0,803.0577777777778,1
+Chicago Blackhawks,8481624,0,Ilya Mikheyev,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,1.2414,0.135,0.1438,0.27880000000000005,0.0,0.0,577.2955555555556,1
+Chicago Blackhawks,8481806,0,Louis Crevier,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,1.623,0.1668,0.3286,0.4954,3.1294,0.0,1167.5711111111113,1
+Chicago Blackhawks,8482176,0,Wyatt Kaiser,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,2.1974,0.239,0.2704,0.5094,0.1398,0.0,1392.2825000000003,1
+Chicago Blackhawks,8482703,0,Colton Dach,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,1.4838,0.1466,0.2168,0.3634,0.0,0.0,782.8836111111112,1
+Chicago Blackhawks,8483450,0,Ryan Greene,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,1.1718,0.1212,0.1866,0.30779999999999996,0.0,0.0,617.3855555555556,1
+Chicago Blackhawks,8484144,0,Connor Bedard,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,3.2004,0.338,0.2674,0.6054,0.1616,0.0,1633.2025,1
+Chicago Blackhawks,8484197,0,Oliver Moore,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,2.6864,0.2882,0.1758,0.464,0.1622,0.0,1230.3636111111114,1
+Chicago Blackhawks,8484783,0,Artyom Levshunov,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,2.4922,0.2686,0.283,0.5516,0.171,0.0,1656.7836111111112,1
+Chicago Blackhawks,8483493,0,Frank Nazar,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Chicago Blackhawks,8482172,0,Landon Slaggert,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Chicago Blackhawks,8483506,0,Sam Rinzel,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Chicago Blackhawks,8482821,0,Arvid Soderblom,Carolina Hurricanes,Chicago Blackhawks,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Columbus Blue Jackets,1564706,1,Ivan Provorov,Columbus Blue Jackets,Dallas Stars,2026-01-22,1.184,0.1168,0.2078,0.3246,0.0,0.0,400.2044444444445,1
+Columbus Blue Jackets,1564706,2,Ivan Provorov,Columbus Blue Jackets,Dallas Stars,2026-01-22,1.171,0.1174,0.2178,0.3352,0.0,0.0,401.1288888888889,1
+Columbus Blue Jackets,1564706,3,Ivan Provorov,Columbus Blue Jackets,Dallas Stars,2026-01-22,1.1702,0.1132,0.208,0.3212,0.0,0.0,399.5644444444445,1
+Columbus Blue Jackets,1564706,4,Ivan Provorov,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.0726,0.0086,0.0,0.0086,0.0,0.0,18.3525,1
+Columbus Blue Jackets,4188411,1,Charlie Coyle,Columbus Blue Jackets,Dallas Stars,2026-01-22,1.1844,0.1134,0.203,0.3164,0.0,0.0,414.72888888888895,1
+Columbus Blue Jackets,4188411,2,Charlie Coyle,Columbus Blue Jackets,Dallas Stars,2026-01-22,1.2234,0.1242,0.2228,0.347,0.0,0.0,414.2488888888889,1
+Columbus Blue Jackets,4188411,3,Charlie Coyle,Columbus Blue Jackets,Dallas Stars,2026-01-22,1.1846,0.123,0.2122,0.3352,0.0,0.0,415.52888888888896,1
+Columbus Blue Jackets,4188411,4,Charlie Coyle,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.0888,0.0084,0.0,0.0084,0.0,0.0,20.7,1
+Columbus Blue Jackets,4304342,1,Mason Marchment,Columbus Blue Jackets,Dallas Stars,2026-01-22,1.132,0.1176,0.202,0.3196,0.0,0.0,400.2044444444445,1
+Columbus Blue Jackets,4304342,2,Mason Marchment,Columbus Blue Jackets,Dallas Stars,2026-01-22,1.2024,0.1196,0.2166,0.3362,0.0,0.0,401.1288888888889,1
+Columbus Blue Jackets,4304342,3,Mason Marchment,Columbus Blue Jackets,Dallas Stars,2026-01-22,1.1326,0.1114,0.2014,0.31279999999999997,0.0,0.0,399.5644444444445,1
+Columbus Blue Jackets,4304342,4,Mason Marchment,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.0086,0.001,0.0,0.001,0.0,0.0,3.72,1
+Columbus Blue Jackets,5666556,1,Boone Jenner,Columbus Blue Jackets,Dallas Stars,2026-01-22,1.1866,0.121,0.191,0.312,0.0,0.0,414.72888888888895,1
+Columbus Blue Jackets,5666556,2,Boone Jenner,Columbus Blue Jackets,Dallas Stars,2026-01-22,1.2416,0.1254,0.2184,0.3438,0.0,0.0,414.2488888888889,1
+Columbus Blue Jackets,5666556,3,Boone Jenner,Columbus Blue Jackets,Dallas Stars,2026-01-22,1.171,0.119,0.2014,0.3204,0.0,0.0,415.52888888888896,1
+Columbus Blue Jackets,5666556,4,Boone Jenner,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.0816,0.0086,0.0,0.0086,0.0,0.0,20.7,1
+Columbus Blue Jackets,6485297,1,Zach Werenski,Columbus Blue Jackets,Dallas Stars,2026-01-22,1.1266,0.1106,0.2036,0.31420000000000003,0.0,0.0,400.2044444444445,1
+Columbus Blue Jackets,6485297,2,Zach Werenski,Columbus Blue Jackets,Dallas Stars,2026-01-22,1.1864,0.1244,0.2204,0.3448,0.0,0.0,401.1288888888889,1
+Columbus Blue Jackets,6485297,3,Zach Werenski,Columbus Blue Jackets,Dallas Stars,2026-01-22,1.144,0.1082,0.2132,0.3214,0.0,0.0,399.5644444444445,1
+Columbus Blue Jackets,6485297,4,Zach Werenski,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.0772,0.008,0.0,0.008,0.0,0.0,18.3525,1
+Columbus Blue Jackets,7951707,1,Adam Fantilli,Columbus Blue Jackets,Dallas Stars,2026-01-22,3.2564,0.3206,0.1596,0.48019999999999996,0.0,0.0,385.0666666666667,1
+Columbus Blue Jackets,7951707,2,Adam Fantilli,Columbus Blue Jackets,Dallas Stars,2026-01-22,3.4774,0.3418,0.1612,0.503,0.0,0.0,384.6222222222223,1
+Columbus Blue Jackets,7951707,3,Adam Fantilli,Columbus Blue Jackets,Dallas Stars,2026-01-22,3.4396,0.3448,0.1584,0.5032,0.0,0.0,384.9066666666667,1
+Columbus Blue Jackets,7951707,4,Adam Fantilli,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.1356,0.0152,0.0,0.0152,0.0,0.0,16.0875,1
+Columbus Blue Jackets,9707105,1,Damon Severson,Columbus Blue Jackets,Dallas Stars,2026-01-22,1.1558,0.1158,0.2044,0.3202,0.0,0.0,414.72888888888895,1
+Columbus Blue Jackets,9707105,2,Damon Severson,Columbus Blue Jackets,Dallas Stars,2026-01-22,1.2344,0.133,0.2114,0.34440000000000004,0.0,0.0,414.2488888888889,1
+Columbus Blue Jackets,9707105,3,Damon Severson,Columbus Blue Jackets,Dallas Stars,2026-01-22,1.1788,0.1168,0.212,0.3288,0.0,0.0,415.52888888888896,1
+Columbus Blue Jackets,9707105,4,Damon Severson,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.0104,0.0016,0.0,0.0016,0.0,0.0,3.645,1
+Dallas Stars,8473994,1,Jamie Benn,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.8728,0.0888,0.0876,0.1764,0.0,0.0,427.0044444444445,1
+Dallas Stars,8473994,2,Jamie Benn,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.913,0.104,0.0878,0.1918,0.0,0.0,426.568888888889,1
+Dallas Stars,8473994,3,Jamie Benn,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.8586,0.0974,0.0816,0.179,0.0,0.0,426.1955555555556,1
+Dallas Stars,8473994,4,Jamie Benn,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.0494,0.0062,0.0,0.0062,0.0,0.0,18.4875,1
+Dallas Stars,8475168,1,Matt Duchene,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.4832,0.0498,0.0724,0.1222,0.0,0.0,261.49333333333334,1
+Dallas Stars,8475168,2,Matt Duchene,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.5086,0.054,0.074,0.128,0.0,0.0,261.55555555555554,1
+Dallas Stars,8475168,3,Matt Duchene,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.4706,0.0458,0.0826,0.12840000000000001,0.0,0.0,262.12444444444446,1
+Dallas Stars,8476278,1,Colin Blackwell,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.8698,0.0932,0.0782,0.1714,0.0,0.0,427.0044444444445,1
+Dallas Stars,8476278,2,Colin Blackwell,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.8996,0.0994,0.088,0.1874,0.0,0.0,426.568888888889,1
+Dallas Stars,8476278,3,Colin Blackwell,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.8924,0.0978,0.085,0.18280000000000002,0.0,0.0,426.1955555555556,1
+Dallas Stars,8476278,4,Colin Blackwell,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.0144,0.0014,0.0,0.0014,0.0,0.0,5.0025,1
+Dallas Stars,8476889,1,Radek Faksa,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.3628,0.034,0.0642,0.0982,0.0,0.0,204.52444444444444,1
+Dallas Stars,8476889,2,Radek Faksa,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.3848,0.0438,0.0652,0.10899999999999999,0.0,0.0,204.87111111111113,1
+Dallas Stars,8476889,3,Radek Faksa,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.3766,0.0332,0.0644,0.09759999999999999,0.0,0.0,205.19111111111113,1
+Dallas Stars,8476889,4,Radek Faksa,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.0278,0.0014,0.0,0.0014,0.0,0.0,10.2375,1
+Dallas Stars,8476902,1,Esa Lindell,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.623,0.0704,0.0856,0.156,0.051,0.0,413.03111111111116,1
+Dallas Stars,8476902,2,Esa Lindell,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.646,0.0704,0.084,0.1544,0.0474,0.0,413.1022222222223,1
+Dallas Stars,8476902,3,Esa Lindell,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.6422,0.0738,0.0818,0.15560000000000002,0.0454,0.0,412.16,1
+Dallas Stars,8476902,4,Esa Lindell,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.0466,0.004,0.0,0.004,0.002,0.0,17.64,1
+Dallas Stars,8477454,1,Adam Erne,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.3848,0.0378,0.0638,0.1016,0.0,0.0,204.52444444444444,1
+Dallas Stars,8477454,2,Adam Erne,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.3844,0.0424,0.0698,0.1122,0.0,0.0,204.87111111111113,1
+Dallas Stars,8477454,3,Adam Erne,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.3654,0.035,0.0608,0.0958,0.0,0.0,205.19111111111113,1
+Dallas Stars,8477454,4,Adam Erne,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.0274,0.004,0.0,0.004,0.0,0.0,10.2375,1
+Dallas Stars,8478420,1,Mikko Rantanen,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.306,0.0282,0.0478,0.076,0.0,0.0,175.14666666666665,1
+Dallas Stars,8478420,2,Mikko Rantanen,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.342,0.033,0.0554,0.0884,0.0,0.0,175.22666666666666,1
+Dallas Stars,8478420,3,Mikko Rantanen,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.3528,0.0364,0.0578,0.0942,0.0,0.0,175.3511111111111,1
+Dallas Stars,8478449,1,Roope Hintz,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.3708,0.0348,0.0608,0.09559999999999999,0.0,0.0,204.52444444444444,1
+Dallas Stars,8478449,2,Roope Hintz,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.3982,0.0378,0.0706,0.1084,0.0,0.0,204.87111111111113,1
+Dallas Stars,8478449,3,Roope Hintz,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.3892,0.0346,0.0624,0.097,0.0,0.0,205.19111111111113,1
+Dallas Stars,8478476,1,Kyle Capobianco,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.6748,0.0668,0.098,0.1648,1.0336,0.0,481.2622222222223,1
+Dallas Stars,8478476,2,Kyle Capobianco,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.6848,0.06,0.1078,0.1678,1.1094,0.0,481.1555555555556,1
+Dallas Stars,8478476,3,Kyle Capobianco,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.679,0.0688,0.0962,0.16499999999999998,1.079,0.0,481.1822222222223,1
+Dallas Stars,8478476,4,Kyle Capobianco,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.0078,0.0018,0.0,0.0018,0.0466,0.0,6.12,1
+Dallas Stars,8479414,1,Nathan Bastian,Columbus Blue Jackets,Dallas Stars,2026-01-22,1.0336,0.109,0.09,0.199,0.0556,0.0,544.7822222222223,1
+Dallas Stars,8479414,2,Nathan Bastian,Columbus Blue Jackets,Dallas Stars,2026-01-22,1.0828,0.1166,0.0974,0.214,0.0468,0.0,544.1955555555556,1
+Dallas Stars,8479414,3,Nathan Bastian,Columbus Blue Jackets,Dallas Stars,2026-01-22,1.057,0.107,0.0998,0.20679999999999998,0.055,0.0,543.5200000000001,1
+Dallas Stars,8479414,4,Nathan Bastian,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.0582,0.0066,0.0,0.0066,0.0032,0.0,24.3,1
+Dallas Stars,8479979,1,Jake Oettinger,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.0,0.0,0.0,0.0,0.0,9.21,1199.9999999999998,1
+Dallas Stars,8479979,2,Jake Oettinger,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.0,0.0,0.0,0.0,0.0,9.6508,1199.9999999999998,1
+Dallas Stars,8479979,3,Jake Oettinger,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.0,0.0,0.0,0.0,0.0,9.3844,1199.9999999999998,1
+Dallas Stars,8479979,4,Jake Oettinger,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.4234,55.14,1
+Dallas Stars,8480036,1,Miro Heiskanen,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.4656,0.0454,0.1026,0.148,0.0434,0.0,345.5733333333334,1
+Dallas Stars,8480036,2,Miro Heiskanen,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.5064,0.0518,0.1,0.1518,0.0522,0.0,346.1244444444445,1
+Dallas Stars,8480036,3,Miro Heiskanen,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.487,0.0492,0.1026,0.1518,0.0402,0.0,345.75111111111113,1
+Dallas Stars,8480036,4,Miro Heiskanen,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.0008,0.0,0.0,0.0,0.0018,0.0,0.48,1
+Dallas Stars,8480840,1,Oskar Bäck,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.4818,0.0432,0.0766,0.1198,0.0,0.0,261.49333333333334,1
+Dallas Stars,8480840,2,Oskar Bäck,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.5138,0.0536,0.0764,0.13,0.0,0.0,261.55555555555554,1
+Dallas Stars,8480840,3,Oskar Bäck,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.508,0.0526,0.087,0.1396,0.0,0.0,262.12444444444446,1
+Dallas Stars,8480840,4,Oskar Bäck,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.0298,0.0028,0.0,0.0028,0.0,0.0,12.3375,1
+Dallas Stars,8480878,1,Nils Lundkvist,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.7348,0.0722,0.0816,0.1538,0.0576,0.0,504.9955555555556,1
+Dallas Stars,8480878,2,Nils Lundkvist,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.7608,0.077,0.0868,0.1638,0.0644,0.0,504.4977777777778,1
+Dallas Stars,8480878,3,Nils Lundkvist,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.7746,0.0876,0.0782,0.1658,0.0618,0.0,504.2044444444445,1
+Dallas Stars,8480878,4,Nils Lundkvist,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.0186,0.0014,0.0,0.0014,0.0014,0.0,10.6425,1
+Dallas Stars,8481581,1,Thomas Harley,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.4642,0.0508,0.0912,0.14200000000000002,0.042,0.0,345.5733333333334,1
+Dallas Stars,8481581,2,Thomas Harley,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.5082,0.05,0.0968,0.14679999999999999,0.0434,0.0,346.1244444444445,1
+Dallas Stars,8481581,3,Thomas Harley,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.4836,0.0482,0.0918,0.14,0.0462,0.0,345.75111111111113,1
+Dallas Stars,8481581,4,Thomas Harley,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.0434,0.004,0.0,0.004,0.0024,0.0,15.1125,1
+Dallas Stars,8482145,1,Mavrik Bourque,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.4702,0.0512,0.0658,0.11699999999999999,0.0,0.0,261.49333333333334,1
+Dallas Stars,8482145,2,Mavrik Bourque,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.5178,0.053,0.0808,0.1338,0.0,0.0,261.55555555555554,1
+Dallas Stars,8482145,3,Mavrik Bourque,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.491,0.05,0.0782,0.1282,0.0,0.0,262.12444444444446,1
+Dallas Stars,8482145,4,Mavrik Bourque,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.0346,0.0038,0.0,0.0038,0.0,0.0,12.3375,1
+Dallas Stars,8482740,1,Wyatt Johnston,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.3336,0.0354,0.0512,0.08660000000000001,0.0,0.0,175.14666666666665,1
+Dallas Stars,8482740,2,Wyatt Johnston,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.3298,0.0358,0.0582,0.094,0.0,0.0,175.22666666666666,1
+Dallas Stars,8482740,3,Wyatt Johnston,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.337,0.0364,0.0556,0.092,0.0,0.0,175.3511111111111,1
+Dallas Stars,8482740,4,Wyatt Johnston,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.0242,0.0036,0.0,0.0036,0.0,0.0,7.9575,1
+Dallas Stars,8483425,1,Lian Bichsel,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.6578,0.0612,0.0964,0.1576,0.9984,0.0,467.20888888888896,1
+Dallas Stars,8483425,2,Lian Bichsel,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.6946,0.065,0.1078,0.1728,1.0218,0.0,467.0044444444445,1
+Dallas Stars,8483425,3,Lian Bichsel,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.6562,0.066,0.0982,0.1642,1.0438,0.0,467.368888888889,1
+Dallas Stars,8483425,4,Lian Bichsel,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.0606,0.0056,0.0,0.0056,0.0472,0.0,22.8675,1
+Dallas Stars,8484829,1,Justin Hryckowian,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.322,0.0326,0.0452,0.0778,0.0,0.0,175.14666666666665,1
+Dallas Stars,8484829,2,Justin Hryckowian,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.3328,0.032,0.0536,0.08560000000000001,0.0,0.0,175.22666666666666,1
+Dallas Stars,8484829,3,Justin Hryckowian,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.3504,0.0318,0.0494,0.0812,0.0,0.0,175.3511111111111,1
+Dallas Stars,8484829,4,Justin Hryckowian,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.0282,0.0026,0.0,0.0026,0.0,0.0,7.9575,1
+Columbus Blue Jackets,1564706,0,Ivan Provorov,Columbus Blue Jackets,Dallas Stars,2026-01-22,3.5978,0.356,0.6336,0.9896,0.0,0.0,1219.250277777778,1
+Columbus Blue Jackets,4188411,0,Charlie Coyle,Columbus Blue Jackets,Dallas Stars,2026-01-22,3.6812,0.369,0.638,1.0070000000000001,0.0,0.0,1265.206666666667,1
+Columbus Blue Jackets,4304342,0,Mason Marchment,Columbus Blue Jackets,Dallas Stars,2026-01-22,3.4756,0.3496,0.62,0.9696,0.0,0.0,1204.617777777778,1
+Columbus Blue Jackets,5666556,0,Boone Jenner,Columbus Blue Jackets,Dallas Stars,2026-01-22,3.6808,0.374,0.6108,0.9848,0.0,0.0,1265.206666666667,1
+Columbus Blue Jackets,6485297,0,Zach Werenski,Columbus Blue Jackets,Dallas Stars,2026-01-22,3.5342,0.3512,0.6372,0.9884,0.0,0.0,1219.250277777778,1
+Columbus Blue Jackets,7951707,0,Adam Fantilli,Columbus Blue Jackets,Dallas Stars,2026-01-22,10.309,1.0224,0.4792,1.5016,0.0,0.0,1170.6830555555557,1
+Columbus Blue Jackets,9707105,0,Damon Severson,Columbus Blue Jackets,Dallas Stars,2026-01-22,3.5794,0.3672,0.6278,0.9950000000000001,0.0,0.0,1248.1516666666669,1
+Dallas Stars,8473994,0,Jamie Benn,Columbus Blue Jackets,Dallas Stars,2026-01-22,2.6938,0.2964,0.257,0.5534,0.0,0.0,1298.256388888889,1
+Dallas Stars,8475168,0,Matt Duchene,Columbus Blue Jackets,Dallas Stars,2026-01-22,1.4624,0.1496,0.229,0.37860000000000005,0.0,0.0,785.1733333333334,1
+Dallas Stars,8476278,0,Colin Blackwell,Columbus Blue Jackets,Dallas Stars,2026-01-22,2.6762,0.2918,0.2512,0.5429999999999999,0.0,0.0,1284.771388888889,1
+Dallas Stars,8476889,0,Radek Faksa,Columbus Blue Jackets,Dallas Stars,2026-01-22,1.152,0.1124,0.1938,0.3062,0.0,0.0,624.8241666666667,1
+Dallas Stars,8476902,0,Esa Lindell,Columbus Blue Jackets,Dallas Stars,2026-01-22,1.9578,0.2186,0.2514,0.47,0.1458,0.0,1255.9333333333336,1
+Dallas Stars,8477454,0,Adam Erne,Columbus Blue Jackets,Dallas Stars,2026-01-22,1.162,0.1192,0.1944,0.3136,0.0,0.0,624.8241666666667,1
+Dallas Stars,8478420,0,Mikko Rantanen,Columbus Blue Jackets,Dallas Stars,2026-01-22,1.0008,0.0976,0.161,0.2586,0.0,0.0,525.7244444444444,1
+Dallas Stars,8478449,0,Roope Hintz,Columbus Blue Jackets,Dallas Stars,2026-01-22,1.1582,0.1072,0.1938,0.301,0.0,0.0,614.5866666666667,1
+Dallas Stars,8478476,0,Kyle Capobianco,Columbus Blue Jackets,Dallas Stars,2026-01-22,2.0464,0.1974,0.302,0.49939999999999996,3.2686,0.0,1449.7200000000003,1
+Dallas Stars,8479414,0,Nathan Bastian,Columbus Blue Jackets,Dallas Stars,2026-01-22,3.2316,0.3392,0.2872,0.6264000000000001,0.1606,0.0,1656.797777777778,1
+Dallas Stars,8479979,0,Jake Oettinger,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.0,0.0,0.0,0.0,0.0,28.6686,3655.1399999999994,1
+Dallas Stars,8480036,0,Miro Heiskanen,Columbus Blue Jackets,Dallas Stars,2026-01-22,1.4598,0.1464,0.3052,0.4516,0.1376,0.0,1037.928888888889,1
+Dallas Stars,8480840,0,Oskar Bäck,Columbus Blue Jackets,Dallas Stars,2026-01-22,1.5334,0.1522,0.24,0.3922,0.0,0.0,797.5108333333334,1
+Dallas Stars,8480878,0,Nils Lundkvist,Columbus Blue Jackets,Dallas Stars,2026-01-22,2.2888,0.2382,0.2466,0.4848,0.1852,0.0,1524.340277777778,1
+Dallas Stars,8481581,0,Thomas Harley,Columbus Blue Jackets,Dallas Stars,2026-01-22,1.4994,0.153,0.2798,0.43279999999999996,0.134,0.0,1052.561388888889,1
+Dallas Stars,8482145,0,Mavrik Bourque,Columbus Blue Jackets,Dallas Stars,2026-01-22,1.5136,0.158,0.2248,0.38280000000000003,0.0,0.0,797.5108333333334,1
+Dallas Stars,8482740,0,Wyatt Johnston,Columbus Blue Jackets,Dallas Stars,2026-01-22,1.0246,0.1112,0.165,0.2762,0.0,0.0,533.6819444444444,1
+Dallas Stars,8483425,0,Lian Bichsel,Columbus Blue Jackets,Dallas Stars,2026-01-22,2.0692,0.1978,0.3024,0.5002,3.1112,0.0,1424.4497222222224,1
+Dallas Stars,8484829,0,Justin Hryckowian,Columbus Blue Jackets,Dallas Stars,2026-01-22,1.0334,0.099,0.1482,0.2472,0.0,0.0,533.6819444444444,1
+Dallas Stars,8480027,0,Jason Robertson,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Dallas Stars,8475794,0,Tyler Seguin,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Dallas Stars,8479351,0,Sam Steel,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Dallas Stars,8480950,0,Ilya Lyubushkin,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Dallas Stars,8475755,0,Alexander Petrovic,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Dallas Stars,8479193,0,Casey DeSmith,Columbus Blue Jackets,Dallas Stars,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Nashville Predators,8474564,1,Steven Stamkos,Nashville Predators,Ottawa Senators,2026-01-22,0.378,0.0378,0.0428,0.0806,0.0,0.0,182.89777777777778,1
+Nashville Predators,8474564,2,Steven Stamkos,Nashville Predators,Ottawa Senators,2026-01-22,0.399,0.032,0.0458,0.07780000000000001,0.0,0.0,182.80888888888887,1
+Nashville Predators,8474564,3,Steven Stamkos,Nashville Predators,Ottawa Senators,2026-01-22,0.4,0.033,0.0514,0.0844,0.0,0.0,182.5511111111111,1
+Nashville Predators,8474564,4,Steven Stamkos,Nashville Predators,Ottawa Senators,2026-01-22,0.022,0.0022,0.0,0.0022,0.0,0.0,9.36,1
+Nashville Predators,8474600,1,Roman Josi,Nashville Predators,Ottawa Senators,2026-01-22,0.6576,0.0728,0.0894,0.1622,0.0,0.0,429.848888888889,1
+Nashville Predators,8474600,2,Roman Josi,Nashville Predators,Ottawa Senators,2026-01-22,0.707,0.074,0.0948,0.1688,0.0,0.0,429.1200000000001,1
+Nashville Predators,8474600,3,Roman Josi,Nashville Predators,Ottawa Senators,2026-01-22,0.6914,0.0668,0.0976,0.1644,0.0,0.0,429.4400000000001,1
+Nashville Predators,8474600,4,Roman Josi,Nashville Predators,Ottawa Senators,2026-01-22,0.011,0.0024,0.0,0.0024,0.0,0.0,5.19,1
+Nashville Predators,8475158,1,Ryan O'Reilly,Nashville Predators,Ottawa Senators,2026-01-22,0.3682,0.0342,0.0624,0.09659999999999999,0.0,0.0,201.36,1
+Nashville Predators,8475158,2,Ryan O'Reilly,Nashville Predators,Ottawa Senators,2026-01-22,0.4058,0.0296,0.063,0.0926,0.0,0.0,201.66222222222223,1
+Nashville Predators,8475158,3,Ryan O'Reilly,Nashville Predators,Ottawa Senators,2026-01-22,0.3654,0.0342,0.0582,0.09240000000000001,0.0,0.0,201.36,1
+Nashville Predators,8475158,4,Ryan O'Reilly,Nashville Predators,Ottawa Senators,2026-01-22,0.0332,0.0016,0.0,0.0016,0.0,0.0,11.745,1
+Nashville Predators,8475287,1,Erik Haula,Nashville Predators,Ottawa Senators,2026-01-22,0.4812,0.0432,0.0682,0.1114,0.0,0.0,256.79111111111115,1
+Nashville Predators,8475287,2,Erik Haula,Nashville Predators,Ottawa Senators,2026-01-22,0.5034,0.0466,0.074,0.1206,0.0,0.0,256.75555555555553,1
+Nashville Predators,8475287,3,Erik Haula,Nashville Predators,Ottawa Senators,2026-01-22,0.4714,0.0484,0.0778,0.12619999999999998,0.0,0.0,256.6577777777778,1
+Nashville Predators,8475287,4,Erik Haula,Nashville Predators,Ottawa Senators,2026-01-22,0.0352,0.004,0.0,0.004,0.0,0.0,12.81,1
+Nashville Predators,8476539,1,Jonathan Marchessault,Nashville Predators,Ottawa Senators,2026-01-22,0.4772,0.0438,0.0708,0.11460000000000001,0.0,0.0,256.79111111111115,1
+Nashville Predators,8476539,2,Jonathan Marchessault,Nashville Predators,Ottawa Senators,2026-01-22,0.4938,0.0506,0.075,0.1256,0.0,0.0,256.75555555555553,1
+Nashville Predators,8476539,3,Jonathan Marchessault,Nashville Predators,Ottawa Senators,2026-01-22,0.4786,0.0486,0.064,0.1126,0.0,0.0,256.6577777777778,1
+Nashville Predators,8476869,1,Brady Skjei,Nashville Predators,Ottawa Senators,2026-01-22,0.756,0.0874,0.077,0.1644,0.093,0.0,399.5555555555556,1
+Nashville Predators,8476869,2,Brady Skjei,Nashville Predators,Ottawa Senators,2026-01-22,0.76,0.077,0.078,0.155,0.1014,0.0,399.54666666666674,1
+Nashville Predators,8476869,3,Brady Skjei,Nashville Predators,Ottawa Senators,2026-01-22,0.7448,0.07,0.0814,0.1514,0.1022,0.0,399.0755555555556,1
+Nashville Predators,8476869,4,Brady Skjei,Nashville Predators,Ottawa Senators,2026-01-22,0.013,0.0022,0.0,0.0022,0.004,0.0,5.19,1
+Nashville Predators,8476887,1,Filip Forsberg,Nashville Predators,Ottawa Senators,2026-01-22,0.8136,0.0722,0.0812,0.15339999999999998,0.0,0.0,438.6311111111112,1
+Nashville Predators,8476887,2,Filip Forsberg,Nashville Predators,Ottawa Senators,2026-01-22,0.8394,0.0776,0.083,0.16060000000000002,0.0,0.0,437.9644444444445,1
+Nashville Predators,8476887,3,Filip Forsberg,Nashville Predators,Ottawa Senators,2026-01-22,0.8116,0.0776,0.0796,0.1572,0.0,0.0,439.7866666666667,1
+Nashville Predators,8477424,1,Juuse Saros,Nashville Predators,Ottawa Senators,2026-01-22,0.0,0.0,0.0,0.0,0.0,8.8098,1199.9999999999998,1
+Nashville Predators,8477424,2,Juuse Saros,Nashville Predators,Ottawa Senators,2026-01-22,0.0,0.0,0.0,0.0,0.0,9.2512,1199.9999999999998,1
+Nashville Predators,8477424,3,Juuse Saros,Nashville Predators,Ottawa Senators,2026-01-22,0.0,0.0,0.0,0.0,0.0,9.0016,1199.9999999999998,1
+Nashville Predators,8477424,4,Juuse Saros,Nashville Predators,Ottawa Senators,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.3864,52.44,1
+Nashville Predators,8477446,1,Michael McCarron,Nashville Predators,Ottawa Senators,2026-01-22,0.3752,0.0358,0.0542,0.09,0.0,0.0,201.36,1
+Nashville Predators,8477446,2,Michael McCarron,Nashville Predators,Ottawa Senators,2026-01-22,0.3688,0.0346,0.0626,0.09720000000000001,0.0,0.0,201.66222222222223,1
+Nashville Predators,8477446,3,Michael McCarron,Nashville Predators,Ottawa Senators,2026-01-22,0.3656,0.0366,0.0562,0.0928,0.0,0.0,201.36,1
+Nashville Predators,8477446,4,Michael McCarron,Nashville Predators,Ottawa Senators,2026-01-22,0.031,0.0024,0.0,0.0024,0.0,0.0,11.745,1
+Nashville Predators,8478047,1,Michael Bunting,Nashville Predators,Ottawa Senators,2026-01-22,1.0924,0.1098,0.091,0.20079999999999998,0.0886,0.0,547.8133333333334,1
+Nashville Predators,8478047,2,Michael Bunting,Nashville Predators,Ottawa Senators,2026-01-22,1.1478,0.1268,0.0822,0.209,0.0928,0.0,546.8800000000001,1
+Nashville Predators,8478047,3,Michael Bunting,Nashville Predators,Ottawa Senators,2026-01-22,1.1306,0.1166,0.0834,0.2,0.095,0.0,548.7200000000001,1
+Nashville Predators,8478047,4,Michael Bunting,Nashville Predators,Ottawa Senators,2026-01-22,0.0482,0.0062,0.0,0.0062,0.0036,0.0,18.27,1
+Nashville Predators,8479370,1,Tyson Jost,Nashville Predators,Ottawa Senators,2026-01-22,0.4726,0.0394,0.0754,0.11479999999999999,0.0,0.0,256.79111111111115,1
+Nashville Predators,8479370,2,Tyson Jost,Nashville Predators,Ottawa Senators,2026-01-22,0.4916,0.0462,0.0728,0.119,0.0,0.0,256.75555555555553,1
+Nashville Predators,8479370,3,Tyson Jost,Nashville Predators,Ottawa Senators,2026-01-22,0.4808,0.0438,0.0676,0.1114,0.0,0.0,256.6577777777778,1
+Nashville Predators,8479370,4,Tyson Jost,Nashville Predators,Ottawa Senators,2026-01-22,0.0316,0.0038,0.0,0.0038,0.0,0.0,12.81,1
+Nashville Predators,8479980,1,Nicolas Hague,Nashville Predators,Ottawa Senators,2026-01-22,0.4564,0.0432,0.1042,0.1474,0.0,0.0,331.80444444444447,1
+Nashville Predators,8479980,2,Nicolas Hague,Nashville Predators,Ottawa Senators,2026-01-22,0.465,0.0414,0.0948,0.1362,0.0,0.0,332.0977777777778,1
+Nashville Predators,8479980,3,Nicolas Hague,Nashville Predators,Ottawa Senators,2026-01-22,0.4624,0.0478,0.093,0.1408,0.0,0.0,331.2177777777778,1
+Nashville Predators,8479980,4,Nicolas Hague,Nashville Predators,Ottawa Senators,2026-01-22,0.0426,0.0036,0.0,0.0036,0.0,0.0,16.1475,1
+Nashville Predators,8480246,1,Nick Perbix,Nashville Predators,Ottawa Senators,2026-01-22,0.7514,0.0778,0.0842,0.16199999999999998,0.0932,0.0,399.5555555555556,1
+Nashville Predators,8480246,2,Nick Perbix,Nashville Predators,Ottawa Senators,2026-01-22,0.7708,0.0782,0.0814,0.15960000000000002,0.102,0.0,399.54666666666674,1
+Nashville Predators,8480246,3,Nick Perbix,Nashville Predators,Ottawa Senators,2026-01-22,0.777,0.078,0.087,0.16499999999999998,0.1034,0.0,399.0755555555556,1
+Nashville Predators,8480246,4,Nick Perbix,Nashville Predators,Ottawa Senators,2026-01-22,0.0498,0.0044,0.0,0.0044,0.0054,0.0,18.0,1
+Nashville Predators,8482062,1,Cole Smith,Nashville Predators,Ottawa Senators,2026-01-22,0.3918,0.0408,0.0602,0.101,0.0,0.0,201.36,1
+Nashville Predators,8482062,2,Cole Smith,Nashville Predators,Ottawa Senators,2026-01-22,0.3856,0.0368,0.0662,0.103,0.0,0.0,201.66222222222223,1
+Nashville Predators,8482062,3,Cole Smith,Nashville Predators,Ottawa Senators,2026-01-22,0.3744,0.032,0.0596,0.0916,0.0,0.0,201.36,1
+Nashville Predators,8482103,1,Ozzy Wiesblatt,Nashville Predators,Ottawa Senators,2026-01-22,0.4212,0.0398,0.053,0.0928,0.0,0.0,194.03555555555556,1
+Nashville Predators,8482103,2,Ozzy Wiesblatt,Nashville Predators,Ottawa Senators,2026-01-22,0.4318,0.0426,0.0502,0.0928,0.0,0.0,194.70222222222222,1
+Nashville Predators,8482103,3,Ozzy Wiesblatt,Nashville Predators,Ottawa Senators,2026-01-22,0.423,0.0466,0.0568,0.1034,0.0,0.0,193.26222222222222,1
+Nashville Predators,8482103,4,Ozzy Wiesblatt,Nashville Predators,Ottawa Senators,2026-01-22,0.027,0.0026,0.0,0.0026,0.0,0.0,9.615,1
+Nashville Predators,8482111,1,Justin Barron,Nashville Predators,Ottawa Senators,2026-01-22,0.65,0.06,0.11,0.16999999999999998,0.9086,0.0,479.77777777777777,1
+Nashville Predators,8482111,2,Justin Barron,Nashville Predators,Ottawa Senators,2026-01-22,0.7,0.0688,0.105,0.1738,0.9676,0.0,480.248888888889,1
+Nashville Predators,8482111,3,Justin Barron,Nashville Predators,Ottawa Senators,2026-01-22,0.6558,0.0674,0.0976,0.165,0.9326,0.0,480.4177777777778,1
+Nashville Predators,8482111,4,Justin Barron,Nashville Predators,Ottawa Senators,2026-01-22,0.0514,0.0046,0.0,0.0046,0.0416,0.0,18.5475,1
+Nashville Predators,8482146,1,Luke Evangelista,Nashville Predators,Ottawa Senators,2026-01-22,1.1108,0.1254,0.0854,0.21080000000000002,0.0926,0.0,547.8133333333334,1
+Nashville Predators,8482146,2,Luke Evangelista,Nashville Predators,Ottawa Senators,2026-01-22,1.1402,0.1122,0.0944,0.2066,0.0926,0.0,546.8800000000001,1
+Nashville Predators,8482146,3,Luke Evangelista,Nashville Predators,Ottawa Senators,2026-01-22,1.1394,0.1226,0.0888,0.2114,0.0952,0.0,548.7200000000001,1
+Nashville Predators,8482146,4,Luke Evangelista,Nashville Predators,Ottawa Senators,2026-01-22,0.0476,0.0044,0.0,0.0044,0.0032,0.0,18.27,1
+Nashville Predators,8483565,1,Nick Blankenburg,Nashville Predators,Ottawa Senators,2026-01-22,0.6584,0.0576,0.1,0.15760000000000002,0.9436,0.0,479.77777777777777,1
+Nashville Predators,8483565,2,Nick Blankenburg,Nashville Predators,Ottawa Senators,2026-01-22,0.7018,0.0664,0.1002,0.1666,0.9574,0.0,480.248888888889,1
+Nashville Predators,8483565,3,Nick Blankenburg,Nashville Predators,Ottawa Senators,2026-01-22,0.6744,0.051,0.1046,0.1556,0.9318,0.0,480.4177777777778,1
+Nashville Predators,8483565,4,Nick Blankenburg,Nashville Predators,Ottawa Senators,2026-01-22,0.0006,0.0,0.0,0.0,0.0416,0.0,0.255,1
+Nashville Predators,8484241,1,Matthew Wood,Nashville Predators,Ottawa Senators,2026-01-22,0.031,0.0032,0.0762,0.0794,0.0,0.0,11.137777777777778,1
+Nashville Predators,8484241,2,Matthew Wood,Nashville Predators,Ottawa Senators,2026-01-22,0.035,0.0036,0.0824,0.08600000000000001,0.0,0.0,11.893333333333333,1
+Nashville Predators,8484241,3,Matthew Wood,Nashville Predators,Ottawa Senators,2026-01-22,0.0292,0.004,0.083,0.08700000000000001,0.0,0.0,10.71111111111111,1
+Nashville Predators,8484241,4,Matthew Wood,Nashville Predators,Ottawa Senators,2026-01-22,0.0002,0.0,0.0,0.0,0.0,0.0,0.255,1
+Ottawa Senators,1564200,1,Drake Batherson,Nashville Predators,Ottawa Senators,2026-01-22,1.0106,0.1014,0.1554,0.25680000000000003,0.0,0.0,361.12000000000006,1
+Ottawa Senators,1564200,2,Drake Batherson,Nashville Predators,Ottawa Senators,2026-01-22,1.0284,0.1046,0.1588,0.26339999999999997,0.0,0.0,360.46222222222224,1
+Ottawa Senators,1564200,3,Drake Batherson,Nashville Predators,Ottawa Senators,2026-01-22,0.9856,0.1,0.1502,0.2502,0.0,0.0,361.13777777777784,1
+Ottawa Senators,1564200,4,Drake Batherson,Nashville Predators,Ottawa Senators,2026-01-22,0.0028,0.0,0.0,0.0,0.0,0.0,1.755,1
+Ottawa Senators,4319847,1,Claude Giroux,Nashville Predators,Ottawa Senators,2026-01-22,0.9682,0.0992,0.1512,0.2504,0.0,0.0,361.12000000000006,1
+Ottawa Senators,4319847,2,Claude Giroux,Nashville Predators,Ottawa Senators,2026-01-22,1.0378,0.1008,0.156,0.25680000000000003,0.0,0.0,360.46222222222224,1
+Ottawa Senators,4319847,3,Claude Giroux,Nashville Predators,Ottawa Senators,2026-01-22,0.983,0.102,0.1612,0.2632,0.0,0.0,361.13777777777784,1
+Ottawa Senators,4319847,4,Claude Giroux,Nashville Predators,Ottawa Senators,2026-01-22,0.0696,0.0074,0.0,0.0074,0.0,0.0,17.6475,1
+Ottawa Senators,4497548,1,Ridly Greig,Nashville Predators,Ottawa Senators,2026-01-22,1.3486,0.1366,0.152,0.28859999999999997,0.0,0.0,493.76888888888897,1
+Ottawa Senators,4497548,2,Ridly Greig,Nashville Predators,Ottawa Senators,2026-01-22,1.4212,0.1446,0.1468,0.2914,0.0,0.0,493.9466666666667,1
+Ottawa Senators,4497548,3,Ridly Greig,Nashville Predators,Ottawa Senators,2026-01-22,1.3848,0.1484,0.1662,0.3146,0.0,0.0,493.8755555555556,1
+Ottawa Senators,4497548,4,Ridly Greig,Nashville Predators,Ottawa Senators,2026-01-22,0.004,0.0004,0.0,0.0004,0.0,0.0,1.7625,1
+Ottawa Senators,5063317,1,Shane Pinto,Nashville Predators,Ottawa Senators,2026-01-22,1.3534,0.1448,0.1494,0.2942,0.0,0.0,493.76888888888897,1
+Ottawa Senators,5063317,2,Shane Pinto,Nashville Predators,Ottawa Senators,2026-01-22,1.4302,0.1424,0.151,0.2934,0.0,0.0,493.9466666666667,1
+Ottawa Senators,5063317,3,Shane Pinto,Nashville Predators,Ottawa Senators,2026-01-22,1.3952,0.1562,0.142,0.2982,0.0,0.0,493.8755555555556,1
+Ottawa Senators,5063317,4,Shane Pinto,Nashville Predators,Ottawa Senators,2026-01-22,0.0876,0.0116,0.0,0.0116,0.0,0.0,20.055,1
+Ottawa Senators,5438487,1,Dylan Cozens,Nashville Predators,Ottawa Senators,2026-01-22,0.944,0.0992,0.1512,0.2504,0.0,0.0,345.11111111111114,1
+Ottawa Senators,5438487,2,Dylan Cozens,Nashville Predators,Ottawa Senators,2026-01-22,0.979,0.1028,0.1582,0.261,0.0,0.0,345.59111111111116,1
+Ottawa Senators,5438487,3,Dylan Cozens,Nashville Predators,Ottawa Senators,2026-01-22,0.9456,0.1004,0.167,0.2674,0.0,0.0,344.9866666666667,1
+Ottawa Senators,5438487,4,Dylan Cozens,Nashville Predators,Ottawa Senators,2026-01-22,0.0544,0.0054,0.0,0.0054,0.0,0.0,14.7375,1
+Ottawa Senators,5924468,1,Tim Stützle,Nashville Predators,Ottawa Senators,2026-01-22,0.9658,0.1012,0.1586,0.2598,0.0,0.0,361.12000000000006,1
+Ottawa Senators,5924468,2,Tim Stützle,Nashville Predators,Ottawa Senators,2026-01-22,1.0224,0.1054,0.164,0.2694,0.0,0.0,360.46222222222224,1
+Ottawa Senators,5924468,3,Tim Stützle,Nashville Predators,Ottawa Senators,2026-01-22,0.9886,0.104,0.1592,0.2632,0.0,0.0,361.13777777777784,1
+Ottawa Senators,5924468,4,Tim Stützle,Nashville Predators,Ottawa Senators,2026-01-22,0.0686,0.0084,0.0,0.0084,0.0,0.0,17.6475,1
+Ottawa Senators,6108236,1,Jake Sanderson,Nashville Predators,Ottawa Senators,2026-01-22,0.923,0.1012,0.1524,0.2536,0.0,0.0,345.11111111111114,1
+Ottawa Senators,6108236,2,Jake Sanderson,Nashville Predators,Ottawa Senators,2026-01-22,0.953,0.1054,0.1608,0.2662,0.0,0.0,345.59111111111116,1
+Ottawa Senators,6108236,3,Jake Sanderson,Nashville Predators,Ottawa Senators,2026-01-22,0.9722,0.0958,0.1592,0.255,0.0,0.0,344.9866666666667,1
+Ottawa Senators,6108236,4,Jake Sanderson,Nashville Predators,Ottawa Senators,2026-01-22,0.003,0.0002,0.0,0.0002,0.0,0.0,1.9275,1
+Ottawa Senators,6662793,1,Thomas Chabot,Nashville Predators,Ottawa Senators,2026-01-22,1.3562,0.1432,0.1408,0.28400000000000003,0.0,0.0,493.76888888888897,1
+Ottawa Senators,6662793,2,Thomas Chabot,Nashville Predators,Ottawa Senators,2026-01-22,1.44,0.144,0.1482,0.2922,0.0,0.0,493.9466666666667,1
+Ottawa Senators,6662793,3,Thomas Chabot,Nashville Predators,Ottawa Senators,2026-01-22,1.4436,0.1428,0.1538,0.2966,0.0,0.0,493.8755555555556,1
+Ottawa Senators,6662793,4,Thomas Chabot,Nashville Predators,Ottawa Senators,2026-01-22,0.0842,0.0078,0.0,0.0078,0.0,0.0,20.055,1
+Ottawa Senators,6895924,1,Brady Tkachuk,Nashville Predators,Ottawa Senators,2026-01-22,0.9562,0.0894,0.1516,0.241,0.0,0.0,345.11111111111114,1
+Ottawa Senators,6895924,2,Brady Tkachuk,Nashville Predators,Ottawa Senators,2026-01-22,0.9788,0.0896,0.1656,0.2552,0.0,0.0,345.59111111111116,1
+Ottawa Senators,6895924,3,Brady Tkachuk,Nashville Predators,Ottawa Senators,2026-01-22,0.9466,0.094,0.1536,0.2476,0.0,0.0,344.9866666666667,1
+Ottawa Senators,6895924,4,Brady Tkachuk,Nashville Predators,Ottawa Senators,2026-01-22,0.0614,0.008,0.0,0.008,0.0,0.0,14.7375,1
+Nashville Predators,8474564,0,Steven Stamkos,Nashville Predators,Ottawa Senators,2026-01-22,1.199,0.105,0.14,0.245,0.0,0.0,557.6177777777777,1
+Nashville Predators,8474600,0,Roman Josi,Nashville Predators,Ottawa Senators,2026-01-22,2.067,0.216,0.2818,0.4978,0.0,0.0,1293.5988888888892,1
+Nashville Predators,8475158,0,Ryan O'Reilly,Nashville Predators,Ottawa Senators,2026-01-22,1.1726,0.0996,0.1836,0.2832,0.0,0.0,616.1272222222223,1
+Nashville Predators,8475287,0,Erik Haula,Nashville Predators,Ottawa Senators,2026-01-22,1.4912,0.1422,0.22,0.36219999999999997,0.0,0.0,783.0144444444445,1
+Nashville Predators,8476539,0,Jonathan Marchessault,Nashville Predators,Ottawa Senators,2026-01-22,1.4496,0.143,0.2098,0.3528,0.0,0.0,770.2044444444446,1
+Nashville Predators,8476869,0,Brady Skjei,Nashville Predators,Ottawa Senators,2026-01-22,2.2738,0.2366,0.2364,0.473,0.3006,0.0,1203.367777777778,1
+Nashville Predators,8476887,0,Filip Forsberg,Nashville Predators,Ottawa Senators,2026-01-22,2.4646,0.2274,0.2438,0.47119999999999995,0.0,0.0,1316.3822222222225,1
+Nashville Predators,8477424,0,Juuse Saros,Nashville Predators,Ottawa Senators,2026-01-22,0.0,0.0,0.0,0.0,0.0,27.449,3652.439999999999,1
+Nashville Predators,8477446,0,Michael McCarron,Nashville Predators,Ottawa Senators,2026-01-22,1.1406,0.1094,0.173,0.2824,0.0,0.0,616.1272222222223,1
+Nashville Predators,8478047,0,Michael Bunting,Nashville Predators,Ottawa Senators,2026-01-22,3.419,0.3594,0.2566,0.616,0.28,0.0,1661.6833333333336,1
+Nashville Predators,8479370,0,Tyson Jost,Nashville Predators,Ottawa Senators,2026-01-22,1.4766,0.1332,0.2158,0.349,0.0,0.0,783.0144444444445,1
+Nashville Predators,8479980,0,Nicolas Hague,Nashville Predators,Ottawa Senators,2026-01-22,1.4264,0.136,0.292,0.428,0.0,0.0,1011.2675000000002,1
+Nashville Predators,8480246,0,Nick Perbix,Nashville Predators,Ottawa Senators,2026-01-22,2.349,0.2384,0.2526,0.491,0.304,0.0,1216.177777777778,1
+Nashville Predators,8482062,0,Cole Smith,Nashville Predators,Ottawa Senators,2026-01-22,1.1518,0.1096,0.186,0.2956,0.0,0.0,604.3822222222223,1
+Nashville Predators,8482103,0,Ozzy Wiesblatt,Nashville Predators,Ottawa Senators,2026-01-22,1.303,0.1316,0.16,0.29159999999999997,0.0,0.0,591.615,1
+Nashville Predators,8482111,0,Justin Barron,Nashville Predators,Ottawa Senators,2026-01-22,2.0572,0.2008,0.3126,0.5134,2.8504,0.0,1458.9919444444447,1
+Nashville Predators,8482146,0,Luke Evangelista,Nashville Predators,Ottawa Senators,2026-01-22,3.438,0.3646,0.2686,0.6332,0.2836,0.0,1661.6833333333336,1
+Nashville Predators,8483565,0,Nick Blankenburg,Nashville Predators,Ottawa Senators,2026-01-22,2.0352,0.175,0.3048,0.4798,2.8744,0.0,1440.6994444444447,1
+Nashville Predators,8484241,0,Matthew Wood,Nashville Predators,Ottawa Senators,2026-01-22,0.0954,0.0108,0.2416,0.2524,0.0,0.0,599.4890074034271,1
+Ottawa Senators,1564200,0,Drake Batherson,Nashville Predators,Ottawa Senators,2026-01-22,3.0274,0.306,0.4644,0.7704,0.0,0.0,1084.4750000000001,1
+Ottawa Senators,4319847,0,Claude Giroux,Nashville Predators,Ottawa Senators,2026-01-22,3.0586,0.3094,0.4684,0.7778,0.0,0.0,1100.3675000000003,1
+Ottawa Senators,4497548,0,Ridly Greig,Nashville Predators,Ottawa Senators,2026-01-22,4.1586,0.43,0.465,0.895,0.0,0.0,1483.3536111111114,1
+Ottawa Senators,5063317,0,Shane Pinto,Nashville Predators,Ottawa Senators,2026-01-22,4.2664,0.455,0.4424,0.8974,0.0,0.0,1501.6461111111114,1
+Ottawa Senators,5438487,0,Dylan Cozens,Nashville Predators,Ottawa Senators,2026-01-22,2.923,0.3078,0.4764,0.7842,0.0,0.0,1050.426388888889,1
+Ottawa Senators,5924468,0,Tim Stützle,Nashville Predators,Ottawa Senators,2026-01-22,3.0454,0.319,0.4818,0.8008,0.0,0.0,1100.3675000000003,1
+Ottawa Senators,6108236,0,Jake Sanderson,Nashville Predators,Ottawa Senators,2026-01-22,2.8512,0.3026,0.4724,0.7749999999999999,0.0,0.0,1037.616388888889,1
+Ottawa Senators,6662793,0,Thomas Chabot,Nashville Predators,Ottawa Senators,2026-01-22,4.324,0.4378,0.4428,0.8806,0.0,0.0,1501.6461111111114,1
+Ottawa Senators,6895924,0,Brady Tkachuk,Nashville Predators,Ottawa Senators,2026-01-22,2.943,0.281,0.4708,0.7518,0.0,0.0,1050.426388888889,1
+Nashville Predators,8477971,0,Andreas Englund,Nashville Predators,Ottawa Senators,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Nashville Predators,8482482,0,Adam Wilsby,Nashville Predators,Ottawa Senators,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Nashville Predators,8481020,0,Justus Annunen,Nashville Predators,Ottawa Senators,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Florida Panthers,8473419,1,Brad Marchand,Winnipeg Jets,Florida Panthers,2026-01-22,0.3784,0.0358,0.0574,0.0932,0.0,0.0,204.93333333333334,1
+Florida Panthers,8473419,2,Brad Marchand,Winnipeg Jets,Florida Panthers,2026-01-22,0.3882,0.04,0.0692,0.10919999999999999,0.0,0.0,204.37333333333333,1
+Florida Panthers,8473419,3,Brad Marchand,Winnipeg Jets,Florida Panthers,2026-01-22,0.3842,0.04,0.0634,0.10339999999999999,0.0,0.0,205.32444444444445,1
+Florida Panthers,8475179,1,Dmitry Kulikov,Winnipeg Jets,Florida Panthers,2026-01-22,0.6234,0.0722,0.0858,0.158,0.0442,0.0,413.1822222222223,1
+Florida Panthers,8475179,2,Dmitry Kulikov,Winnipeg Jets,Florida Panthers,2026-01-22,0.6656,0.068,0.0896,0.15760000000000002,0.0496,0.0,413.8755555555556,1
+Florida Panthers,8475179,3,Dmitry Kulikov,Winnipeg Jets,Florida Panthers,2026-01-22,0.6324,0.0674,0.0844,0.1518,0.0502,0.0,411.2177777777778,1
+Florida Panthers,8475179,4,Dmitry Kulikov,Winnipeg Jets,Florida Panthers,2026-01-22,0.0414,0.0034,0.0,0.0034,0.0028,0.0,17.22,1
+Florida Panthers,8477493,1,Aleksander Barkov,Winnipeg Jets,Florida Panthers,2026-01-22,1.054,0.1064,0.091,0.1974,0.0572,0.0,549.0933333333334,1
+Florida Panthers,8477493,2,Aleksander Barkov,Winnipeg Jets,Florida Panthers,2026-01-22,1.0976,0.1222,0.1,0.2222,0.0528,0.0,551.0400000000001,1
+Florida Panthers,8477493,3,Aleksander Barkov,Winnipeg Jets,Florida Panthers,2026-01-22,1.0618,0.1088,0.0902,0.199,0.0522,0.0,548.8000000000001,1
+Florida Panthers,8477493,4,Aleksander Barkov,Winnipeg Jets,Florida Panthers,2026-01-22,0.061,0.0066,0.0,0.0066,0.0016,0.0,23.25,1
+Florida Panthers,8477495,1,Seth Jones,Winnipeg Jets,Florida Panthers,2026-01-22,0.4544,0.0432,0.0914,0.1346,0.0468,0.0,346.1866666666667,1
+Florida Panthers,8477495,2,Seth Jones,Winnipeg Jets,Florida Panthers,2026-01-22,0.4974,0.0478,0.0996,0.1474,0.0438,0.0,344.8266666666667,1
+Florida Panthers,8477495,3,Seth Jones,Winnipeg Jets,Florida Panthers,2026-01-22,0.4748,0.0452,0.0904,0.1356,0.046,0.0,345.6622222222222,1
+Florida Panthers,8477495,4,Seth Jones,Winnipeg Jets,Florida Panthers,2026-01-22,0.0004,0.0,0.0,0.0,0.0018,0.0,0.3975,1
+Florida Panthers,8477932,1,Aaron Ekblad,Winnipeg Jets,Florida Panthers,2026-01-22,0.6672,0.0644,0.1022,0.1666,1.071,0.0,481.528888888889,1
+Florida Panthers,8477932,2,Aaron Ekblad,Winnipeg Jets,Florida Panthers,2026-01-22,0.6916,0.0704,0.1164,0.18680000000000002,1.1338,0.0,480.4977777777778,1
+Florida Panthers,8477932,3,Aaron Ekblad,Winnipeg Jets,Florida Panthers,2026-01-22,0.679,0.0622,0.0996,0.1618,1.0746,0.0,481.3777777777778,1
+Florida Panthers,8477932,4,Aaron Ekblad,Winnipeg Jets,Florida Panthers,2026-01-22,0.0068,0.0008,0.0,0.0008,0.046,0.0,5.43,1
+Florida Panthers,8477933,1,Sam Reinhart,Winnipeg Jets,Florida Panthers,2026-01-22,0.3154,0.028,0.0508,0.0788,0.0,0.0,170.78222222222223,1
+Florida Panthers,8477933,2,Sam Reinhart,Winnipeg Jets,Florida Panthers,2026-01-22,0.3316,0.031,0.0532,0.0842,0.0,0.0,170.6311111111111,1
+Florida Panthers,8477933,3,Sam Reinhart,Winnipeg Jets,Florida Panthers,2026-01-22,0.3422,0.0346,0.0466,0.0812,0.0,0.0,171.13777777777779,1
+Florida Panthers,8477933,4,Sam Reinhart,Winnipeg Jets,Florida Panthers,2026-01-22,0.0192,0.002,0.0,0.002,0.0,0.0,7.86,1
+Florida Panthers,8477935,1,Sam Bennett,Winnipeg Jets,Florida Panthers,2026-01-22,1.0342,0.1106,0.087,0.1976,0.0552,0.0,537.1200000000001,1
+Florida Panthers,8477935,2,Sam Bennett,Winnipeg Jets,Florida Panthers,2026-01-22,1.0624,0.1148,0.0992,0.214,0.0586,0.0,539.2,1
+Florida Panthers,8477935,3,Sam Bennett,Winnipeg Jets,Florida Panthers,2026-01-22,1.0336,0.1056,0.0896,0.19519999999999998,0.0518,0.0,537.1911111111112,1
+Florida Panthers,8477935,4,Sam Bennett,Winnipeg Jets,Florida Panthers,2026-01-22,0.0562,0.0068,0.0,0.0068,0.0028,0.0,23.07,1
+Florida Panthers,8478055,1,Gustav Forsling,Winnipeg Jets,Florida Panthers,2026-01-22,0.4784,0.046,0.0924,0.1384,0.0464,0.0,346.1866666666667,1
+Florida Panthers,8478055,2,Gustav Forsling,Winnipeg Jets,Florida Panthers,2026-01-22,0.4908,0.0516,0.0906,0.1422,0.0474,0.0,344.8266666666667,1
+Florida Panthers,8478055,3,Gustav Forsling,Winnipeg Jets,Florida Panthers,2026-01-22,0.4758,0.0508,0.0924,0.1432,0.0468,0.0,345.6622222222222,1
+Florida Panthers,8478055,4,Gustav Forsling,Winnipeg Jets,Florida Panthers,2026-01-22,0.046,0.0044,0.0,0.0044,0.0022,0.0,14.655,1
+Florida Panthers,8478421,1,A.J. Greer,Winnipeg Jets,Florida Panthers,2026-01-22,0.471,0.0468,0.0768,0.12359999999999999,0.0,0.0,260.7288888888889,1
+Florida Panthers,8478421,2,A.J. Greer,Winnipeg Jets,Florida Panthers,2026-01-22,0.4826,0.0516,0.084,0.1356,0.0,0.0,260.27555555555557,1
+Florida Panthers,8478421,3,A.J. Greer,Winnipeg Jets,Florida Panthers,2026-01-22,0.4748,0.0498,0.084,0.1338,0.0,0.0,261.41333333333336,1
+Florida Panthers,8478421,4,A.J. Greer,Winnipeg Jets,Florida Panthers,2026-01-22,0.0328,0.003,0.0,0.003,0.0,0.0,11.9625,1
+Florida Panthers,8478542,1,Evan Rodrigues,Winnipeg Jets,Florida Panthers,2026-01-22,0.3096,0.0342,0.05,0.0842,0.0,0.0,170.78222222222223,1
+Florida Panthers,8478542,2,Evan Rodrigues,Winnipeg Jets,Florida Panthers,2026-01-22,0.3236,0.0312,0.0512,0.0824,0.0,0.0,170.6311111111111,1
+Florida Panthers,8478542,3,Evan Rodrigues,Winnipeg Jets,Florida Panthers,2026-01-22,0.3428,0.0414,0.0544,0.0958,0.0,0.0,171.13777777777779,1
+Florida Panthers,8478542,4,Evan Rodrigues,Winnipeg Jets,Florida Panthers,2026-01-22,0.0192,0.0016,0.0,0.0016,0.0,0.0,7.86,1
+Florida Panthers,8478859,1,Niko Mikkola,Winnipeg Jets,Florida Panthers,2026-01-22,0.7334,0.0762,0.0828,0.159,0.056,0.0,504.168888888889,1
+Florida Panthers,8478859,2,Niko Mikkola,Winnipeg Jets,Florida Panthers,2026-01-22,0.7706,0.0778,0.0856,0.1634,0.062,0.0,506.008888888889,1
+Florida Panthers,8478859,3,Niko Mikkola,Winnipeg Jets,Florida Panthers,2026-01-22,0.766,0.0832,0.0814,0.1646,0.051,0.0,504.088888888889,1
+Florida Panthers,8478859,4,Niko Mikkola,Winnipeg Jets,Florida Panthers,2026-01-22,0.0176,0.0018,0.0,0.0018,0.0016,0.0,10.0725,1
+Florida Panthers,8479316,1,Luke Kunin,Winnipeg Jets,Florida Panthers,2026-01-22,0.478,0.0502,0.0712,0.12140000000000001,0.0,0.0,260.7288888888889,1
+Florida Panthers,8479316,2,Luke Kunin,Winnipeg Jets,Florida Panthers,2026-01-22,0.5016,0.051,0.0682,0.1192,0.0,0.0,260.27555555555557,1
+Florida Panthers,8479316,3,Luke Kunin,Winnipeg Jets,Florida Panthers,2026-01-22,0.482,0.0458,0.07,0.11580000000000001,0.0,0.0,261.41333333333336,1
+Florida Panthers,8479981,1,Jonah Gadjovich,Winnipeg Jets,Florida Panthers,2026-01-22,0.4752,0.0486,0.0752,0.1238,0.0,0.0,260.7288888888889,1
+Florida Panthers,8479981,2,Jonah Gadjovich,Winnipeg Jets,Florida Panthers,2026-01-22,0.4888,0.0494,0.0742,0.1236,0.0,0.0,260.27555555555557,1
+Florida Panthers,8479981,3,Jonah Gadjovich,Winnipeg Jets,Florida Panthers,2026-01-22,0.466,0.0418,0.083,0.1248,0.0,0.0,261.41333333333336,1
+Florida Panthers,8479981,4,Jonah Gadjovich,Winnipeg Jets,Florida Panthers,2026-01-22,0.0294,0.0032,0.0,0.0032,0.0,0.0,11.9625,1
+Florida Panthers,8480003,1,Jesper Boqvist,Winnipeg Jets,Florida Panthers,2026-01-22,0.8672,0.1016,0.084,0.1856,0.0,0.0,431.6711111111112,1
+Florida Panthers,8480003,2,Jesper Boqvist,Winnipeg Jets,Florida Panthers,2026-01-22,0.93,0.1034,0.0842,0.1876,0.0,0.0,433.3866666666667,1
+Florida Panthers,8480003,3,Jesper Boqvist,Winnipeg Jets,Florida Panthers,2026-01-22,0.8474,0.0912,0.0842,0.1754,0.0,0.0,430.9955555555556,1
+Florida Panthers,8480003,4,Jesper Boqvist,Winnipeg Jets,Florida Panthers,2026-01-22,0.0124,0.0014,0.0,0.0014,0.0,0.0,5.04,1
+Florida Panthers,8480185,1,Eetu Luostarinen,Winnipeg Jets,Florida Panthers,2026-01-22,0.3802,0.0364,0.0672,0.1036,0.0,0.0,204.93333333333334,1
+Florida Panthers,8480185,2,Eetu Luostarinen,Winnipeg Jets,Florida Panthers,2026-01-22,0.3948,0.0386,0.059,0.09759999999999999,0.0,0.0,204.37333333333333,1
+Florida Panthers,8480185,3,Eetu Luostarinen,Winnipeg Jets,Florida Panthers,2026-01-22,0.3738,0.0388,0.0692,0.108,0.0,0.0,205.32444444444445,1
+Florida Panthers,8480185,4,Eetu Luostarinen,Winnipeg Jets,Florida Panthers,2026-01-22,0.0288,0.003,0.0,0.003,0.0,0.0,10.05,1
+Florida Panthers,8480193,1,Daniil Tarasov,Winnipeg Jets,Florida Panthers,2026-01-22,0.0,0.0,0.0,0.0,0.0,9.2698,1199.9999999999998,1
+Florida Panthers,8480193,2,Daniil Tarasov,Winnipeg Jets,Florida Panthers,2026-01-22,0.0,0.0,0.0,0.0,0.0,9.773,1199.9999999999998,1
+Florida Panthers,8480193,3,Daniil Tarasov,Winnipeg Jets,Florida Panthers,2026-01-22,0.0,0.0,0.0,0.0,0.0,9.3544,1199.9999999999998,1
+Florida Panthers,8480193,4,Daniil Tarasov,Winnipeg Jets,Florida Panthers,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.4346,53.34,1
+Florida Panthers,8482113,1,Anton Lundell,Winnipeg Jets,Florida Panthers,2026-01-22,0.364,0.0328,0.063,0.0958,0.0,0.0,204.93333333333334,1
+Florida Panthers,8482113,2,Anton Lundell,Winnipeg Jets,Florida Panthers,2026-01-22,0.3872,0.0386,0.0676,0.10619999999999999,0.0,0.0,204.37333333333333,1
+Florida Panthers,8482113,3,Anton Lundell,Winnipeg Jets,Florida Panthers,2026-01-22,0.3748,0.038,0.0606,0.0986,0.0,0.0,205.32444444444445,1
+Florida Panthers,8482113,4,Anton Lundell,Winnipeg Jets,Florida Panthers,2026-01-22,0.025,0.0022,0.0,0.0022,0.0,0.0,10.05,1
+Florida Panthers,8482713,1,Mackie Samoskevich,Winnipeg Jets,Florida Panthers,2026-01-22,0.3106,0.0354,0.0496,0.08499999999999999,0.0,0.0,170.78222222222223,1
+Florida Panthers,8482713,2,Mackie Samoskevich,Winnipeg Jets,Florida Panthers,2026-01-22,0.3182,0.0316,0.0552,0.0868,0.0,0.0,170.6311111111111,1
+Florida Panthers,8482713,3,Mackie Samoskevich,Winnipeg Jets,Florida Panthers,2026-01-22,0.3322,0.0396,0.0536,0.0932,0.0,0.0,171.13777777777779,1
+Florida Panthers,8484304,1,Uvis Balinskis,Winnipeg Jets,Florida Panthers,2026-01-22,0.491,0.0504,0.1022,0.1526,0.9572,0.0,361.61777777777786,1
+Florida Panthers,8484304,2,Uvis Balinskis,Winnipeg Jets,Florida Panthers,2026-01-22,0.5118,0.0604,0.1018,0.1622,1.0198,0.0,361.0044444444445,1
+Florida Panthers,8484304,3,Uvis Balinskis,Winnipeg Jets,Florida Panthers,2026-01-22,0.5068,0.0504,0.1016,0.152,0.9658,0.0,361.85777777777787,1
+Florida Panthers,8484304,4,Uvis Balinskis,Winnipeg Jets,Florida Panthers,2026-01-22,0.0464,0.005,0.0,0.005,0.0468,0.0,16.83,1
+Winnipeg Jets,8473604,1,Jonathan Toews,Winnipeg Jets,Florida Panthers,2026-01-22,0.3316,0.0324,0.0518,0.0842,0.0,0.0,170.78222222222223,1
+Winnipeg Jets,8473604,2,Jonathan Toews,Winnipeg Jets,Florida Panthers,2026-01-22,0.357,0.0294,0.053,0.0824,0.0,0.0,170.6311111111111,1
+Winnipeg Jets,8473604,3,Jonathan Toews,Winnipeg Jets,Florida Panthers,2026-01-22,0.3482,0.037,0.0526,0.0896,0.0,0.0,171.13777777777779,1
+Winnipeg Jets,8474679,1,Gustav Nyquist,Winnipeg Jets,Florida Panthers,2026-01-22,0.3994,0.0384,0.0592,0.09759999999999999,0.0,0.0,204.93333333333334,1
+Winnipeg Jets,8474679,2,Gustav Nyquist,Winnipeg Jets,Florida Panthers,2026-01-22,0.3982,0.0392,0.0644,0.1036,0.0,0.0,204.37333333333333,1
+Winnipeg Jets,8474679,3,Gustav Nyquist,Winnipeg Jets,Florida Panthers,2026-01-22,0.406,0.0376,0.0646,0.10220000000000001,0.0,0.0,205.32444444444445,1
+Winnipeg Jets,8474679,4,Gustav Nyquist,Winnipeg Jets,Florida Panthers,2026-01-22,0.025,0.0026,0.0,0.0026,0.0,0.0,10.05,1
+Winnipeg Jets,8475799,1,Nino Niederreiter,Winnipeg Jets,Florida Panthers,2026-01-22,0.4124,0.0328,0.0584,0.0912,0.0,0.0,204.93333333333334,1
+Winnipeg Jets,8475799,2,Nino Niederreiter,Winnipeg Jets,Florida Panthers,2026-01-22,0.3964,0.0388,0.072,0.1108,0.0,0.0,204.37333333333333,1
+Winnipeg Jets,8475799,3,Nino Niederreiter,Winnipeg Jets,Florida Panthers,2026-01-22,0.3838,0.0396,0.0654,0.10500000000000001,0.0,0.0,205.32444444444445,1
+Winnipeg Jets,8475799,4,Nino Niederreiter,Winnipeg Jets,Florida Panthers,2026-01-22,0.0304,0.0026,0.0,0.0026,0.0,0.0,10.05,1
+Winnipeg Jets,8476331,1,Dylan DeMelo,Winnipeg Jets,Florida Panthers,2026-01-22,0.8824,0.0806,0.0944,0.175,0.9454,0.0,576.1066666666667,1
+Winnipeg Jets,8476331,2,Dylan DeMelo,Winnipeg Jets,Florida Panthers,2026-01-22,0.9286,0.1038,0.1064,0.2102,1.043,0.0,575.7422222222223,1
+Winnipeg Jets,8476331,3,Dylan DeMelo,Winnipeg Jets,Florida Panthers,2026-01-22,0.9014,0.0884,0.0992,0.1876,0.9738,0.0,574.4533333333334,1
+Winnipeg Jets,8476331,4,Dylan DeMelo,Winnipeg Jets,Florida Panthers,2026-01-22,0.0718,0.007,0.0,0.007,0.0474,0.0,26.9175,1
+Winnipeg Jets,8476392,1,Adam Lowry,Winnipeg Jets,Florida Panthers,2026-01-22,0.4974,0.0456,0.0726,0.1182,0.0,0.0,260.7288888888889,1
+Winnipeg Jets,8476392,2,Adam Lowry,Winnipeg Jets,Florida Panthers,2026-01-22,0.5398,0.0496,0.0798,0.1294,0.0,0.0,260.27555555555557,1
+Winnipeg Jets,8476392,3,Adam Lowry,Winnipeg Jets,Florida Panthers,2026-01-22,0.5034,0.0502,0.0832,0.1334,0.0,0.0,261.41333333333336,1
+Winnipeg Jets,8476392,4,Adam Lowry,Winnipeg Jets,Florida Panthers,2026-01-22,0.0352,0.0034,0.0,0.0034,0.0,0.0,11.9625,1
+Winnipeg Jets,8476460,1,Mark Scheifele,Winnipeg Jets,Florida Panthers,2026-01-22,0.33,0.0282,0.045,0.0732,0.0,0.0,170.78222222222223,1
+Winnipeg Jets,8476460,2,Mark Scheifele,Winnipeg Jets,Florida Panthers,2026-01-22,0.3384,0.0372,0.0538,0.091,0.0,0.0,170.6311111111111,1
+Winnipeg Jets,8476460,3,Mark Scheifele,Winnipeg Jets,Florida Panthers,2026-01-22,0.356,0.037,0.0528,0.08979999999999999,0.0,0.0,171.13777777777779,1
+Winnipeg Jets,8476460,4,Mark Scheifele,Winnipeg Jets,Florida Panthers,2026-01-22,0.0212,0.0016,0.0,0.0016,0.0,0.0,7.86,1
+Winnipeg Jets,8476480,1,Vladislav Namestnikov,Winnipeg Jets,Florida Panthers,2026-01-22,0.4898,0.0476,0.0724,0.12000000000000001,0.0,0.0,260.7288888888889,1
+Winnipeg Jets,8476480,2,Vladislav Namestnikov,Winnipeg Jets,Florida Panthers,2026-01-22,0.5412,0.0494,0.083,0.13240000000000002,0.0,0.0,260.27555555555557,1
+Winnipeg Jets,8476480,3,Vladislav Namestnikov,Winnipeg Jets,Florida Panthers,2026-01-22,0.502,0.0484,0.0794,0.1278,0.0,0.0,261.41333333333336,1
+Winnipeg Jets,8476525,1,Colin Miller,Winnipeg Jets,Florida Panthers,2026-01-22,0.4894,0.045,0.095,0.14,0.04,0.0,345.1644444444445,1
+Winnipeg Jets,8476525,2,Colin Miller,Winnipeg Jets,Florida Panthers,2026-01-22,0.5162,0.0528,0.1026,0.15539999999999998,0.048,0.0,345.33333333333337,1
+Winnipeg Jets,8476525,3,Colin Miller,Winnipeg Jets,Florida Panthers,2026-01-22,0.4962,0.0538,0.0972,0.151,0.0414,0.0,346.08000000000004,1
+Winnipeg Jets,8476525,4,Colin Miller,Winnipeg Jets,Florida Panthers,2026-01-22,0.0418,0.0044,0.0,0.0044,0.0026,0.0,14.6475,1
+Winnipeg Jets,8476871,1,Tanner Pearson,Winnipeg Jets,Florida Panthers,2026-01-22,0.3896,0.0368,0.0578,0.09459999999999999,0.0,0.0,204.93333333333334,1
+Winnipeg Jets,8476871,2,Tanner Pearson,Winnipeg Jets,Florida Panthers,2026-01-22,0.4064,0.0374,0.066,0.1034,0.0,0.0,204.37333333333333,1
+Winnipeg Jets,8476871,3,Tanner Pearson,Winnipeg Jets,Florida Panthers,2026-01-22,0.3844,0.039,0.0646,0.1036,0.0,0.0,205.32444444444445,1
+Winnipeg Jets,8476945,1,Connor Hellebuyck,Winnipeg Jets,Florida Panthers,2026-01-22,0.0,0.0,0.0,0.0,0.0,8.8664,1199.9999999999998,1
+Winnipeg Jets,8476945,2,Connor Hellebuyck,Winnipeg Jets,Florida Panthers,2026-01-22,0.0,0.0,0.0,0.0,0.0,9.255,1199.9999999999998,1
+Winnipeg Jets,8476945,3,Connor Hellebuyck,Winnipeg Jets,Florida Panthers,2026-01-22,0.0,0.0,0.0,0.0,0.0,9.0158,1199.9999999999998,1
+Winnipeg Jets,8476945,4,Connor Hellebuyck,Winnipeg Jets,Florida Panthers,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.3974,53.34,1
+Winnipeg Jets,8477504,1,Josh Morrissey,Winnipeg Jets,Florida Panthers,2026-01-22,0.4806,0.0468,0.0866,0.1334,0.0432,0.0,345.1644444444445,1
+Winnipeg Jets,8477504,2,Josh Morrissey,Winnipeg Jets,Florida Panthers,2026-01-22,0.5376,0.0478,0.0978,0.1456,0.0536,0.0,345.33333333333337,1
+Winnipeg Jets,8477504,3,Josh Morrissey,Winnipeg Jets,Florida Panthers,2026-01-22,0.4816,0.0504,0.099,0.1494,0.0434,0.0,346.08000000000004,1
+Winnipeg Jets,8477504,4,Josh Morrissey,Winnipeg Jets,Florida Panthers,2026-01-22,0.0006,0.0,0.0,0.0,0.0014,0.0,0.39,1
+Winnipeg Jets,8477938,1,Haydn Fleury,Winnipeg Jets,Florida Panthers,2026-01-22,0.8942,0.0938,0.0952,0.189,0.992,0.0,576.1066666666667,1
+Winnipeg Jets,8477938,2,Haydn Fleury,Winnipeg Jets,Florida Panthers,2026-01-22,0.9532,0.0974,0.1,0.19740000000000002,1.0232,0.0,575.7422222222223,1
+Winnipeg Jets,8477938,3,Haydn Fleury,Winnipeg Jets,Florida Panthers,2026-01-22,0.896,0.0936,0.0974,0.191,0.9904,0.0,574.4533333333334,1
+Winnipeg Jets,8477938,4,Haydn Fleury,Winnipeg Jets,Florida Panthers,2026-01-22,0.021,0.002,0.0,0.002,0.045,0.0,10.2675,1
+Winnipeg Jets,8478398,1,Kyle Connor,Winnipeg Jets,Florida Panthers,2026-01-22,1.0698,0.1142,0.0952,0.2094,0.0544,0.0,538.1422222222222,1
+Winnipeg Jets,8478398,2,Kyle Connor,Winnipeg Jets,Florida Panthers,2026-01-22,1.1442,0.1128,0.1,0.2128,0.0526,0.0,538.6933333333334,1
+Winnipeg Jets,8478398,3,Kyle Connor,Winnipeg Jets,Florida Panthers,2026-01-22,1.0848,0.1134,0.0916,0.20500000000000002,0.046,0.0,536.7733333333334,1
+Winnipeg Jets,8478398,4,Kyle Connor,Winnipeg Jets,Florida Panthers,2026-01-22,0.0554,0.008,0.0,0.008,0.0016,0.0,23.0775,1
+Winnipeg Jets,8480113,1,Alex Iafallo,Winnipeg Jets,Florida Panthers,2026-01-22,0.6312,0.0548,0.086,0.14079999999999998,0.0,0.0,323.43111111111114,1
+Winnipeg Jets,8480113,2,Alex Iafallo,Winnipeg Jets,Florida Panthers,2026-01-22,0.636,0.0654,0.0828,0.1482,0.0,0.0,323.1644444444445,1
+Winnipeg Jets,8480113,3,Alex Iafallo,Winnipeg Jets,Florida Panthers,2026-01-22,0.6312,0.0636,0.0932,0.1568,0.0,0.0,324.21333333333337,1
+Winnipeg Jets,8480145,1,Neal Pionk,Winnipeg Jets,Florida Panthers,2026-01-22,0.4318,0.045,0.077,0.122,0.0422,0.0,315.8933333333334,1
+Winnipeg Jets,8480145,2,Neal Pionk,Winnipeg Jets,Florida Panthers,2026-01-22,0.4766,0.0438,0.0868,0.1306,0.0422,0.0,316.00000000000006,1
+Winnipeg Jets,8480145,3,Neal Pionk,Winnipeg Jets,Florida Panthers,2026-01-22,0.4664,0.041,0.088,0.129,0.0444,0.0,316.46222222222224,1
+Winnipeg Jets,8480145,4,Neal Pionk,Winnipeg Jets,Florida Panthers,2026-01-22,0.0382,0.0028,0.0,0.0028,0.0018,0.0,12.3525,1
+Winnipeg Jets,8480289,1,Morgan Barron,Winnipeg Jets,Florida Panthers,2026-01-22,1.0708,0.1006,0.0874,0.188,0.054,0.0,538.1422222222222,1
+Winnipeg Jets,8480289,2,Morgan Barron,Winnipeg Jets,Florida Panthers,2026-01-22,1.1174,0.118,0.0952,0.2132,0.0554,0.0,538.6933333333334,1
+Winnipeg Jets,8480289,3,Morgan Barron,Winnipeg Jets,Florida Panthers,2026-01-22,1.0616,0.1066,0.0928,0.1994,0.0482,0.0,536.7733333333334,1
+Winnipeg Jets,8480289,4,Morgan Barron,Winnipeg Jets,Florida Panthers,2026-01-22,0.0616,0.0064,0.0,0.0064,0.0026,0.0,23.0775,1
+Winnipeg Jets,8481043,1,Cole Koepke,Winnipeg Jets,Florida Panthers,2026-01-22,0.4904,0.043,0.076,0.119,0.0,0.0,260.7288888888889,1
+Winnipeg Jets,8481043,2,Cole Koepke,Winnipeg Jets,Florida Panthers,2026-01-22,0.5186,0.055,0.0808,0.1358,0.0,0.0,260.27555555555557,1
+Winnipeg Jets,8481043,3,Cole Koepke,Winnipeg Jets,Florida Panthers,2026-01-22,0.49,0.0472,0.0784,0.1256,0.0,0.0,261.41333333333336,1
+Winnipeg Jets,8481043,4,Cole Koepke,Winnipeg Jets,Florida Panthers,2026-01-22,0.041,0.004,0.0,0.004,0.0,0.0,11.9625,1
+Winnipeg Jets,8482149,1,Cole Perfetti,Winnipeg Jets,Florida Panthers,2026-01-22,0.3188,0.031,0.0502,0.0812,0.0,0.0,170.78222222222223,1
+Winnipeg Jets,8482149,2,Cole Perfetti,Winnipeg Jets,Florida Panthers,2026-01-22,0.3468,0.0332,0.056,0.0892,0.0,0.0,170.6311111111111,1
+Winnipeg Jets,8482149,3,Cole Perfetti,Winnipeg Jets,Florida Panthers,2026-01-22,0.3526,0.0416,0.0538,0.0954,0.0,0.0,171.13777777777779,1
+Winnipeg Jets,8482149,4,Cole Perfetti,Winnipeg Jets,Florida Panthers,2026-01-22,0.0262,0.0012,0.0,0.0012,0.0,0.0,7.86,1
+Winnipeg Jets,8483510,1,Elias Salomonsson,Winnipeg Jets,Florida Panthers,2026-01-22,0.6478,0.071,0.0762,0.1472,0.0428,0.0,412.30222222222227,1
+Winnipeg Jets,8483510,2,Elias Salomonsson,Winnipeg Jets,Florida Panthers,2026-01-22,0.7056,0.0742,0.0928,0.16699999999999998,0.0474,0.0,413.3955555555556,1
+Winnipeg Jets,8483510,3,Elias Salomonsson,Winnipeg Jets,Florida Panthers,2026-01-22,0.6706,0.0734,0.0802,0.15360000000000001,0.043,0.0,412.6933333333334,1
+Winnipeg Jets,8483510,4,Elias Salomonsson,Winnipeg Jets,Florida Panthers,2026-01-22,0.0124,0.0012,0.0,0.0012,0.001,0.0,5.265,1
+Florida Panthers,8473419,0,Brad Marchand,Winnipeg Jets,Florida Panthers,2026-01-22,1.1508,0.1158,0.19,0.3058,0.0,0.0,614.6311111111111,1
+Florida Panthers,8475179,0,Dmitry Kulikov,Winnipeg Jets,Florida Panthers,2026-01-22,1.9628,0.211,0.2598,0.4708,0.1468,0.0,1255.4955555555557,1
+Florida Panthers,8477493,0,Aleksander Barkov,Winnipeg Jets,Florida Panthers,2026-01-22,3.2744,0.344,0.2812,0.6252,0.1638,0.0,1672.1833333333336,1
+Florida Panthers,8477495,0,Seth Jones,Winnipeg Jets,Florida Panthers,2026-01-22,1.427,0.1362,0.2814,0.41759999999999997,0.1384,0.0,1037.0730555555556,1
+Florida Panthers,8477932,0,Aaron Ekblad,Winnipeg Jets,Florida Panthers,2026-01-22,2.0446,0.1978,0.3182,0.516,3.3254,0.0,1448.8344444444447,1
+Florida Panthers,8477933,0,Sam Reinhart,Winnipeg Jets,Florida Panthers,2026-01-22,1.0084,0.0956,0.1506,0.24620000000000003,0.0,0.0,520.4111111111112,1
+Florida Panthers,8477935,0,Sam Bennett,Winnipeg Jets,Florida Panthers,2026-01-22,3.1864,0.3378,0.2758,0.6135999999999999,0.1684,0.0,1636.5811111111113,1
+Florida Panthers,8478055,0,Gustav Forsling,Winnipeg Jets,Florida Panthers,2026-01-22,1.491,0.1528,0.2754,0.42819999999999997,0.1428,0.0,1051.3305555555557,1
+Florida Panthers,8478421,0,A.J. Greer,Winnipeg Jets,Florida Panthers,2026-01-22,1.4612,0.1512,0.2448,0.396,0.0,0.0,794.3802777777778,1
+Florida Panthers,8478542,0,Evan Rodrigues,Winnipeg Jets,Florida Panthers,2026-01-22,0.9952,0.1084,0.1556,0.264,0.0,0.0,520.4111111111112,1
+Florida Panthers,8478859,0,Niko Mikkola,Winnipeg Jets,Florida Panthers,2026-01-22,2.2876,0.239,0.2498,0.4888,0.1706,0.0,1524.339166666667,1
+Florida Panthers,8479316,0,Luke Kunin,Winnipeg Jets,Florida Panthers,2026-01-22,1.4616,0.147,0.2094,0.3564,0.0,0.0,782.4177777777778,1
+Florida Panthers,8479981,0,Jonah Gadjovich,Winnipeg Jets,Florida Panthers,2026-01-22,1.4594,0.143,0.2324,0.37539999999999996,0.0,0.0,794.3802777777778,1
+Florida Panthers,8480003,0,Jesper Boqvist,Winnipeg Jets,Florida Panthers,2026-01-22,2.657,0.2976,0.2524,0.55,0.0,0.0,1301.0933333333335,1
+Florida Panthers,8480185,0,Eetu Luostarinen,Winnipeg Jets,Florida Panthers,2026-01-22,1.1776,0.1168,0.1954,0.3122,0.0,0.0,624.6811111111111,1
+Florida Panthers,8480193,0,Daniil Tarasov,Winnipeg Jets,Florida Panthers,2026-01-22,0.0,0.0,0.0,0.0,0.0,28.8318,3653.3399999999992,1
+Florida Panthers,8482113,0,Anton Lundell,Winnipeg Jets,Florida Panthers,2026-01-22,1.151,0.1116,0.1912,0.3028,0.0,0.0,624.6811111111111,1
+Florida Panthers,8482713,0,Mackie Samoskevich,Winnipeg Jets,Florida Panthers,2026-01-22,0.961,0.1066,0.1584,0.265,0.0,0.0,512.5511111111111,1
+Florida Panthers,8484304,0,Uvis Balinskis,Winnipeg Jets,Florida Panthers,2026-01-22,1.556,0.1662,0.3056,0.4718,2.9896,0.0,1101.3100000000002,1
+Winnipeg Jets,8473604,0,Jonathan Toews,Winnipeg Jets,Florida Panthers,2026-01-22,1.0368,0.0988,0.1574,0.2562,0.0,0.0,512.5511111111111,1
+Winnipeg Jets,8474679,0,Gustav Nyquist,Winnipeg Jets,Florida Panthers,2026-01-22,1.2286,0.1178,0.1882,0.306,0.0,0.0,624.6811111111111,1
+Winnipeg Jets,8475799,0,Nino Niederreiter,Winnipeg Jets,Florida Panthers,2026-01-22,1.223,0.1138,0.1958,0.3096,0.0,0.0,624.6811111111111,1
+Winnipeg Jets,8476331,0,Dylan DeMelo,Winnipeg Jets,Florida Panthers,2026-01-22,2.7842,0.2798,0.3,0.5798,3.0096,0.0,1753.2197222222223,1
+Winnipeg Jets,8476392,0,Adam Lowry,Winnipeg Jets,Florida Panthers,2026-01-22,1.5758,0.1488,0.2356,0.38439999999999996,0.0,0.0,794.3802777777778,1
+Winnipeg Jets,8476460,0,Mark Scheifele,Winnipeg Jets,Florida Panthers,2026-01-22,1.0456,0.104,0.1516,0.2556,0.0,0.0,520.4111111111112,1
+Winnipeg Jets,8476480,0,Vladislav Namestnikov,Winnipeg Jets,Florida Panthers,2026-01-22,1.533,0.1454,0.2348,0.3802,0.0,0.0,782.4177777777778,1
+Winnipeg Jets,8476525,0,Colin Miller,Winnipeg Jets,Florida Panthers,2026-01-22,1.5436,0.156,0.2948,0.4508,0.132,0.0,1051.225277777778,1
+Winnipeg Jets,8476871,0,Tanner Pearson,Winnipeg Jets,Florida Panthers,2026-01-22,1.1804,0.1132,0.1884,0.3016,0.0,0.0,614.6311111111111,1
+Winnipeg Jets,8476945,0,Connor Hellebuyck,Winnipeg Jets,Florida Panthers,2026-01-22,0.0,0.0,0.0,0.0,0.0,27.5346,3653.3399999999992,1
+Winnipeg Jets,8477504,0,Josh Morrissey,Winnipeg Jets,Florida Panthers,2026-01-22,1.5004,0.145,0.2834,0.4284,0.1416,0.0,1036.9677777777779,1
+Winnipeg Jets,8477938,0,Haydn Fleury,Winnipeg Jets,Florida Panthers,2026-01-22,2.7644,0.2868,0.2926,0.5794,3.0506,0.0,1736.5697222222225,1
+Winnipeg Jets,8478398,0,Kyle Connor,Winnipeg Jets,Florida Panthers,2026-01-22,3.3542,0.3484,0.2868,0.6352,0.1546,0.0,1636.686388888889,1
+Winnipeg Jets,8480113,0,Alex Iafallo,Winnipeg Jets,Florida Panthers,2026-01-22,1.8984,0.1838,0.262,0.4458,0.0,0.0,970.808888888889,1
+Winnipeg Jets,8480145,0,Neal Pionk,Winnipeg Jets,Florida Panthers,2026-01-22,1.413,0.1326,0.2518,0.3844,0.1306,0.0,960.7080555555557,1
+Winnipeg Jets,8480289,0,Morgan Barron,Winnipeg Jets,Florida Panthers,2026-01-22,3.3114,0.3316,0.2754,0.607,0.1602,0.0,1636.686388888889,1
+Winnipeg Jets,8481043,0,Cole Koepke,Winnipeg Jets,Florida Panthers,2026-01-22,1.54,0.1492,0.2352,0.38439999999999996,0.0,0.0,794.3802777777778,1
+Winnipeg Jets,8482149,0,Cole Perfetti,Winnipeg Jets,Florida Panthers,2026-01-22,1.0444,0.107,0.16,0.267,0.0,0.0,520.4111111111112,1
+Winnipeg Jets,8483510,0,Elias Salomonsson,Winnipeg Jets,Florida Panthers,2026-01-22,2.0364,0.2198,0.2492,0.469,0.1342,0.0,1243.6561111111114,1
+Winnipeg Jets,8480014,0,Gabriel Vilardi,Winnipeg Jets,Florida Panthers,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Winnipeg Jets,8482192,0,Isaak Phillips,Winnipeg Jets,Florida Panthers,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Winnipeg Jets,8480049,0,Dylan Samberg,Winnipeg Jets,Florida Panthers,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Winnipeg Jets,8474568,0,Luke Schenn,Winnipeg Jets,Florida Panthers,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Winnipeg Jets,8479378,0,Logan Stanley,Winnipeg Jets,Florida Panthers,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Winnipeg Jets,8477480,0,Eric Comrie,Winnipeg Jets,Florida Panthers,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Florida Panthers,8481655,0,Cole Schwindt,Winnipeg Jets,Florida Panthers,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Florida Panthers,8479314,0,Matthew Tkachuk,Winnipeg Jets,Florida Panthers,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Florida Panthers,8477409,0,Carter Verhaeghe,Winnipeg Jets,Florida Panthers,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Florida Panthers,8483771,0,Sandis Vilmanis,Winnipeg Jets,Florida Panthers,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Florida Panthers,8473507,0,Jeff Petry,Winnipeg Jets,Florida Panthers,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Florida Panthers,8482131,0,Donovan Sebrango,Winnipeg Jets,Florida Panthers,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Florida Panthers,8475683,0,Sergei Bobrovsky,Winnipeg Jets,Florida Panthers,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Edmonton Oilers,1039265,1,Ryan Nugent-Hopkins,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,1.1224,0.1166,0.1374,0.254,0.0,0.0,404.3822222222223,1
+Edmonton Oilers,1039265,2,Ryan Nugent-Hopkins,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,1.2166,0.1116,0.1388,0.2504,0.0,0.0,402.3733333333334,1
+Edmonton Oilers,1039265,3,Ryan Nugent-Hopkins,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,1.2032,0.119,0.1376,0.2566,0.0,0.0,403.6888888888889,1
+Edmonton Oilers,1039265,4,Ryan Nugent-Hopkins,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,0.0054,0.0008,0.0,0.0008,0.0,0.0,1.5,1
+Edmonton Oilers,1046512,1,Jack Roslovic,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,0.7426,0.0754,0.137,0.2124,0.0,0.0,264.24888888888887,1
+Edmonton Oilers,1046512,2,Jack Roslovic,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,0.796,0.0756,0.1506,0.2262,0.0,0.0,264.94222222222226,1
+Edmonton Oilers,1046512,3,Jack Roslovic,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,0.7628,0.0752,0.1438,0.21900000000000003,0.0,0.0,263.84,1
+Edmonton Oilers,1046512,4,Jack Roslovic,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,0.0044,0.0004,0.0,0.0004,0.0,0.0,1.41,1
+Edmonton Oilers,1961174,1,Zach Hyman,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,1.144,0.1106,0.1316,0.2422,0.0,0.0,404.3822222222223,1
+Edmonton Oilers,1961174,2,Zach Hyman,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,1.188,0.117,0.138,0.255,0.0,0.0,402.3733333333334,1
+Edmonton Oilers,1961174,3,Zach Hyman,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,1.1592,0.1228,0.1372,0.26,0.0,0.0,403.6888888888889,1
+Edmonton Oilers,1961174,4,Zach Hyman,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,0.0628,0.0044,0.0,0.0044,0.0,0.0,15.435,1
+Edmonton Oilers,3239967,1,Mattias Ekholm,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,1.1134,0.1106,0.1304,0.241,0.0,0.0,404.3822222222223,1
+Edmonton Oilers,3239967,2,Mattias Ekholm,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,1.187,0.1198,0.1372,0.257,0.0,0.0,402.3733333333334,1
+Edmonton Oilers,3239967,3,Mattias Ekholm,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,1.1646,0.1174,0.137,0.2544,0.0,0.0,403.6888888888889,1
+Edmonton Oilers,3239967,4,Mattias Ekholm,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,0.06,0.0056,0.0,0.0056,0.0,0.0,15.435,1
+Edmonton Oilers,3778154,1,Jake Walman,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,0.7706,0.0772,0.14,0.2172,0.0,0.0,264.24888888888887,1
+Edmonton Oilers,3778154,2,Jake Walman,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,0.8116,0.0794,0.1492,0.2286,0.0,0.0,264.94222222222226,1
+Edmonton Oilers,3778154,3,Jake Walman,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,0.7664,0.0692,0.1422,0.21139999999999998,0.0,0.0,263.84,1
+Edmonton Oilers,3778154,4,Jake Walman,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,0.0612,0.0052,0.0,0.0052,0.0,0.0,13.95,1
+Edmonton Oilers,4112435,1,Evan Bouchard,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,2.1708,0.2044,0.1118,0.3162,0.0,0.0,252.61333333333334,1
+Edmonton Oilers,4112435,2,Evan Bouchard,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,2.3008,0.222,0.1208,0.3428,0.0,0.0,254.14222222222224,1
+Edmonton Oilers,4112435,3,Evan Bouchard,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,2.2312,0.227,0.1266,0.3536,0.0,0.0,253.42222222222225,1
+Edmonton Oilers,4112435,4,Evan Bouchard,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,0.0966,0.0118,0.0,0.0118,0.0,0.0,11.2425,1
+Edmonton Oilers,4147063,1,Kasperi Kapanen,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,0.7884,0.079,0.1428,0.2218,0.0,0.0,278.7555555555556,1
+Edmonton Oilers,4147063,2,Kasperi Kapanen,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,0.8284,0.0788,0.148,0.2268,0.0,0.0,278.5422222222222,1
+Edmonton Oilers,4147063,3,Kasperi Kapanen,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,0.8294,0.079,0.1388,0.2178,0.0,0.0,279.0488888888889,1
+Edmonton Oilers,4147063,4,Kasperi Kapanen,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,0.0064,0.0008,0.0,0.0008,0.0,0.0,1.515,1
+Edmonton Oilers,5539533,1,Darnell Nurse,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,0.7966,0.0764,0.1346,0.211,0.0,0.0,278.7555555555556,1
+Edmonton Oilers,5539533,2,Darnell Nurse,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,0.8306,0.0778,0.1408,0.21860000000000002,0.0,0.0,278.5422222222222,1
+Edmonton Oilers,5539533,3,Darnell Nurse,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,0.8224,0.0772,0.1448,0.22200000000000003,0.0,0.0,279.0488888888889,1
+Edmonton Oilers,5539533,4,Darnell Nurse,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,0.0658,0.0106,0.0,0.0106,0.0,0.0,15.2325,1
+Edmonton Oilers,6524386,1,Leon Draisaitl,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,0.7912,0.0792,0.1358,0.21500000000000002,0.0,0.0,278.7555555555556,1
+Edmonton Oilers,6524386,2,Leon Draisaitl,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,0.8364,0.0794,0.1518,0.2312,0.0,0.0,278.5422222222222,1
+Edmonton Oilers,6524386,3,Leon Draisaitl,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,0.7936,0.0842,0.1488,0.23299999999999998,0.0,0.0,279.0488888888889,1
+Edmonton Oilers,6524386,4,Leon Draisaitl,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,0.0602,0.0052,0.0,0.0052,0.0,0.0,15.2325,1
+Edmonton Oilers,7444075,1,Connor McDavid,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,0.762,0.0686,0.1452,0.2138,0.0,0.0,264.24888888888887,1
+Edmonton Oilers,7444075,2,Connor McDavid,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,0.7942,0.0846,0.1398,0.2244,0.0,0.0,264.94222222222226,1
+Edmonton Oilers,7444075,3,Connor McDavid,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,0.746,0.0728,0.1454,0.2182,0.0,0.0,263.84,1
+Edmonton Oilers,7444075,4,Connor McDavid,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,0.0538,0.0066,0.0,0.0066,0.0,0.0,13.95,1
+Pittsburgh Penguins,3435985,1,Rickard Rakell,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,0.9532,0.0926,0.1504,0.243,0.0,0.0,345.77777777777777,1
+Pittsburgh Penguins,3435985,2,Rickard Rakell,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,0.9868,0.096,0.1566,0.2526,0.0,0.0,345.8666666666667,1
+Pittsburgh Penguins,3435985,3,Rickard Rakell,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,0.9846,0.1046,0.174,0.27859999999999996,0.0,0.0,344.6844444444445,1
+Pittsburgh Penguins,3435985,4,Rickard Rakell,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,0.0608,0.0046,0.0,0.0046,0.0,0.0,15.6975,1
+Pittsburgh Penguins,4963960,1,Justin Brazeau,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,0.9868,0.0978,0.158,0.2558,0.0,0.0,360.1955555555556,1
+Pittsburgh Penguins,4963960,2,Justin Brazeau,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,1.0358,0.1008,0.1616,0.26239999999999997,0.0,0.0,361.5111111111111,1
+Pittsburgh Penguins,4963960,3,Justin Brazeau,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,1.0092,0.1064,0.1662,0.27259999999999995,0.0,0.0,361.69777777777784,1
+Pittsburgh Penguins,4963960,4,Justin Brazeau,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,0.0804,0.0066,0.0,0.0066,0.0,0.0,18.87,1
+Pittsburgh Penguins,5006058,1,Evgeni Malkin,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,1.3556,0.1416,0.149,0.29059999999999997,0.0,0.0,494.0266666666667,1
+Pittsburgh Penguins,5006058,2,Evgeni Malkin,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,1.4486,0.1508,0.146,0.29679999999999995,0.0,0.0,492.6222222222223,1
+Pittsburgh Penguins,5006058,3,Evgeni Malkin,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,1.4402,0.1484,0.1496,0.29800000000000004,0.0,0.0,493.6177777777778,1
+Pittsburgh Penguins,5006058,4,Evgeni Malkin,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,0.0876,0.01,0.0,0.01,0.0,0.0,21.2925,1
+Pittsburgh Penguins,5129054,1,Bryan Rust,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,0.9458,0.0948,0.1552,0.25,0.0,0.0,345.77777777777777,1
+Pittsburgh Penguins,5129054,2,Bryan Rust,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,1.007,0.0952,0.1626,0.25780000000000003,0.0,0.0,345.8666666666667,1
+Pittsburgh Penguins,5129054,3,Bryan Rust,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,0.9622,0.101,0.1696,0.2706,0.0,0.0,344.6844444444445,1
+Pittsburgh Penguins,5129054,4,Bryan Rust,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,0.0678,0.0054,0.0,0.0054,0.0,0.0,15.6975,1
+Pittsburgh Penguins,5523994,1,Anthony Mantha,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,1.3658,0.1424,0.1484,0.2908,0.0,0.0,494.0266666666667,1
+Pittsburgh Penguins,5523994,2,Anthony Mantha,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,1.432,0.1524,0.1464,0.2988,0.0,0.0,492.6222222222223,1
+Pittsburgh Penguins,5523994,3,Anthony Mantha,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,1.3904,0.1574,0.1474,0.3048,0.0,0.0,493.6177777777778,1
+Pittsburgh Penguins,5523994,4,Anthony Mantha,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,0.0918,0.008,0.0,0.008,0.0,0.0,21.2925,1
+Pittsburgh Penguins,5809449,1,Tommy Novak,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,1.3804,0.1368,0.1484,0.2852,0.0,0.0,494.0266666666667,1
+Pittsburgh Penguins,5809449,2,Tommy Novak,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,1.4264,0.1386,0.1434,0.28200000000000003,0.0,0.0,492.6222222222223,1
+Pittsburgh Penguins,5809449,3,Tommy Novak,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,1.4176,0.1498,0.1574,0.30720000000000003,0.0,0.0,493.6177777777778,1
+Pittsburgh Penguins,5809449,4,Tommy Novak,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,0.0018,0.0,0.0,0.0,0.0,0.0,1.77,1
+Pittsburgh Penguins,6052663,1,Erik Karlsson,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,0.9682,0.1014,0.1408,0.24220000000000003,0.0,0.0,360.1955555555556,1
+Pittsburgh Penguins,6052663,2,Erik Karlsson,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,1.0284,0.1026,0.1552,0.25780000000000003,0.0,0.0,361.5111111111111,1
+Pittsburgh Penguins,6052663,3,Erik Karlsson,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,1.0062,0.1112,0.1646,0.2758,0.0,0.0,361.69777777777784,1
+Pittsburgh Penguins,6052663,4,Erik Karlsson,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,0.004,0.0006,0.0,0.0006,0.0,0.0,2.0625,1
+Pittsburgh Penguins,6762863,1,Ben Kindel,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,0.9392,0.0982,0.1542,0.2524,0.0,0.0,345.77777777777777,1
+Pittsburgh Penguins,6762863,2,Ben Kindel,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,0.9816,0.0972,0.1598,0.257,0.0,0.0,345.8666666666667,1
+Pittsburgh Penguins,6762863,3,Ben Kindel,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,0.96,0.0932,0.1652,0.2584,0.0,0.0,344.6844444444445,1
+Pittsburgh Penguins,6762863,4,Ben Kindel,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,0.0032,0.0,0.0,0.0,0.0,0.0,1.98,1
+Pittsburgh Penguins,7824176,1,Sidney Crosby,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,0.9808,0.1038,0.1548,0.2586,0.0,0.0,360.1955555555556,1
+Pittsburgh Penguins,7824176,2,Sidney Crosby,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,1.032,0.103,0.1608,0.2638,0.0,0.0,361.5111111111111,1
+Pittsburgh Penguins,7824176,3,Sidney Crosby,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,1.0204,0.1094,0.1636,0.273,0.0,0.0,361.69777777777784,1
+Pittsburgh Penguins,7824176,4,Sidney Crosby,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,0.0728,0.006,0.0,0.006,0.0,0.0,18.87,1
+Edmonton Oilers,1039265,0,Ryan Nugent-Hopkins,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,3.5476,0.348,0.4138,0.7618,0.0,0.0,1211.9444444444446,1
+Edmonton Oilers,1046512,0,Jack Roslovic,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,2.3058,0.2266,0.4314,0.658,0.0,0.0,794.4411111111112,1
+Edmonton Oilers,1961174,0,Zach Hyman,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,3.554,0.3548,0.4068,0.7616,0.0,0.0,1225.8794444444445,1
+Edmonton Oilers,3239967,0,Mattias Ekholm,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,3.525,0.3534,0.4046,0.758,0.0,0.0,1225.8794444444445,1
+Edmonton Oilers,3778154,0,Jake Walman,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,2.4098,0.231,0.4314,0.6624,0.0,0.0,806.9811111111112,1
+Edmonton Oilers,4112435,0,Evan Bouchard,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,6.7994,0.6652,0.3592,1.0244,0.0,0.0,771.4202777777779,1
+Edmonton Oilers,4147063,0,Kasperi Kapanen,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,2.4526,0.2376,0.4296,0.6672,0.0,0.0,837.8616666666667,1
+Edmonton Oilers,5539533,0,Darnell Nurse,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,2.5154,0.242,0.4202,0.6622,0.0,0.0,851.5791666666668,1
+Edmonton Oilers,6524386,0,Leon Draisaitl,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,2.4814,0.248,0.4364,0.6844,0.0,0.0,851.5791666666668,1
+Edmonton Oilers,7444075,0,Connor McDavid,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,2.356,0.2326,0.4304,0.663,0.0,0.0,806.9811111111112,1
+Pittsburgh Penguins,3435985,0,Rickard Rakell,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,2.9854,0.2978,0.481,0.7787999999999999,0.0,0.0,1052.026388888889,1
+Pittsburgh Penguins,4963960,0,Justin Brazeau,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,3.1122,0.3116,0.4858,0.7974,0.0,0.0,1102.2744444444445,1
+Pittsburgh Penguins,5006058,0,Evgeni Malkin,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,4.332,0.4508,0.4446,0.8954,0.0,0.0,1501.559166666667,1
+Pittsburgh Penguins,5129054,0,Bryan Rust,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,2.9828,0.2964,0.4874,0.7838,0.0,0.0,1052.026388888889,1
+Pittsburgh Penguins,5523994,0,Anthony Mantha,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,4.28,0.4602,0.4422,0.9024,0.0,0.0,1501.559166666667,1
+Pittsburgh Penguins,5809449,0,Tommy Novak,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,4.2262,0.4252,0.4492,0.8744000000000001,0.0,0.0,1482.0366666666669,1
+Pittsburgh Penguins,6052663,0,Erik Karlsson,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,3.0068,0.3158,0.4606,0.7764,0.0,0.0,1085.4669444444446,1
+Pittsburgh Penguins,6762863,0,Ben Kindel,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,2.884,0.2886,0.4792,0.7678,0.0,0.0,1038.308888888889,1
+Pittsburgh Penguins,7824176,0,Sidney Crosby,Edmonton Oilers,Pittsburgh Penguins,2026-01-22,3.106,0.3222,0.4792,0.8014,0.0,0.0,1102.2744444444445,1
+Detroit Red Wings,8474037,1,James van Riemsdyk,Minnesota Wild,Detroit Red Wings,2026-01-22,0.3724,0.038,0.0592,0.09720000000000001,0.0,0.0,194.35555555555555,1
+Detroit Red Wings,8474037,2,James van Riemsdyk,Minnesota Wild,Detroit Red Wings,2026-01-22,0.3752,0.0428,0.0632,0.10600000000000001,0.0,0.0,194.24,1
+Detroit Red Wings,8474037,3,James van Riemsdyk,Minnesota Wild,Detroit Red Wings,2026-01-22,0.3868,0.0406,0.058,0.0986,0.0,0.0,194.19555555555556,1
+Detroit Red Wings,8474037,4,James van Riemsdyk,Minnesota Wild,Detroit Red Wings,2026-01-22,0.0008,0.0,0.0,0.0,0.0,0.0,0.24,1
+Detroit Red Wings,8474141,1,Patrick Kane,Minnesota Wild,Detroit Red Wings,2026-01-22,0.4626,0.0468,0.0724,0.1192,0.0,0.0,256.0,1
+Detroit Red Wings,8474141,2,Patrick Kane,Minnesota Wild,Detroit Red Wings,2026-01-22,0.4948,0.0486,0.077,0.1256,0.0,0.0,255.97333333333336,1
+Detroit Red Wings,8474141,3,Patrick Kane,Minnesota Wild,Detroit Red Wings,2026-01-22,0.4686,0.0482,0.0688,0.11699999999999999,0.0,0.0,255.6888888888889,1
+Detroit Red Wings,8474612,1,Travis Hamonic,Minnesota Wild,Detroit Red Wings,2026-01-22,0.6186,0.0654,0.0842,0.1496,0.0476,0.0,412.56000000000006,1
+Detroit Red Wings,8474612,2,Travis Hamonic,Minnesota Wild,Detroit Red Wings,2026-01-22,0.6386,0.0748,0.0904,0.1652,0.0492,0.0,412.6933333333334,1
+Detroit Red Wings,8474612,3,Travis Hamonic,Minnesota Wild,Detroit Red Wings,2026-01-22,0.6446,0.0718,0.0912,0.163,0.0492,0.0,414.10666666666674,1
+Detroit Red Wings,8474612,4,Travis Hamonic,Minnesota Wild,Detroit Red Wings,2026-01-22,0.0404,0.0062,0.0,0.0062,0.0032,0.0,17.9625,1
+Detroit Red Wings,8475279,1,Ben Chiarot,Minnesota Wild,Detroit Red Wings,2026-01-22,0.6534,0.0636,0.0952,0.1588,1.0558,0.0,480.4177777777778,1
+Detroit Red Wings,8475279,2,Ben Chiarot,Minnesota Wild,Detroit Red Wings,2026-01-22,0.7066,0.065,0.0968,0.1618,1.1014,0.0,480.6755555555556,1
+Detroit Red Wings,8475279,3,Ben Chiarot,Minnesota Wild,Detroit Red Wings,2026-01-22,0.667,0.0558,0.104,0.1598,1.0844,0.0,479.5911111111112,1
+Detroit Red Wings,8475279,4,Ben Chiarot,Minnesota Wild,Detroit Red Wings,2026-01-22,0.0082,0.0008,0.0,0.0008,0.0514,0.0,5.535,1
+Detroit Red Wings,8475660,1,Cam Talbot,Minnesota Wild,Detroit Red Wings,2026-01-22,0.0,0.0,0.0,0.0,0.0,9.2242,1199.9999999999998,1
+Detroit Red Wings,8475660,2,Cam Talbot,Minnesota Wild,Detroit Red Wings,2026-01-22,0.0,0.0,0.0,0.0,0.0,9.6826,1199.9999999999998,1
+Detroit Red Wings,8475660,3,Cam Talbot,Minnesota Wild,Detroit Red Wings,2026-01-22,0.0,0.0,0.0,0.0,0.0,9.431,1199.9999999999998,1
+Detroit Red Wings,8475660,4,Cam Talbot,Minnesota Wild,Detroit Red Wings,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.4574,55.2,1
+Detroit Red Wings,8476979,1,Erik Gustafsson,Minnesota Wild,Detroit Red Wings,2026-01-22,0.4736,0.0492,0.0906,0.1398,0.05,0.0,346.0266666666667,1
+Detroit Red Wings,8476979,2,Erik Gustafsson,Minnesota Wild,Detroit Red Wings,2026-01-22,0.4988,0.0486,0.0994,0.148,0.0436,0.0,345.76000000000005,1
+Detroit Red Wings,8476979,3,Erik Gustafsson,Minnesota Wild,Detroit Red Wings,2026-01-22,0.4854,0.0464,0.0924,0.13879999999999998,0.0438,0.0,345.04,1
+Detroit Red Wings,8476979,4,Erik Gustafsson,Minnesota Wild,Detroit Red Wings,2026-01-22,0.0006,0.0,0.0,0.0,0.0016,0.0,0.555,1
+Detroit Red Wings,8477429,1,Andrew Copp,Minnesota Wild,Detroit Red Wings,2026-01-22,0.859,0.0902,0.0792,0.1694,0.0,0.0,428.4977777777778,1
+Detroit Red Wings,8477429,2,Andrew Copp,Minnesota Wild,Detroit Red Wings,2026-01-22,0.893,0.1062,0.085,0.1912,0.0,0.0,428.648888888889,1
+Detroit Red Wings,8477429,3,Andrew Copp,Minnesota Wild,Detroit Red Wings,2026-01-22,0.861,0.0942,0.083,0.17720000000000002,0.0,0.0,429.8577777777778,1
+Detroit Red Wings,8477429,4,Andrew Copp,Minnesota Wild,Detroit Red Wings,2026-01-22,0.0146,0.0012,0.0,0.0012,0.0,0.0,5.1825,1
+Detroit Red Wings,8477456,1,J.T. Compher,Minnesota Wild,Detroit Red Wings,2026-01-22,1.0138,0.1046,0.0902,0.1948,0.0516,0.0,533.7866666666667,1
+Detroit Red Wings,8477456,2,J.T. Compher,Minnesota Wild,Detroit Red Wings,2026-01-22,1.0542,0.1068,0.0966,0.20340000000000003,0.0602,0.0,534.0444444444445,1
+Detroit Red Wings,8477456,3,J.T. Compher,Minnesota Wild,Detroit Red Wings,2026-01-22,1.0188,0.1116,0.0822,0.1938,0.0478,0.0,535.0222222222222,1
+Detroit Red Wings,8477456,4,J.T. Compher,Minnesota Wild,Detroit Red Wings,2026-01-22,0.055,0.0084,0.0,0.0084,0.002,0.0,23.625,1
+Detroit Red Wings,8477946,1,Dylan Larkin,Minnesota Wild,Detroit Red Wings,2026-01-22,0.369,0.0348,0.065,0.0998,0.0,0.0,201.9911111111111,1
+Detroit Red Wings,8477946,2,Dylan Larkin,Minnesota Wild,Detroit Red Wings,2026-01-22,0.388,0.0408,0.06,0.1008,0.0,0.0,201.87555555555556,1
+Detroit Red Wings,8477946,3,Dylan Larkin,Minnesota Wild,Detroit Red Wings,2026-01-22,0.363,0.039,0.0652,0.10419999999999999,0.0,0.0,201.53777777777776,1
+Detroit Red Wings,8477946,4,Dylan Larkin,Minnesota Wild,Detroit Red Wings,2026-01-22,0.0338,0.0034,0.0,0.0034,0.0,0.0,10.4025,1
+Detroit Red Wings,8478891,1,Mason Appleton,Minnesota Wild,Detroit Red Wings,2026-01-22,1.0168,0.101,0.09,0.191,0.0552,0.0,533.7866666666667,1
+Detroit Red Wings,8478891,2,Mason Appleton,Minnesota Wild,Detroit Red Wings,2026-01-22,1.0588,0.1118,0.0966,0.2084,0.0506,0.0,534.0444444444445,1
+Detroit Red Wings,8478891,3,Mason Appleton,Minnesota Wild,Detroit Red Wings,2026-01-22,1.0346,0.1048,0.0848,0.1896,0.0536,0.0,535.0222222222222,1
+Detroit Red Wings,8478891,4,Mason Appleton,Minnesota Wild,Detroit Red Wings,2026-01-22,0.058,0.0066,0.0,0.0066,0.003,0.0,23.625,1
+Detroit Red Wings,8479337,1,Alex DeBrincat,Minnesota Wild,Detroit Red Wings,2026-01-22,0.4758,0.0466,0.0666,0.11320000000000001,0.0,0.0,256.0,1
+Detroit Red Wings,8479337,2,Alex DeBrincat,Minnesota Wild,Detroit Red Wings,2026-01-22,0.5036,0.0538,0.0808,0.1346,0.0,0.0,255.97333333333336,1
+Detroit Red Wings,8479337,3,Alex DeBrincat,Minnesota Wild,Detroit Red Wings,2026-01-22,0.4664,0.0436,0.0724,0.116,0.0,0.0,255.6888888888889,1
+Detroit Red Wings,8479337,4,Alex DeBrincat,Minnesota Wild,Detroit Red Wings,2026-01-22,0.0362,0.003,0.0,0.003,0.0,0.0,12.4725,1
+Detroit Red Wings,8479992,1,Michael Rasmussen,Minnesota Wild,Detroit Red Wings,2026-01-22,0.3634,0.036,0.0636,0.0996,0.0,0.0,201.9911111111111,1
+Detroit Red Wings,8479992,2,Michael Rasmussen,Minnesota Wild,Detroit Red Wings,2026-01-22,0.4052,0.0376,0.0676,0.10519999999999999,0.0,0.0,201.87555555555556,1
+Detroit Red Wings,8479992,3,Michael Rasmussen,Minnesota Wild,Detroit Red Wings,2026-01-22,0.362,0.037,0.064,0.101,0.0,0.0,201.53777777777776,1
+Detroit Red Wings,8480879,1,Jacob Bernard-Docker,Minnesota Wild,Detroit Red Wings,2026-01-22,0.4948,0.0502,0.1014,0.1516,0.9306,0.0,361.26222222222225,1
+Detroit Red Wings,8480879,2,Jacob Bernard-Docker,Minnesota Wild,Detroit Red Wings,2026-01-22,0.512,0.0488,0.1086,0.1574,1.0188,0.0,361.4133333333334,1
+Detroit Red Wings,8480879,3,Jacob Bernard-Docker,Minnesota Wild,Detroit Red Wings,2026-01-22,0.4934,0.0528,0.0952,0.14800000000000002,0.9724,0.0,360.87111111111113,1
+Detroit Red Wings,8480879,4,Jacob Bernard-Docker,Minnesota Wild,Detroit Red Wings,2026-01-22,0.0478,0.0044,0.0,0.0044,0.044,0.0,17.49,1
+Detroit Red Wings,8481607,1,Albert Johansson,Minnesota Wild,Detroit Red Wings,2026-01-22,0.731,0.0758,0.0766,0.1524,0.06,0.0,503.9822222222223,1
+Detroit Red Wings,8481607,2,Albert Johansson,Minnesota Wild,Detroit Red Wings,2026-01-22,0.782,0.0832,0.086,0.1692,0.053,0.0,504.2222222222223,1
+Detroit Red Wings,8481607,3,Albert Johansson,Minnesota Wild,Detroit Red Wings,2026-01-22,0.7612,0.0788,0.0814,0.1602,0.0526,0.0,505.7155555555556,1
+Detroit Red Wings,8481607,4,Albert Johansson,Minnesota Wild,Detroit Red Wings,2026-01-22,0.0172,0.0016,0.0,0.0016,0.0028,0.0,10.1625,1
+Detroit Red Wings,8481725,1,Elmer Soderblom,Minnesota Wild,Detroit Red Wings,2026-01-22,0.3398,0.0356,0.0532,0.08879999999999999,0.0,0.0,183.08444444444444,1
+Detroit Red Wings,8481725,2,Elmer Soderblom,Minnesota Wild,Detroit Red Wings,2026-01-22,0.3598,0.0366,0.0526,0.0892,0.0,0.0,182.84444444444446,1
+Detroit Red Wings,8481725,3,Elmer Soderblom,Minnesota Wild,Detroit Red Wings,2026-01-22,0.3516,0.0388,0.0486,0.0874,0.0,0.0,182.56888888888886,1
+Detroit Red Wings,8481725,4,Elmer Soderblom,Minnesota Wild,Detroit Red Wings,2026-01-22,0.0214,0.0018,0.0,0.0018,0.0,0.0,8.145,1
+Detroit Red Wings,8482078,1,Lucas Raymond,Minnesota Wild,Detroit Red Wings,2026-01-22,0.3274,0.035,0.0484,0.0834,0.0,0.0,183.08444444444444,1
+Detroit Red Wings,8482078,2,Lucas Raymond,Minnesota Wild,Detroit Red Wings,2026-01-22,0.3496,0.0366,0.0524,0.089,0.0,0.0,182.84444444444446,1
+Detroit Red Wings,8482078,3,Lucas Raymond,Minnesota Wild,Detroit Red Wings,2026-01-22,0.3436,0.0328,0.0512,0.084,0.0,0.0,182.56888888888886,1
+Detroit Red Wings,8482078,4,Lucas Raymond,Minnesota Wild,Detroit Red Wings,2026-01-22,0.0248,0.0016,0.0,0.0016,0.0,0.0,8.145,1
+Detroit Red Wings,8482762,1,Simon Edvinsson,Minnesota Wild,Detroit Red Wings,2026-01-22,0.48,0.0542,0.0884,0.1426,0.0452,0.0,346.0266666666667,1
+Detroit Red Wings,8482762,2,Simon Edvinsson,Minnesota Wild,Detroit Red Wings,2026-01-22,0.4924,0.0504,0.0976,0.14800000000000002,0.042,0.0,345.76000000000005,1
+Detroit Red Wings,8482762,3,Simon Edvinsson,Minnesota Wild,Detroit Red Wings,2026-01-22,0.4824,0.0468,0.0928,0.1396,0.0504,0.0,345.04,1
+Detroit Red Wings,8482762,4,Simon Edvinsson,Minnesota Wild,Detroit Red Wings,2026-01-22,0.0438,0.004,0.0,0.004,0.0024,0.0,15.3225,1
+Detroit Red Wings,8483464,1,Marco Kasper,Minnesota Wild,Detroit Red Wings,2026-01-22,0.362,0.033,0.0618,0.0948,0.0,0.0,201.9911111111111,1
+Detroit Red Wings,8483464,2,Marco Kasper,Minnesota Wild,Detroit Red Wings,2026-01-22,0.392,0.043,0.06,0.103,0.0,0.0,201.87555555555556,1
+Detroit Red Wings,8483464,3,Marco Kasper,Minnesota Wild,Detroit Red Wings,2026-01-22,0.3658,0.0354,0.0604,0.0958,0.0,0.0,201.53777777777776,1
+Detroit Red Wings,8483464,4,Marco Kasper,Minnesota Wild,Detroit Red Wings,2026-01-22,0.0254,0.0034,0.0,0.0034,0.0,0.0,10.4025,1
+Detroit Red Wings,8484471,1,Emmitt Finnie,Minnesota Wild,Detroit Red Wings,2026-01-22,0.4678,0.0412,0.0648,0.106,0.0,0.0,256.0,1
+Detroit Red Wings,8484471,2,Emmitt Finnie,Minnesota Wild,Detroit Red Wings,2026-01-22,0.488,0.0502,0.0842,0.1344,0.0,0.0,255.97333333333336,1
+Detroit Red Wings,8484471,3,Emmitt Finnie,Minnesota Wild,Detroit Red Wings,2026-01-22,0.4858,0.0466,0.0792,0.12580000000000002,0.0,0.0,255.6888888888889,1
+Detroit Red Wings,8484471,4,Emmitt Finnie,Minnesota Wild,Detroit Red Wings,2026-01-22,0.0374,0.0028,0.0,0.0028,0.0,0.0,12.4725,1
+Minnesota Wild,8474567,1,Zach Bogosian,Minnesota Wild,Detroit Red Wings,2026-01-22,0.862,0.0878,0.0996,0.1874,0.9978,0.0,574.5866666666667,1
+Minnesota Wild,8474567,2,Zach Bogosian,Minnesota Wild,Detroit Red Wings,2026-01-22,0.9388,0.0954,0.0954,0.1908,1.0396,0.0,575.2444444444445,1
+Minnesota Wild,8474567,3,Zach Bogosian,Minnesota Wild,Detroit Red Wings,2026-01-22,0.9062,0.0936,0.1064,0.2,0.9924,0.0,575.5022222222223,1
+Minnesota Wild,8474567,4,Zach Bogosian,Minnesota Wild,Detroit Red Wings,2026-01-22,0.0714,0.0092,0.0,0.0092,0.0494,0.0,27.705,1
+Minnesota Wild,8475149,1,Marcus Johansson,Minnesota Wild,Detroit Red Wings,2026-01-22,0.4858,0.051,0.0726,0.12359999999999999,0.0,0.0,261.2088888888889,1
+Minnesota Wild,8475149,2,Marcus Johansson,Minnesota Wild,Detroit Red Wings,2026-01-22,0.5184,0.0476,0.078,0.1256,0.0,0.0,261.15555555555557,1
+Minnesota Wild,8475149,3,Marcus Johansson,Minnesota Wild,Detroit Red Wings,2026-01-22,0.495,0.0506,0.08,0.1306,0.0,0.0,260.3466666666667,1
+Minnesota Wild,8475220,1,Marcus Foligno,Minnesota Wild,Detroit Red Wings,2026-01-22,0.6112,0.057,0.0826,0.1396,0.0,0.0,324.32888888888897,1
+Minnesota Wild,8475220,2,Marcus Foligno,Minnesota Wild,Detroit Red Wings,2026-01-22,0.6442,0.0624,0.0926,0.155,0.0,0.0,323.91111111111115,1
+Minnesota Wild,8475220,3,Marcus Foligno,Minnesota Wild,Detroit Red Wings,2026-01-22,0.6152,0.061,0.0884,0.1494,0.0,0.0,323.52888888888896,1
+Minnesota Wild,8475752,1,Tyler Pitlick,Minnesota Wild,Detroit Red Wings,2026-01-22,0.3894,0.038,0.0624,0.10039999999999999,0.0,0.0,205.15555555555554,1
+Minnesota Wild,8475752,2,Tyler Pitlick,Minnesota Wild,Detroit Red Wings,2026-01-22,0.42,0.0464,0.0642,0.11059999999999999,0.0,0.0,204.98666666666668,1
+Minnesota Wild,8475752,3,Tyler Pitlick,Minnesota Wild,Detroit Red Wings,2026-01-22,0.3812,0.038,0.0638,0.1018,0.0,0.0,204.78222222222223,1
+Minnesota Wild,8475752,4,Tyler Pitlick,Minnesota Wild,Detroit Red Wings,2026-01-22,0.0336,0.002,0.0,0.002,0.0,0.0,10.4025,1
+Minnesota Wild,8475765,1,Vladimir Tarasenko,Minnesota Wild,Detroit Red Wings,2026-01-22,0.3194,0.034,0.0498,0.0838,0.0,0.0,171.2711111111111,1
+Minnesota Wild,8475765,2,Vladimir Tarasenko,Minnesota Wild,Detroit Red Wings,2026-01-22,0.329,0.0274,0.0532,0.0806,0.0,0.0,171.13777777777779,1
+Minnesota Wild,8475765,3,Vladimir Tarasenko,Minnesota Wild,Detroit Red Wings,2026-01-22,0.3648,0.039,0.057,0.096,0.0,0.0,170.99555555555554,1
+Minnesota Wild,8475765,4,Vladimir Tarasenko,Minnesota Wild,Detroit Red Wings,2026-01-22,0.0254,0.0028,0.0,0.0028,0.0,0.0,8.145,1
+Minnesota Wild,8476463,1,Jonas Brodin,Minnesota Wild,Detroit Red Wings,2026-01-22,0.896,0.0896,0.092,0.18159999999999998,0.9648,0.0,574.5866666666667,1
+Minnesota Wild,8476463,2,Jonas Brodin,Minnesota Wild,Detroit Red Wings,2026-01-22,0.9276,0.0914,0.1034,0.1948,1.025,0.0,575.2444444444445,1
+Minnesota Wild,8476463,3,Jonas Brodin,Minnesota Wild,Detroit Red Wings,2026-01-22,0.9178,0.0904,0.097,0.1874,0.9924,0.0,575.5022222222223,1
+Minnesota Wild,8476463,4,Jonas Brodin,Minnesota Wild,Detroit Red Wings,2026-01-22,0.019,0.002,0.0,0.002,0.0446,0.0,10.455,1
+Minnesota Wild,8476994,1,Vinnie Hinostroza,Minnesota Wild,Detroit Red Wings,2026-01-22,0.4976,0.0446,0.0772,0.1218,0.0,0.0,261.2088888888889,1
+Minnesota Wild,8476994,2,Vinnie Hinostroza,Minnesota Wild,Detroit Red Wings,2026-01-22,0.527,0.045,0.0754,0.1204,0.0,0.0,261.15555555555557,1
+Minnesota Wild,8476994,3,Vinnie Hinostroza,Minnesota Wild,Detroit Red Wings,2026-01-22,0.513,0.0468,0.0782,0.125,0.0,0.0,260.3466666666667,1
+Minnesota Wild,8476994,4,Vinnie Hinostroza,Minnesota Wild,Detroit Red Wings,2026-01-22,0.0398,0.0044,0.0,0.0044,0.0,0.0,12.4725,1
+Minnesota Wild,8477451,1,Ryan Hartman,Minnesota Wild,Detroit Red Wings,2026-01-22,0.4834,0.0512,0.0746,0.1258,0.0,0.0,261.2088888888889,1
+Minnesota Wild,8477451,2,Ryan Hartman,Minnesota Wild,Detroit Red Wings,2026-01-22,0.5064,0.0508,0.0748,0.1256,0.0,0.0,261.15555555555557,1
+Minnesota Wild,8477451,3,Ryan Hartman,Minnesota Wild,Detroit Red Wings,2026-01-22,0.5122,0.0482,0.0768,0.125,0.0,0.0,260.3466666666667,1
+Minnesota Wild,8477451,4,Ryan Hartman,Minnesota Wild,Detroit Red Wings,2026-01-22,0.0386,0.0026,0.0,0.0026,0.0,0.0,12.4725,1
+Minnesota Wild,8478493,1,Joel Eriksson Ek,Minnesota Wild,Detroit Red Wings,2026-01-22,1.0808,0.0996,0.0936,0.19319999999999998,0.052,0.0,537.3866666666667,1
+Minnesota Wild,8478493,2,Joel Eriksson Ek,Minnesota Wild,Detroit Red Wings,2026-01-22,1.0982,0.1068,0.0962,0.203,0.052,0.0,537.3155555555556,1
+Minnesota Wild,8478493,3,Joel Eriksson Ek,Minnesota Wild,Detroit Red Wings,2026-01-22,1.093,0.1048,0.105,0.2098,0.056,0.0,538.5066666666667,1
+Minnesota Wild,8478493,4,Joel Eriksson Ek,Minnesota Wild,Detroit Red Wings,2026-01-22,0.0678,0.0066,0.0,0.0066,0.0016,0.0,23.7,1
+Minnesota Wild,8478508,1,Yakov Trenin,Minnesota Wild,Detroit Red Wings,2026-01-22,0.3184,0.0274,0.0486,0.076,0.0,0.0,171.2711111111111,1
+Minnesota Wild,8478508,2,Yakov Trenin,Minnesota Wild,Detroit Red Wings,2026-01-22,0.3344,0.0398,0.0492,0.089,0.0,0.0,171.13777777777779,1
+Minnesota Wild,8478508,3,Yakov Trenin,Minnesota Wild,Detroit Red Wings,2026-01-22,0.3438,0.0378,0.0502,0.088,0.0,0.0,170.99555555555554,1
+Minnesota Wild,8478508,4,Yakov Trenin,Minnesota Wild,Detroit Red Wings,2026-01-22,0.0252,0.0016,0.0,0.0016,0.0,0.0,8.145,1
+Minnesota Wild,8478864,1,Kirill Kaprizov,Minnesota Wild,Detroit Red Wings,2026-01-22,0.383,0.0368,0.0636,0.1004,0.0,0.0,205.15555555555554,1
+Minnesota Wild,8478864,2,Kirill Kaprizov,Minnesota Wild,Detroit Red Wings,2026-01-22,0.4172,0.0452,0.0654,0.1106,0.0,0.0,204.98666666666668,1
+Minnesota Wild,8478864,3,Kirill Kaprizov,Minnesota Wild,Detroit Red Wings,2026-01-22,0.3996,0.0398,0.061,0.1008,0.0,0.0,204.78222222222223,1
+Minnesota Wild,8478864,4,Kirill Kaprizov,Minnesota Wild,Detroit Red Wings,2026-01-22,0.0302,0.0026,0.0,0.0026,0.0,0.0,10.4025,1
+Minnesota Wild,8479406,1,Filip Gustavsson,Minnesota Wild,Detroit Red Wings,2026-01-22,0.0,0.0,0.0,0.0,0.0,8.88,1199.9999999999998,1
+Minnesota Wild,8479406,2,Filip Gustavsson,Minnesota Wild,Detroit Red Wings,2026-01-22,0.0,0.0,0.0,0.0,0.0,9.307,1199.9999999999998,1
+Minnesota Wild,8479406,3,Filip Gustavsson,Minnesota Wild,Detroit Red Wings,2026-01-22,0.0,0.0,0.0,0.0,0.0,9.017,1199.9999999999998,1
+Minnesota Wild,8479406,4,Filip Gustavsson,Minnesota Wild,Detroit Red Wings,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.4162,55.2,1
+Minnesota Wild,8480800,1,Quinn Hughes,Minnesota Wild,Detroit Red Wings,2026-01-22,0.4898,0.0468,0.087,0.1338,0.0422,0.0,345.8666666666667,1
+Minnesota Wild,8480800,2,Quinn Hughes,Minnesota Wild,Detroit Red Wings,2026-01-22,0.5274,0.0526,0.0988,0.1514,0.0412,0.0,345.90222222222224,1
+Minnesota Wild,8480800,3,Quinn Hughes,Minnesota Wild,Detroit Red Wings,2026-01-22,0.4878,0.049,0.0978,0.14679999999999999,0.0414,0.0,345.2266666666667,1
+Minnesota Wild,8480800,4,Quinn Hughes,Minnesota Wild,Detroit Red Wings,2026-01-22,0.0006,0.0,0.0,0.0,0.002,0.0,0.48,1
+Minnesota Wild,8481477,1,Nico Sturm,Minnesota Wild,Detroit Red Wings,2026-01-22,0.3932,0.0342,0.0652,0.09939999999999999,0.0,0.0,205.15555555555554,1
+Minnesota Wild,8481477,2,Nico Sturm,Minnesota Wild,Detroit Red Wings,2026-01-22,0.4138,0.0414,0.074,0.1154,0.0,0.0,204.98666666666668,1
+Minnesota Wild,8481477,3,Nico Sturm,Minnesota Wild,Detroit Red Wings,2026-01-22,0.404,0.0404,0.0634,0.1038,0.0,0.0,204.78222222222223,1
+Minnesota Wild,8481557,1,Matt Boldy,Minnesota Wild,Detroit Red Wings,2026-01-22,1.087,0.1096,0.0904,0.2,0.0522,0.0,537.3866666666667,1
+Minnesota Wild,8481557,2,Matt Boldy,Minnesota Wild,Detroit Red Wings,2026-01-22,1.1302,0.1146,0.0874,0.202,0.054,0.0,537.3155555555556,1
+Minnesota Wild,8481557,3,Matt Boldy,Minnesota Wild,Detroit Red Wings,2026-01-22,1.0656,0.1052,0.0978,0.203,0.0566,0.0,538.5066666666667,1
+Minnesota Wild,8481557,4,Matt Boldy,Minnesota Wild,Detroit Red Wings,2026-01-22,0.0612,0.0066,0.0,0.0066,0.0022,0.0,23.7,1
+Minnesota Wild,8482094,1,Daemon Hunt,Minnesota Wild,Detroit Red Wings,2026-01-22,0.455,0.0476,0.0872,0.1348,0.0398,0.0,316.06222222222226,1
+Minnesota Wild,8482094,2,Daemon Hunt,Minnesota Wild,Detroit Red Wings,2026-01-22,0.4686,0.047,0.091,0.138,0.049,0.0,316.08000000000004,1
+Minnesota Wild,8482094,3,Daemon Hunt,Minnesota Wild,Detroit Red Wings,2026-01-22,0.4576,0.0496,0.0818,0.1314,0.0434,0.0,315.9200000000001,1
+Minnesota Wild,8482094,4,Daemon Hunt,Minnesota Wild,Detroit Red Wings,2026-01-22,0.0346,0.0032,0.0,0.0032,0.002,0.0,12.945,1
+Minnesota Wild,8482122,1,Brock Faber,Minnesota Wild,Detroit Red Wings,2026-01-22,0.5086,0.051,0.0906,0.1416,0.0426,0.0,345.8666666666667,1
+Minnesota Wild,8482122,2,Brock Faber,Minnesota Wild,Detroit Red Wings,2026-01-22,0.5194,0.0496,0.1056,0.1552,0.0422,0.0,345.90222222222224,1
+Minnesota Wild,8482122,3,Brock Faber,Minnesota Wild,Detroit Red Wings,2026-01-22,0.4864,0.0536,0.0856,0.1392,0.0432,0.0,345.2266666666667,1
+Minnesota Wild,8482122,4,Brock Faber,Minnesota Wild,Detroit Red Wings,2026-01-22,0.0436,0.004,0.0,0.004,0.0016,0.0,15.2475,1
+Minnesota Wild,8483460,1,David Jiricek,Minnesota Wild,Detroit Red Wings,2026-01-22,0.6474,0.0758,0.0832,0.159,0.0446,0.0,412.1422222222223,1
+Minnesota Wild,8483460,2,David Jiricek,Minnesota Wild,Detroit Red Wings,2026-01-22,0.6922,0.0714,0.0858,0.1572,0.0456,0.0,411.69777777777784,1
+Minnesota Wild,8483460,3,David Jiricek,Minnesota Wild,Detroit Red Wings,2026-01-22,0.6948,0.0736,0.0894,0.16299999999999998,0.0456,0.0,412.08000000000004,1
+Minnesota Wild,8483460,4,David Jiricek,Minnesota Wild,Detroit Red Wings,2026-01-22,0.015,0.001,0.0,0.001,0.0012,0.0,5.34,1
+Minnesota Wild,8483525,1,Danila Yurov,Minnesota Wild,Detroit Red Wings,2026-01-22,0.3282,0.03,0.0478,0.07780000000000001,0.0,0.0,171.2711111111111,1
+Minnesota Wild,8483525,2,Danila Yurov,Minnesota Wild,Detroit Red Wings,2026-01-22,0.3334,0.0288,0.0548,0.08360000000000001,0.0,0.0,171.13777777777779,1
+Minnesota Wild,8483525,3,Danila Yurov,Minnesota Wild,Detroit Red Wings,2026-01-22,0.3498,0.0354,0.0548,0.0902,0.0,0.0,170.99555555555554,1
+Detroit Red Wings,8474037,0,James van Riemsdyk,Minnesota Wild,Detroit Red Wings,2026-01-22,1.1352,0.1214,0.1804,0.3018,0.0,0.0,583.0311111111112,1
+Detroit Red Wings,8474141,0,Patrick Kane,Minnesota Wild,Detroit Red Wings,2026-01-22,1.426,0.1436,0.2182,0.3618,0.0,0.0,767.6622222222223,1
+Detroit Red Wings,8474612,0,Travis Hamonic,Minnesota Wild,Detroit Red Wings,2026-01-22,1.9422,0.2182,0.2658,0.484,0.1492,0.0,1257.3225000000002,1
+Detroit Red Wings,8475279,0,Ben Chiarot,Minnesota Wild,Detroit Red Wings,2026-01-22,2.0352,0.1852,0.296,0.48119999999999996,3.293,0.0,1446.2194444444447,1
+Detroit Red Wings,8475660,0,Cam Talbot,Minnesota Wild,Detroit Red Wings,2026-01-22,0.0,0.0,0.0,0.0,0.0,28.7952,3655.1999999999994,1
+Detroit Red Wings,8476979,0,Erik Gustafsson,Minnesota Wild,Detroit Red Wings,2026-01-22,1.4584,0.1442,0.2824,0.4266,0.139,0.0,1037.381666666667,1
+Detroit Red Wings,8477429,0,Andrew Copp,Minnesota Wild,Detroit Red Wings,2026-01-22,2.6276,0.2918,0.2472,0.539,0.0,0.0,1292.1869444444446,1
+Detroit Red Wings,8477456,0,J.T. Compher,Minnesota Wild,Detroit Red Wings,2026-01-22,3.1418,0.3314,0.269,0.6004,0.1616,0.0,1626.4783333333337,1
+Detroit Red Wings,8477946,0,Dylan Larkin,Minnesota Wild,Detroit Red Wings,2026-01-22,1.1538,0.118,0.1902,0.30820000000000003,0.0,0.0,615.8069444444444,1
+Detroit Red Wings,8478891,0,Mason Appleton,Minnesota Wild,Detroit Red Wings,2026-01-22,3.1682,0.3242,0.2714,0.5955999999999999,0.1624,0.0,1626.4783333333337,1
+Detroit Red Wings,8479337,0,Alex DeBrincat,Minnesota Wild,Detroit Red Wings,2026-01-22,1.482,0.147,0.2198,0.3668,0.0,0.0,780.1347222222223,1
+Detroit Red Wings,8479992,0,Michael Rasmussen,Minnesota Wild,Detroit Red Wings,2026-01-22,1.1306,0.1106,0.1952,0.3058,0.0,0.0,605.4044444444444,1
+Detroit Red Wings,8480879,0,Jacob Bernard-Docker,Minnesota Wild,Detroit Red Wings,2026-01-22,1.548,0.1562,0.3052,0.46140000000000003,2.9658,0.0,1101.0366666666669,1
+Detroit Red Wings,8481607,0,Albert Johansson,Minnesota Wild,Detroit Red Wings,2026-01-22,2.2914,0.2394,0.244,0.4834,0.1684,0.0,1524.0825000000002,1
+Detroit Red Wings,8481725,0,Elmer Soderblom,Minnesota Wild,Detroit Red Wings,2026-01-22,1.0726,0.1128,0.1544,0.2672,0.0,0.0,556.6427777777778,1
+Detroit Red Wings,8482078,0,Lucas Raymond,Minnesota Wild,Detroit Red Wings,2026-01-22,1.0454,0.106,0.152,0.258,0.0,0.0,556.6427777777778,1
+Detroit Red Wings,8482762,0,Simon Edvinsson,Minnesota Wild,Detroit Red Wings,2026-01-22,1.4986,0.1554,0.2788,0.43420000000000003,0.14,0.0,1052.1491666666668,1
+Detroit Red Wings,8483464,0,Marco Kasper,Minnesota Wild,Detroit Red Wings,2026-01-22,1.1452,0.1148,0.1822,0.297,0.0,0.0,615.8069444444444,1
+Detroit Red Wings,8484471,0,Emmitt Finnie,Minnesota Wild,Detroit Red Wings,2026-01-22,1.479,0.1408,0.2282,0.369,0.0,0.0,780.1347222222223,1
+Minnesota Wild,8474567,0,Zach Bogosian,Minnesota Wild,Detroit Red Wings,2026-01-22,2.7784,0.286,0.3014,0.5873999999999999,3.0792,0.0,1753.0383333333336,1
+Minnesota Wild,8475149,0,Marcus Johansson,Minnesota Wild,Detroit Red Wings,2026-01-22,1.4992,0.1492,0.2306,0.3798,0.0,0.0,782.7111111111112,1
+Minnesota Wild,8475220,0,Marcus Foligno,Minnesota Wild,Detroit Red Wings,2026-01-22,1.8706,0.1804,0.2636,0.444,0.0,0.0,971.768888888889,1
+Minnesota Wild,8475752,0,Tyler Pitlick,Minnesota Wild,Detroit Red Wings,2026-01-22,1.2242,0.1244,0.1904,0.3148,0.0,0.0,625.3269444444445,1
+Minnesota Wild,8475765,0,Vladimir Tarasenko,Minnesota Wild,Detroit Red Wings,2026-01-22,1.0386,0.1032,0.16,0.2632,0.0,0.0,521.5494444444445,1
+Minnesota Wild,8476463,0,Jonas Brodin,Minnesota Wild,Detroit Red Wings,2026-01-22,2.7604,0.2734,0.2924,0.5658,3.0268,0.0,1735.7883333333336,1
+Minnesota Wild,8476994,0,Vinnie Hinostroza,Minnesota Wild,Detroit Red Wings,2026-01-22,1.5774,0.1408,0.2308,0.37160000000000004,0.0,0.0,795.1836111111112,1
+Minnesota Wild,8477451,0,Ryan Hartman,Minnesota Wild,Detroit Red Wings,2026-01-22,1.5406,0.1528,0.2262,0.379,0.0,0.0,795.1836111111112,1
+Minnesota Wild,8478493,0,Joel Eriksson Ek,Minnesota Wild,Detroit Red Wings,2026-01-22,3.3398,0.3178,0.2948,0.6126,0.1616,0.0,1636.908888888889,1
+Minnesota Wild,8478508,0,Yakov Trenin,Minnesota Wild,Detroit Red Wings,2026-01-22,1.0218,0.1066,0.148,0.2546,0.0,0.0,521.5494444444445,1
+Minnesota Wild,8478864,0,Kirill Kaprizov,Minnesota Wild,Detroit Red Wings,2026-01-22,1.23,0.1244,0.19,0.3144,0.0,0.0,625.3269444444445,1
+Minnesota Wild,8479406,0,Filip Gustavsson,Minnesota Wild,Detroit Red Wings,2026-01-22,0.0,0.0,0.0,0.0,0.0,27.6202,3655.1999999999994,1
+Minnesota Wild,8480800,0,Quinn Hughes,Minnesota Wild,Detroit Red Wings,2026-01-22,1.5056,0.1484,0.2836,0.43200000000000005,0.1268,0.0,1037.4755555555555,1
+Minnesota Wild,8481477,0,Nico Sturm,Minnesota Wild,Detroit Red Wings,2026-01-22,1.211,0.116,0.2026,0.3186,0.0,0.0,614.9244444444445,1
+Minnesota Wild,8481557,0,Matt Boldy,Minnesota Wild,Detroit Red Wings,2026-01-22,3.344,0.336,0.2756,0.6116,0.165,0.0,1636.908888888889,1
+Minnesota Wild,8482094,0,Daemon Hunt,Minnesota Wild,Detroit Red Wings,2026-01-22,1.4158,0.1474,0.26,0.4074,0.1342,0.0,961.0072222222224,1
+Minnesota Wild,8482122,0,Brock Faber,Minnesota Wild,Detroit Red Wings,2026-01-22,1.558,0.1582,0.2818,0.44,0.1296,0.0,1052.2430555555557,1
+Minnesota Wild,8483460,0,David Jiricek,Minnesota Wild,Detroit Red Wings,2026-01-22,2.0494,0.2218,0.2584,0.4802,0.137,0.0,1241.2600000000002,1
+Minnesota Wild,8483525,0,Danila Yurov,Minnesota Wild,Detroit Red Wings,2026-01-22,1.0114,0.0942,0.1574,0.25160000000000005,0.0,0.0,513.4044444444444,1
+Minnesota Wild,8475692,0,Mats Zuccarello,Minnesota Wild,Detroit Red Wings,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Minnesota Wild,8478136,0,Jake Middleton,Minnesota Wild,Detroit Red Wings,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Minnesota Wild,8474716,0,Jared Spurgeon,Minnesota Wild,Detroit Red Wings,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Minnesota Wild,8477361,0,Cal Petersen,Minnesota Wild,Detroit Red Wings,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Minnesota Wild,8482661,0,Jesper Wallstedt,Minnesota Wild,Detroit Red Wings,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Detroit Red Wings,8484223,0,Axel Sandin-Pellikka,Minnesota Wild,Detroit Red Wings,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Detroit Red Wings,8481542,0,Moritz Seider,Minnesota Wild,Detroit Red Wings,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0
+Detroit Red Wings,8476434,0,John Gibson,Minnesota Wild,Detroit Red Wings,2026-01-22,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0

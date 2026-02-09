@@ -1,0 +1,5 @@
+gamePk,date,home,away,shots_ev_home,shots_pp_home,shots_pk_home,shots_ev_away,shots_pp_away,shots_pk_away,goals_ev_home,goals_pp_home,goals_pk_home,goals_ev_away,goals_pp_away,goals_pk_away,blocks_ev_home,blocks_pp_home,blocks_pk_home,blocks_ev_away,blocks_pp_away,blocks_pk_away,saves_ev_home,saves_pp_home,saves_pk_home,saves_ev_away,saves_pp_away,saves_pk_away
+2025020735,2026-01-14,New Jersey Devils,Seattle Kraken,32,5,0,22,2,6,4,1,0,3,0,0,3,0,1,4,0,2,19,2,6,28,4,0
+2025020736,2026-01-14,Buffalo Sabres,Philadelphia Flyers,21,9,1,26,1,6,1,4,0,6,0,1,6,1,0,4,0,2,20,1,5,20,5,1
+2025020737,2026-01-14,New York Rangers,Ottawa Senators,36,2,4,36,3,3,4,0,0,3,0,0,8,0,0,11,2,0,33,3,3,32,2,4
+2025020738,2026-01-14,Los Angeles Kings,Vegas Golden Knights,27,5,1,32,1,5,3,2,0,1,0,0,8,0,1,6,0,1,31,1,5,24,3,1

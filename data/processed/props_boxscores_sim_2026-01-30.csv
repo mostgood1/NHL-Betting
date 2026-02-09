@@ -1,0 +1,216 @@
+team,player_id,period,player,game_home,game_away,date,shots,goals,assists,points,blocks,saves,toi_sec
+Chicago Blackhawks,8473422,1,Nick Foligno,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.07,0.07,0.0,0.0,60.0
+Chicago Blackhawks,8473422,2,Nick Foligno,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.05,0.05,0.0,0.0,60.0
+Chicago Blackhawks,8473422,3,Nick Foligno,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.07,0.07,0.0,0.0,60.0
+Chicago Blackhawks,8473422,4,Nick Foligno,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.02,0.0,0.0,0.0,0.0,0.0,3.0525
+Chicago Blackhawks,8476473,1,Connor Murphy,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.4633333333333333,0.08,0.043333333333333335,0.12333333333333334,0.10666666666666667,0.0,122.9
+Chicago Blackhawks,8476473,2,Connor Murphy,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.44,0.10333333333333333,0.05333333333333334,0.15666666666666668,0.13,0.0,133.2
+Chicago Blackhawks,8476473,3,Connor Murphy,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.51,0.06333333333333334,0.04666666666666667,0.11000000000000001,0.13666666666666666,0.0,131.26666666666668
+Chicago Blackhawks,8476473,4,Connor Murphy,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.04666666666666667,0.006666666666666667,0.0,0.006666666666666667,0.0033333333333333335,0.0,10.005
+Chicago Blackhawks,8476882,1,Teuvo Teravainen,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0033333333333333335,0.0,0.043333333333333335,0.043333333333333335,0.0,0.0,1.8
+Chicago Blackhawks,8476882,2,Teuvo Teravainen,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0033333333333333335,0.0,0.05333333333333334,0.05333333333333334,0.0,0.0,3.0
+Chicago Blackhawks,8476882,3,Teuvo Teravainen,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.056666666666666664,0.056666666666666664,0.0,0.0,3.9
+Chicago Blackhawks,8476882,4,Teuvo Teravainen,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.0,0.0,0.0,0.0,0.15
+Chicago Blackhawks,8476891,1,Matt Grzelcyk,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,1.3033333333333332,0.21333333333333335,0.043333333333333335,0.2566666666666667,0.75,0.0,326.865
+Chicago Blackhawks,8476891,2,Matt Grzelcyk,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,1.4,0.17333333333333334,0.06,0.23333333333333334,0.6733333333333333,0.0,320.75333333333333
+Chicago Blackhawks,8476891,3,Matt Grzelcyk,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,1.3633333333333333,0.19,0.06,0.25,0.7266666666666667,0.0,323.11333333333334
+Chicago Blackhawks,8476891,4,Matt Grzelcyk,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.0,0.0,0.056666666666666664,0.0,0.6
+Chicago Blackhawks,8477444,1,Andre Burakovsky,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.23,0.0033333333333333335,0.05333333333333334,0.05666666666666667,0.0,0.0,173.91
+Chicago Blackhawks,8477444,2,Andre Burakovsky,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.21333333333333335,0.0033333333333333335,0.08,0.08333333333333333,0.0,0.0,174.405
+Chicago Blackhawks,8477444,3,Andre Burakovsky,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.22666666666666666,0.0,0.07666666666666666,0.07666666666666666,0.0,0.0,173.745
+Chicago Blackhawks,8477450,1,Jason Dickinson,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.6966666666666667,0.07333333333333333,0.05333333333333334,0.12666666666666668,0.0,0.0,146.355
+Chicago Blackhawks,8477450,2,Jason Dickinson,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.5433333333333333,0.06333333333333334,0.07333333333333333,0.13666666666666666,0.0,0.0,140.415
+Chicago Blackhawks,8477450,3,Jason Dickinson,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.5633333333333334,0.06333333333333334,0.043333333333333335,0.10666666666666667,0.0,0.0,141.735
+Chicago Blackhawks,8477450,4,Jason Dickinson,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.02,0.0,0.0,0.0,0.0,0.0,3.75375
+Chicago Blackhawks,8477479,1,Tyler Bertuzzi,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.31,0.023333333333333334,0.056666666666666664,0.08,0.0,0.0,173.91
+Chicago Blackhawks,8477479,2,Tyler Bertuzzi,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.3433333333333333,0.056666666666666664,0.07,0.12666666666666668,0.0,0.0,174.405
+Chicago Blackhawks,8477479,3,Tyler Bertuzzi,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.29333333333333333,0.02,0.043333333333333335,0.06333333333333334,0.0,0.0,173.745
+Chicago Blackhawks,8477479,4,Tyler Bertuzzi,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.013333333333333334,0.006666666666666667,0.0,0.006666666666666667,0.0,0.0,5.48625
+Chicago Blackhawks,8477987,1,Ryan Donato,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.6166666666666667,0.07333333333333333,0.043333333333333335,0.11666666666666667,0.0,0.0,146.355
+Chicago Blackhawks,8477987,2,Ryan Donato,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.6233333333333333,0.056666666666666664,0.05333333333333334,0.11,0.0,0.0,140.415
+Chicago Blackhawks,8477987,3,Ryan Donato,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.5866666666666667,0.07333333333333333,0.07,0.14333333333333334,0.0,0.0,141.735
+Chicago Blackhawks,8478043,1,Sam Lafferty,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.06,0.06,0.0,0.0,60.0
+Chicago Blackhawks,8478043,2,Sam Lafferty,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.08,0.08,0.0,0.0,60.0
+Chicago Blackhawks,8478043,3,Sam Lafferty,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.043333333333333335,0.043333333333333335,0.0,0.0,60.0
+Chicago Blackhawks,8481519,1,Spencer Knight,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.0,0.0,0.0,8.196666666666667,1200.0
+Chicago Blackhawks,8481519,2,Spencer Knight,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.0,0.0,0.0,8.126666666666667,1200.0
+Chicago Blackhawks,8481519,3,Spencer Knight,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.0,0.0,0.0,8.2,1200.0
+Chicago Blackhawks,8481519,4,Spencer Knight,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.0,0.0,0.0,0.42,65.0
+Chicago Blackhawks,8481568,1,Alex Vlasic,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.05333333333333334,0.05333333333333334,0.0,0.0,60.0
+Chicago Blackhawks,8481568,2,Alex Vlasic,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.056666666666666664,0.056666666666666664,0.0,0.0,60.0
+Chicago Blackhawks,8481568,3,Alex Vlasic,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.07,0.07,0.0,0.0,60.0
+Chicago Blackhawks,8481624,1,Ilya Mikheyev,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.056666666666666664,0.056666666666666664,0.0,0.0,60.0
+Chicago Blackhawks,8481624,2,Ilya Mikheyev,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.03666666666666667,0.03666666666666667,0.0,0.0,60.0
+Chicago Blackhawks,8481624,3,Ilya Mikheyev,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.02,0.02,0.0,0.0,60.0
+Chicago Blackhawks,8481624,4,Ilya Mikheyev,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.01,0.0,0.0,0.0,0.0,0.0,4.41375
+Chicago Blackhawks,8481806,1,Louis Crevier,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,1.3966666666666667,0.17,0.05,0.22000000000000003,0.71,0.0,326.865
+Chicago Blackhawks,8481806,2,Louis Crevier,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,1.5233333333333334,0.21333333333333335,0.06,0.2733333333333333,0.78,0.0,320.75333333333333
+Chicago Blackhawks,8481806,3,Louis Crevier,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,1.5433333333333332,0.22,0.03333333333333333,0.25333333333333335,0.7233333333333334,0.0,323.11333333333334
+Chicago Blackhawks,8481806,4,Louis Crevier,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.1,0.016666666666666666,0.0,0.016666666666666666,0.03666666666666667,0.0,10.62375
+Chicago Blackhawks,8482172,1,Landon Slaggert,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0033333333333333335,0.0,0.05,0.05,0.0,0.0,1.8
+Chicago Blackhawks,8482172,2,Landon Slaggert,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.016666666666666666,0.0033333333333333335,0.07,0.07333333333333333,0.0,0.0,3.0
+Chicago Blackhawks,8482172,3,Landon Slaggert,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.02,0.0033333333333333335,0.05333333333333334,0.05666666666666667,0.0,0.0,3.9
+Chicago Blackhawks,8482172,4,Landon Slaggert,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.0,0.0,0.0,0.0,0.15
+Chicago Blackhawks,8482176,1,Wyatt Kaiser,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.016666666666666666,0.0,0.06333333333333334,0.06333333333333334,0.58,0.0,6.6
+Chicago Blackhawks,8482176,2,Wyatt Kaiser,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.013333333333333334,0.0033333333333333335,0.04666666666666667,0.05,0.6533333333333333,0.0,5.933333333333334
+Chicago Blackhawks,8482176,3,Wyatt Kaiser,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.016666666666666666,0.0033333333333333335,0.05,0.05333333333333334,0.66,0.0,7.633333333333334
+Chicago Blackhawks,8482176,4,Wyatt Kaiser,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.05,0.01,0.0,0.01,0.02666666666666667,0.0,5.3025
+Chicago Blackhawks,8482703,1,Colton Dach,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.5966666666666667,0.09333333333333334,0.03333333333333333,0.12666666666666668,0.0,0.0,146.355
+Chicago Blackhawks,8482703,2,Colton Dach,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.66,0.07,0.043333333333333335,0.11333333333333334,0.0,0.0,140.415
+Chicago Blackhawks,8482703,3,Colton Dach,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.5933333333333334,0.07333333333333333,0.04666666666666667,0.12,0.0,0.0,141.735
+Chicago Blackhawks,8482703,4,Colton Dach,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.023333333333333334,0.0033333333333333335,0.0,0.0033333333333333335,0.0,0.0,3.75375
+Chicago Blackhawks,8483450,1,Ryan Greene,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.05333333333333334,0.05333333333333334,0.0,0.0,60.0
+Chicago Blackhawks,8483450,2,Ryan Greene,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.043333333333333335,0.043333333333333335,0.0,0.0,60.0
+Chicago Blackhawks,8483450,3,Ryan Greene,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.06333333333333334,0.06333333333333334,0.0,0.0,60.0
+Chicago Blackhawks,8483450,4,Ryan Greene,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.023333333333333334,0.0,0.0,0.0,0.0,0.0,3.0525
+Chicago Blackhawks,8483493,1,Frank Nazar,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.15333333333333332,0.0,0.056666666666666664,0.056666666666666664,0.0,0.0,122.9
+Chicago Blackhawks,8483493,2,Frank Nazar,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.15333333333333332,0.006666666666666667,0.05333333333333334,0.060000000000000005,0.0033333333333333335,0.0,133.2
+Chicago Blackhawks,8483493,3,Frank Nazar,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.17,0.006666666666666667,0.05333333333333334,0.060000000000000005,0.0,0.0,131.26666666666668
+Chicago Blackhawks,8483493,4,Frank Nazar,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.03,0.0,0.0,0.0,0.0,0.0,8.025
+Chicago Blackhawks,8483506,1,Sam Rinzel,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.5333333333333333,0.07333333333333333,0.056666666666666664,0.13,0.10333333333333333,0.0,122.9
+Chicago Blackhawks,8483506,2,Sam Rinzel,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.5533333333333333,0.10333333333333333,0.056666666666666664,0.16,0.08333333333333333,0.0,133.2
+Chicago Blackhawks,8483506,3,Sam Rinzel,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.5333333333333333,0.10333333333333333,0.05333333333333334,0.15666666666666668,0.11666666666666667,0.0,131.26666666666668
+Chicago Blackhawks,8483506,4,Sam Rinzel,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.04666666666666667,0.0033333333333333335,0.0,0.0033333333333333335,0.01,0.0,8.025
+Chicago Blackhawks,8484144,1,Connor Bedard,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.56,0.02,0.043333333333333335,0.06333333333333334,0.0033333333333333335,0.0,296.81
+Chicago Blackhawks,8484144,2,Connor Bedard,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.6666666666666666,0.02,0.05,0.07,0.006666666666666667,0.0,307.605
+Chicago Blackhawks,8484144,3,Connor Bedard,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.6466666666666666,0.04,0.056666666666666664,0.09666666666666666,0.0,0.0,305.01166666666666
+Chicago Blackhawks,8484144,4,Connor Bedard,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.03333333333333333,0.0,0.0,0.0,0.0,0.0,13.51125
+Chicago Blackhawks,8484197,1,Oliver Moore,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.06666666666666667,0.06666666666666667,0.0,0.0,60.0
+Chicago Blackhawks,8484197,2,Oliver Moore,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.06666666666666667,0.06666666666666667,0.0,0.0,60.0
+Chicago Blackhawks,8484197,3,Oliver Moore,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.06,0.06,0.0,0.0,60.0
+Chicago Blackhawks,8484197,4,Oliver Moore,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.013333333333333334,0.0033333333333333335,0.0,0.0033333333333333335,0.0,0.0,4.41375
+Chicago Blackhawks,8484783,1,Artyom Levshunov,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.08333333333333333,0.0,0.03333333333333333,0.03333333333333333,0.04,0.0,66.9
+Chicago Blackhawks,8484783,2,Artyom Levshunov,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.056666666666666664,0.0033333333333333335,0.06666666666666667,0.06999999999999999,0.023333333333333334,0.0,71.33333333333333
+Chicago Blackhawks,8484783,3,Artyom Levshunov,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.09,0.0,0.07333333333333333,0.07333333333333333,0.023333333333333334,0.0,78.73333333333333
+Chicago Blackhawks,8484783,4,Artyom Levshunov,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0033333333333333335,0.0,0.0,0.0,0.0,0.0,4.8
+Columbus Blue Jackets,8474090,1,Brendan Smith,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.8666666666666667,0.13,0.02,0.15,0.18,0.0,124.96666666666667
+Columbus Blue Jackets,8474090,2,Brendan Smith,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.93,0.11666666666666667,0.03666666666666667,0.15333333333333332,0.16,0.0,133.46666666666667
+Columbus Blue Jackets,8474090,3,Brendan Smith,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.8233333333333334,0.12,0.05,0.16999999999999998,0.23666666666666666,0.0,128.46666666666667
+Columbus Blue Jackets,8474090,4,Brendan Smith,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.056666666666666664,0.006666666666666667,0.0,0.006666666666666667,0.013333333333333334,0.0,8.025
+Columbus Blue Jackets,8475745,1,Charlie Coyle,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.4066666666666667,0.016666666666666666,0.056666666666666664,0.07333333333333333,0.01,0.0,298.87666666666667
+Columbus Blue Jackets,8475745,2,Charlie Coyle,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.4266666666666667,0.03333333333333333,0.04,0.07333333333333333,0.01,0.0,307.87166666666667
+Columbus Blue Jackets,8475745,3,Charlie Coyle,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.4533333333333333,0.03666666666666667,0.03,0.06666666666666667,0.013333333333333334,0.0,302.21166666666664
+Columbus Blue Jackets,8475745,4,Charlie Coyle,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.03666666666666667,0.006666666666666667,0.0,0.006666666666666667,0.0,0.0,13.51125
+Columbus Blue Jackets,8475790,1,Erik Gudbranson,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.016666666666666666,0.0,0.06,0.06,0.29,0.0,5.633333333333334
+Columbus Blue Jackets,8475790,2,Erik Gudbranson,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.03333333333333333,0.0,0.06,0.06,0.31333333333333335,0.0,6.2
+Columbus Blue Jackets,8475790,3,Erik Gudbranson,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.05,0.0,0.04,0.04,0.2966666666666667,0.0,9.166666666666666
+Columbus Blue Jackets,8475790,4,Erik Gudbranson,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.043333333333333335,0.006666666666666667,0.0,0.006666666666666667,0.006666666666666667,0.0,5.3025
+Columbus Blue Jackets,8476432,1,Boone Jenner,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.25333333333333335,0.0,0.03333333333333333,0.03333333333333333,0.0,0.0,146.355
+Columbus Blue Jackets,8476432,2,Boone Jenner,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.20333333333333334,0.006666666666666667,0.04666666666666667,0.05333333333333334,0.0,0.0,140.415
+Columbus Blue Jackets,8476432,3,Boone Jenner,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.18333333333333332,0.0,0.043333333333333335,0.043333333333333335,0.0,0.0,141.735
+Columbus Blue Jackets,8476432,4,Boone Jenner,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.013333333333333334,0.0033333333333333335,0.0,0.0033333333333333335,0.0,0.0,3.75375
+Columbus Blue Jackets,8476923,1,Damon Severson,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.14,0.0,0.03333333333333333,0.03333333333333333,0.0033333333333333335,0.0,74.03333333333333
+Columbus Blue Jackets,8476923,2,Damon Severson,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.11666666666666667,0.0033333333333333335,0.016666666666666666,0.02,0.006666666666666667,0.0,76.4
+Columbus Blue Jackets,8476923,3,Damon Severson,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.12666666666666668,0.0,0.05333333333333334,0.05333333333333334,0.0033333333333333335,0.0,70.06666666666666
+Columbus Blue Jackets,8476923,4,Damon Severson,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.006666666666666667,0.0,0.0,0.0,0.0,0.0,4.275
+Columbus Blue Jackets,8477425,1,Miles Wood,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.07,0.07,0.0,0.0,60.0
+Columbus Blue Jackets,8477425,2,Miles Wood,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.05333333333333334,0.05333333333333334,0.0,0.0,60.0
+Columbus Blue Jackets,8477425,3,Miles Wood,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.04666666666666667,0.04666666666666667,0.0,0.0,60.0
+Columbus Blue Jackets,8477497,1,Sean Monahan,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.06333333333333334,0.06333333333333334,0.0,0.0,60.0
+Columbus Blue Jackets,8477497,2,Sean Monahan,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.05333333333333334,0.05333333333333334,0.0,0.0,60.0
+Columbus Blue Jackets,8477497,3,Sean Monahan,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.03,0.03,0.0,0.0,60.0
+Columbus Blue Jackets,8478046,1,Danton Heinen,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,1.7366666666666666,0.15333333333333332,0.04666666666666667,0.19999999999999998,0.0,0.0,173.91
+Columbus Blue Jackets,8478046,2,Danton Heinen,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,1.5833333333333333,0.14,0.04,0.18000000000000002,0.0,0.0,174.405
+Columbus Blue Jackets,8478046,3,Danton Heinen,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,1.7366666666666666,0.15333333333333332,0.03666666666666667,0.19,0.0,0.0,173.745
+Columbus Blue Jackets,8478460,1,Zach Werenski,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.22,0.016666666666666666,0.06,0.07666666666666666,0.006666666666666667,0.0,124.96666666666667
+Columbus Blue Jackets,8478460,2,Zach Werenski,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.3333333333333333,0.013333333333333334,0.02666666666666667,0.04,0.006666666666666667,0.0,133.46666666666667
+Columbus Blue Jackets,8478460,3,Zach Werenski,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.22,0.01,0.04,0.05,0.006666666666666667,0.0,128.46666666666667
+Columbus Blue Jackets,8478460,4,Zach Werenski,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.01,0.0,0.0,0.0,0.0,0.0,8.025
+Columbus Blue Jackets,8478500,1,Ivan Provorov,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.006666666666666667,0.0,0.05,0.05,0.006666666666666667,0.0,5.633333333333334
+Columbus Blue Jackets,8478500,2,Ivan Provorov,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.07,0.07,0.01,0.0,6.2
+Columbus Blue Jackets,8478500,3,Ivan Provorov,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.016666666666666666,0.0,0.04,0.04,0.006666666666666667,0.0,9.166666666666666
+Columbus Blue Jackets,8478500,4,Ivan Provorov,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.016666666666666666,0.0,0.0,0.0,0.0033333333333333335,0.0,2.58
+Columbus Blue Jackets,8478975,1,Mason Marchment,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.04,0.04,0.0,0.0,60.0
+Columbus Blue Jackets,8478975,2,Mason Marchment,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.04666666666666667,0.04666666666666667,0.0,0.0,60.0
+Columbus Blue Jackets,8478975,3,Mason Marchment,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.04,0.04,0.0,0.0,60.0
+Columbus Blue Jackets,8478975,4,Mason Marchment,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.02,0.0033333333333333335,0.0,0.0033333333333333335,0.0,0.0,3.0525
+Columbus Blue Jackets,8479371,1,Dante Fabbro,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,1.5566666666666666,0.14333333333333334,0.03,0.17333333333333334,0.58,0.0,322.965
+Columbus Blue Jackets,8479371,2,Dante Fabbro,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,1.5133333333333334,0.14333333333333334,0.02666666666666667,0.17,0.58,0.0,317.82
+Columbus Blue Jackets,8479371,3,Dante Fabbro,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,1.58,0.13333333333333333,0.043333333333333335,0.17666666666666667,0.54,0.0,318.78
+Columbus Blue Jackets,8479371,4,Dante Fabbro,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.0,0.0,0.03666666666666667,0.0,0.225
+Columbus Blue Jackets,8479671,1,Mathieu Olivier,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.03333333333333333,0.03333333333333333,0.0,0.0,60.0
+Columbus Blue Jackets,8479671,2,Mathieu Olivier,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.05,0.05,0.0,0.0,60.0
+Columbus Blue Jackets,8479671,3,Mathieu Olivier,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.03666666666666667,0.03666666666666667,0.0,0.0,60.0
+Columbus Blue Jackets,8479671,4,Mathieu Olivier,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.056666666666666664,0.0,0.0,0.0,0.0,0.0,4.41375
+Columbus Blue Jackets,8480806,1,Isac Lundeström,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,1.3833333333333333,0.12,0.06666666666666667,0.18666666666666665,0.0,0.0,146.355
+Columbus Blue Jackets,8480806,2,Isac Lundeström,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,1.3533333333333333,0.11666666666666667,0.04,0.15666666666666668,0.0,0.0,140.415
+Columbus Blue Jackets,8480806,3,Isac Lundeström,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,1.4133333333333333,0.08666666666666667,0.03333333333333333,0.12,0.0,0.0,141.735
+Columbus Blue Jackets,8480893,1,Kirill Marchenko,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.043333333333333335,0.043333333333333335,0.0,0.0,60.0
+Columbus Blue Jackets,8480893,2,Kirill Marchenko,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.05,0.05,0.0,0.0,60.0
+Columbus Blue Jackets,8480893,3,Kirill Marchenko,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.043333333333333335,0.043333333333333335,0.0,0.0,60.0
+Columbus Blue Jackets,8480893,4,Kirill Marchenko,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.016666666666666666,0.0,0.0,0.0,0.0,0.0,3.0525
+Columbus Blue Jackets,8481161,1,Jake Christiansen,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,1.6633333333333333,0.14,0.03666666666666667,0.1766666666666667,0.5033333333333333,0.0,322.965
+Columbus Blue Jackets,8481161,2,Jake Christiansen,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,1.7166666666666666,0.11333333333333333,0.03,0.1433333333333333,0.5566666666666666,0.0,317.82
+Columbus Blue Jackets,8481161,3,Jake Christiansen,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,1.64,0.15,0.043333333333333335,0.19333333333333333,0.5266666666666666,0.0,318.78
+Columbus Blue Jackets,8481161,4,Jake Christiansen,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.11333333333333333,0.006666666666666667,0.0,0.006666666666666667,0.03,0.0,10.24875
+Columbus Blue Jackets,8481178,1,Egor Zamula,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.05333333333333334,0.05333333333333334,0.0,0.0,60.0
+Columbus Blue Jackets,8481178,2,Egor Zamula,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.06,0.06,0.0,0.0,60.0
+Columbus Blue Jackets,8481178,3,Egor Zamula,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.08666666666666667,0.08666666666666667,0.0,0.0,60.0
+Columbus Blue Jackets,8481716,1,Dmitri Voronkov,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.04666666666666667,0.04666666666666667,0.0,0.0,60.0
+Columbus Blue Jackets,8481716,2,Dmitri Voronkov,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.04,0.04,0.0,0.0,60.0
+Columbus Blue Jackets,8481716,3,Dmitri Voronkov,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.03333333333333333,0.03333333333333333,0.0,0.0,60.0
+Columbus Blue Jackets,8482660,1,Kent Johnson,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.14,0.01,0.056666666666666664,0.06666666666666667,0.0,0.0,146.355
+Columbus Blue Jackets,8482660,2,Kent Johnson,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.13666666666666666,0.0033333333333333335,0.03333333333333333,0.03666666666666667,0.0,0.0,140.415
+Columbus Blue Jackets,8482660,3,Kent Johnson,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.13,0.0,0.04,0.04,0.0,0.0,141.735
+Columbus Blue Jackets,8482660,4,Kent Johnson,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.006666666666666667,0.0,0.0,0.0,0.0,0.0,3.75375
+Columbus Blue Jackets,8482705,1,Cole Sillinger,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.02,0.02,0.0,0.0,60.0
+Columbus Blue Jackets,8482705,2,Cole Sillinger,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.02,0.02,0.0,0.0,60.0
+Columbus Blue Jackets,8482705,3,Cole Sillinger,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.06333333333333334,0.06333333333333334,0.0,0.0,60.0
+Columbus Blue Jackets,8482705,4,Cole Sillinger,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.013333333333333334,0.0,0.0,0.0,0.0,0.0,4.41375
+Columbus Blue Jackets,8482982,1,Jet Greaves,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.0,0.0,0.0,6.1433333333333335,1200.0
+Columbus Blue Jackets,8482982,2,Jet Greaves,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.0,0.0,0.0,6.33,1200.0
+Columbus Blue Jackets,8482982,3,Jet Greaves,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.0,0.0,0.0,6.296666666666667,1200.0
+Columbus Blue Jackets,8482982,4,Jet Greaves,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.0,0.0,0.0,0.38333333333333336,65.0
+Columbus Blue Jackets,8483485,1,Denton Mateychuk,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.023333333333333334,0.0033333333333333335,0.04666666666666667,0.05,0.32,0.0,5.633333333333334
+Columbus Blue Jackets,8483485,2,Denton Mateychuk,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.02666666666666667,0.0033333333333333335,0.06,0.06333333333333332,0.30333333333333334,0.0,6.2
+Columbus Blue Jackets,8483485,3,Denton Mateychuk,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.03666666666666667,0.0033333333333333335,0.02,0.023333333333333334,0.3466666666666667,0.0,9.166666666666666
+Columbus Blue Jackets,8483485,4,Denton Mateychuk,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0033333333333333335,0.0,0.0,0.0,0.013333333333333334,0.0,0.6
+Columbus Blue Jackets,8484166,1,Adam Fantilli,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.5166666666666667,0.0,0.03,0.03,0.0033333333333333335,0.0,298.87666666666667
+Columbus Blue Jackets,8484166,2,Adam Fantilli,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.44666666666666666,0.0,0.03333333333333333,0.03333333333333333,0.0033333333333333335,0.0,307.87166666666667
+Columbus Blue Jackets,8484166,3,Adam Fantilli,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.48333333333333334,0.0,0.03666666666666667,0.03666666666666667,0.0,0.0,302.21166666666664
+Columbus Blue Jackets,8484166,4,Adam Fantilli,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.04,0.0,0.0,0.0,0.0,0.0,13.51125
+Chicago Blackhawks,8473422,0,Nick Foligno,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.02,0.0,0.19,0.19,0.0,0.0,183.0525
+Chicago Blackhawks,8476473,0,Connor Murphy,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,1.46,0.25333333333333335,0.14333333333333334,0.3966666666666667,0.3766666666666667,0.0,397.37166666666667
+Chicago Blackhawks,8476882,0,Teuvo Teravainen,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.006666666666666667,0.0,0.15333333333333332,0.15333333333333332,0.0,0.0,8.85
+Chicago Blackhawks,8476891,0,Matt Grzelcyk,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,4.066666666666666,0.5766666666666667,0.16333333333333333,0.74,2.2066666666666666,0.0,971.3316666666667
+Chicago Blackhawks,8477444,0,Andre Burakovsky,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.67,0.006666666666666667,0.21000000000000002,0.21666666666666667,0.0,0.0,522.06
+Chicago Blackhawks,8477450,0,Jason Dickinson,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,1.8233333333333333,0.2,0.17,0.37,0.0,0.0,432.25875
+Chicago Blackhawks,8477479,0,Tyler Bertuzzi,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.96,0.10666666666666666,0.17,0.27666666666666667,0.0,0.0,527.54625
+Chicago Blackhawks,8477987,0,Ryan Donato,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,1.8266666666666667,0.20333333333333334,0.16666666666666669,0.37,0.0,0.0,428.505
+Chicago Blackhawks,8478043,0,Sam Lafferty,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.18333333333333335,0.18333333333333335,0.0,0.0,180.0
+Chicago Blackhawks,8481519,0,Spencer Knight,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.0,0.0,0.0,24.943333333333335,3665.0
+Chicago Blackhawks,8481568,0,Alex Vlasic,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.18,0.18,0.0,0.0,180.0
+Chicago Blackhawks,8481624,0,Ilya Mikheyev,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.01,0.0,0.11333333333333333,0.11333333333333333,0.0,0.0,184.41375
+Chicago Blackhawks,8481806,0,Louis Crevier,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,4.5633333333333335,0.62,0.14333333333333334,0.7633333333333334,2.25,0.0,981.3554166666667
+Chicago Blackhawks,8482172,0,Landon Slaggert,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.04,0.006666666666666667,0.17333333333333334,0.18,0.0,0.0,8.85
+Chicago Blackhawks,8482176,0,Wyatt Kaiser,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.09666666666666668,0.016666666666666666,0.16,0.17666666666666667,1.92,0.0,25.469166666666666
+Chicago Blackhawks,8482703,0,Colton Dach,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,1.8733333333333335,0.24000000000000002,0.12333333333333334,0.36333333333333334,0.0,0.0,432.25875
+Chicago Blackhawks,8483450,0,Ryan Greene,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.023333333333333334,0.0,0.16,0.16,0.0,0.0,183.0525
+Chicago Blackhawks,8483493,0,Frank Nazar,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.5066666666666666,0.013333333333333334,0.16333333333333333,0.17666666666666667,0.0033333333333333335,0.0,395.39166666666665
+Chicago Blackhawks,8483506,0,Sam Rinzel,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,1.6666666666666667,0.2833333333333333,0.16666666666666666,0.45,0.31333333333333335,0.0,395.39166666666665
+Chicago Blackhawks,8484144,0,Connor Bedard,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,1.9066666666666667,0.08,0.15,0.23,0.010000000000000002,0.0,922.9379166666666
+Chicago Blackhawks,8484197,0,Oliver Moore,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.013333333333333334,0.0033333333333333335,0.19333333333333333,0.19666666666666666,0.0,0.0,184.41375
+Chicago Blackhawks,8484783,0,Artyom Levshunov,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.2333333333333333,0.0033333333333333335,0.17333333333333334,0.17666666666666664,0.08666666666666667,0.0,221.76666666666668
+Columbus Blue Jackets,8474090,0,Brendan Smith,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,2.6766666666666667,0.37333333333333335,0.10666666666666667,0.48,0.59,0.0,394.925
+Columbus Blue Jackets,8475745,0,Charlie Coyle,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,1.3233333333333333,0.09333333333333332,0.12666666666666665,0.22,0.03333333333333333,0.0,922.4712499999999
+Columbus Blue Jackets,8475790,0,Erik Gudbranson,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.14333333333333334,0.006666666666666667,0.16,0.16666666666666666,0.9066666666666667,0.0,26.302500000000002
+Columbus Blue Jackets,8476432,0,Boone Jenner,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.6533333333333333,0.01,0.12333333333333334,0.13333333333333333,0.0,0.0,432.25875
+Columbus Blue Jackets,8476923,0,Damon Severson,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.39,0.0033333333333333335,0.10333333333333333,0.10666666666666667,0.013333333333333334,0.0,224.775
+Columbus Blue Jackets,8477425,0,Miles Wood,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.17,0.17,0.0,0.0,180.0
+Columbus Blue Jackets,8477497,0,Sean Monahan,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.14666666666666667,0.14666666666666667,0.0,0.0,180.0
+Columbus Blue Jackets,8478046,0,Danton Heinen,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,5.056666666666667,0.44666666666666666,0.12333333333333334,0.5700000000000001,0.0,0.0,522.06
+Columbus Blue Jackets,8478460,0,Zach Werenski,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.7833333333333333,0.04,0.12666666666666665,0.16666666666666666,0.02,0.0,394.925
+Columbus Blue Jackets,8478500,0,Ivan Provorov,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.04,0.0,0.16,0.16,0.02666666666666667,0.0,23.58
+Columbus Blue Jackets,8478975,0,Mason Marchment,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.02,0.0033333333333333335,0.12666666666666668,0.13,0.0,0.0,183.0525
+Columbus Blue Jackets,8479371,0,Dante Fabbro,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,4.65,0.42000000000000004,0.1,0.52,1.7366666666666666,0.0,959.79
+Columbus Blue Jackets,8479671,0,Mathieu Olivier,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.056666666666666664,0.0,0.12,0.12,0.0,0.0,184.41375
+Columbus Blue Jackets,8480806,0,Isac Lundeström,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,4.15,0.32333333333333336,0.14,0.4633333333333333,0.0,0.0,428.505
+Columbus Blue Jackets,8480893,0,Kirill Marchenko,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.016666666666666666,0.0,0.13666666666666666,0.13666666666666666,0.0,0.0,183.0525
+Columbus Blue Jackets,8481161,0,Jake Christiansen,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,5.133333333333333,0.41,0.11,0.52,1.6166666666666665,0.0,969.8137499999999
+Columbus Blue Jackets,8481178,0,Egor Zamula,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.2,0.2,0.0,0.0,180.0
+Columbus Blue Jackets,8481716,0,Dmitri Voronkov,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.12,0.12,0.0,0.0,180.0
+Columbus Blue Jackets,8482660,0,Kent Johnson,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.41333333333333333,0.013333333333333334,0.13,0.14333333333333334,0.0,0.0,432.25875
+Columbus Blue Jackets,8482705,0,Cole Sillinger,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.013333333333333334,0.0,0.10333333333333335,0.10333333333333335,0.0,0.0,184.41375
+Columbus Blue Jackets,8482982,0,Jet Greaves,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.0,0.0,0.0,0.0,0.0,19.153333333333332,3665.0
+Columbus Blue Jackets,8483485,0,Denton Mateychuk,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,0.09,0.01,0.12666666666666668,0.13666666666666666,0.9833333333333334,0.0,21.6
+Columbus Blue Jackets,8484166,0,Adam Fantilli,Chicago Blackhawks,Columbus Blue Jackets,2026-01-30,1.4866666666666668,0.0,0.1,0.1,0.006666666666666667,0.0,922.4712499999999

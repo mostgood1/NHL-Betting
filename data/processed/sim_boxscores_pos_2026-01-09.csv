@@ -1,0 +1,147 @@
+gamePk,date,team,player_id,full_name,position,shots,goals,saves,blocks
+2025020694,2026-01-09,Chicago Blackhawks,8484144,Connor Bedard,F,0,0,0,0
+2025020694,2026-01-09,Chicago Blackhawks,8477479,Tyler Bertuzzi,F,1,0,0,0
+2025020694,2026-01-09,Chicago Blackhawks,8477444,Andre Burakovsky,F,0,0,0,0
+2025020694,2026-01-09,Chicago Blackhawks,8482703,Colton Dach,F,1,0,0,0
+2025020694,2026-01-09,Chicago Blackhawks,8477450,Jason Dickinson,F,1,0,0,0
+2025020694,2026-01-09,Chicago Blackhawks,8477987,Ryan Donato,F,5,0,0,0
+2025020694,2026-01-09,Chicago Blackhawks,8473422,Nick Foligno,F,4,0,0,0
+2025020694,2026-01-09,Chicago Blackhawks,8483450,Ryan Greene,F,1,0,0,0
+2025020694,2026-01-09,Chicago Blackhawks,8478043,Sam Lafferty,F,1,1,0,0
+2025020694,2026-01-09,Chicago Blackhawks,8484185,Nick Lardis,F,0,0,0,0
+2025020694,2026-01-09,Chicago Blackhawks,8481624,Ilya Mikheyev,F,1,0,0,0
+2025020694,2026-01-09,Chicago Blackhawks,8484197,Oliver Moore,F,0,0,0,0
+2025020694,2026-01-09,Chicago Blackhawks,8483493,Frank Nazar,F,0,0,0,0
+2025020694,2026-01-09,Chicago Blackhawks,8482172,Landon Slaggert,F,0,0,0,0
+2025020694,2026-01-09,Chicago Blackhawks,8476882,Teuvo Teravainen,F,0,0,0,0
+2025020694,2026-01-09,Chicago Blackhawks,8481806,Louis Crevier,D,1,0,0,3
+2025020694,2026-01-09,Chicago Blackhawks,8476891,Matt Grzelcyk,D,0,0,0,2
+2025020694,2026-01-09,Chicago Blackhawks,8482176,Wyatt Kaiser,D,5,0,0,2
+2025020694,2026-01-09,Chicago Blackhawks,8484783,Artyom Levshunov,D,1,1,0,1
+2025020694,2026-01-09,Chicago Blackhawks,8476473,Connor Murphy,D,1,1,0,1
+2025020694,2026-01-09,Chicago Blackhawks,8481568,Alex Vlasic,D,1,0,0,0
+2025020694,2026-01-09,Chicago Blackhawks,8481519,Spencer Knight,G,0,0,23,0
+2025020694,2026-01-09,Chicago Blackhawks,8482821,Arvid Soderblom,G,0,0,0,0
+2025020694,2026-01-09,Washington Capitals,8478463,Anthony Beauvillier,F,2,0,0,0
+2025020694,2026-01-09,Washington Capitals,8475343,Nic Dowd,F,2,0,0,0
+2025020694,2026-01-09,Washington Capitals,8479400,Pierre-Luc Dubois,F,1,1,0,0
+2025020694,2026-01-09,Washington Capitals,8479520,Brandon Duhaime,F,2,0,0,0
+2025020694,2026-01-09,Washington Capitals,8483573,Ethen Frank,F,0,0,0,0
+2025020694,2026-01-09,Washington Capitals,8482148,Hendrix Lapierre,F,0,0,0,0
+2025020694,2026-01-09,Washington Capitals,8484186,Ryan Leonard,F,1,0,0,0
+2025020694,2026-01-09,Washington Capitals,8481580,Connor McMichael,F,2,0,0,0
+2025020694,2026-01-09,Washington Capitals,8477947,Sonny Milano,F,1,0,0,0
+2025020694,2026-01-09,Washington Capitals,8471214,Alex Ovechkin,F,5,0,0,0
+2025020694,2026-01-09,Washington Capitals,8481656,Aliaksei Protas,F,1,1,0,0
+2025020694,2026-01-09,Washington Capitals,8482088,Justin Sourdif,F,1,1,0,0
+2025020694,2026-01-09,Washington Capitals,8478440,Dylan Strome,F,0,0,0,0
+2025020694,2026-01-09,Washington Capitals,8476880,Tom Wilson,F,0,0,0,0
+2025020694,2026-01-09,Washington Capitals,8474590,John Carlson,D,2,0,0,0
+2025020694,2026-01-09,Washington Capitals,8480990,Declan Chisholm,D,6,0,0,0
+2025020694,2026-01-09,Washington Capitals,8479345,Jakob Chychrun,D,2,1,0,2
+2025020694,2026-01-09,Washington Capitals,8480796,Martin Fehérváry,D,0,0,0,4
+2025020694,2026-01-09,Washington Capitals,8475795,Dylan McIlrath,D,0,1,0,3
+2025020694,2026-01-09,Washington Capitals,8478911,Matt Roy,D,0,0,0,0
+2025020694,2026-01-09,Washington Capitals,8480873,Rasmus Sandin,D,0,0,0,0
+2025020694,2026-01-09,Washington Capitals,8477845,Trevor van Riemsdyk,D,0,0,0,0
+2025020694,2026-01-09,Washington Capitals,8479292,Charlie Lindgren,G,0,0,21,0
+2025020694,2026-01-09,Washington Capitals,8480313,Logan Thompson,G,0,0,0,0
+2025020695,2026-01-09,Winnipeg Jets,8480289,Morgan Barron,F,2,0,0,0
+2025020695,2026-01-09,Winnipeg Jets,8478398,Kyle Connor,F,1,0,0,0
+2025020695,2026-01-09,Winnipeg Jets,8480113,Alex Iafallo,F,3,0,0,0
+2025020695,2026-01-09,Winnipeg Jets,8481043,Cole Koepke,F,1,0,0,0
+2025020695,2026-01-09,Winnipeg Jets,8476392,Adam Lowry,F,5,0,0,0
+2025020695,2026-01-09,Winnipeg Jets,8476480,Vladislav Namestnikov,F,0,0,0,0
+2025020695,2026-01-09,Winnipeg Jets,8475799,Nino Niederreiter,F,2,0,0,0
+2025020695,2026-01-09,Winnipeg Jets,8474679,Gustav Nyquist,F,3,0,0,0
+2025020695,2026-01-09,Winnipeg Jets,8476871,Tanner Pearson,F,4,0,0,0
+2025020695,2026-01-09,Winnipeg Jets,8482149,Cole Perfetti,F,3,0,0,0
+2025020695,2026-01-09,Winnipeg Jets,8476460,Mark Scheifele,F,3,1,0,0
+2025020695,2026-01-09,Winnipeg Jets,8473604,Jonathan Toews,F,2,0,0,0
+2025020695,2026-01-09,Winnipeg Jets,8480014,Gabriel Vilardi,F,0,0,0,0
+2025020695,2026-01-09,Winnipeg Jets,8476331,Dylan DeMelo,D,0,0,0,3
+2025020695,2026-01-09,Winnipeg Jets,8477938,Haydn Fleury,D,2,0,0,0
+2025020695,2026-01-09,Winnipeg Jets,8476525,Colin Miller,D,1,0,0,3
+2025020695,2026-01-09,Winnipeg Jets,8477504,Josh Morrissey,D,1,1,0,1
+2025020695,2026-01-09,Winnipeg Jets,8480145,Neal Pionk,D,2,1,0,0
+2025020695,2026-01-09,Winnipeg Jets,8483510,Elias Salomonsson,D,0,0,0,2
+2025020695,2026-01-09,Winnipeg Jets,8480049,Dylan Samberg,D,0,0,0,0
+2025020695,2026-01-09,Winnipeg Jets,8474568,Luke Schenn,D,1,0,0,0
+2025020695,2026-01-09,Winnipeg Jets,8479378,Logan Stanley,D,0,0,0,0
+2025020695,2026-01-09,Winnipeg Jets,8477480,Eric Comrie,G,0,0,36,0
+2025020695,2026-01-09,Winnipeg Jets,8476945,Connor Hellebuyck,G,0,0,0,0
+2025020695,2026-01-09,Los Angeles Kings,8476469,Joel Armia,F,1,0,0,0
+2025020695,2026-01-09,Los Angeles Kings,8482124,Quinton Byfield,F,2,0,0,0
+2025020695,2026-01-09,Los Angeles Kings,8477942,Kevin Fiala,F,0,0,0,0
+2025020695,2026-01-09,Los Angeles Kings,8477998,Warren Foegele,F,1,1,0,0
+2025020695,2026-01-09,Los Angeles Kings,8482726,Samuel Helenius,F,0,0,0,0
+2025020695,2026-01-09,Los Angeles Kings,8477960,Adrian Kempe,F,0,0,0,0
+2025020695,2026-01-09,Los Angeles Kings,8471685,Anze Kopitar,F,0,0,0,0
+2025020695,2026-01-09,Los Angeles Kings,8483808,Andrei Kuzmenko,F,1,0,0,0
+2025020695,2026-01-09,Los Angeles Kings,8482155,Alex Laferriere,F,1,0,0,0
+2025020695,2026-01-09,Los Angeles Kings,8481732,Andre Lee,F,2,1,0,0
+2025020695,2026-01-09,Los Angeles Kings,8482408,Jeff Malott,F,3,0,0,0
+2025020695,2026-01-09,Los Angeles Kings,8479675,Trevor Moore,F,1,0,0,0
+2025020695,2026-01-09,Los Angeles Kings,8470621,Corey Perry,F,0,0,0,0
+2025020695,2026-01-09,Los Angeles Kings,8481532,Alex Turcotte,F,0,0,0,0
+2025020695,2026-01-09,Los Angeles Kings,8483406,Taylor Ward,F,0,0,0,0
+2025020695,2026-01-09,Los Angeles Kings,8479998,Mikey Anderson,D,1,0,0,0
+2025020695,2026-01-09,Los Angeles Kings,8476879,Cody Ceci,D,3,1,0,0
+2025020695,2026-01-09,Los Angeles Kings,8482730,Brandt Clarke,D,6,1,0,0
+2025020695,2026-01-09,Los Angeles Kings,8474563,Drew Doughty,D,8,0,0,2
+2025020695,2026-01-09,Los Angeles Kings,8475208,Brian Dumoulin,D,5,0,0,1
+2025020695,2026-01-09,Los Angeles Kings,8476441,Joel Edmundson,D,5,0,0,4
+2025020695,2026-01-09,Los Angeles Kings,8479421,Jacob Moverare,D,0,0,0,0
+2025020695,2026-01-09,Los Angeles Kings,8476341,Anton Forsberg,G,0,0,33,0
+2025020695,2026-01-09,Los Angeles Kings,8475311,Darcy Kuemper,G,0,0,0,0
+2025020696,2026-01-09,Utah Mammoth,8484388,Daniil But,F,0,0,0,0
+2025020696,2026-01-09,Utah Mammoth,8479619,Michael Carcone,F,4,0,0,0
+2025020696,2026-01-09,Utah Mammoth,8483431,Logan Cooley,F,2,1,0,0
+2025020696,2026-01-09,Utah Mammoth,8478474,Lawson Crouse,F,0,0,0,0
+2025020696,2026-01-09,Utah Mammoth,8482699,Dylan Guenther,F,0,0,0,0
+2025020696,2026-01-09,Utah Mammoth,8480849,Barrett Hayton,F,0,0,0,0
+2025020696,2026-01-09,Utah Mammoth,8479656,Cam Hebig,F,0,0,0,0
+2025020696,2026-01-09,Utah Mammoth,8479343,Clayton Keller,F,3,0,0,0
+2025020696,2026-01-09,Utah Mammoth,8477021,Alexander Kerfoot,F,2,0,0,0
+2025020696,2026-01-09,Utah Mammoth,8480855,Jack McBain,F,0,0,0,0
+2025020696,2026-01-09,Utah Mammoth,8477070,Liam O'Brien,F,1,1,0,0
+2025020696,2026-01-09,Utah Mammoth,8482175,JJ Peterka,F,0,0,0,0
+2025020696,2026-01-09,Utah Mammoth,8477951,Nick Schmaltz,F,2,1,0,2
+2025020696,2026-01-09,Utah Mammoth,8478831,Kevin Stenlund,F,0,0,0,0
+2025020696,2026-01-09,Utah Mammoth,8479293,Brandon Tanev,F,0,0,0,0
+2025020696,2026-01-09,Utah Mammoth,8479977,Kailer Yamamoto,F,0,0,0,0
+2025020696,2026-01-09,Utah Mammoth,8474013,Ian Cole,D,1,0,0,4
+2025020696,2026-01-09,Utah Mammoth,8480084,Nick DeSimone,D,1,0,0,0
+2025020696,2026-01-09,Utah Mammoth,8480434,Sean Durzi,D,4,0,0,1
+2025020696,2026-01-09,Utah Mammoth,8478507,John Marino,D,7,0,0,1
+2025020696,2026-01-09,Utah Mammoth,8476874,Olli Määttä,D,3,0,0,1
+2025020696,2026-01-09,Utah Mammoth,8477220,Nate Schmidt,D,1,1,0,1
+2025020696,2026-01-09,Utah Mammoth,8479410,Mikhail Sergachev,D,0,0,0,0
+2025020696,2026-01-09,Utah Mammoth,8477970,Vitek Vanecek,G,0,0,21,0
+2025020696,2026-01-09,Utah Mammoth,8478872,Karel Vejmelka,G,0,0,0,0
+2025020696,2026-01-09,St. Louis Blues,8481013,Jonatan Berggren,F,1,0,0,0
+2025020696,2026-01-09,St. Louis Blues,8475760,Nick Bjugstad,F,3,1,0,0
+2025020696,2026-01-09,St. Louis Blues,8477402,Pavel Buchnevich,F,0,0,0,0
+2025020696,2026-01-09,St. Louis Blues,8484164,Dalibor Dvorsky,F,0,0,0,0
+2025020696,2026-01-09,St. Louis Blues,8477952,Robby Fabbri,F,0,0,0,0
+2025020696,2026-01-09,St. Louis Blues,8482077,Dylan Holloway,F,0,0,0,0
+2025020696,2026-01-09,St. Louis Blues,8478472,Mathieu Joseph,F,1,0,0,0
+2025020696,2026-01-09,St. Louis Blues,8479385,Jordan Kyrou,F,2,0,0,0
+2025020696,2026-01-09,St. Louis Blues,8482089,Jake Neighbours,F,1,0,0,0
+2025020696,2026-01-09,St. Louis Blues,8475170,Brayden Schenn,F,2,0,0,0
+2025020696,2026-01-09,St. Louis Blues,8483516,Jimmy Snuggerud,F,1,1,0,0
+2025020696,2026-01-09,St. Louis Blues,8484230,Otto Stenberg,F,0,0,0,0
+2025020696,2026-01-09,St. Louis Blues,8476897,Oskar Sundqvist,F,0,0,0,0
+2025020696,2026-01-09,St. Louis Blues,8480459,Pius Suter,F,3,0,0,0
+2025020696,2026-01-09,St. Louis Blues,8480023,Robert Thomas,F,0,1,0,0
+2025020696,2026-01-09,St. Louis Blues,8480281,Alexey Toropchenko,F,3,1,0,0
+2025020696,2026-01-09,St. Louis Blues,8477573,Nathan Walker,F,0,0,0,0
+2025020696,2026-01-09,St. Louis Blues,8481598,Philip Broberg,D,2,0,0,0
+2025020696,2026-01-09,St. Louis Blues,8475753,Justin Faulk,D,2,1,0,2
+2025020696,2026-01-09,St. Louis Blues,8475764,Cam Fowler,D,1,1,0,1
+2025020696,2026-01-09,St. Louis Blues,8482516,Matthew Kessel,D,1,0,0,2
+2025020696,2026-01-09,St. Louis Blues,8482733,Logan Mailloux,D,0,0,0,0
+2025020696,2026-01-09,St. Louis Blues,8476892,Colton Parayko,D,4,0,0,0
+2025020696,2026-01-09,St. Louis Blues,8481006,Tyler Tucker,D,0,0,0,0
+2025020696,2026-01-09,St. Louis Blues,8476412,Jordan Binnington,G,0,0,27,0
+2025020696,2026-01-09,St. Louis Blues,8480981,Joel Hofer,G,0,0,0,0

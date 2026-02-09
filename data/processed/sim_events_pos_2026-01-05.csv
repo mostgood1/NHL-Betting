@@ -1,0 +1,6 @@
+gamePk,date,home,away,shots_ev_home,shots_pp_home,shots_pk_home,shots_ev_away,shots_pp_away,shots_pk_away,goals_ev_home,goals_pp_home,goals_pk_home,goals_ev_away,goals_pp_away,goals_pk_away,blocks_ev_home,blocks_pp_home,blocks_pk_home,blocks_ev_away,blocks_pp_away,blocks_pk_away,saves_ev_home,saves_pp_home,saves_pk_home,saves_ev_away,saves_pp_away,saves_pk_away
+2025020662,2026-01-05,New York Rangers,Utah Mammoth,27,1,4,23,5,2,0,1,1,3,0,0,3,1,1,5,1,1,20,5,2,27,0,3
+2025020663,2026-01-05,Washington Capitals,Anaheim Ducks,25,3,0,28,3,3,6,0,0,1,1,0,4,1,2,2,0,0,27,2,3,19,3,0
+2025020664,2026-01-05,Ottawa Senators,Detroit Red Wings,31,7,1,23,1,3,2,2,0,3,0,0,4,0,0,5,0,2,20,1,3,29,5,1
+2025020665,2026-01-05,Calgary Flames,Seattle Kraken,26,0,0,32,4,0,3,0,0,2,0,0,7,0,2,4,0,0,30,4,0,23,0,0
+2025020666,2026-01-05,Los Angeles Kings,Minnesota Wild,19,1,3,25,4,0,0,0,1,4,0,0,4,0,0,3,1,0,21,4,0,19,1,2

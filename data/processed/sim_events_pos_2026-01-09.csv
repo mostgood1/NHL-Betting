@@ -1,0 +1,4 @@
+gamePk,date,home,away,shots_ev_home,shots_pp_home,shots_pk_home,shots_ev_away,shots_pp_away,shots_pk_away,goals_ev_home,goals_pp_home,goals_pk_home,goals_ev_away,goals_pp_away,goals_pk_away,blocks_ev_home,blocks_pp_home,blocks_pk_home,blocks_ev_away,blocks_pp_away,blocks_pk_away,saves_ev_home,saves_pp_home,saves_pk_home,saves_ev_away,saves_pp_away,saves_pk_away
+2025020694,2026-01-09,Chicago Blackhawks,Washington Capitals,20,4,0,24,0,4,2,1,0,5,0,0,8,1,0,8,0,1,19,0,4,18,3,0
+2025020695,2026-01-09,Winnipeg Jets,Los Angeles Kings,35,0,1,32,7,1,3,0,0,4,0,0,7,0,2,7,0,0,28,7,1,32,0,1
+2025020696,2026-01-09,Utah Mammoth,St. Louis Blues,27,2,2,22,4,1,3,0,1,6,0,0,7,1,2,5,0,0,16,4,1,24,2,1

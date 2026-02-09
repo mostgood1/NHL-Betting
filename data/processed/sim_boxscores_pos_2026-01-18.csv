@@ -1,0 +1,149 @@
+gamePk,date,team,player_id,full_name,position,shots,goals,saves
+2025020767,2026-01-18,Dallas Stars,8479414,Nathan Bastian,F,3,0,0
+2025020767,2026-01-18,Dallas Stars,8473994,Jamie Benn,F,2,0,0
+2025020767,2026-01-18,Dallas Stars,8476278,Colin Blackwell,F,0,0,0
+2025020767,2026-01-18,Dallas Stars,8482145,Mavrik Bourque,F,0,0,0
+2025020767,2026-01-18,Dallas Stars,8480840,Oskar Bäck,F,1,0,0
+2025020767,2026-01-18,Dallas Stars,8475168,Matt Duchene,F,0,1,0
+2025020767,2026-01-18,Dallas Stars,8477454,Adam Erne,F,3,0,0
+2025020767,2026-01-18,Dallas Stars,8476889,Radek Faksa,F,3,0,0
+2025020767,2026-01-18,Dallas Stars,8478449,Roope Hintz,F,0,0,0
+2025020767,2026-01-18,Dallas Stars,8484829,Justin Hryckowian,F,0,0,0
+2025020767,2026-01-18,Dallas Stars,8482740,Wyatt Johnston,F,3,0,0
+2025020767,2026-01-18,Dallas Stars,8478420,Mikko Rantanen,F,2,0,0
+2025020767,2026-01-18,Dallas Stars,8480027,Jason Robertson,F,5,0,0
+2025020767,2026-01-18,Dallas Stars,8475794,Tyler Seguin,F,0,0,0
+2025020767,2026-01-18,Dallas Stars,8479351,Sam Steel,F,0,0,0
+2025020767,2026-01-18,Dallas Stars,8483425,Lian Bichsel,D,0,0,0
+2025020767,2026-01-18,Dallas Stars,8478476,Kyle Capobianco,D,1,0,0
+2025020767,2026-01-18,Dallas Stars,8481581,Thomas Harley,D,0,0,0
+2025020767,2026-01-18,Dallas Stars,8480036,Miro Heiskanen,D,3,1,0
+2025020767,2026-01-18,Dallas Stars,8476902,Esa Lindell,D,2,0,0
+2025020767,2026-01-18,Dallas Stars,8480878,Nils Lundkvist,D,3,0,0
+2025020767,2026-01-18,Dallas Stars,8480950,Ilya Lyubushkin,D,1,0,0
+2025020767,2026-01-18,Dallas Stars,8475755,Alexander Petrovic,D,0,0,0
+2025020767,2026-01-18,Dallas Stars,8479193,Casey DeSmith,G,0,0,0
+2025020767,2026-01-18,Dallas Stars,8479979,Jake Oettinger,G,0,0,33
+2025020767,2026-01-18,Tampa Bay Lightning,8477416,Oliver Bjorkstrand,F,4,0,0
+2025020767,2026-01-18,Tampa Bay Lightning,8478519,Anthony Cirelli,F,1,0,0
+2025020767,2026-01-18,Tampa Bay Lightning,8480876,Curtis Douglas,F,2,0,0
+2025020767,2026-01-18,Tampa Bay Lightning,8482090,Jack Finley,F,0,0,0
+2025020767,2026-01-18,Tampa Bay Lightning,8476878,Zemgus Girgensons,F,0,0,0
+2025020767,2026-01-18,Tampa Bay Lightning,8482201,Gage Goncalves,F,0,0,0
+2025020767,2026-01-18,Tampa Bay Lightning,8476826,Yanni Gourde,F,2,0,0
+2025020767,2026-01-18,Tampa Bay Lightning,8477404,Jake Guentzel,F,1,0,0
+2025020767,2026-01-18,Tampa Bay Lightning,8479542,Brandon Hagel,F,1,0,0
+2025020767,2026-01-18,Tampa Bay Lightning,8480995,Pontus Holmberg,F,2,1,0
+2025020767,2026-01-18,Tampa Bay Lightning,8483752,Dominic James,F,2,0,0
+2025020767,2026-01-18,Tampa Bay Lightning,8476453,Nikita Kucherov,F,2,0,0
+2025020767,2026-01-18,Tampa Bay Lightning,8477426,Nick Paul,F,0,0,0
+2025020767,2026-01-18,Tampa Bay Lightning,8481592,Jakob Pelletier,F,4,0,0
+2025020767,2026-01-18,Tampa Bay Lightning,8478010,Brayden Point,F,0,0,0
+2025020767,2026-01-18,Tampa Bay Lightning,8483398,Declan Carlile,D,1,0,0
+2025020767,2026-01-18,Tampa Bay Lightning,8478416,Erik Cernak,D,2,0,0
+2025020767,2026-01-18,Tampa Bay Lightning,8481719,Max Crozier,D,3,1,0
+2025020767,2026-01-18,Tampa Bay Lightning,8480426,Charle-Edouard D'Astous,D,2,0,0
+2025020767,2026-01-18,Tampa Bay Lightning,8475167,Victor Hedman,D,0,0,0
+2025020767,2026-01-18,Tampa Bay Lightning,8482929,Emil Lilleberg,D,1,0,0
+2025020767,2026-01-18,Tampa Bay Lightning,8481547,Simon Lundmark,D,3,0,0
+2025020767,2026-01-18,Tampa Bay Lightning,8474151,Ryan McDonagh,D,1,0,0
+2025020767,2026-01-18,Tampa Bay Lightning,8482655,J.J. Moser,D,1,0,0
+2025020767,2026-01-18,Tampa Bay Lightning,8478178,Darren Raddysh,D,0,0,0
+2025020767,2026-01-18,Tampa Bay Lightning,8477992,Jonas Johansson,G,0,0,0
+2025020767,2026-01-18,Tampa Bay Lightning,8476883,Andrei Vasilevskiy,G,0,0,30
+2025020768,2026-01-18,Detroit Red Wings,8478891,Mason Appleton,F,4,1,0
+2025020768,2026-01-18,Detroit Red Wings,8477456,J.T. Compher,F,1,2,0
+2025020768,2026-01-18,Detroit Red Wings,8477429,Andrew Copp,F,0,0,0
+2025020768,2026-01-18,Detroit Red Wings,8479337,Alex DeBrincat,F,2,0,0
+2025020768,2026-01-18,Detroit Red Wings,8484471,Emmitt Finnie,F,0,0,0
+2025020768,2026-01-18,Detroit Red Wings,8474141,Patrick Kane,F,1,0,0
+2025020768,2026-01-18,Detroit Red Wings,8483464,Marco Kasper,F,1,0,0
+2025020768,2026-01-18,Detroit Red Wings,8477946,Dylan Larkin,F,0,0,0
+2025020768,2026-01-18,Detroit Red Wings,8479992,Michael Rasmussen,F,2,0,0
+2025020768,2026-01-18,Detroit Red Wings,8482078,Lucas Raymond,F,0,1,0
+2025020768,2026-01-18,Detroit Red Wings,8481725,Elmer Soderblom,F,0,0,0
+2025020768,2026-01-18,Detroit Red Wings,8474037,James van Riemsdyk,F,1,0,0
+2025020768,2026-01-18,Detroit Red Wings,8480879,Jacob Bernard-Docker,D,1,1,0
+2025020768,2026-01-18,Detroit Red Wings,8475279,Ben Chiarot,D,3,0,0
+2025020768,2026-01-18,Detroit Red Wings,8482762,Simon Edvinsson,D,1,0,0
+2025020768,2026-01-18,Detroit Red Wings,8476979,Erik Gustafsson,D,0,0,0
+2025020768,2026-01-18,Detroit Red Wings,8474612,Travis Hamonic,D,0,0,0
+2025020768,2026-01-18,Detroit Red Wings,8481607,Albert Johansson,D,3,0,0
+2025020768,2026-01-18,Detroit Red Wings,8484223,Axel Sandin-Pellikka,D,5,0,0
+2025020768,2026-01-18,Detroit Red Wings,8481542,Moritz Seider,D,0,0,0
+2025020768,2026-01-18,Detroit Red Wings,8476434,John Gibson,G,0,0,18
+2025020768,2026-01-18,Detroit Red Wings,8475660,Cam Talbot,G,0,0,0
+2025020768,2026-01-18,Ottawa Senators,8478020,Michael Amadio,F,1,0,0
+2025020768,2026-01-18,Ottawa Senators,8480208,Drake Batherson,F,2,0,0
+2025020768,2026-01-18,Ottawa Senators,8476393,Nick Cousins,F,1,0,0
+2025020768,2026-01-18,Ottawa Senators,8481528,Dylan Cozens,F,0,0,0
+2025020768,2026-01-18,Ottawa Senators,8474189,Lars Eller,F,1,0,0
+2025020768,2026-01-18,Ottawa Senators,8473512,Claude Giroux,F,1,0,0
+2025020768,2026-01-18,Ottawa Senators,8482092,Ridly Greig,F,0,0,0
+2025020768,2026-01-18,Ottawa Senators,8483676,Stephen Halliday,F,0,0,0
+2025020768,2026-01-18,Ottawa Senators,8477073,Kurtis MacDermid,F,1,1,0
+2025020768,2026-01-18,Ottawa Senators,8474102,David Perron,F,0,0,0
+2025020768,2026-01-18,Ottawa Senators,8481596,Shane Pinto,F,1,0,0
+2025020768,2026-01-18,Ottawa Senators,8482116,Tim Stützle,F,2,0,0
+2025020768,2026-01-18,Ottawa Senators,8480801,Brady Tkachuk,F,0,0,0
+2025020768,2026-01-18,Ottawa Senators,8480188,Fabian Zetterlund,F,0,0,0
+2025020768,2026-01-18,Ottawa Senators,8478469,Thomas Chabot,D,1,0,0
+2025020768,2026-01-18,Ottawa Senators,8475324,Nick Jensen,D,0,1,0
+2025020768,2026-01-18,Ottawa Senators,8482095,Tyler Kleven,D,2,0,0
+2025020768,2026-01-18,Ottawa Senators,8484321,Nikolas Matinpalo,D,3,0,0
+2025020768,2026-01-18,Ottawa Senators,8482105,Jake Sanderson,D,1,1,0
+2025020768,2026-01-18,Ottawa Senators,8481606,Jordan Spence,D,4,0,0
+2025020768,2026-01-18,Ottawa Senators,8482245,Artem Zub,D,0,0,0
+2025020768,2026-01-18,Ottawa Senators,8473503,James Reimer,G,0,0,20
+2025020768,2026-01-18,Ottawa Senators,8482411,Hunter Shepard,G,0,0,0
+2025020768,2026-01-18,Ottawa Senators,8481544,Mads Sogaard,G,0,0,0
+2025020769,2026-01-18,Edmonton Oilers,8477934,Leon Draisaitl,F,6,2,0
+2025020769,2026-01-18,Edmonton Oilers,8479365,Trent Frederic,F,0,0,0
+2025020769,2026-01-18,Edmonton Oilers,8474641,Adam Henrique,F,1,0,0
+2025020769,2026-01-18,Edmonton Oilers,8483455,Isaac Howard,F,2,0,0
+2025020769,2026-01-18,Edmonton Oilers,8475786,Zach Hyman,F,3,0,0
+2025020769,2026-01-18,Edmonton Oilers,8477406,Mattias Janmark,F,2,2,0
+2025020769,2026-01-18,Edmonton Oilers,8477953,Kasperi Kapanen,F,3,0,0
+2025020769,2026-01-18,Edmonton Oilers,8477508,Curtis Lazar,F,3,2,0
+2025020769,2026-01-18,Edmonton Oilers,8478233,Andrew Mangiapane,F,1,0,0
+2025020769,2026-01-18,Edmonton Oilers,8478402,Connor McDavid,F,1,0,0
+2025020769,2026-01-18,Edmonton Oilers,8476454,Ryan Nugent-Hopkins,F,2,0,0
+2025020769,2026-01-18,Edmonton Oilers,8481617,Vasily Podkolzin,F,3,1,0
+2025020769,2026-01-18,Edmonton Oilers,8478458,Jack Roslovic,F,0,0,0
+2025020769,2026-01-18,Edmonton Oilers,8483512,Matt Savoie,F,0,0,0
+2025020769,2026-01-18,Edmonton Oilers,8480803,Evan Bouchard,D,3,0,0
+2025020769,2026-01-18,Edmonton Oilers,8475218,Mattias Ekholm,D,3,0,0
+2025020769,2026-01-18,Edmonton Oilers,8480834,Ty Emberson,D,3,1,0
+2025020769,2026-01-18,Edmonton Oilers,8477498,Darnell Nurse,D,5,0,0
+2025020769,2026-01-18,Edmonton Oilers,8480831,Alec Regula,D,0,1,0
+2025020769,2026-01-18,Edmonton Oilers,8481056,Spencer Stastney,D,6,0,0
+2025020769,2026-01-18,Edmonton Oilers,8478013,Jake Walman,D,0,0,0
+2025020769,2026-01-18,Edmonton Oilers,8478971,Connor Ingram,G,0,0,28
+2025020769,2026-01-18,Edmonton Oilers,8477465,Tristan Jarry,G,0,0,0
+2025020769,2026-01-18,Edmonton Oilers,8475717,Calvin Pickard,G,0,0,0
+2025020769,2026-01-18,St. Louis Blues,8481013,Jonatan Berggren,F,2,0,0
+2025020769,2026-01-18,St. Louis Blues,8475760,Nick Bjugstad,F,1,0,0
+2025020769,2026-01-18,St. Louis Blues,8477402,Pavel Buchnevich,F,0,0,0
+2025020769,2026-01-18,St. Louis Blues,8484164,Dalibor Dvorsky,F,0,0,0
+2025020769,2026-01-18,St. Louis Blues,8477952,Robby Fabbri,F,0,0,0
+2025020769,2026-01-18,St. Louis Blues,8482077,Dylan Holloway,F,0,0,0
+2025020769,2026-01-18,St. Louis Blues,8478472,Mathieu Joseph,F,2,1,0
+2025020769,2026-01-18,St. Louis Blues,8479385,Jordan Kyrou,F,1,0,0
+2025020769,2026-01-18,St. Louis Blues,8482089,Jake Neighbours,F,1,0,0
+2025020769,2026-01-18,St. Louis Blues,8475170,Brayden Schenn,F,1,0,0
+2025020769,2026-01-18,St. Louis Blues,8483516,Jimmy Snuggerud,F,0,0,0
+2025020769,2026-01-18,St. Louis Blues,8484230,Otto Stenberg,F,0,0,0
+2025020769,2026-01-18,St. Louis Blues,8476897,Oskar Sundqvist,F,5,0,0
+2025020769,2026-01-18,St. Louis Blues,8480459,Pius Suter,F,2,0,0
+2025020769,2026-01-18,St. Louis Blues,8480023,Robert Thomas,F,1,0,0
+2025020769,2026-01-18,St. Louis Blues,8480281,Alexey Toropchenko,F,0,0,0
+2025020769,2026-01-18,St. Louis Blues,8477573,Nathan Walker,F,0,0,0
+2025020769,2026-01-18,St. Louis Blues,8481598,Philip Broberg,D,2,0,0
+2025020769,2026-01-18,St. Louis Blues,8475753,Justin Faulk,D,2,0,0
+2025020769,2026-01-18,St. Louis Blues,8475764,Cam Fowler,D,4,2,0
+2025020769,2026-01-18,St. Louis Blues,8482516,Matthew Kessel,D,4,0,0
+2025020769,2026-01-18,St. Louis Blues,8482733,Logan Mailloux,D,1,0,0
+2025020769,2026-01-18,St. Louis Blues,8476892,Colton Parayko,D,2,0,0
+2025020769,2026-01-18,St. Louis Blues,8481006,Tyler Tucker,D,0,0,0
+2025020769,2026-01-18,St. Louis Blues,8476412,Jordan Binnington,G,0,0,38
+2025020769,2026-01-18,St. Louis Blues,8480981,Joel Hofer,G,0,0,0

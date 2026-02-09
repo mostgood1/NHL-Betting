@@ -1,0 +1,7 @@
+gamePk,date,home,away,shots_ev_home,shots_pp_home,shots_pk_home,shots_ev_away,shots_pp_away,shots_pk_away,goals_ev_home,goals_pp_home,goals_pk_home,goals_ev_away,goals_pp_away,goals_pk_away,blocks_ev_home,blocks_pp_home,blocks_pk_home,blocks_ev_away,blocks_pp_away,blocks_pk_away,saves_ev_home,saves_pp_home,saves_pk_home,saves_ev_away,saves_pp_away,saves_pk_away
+2025020819,2026-01-25,Toronto Maple Leafs,Colorado Avalanche,19,12,1,25,3,3,3,0,0,3,0,0,6,0,1,2,0,3,22,3,3,16,12,1
+2025020820,2026-01-25,Seattle Kraken,New Jersey Devils,21,4,0,26,0,2,0,1,0,2,0,0,9,0,0,4,0,1,24,0,2,21,3,0
+2025020821,2026-01-25,Ottawa Senators,Vegas Golden Knights,14,6,4,16,12,3,2,0,1,2,3,0,6,0,1,4,0,1,14,9,3,12,6,3
+2025020822,2026-01-25,Vancouver Canucks,Pittsburgh Penguins,16,1,6,16,8,2,5,0,0,4,0,1,1,1,3,6,1,0,12,8,1,11,1,6
+2025020823,2026-01-25,Chicago Blackhawks,Florida Panthers,20,6,3,22,5,1,5,1,0,1,0,0,3,1,2,3,1,2,21,5,1,15,5,3
+2025020824,2026-01-25,Calgary Flames,Anaheim Ducks,23,6,1,28,2,1,0,0,0,3,0,0,4,0,1,1,0,4,25,2,1,23,6,1

@@ -1,0 +1,6 @@
+gamePk,date,home,away,shots_ev_home,shots_pp_home,shots_pk_home,shots_ev_away,shots_pp_away,shots_pk_away,goals_ev_home,goals_pp_home,goals_pk_home,goals_ev_away,goals_pp_away,goals_pk_away,blocks_ev_home,blocks_pp_home,blocks_pk_home,blocks_ev_away,blocks_pp_away,blocks_pk_away,saves_ev_home,saves_pp_home,saves_pk_home,saves_ev_away,saves_pp_away,saves_pk_away
+2025020749,2026-01-16,Detroit Red Wings,San Jose Sharks,19,8,0,22,0,1,2,0,0,2,0,0,4,0,0,6,0,2,20,0,1,17,8,0
+2025020750,2026-01-16,Carolina Hurricanes,Florida Panthers,31,0,1,26,2,1,2,0,0,6,0,1,5,0,0,6,0,0,20,2,0,29,0,1
+2025020751,2026-01-16,St. Louis Blues,Tampa Bay Lightning,26,8,1,27,3,2,6,3,0,2,0,1,7,0,0,8,0,4,25,3,1,20,5,1
+2025020752,2026-01-16,Colorado Avalanche,Nashville Predators,16,3,5,24,5,1,1,0,2,1,0,0,8,0,2,6,1,0,23,5,1,15,3,3
+2025020753,2026-01-16,Los Angeles Kings,Anaheim Ducks,27,4,6,22,4,3,3,0,0,2,0,2,3,1,2,8,1,0,20,4,1,24,4,6

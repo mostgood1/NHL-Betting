@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NHL Betting – Cards</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  <style>
+    /* Minimal layout additions; reuse existing palette from style.css */
+    header .header-inner { flex-wrap: wrap; }
+    .topbar { display:flex; flex-wrap:wrap; align-items:center; gap:10px; width:100%; }
+    .tabs { display:flex; gap:8px; flex-wrap:wrap; }
+    .tab { background:#0f1530; border:1px solid #25316a; color:#cfe0ff; padding:7px 10px; border-radius:999px; cursor:pointer; font-weight:700; font-size:12px; }
+    .tab.active { background:#2b5cff; border-color:#2b5cff; color:#fff; }
+    .spacer { flex:1; }
+    .muted { color:#9fb0ff; font-size:12px; }
+
+    .card { gap: 12px; }
+    .card-title { display:flex; align-items:baseline; justify-content:center; gap:10px; flex-wrap:wrap; text-align:center; }
+    .card-title .match { font-weight:900; font-size:16px; color:#f5f7ff; }
+    .pill { display:inline-flex; align-items:center; gap:6px; padding:3px 8px; border-radius:999px; background:#0f1530; border:1px solid #25316a; color:#c9d3ff; font-size:11px; font-weight:700; }
+
+    /* Center the top matchup section within each card */
+    .card .row.matchup { justify-items: center; }
+    .card .team.side { justify-items: center; }
+    .card .team-line { justify-content: center; }
+    .card .team .name { text-align: center; }
+
+    .grid-3 { display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px; }
+    .tile { background:#0f1530; border:1px solid #25316a; border-radius:10px; padding:10px; display:grid; gap:6px; }
+    .tile .k { color:#9fb0ff; font-size:11px; font-weight:800; letter-spacing:0.3px; text-transform:uppercase; }
+    .tile .v { font-variant-numeric: tabular-nums; font-size:12px; color:#e8eaf6; }
+    .tile .v strong { font-size:14px; }
+
+    .markets-row { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-start; }
+    .markets-row .market { flex: 1 1 220px; min-width: 220px; display:grid; gap:6px; }
+
+    .bets { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+    .bet { display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; background:#0f1530; border:1px solid #25316a; font-size:12px; }
+    .bet .ev { font-weight:900; }
+    .bet.pos { background:#0f2d1b; border-color:#1e7a45; color:#a7f3c6; }
+    .bet.neg { background:#2a1620; border-color:#7a1e49; color:#ffd5e6; }
+
+    .empty { padding: 18px 0; }
+
+    .live-lens { background:#0f1530; border:1px solid #25316a; border-radius:10px; padding:10px; display:grid; gap:6px; }
+    .live-lens .k { color:#9fb0ff; font-size:11px; font-weight:800; letter-spacing:0.3px; text-transform:uppercase; }
+    .live-lens .v { font-variant-numeric: tabular-nums; font-size:12px; color:#e8eaf6; }
+    .live-lens .rowline { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+    .live-lens .mono { font-variant-numeric: tabular-nums; }
+
+    .sim-block { background:#0f1530; border:1px solid #25316a; border-radius:10px; padding:10px; display:grid; gap:10px; }
+    .section-title { color:#9fb0ff; font-size:11px; font-weight:800; letter-spacing:0.3px; text-transform:uppercase; }
+    table.linescore, table.boxscore { width:100%; border-collapse: collapse; }
+    table.linescore th, table.linescore td, table.boxscore th, table.boxscore td { border:1px solid #25316a; padding:4px 6px; font-size:12px; font-variant-numeric: tabular-nums; }
+    table.linescore th, table.boxscore th { color:#cfe0ff; background:#0b1020; text-align:center; }
+    table.linescore td { text-align:center; }
+    table.linescore td.team { text-align:left; font-weight:900; }
+    table.linescore td.total { font-weight:900; }
+    table.boxscore td { text-align:center; }
+    table.boxscore td.player { text-align:left; }
+    table.boxscore th.sortable { cursor:pointer; user-select:none; }
+
+    @media (max-width: 900px) {
+      .grid-3 { grid-template-columns: 1fr; }
+    }
+  </style>
+  <script>
+    (function() {
+      try {
+        const saved = localStorage.getItem('theme');
+        if (saved === 'light') document.documentElement.classList.add('light');
+      } catch (e) {}
+    })();
+  </script>
+</head>
+<body>
+  <header>
+    <div class="container header-inner">
+      <div class="topbar">
+        <h1 style="margin:0;">NHL Betting – Cards</h1>
+        <div class="tabs" id="tabs"></div>
+        <div class="spacer"></div>
+        <button type="button" id="themeToggle" class="btn" title="Toggle light/dark theme">Toggle Theme</button>
+      </div>
+      <div class="muted" id="status">Loading…</div>
+    </div>
+  </header>
+  <main>
+    <div class="container">
+      <div id="cards" class="cards"></div>
+      <div id="empty" class="empty muted" style="display:none;"></div>
+    </div>
+  </main>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+
+    const LIVE_POLL_MS = 20000;
+    let currentDate = null;
+    let livePollTimer = null;
+    let livePollInFlight = false;
+
+    function pct(x) {
+      if (x === null || x === undefined || isNaN(Number(x))) return '—';
+      return (100 * Number(x)).toFixed(1) + '%';
+    }
+
+    function fmt(x, nd=2) {
+      if (x === null || x === undefined || isNaN(Number(x))) return '—';
+      return Number(x).toFixed(nd);
+    }
+
+    function fmtInt(x) {
+      if (x === null || x === undefined || isNaN(Number(x))) return '—';
+      return String(Math.round(Number(x)));
+    }
+
+    function parseSortValue(txt, type) {
+      const s = String(txt || '').trim();
+      if (!s || s === '—') return null;
+      if (type === 'num') {
+        const n = Number(s);
+        return isFinite(n) ? n : null;
+      }
+      if (type === 'pct') {
+        const n = Number(s.replace('%',''));
+        return isFinite(n) ? n : null;
+      }
+      if (type === 'toi') {
+        // Accept mm:ss or hh:mm:ss
+        const parts = s.split(':').map(x => Number(x));
+        if (parts.some(x => !isFinite(x))) return null;
+        if (parts.length === 2) return parts[0] * 60 + parts[1];
+        if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+        return null;
+      }
+      return s.toLowerCase();
+    }
+
+    function sortBoxscoreTableByHeader(th) {
+      const table = th.closest('table');
+      if (!table) return;
+      if (!table.classList.contains('boxscore')) return;
+
+      const tr = th.parentElement;
+      if (!tr) return;
+      const headers = Array.from(tr.children || []);
+      const idx = headers.indexOf(th);
+      if (idx < 0) return;
+
+      const type = String(th.dataset.sortType || 'text');
+      const existing = th.dataset.sortDir || '';
+      let dir;
+      if (!existing) {
+        dir = (type === 'text') ? 'asc' : 'desc';
+      } else {
+        dir = existing === 'asc' ? 'desc' : 'asc';
+      }
+
+      table.querySelectorAll('th.sortable').forEach(x => {
+        if (x !== th) delete x.dataset.sortDir;
+      });
+      th.dataset.sortDir = dir;
+
+      const tbody = table.tBodies && table.tBodies[0];
+      if (!tbody) return;
+      const rows = Array.from(tbody.rows || []).map((r, i) => ({ r, i }));
+      const mult = (dir === 'asc') ? 1 : -1;
+
+      rows.sort((a, b) => {
+        const ta = a.r.cells[idx] ? a.r.cells[idx].textContent : '';
+        const tb = b.r.cells[idx] ? b.r.cells[idx].textContent : '';
+        const va = parseSortValue(ta, type);
+        const vb = parseSortValue(tb, type);
+
+        const aNull = (va === null || va === undefined);
+        const bNull = (vb === null || vb === undefined);
+        if (aNull && bNull) return a.i - b.i;
+        if (aNull) return 1;
+        if (bNull) return -1;
+
+        if (typeof va === 'number' && typeof vb === 'number') {
+          const d = (va - vb);
+          if (d !== 0) return mult * d;
+          return a.i - b.i;
+        }
+        const sa = String(va);
+        const sb = String(vb);
+        if (sa < sb) return -1 * mult;
+        if (sa > sb) return 1 * mult;
+        return a.i - b.i;
+      });
+
+      for (const x of rows) tbody.appendChild(x.r);
+    }
+
+    document.addEventListener('click', (ev) => {
+      const th = ev.target && ev.target.closest ? ev.target.closest('th.sortable') : null;
+      if (!th) return;
+      sortBoxscoreTableByHeader(th);
+    });
+
+    function toUpper(s) {
+      return String(s || '').toUpperCase();
+    }
+
+    function keyForSimRow(r) {
+      const away = String(r.game_away || '').trim();
+      const home = String(r.game_home || '').trim();
+      return away + ' @ ' + home;
+    }
+
+    function sumSim(rows, teamAbbr, period, col) {
+      const t = toUpper(teamAbbr);
+      let s = 0;
+      let any = false;
+      for (const r of (rows || [])) {
+        if (!r) continue;
+        if (toUpper(r.team) !== t) continue;
+        if (Number(r.period) !== Number(period)) continue;
+        const v = Number(r[col]);
+        if (!isFinite(v)) continue;
+        s += v;
+        any = true;
+      }
+      return any ? s : null;
+    }
+
+    function renderLinescoreHtml(title, awayAbbr, homeAbbr, awayRow, homeRow, isSim=false) {
+      const f = isSim ? (x) => fmt(x, 1) : (x) => fmtInt(x);
+      const a = awayRow || {};
+      const h = homeRow || {};
+      return `
+        <div class="section-title">${title}</div>
+        <table class="linescore">
+          <thead>
+            <tr><th></th><th>1P</th><th>2P</th><th>3P</th><th>Total</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="team">${awayAbbr || '—'}</td>
+              <td>${f(a.p1)}</td>
+              <td>${f(a.p2)}</td>
+              <td>${f(a.p3)}</td>
+              <td class="total">${f(a.total)}</td>
+            </tr>
+            <tr>
+              <td class="team">${homeAbbr || '—'}</td>
+              <td>${f(h.p1)}</td>
+              <td>${f(h.p2)}</td>
+              <td>${f(h.p3)}</td>
+              <td class="total">${f(h.total)}</td>
+            </tr>
+          </tbody>
+        </table>
+      `;
+    }
+
+    function renderSimSkatersTableHtml(title, simRows, teamAbbr) {
+      const t = toUpper(teamAbbr);
+      const rows = (simRows || [])
+        .filter(r => r && Number(r.period) === 0)
+        .filter(r => String(r.is_dressed) === '1' || r.is_dressed === 1 || r.is_dressed === true)
+        .filter(r => toUpper(r.team) === t)
+        .filter(r => String(r.player || '').trim() && toUpper(r.player) !== 'TEAM')
+        .filter(r => {
+          const saves = Number(r.saves);
+          return !(isFinite(saves) && saves > 0);
+        })
+        .map(r => ({
+          player: r.player,
+          pos: r.pos || r.position || r.player_position || r.playerPosition || r.player_pos,
+          goals: Number(r.goals),
+          assists: Number(r.assists),
+          points: Number(r.points),
+          shots: Number(r.shots),
+          blocks: Number(r.blocks),
+          toi_sec: Number(r.toi_sec),
+        }));
+
+      rows.sort((a,b) => (b.points - a.points) || (b.shots - a.shots) || (b.toi_sec - a.toi_sec));
+
+      const body = rows.slice(0, 18).map(r => {
+        const toi = isFinite(r.toi_sec) ? `${Math.floor(r.toi_sec/60)}:${String(Math.floor(r.toi_sec%60)).padStart(2,'0')}` : '—';
+        return `
+          <tr>
+            <td class="player">${r.player || '—'}</td>
+            <td>${r.pos ? String(r.pos) : '—'}</td>
+            <td>${fmt(r.goals, 2)}</td>
+            <td>${fmt(r.assists, 2)}</td>
+            <td>${fmt(r.points, 2)}</td>
+            <td>${fmt(r.shots, 2)}</td>
+            <td>${fmt(r.blocks, 2)}</td>
+            <td>${toi}</td>
+          </tr>
+        `;
+      }).join('');
+
+      return `
+        <div class="section-title">${title}</div>
+        <table class="boxscore">
+          <thead><tr>
+            <th class="sortable" data-sort-type="text">Player</th>
+            <th class="sortable" data-sort-type="text">Pos</th>
+            <th class="sortable" data-sort-type="num">G</th>
+            <th class="sortable" data-sort-type="num">A</th>
+            <th class="sortable" data-sort-type="num">P</th>
+            <th class="sortable" data-sort-type="num">S</th>
+            <th class="sortable" data-sort-type="num">BLK</th>
+            <th class="sortable" data-sort-type="toi">TOI</th>
+          </tr></thead>
+          <tbody>${body || ''}</tbody>
+        </table>
+      `;
+    }
+
+    function renderSimGoaliesTableHtml(title, simRows, teamAbbr) {
+      const t = toUpper(teamAbbr);
+      const goalies = (simRows || [])
+        .filter(r => r && Number(r.period) === 0)
+        .filter(r => String(r.is_dressed) === '1' || r.is_dressed === 1 || r.is_dressed === true)
+        .filter(r => toUpper(r.team) === t)
+        .filter(r => String(r.player || '').trim() && toUpper(r.player) !== 'TEAM')
+        .filter(r => {
+          const saves = Number(r.saves);
+          return isFinite(saves) && saves > 0;
+        })
+        .map(r => ({
+          player: r.player,
+          pos: r.pos || r.position || r.player_position || r.playerPosition || r.player_pos,
+          saves: Number(r.saves),
+          toi_sec: Number(r.toi_sec),
+        }));
+
+      goalies.sort((a,b) => (b.saves - a.saves) || (b.toi_sec - a.toi_sec));
+
+      const body = goalies.slice(0, 4).map(r => {
+        const toi = isFinite(r.toi_sec) ? `${Math.floor(r.toi_sec/60)}:${String(Math.floor(r.toi_sec%60)).padStart(2,'0')}` : '—';
+        return `
+          <tr>
+            <td class="player">${r.player || '—'}</td>
+            <td>${r.pos ? String(r.pos) : '—'}</td>
+            <td>${fmt(r.saves, 2)}</td>
+            <td>${toi}</td>
+          </tr>
+        `;
+      }).join('');
+
+      return `
+        <div class="section-title">${title}</div>
+        <table class="boxscore">
+          <thead><tr>
+            <th class="sortable" data-sort-type="text">Goalie</th>
+            <th class="sortable" data-sort-type="text">Pos</th>
+            <th class="sortable" data-sort-type="num">SV</th>
+            <th class="sortable" data-sort-type="toi">TOI</th>
+          </tr></thead>
+          <tbody>${body || ''}</tbody>
+        </table>
+      `;
+    }
+
+    function evClass(ev) {
+      const v = Number(ev);
+      if (!isFinite(v)) return '';
+      return v >= 0 ? 'pos' : 'neg';
+    }
+
+    function keyForGame(r) {
+      const away = String(r.away || '').trim();
+      const home = String(r.home || '').trim();
+      return away + ' @ ' + home;
+    }
+
+    function getRequestedDate() {
+      try {
+        const p = new URLSearchParams(window.location.search || '');
+        const d = (p.get('date') || '').trim();
+        return d || null;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function buildTrioAroundDate(allDates, date) {
+      try {
+        if (!Array.isArray(allDates) || !date) return [];
+        const idx = allDates.indexOf(date);
+        if (idx < 0) return [];
+        const out = [];
+        if (idx - 1 >= 0) out.push(allDates[idx - 1]);
+        out.push(allDates[idx]);
+        if (idx + 1 < allDates.length) out.push(allDates[idx + 1]);
+        return out;
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function normKey(s) {
+      return String(s || '').trim().replace(/\s+/g,' ').toLowerCase();
+    }
+
+    function normalizeRec(rec) {
+      const ev = (rec && rec.ev !== undefined) ? Number(rec.ev) : NaN;
+      return {
+        market: String(rec.market || ''),
+        side: String(rec.side || ''),
+        price: rec.price,
+        ev,
+        home: String(rec.home || ''),
+        away: String(rec.away || ''),
+      };
+    }
+
+    function renderCard(pred, recsForGame, simForGame, nSims=null) {
+      const match = keyForGame(pred);
+      const state = String(pred.game_state || '').trim();
+      const venue = String(pred.venue || '').trim();
+
+      const awayLogo = pred.away_logo ? String(pred.away_logo) : '';
+      const homeLogo = pred.home_logo ? String(pred.home_logo) : '';
+
+      const projAway = pred.proj_away_goals;
+      const projHome = pred.proj_home_goals;
+      const modelTotal = pred.model_total;
+      const modelSpread = pred.model_spread;
+
+      const mlAway = pred.p_away_ml;
+      const mlHome = pred.p_home_ml;
+
+      const totalLine = pred.total_line_used;
+      const pOver = pred.p_over;
+      const pUnder = pred.p_under;
+
+      const plLine = pred.pl_line_used;
+      const pHomePl = pred['p_home_pl_-1.5'];
+      const pAwayPl = pred['p_away_pl_+1.5'];
+
+      // Pick a few best recs to show (highest EV first)
+      const recs = (recsForGame || []).map(normalizeRec).filter(r => r.market && isFinite(r.ev));
+      recs.sort((a,b) => (b.ev - a.ev));
+      const top = recs.slice(0, 3);
+
+      const el = document.createElement('div');
+      el.className = 'card';
+      el.dataset.gameKey = match;
+
+      const pills = [];
+      if (state) pills.push(`<span class="pill">${state}</span>`);
+      if (venue) pills.push(`<span class="pill">${venue}</span>`);
+
+      el.innerHTML = `
+        <div class="card-title">
+          ${pills.join('')}
+        </div>
+
+        <div class="row matchup">
+          <div class="team side">
+            <div class="team-line">${awayLogo ? `<img class="team-logo" src="${awayLogo}" alt="${pred.away || ''}" />` : ''}<div class="name">${pred.away || '—'}</div></div>
+            <div class="score-block">
+              <div class="sub">Proj goals: <strong>${fmt(projAway, 2)}</strong></div>
+              <div class="sub">ML: <strong>${pct(mlAway)}</strong></div>
+            </div>
+          </div>
+          <div class="vs">@</div>
+          <div class="team side">
+            <div class="team-line">${homeLogo ? `<img class="team-logo" src="${homeLogo}" alt="${pred.home || ''}" />` : ''}<div class="name">${pred.home || '—'}</div></div>
+            <div class="score-block">
+              <div class="sub">Proj goals: <strong>${fmt(projHome, 2)}</strong></div>
+              <div class="sub">ML: <strong>${pct(mlHome)}</strong></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tile">
+          <div class="markets-row">
+            <div class="market">
+              <div class="k">Moneyline</div>
+              <div class="v">Away ${pct(mlAway)} · Home ${pct(mlHome)}</div>
+            </div>
+            <div class="market">
+              <div class="k">Total</div>
+              <div class="v">Line <strong>${fmt(totalLine, 1)}</strong> · O ${pct(pOver)} / U ${pct(pUnder)}</div>
+              <div class="v">Model total: ${fmt(modelTotal, 2)}</div>
+            </div>
+            <div class="market">
+              <div class="k">Puck line</div>
+              <div class="v">Line <strong>${fmt(plLine, 1)}</strong> · H-1.5 ${pct(pHomePl)} / A+1.5 ${pct(pAwayPl)}</div>
+              <div class="v">Model spread: ${fmt(modelSpread, 2)}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="bets">
+          ${top.length ? top.map(r => {
+            const cls = evClass(r.ev);
+            const evTxt = (isFinite(r.ev) ? (100*r.ev).toFixed(1)+'%' : '—');
+            const price = (r.price !== undefined && r.price !== null && String(r.price).trim() !== '') ? String(r.price) : '—';
+            return `<span class="bet ${cls}"><strong>${r.market}</strong> ${r.side} <span class="muted">${price}</span> <span class="ev">EV ${evTxt}</span></span>`;
+          }).join('') : `<span class="muted">No recommendations available for this game.</span>`}
+        </div>
+
+        <div class="live-lens" style="display:none;">
+          <div class="live-lens-body"></div>
+          <div class="live-odds-body"></div>
+        </div>
+
+        <div class="sim-block" style="display:none;">
+          <div class="sim-linescore"></div>
+          <div class="sim-boxscore"></div>
+        </div>
+      `;
+
+      // SIM linescore + player boxscore (best-effort)
+      try {
+        const simBlock = el.querySelector('.sim-block');
+        const simLS = el.querySelector('.sim-linescore');
+        const simBS = el.querySelector('.sim-boxscore');
+        if (simBlock && simLS && simBS && Array.isArray(simForGame) && simForGame.length) {
+          const away = pred.away;
+          const home = pred.home;
+          const awayRow = {
+            p1: sumSim(simForGame, away, 1, 'goals'),
+            p2: sumSim(simForGame, away, 2, 'goals'),
+            p3: sumSim(simForGame, away, 3, 'goals'),
+            total: sumSim(simForGame, away, 0, 'goals'),
+          };
+          const homeRow = {
+            p1: sumSim(simForGame, home, 1, 'goals'),
+            p2: sumSim(simForGame, home, 2, 'goals'),
+            p3: sumSim(simForGame, home, 3, 'goals'),
+            total: sumSim(simForGame, home, 0, 'goals'),
+          };
+          const simTitle = (nSims && isFinite(Number(nSims)))
+            ? `Sim line score (proj goals) · n=${Number(nSims)}`
+            : 'Sim line score (proj goals)';
+          simLS.innerHTML = renderLinescoreHtml(simTitle, away, home, awayRow, homeRow, true);
+          simBS.innerHTML = [
+            renderSimSkatersTableHtml(`Sim skaters (${away})`, simForGame, away),
+            renderSimGoaliesTableHtml(`Sim goalies (${away})`, simForGame, away),
+            renderSimSkatersTableHtml(`Sim skaters (${home})`, simForGame, home),
+            renderSimGoaliesTableHtml(`Sim goalies (${home})`, simForGame, home),
+          ].join('');
+          simBlock.style.display = 'grid';
+        }
+      } catch (e) {
+        // best-effort
+      }
+
+      return el;
+    }
+
+    function isLiveState(s) {
+      const x = String(s || '').toUpperCase();
+      return x.includes('LIVE') || x.includes('IN_PROGRESS') || x.includes('CRIT');
+    }
+
+    function renderLens(game) {
+      const lens = (game && game.lens) ? game.lens : {};
+      const score = (game && game.score) ? game.score : {};
+      const per = game && game.period !== undefined ? game.period : null;
+      const clock = game && game.clock ? String(game.clock) : '';
+
+      const totals = (lens && lens.totals) ? lens.totals : null;
+      const periods = (lens && lens.periods) ? lens.periods : null;
+      const goalies = (lens && lens.goalies) ? lens.goalies : null;
+      const players = (lens && lens.players) ? lens.players : null;
+
+      const lines = [];
+      const headline = `P${per || '—'} ${clock || ''} · Score ${score.away ?? '—'}-${score.home ?? '—'}`;
+      lines.push(`<div class="v"><strong>${headline}</strong></div>`);
+
+      // Live linescore (1P/2P/3P/Total)
+      try {
+        const awayAbbr = game && game.away ? String(game.away) : '';
+        const homeAbbr = game && game.home ? String(game.home) : '';
+
+        const byP = { 1: { a: null, h: null }, 2: { a: null, h: null }, 3: { a: null, h: null } };
+        if (periods && Array.isArray(periods)) {
+          for (const p of periods) {
+            const pn = Number(p && p.period);
+            if (![1,2,3].includes(pn)) continue;
+            byP[pn] = {
+              a: (p.away && p.away.goals !== undefined) ? p.away.goals : null,
+              h: (p.home && p.home.goals !== undefined) ? p.home.goals : null,
+            };
+          }
+        }
+        const awayRow = {
+          p1: byP[1].a,
+          p2: byP[2].a,
+          p3: byP[3].a,
+          total: (totals && totals.away) ? totals.away.goals : null,
+        };
+        const homeRow = {
+          p1: byP[1].h,
+          p2: byP[2].h,
+          p3: byP[3].h,
+          total: (totals && totals.home) ? totals.home.goals : null,
+        };
+        lines.push(renderLinescoreHtml('Live line score', awayAbbr, homeAbbr, awayRow, homeRow, false));
+      } catch (e) {
+        // ignore
+      }
+
+      // Live player boxscore (skaters)
+      try {
+        const renderLivePlayersTable = (title, arr) => {
+          const rows = (arr || []).slice();
+          rows.sort((a,b) => (Number(b.p)||0) - (Number(a.p)||0) || (Number(b.s)||0) - (Number(a.s)||0));
+          const body = rows.slice(0, 18).map(r => {
+            return `
+              <tr>
+                <td class="player">${r.name ?? '—'}</td>
+                <td>${r.pos ?? '—'}</td>
+                <td>${r.g ?? '—'}</td>
+                <td>${r.a ?? '—'}</td>
+                <td>${r.p ?? '—'}</td>
+                <td>${r.s ?? '—'}</td>
+                <td>${r.blk ?? '—'}</td>
+                <td>${r.toi ?? '—'}</td>
+              </tr>
+            `;
+          }).join('');
+          return `
+            <div class="section-title">${title}</div>
+            <table class="boxscore">
+              <thead><tr>
+                <th class="sortable" data-sort-type="text">Player</th>
+                <th class="sortable" data-sort-type="text">Pos</th>
+                <th class="sortable" data-sort-type="num">G</th>
+                <th class="sortable" data-sort-type="num">A</th>
+                <th class="sortable" data-sort-type="num">P</th>
+                <th class="sortable" data-sort-type="num">S</th>
+                <th class="sortable" data-sort-type="num">BLK</th>
+                <th class="sortable" data-sort-type="toi">TOI</th>
+              </tr></thead>
+              <tbody>${body || ''}</tbody>
+            </table>
+          `;
+        };
+
+        const renderLiveGoaliesTable = (title, arr) => {
+          const rows = (arr || []).slice();
+          const body = rows.slice(0, 2).map(r => {
+            const svPct = (r && r.sv_pct !== undefined && r.sv_pct !== null && isFinite(Number(r.sv_pct)))
+              ? (100 * Number(r.sv_pct)).toFixed(1) + '%'
+              : '—';
+            return `
+              <tr>
+                <td class="player">${(r && r.name) ? r.name : '—'}</td>
+                <td>${(r && r.saves !== undefined) ? r.saves : '—'}</td>
+                <td>${(r && r.shots_against !== undefined) ? r.shots_against : '—'}</td>
+                <td>${svPct}</td>
+              </tr>
+            `;
+          }).join('');
+          return `
+            <div class="section-title">${title}</div>
+            <table class="boxscore">
+              <thead><tr>
+                <th class="sortable" data-sort-type="text">Goalie</th>
+                <th class="sortable" data-sort-type="num">SV</th>
+                <th class="sortable" data-sort-type="num">SA</th>
+                <th class="sortable" data-sort-type="pct">SV%</th>
+              </tr></thead>
+              <tbody>${body || ''}</tbody>
+            </table>
+          `;
+        };
+
+        if (players && (players.away || players.home)) {
+          if (players.away && Array.isArray(players.away) && players.away.length) {
+            lines.push(renderLivePlayersTable(`Live player box score (${game.away || 'Away'})`, players.away));
+          }
+          if (players.home && Array.isArray(players.home) && players.home.length) {
+            lines.push(renderLivePlayersTable(`Live player box score (${game.home || 'Home'})`, players.home));
+          }
+        }
+
+        if (goalies && (goalies.away || goalies.home)) {
+          if (goalies.away && Array.isArray(goalies.away) && goalies.away.length) {
+            lines.push(renderLiveGoaliesTable(`Live goalies (${game.away || 'Away'})`, goalies.away));
+          }
+          if (goalies.home && Array.isArray(goalies.home) && goalies.home.length) {
+            lines.push(renderLiveGoaliesTable(`Live goalies (${game.home || 'Home'})`, goalies.home));
+          }
+        }
+      } catch (e) {
+        // ignore
+      }
+
+      if (totals && (totals.away || totals.home)) {
+        const a = totals.away || {};
+        const h = totals.home || {};
+        const bits = [];
+        if (a.sog !== undefined || h.sog !== undefined) bits.push(`SOG <span class="mono">${a.sog ?? '—'}-${h.sog ?? '—'}</span>`);
+        if (a.faceoff_win_pct !== undefined || h.faceoff_win_pct !== undefined) bits.push(`FO% <span class="mono">${fmt(a.faceoff_win_pct,1)}-${fmt(h.faceoff_win_pct,1)}</span>`);
+        if (a.pp !== undefined || h.pp !== undefined) bits.push(`PP <span class="mono">${a.pp ?? '—'} / ${h.pp ?? '—'}</span>`);
+        if (bits.length) lines.push(`<div class="v">${bits.join(' · ')}</div>`);
+      }
+
+      if (periods && Array.isArray(periods) && periods.length) {
+        const parts = periods.slice(0, 4).map(p => {
+          const pn = p.period ?? '—';
+          const a = (p.away || {});
+          const h = (p.home || {});
+          const seg = [];
+          if (a.goals !== undefined || h.goals !== undefined) seg.push(`G ${a.goals ?? '—'}-${h.goals ?? '—'}`);
+          if (a.sog !== undefined || h.sog !== undefined) seg.push(`SOG ${a.sog ?? '—'}-${h.sog ?? '—'}`);
+          return `P${pn} (${seg.join(', ') || '—'})`;
+        });
+        lines.push(`<div class="v muted">By period: ${parts.join(' · ')}</div>`);
+      }
+
+      if (goalies) {
+        const ga = (goalies.away && goalies.away[0]) ? goalies.away[0] : null;
+        const gh = (goalies.home && goalies.home[0]) ? goalies.home[0] : null;
+        if (ga || gh) {
+          const gBits = [];
+          if (ga) gBits.push(`Away G: ${ga.name ?? '—'} ${ga.saves ?? '—'}/${ga.shots_against ?? '—'} (${fmt((ga.sv_pct ?? null)*100,1)}%)`);
+          if (gh) gBits.push(`Home G: ${gh.name ?? '—'} ${gh.saves ?? '—'}/${gh.shots_against ?? '—'} (${fmt((gh.sv_pct ?? null)*100,1)}%)`);
+          lines.push(`<div class="v">${gBits.join(' · ')}</div>`);
+        }
+      }
+
+      return `<div class="k">Live lens</div>${lines.join('')}`;
+    }
+
+    function renderOdds(oddsGame) {
+      if (!oddsGame) return '';
+      const ml = oddsGame.ml || {};
+      const tot = oddsGame.total || {};
+      const pl = oddsGame.puckline || {};
+
+      const parts = [];
+      if (ml.away !== null && ml.away !== undefined && ml.home !== null && ml.home !== undefined) {
+        parts.push(`ML <span class="mono">A ${ml.away} (${ml.away_book || '—'})</span> · <span class="mono">H ${ml.home} (${ml.home_book || '—'})</span>`);
+      }
+      if (tot.line !== null && tot.line !== undefined && (tot.over !== null || tot.under !== null)) {
+        parts.push(`Total <span class="mono">${fmt(tot.line,1)}</span> O ${tot.over ?? '—'} (${tot.over_book || '—'}) / U ${tot.under ?? '—'} (${tot.under_book || '—'})`);
+      }
+      const plAway = pl['away_+1.5'];
+      const plAwayBook = pl['away_+1.5_book'];
+      const plHome = pl['home_-1.5'];
+      const plHomeBook = pl['home_-1.5_book'];
+      if (plAway !== null && plAway !== undefined && plHome !== null && plHome !== undefined) {
+        parts.push(`PL A+1.5 ${plAway} (${plAwayBook || '—'}) · H-1.5 ${plHome} (${plHomeBook || '—'})`);
+      }
+      if (!parts.length) return '';
+      return `<div class="v"><span class="muted">Live odds:</span> ${parts.join(' · ')}</div>`;
+    }
+
+    async function maybeLoadLiveOdds(date, preds) {
+      try {
+        if (date !== currentDate) return;
+        const anyLive = (preds || []).some(p => isLiveState(p.game_state));
+        if (!anyLive) return;
+
+        const odds = await fetchJson(`/v1/odds/${encodeURIComponent(date)}?best=1`);
+        if (!odds || !odds.ok) return;
+        const map = new Map();
+        for (const g of (odds.games || [])) {
+          const k = keyForGame(g);
+          map.set(normKey(k), g);
+        }
+
+        for (const card of document.querySelectorAll('.card[data-game-key]')) {
+          const k = normKey(card.dataset.gameKey);
+          const og = map.get(k);
+          if (!og) continue;
+          const box = card.querySelector('.live-lens');
+          if (!box) continue;
+          const oddsHtml = renderOdds(og);
+          if (!oddsHtml) continue;
+          const oddsBody = box.querySelector('.live-odds-body') || box;
+          oddsBody.innerHTML = oddsHtml;
+          box.style.display = 'grid';
+        }
+      } catch (e) {
+        // Best-effort; UI should still work without live odds.
+      }
+    }
+
+    async function maybeLoadLiveLens(date, preds) {
+      try {
+        if (date !== currentDate) return false;
+        const anyLive = (preds || []).some(p => isLiveState(p.game_state));
+        if (!anyLive) return false;
+
+        const live = await fetchJson(`/v1/live/${encodeURIComponent(date)}`);
+        if (!live || !live.ok) return false;
+        if (date !== currentDate) return false;
+        const map = new Map();
+        for (const g of (live.games || [])) {
+          const k = keyForGame(g);
+          map.set(normKey(k), g);
+        }
+
+        const anyLiveNow = (live.games || []).some(g => isLiveState(g.gameState));
+
+        for (const card of document.querySelectorAll('.card[data-game-key]')) {
+          const k = normKey(card.dataset.gameKey);
+          const g = map.get(k);
+          if (!g) continue;
+          const box = card.querySelector('.live-lens');
+          if (!box) continue;
+          const lensBody = box.querySelector('.live-lens-body') || box;
+          lensBody.innerHTML = renderLens(g);
+          box.style.display = 'grid';
+        }
+
+        return anyLiveNow;
+      } catch (e) {
+        // Best-effort; UI should still work without live lens.
+        return false;
+      }
+    }
+
+    function stopLivePolling() {
+      if (livePollTimer) {
+        clearInterval(livePollTimer);
+        livePollTimer = null;
+      }
+    }
+
+    function startLivePolling(date, preds) {
+      stopLivePolling();
+      const anyLive = (preds || []).some(p => isLiveState(p.game_state));
+      if (!anyLive) return;
+
+      livePollTimer = setInterval(async () => {
+        if (date !== currentDate) return;
+        if (livePollInFlight) return;
+        livePollInFlight = true;
+        try {
+          const stillLive = await maybeLoadLiveLens(date, preds);
+          await maybeLoadLiveOdds(date, preds);
+          if (!stillLive) stopLivePolling();
+        } finally {
+          livePollInFlight = false;
+        }
+      }, LIVE_POLL_MS);
+    }
+
+    async function fetchJson(url) {
+      const r = await fetch(url, { headers: { 'Accept': 'application/json' } });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return await r.json();
+    }
+
+    function setStatus(msg) {
+      $('status').textContent = msg;
+    }
+
+    function setEmpty(msg) {
+      $('empty').style.display = 'block';
+      $('empty').textContent = msg;
+    }
+
+    function clearEmpty() {
+      $('empty').style.display = 'none';
+      $('empty').textContent = '';
+    }
+
+    async function loadDate(date) {
+      stopLivePolling();
+      currentDate = date;
+      setStatus(`Loading ${date}…`);
+      clearEmpty();
+      $('cards').innerHTML = '';
+
+      const [b, sim, simSummary] = await Promise.all([
+        fetchJson(`/v1/bundle/${encodeURIComponent(date)}`),
+        (async () => {
+          try {
+            return await fetchJson(`/api/sim/boxscores?date=${encodeURIComponent(date)}`);
+          } catch (e) {
+            return null;
+          }
+        })(),
+        (async () => {
+          try {
+            return await fetchJson(`/api/sim/summary?date=${encodeURIComponent(date)}`);
+          } catch (e) {
+            return null;
+          }
+        })(),
+      ]);
+      if (!b.ok) throw new Error(b.error || 'bundle_error');
+
+      const preds = (((b.data||{}).games||{}).predictions||{}).rows || [];
+      const recs = (((b.data||{}).games||{}).recommendations||{}).rows || [];
+
+      const simRows = (sim && (sim.rows || sim.data)) ? (sim.rows || sim.data) : [];
+      const nSims = (simSummary && simSummary.ok) ? simSummary.n_sims : null;
+      const simByGame = new Map();
+      if (Array.isArray(simRows)) {
+        for (const r of simRows) {
+          const k = keyForSimRow(r);
+          if (!k.trim()) continue;
+          if (!simByGame.has(k)) simByGame.set(k, []);
+          simByGame.get(k).push(r);
+        }
+      }
+
+      if (!preds.length) {
+        setStatus(`No games found for ${date}.`);
+        setEmpty('No predictions rows available for this date yet.');
+        return;
+      }
+
+      // index recs by game key (away@home)
+      const byGame = new Map();
+      for (const r of recs) {
+        const k = keyForGame(r);
+        if (!byGame.has(k)) byGame.set(k, []);
+        byGame.get(k).push(r);
+      }
+
+      const frag = document.createDocumentFragment();
+      for (const p of preds) {
+        const k = keyForGame(p);
+        frag.appendChild(renderCard(p, byGame.get(k) || [], simByGame.get(k) || [], nSims));
+      }
+      $('cards').appendChild(frag);
+
+      // Overlay live lens (one fetch per date; best-effort)
+      maybeLoadLiveLens(date, preds);
+      // Overlay live odds (one fetch per date; best-effort)
+      maybeLoadLiveOdds(date, preds);
+      // Poll for updates while live (single interval; best-effort)
+      startLivePolling(date, preds);
+
+      const note = b.note ? ` (${b.note})` : '';
+      const simNote = (nSims && isFinite(Number(nSims))) ? ` · sim n=${Number(nSims)}` : '';
+      setStatus(`${date}: ${preds.length} games${simNote}${note}`);
+    }
+
+    function renderTabs(trio, defaultDate=null) {
+      const tabs = $('tabs');
+      tabs.innerHTML = '';
+      for (const d of trio) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'tab';
+        btn.textContent = d;
+        btn.onclick = async () => {
+          for (const x of tabs.querySelectorAll('.tab')) x.classList.remove('active');
+          btn.classList.add('active');
+          try {
+            await loadDate(d);
+          } catch (e) {
+            stopLivePolling();
+            setStatus('Error loading bundle.');
+            setEmpty(String(e && e.message ? e.message : e));
+          }
+        };
+        tabs.appendChild(btn);
+      }
+
+      let defaultBtn = null;
+      if (defaultDate) {
+        for (const b of tabs.querySelectorAll('.tab')) {
+          if (String(b.textContent || '').trim() === String(defaultDate).trim()) {
+            defaultBtn = b;
+            break;
+          }
+        }
+      }
+      defaultBtn = defaultBtn || tabs.querySelectorAll('.tab')[1] || tabs.querySelectorAll('.tab')[0];
+      if (defaultBtn) defaultBtn.click();
+    }
+
+    async function init() {
+      $('themeToggle').onclick = () => {
+        document.documentElement.classList.toggle('light');
+        try {
+          localStorage.setItem('theme', document.documentElement.classList.contains('light') ? 'light' : 'dark');
+        } catch (e) {}
+      };
+
+      try {
+        const d = await fetchJson('/v1/dates');
+        if (!d.ok) throw new Error(d.error || 'dates_error');
+        const requested = getRequestedDate();
+        let trio = d.trio || [];
+        if (requested && Array.isArray(d.dates) && d.dates.includes(requested)) {
+          const forced = buildTrioAroundDate(d.dates, requested);
+          if (forced.length) trio = forced;
+        }
+        if (!trio.length) throw new Error('No trio dates returned');
+        renderTabs(trio, requested);
+      } catch (e) {
+        setStatus('Failed to load dates.');
+        setEmpty(String(e && e.message ? e.message : e));
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>

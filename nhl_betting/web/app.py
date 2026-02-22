@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os, time, json
+import re
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 from pathlib import Path
@@ -110,6 +111,35 @@ def _compute_allowed() -> bool:
     return not _is_public_host_env()
 
 app = FastAPI()
+
+# ----------------------------------------------------------------------------------
+# Cards-only UI mode: treat all other HTML pages as removed.
+# Keeps JSON APIs (/api/*) and stable bundles API (/v1/*).
+# ----------------------------------------------------------------------------------
+_UI_CARDS_ONLY = str(os.getenv("UI_CARDS_ONLY", "1")).strip().lower() in {"1", "true", "yes"}
+
+
+@app.middleware("http")
+async def _cards_only_ui_mw(request: Request, call_next):
+    if not _UI_CARDS_ONLY:
+        return await call_next(request)
+
+    path = request.url.path or "/"
+
+    # Allow the single page + assets + APIs + docs
+    if path == "/":
+        return await call_next(request)
+    if path.startswith("/static/") or path.startswith("/v1/") or path.startswith("/api/"):
+        return await call_next(request)
+    if path in {"/openapi.json", "/docs", "/redoc"}:
+        return await call_next(request)
+
+    # Block any other HTML-facing routes.
+    accept = (request.headers.get("accept") or "").lower()
+    if "text/html" in accept:
+        return PlainTextResponse("cards-only UI: this page has been removed", status_code=404)
+
+    return await call_next(request)
 # ----------------------------------------------------------------------------------
 # Lightweight cron job status tracker (in-memory, best-effort)
 _CRON_JOBS: Dict[str, Dict[str, Any]] = {}
@@ -275,37 +305,12 @@ async def props_main(
     page: int = Query(1, description="Page number (1-based)"),
     page_size: Optional[int] = Query(None, description="Rows per page (defaults PROPS_PAGE_SIZE env or 250"),
 ):
-    """Default /props now renders the props recommendations GRID view (NBA-parity).
-
-    We reuse the existing recommendations page implementation in grid mode to avoid duplication.
-    """
-    return await props_recommendations_page(
-        request=request,
-        date=date,
-        market=market,
-        min_ev=min_ev,
-        top=top,
-        sortBy=sort,
-        side="both",
-        team=team,
-        game=game,
-        all=0,
-        debug=0,
-        view="grid",
-        sort=sort,
-        page=page,
-        page_size=page_size,
-    )
+    return PlainTextResponse("cards-only UI: this page has been removed", status_code=404)
 
 # Secondary explicit safeguard endpoint to validate redirect logic without colliding with /props.
 @app.get("/props-safeguard", include_in_schema=False)
 async def props_safeguard(date: Optional[str] = None):
-    try:
-        from fastapi.responses import RedirectResponse
-        q = f"?date={date}" if date else ""
-        return RedirectResponse(url=f"/props/all{q}", status_code=307)
-    except Exception as e:
-        return JSONResponse({"error":"safeguard_failed","detail":str(e)}, status_code=500)
+    return PlainTextResponse("cards-only UI: this page has been removed", status_code=404)
 
 # Root HEAD handler: avoids 405s from HEAD probes without invoking heavy work
 
@@ -426,6 +431,536 @@ try:
 except Exception:
     # Mounting static is best-effort (e.g., path may not exist in some deploys)
     pass
+
+
+# ----------------------------------------------------------------------------------
+# v1 read-only bundles API
+# ----------------------------------------------------------------------------------
+_V1_DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
+
+# Lightweight in-memory cache for live odds snapshots to avoid hammering OddsAPI.
+_LIVE_ODDS_CACHE: dict = {}
+try:
+    _LIVE_ODDS_TTL_SECONDS = int(os.getenv("LIVE_ODDS_TTL_SECONDS", "30"))
+except Exception:
+    _LIVE_ODDS_TTL_SECONDS = 30
+
+
+def _live_odds_cache_get(key: str):
+    try:
+        ent = _LIVE_ODDS_CACHE.get(key)
+        if not ent:
+            return None
+        if _LIVE_ODDS_TTL_SECONDS <= 0:
+            return None
+        if (time.time() - float(ent.get("ts", 0.0))) > float(_LIVE_ODDS_TTL_SECONDS):
+            _LIVE_ODDS_CACHE.pop(key, None)
+            return None
+        return ent.get("value")
+    except Exception:
+        return None
+
+
+def _live_odds_cache_put(key: str, value: object):
+    try:
+        if _LIVE_ODDS_TTL_SECONDS <= 0:
+            return
+        _LIVE_ODDS_CACHE[key] = {"ts": time.time(), "value": value}
+    except Exception:
+        pass
+
+
+@app.get("/v1/manifest")
+async def v1_manifest():
+    try:
+        from ..publish.daily_bundles import manifest_path, build_manifest
+
+        p = manifest_path(PROC_DIR)
+        if p.exists():
+            try:
+                obj = json.loads(p.read_text(encoding="utf-8"))
+                return JSONResponse({"ok": True, **obj})
+            except Exception:
+                pass
+        obj = build_manifest(PROC_DIR)
+        return JSONResponse({"ok": True, **obj})
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/v1/dates")
+async def v1_dates():
+    try:
+        from ..publish.daily_bundles import build_manifest
+
+        man = build_manifest(PROC_DIR)
+        dates = man.get("dates") or []
+        # Provide convenience trio for the UI (yesterday/today/tomorrow)
+        try:
+            today = _today_ymd()
+            y = (datetime.now(timezone.utc) - timedelta(days=1)).astimezone(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
+            t = today
+            tm = (datetime.now(timezone.utc) + timedelta(days=1)).astimezone(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
+            trio = [y, t, tm]
+        except Exception:
+            trio = []
+        return JSONResponse({"ok": True, "dates": dates, "latest": man.get("latest"), "trio": trio})
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/v1/bundle/{date}")
+async def v1_bundle(date: str):
+    try:
+        d = str(date or "").strip()
+        if not _V1_DATE_RE.fullmatch(d):
+            return JSONResponse({"ok": False, "error": "invalid_date", "date": date}, status_code=400)
+
+        def _enrich_predictions_team_assets(obj: dict) -> dict:
+            """Best-effort: attach `home_logo`/`away_logo` to prediction rows.
+
+            This keeps the v1 bundle schema stable while letting the cards UI
+            display team logos without additional roundtrips.
+            """
+            try:
+                rows = (
+                    (obj.get("data") or {})
+                    .get("games", {})
+                    .get("predictions", {})
+                    .get("rows", [])
+                )
+                if not isinstance(rows, list) or not rows:
+                    return obj
+                for r in rows:
+                    if not isinstance(r, dict):
+                        continue
+                    try:
+                        home = str(r.get("home") or "")
+                        away = str(r.get("away") or "")
+                        h = get_team_assets(home) or {}
+                        a = get_team_assets(away) or {}
+                        r.setdefault("home_logo", h.get("logo_dark") or h.get("logo_light") or h.get("logo"))
+                        r.setdefault("away_logo", a.get("logo_dark") or a.get("logo_light") or a.get("logo"))
+                    except Exception:
+                        continue
+            except Exception:
+                return obj
+            return obj
+
+        from ..publish.daily_bundles import bundle_path, build_daily_bundle
+
+        p = bundle_path(d, PROC_DIR)
+        if p.exists():
+            try:
+                obj = json.loads(p.read_text(encoding="utf-8"))
+                obj = _enrich_predictions_team_assets(obj)
+                return JSONResponse({"ok": True, **obj})
+            except Exception:
+                # Fall back to rebuilding in-memory
+                pass
+
+        obj = build_daily_bundle(d, PROC_DIR)
+        obj = _enrich_predictions_team_assets(obj)
+        return JSONResponse({"ok": True, **obj, "note": "bundle_not_persisted"})
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/v1/live/{date}")
+async def v1_live(date: str):
+    """Live lens (read-only) for a slate date.
+
+    This endpoint is intended for the cards-only UI to overlay live game state
+    and simple period/totals stats without mutating any artifacts.
+
+    Data source: NHL Web API via NHLWebClient.
+    """
+    try:
+        d = str(date or "").strip()
+        if not _V1_DATE_RE.fullmatch(d):
+            return JSONResponse({"ok": False, "error": "invalid_date", "date": date}, status_code=400)
+
+        def _norm(s: object) -> str:
+            try:
+                return " ".join(str(s or "").strip().split()).lower()
+            except Exception:
+                return str(s or "").lower()
+
+        def _maybe_float(x: object) -> Optional[float]:
+            try:
+                if x is None:
+                    return None
+                if isinstance(x, str):
+                    s = x.strip()
+                    if s.endswith("%"):
+                        s = s[:-1]
+                    if s == "":
+                        return None
+                    return float(s)
+                return float(x)
+            except Exception:
+                return None
+
+        def _maybe_int(x: object) -> Optional[int]:
+            try:
+                if x is None:
+                    return None
+                if isinstance(x, bool):
+                    return int(x)
+                if isinstance(x, (int, np.integer)):
+                    return int(x)
+                fx = _maybe_float(x)
+                return int(fx) if fx is not None else None
+            except Exception:
+                return None
+
+        def _pick(dct: object, *keys: str) -> object:
+            if not isinstance(dct, dict):
+                return None
+            for k in keys:
+                if k in dct:
+                    return dct.get(k)
+            return None
+
+        def _extract_team_totals(team_obj: object) -> dict:
+            if not isinstance(team_obj, dict):
+                return {}
+            stats_obj = (
+                _pick(team_obj, "teamStats", "teamGameStats", "statistics", "stats", "teamStatsSummary")
+                or {}
+            )
+            if not isinstance(stats_obj, dict):
+                stats_obj = {}
+
+            # Try to pull SOG / shots in a robust way.
+            sog = _maybe_int(_pick(stats_obj, "sog", "shotsOnGoal", "shots_on_goal", "shotsOnGoalFor"))
+            shots = _maybe_int(_pick(stats_obj, "shots", "shotAttempts", "shotsFor"))
+            goals = _maybe_int(_pick(team_obj, "score", "goals"))
+
+            # Faceoff win pct often exists as a percent number.
+            fo = _maybe_float(_pick(stats_obj, "faceoffWinningPctg", "faceoffWinPct", "faceoffWinPctg", "faceoffPct"))
+
+            # Powerplay as a string like "1/3" or a pct like 25.0.
+            pp_conv = _pick(stats_obj, "powerPlayConversion", "powerPlayConversionPct", "powerPlay", "powerPlayPct")
+            if isinstance(pp_conv, (int, float, str)):
+                pp = pp_conv
+            else:
+                pp = None
+
+            out = {
+                "goals": goals,
+                "sog": sog,
+                "shots": shots,
+                "faceoff_win_pct": fo,
+                "pp": pp,
+            }
+            # Remove None values to keep payload clean.
+            return {k: v for k, v in out.items() if v is not None}
+
+        def _extract_goalie_summary(box: dict, side: str) -> list[dict]:
+            try:
+                pbg = box.get("playerByGameStats") or {}
+                team_key = "homeTeam" if side == "home" else "awayTeam"
+                t = pbg.get(team_key) or {}
+                goalies = t.get("goalies") or []
+                out = []
+                for g in goalies if isinstance(goalies, list) else []:
+                    if not isinstance(g, dict):
+                        continue
+                    nm = None
+                    try:
+                        name_obj = g.get("name")
+                        if isinstance(name_obj, dict):
+                            nm = name_obj.get("default") or name_obj.get("full")
+                        elif isinstance(name_obj, str):
+                            nm = name_obj
+                    except Exception:
+                        nm = None
+                    saves = _maybe_int(_pick(g, "saves"))
+                    sa = _maybe_int(_pick(g, "shotsAgainst", "shots_against", "shots"))
+                    sv = _maybe_float(_pick(g, "savePctg", "svPct", "savePercentage"))
+                    row = {"name": nm, "saves": saves, "shots_against": sa, "sv_pct": sv}
+                    row = {k: v for k, v in row.items() if v is not None and v != ""}
+                    if row:
+                        out.append(row)
+                return out
+            except Exception:
+                return []
+
+        def _extract_skaters_summary(box: dict, side: str) -> list[dict]:
+            """Best-effort extraction of skater boxscore stats from NHL Web boxscore."""
+            try:
+                pbg = box.get("playerByGameStats") or {}
+                team_key = "homeTeam" if side == "home" else "awayTeam"
+                t = pbg.get(team_key) or {}
+                if not isinstance(t, dict):
+                    return []
+                # NHL web payload typically has a `skaters` list; keep a few fallbacks.
+                skaters = (
+                    t.get("skaters")
+                    or t.get("forwards")
+                    or t.get("defense")
+                    or t.get("defencemen")
+                    or []
+                )
+                if not isinstance(skaters, list):
+                    return []
+                out: list[dict] = []
+                for s in skaters:
+                    if not isinstance(s, dict):
+                        continue
+                    nm = None
+                    try:
+                        name_obj = s.get("name")
+                        if isinstance(name_obj, dict):
+                            nm = name_obj.get("default") or name_obj.get("full")
+                        elif isinstance(name_obj, str):
+                            nm = name_obj
+                    except Exception:
+                        nm = None
+                    toi = None
+                    try:
+                        toi = _pick(s, "toi", "timeOnIce", "time_on_ice")
+                        if isinstance(toi, dict):
+                            toi = toi.get("default") or toi.get("displayValue")
+                        if toi is not None:
+                            toi = str(toi)
+                    except Exception:
+                        toi = None
+
+                    row = {
+                        "name": nm,
+                        "pos": _pick(s, "position", "pos"),
+                        "g": _maybe_int(_pick(s, "goals", "g")),
+                        "a": _maybe_int(_pick(s, "assists", "a")),
+                        "p": _maybe_int(_pick(s, "points", "p")),
+                        "s": _maybe_int(_pick(s, "shots", "s")),
+                        "blk": _maybe_int(_pick(s, "blockedShots", "blocked", "blocks", "blk")),
+                        "hits": _maybe_int(_pick(s, "hits")),
+                        "toi": toi,
+                    }
+                    # strip None/empty
+                    row = {k: v for k, v in row.items() if v is not None and v != ""}
+                    if row:
+                        out.append(row)
+                return out
+            except Exception:
+                return []
+
+        def _extract_periods(box: dict) -> list[dict]:
+            periods = box.get("periods") or box.get("periodSummary") or []
+            if not isinstance(periods, list):
+                return []
+            out = []
+            for p in periods:
+                if not isinstance(p, dict):
+                    continue
+                pd = p.get("periodDescriptor") or {}
+                per = None
+                if isinstance(pd, dict):
+                    per = pd.get("number") or pd.get("period")
+                if per is None:
+                    per = p.get("period") or p.get("currentPeriod")
+                home_p = p.get("home") or p.get("homeTeam") or {}
+                away_p = p.get("away") or p.get("awayTeam") or {}
+                if not isinstance(home_p, dict):
+                    home_p = {}
+                if not isinstance(away_p, dict):
+                    away_p = {}
+
+                row = {
+                    "period": _maybe_int(per) or per,
+                    "home": {
+                        "goals": _maybe_int(_pick(home_p, "goals", "score")),
+                        "sog": _maybe_int(_pick(home_p, "sog", "shotsOnGoal", "shots_on_goal")),
+                        "shots": _maybe_int(_pick(home_p, "shots", "shotAttempts")),
+                    },
+                    "away": {
+                        "goals": _maybe_int(_pick(away_p, "goals", "score")),
+                        "sog": _maybe_int(_pick(away_p, "sog", "shotsOnGoal", "shots_on_goal")),
+                        "shots": _maybe_int(_pick(away_p, "shots", "shotAttempts")),
+                    },
+                }
+                # strip None fields
+                for side in ("home", "away"):
+                    row[side] = {k: v for k, v in (row.get(side) or {}).items() if v is not None}
+                if row.get("home") or row.get("away"):
+                    out.append(row)
+            return out
+
+        web = NHLWebClient()
+        # scoreboard_day is lightweight and usually includes gamePk/state/period/clock
+        games = await asyncio.to_thread(web.scoreboard_day, d)
+        out_games: list[dict] = []
+
+        for g in games or []:
+            try:
+                game_pk = g.get("gamePk")
+                if game_pk is None:
+                    continue
+                game_pk_i = int(game_pk)
+            except Exception:
+                continue
+
+            home = str(g.get("home") or "")
+            away = str(g.get("away") or "")
+            game_state = g.get("gameState")
+
+            # Best-effort detailed stats from boxscore; safe to fail without breaking endpoint.
+            box = None
+            try:
+                box = await asyncio.to_thread(web.boxscore, game_pk_i)
+            except Exception:
+                box = None
+
+            home_obj = box.get("homeTeam") if isinstance(box, dict) else None
+            away_obj = box.get("awayTeam") if isinstance(box, dict) else None
+
+            lens = {
+                "totals": {
+                    "home": _extract_team_totals(home_obj),
+                    "away": _extract_team_totals(away_obj),
+                },
+                "periods": _extract_periods(box) if isinstance(box, dict) else [],
+                "players": {
+                    "home": _extract_skaters_summary(box, "home") if isinstance(box, dict) else [],
+                    "away": _extract_skaters_summary(box, "away") if isinstance(box, dict) else [],
+                },
+                "goalies": {
+                    "home": _extract_goalie_summary(box, "home") if isinstance(box, dict) else [],
+                    "away": _extract_goalie_summary(box, "away") if isinstance(box, dict) else [],
+                },
+                "xg": None,
+            }
+            # Remove empty blocks
+            if not lens["totals"]["home"] and not lens["totals"]["away"]:
+                lens.pop("totals", None)
+            if not lens.get("periods"):
+                lens.pop("periods", None)
+            if not (lens.get("players", {}).get("home") or lens.get("players", {}).get("away")):
+                lens.pop("players", None)
+            if not (lens.get("goalies", {}).get("home") or lens.get("goalies", {}).get("away")):
+                lens.pop("goalies", None)
+
+            out_games.append({
+                "date": d,
+                "gamePk": game_pk_i,
+                "home": home,
+                "away": away,
+                "key": f"{_norm(away)} @ {_norm(home)}",
+                "gameState": game_state,
+                "period": g.get("period"),
+                "clock": g.get("clock"),
+                "score": {
+                    "home": g.get("home_goals"),
+                    "away": g.get("away_goals"),
+                },
+                "lens": lens,
+            })
+
+        return JSONResponse({"ok": True, "date": d, "games": out_games})
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/v1/odds/{date}")
+async def v1_odds(date: str, regions: str = "us", best: bool = True):
+    """Current game odds snapshot for a slate date (read-only).
+
+    Source: OddsAPI (the-odds-api.com). Requires ODDS_API_KEY.
+    Returns normalized rows keyed by away@home, suitable for overlay in cards-only UI.
+
+    Notes
+    - This endpoint is best-effort and may return ok=True with an empty games list.
+    - Uses a small in-memory TTL cache to reduce external calls.
+    """
+    try:
+        d = str(date or "").strip()
+        if not _V1_DATE_RE.fullmatch(d):
+            return JSONResponse({"ok": False, "error": "invalid_date", "date": date}, status_code=400)
+
+        cache_key = f"v1_odds::{d}::{str(regions or 'us').lower()}::{int(bool(best))}"
+        cached = _live_odds_cache_get(cache_key)
+        if cached is not None:
+            return JSONResponse(cached)
+
+        asof = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
+        try:
+            client = OddsAPIClient()
+        except Exception as e:
+            obj = {"ok": True, "date": d, "asof_utc": asof, "games": [], "note": str(e)}
+            _live_odds_cache_put(cache_key, obj)
+            return JSONResponse(obj)
+
+        # Flat snapshot returns normalized rows for all current events.
+        df = await asyncio.to_thread(
+            client.flat_snapshot,
+            d,
+            regions=str(regions or "us"),
+            markets="h2h,totals,spreads",
+            snapshot_iso=None,
+            odds_format="american",
+            bookmaker=None,
+            best=bool(best),
+        )
+
+        games: list[dict] = []
+        if df is not None and not df.empty:
+            try:
+                df2 = df[df.get("date") == d].copy()
+            except Exception:
+                df2 = df.copy()
+            if df2 is not None and not df2.empty:
+                # Ensure stable types
+                for _, r in df2.iterrows():
+                    home = str(r.get("home") or "")
+                    away = str(r.get("away") or "")
+                    if not home or not away:
+                        continue
+                    def _i(x):
+                        try:
+                            return int(x)
+                        except Exception:
+                            return None
+                    def _f(x):
+                        try:
+                            if x is None:
+                                return None
+                            return float(x)
+                        except Exception:
+                            return None
+                    games.append({
+                        "date": d,
+                        "home": home,
+                        "away": away,
+                        "key": f"{' '.join(away.split()).lower()} @ {' '.join(home.split()).lower()}",
+                        "ml": {
+                            "home": _i(r.get("home_ml")),
+                            "away": _i(r.get("away_ml")),
+                            "home_book": r.get("home_ml_book"),
+                            "away_book": r.get("away_ml_book"),
+                        },
+                        "total": {
+                            "line": _f(r.get("total_line")),
+                            "over": _i(r.get("over")),
+                            "under": _i(r.get("under")),
+                            "over_book": r.get("over_book"),
+                            "under_book": r.get("under_book"),
+                        },
+                        "puckline": {
+                            "home_-1.5": _i(r.get("home_pl_-1.5")),
+                            "away_+1.5": _i(r.get("away_pl_+1.5")),
+                            "home_-1.5_book": r.get("home_pl_-1.5_book"),
+                            "away_+1.5_book": r.get("away_pl_+1.5_book"),
+                        },
+                    })
+
+        obj = {"ok": True, "date": d, "asof_utc": asof, "games": games}
+        _live_odds_cache_put(cache_key, obj)
+        return JSONResponse(obj)
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
 
 
 def _github_raw_read_csv(rel_path: str, timeout_sec: Optional[float] = None, attempts: Optional[int] = None) -> pd.DataFrame:
@@ -573,6 +1108,47 @@ async def api_sim_summary(date: Optional[str] = Query(None)):
     events = _load_sim_df(d, ["sim_events_pos_{date}.csv"])  # possession/events aggregate
     # Prefer props-aggregated boxscores; fall back to per-game player boxscores
     boxscores = _load_sim_df(d, ["props_boxscores_sim_{date}.csv", "sim_boxscores_pos_{date}.csv"])
+
+    # Best-effort n_sims inference for UI display.
+    # 1) If histogram exists, it carries explicit n_sims.
+    # 2) Else infer from samples sim_idx max+1 (parquet preferred, csv fallback).
+    def _infer_n_sims(date_str: str) -> Optional[int]:
+        try:
+            hist = PROC_DIR / f"props_boxscores_sim_hist_{date_str}.csv"
+            if hist.exists() and getattr(hist.stat(), "st_size", 0) > 0:
+                try:
+                    hdf = pd.read_csv(hist, usecols=["n_sims"])
+                    if hdf is not None and (not hdf.empty) and "n_sims" in hdf.columns:
+                        v = hdf["n_sims"].dropna()
+                        if len(v):
+                            return int(v.iloc[0])
+                except Exception:
+                    pass
+            parq = PROC_DIR / f"props_boxscores_sim_samples_{date_str}.parquet"
+            csvp = PROC_DIR / f"props_boxscores_sim_samples_{date_str}.csv"
+            if parq.exists() and getattr(parq.stat(), "st_size", 0) > 0:
+                try:
+                    sdf = pd.read_parquet(parq, columns=["sim_idx"])  # type: ignore
+                    if sdf is not None and (not sdf.empty) and "sim_idx" in sdf.columns:
+                        m = sdf["sim_idx"].max()
+                        if pd.notna(m):
+                            return int(m) + 1
+                except Exception:
+                    pass
+            if csvp.exists() and getattr(csvp.stat(), "st_size", 0) > 0:
+                try:
+                    sdf = pd.read_csv(csvp, usecols=["sim_idx"])
+                    if sdf is not None and (not sdf.empty) and "sim_idx" in sdf.columns:
+                        m = sdf["sim_idx"].max()
+                        if pd.notna(m):
+                            return int(m) + 1
+                except Exception:
+                    pass
+        except Exception:
+            return None
+        return None
+
+    n_sims = _infer_n_sims(d)
     def _summary(df: pd.DataFrame) -> dict:
         try:
             return {"exists": (df is not None and not df.empty), "count": int(len(df))}
@@ -581,6 +1157,7 @@ async def api_sim_summary(date: Optional[str] = Query(None)):
     return JSONResponse({
         "ok": True,
         "date": d,
+        "n_sims": n_sims,
         "games": _summary(games),
         "events": _summary(events),
         "boxscores": _summary(boxscores),
@@ -675,6 +1252,8 @@ async def api_sim_boxscores(
     team: Optional[str] = Query(None),
     player: Optional[str] = Query(None),
     market: Optional[str] = Query(None),
+    period: Optional[int] = Query(None),
+    dressed: Optional[bool] = Query(None, description="When present, filter is_dressed==1/0 if column exists"),
     top: Optional[int] = Query(None),
 ):
     """Return simulated player boxscores for a date.
@@ -686,10 +1265,37 @@ async def api_sim_boxscores(
     df = _load_sim_df(d, ["props_boxscores_sim_{date}.csv", "sim_boxscores_pos_{date}.csv"])
     if df is None or df.empty:
         return JSONResponse({"ok": True, "date": d, "rows": [], "count": 0})
+
+    # Best-effort: enrich with player position from roster snapshot when missing.
+    # Sim artifacts often omit position; we can join on player_id using processed roster snapshots.
+    try:
+        has_pos = ("pos" in df.columns) or ("position" in df.columns) or ("player_position" in df.columns)
+        if (not has_pos) and ("player_id" in df.columns):
+            snap = PROC_DIR / f"roster_snapshot_{d}.csv"
+            if snap.exists() and getattr(snap.stat(), "st_size", 0) > 0:
+                rdf = pd.read_csv(snap)
+                if rdf is not None and (not rdf.empty) and {"player_id", "position"}.issubset(rdf.columns):
+                    try:
+                        m = dict(zip(rdf["player_id"].astype(int), rdf["position"].astype(str)))
+                        df["pos"] = df["player_id"].astype(int).map(m)
+                    except Exception:
+                        pass
+    except Exception:
+        pass
     # Optional filters
     try:
         if market:
             df = df[df.get("market").astype(str).str.upper() == str(market).upper()]
+    except Exception:
+        pass
+    try:
+        if period is not None and "period" in df.columns:
+            df = df[df.get("period") == int(period)]
+    except Exception:
+        pass
+    try:
+        if dressed is not None and "is_dressed" in df.columns:
+            df = df[df.get("is_dressed") == (1 if bool(dressed) else 0)]
     except Exception:
         pass
     try:
@@ -2769,278 +3375,10 @@ async def _ensure_models(quick: bool = False) -> None:
 
 @app.get("/")
 async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD")):
-    # Preserve the originally requested date (may differ if auto-forward logic adjusts for future empty slates)
-    requested_date = date or _today_ymd()
-    date = requested_date
-    try:
-        print(f"[cards] requested_date={requested_date} initial date={date}")
-    except Exception:
-        pass
-    note_msg = None
-    live_now = _is_live_day(date)
-    # Consider a slate 'settled' if it is strictly before today's ET date (independent of live scoreboard noise)
-    try:
-        et_today = _today_ymd()
-        settled = (str(date) < str(et_today))
-    except Exception:
-        settled = False
-    if settled:
-        note_msg = note_msg or "Finalized slate (prior day). Background updates are disabled; showing saved closing numbers."
-    # Capture any existing predictions to preserve odds if updates fail/are partial
-    try:
-        df_old_global = _read_csv_fallback(PROC_DIR / f"predictions_{date}.csv")
-    except Exception:
-        df_old_global = pd.DataFrame()
-    # Ensure models exist (Elo/config); if missing, do a quick bootstrap inline (only needed for non-settled views)
-    if not settled:
-        try:
-            await _ensure_models(quick=True)
-        except Exception:
-            pass
-    # Ensure we have predictions for the date; run inline if missing (unless read-only)
-    pred_path = PROC_DIR / f"predictions_{date}.csv"
-    read_only = _read_only(date)
-    if not pred_path.exists():
-        # Generate predictions using The Odds API (preferred), else CSV baseline
-        snapshot = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-        if (not settled) and (not read_only):
-            try:
-                predict_core(date=date, source="web", odds_source="oddsapi", snapshot=snapshot, odds_best=False, odds_bookmaker="draftkings")
-            except Exception:
-                pass
-        # If file still doesn't exist, at least generate predictions without odds (allowed during live to show something)
-        if (not pred_path.exists()) and (not read_only):
-            try:
-                predict_core(date=date, source="web", odds_source="csv")
-            except Exception:
-                pass
-    df = _read_csv_fallback(pred_path) if pred_path.exists() else pd.DataFrame()
-    # Also ensure neighbor-day predictions exist so late ET games (crossing UTC midnight) can be surfaced
-    if (not settled) and (not read_only):
-        try:
-            nd = (datetime.fromisoformat(date) + timedelta(days=1)).strftime("%Y-%m-%d")
-            next_path = PROC_DIR / f"predictions_{nd}.csv"
-            if not next_path.exists():
-                try:
-                    # Cheapest generation to create rows; odds can be injected later
-                    predict_core(date=nd, source="web", odds_source="csv")
-                except Exception:
-                    pass
-        except Exception:
-            pass
-    # If predictions exist but odds are missing, try Odds API to populate
-    # If odds are missing, attempt to populate even during live slates (safe: only adds odds fields)
-    if pred_path.exists() and not _has_any_odds_df(df) and (not settled) and (not read_only):
-        snapshot = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-        # Preserve any existing odds if present in old df
-        try:
-            df_old = _read_csv_fallback(pred_path)
-        except Exception:
-            df_old = pd.DataFrame()
-        try:
-            predict_core(date=date, source="web", odds_source="oddsapi", snapshot=snapshot, odds_best=False, odds_bookmaker="draftkings")
-            df = _read_csv_fallback(pred_path)
-            if not df_old.empty:
-                df = _merge_preserve_odds(df_old, df)
-                df.to_csv(pred_path, index=False)
-        except Exception:
-            pass
-    # If no games for requested date, first try alternate schedule source (skip on read-only),
-    # then try to find the next available slate within 10 days (also skip on read-only)
-    if df.empty and not read_only:
-        # Try using the NHL stats API as an alternate source for schedule
-        try:
-            # If stats API has games, generate predictions using that source
-            stats_client = NHLStatsClient()
-            stats_games = stats_client.schedule(date, date)
-            if stats_games:
-                snapshot = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-                try:
-                    predict_core(date=date, source="stats", odds_source="oddsapi", snapshot=snapshot, odds_best=False, odds_bookmaker="draftkings")
-                    df_alt = _read_csv_fallback(PROC_DIR / f"predictions_{date}.csv")
-                    if not df_alt.empty:
-                        df = df_alt
-                except Exception:
-                    pass
-        except Exception:
-            pass
-    # Only auto-forward to the next available slate for non-settled (today/future) dates.
-    # Skip on read-only public hosts to avoid heavy schedule scans.
-    # For past (settled) dates, preserve the user's requested date even if there were no games.
-    if df.empty and not settled and not read_only:
-        try:
-            client = NHLWebClient()
-            base = pd.to_datetime(date)
-            for i in range(1, 11):
-                d2 = (base + timedelta(days=i)).strftime("%Y-%m-%d")
-                games = client.schedule_range(d2, d2)
-                elig = []
-                for g in games:
-                    try:
-                        h_ok = bool(get_team_assets(str(getattr(g, "home", "")).strip()).get("abbr"))
-                        a_ok = bool(get_team_assets(str(getattr(g, "away", "")).strip()).get("abbr"))
-                        if h_ok and a_ok:
-                            elig.append(g)
-                    except Exception:
-                        pass
-                if elig:
-                    snapshot = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-                    try:
-                        predict_core(date=d2, source="web", odds_source="oddsapi", snapshot=snapshot, odds_best=False, odds_bookmaker="draftkings")
-                    except Exception:
-                        pass
-                    alt_path = PROC_DIR / f"predictions_{d2}.csv"
-                    if alt_path.exists():
-                        try:
-                            df2 = _read_csv_fallback(alt_path)
-                        except Exception:
-                            df2 = pd.DataFrame()
-                        if not df2.empty:
-                            df = df2
-                            note_msg = f"No games on {date}. Showing next slate on {d2}."
-                            date = d2
-                            break
-                    if not alt_path.exists():
-                        try:
-                            predict_core(date=d2, source="web", odds_source="csv")
-                        except Exception:
-                            pass
-                        if alt_path.exists():
-                            try:
-                                df2 = _read_csv_fallback(alt_path)
-                            except Exception:
-                                df2 = pd.DataFrame()
-                            if not df2.empty:
-                                df = df2
-                                note_msg = f"No games on {date}. Showing next slate on {d2}."
-                                date = d2
-                                break
-        except Exception:
-            pass
-    # Final odds preservation pass: if we had older data, fill missing odds/book fields
-    if (not settled) and (not read_only):
-        try:
-            if not df.empty and not df_old_global.empty:
-                df = _merge_preserve_odds(df_old_global, df)
-                df.to_csv(PROC_DIR / f"predictions_{date}.csv", index=False)
-        except Exception:
-            pass
-    # Cross-midnight inclusion: merge neighbor-day predictions and filter to ET date bucket
-    try:
-        frames = []
-        if not df.empty:
-            frames.append(df)
-        # Previous and next day files, if they exist
-        base_dt = datetime.fromisoformat(date)
-        pd_str = (base_dt - timedelta(days=1)).strftime("%Y-%m-%d")
-        nd_str = (base_dt + timedelta(days=1)).strftime("%Y-%m-%d")
-        for d_nei in (pd_str, nd_str):
-            p = PROC_DIR / f"predictions_{d_nei}.csv"
-            if p.exists():
-                try:
-                    dfn = _read_csv_fallback(p)
-                    if not dfn.empty:
-                        frames.append(dfn)
-                except Exception:
-                    pass
-        if frames:
-            dfall = pd.concat(frames, ignore_index=True)
-            # Compute ET date for each row from ISO 'date' if available, else try 'gameDate'
-            def _row_et_date(x):
-                v = x.get("date") if isinstance(x, dict) else None
-                if not v and hasattr(x, "get"):
-                    v = x.get("gameDate")
-                if not v and isinstance(x, pd.Series):
-                    v = x.get("gameDate")
-                return _iso_to_et_date(v)
-            try:
-                et_dates = dfall.apply(lambda r: _iso_to_et_date(r.get("date") if pd.notna(r.get("date")) else r.get("gameDate")), axis=1)
-            except Exception:
-                et_dates = dfall.apply(lambda r: _row_et_date(r), axis=1)
-            dfall = dfall[et_dates == date]
-            # Drop potential duplicates (same home/away)
-            if {"home","away"}.issubset(dfall.columns):
-                dfall = dfall.drop_duplicates(subset=["home","away"], keep="first")
-            df = dfall
-    except Exception:
-        pass
-    # Ensure EV fields exist for display/recommendations: compute from probabilities and odds if missing
-    if not df.empty:
-        try:
-            import math as _math
-            from ..utils.odds import american_to_decimal, ev_unit
-            def _num(v):
-                if v is None:
-                    return None
-                try:
-                    if isinstance(v, (int, float)):
-                        f = float(v)
-                        return f if _math.isfinite(f) else None
-                    s = str(v).strip().replace(",", "")
-                    if s == "":
-                        return None
-                    return float(s)
-                except Exception:
-                    return None
-            def _ensure_ev_row(row: pd.Series, p_key: str, odds_key: str, ev_key: str):
-                try:
-                    ev_present = (ev_key in row) and (row.get(ev_key) is not None) and not (isinstance(row.get(ev_key), float) and pd.isna(row.get(ev_key)))
-                    if ev_present:
-                        return row
-                    p = None
-                    if p_key in row and pd.notna(row.get(p_key)):
-                        p = float(row.get(p_key))
-                        if not (0.0 <= p <= 1.0) or not _math.isfinite(p):
-                            p = None
-                    price = _num(row.get(odds_key)) if odds_key in row else None
-                    if price is None:
-                        # fallback to closing odds
-                        close_map = {
-                            "home_ml_odds": "close_home_ml_odds",
-                            "away_ml_odds": "close_away_ml_odds",
-                            "over_odds": "close_over_odds",
-                            "under_odds": "close_under_odds",
-                            "home_pl_-1.5_odds": "close_home_pl_-1.5_odds",
-                            "away_pl_+1.5_odds": "close_away_pl_+1.5_odds",
-                        }
-                        ck = close_map.get(odds_key)
-                        if ck and (ck in row):
-                            price = _num(row.get(ck))
-                    if (p is not None) and (price is not None):
-                        dec = american_to_decimal(price)
-                        if dec is not None and _math.isfinite(dec):
-                            # Adjust EV for totals with potential push on integer lines
-                            p_push = 0.0
-                            try:
-                                if p_key in ("p_over", "p_under"):
-                                    tl = row.get("total_line_used") if "total_line_used" in row else None
-                                    if tl is None:
-                                        tl = row.get("close_total_line_used") if "close_total_line_used" in row else None
-                                    mt = row.get("model_total") if "model_total" in row else None
-                                    if tl is not None and mt is not None:
-                                        tl_f = float(tl); mt_f = float(mt)
-                                        if _math.isfinite(tl_f) and _math.isfinite(mt_f) and abs(tl_f - round(tl_f)) < 1e-9:
-                                            k = int(round(tl_f))
-                                            from math import exp, factorial
-                                            p_push = float(exp(-mt_f) * (mt_f ** k) / factorial(k)) if k >= 0 else 0.0
-                            except Exception:
-                                p_push = 0.0
-                            p_loss = max(0.0, 1.0 - float(p) - float(p_push)) if p_key in ("p_over", "p_under") else max(0.0, 1.0 - float(p))
-                            row[ev_key] = round(float(p) * (dec - 1.0) - p_loss, 4)
-                except Exception:
-                    return row
-                return row
-            # Apply to DataFrame
-            for i, r in df.iterrows():
-                r = _ensure_ev_row(r, "p_home_ml", "home_ml_odds", "ev_home_ml")
-                r = _ensure_ev_row(r, "p_away_ml", "away_ml_odds", "ev_away_ml")
-                r = _ensure_ev_row(r, "p_over", "over_odds", "ev_over")
-                r = _ensure_ev_row(r, "p_under", "under_odds", "ev_under")
-                r = _ensure_ev_row(r, "p_home_pl_-1.5", "home_pl_-1.5_odds", "ev_home_pl_-1.5")
-                r = _ensure_ev_row(r, "p_away_pl_+1.5", "away_pl_+1.5_odds", "ev_away_pl_+1.5")
-                df.iloc[i] = r
-        except Exception:
-            pass
+    # Cards-only UI: serve a single static page that pulls from the read-only /v1 bundles API.
+    # This intentionally avoids server-side compute/odds fetching in response to user page loads.
+    template = env.get_template("cards_only.html")
+    return HTMLResponse(content=template.render())
     rows = df.to_dict(orient="records") if not df.empty else []
     # Fallback/sanitization: if predictions CSV lacks projection fields (older files) or they are NaN, derive them now
     if rows:
@@ -4013,788 +4351,6 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
                     pass
         except Exception:
             pass
-    template = env.get_template("cards.html")
-    # Last update info for footer note
-    lu = _last_update_info(date)
-    # Attach top props recommendations per game card
-    try:
-        # NEW: Prefer raw sim probabilities for top props so we can rank by sim support directly
-        # and not be constrained by EV-based side selection.
-        sim_path = PROC_DIR / f"props_simulations_{date}.csv"
-
-        # If missing and not read-only, attempt to generate simulations
-        if (not sim_path.exists()) and (not _read_only(date)):
-            try:
-                # Uses model lambdas + shared pace; writes props_simulations_{date}.csv
-                props_simulate(date=date)
-            except Exception:
-                pass
-
-        df_sim = _read_csv_fallback(sim_path) if sim_path.exists() else pd.DataFrame()
-
-        # Fallback: sim-backed recommendations (still EV-derived) if simulations missing
-        rec_path_sim = PROC_DIR / f"props_recommendations_sim_{date}.csv"
-        rec_path = rec_path_sim if rec_path_sim.exists() else (PROC_DIR / f"props_recommendations_{date}.csv")
-        df_recs = _read_csv_fallback(rec_path) if rec_path.exists() else pd.DataFrame()
-        # If missing and not read-only, attempt a lightweight refresh from precomputed projections
-        if (df_recs is None or df_recs.empty) and (not _read_only(date)):
-            try:
-                _ = _refresh_props_recommendations(date, min_ev=0.0, top=400)
-                # Refresh may have written the non-sim file; re-check both
-                rec_path_sim = PROC_DIR / f"props_recommendations_sim_{date}.csv"
-                rec_path = rec_path_sim if rec_path_sim.exists() else (PROC_DIR / f"props_recommendations_{date}.csv")
-                df_recs = _read_csv_fallback(rec_path) if rec_path.exists() else pd.DataFrame()
-            except Exception:
-                df_recs = pd.DataFrame()
-        # Build team-abbr → recs mapping
-        recs_by_team: dict[str, list[dict]] = {}
-
-        # 1) Primary path: use sim probabilities to surface OVERS
-        if df_sim is not None and not df_sim.empty:
-            try:
-                dfs = df_sim.copy()
-                # Normalize team and market
-                if "team" in dfs.columns:
-                    dfs["team_norm"] = dfs["team"].astype(str).str.upper().str.strip()
-                else:
-                    dfs["team_norm"] = ""
-                if "market" in dfs.columns:
-                    dfs["market_norm"] = dfs["market"].astype(str).str.upper().str.strip()
-                else:
-                    dfs["market_norm"] = ""
-
-                # Exclude GOALS from the strip
-                try:
-                    dfs = dfs[dfs["market_norm"] != "GOALS"]
-                except Exception:
-                    pass
-
-                # Pull over probability from sim file
-                pcol = "p_over_sim" if "p_over_sim" in dfs.columns else ("p_over" if "p_over" in dfs.columns else None)
-                if not pcol:
-                    dfs = pd.DataFrame()
-                else:
-                    dfs["p_over_num"] = pd.to_numeric(dfs.get(pcol), errors="coerce")
-                    dfs = dfs[dfs["p_over_num"].notna()].copy()
-
-                    # Basic probability floors (keep a little permissive; we are ranking by p_over)
-                    # and we want OVERS to actually show up.
-                    try:
-                        # Market-specific floors (SOG is typically harder)
-                        def _floor(mk: str) -> float:
-                            mk = str(mk or "").upper().strip()
-                            if mk == "SOG":
-                                return 0.52
-                            if mk in ("ASSISTS", "POINTS"):
-                                return 0.50
-                            if mk in ("SAVES", "BLOCKS"):
-                                return 0.52
-                            return 0.50
-                        dfs["p_floor"] = dfs["market_norm"].map(_floor)
-                        dfs = dfs[dfs["p_over_num"] >= dfs["p_floor"]]
-                    except Exception:
-                        pass
-
-                    # Deduplicate across books: keep the row with the highest p_over per (player,team,market,line)
-                    try:
-                        keys = [c for c in ["player", "team_norm", "market_norm", "line"] if c in dfs.columns]
-                        if keys:
-                            dfs = dfs.sort_values("p_over_num", ascending=False)
-                            dfs = dfs.drop_duplicates(subset=keys, keep="first")
-                    except Exception:
-                        pass
-
-                    # Rank within team
-                    try:
-                        dfs = dfs.sort_values(["team_norm", "p_over_num"], ascending=[True, False])
-                    except Exception:
-                        dfs = dfs.sort_values("p_over_num", ascending=False)
-
-                    def _clean_book(val: Any) -> Any:
-                        try:
-                            s = str(val or "").strip()
-                        except Exception:
-                            return val
-                        if not s:
-                            return None
-                        if ("/" in s) or ("\\" in s) or s.endswith(".csv"):
-                            import os as _os
-                            base = _os.path.basename(s)
-                            if base.lower().endswith('.csv'):
-                                base = base[:-4]
-                            s = base
-                        if len(s) > 32:
-                            return None
-                        return s
-
-                    for _, rr in dfs.iterrows():
-                        team_key = str(rr.get("team_norm") or "").upper()
-                        if not team_key:
-                            continue
-                        obj = {
-                            "player": rr.get("player"),
-                            "team": team_key,
-                            "market": rr.get("market"),
-                            "line": rr.get("line"),
-                            "side": "Over",
-                            "ev": None,
-                            "p_over": float(rr.get("p_over_num")) if pd.notna(rr.get("p_over_num")) else None,
-                            "book": _clean_book(rr.get("book")),
-                            "price": rr.get("over_price"),
-                        }
-                        recs_by_team.setdefault(team_key, []).append(obj)
-            except Exception:
-                # If sim path fails, fall back to recommendations path below
-                recs_by_team = {}
-
-        if df_recs is not None and not df_recs.empty:
-            try:
-                dfc = df_recs.copy()
-                # Normalize team column
-                if "team" in dfc.columns:
-                    dfc["team_norm"] = dfc["team"].astype(str).str.upper().str.strip()
-                else:
-                    dfc["team_norm"] = ""
-                # Normalize market/side for filtering and sim support
-                if "market" in dfc.columns:
-                    dfc["market_norm"] = dfc["market"].astype(str).str.upper().str.strip()
-                else:
-                    dfc["market_norm"] = ""
-                if "side" in dfc.columns:
-                    dfc["side_norm"] = dfc["side"].astype(str).str.upper().str.strip()
-                else:
-                    dfc["side_norm"] = ""
-                # Keep relevant fields
-                keep = [c for c in ["player","team_norm","market_norm","market","line","side_norm","side","ev","p_over","chosen_prob","over_price","under_price","book"] if c in dfc.columns]
-                dfc = dfc[keep]
-
-                # Exclude GOALS from the "top props" strip (still available elsewhere)
-                try:
-                    if "market_norm" in dfc.columns:
-                        dfc = dfc[dfc["market_norm"] != "GOALS"]
-                except Exception:
-                    pass
-
-                # Compute numeric EV + sim-supported probability of the chosen side
-                try:
-                    if "ev" in dfc.columns:
-                        dfc["ev_num"] = pd.to_numeric(dfc.get("ev"), errors="coerce")
-                    else:
-                        dfc["ev_num"] = pd.NA
-                except Exception:
-                    dfc["ev_num"] = pd.NA
-
-                if "chosen_prob" in dfc.columns:
-                    try:
-                        dfc["chosen_prob_num"] = pd.to_numeric(dfc.get("chosen_prob"), errors="coerce")
-                    except Exception:
-                        dfc["chosen_prob_num"] = pd.NA
-                else:
-                    # Fallback: infer chosen prob from p_over + side
-                    try:
-                        p_over = pd.to_numeric(dfc.get("p_over"), errors="coerce")
-                        side = dfc.get("side_norm") if "side_norm" in dfc.columns else ""
-                        if isinstance(side, pd.Series):
-                            dfc["chosen_prob_num"] = np.where(side == "UNDER", 1.0 - p_over, p_over)
-                        else:
-                            dfc["chosen_prob_num"] = p_over
-                    except Exception:
-                        dfc["chosen_prob_num"] = pd.NA
-
-                # NOTE: We no longer require +EV here for top-props display.
-                # EV-based filtering can be applied elsewhere (grid view / recs page).
-                try:
-                    dfc = dfc[dfc["chosen_prob_num"].notna()]
-                    # Side-aware gating: unders tend to dominate when using a single threshold
-                    # because p_under is often high on 0.5 lines. Allow slightly lower threshold
-                    # for OVERS so the strip can show both sides.
-                    try:
-                        side_s = dfc["side_norm"] if "side_norm" in dfc.columns else None
-                        if side_s is not None:
-                            over_thr = 0.52
-                            under_thr = 0.58
-                            dfc = dfc[((side_s == "OVER") & (dfc["chosen_prob_num"] >= over_thr)) | ((side_s == "UNDER") & (dfc["chosen_prob_num"] >= under_thr))]
-                        else:
-                            dfc = dfc[dfc["chosen_prob_num"] >= 0.58]
-                    except Exception:
-                        dfc = dfc[dfc["chosen_prob_num"] >= 0.58]
-                except Exception:
-                    pass
-
-                # Rank: prioritize sim support, then EV
-                try:
-                    dfc = dfc.sort_values(["team_norm", "chosen_prob_num", "ev_num"], ascending=[True, False, False])
-                except Exception:
-                    try:
-                        dfc = dfc.sort_values(["chosen_prob_num", "ev_num"], ascending=[False, False])
-                    except Exception:
-                        pass
-                # Group into mapping
-                def _clean_book(val: Any) -> Any:
-                    try:
-                        s = str(val or "").strip()
-                    except Exception:
-                        return val
-                    if not s:
-                        return None
-                    # If it looks like a path, strip to basename and drop extension
-                    if ("/" in s) or ("\\" in s) or s.endswith(".csv"):
-                        import os as _os
-                        base = _os.path.basename(s)
-                        if base.lower().endswith('.csv'):
-                            base = base[:-4]
-                        s = base
-                    # Sanity: overly long tokens are likely not bookmaker names
-                    if len(s) > 32:
-                        return None
-                    return s
-                for _, rr in dfc.iterrows():
-                    team_key = str(rr.get("team_norm") or "").upper()
-                    if not team_key:
-                        continue
-                    obj = {
-                        "player": rr.get("player"),
-                        "team": team_key,
-                        "market": rr.get("market"),
-                        "line": rr.get("line"),
-                        "side": rr.get("side"),
-                        "ev": float(rr.get("ev_num")) if pd.notna(rr.get("ev_num")) else (float(rr.get("ev")) if pd.notna(rr.get("ev")) else None),
-                        "p_over": float(rr.get("p_over")) if pd.notna(rr.get("p_over")) else None,
-                        "book": _clean_book(rr.get("book")),
-                        # Choose matching price by side
-                        "price": (rr.get("over_price") if str(rr.get("side") or "").upper()=="OVER" else rr.get("under_price")),
-                    }
-                    recs_by_team.setdefault(team_key, []).append(obj)
-            except Exception:
-                recs_by_team = {}
-        # If no priced recs available, fall back to projections_all (probability-only)
-        if (not recs_by_team) and (not _read_only(date)):
-            try:
-                proj_all = _read_csv_fallback(PROC_DIR / f"props_projections_all_{date}.csv")
-            except Exception:
-                proj_all = pd.DataFrame()
-            if proj_all is not None and not proj_all.empty and {"player","team","market","p_over"}.issubset(set(proj_all.columns)):
-                try:
-                    dfp = proj_all.copy()
-                    dfp["team_norm"] = dfp["team"].astype(str).str.upper().str.strip()
-                    try:
-                        dfp["market_norm"] = dfp["market"].astype(str).str.upper().str.strip()
-                        dfp = dfp[dfp["market_norm"] != "GOALS"]
-                    except Exception:
-                        pass
-                    dfp["p_over_num"] = pd.to_numeric(dfp.get("p_over"), errors="coerce")
-                    dfp = dfp[dfp["p_over_num"].notna()]
-                    # Basic filter to avoid noise
-                    dfp = dfp[dfp["p_over_num"] >= 0.55]
-                    # Sort best-first
-                    try:
-                        dfp = dfp.sort_values(["team_norm","p_over_num"], ascending=[True, False])
-                    except Exception:
-                        pass
-                    # Keep top few per team
-                    for tm in sorted(dfp["team_norm"].dropna().unique()):
-                        sub = dfp[dfp["team_norm"] == tm].head(5)
-                        lst = []
-                        for _, rr in sub.iterrows():
-                            lst.append({
-                                "player": rr.get("player"),
-                                "team": tm,
-                                "market": rr.get("market"),
-                                "line": None,
-                                "side": "Over",
-                                "ev": None,
-                                "p_over": float(rr.get("p_over_num")) if pd.notna(rr.get("p_over_num")) else None,
-                                "book": None,
-                                "price": None,
-                            })
-                        if lst:
-                            recs_by_team[tm] = lst
-                except Exception:
-                    pass
-        # Attach per-game lists (top N; balanced per team)
-        for r in rows:
-            try:
-                h_ab = str(r.get("home_abbr") or "").upper()
-                a_ab = str(r.get("away_abbr") or "").upper()
-                home_list = list(recs_by_team.get(h_ab, []))
-                away_list = list(recs_by_team.get(a_ab, []))
-
-                def _pick_over_under(lst: list[dict], n_total: int = 3, n_over: int = 2) -> list[dict]:
-                    try:
-                        n_total = int(n_total)
-                        n_over = int(n_over)
-                    except Exception:
-                        n_total, n_over = 3, 2
-                    n_total = max(0, n_total)
-                    n_over = max(0, min(n_over, n_total))
-                    n_under = max(0, n_total - n_over)
-
-                    overs: list[dict] = []
-                    unders: list[dict] = []
-                    other: list[dict] = []
-                    for it in lst:
-                        side = str((it or {}).get("side") or "").upper().strip()
-                        if side == "OVER":
-                            overs.append(it)
-                        elif side == "UNDER":
-                            unders.append(it)
-                        else:
-                            other.append(it)
-                    picked: list[dict] = []
-                    picked.extend(overs[:n_over])
-                    picked.extend(unders[:n_under])
-                    # Fill remaining slots, preserving original ordering as much as possible
-                    if len(picked) < n_total:
-                        for it in (overs[n_over:] + unders[n_under:] + other):
-                            if len(picked) >= n_total:
-                                break
-                            if it not in picked:
-                                picked.append(it)
-                    return picked[:n_total]
-
-                # Take top per team (compact) with Over/Under emphasis
-                top_per_team = 3
-                home_top = _pick_over_under(home_list, n_total=top_per_team, n_over=2)
-                away_top = _pick_over_under(away_list, n_total=top_per_team, n_over=2)
-                # Combined list capped
-                combined = []
-                combined.extend(home_top)
-                combined.extend(away_top)
-                r["props_top_home"] = home_top
-                r["props_top_away"] = away_top
-                r["props_top"] = combined
-            except Exception:
-                r["props_top_home"] = []
-                r["props_top_away"] = []
-                r["props_top"] = []
-    except Exception:
-        # Silent failure; props section is optional
-        pass
-    # Attach projected player box scores (from sim boxscores per player, period 0 totals)
-    try:
-        box_path = PROC_DIR / f"props_boxscores_sim_{date}.csv"
-        df_box = _read_csv_fallback(box_path) if box_path.exists() else pd.DataFrame()
-        if df_box is not None and not df_box.empty:
-            try:
-                db = df_box.copy()
-                # keep totals (period 0)
-                if "period" in db.columns:
-                    db = db[db["period"].fillna(0).astype(int) == 0]
-                # Optional enrichment: positions from roster_master + cache for F → C/L/R
-                pos_by_id = {}
-                try:
-                    roster_path = PROC_DIR / "roster_master.csv"
-                    if roster_path.exists():
-                        rmt = _read_csv_fallback(roster_path)
-                        if rmt is not None and not rmt.empty and {"player_id","position"}.issubset(set(rmt.columns)):
-                            for _, rr0 in rmt.iterrows():
-                                try:
-                                    pid = rr0.get("player_id")
-                                    pos = rr0.get("position")
-                                    if pid is not None and pd.notna(pid) and isinstance(pid, (int, np.integer)):
-                                        pos_by_id[int(pid)] = str(pos or "").strip()
-                                except Exception:
-                                    pass
-                except Exception:
-                    pos_by_id = {}
-                pos_cache = {}
-                try:
-                    cache_path = PROC_DIR / "props_positions_cache.json"
-                    if cache_path.exists():
-                        with open(cache_path, "r", encoding="utf-8") as fh:
-                            pos_cache = json.load(fh) or {}
-                except Exception:
-                    pos_cache = {}
-                # Build estimated skater TOI (minutes) from co-TOI pairs for the slate
-                # Store under multiple name keys to improve matching (e.g., "J. Smith" and "John Smith")
-                est_toi_by_player_name: Dict[str, float] = {}
-                def _name_keys(full: str) -> list[str]:
-                    try:
-                        full = str(full or "").strip()
-                        if not full:
-                            return []
-                        parts = full.split()
-                        keys = [full]
-                        if len(parts) >= 2:
-                            ini_key = f"{parts[0][0]}. {parts[-1]}"
-                            keys.append(ini_key)
-                        return list(dict.fromkeys([k.strip() for k in keys if k and k.strip()]))
-                    except Exception:
-                        return [str(full or "").strip()]
-                try:
-                    co_path = PROC_DIR / f"lineups_co_toi_{date}.csv"
-                    if co_path.exists():
-                        df_co = _read_csv_fallback(co_path)
-                        if df_co is not None and not df_co.empty:
-                            # Optional: build id->name map from roster snapshots
-                            id_to_name: Dict[int, str] = {}
-                            try:
-                                # Prefer date-stamped snapshot; fallback to roster_{date} then roster_master
-                                for cand in [PROC_DIR / f"roster_snapshot_{date}.csv", PROC_DIR / f"roster_{date}.csv", PROC_DIR / "roster_master.csv"]:
-                                    if cand.exists():
-                                        rdf = _read_csv_fallback(cand)
-                                        if rdf is not None and not rdf.empty and "player_id" in rdf.columns:
-                                            for _, rr_ in rdf.iterrows():
-                                                try:
-                                                    pid = rr_.get("player_id")
-                                                    nm = rr_.get("full_name") or rr_.get("player")
-                                                    if pid is not None and pd.notna(pid) and nm and pd.notna(nm):
-                                                        id_to_name[int(pid)] = str(nm).strip()
-                                                except Exception:
-                                                    pass
-                                            if id_to_name:
-                                                break
-                            except Exception:
-                                id_to_name = {}
-                            def _get_name(rr_: pd.Series, keys: list[str]) -> Optional[str]:
-                                try:
-                                    for k in keys:
-                                        v = rr_.get(k)
-                                        if v is not None and pd.notna(v):
-                                            s = str(v).strip()
-                                            if s:
-                                                return s
-                                except Exception:
-                                    pass
-                                return None
-                            def _get_min(rr_: pd.Series) -> Optional[float]:
-                                for k in ["co_toi_min","co_toi_minutes","toi_min","ev_toi_min","co_toi_ev","ev_co_toi_min"]:
-                                    try:
-                                        v = rr_.get(k)
-                                        if v is not None and pd.notna(v):
-                                            return float(v)
-                                    except Exception:
-                                        pass
-                                for k in ["co_toi_sec","co_toi_seconds","toi_sec","ev_toi_sec"]:
-                                    try:
-                                        v = rr_.get(k)
-                                        if v is not None and pd.notna(v):
-                                            return float(v) / 60.0
-                                    except Exception:
-                                        pass
-                                return None
-                            for _, rr0 in df_co.iterrows():
-                                try:
-                                    m = _get_min(rr0)
-                                    if m is None or m <= 0:
-                                        continue
-                                    n1 = _get_name(rr0, ["p1_name","player1","p1","player_a","name_a","skater_a"]) or _get_name(rr0, ["name1","a_name"]) 
-                                    n2 = _get_name(rr0, ["p2_name","player2","p2","player_b","name_b","skater_b"]) or _get_name(rr0, ["name2","b_name"]) 
-                                    # If names are missing but ids are present, resolve via id_to_name
-                                    if (not n1) and ("player_id_a" in rr0 and pd.notna(rr0.get("player_id_a"))):
-                                        try:
-                                            n1 = id_to_name.get(int(float(rr0.get("player_id_a"))))
-                                        except Exception:
-                                            n1 = n1
-                                    if (not n2) and ("player_id_b" in rr0 and pd.notna(rr0.get("player_id_b"))):
-                                        try:
-                                            n2 = id_to_name.get(int(float(rr0.get("player_id_b"))))
-                                        except Exception:
-                                            n2 = n2
-                                    for nm in [n1, n2]:
-                                        if nm:
-                                            for key in _name_keys(nm):
-                                                prev = est_toi_by_player_name.get(key)
-                                                est_toi_by_player_name[key] = max(float(prev or 0.0), float(m))
-                                except Exception:
-                                    pass
-                except Exception:
-                    est_toi_by_player_name = {}
-                # normalize team abbrs for matching
-                def _abbr(x):
-                    try:
-                        return (get_team_assets(str(x)).get("abbr") or "").upper()
-                    except Exception:
-                        return ""
-                # Iterate game rows and assign top players per side
-                for r in rows:
-                    h = str(r.get("home") or ""); a = str(r.get("away") or "")
-                    if not h or not a:
-                        r["box_home"] = []; r["box_away"] = []
-                        r["box_home_dressed"] = []; r["box_home_undressed"] = []
-                        r["box_away_dressed"] = []; r["box_away_undressed"] = []
-                        continue
-                    # match game context columns if present
-                    sub = db.copy()
-                    if {"game_home","game_away"}.issubset(sub.columns):
-                        try:
-                            sub = sub[(sub["game_home"].astype(str)==h) & (sub["game_away"].astype(str)==a)]
-                        except Exception:
-                            pass
-                    # Split by team abbr
-                    h_ab = (r.get("home_abbr") or _abbr(h)).upper()
-                    a_ab = (r.get("away_abbr") or _abbr(a)).upper()
-                    def _fmt_row(rr: pd.Series) -> dict:
-                        def _f(k):
-                            try:
-                                v = rr.get(k)
-                                return float(v) if v is not None and pd.notna(v) else None
-                            except Exception:
-                                return None
-                        def _is_dressed(rr_: pd.Series) -> bool:
-                            try:
-                                v = rr_.get("is_dressed")
-                                if v is None or (isinstance(v, float) and pd.isna(v)):
-                                    return True
-                                return bool(int(float(v)) == 1)
-                            except Exception:
-                                return True
-                        def _pos_for(rr_: pd.Series) -> Optional[str]:
-                            # 1) roster-master by player_id
-                            try:
-                                pid = rr_.get("player_id")
-                                if pid is not None and pd.notna(pid):
-                                    try:
-                                        pid_i = int(pid)
-                                        p = pos_by_id.get(pid_i)
-                                        if p:
-                                            # If generic F, attempt refine via cache
-                                            if str(p).upper() == "F":
-                                                nm = str(rr_.get("player") or "").strip()
-                                                if nm:
-                                                    parts = nm.split()
-                                                    if len(parts) >= 2:
-                                                        key = f"{parts[0][0]}. {parts[-1]}"
-                                                        p2 = pos_cache.get(key)
-                                                        if p2:
-                                                            return str(p2).upper()
-                                            return str(p).upper()
-                                    except Exception:
-                                        pass
-                            except Exception:
-                                pass
-                            # 2) heuristic: goalie if saves field present
-                            try:
-                                sv = rr_.get("saves")
-                                if sv is not None and pd.notna(sv):
-                                    return "G"
-                            except Exception:
-                                pass
-                            return None
-                        d = {
-                            "player": rr.get("player") or rr.get("player_id"),
-                            "shots": _f("shots"),
-                            "goals": _f("goals"),
-                            "assists": _f("assists"),
-                            "points": _f("points"),
-                            "blocks": _f("blocks"),
-                            "saves": _f("saves"),
-                            "toi": _f("toi_sec"),
-                            "pos": _pos_for(rr),
-                            "is_dressed": _is_dressed(rr),
-                        }
-                        # convert TOI seconds to minutes for display
-                        try:
-                            orig_min = None
-                            if d["toi"] is not None:
-                                try:
-                                    orig_min = round(float(d["toi"]) / 60.0, 1)
-                                except Exception:
-                                    orig_min = None
-                            # Undressed: force 0 TOI in display
-                            if not d.get("is_dressed", True):
-                                d["toi_min"] = 0.0
-                            # Goalies: show original TOI (often ~60m)
-                            elif (d.get("pos") or "") == "G":
-                                d["toi_min"] = orig_min
-                            else:
-                                # Skaters: prefer estimated TOI from co-TOI mapping (match on multiple name keys), else fall back to sim-derived minutes
-                                nm = str(d.get("player") or "").strip()
-                                est = None
-                                try:
-                                    for key in _name_keys(nm):
-                                        v = est_toi_by_player_name.get(key)
-                                        if v is not None and v > 0:
-                                            est = float(v)
-                                            break
-                                except Exception:
-                                    est = None
-                                # Prefer sim-derived TOI when present; only fall back to estimate when missing/zero
-                                if orig_min is not None and orig_min > 0:
-                                    d["toi_min"] = orig_min
-                                else:
-                                    d["toi_min"] = float(est) if (est is not None and est > 0) else orig_min
-                            # Add clock format mm:ss for TOI
-                            try:
-                                def _fmt_clock(mins: float | None) -> str | None:
-                                    try:
-                                        if mins is None:
-                                            return None
-                                        m = int(mins)
-                                        s = int(round((float(mins) - float(m)) * 60.0))
-                                        if s >= 60:
-                                            m += 1
-                                            s = 0
-                                        return f"{m}:{s:02d}"
-                                    except Exception:
-                                        return None
-                                d["toi_clock"] = _fmt_clock(d.get("toi_min"))
-                            except Exception:
-                                d["toi_clock"] = None
-                        except Exception:
-                            pass
-                        return d
-                    side_col = "team" if "team" in sub.columns else None
-                    home_rows = []
-                    away_rows = []
-                    if side_col:
-                        try:
-                            tmp = sub.copy()
-                            # Map team names to abbreviations for reliable matching
-                            def _to_abbr(val: Any) -> str:
-                                try:
-                                    return (get_team_assets(str(val)).get("abbr") or "").upper()
-                                except Exception:
-                                    return ""
-                            try:
-                                tmp["team_abbr"] = tmp[side_col].apply(_to_abbr)
-                            except Exception:
-                                tmp["team_abbr"] = ""
-                            home_rows = tmp[tmp["team_abbr"] == h_ab]
-                            away_rows = tmp[tmp["team_abbr"] == a_ab]
-                            # Fallback: if abbr mapping failed, try full-name equality (case-insensitive)
-                            if (isinstance(home_rows, pd.DataFrame) and home_rows.empty) and (isinstance(away_rows, pd.DataFrame) and away_rows.empty):
-                                home_rows = sub[sub[side_col].astype(str).str.upper() == str(h).upper()]
-                                away_rows = sub[sub[side_col].astype(str).str.upper() == str(a).upper()]
-                            # Filter to players in roster_master for this team when available to avoid cross-team artifacts
-                            # Apply this only if the roster slice looks plausible to avoid issues when the cache is stale/corrupted.
-                            try:
-                                roster_path = PROC_DIR / "roster_master.csv"
-                                if roster_path.exists():
-                                    rm = _read_csv_fallback(roster_path)
-                                    if rm is not None and not rm.empty:
-                                        rm = rm.copy()
-                                        col_ab = 'team_abbr' if 'team_abbr' in rm.columns else ('team' if 'team' in rm.columns else None)
-                                        if col_ab:
-                                            rm_h = rm[rm[col_ab].astype(str).str.upper() == h_ab]
-                                            rm_a = rm[rm[col_ab].astype(str).str.upper() == a_ab]
-                                            # Plausibility guard: skip filtering if slices look wrong
-                                            def _plausible(df_team: pd.DataFrame) -> bool:
-                                                try:
-                                                    n = int(len(df_team))
-                                                    return 8 <= n <= 35
-                                                except Exception:
-                                                    return False
-                                            do_filter_h = _plausible(rm_h)
-                                            do_filter_a = _plausible(rm_a)
-                                            if do_filter_h:
-                                                valid_h_ids = set([int(x) for x in rm_h['player_id'].dropna().astype(int).tolist()]) if 'player_id' in rm_h.columns else set()
-                                                valid_h_names = set([str(x).strip() for x in rm_h.get('player', rm_h.get('full_name', pd.Series([]))).dropna().astype(str).tolist()])
-                                                def _filter(df_):
-                                                    try:
-                                                        df_ = df_.copy()
-                                                        if 'player_id' in df_.columns:
-                                                            df_ = df_[df_['player_id'].astype(str).isin(set([str(i) for i in valid_h_ids])) | df_['player'].astype(str).isin(valid_h_names)]
-                                                        else:
-                                                            df_ = df_[df_['player'].astype(str).isin(valid_h_names)]
-                                                    except Exception:
-                                                        pass
-                                                    return df_
-                                                home_rows = _filter(home_rows)
-                                            if do_filter_a:
-                                                valid_a_ids = set([int(x) for x in rm_a['player_id'].dropna().astype(int).tolist()]) if 'player_id' in rm_a.columns else set()
-                                                valid_a_names = set([str(x).strip() for x in rm_a.get('player', rm_a.get('full_name', pd.Series([]))).dropna().astype(str).tolist()])
-                                                def _filter(df_):
-                                                    try:
-                                                        df_ = df_.copy()
-                                                        if 'player_id' in df_.columns:
-                                                            df_ = df_[df_['player_id'].astype(str).isin(set([str(i) for i in valid_a_ids])) | df_['player'].astype(str).isin(valid_a_names)]
-                                                        else:
-                                                            df_ = df_[df_['player'].astype(str).isin(valid_a_names)]
-                                                    except Exception:
-                                                        pass
-                                                    return df_
-                                                away_rows = _filter(away_rows)
-                            except Exception:
-                                pass
-                        except Exception:
-                            home_rows = sub.head(0); away_rows = sub.head(0)
-                    else:
-                        # no team tag; heuristic split by player/team enrichment not available: skip
-                        home_rows = sub.head(0); away_rows = sub.head(0)
-                    # Sort by projected TOI then points then shots for skaters; goalies bubble up by saves
-                    def _sort_df(df_):
-                        try:
-                            df_ = df_.copy()
-                            # create helper columns if missing
-                            for c in ["toi_sec","points","shots","saves"]:
-                                if c not in df_.columns:
-                                    df_[c] = 0
-                            return df_.sort_values(["toi_sec","points","shots","saves"], ascending=[False, False, False, False])
-                        except Exception:
-                            return df_
-                    home_rows = _sort_df(home_rows)
-                    away_rows = _sort_df(away_rows)
-                    # Split dressed vs undressed when is_dressed is present
-                    def _split(df_: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
-                        try:
-                            if df_ is None or df_.empty:
-                                return df_.head(0), df_.head(0)
-                            if "is_dressed" not in df_.columns:
-                                return df_, df_.head(0)
-                            dd = df_[df_["is_dressed"].fillna(1).astype(float).astype(int) == 1]
-                            uu = df_[df_["is_dressed"].fillna(1).astype(float).astype(int) != 1]
-                            return dd, uu
-                        except Exception:
-                            return df_, df_.head(0)
-                    home_dressed, home_undressed = _split(home_rows)
-                    away_dressed, away_undressed = _split(away_rows)
-                    # Keep legacy keys for compatibility
-                    r["box_home"] = [ _fmt_row(rr) for _, rr in home_rows.iterrows() ]
-                    r["box_away"] = [ _fmt_row(rr) for _, rr in away_rows.iterrows() ]
-                    r["box_home_dressed"] = [ _fmt_row(rr) for _, rr in home_dressed.iterrows() ]
-                    r["box_away_dressed"] = [ _fmt_row(rr) for _, rr in away_dressed.iterrows() ]
-                    # Undressed: default alphabetical, show as names-only in UI
-                    try:
-                        home_undressed = home_undressed.sort_values(["player"], ascending=[True]) if (home_undressed is not None and not home_undressed.empty and "player" in home_undressed.columns) else home_undressed
-                    except Exception:
-                        pass
-                    try:
-                        away_undressed = away_undressed.sort_values(["player"], ascending=[True]) if (away_undressed is not None and not away_undressed.empty and "player" in away_undressed.columns) else away_undressed
-                    except Exception:
-                        pass
-                    r["box_home_undressed"] = [ _fmt_row(rr) for _, rr in home_undressed.iterrows() ]
-                    r["box_away_undressed"] = [ _fmt_row(rr) for _, rr in away_undressed.iterrows() ]
-            except Exception:
-                # On any failure, ensure keys exist
-                for r in rows:
-                    r["box_home"] = r.get("box_home") or []
-                    r["box_away"] = r.get("box_away") or []
-                    r["box_home_dressed"] = r.get("box_home_dressed") or []
-                    r["box_home_undressed"] = r.get("box_home_undressed") or []
-                    r["box_away_dressed"] = r.get("box_away_dressed") or []
-                    r["box_away_undressed"] = r.get("box_away_undressed") or []
-        else:
-            for r in rows:
-                r["box_home"] = []
-                r["box_away"] = []
-                r["box_home_dressed"] = []
-                r["box_home_undressed"] = []
-                r["box_away_dressed"] = []
-                r["box_away_undressed"] = []
-    except Exception:
-        for r in rows:
-            r["box_home"] = r.get("box_home") or []
-            r["box_away"] = r.get("box_away") or []
-            r["box_home_dressed"] = r.get("box_home_dressed") or []
-            r["box_home_undressed"] = r.get("box_home_undressed") or []
-            r["box_away_dressed"] = r.get("box_away_dressed") or []
-            r["box_away_undressed"] = r.get("box_away_undressed") or []
-    html = template.render(
-        date=date,
-        original_date=requested_date,
-        rows=rows,
-        note=note_msg,
-        live_now=live_now,
-        settled=settled,
-        last_updates=lu,
-    )
-    return HTMLResponse(content=html)
-
-
-    
-
-
 @app.get("/api/cards/debug-game")
 async def api_cards_debug_game(
     date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD (ET)"),
@@ -6495,28 +6051,10 @@ async def api_cron_overview(date: Optional[str] = Query(None), window: int = Que
     return JSONResponse({"date": d, "days": days, "artifacts": artifacts, "jobs": jobs, "commit": _git_commit_hash()})
 
 
-@app.get("/cron")
+@app.get("/cron", include_in_schema=False)
 async def cron_dashboard(date: Optional[str] = Query(None), window: int = Query(1)):
     """HTML dashboard summarizing artifacts and recent cron runs for quick verification."""
-    d = _normalize_date_param(date)
-    # Reuse API to assemble data
-    resp = await api_cron_overview(date=d, window=window)
-    payload = {}
-    if isinstance(resp, JSONResponse):
-        try:
-            import json as _json
-            payload = _json.loads(resp.body)
-        except Exception:
-            payload = {"date": d, "days": [], "artifacts": {}, "jobs": []}
-    template = env.get_template("cron.html")
-    html = template.render(
-        date=payload.get("date", d),
-        days=payload.get("days", []),
-        artifacts=payload.get("artifacts", {}),
-        jobs=payload.get("jobs", []),
-        commit=payload.get("commit"),
-    )
-    return HTMLResponse(content=html)
+    return PlainTextResponse("cards-only UI: this page has been removed", status_code=404)
 
 @app.get('/api/version')
 async def api_version():
@@ -6557,7 +6095,7 @@ async def api_routes():
     commit_val = (_git_commit_hash() or '')[:12]
     return {"commit": commit_val, "count": len(out), "routes": out[:200], "deprecated": True}
 
-@app.get("/props/all")
+@app.get("/props/all", include_in_schema=False)
 async def props_all_players_page(
     request: Request,
     date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD (ET)"),
@@ -6572,339 +6110,7 @@ async def props_all_players_page(
     page_size: Optional[int] = Query(None, description="Rows per page (server-side pagination); defaults to PROPS_PAGE_SIZE env or 250"),
     source: Optional[str] = Query(None, description="Data source: merged (default) or recs for recommendations only"),
 ):
-    # Ultra-fast synthetic short-circuit for local smoke tests (never on public hosts)
-    if os.getenv('FAST_PROPS_TEST','0') == '1':
-        try:
-            client_host = getattr(request.client, 'host', '') or ''
-            header_host = (request.headers.get('host') or '').lower()
-            # Allow only for local/test contexts
-            is_local = client_host in ('127.0.0.1','::1','localhost','testserver','testclient') \
-                        or header_host.startswith('127.0.0.1') \
-                        or header_host.startswith('localhost')
-        except Exception:
-            is_local = False
-        if is_local:
-            t0 = time.perf_counter()
-            try:
-                ps = page_size or 10
-                synth_rows = [
-                    {"player":"Test Player A","team":"AAA","market":"Shots","proj_lambda":2.1},
-                    {"player":"Test Player B","team":"BBB","market":"Goals","proj_lambda":0.4},
-                    {"player":"Test Player C","team":"CCC","market":"Assists","proj_lambda":0.7},
-                    {"player":"Test Player D","team":"DDD","market":"Points","proj_lambda":1.2},
-                ][:ps]
-                # Minimal HTML (avoid Jinja template cost)
-                rows_html = "".join(f"<tr><td>{r['player']}</td><td>{r['team']}</td><td>{r['market']}</td><td>{r['proj_lambda']}</td></tr>" for r in synth_rows)
-                html = f"""
-<!DOCTYPE html><html><head><meta charset='utf-8'><title>Props FAST TEST</title></head>
-<body><h3>FAST_PROPS_TEST Synthetic Props (page {page})</h3>
-<table border='1' cellpadding='4'><thead><tr><th>Player</th><th>Team</th><th>Market</th><th>Lambda</th></tr></thead>
-<tbody>{rows_html}</tbody></table>
-<p>Total synthetic rows: {len(synth_rows)} | Render time: {{round((time.perf_counter()-t0)*1000,2)}} ms</p>
-</body></html>"""
-                # Evaluate the timing expression now
-                rt = round((time.perf_counter()-t0)*1000,2)
-                html = html.replace('{round((time.perf_counter()-t0)*1000,2)}', str(rt))
-                try:
-                    if os.getenv('PROPS_VERBOSE','0') == '1':
-                        print(json.dumps({"event":"props_fast_stub","dur_ms":rt,"rows":len(synth_rows)}))
-                except Exception:
-                    pass
-                return HTMLResponse(content=html, headers={"X-Cache":"BYPASS","X-Fast":"1"})
-            except Exception as e:
-                return HTMLResponse(content=f"<pre>FAST_PROPS_TEST error: {e}</pre>", status_code=500)
-
-    t0 = time.perf_counter()
-    d_requested = _normalize_date_param(date)
-    used_date = d_requested
-    # Resolve page_size (env override)
-    try:
-        if os.getenv('FAST_PROPS_TEST','0') == '1':
-            default_ps = 10
-        else:
-            default_ps = int(os.getenv('PROPS_PAGE_SIZE', '250'))
-    except Exception:
-        default_ps = 250
-    if not page_size or page_size <= 0:
-        page_size = default_ps
-    else:
-        try:
-            cap_ps = int(os.getenv('PROPS_PAGE_SIZE', '0'))
-            if cap_ps and page_size > cap_ps:
-                page_size = cap_ps
-        except Exception:
-            pass
-    if page <= 0:
-        page = 1
-    cache_key = ("props_all_html", d_requested, str(team or '').upper(), str(game or '').upper(), str(market or '').upper(), sort or 'name', float(min_ev or 0), int(top), int(page), int(page_size), str(source or 'merged'))
-    if not nocache:
-        cached = _cache_get(cache_key)
-        if cached is not None:
-            return HTMLResponse(content=cached, headers={"X-Cache": "HIT"})
-    # Load / compute
-    t_load_start = time.perf_counter()
-    # CSV-only policy for public host to keep route light
-    df = None
-    if _is_public_host_env():
-        try:
-            p = PROC_DIR / f"props_projections_all_{d_requested}.csv"
-            if p.exists():
-                df = _read_csv_fallback(p)
-            if (df is None or df.empty):
-                # GitHub recent fallback with bounded lookback and short timeout
-                from datetime import datetime as _dt2, timedelta as _td2
-                base = _dt2.strptime(d_requested, "%Y-%m-%d")
-                # Expand lookback/timeout slightly to avoid transient cache misses on public host
-                for i in range(0, _gh_lookback_days(default_public=3)):
-                    d_try = (base - _td2(days=i)).strftime("%Y-%m-%d")
-                    gh_df = _github_raw_read_csv(
-                        f"data/processed/props_projections_all_{d_try}.csv",
-                        timeout_sec=4.0,
-                        attempts=2,
-                    )
-                    if gh_df is not None and not gh_df.empty and not _looks_like_synthetic_props(gh_df):
-                        df = gh_df; used_date = d_try; break
-        except Exception:
-            df = None
-    else:
-        df = _read_all_players_projections(d_requested)
-    # Attempt to load recommendations (lines + probabilities + EV)
-    rec_df = None
-    try:
-        rec_path = PROC_DIR / f"props_recommendations_{d_requested}.csv"
-        if rec_path.exists():
-            rec_df = _read_csv_fallback(rec_path)
-        # Always attempt GitHub fallback for recs if not found locally; safe for public hosts
-        if (rec_df is None or rec_df.empty):
-            rec_df = _github_raw_read_csv(
-                f"data/processed/props_recommendations_{d_requested}.csv",
-                timeout_sec=(4.0 if _is_public_host_env() else 7.0),
-                attempts=(2 if _is_public_host_env() else 2),
-            )
-    except Exception:
-        rec_df = None
-    notice = None
-    if df is None or df.empty:
-        # Always attempt GitHub recent fallback first (last 7 days), regardless of read-only flag
-        try:
-            from datetime import datetime as _dt2, timedelta as _td2
-            base = _dt2.strptime(d_requested, "%Y-%m-%d")
-            df_found = None; d_found = None
-            for i in range(0, _gh_lookback_days(default_public=3, default_local=7)):
-                d_try = (base - _td2(days=i)).strftime("%Y-%m-%d")
-                gh_df = _github_raw_read_csv(
-                    f"data/processed/props_projections_all_{d_try}.csv",
-                    timeout_sec=(4.0 if _is_public_host_env() else 7.0),
-                    attempts=(2 if _is_public_host_env() else 2),
-                )
-                if gh_df is not None and not gh_df.empty and not _looks_like_synthetic_props(gh_df):
-                    df_found = gh_df; d_found = d_try; break
-            if df_found is not None:
-                df = df_found; used_date = d_found
-                if used_date != d_requested:
-                    notice = f"No data for {d_requested}. Showing latest available model-only projections from {used_date}."
-        except Exception:
-            pass
-        # If still empty and we're on a public host, avoid heavy on-demand compute to prevent timeouts
-        if (df is None or df.empty) and _is_public_host_env():
-            df = pd.DataFrame(); notice = notice or f"No model-only projections available for {d_requested}."
-        elif df is None or df.empty:
-            # Local/dev compute path
-            try:
-                df = _compute_all_players_projections(d_requested)
-                if df is not None and not df.empty:
-                    out_path = PROC_DIR / f"props_projections_all_{d_requested}.csv"
-                    save_df(df, out_path)
-                    _gh_upsert_file_if_better_or_same(out_path, f"web: update props projections ALL for {d_requested}")
-            except Exception:
-                df = pd.DataFrame()
-    t_load = time.perf_counter() - t_load_start
-    # Filter / sort
-    t_filter_start = time.perf_counter()
-    teams = []
-    games_options: list[str] = []
-    try:
-        if df is not None and not df.empty and 'team' in df.columns:
-            teams = sorted({str(x).upper() for x in df['team'].dropna().unique().tolist() if str(x).strip()})
-    except Exception:
-        teams = []
-    # Build slate game options AWY@HOME from NHL Web API schedule for the (possibly substituted) used_date
-    try:
-        client = NHLWebClient()
-        gms = client.schedule_day(used_date)
-        opts = []
-        for g in gms or []:
-            try:
-                ha = get_team_assets(str(getattr(g, 'home', ''))) or {}
-                aa = get_team_assets(str(getattr(g, 'away', ''))) or {}
-                hab = (ha.get('abbr') or '').upper()
-                aab = (aa.get('abbr') or '').upper()
-                if hab and aab:
-                    opts.append(f"{aab}@{hab}")
-            except Exception:
-                continue
-        games_options = sorted(list({o for o in opts if o}))
-    except Exception:
-        games_options = []
-    # Merge model-only projections with recommendations if available
-    display_df = None
-    try:
-        display_df = df
-        if rec_df is not None and not rec_df.empty:
-            tmp_rec = rec_df.copy()
-            rename_map = {"proj": "proj_lambda", "ev": "ev", "p_over": "p_over"}
-            for k,v in rename_map.items():
-                if k in tmp_rec.columns and v not in tmp_rec.columns:
-                    tmp_rec.rename(columns={k:v}, inplace=True)
-            if df is not None and not df.empty and 'team' in df.columns:
-                model_map = {}
-                try:
-                    model_map = {(str(r.player).lower(), str(r.market).upper()): r.team for r in df.itertuples()}
-                except Exception:
-                    model_map = {}
-                if 'team' in tmp_rec.columns:
-                    tmp_rec['team'] = tmp_rec.apply(lambda r: (r['team'] if str(r['team']).strip() else model_map.get((str(r['player']).lower(), str(r['market']).upper()), '')) , axis=1)
-            if (source or '').lower() == 'recs':
-                display_df = tmp_rec
-            else:
-                display_df = tmp_rec  # show recs (with EV) instead of raw projections when available
-    except Exception:
-        display_df = df
-
-    total_rows = 0
-    filtered_rows = 0
-    if display_df is not None and not display_df.empty:
-        try:
-            display_df['player'] = display_df['player'].astype(str).map(_clean_player_display_name)
-        except Exception:
-            pass
-        total_rows = len(display_df)
-        if team:
-            su = str(team).upper()
-            try:
-                display_df = display_df[display_df['team'].astype(str).str.upper() == su]
-            except Exception:
-                pass
-        if game:
-            try:
-                g = str(game).upper()
-                if '@' in g:
-                    a, h = g.split('@', 1)
-                    ab_set = {a.strip(), h.strip()}
-                    display_df = display_df[display_df['team'].astype(str).str.upper().isin(ab_set)]
-            except Exception:
-                pass
-        if market:
-            try:
-                display_df = display_df[display_df['market'].astype(str).str.upper() == str(market).upper()]
-            except Exception:
-                pass
-        # Min EV filter (applies if we have ev field)
-        if 'ev' in display_df.columns and (min_ev or 0) > 0:
-            try:
-                display_df = display_df[display_df['ev'].astype(float) >= float(min_ev)]
-            except Exception:
-                pass
-        key = (sort or 'name').lower(); ascending = True; col = None
-        if key in ('lambda_desc','lambda_asc'):
-            col = 'proj_lambda'; ascending = (key == 'lambda_asc')
-        elif key in ('lambda_eff_desc','lambda_eff_asc'):
-            col = 'proj_lambda_eff'; ascending = (key == 'lambda_eff_asc')
-        elif key in ('p_over_desc','p_over_asc'):
-            col = 'p_over'; ascending = (key == 'p_over_asc')
-        elif key in ('ev_desc','ev_asc'):
-            col = 'ev'; ascending = (key == 'ev_asc')
-        elif key in ('market','team','player','line','book'):
-            col = key
-        # Respect env cap to keep memory/render bounded (e.g., PROPS_MAX_ROWS=10000)
-        try:
-            env_cap = int(os.getenv('PROPS_MAX_ROWS', '0'))
-        except Exception:
-            env_cap = 0
-        effective_top = int(top) if (top and top > 0) else None
-        if env_cap and (effective_top is None or env_cap < effective_top):
-            effective_top = env_cap
-        # Partial sort for numeric columns to avoid full-frame sort memory spikes
-        if col and col in display_df.columns and effective_top and col in ('proj_lambda','proj_lambda_eff','p_over','ev'):
-            try:
-                s = pd.to_numeric(display_df[col], errors='coerce')
-                k = min(len(display_df), int(effective_top))
-                if k > 0:
-                    if ascending:
-                        display_df = display_df.iloc[s.nsmallest(k).index]
-                    else:
-                        display_df = display_df.iloc[s.nlargest(k).index]
-                    # For consistent order on page, do a final small sort of the trimmed subset
-                    display_df = display_df.sort_values(by=[col], ascending=ascending, na_position='last')
-            except Exception:
-                # Fallback to full sort then head (existing behavior)
-                try:
-                    display_df = display_df.sort_values(by=[col], ascending=ascending, na_position='last')
-                except Exception:
-                    pass
-                if effective_top:
-                    display_df = display_df.head(effective_top)
-        else:
-            # Non-numeric sorts: keep behavior but apply cap after sort
-            if col and col in display_df.columns:
-                try:
-                    display_df = display_df.sort_values(by=[col], ascending=ascending, na_position='last')
-                except Exception:
-                    pass
-            if effective_top:
-                display_df = display_df.head(effective_top)
-        filtered_rows = len(display_df)
-        # Pagination slice
-        if page_size:
-            total_pages = max(1, (filtered_rows + page_size - 1) // page_size)
-            if page > total_pages:
-                page = total_pages
-            start_idx = (page - 1) * page_size
-            end_idx = start_idx + page_size
-            display_df = display_df.iloc[start_idx:end_idx]
-        else:
-            total_pages = 1
-        # Conform row dict keys for template
-        rows = _df_jsonsafe_records(display_df)
-        for r in rows:
-            if 'ev_over' not in r and 'ev' in r:
-                r['ev_over'] = r.get('ev')
-    else:
-        total_pages = 0
-        rows = []
-    t_filter = time.perf_counter() - t_filter_start
-    # Render
-    t_render_start = time.perf_counter()
-    template = env.get_template("props_players.html")
-    html = template.render(
-        rows=rows,
-        market=market or "",
-    min_ev=min_ev,
-        top=top,
-        date=used_date,
-        team=team or "",
-        game=game or "",
-        teams=teams,
-        games=games_options,
-        sort=sort or 'name',
-        notice=notice,
-        download_href=f"/props/all.csv?date={used_date}",
-        page=page,
-        page_size=page_size,
-        total_rows=total_rows,
-        filtered_rows=filtered_rows,
-        total_pages=total_pages,
-        source=source or 'merged',
-        request=request,
-    )
-    t_render = time.perf_counter() - t_render_start
-    total = time.perf_counter() - t0
-    try:
-        print(json.dumps({"event": "props_all_perf", "date": d_requested, "dur_load": round(t_load,4), "dur_filter": round(t_filter,4), "dur_render": round(t_render,4), "dur_total": round(total,4), "rows": len(rows)}))
-    except Exception:
-        pass
-    _cache_put(cache_key, html)
-    return HTMLResponse(content=html, headers={"X-Cache": "MISS"})
+    return PlainTextResponse("cards-only UI: this page has been removed", status_code=404)
 
 @app.get('/api/props/all.json')
 async def api_props_all_players(
@@ -7077,417 +6283,103 @@ async def api_props_recommendations_history_json(
 ):
     d = _normalize_date_param(date)
     try:
-        base_date = datetime.strptime(d, '%Y-%m-%d').date()
+        base_date = datetime.strptime(d, "%Y-%m-%d").date()
     except Exception:
-        return JSONResponse({"error":"bad date"}, status_code=400)
-    hist_path = PROC_DIR / 'props_recommendations_history.csv'
+        return JSONResponse({"error": "bad date"}, status_code=400)
+
+    hist_path = PROC_DIR / "props_recommendations_history.csv"
     if not hist_path.exists():
-        return JSONResponse({"data": [], "total_rows": 0, "date": d})
+        return JSONResponse({"date": d, "data": [], "total_rows": 0})
+
     try:
         df = pd.read_csv(hist_path)
     except Exception:
-        return JSONResponse({"data": [], "total_rows": 0, "date": d})
-    if df.empty:
-        return JSONResponse({"data": [], "total_rows": 0, "date": d})
-    # Date filter
-    if 'date' in df.columns:
+        return JSONResponse({"date": d, "data": [], "total_rows": 0})
+
+    if df is None or df.empty:
+        return JSONResponse({"date": d, "data": [], "total_rows": 0})
+
+    # Normalize columns (historical files have had a few schema iterations)
+    if "proj" in df.columns and "proj_lambda" not in df.columns:
         try:
-            df['date'] = pd.to_datetime(df['date']).dt.date
-            start_date = base_date - timedelta(days=max(0, days))
-            df = df[(df['date'] >= start_date) & (df['date'] <= base_date)]
+            df = df.rename(columns={"proj": "proj_lambda"})
         except Exception:
             pass
-    # Column normalization
-    if 'proj' in df.columns and 'proj_lambda' not in df.columns:
-        try: df.rename(columns={'proj':'proj_lambda'}, inplace=True)
-        except Exception: pass
-    if 'ev' in df.columns and 'ev_over' not in df.columns:
-        try: df.rename(columns={'ev':'ev_over'}, inplace=True)
-        except Exception: pass
+    if "ev" in df.columns and "ev_over" not in df.columns:
+        try:
+            df = df.rename(columns={"ev": "ev_over"})
+        except Exception:
+            pass
+
+    # Date window filter (inclusive)
+    lookback_days = max(0, int(days))
+    start_date = base_date - timedelta(days=lookback_days)
+    end_date = base_date
+    if "date" in df.columns:
+        try:
+            df["date"] = pd.to_datetime(df["date"], errors="coerce").dt.date
+            df = df[df["date"].notna()]
+            df = df[(df["date"] >= start_date) & (df["date"] <= end_date)]
+        except Exception:
+            pass
+
     # Filters
-    # Market filter: ignore common 'All' sentinels
-    market_u = str(market or '').strip().upper()
-    if market_u and market_u not in ('ALL', 'ALL MARKETS', 'ANY') and 'market' in df.columns:
+    market_u = str(market or "").strip().upper()
+    if market_u and market_u not in ("ALL", "ALL MARKETS", "ANY") and "market" in df.columns:
         try:
-            df = df[df['market'].astype(str).str.upper() == market_u]
+            df = df[df["market"].astype(str).str.upper() == market_u]
         except Exception:
             pass
-    if player and 'player' in df.columns:
-        try: df = df[df['player'].astype(str).str.lower() == player.lower()]
-        except Exception: pass
-    if team and 'team' in df.columns:
-        try: df = df[df['team'].astype(str).str.upper() == team.upper()]
-        except Exception: pass
-    total_rows = len(df)
-    # Default sort: newest date then ev_over desc
-    if 'date' in df.columns:
+    if player and "player" in df.columns:
         try:
-            sort_cols = ['date']
-            ascending = [False]
-            if 'ev_over' in df.columns:
-                sort_cols.append('ev_over'); ascending.append(False)
-            df.sort_values(sort_cols, ascending=ascending, inplace=True)
+            df = df[df["player"].astype(str).str.casefold() == player.casefold()]
         except Exception:
             pass
-    if limit and limit > 0:
-        df = df.head(limit)
-    # Sanitize NaN / inf for JSON compliance
+    if team and "team" in df.columns:
+        try:
+            df = df[df["team"].astype(str).str.upper() == team.upper()]
+        except Exception:
+            pass
+
+    total_rows = int(len(df))
+    if total_rows == 0:
+        return JSONResponse({
+            "date": d,
+            "lookback_days": lookback_days,
+            "start_date": str(start_date),
+            "end_date": str(end_date),
+            "data": [],
+            "total_rows": 0,
+        })
+
+    # Default sort: newest date then EV desc
     try:
-        for c in df.columns:
-            if df[c].dtype.kind in ('f','i'):
-                try:
-                    df[c].replace([float('inf'), float('-inf')], pd.NA, inplace=True)
-                except Exception:
-                    pass
-        df = df.fillna(value={c: None for c in df.columns})
+        sort_cols = []
+        ascending = []
+        if "date" in df.columns:
+            sort_cols.append("date")
+            ascending.append(False)
+        ev_col = "ev_over" if "ev_over" in df.columns else ("ev" if "ev" in df.columns else None)
+        if ev_col:
+            sort_cols.append(ev_col)
+            ascending.append(False)
+        if sort_cols:
+            df = df.sort_values(sort_cols, ascending=ascending)
     except Exception:
         pass
+
+    if limit and limit > 0:
+        df = df.head(int(limit))
+
     rows = _df_jsonsafe_records(df)
-    # Extra defensive pass: ensure no non-finite floats slipped through
-    try:
-        import math as _math
-        for _, r in df.iterrows():
-            # Moneyline (only recommend model-favored side)
-            if "moneyline" in f_markets:
-                try:
-                    ph = float(r.get("p_home_ml")) if pd.notna(r.get("p_home_ml")) else None
-                    pa = float(r.get("p_away_ml")) if pd.notna(r.get("p_away_ml")) else None
-                except Exception:
-                    ph, pa = None, None
-                if ph is not None and pa is not None:
-                    if ph > pa:
-                        add_rec(r, "moneyline", "home_ml", "p_home_ml", "ev_home_ml", "edge_home_ml", "home_ml_odds", "home_ml_book")
-                    elif pa > ph:
-                        add_rec(r, "moneyline", "away_ml", "p_away_ml", "ev_away_ml", "edge_away_ml", "away_ml_odds", "away_ml_book")
-                    else:
-                        # Tie-break by higher EV
-                        try:
-                            evh = float(r.get("ev_home_ml")) if pd.notna(r.get("ev_home_ml")) else None
-                        except Exception:
-                            evh = None
-                        try:
-                            eva = float(r.get("ev_away_ml")) if pd.notna(r.get("ev_away_ml")) else None
-                        except Exception:
-                            eva = None
-                        if (evh is not None) and (eva is not None):
-                            if evh >= eva:
-                                add_rec(r, "moneyline", "home_ml", "p_home_ml", "ev_home_ml", "edge_home_ml", "home_ml_odds", "home_ml_book")
-                            else:
-                                add_rec(r, "moneyline", "away_ml", "p_away_ml", "ev_away_ml", "edge_away_ml", "away_ml_odds", "away_ml_book")
-                # If probabilities invalid, do nothing (avoid recommending against model)
-            # Totals: never bet against model — pick side with higher probability; tie-break EV
-            if "totals" in f_markets:
-                try:
-                    po = float(r.get("p_over")) if pd.notna(r.get("p_over")) else None
-                    pu = float(r.get("p_under")) if pd.notna(r.get("p_under")) else None
-                except Exception:
-                    po, pu = None, None
-                if (po is not None) and (pu is not None):
-                    if po > pu:
-                        add_rec(r, "totals", "over", "p_over", "ev_over", "edge_over", "over_odds", "over_book")
-                    elif pu > po:
-                        add_rec(r, "totals", "under", "p_under", "ev_under", "edge_under", "under_odds", "under_book")
-                    else:
-                        try:
-                            evo = float(r.get("ev_over")) if pd.notna(r.get("ev_over")) else None
-                        except Exception:
-                            evo = None
-                        try:
-                            evu = float(r.get("ev_under")) if pd.notna(r.get("ev_under")) else None
-                        except Exception:
-                            evu = None
-                        if (evo is not None) and (evu is not None):
-                            if evo >= evu:
-                                add_rec(r, "totals", "over", "p_over", "ev_over", "edge_over", "over_odds", "over_book")
-                            else:
-                                add_rec(r, "totals", "under", "p_under", "ev_under", "edge_under", "under_odds", "under_book")
-            # Puck line: pick side with higher prob; tie-break EV
-            if "puckline" in f_markets:
-                try:
-                    php = float(r.get("p_home_pl_-1.5")) if pd.notna(r.get("p_home_pl_-1.5")) else None
-                    pap = float(r.get("p_away_pl_+1.5")) if pd.notna(r.get("p_away_pl_+1.5")) else None
-                except Exception:
-                    php, pap = None, None
-                if (php is not None) and (pap is not None):
-                    if php > pap:
-                        add_rec(r, "puckline", "home_pl_-1.5", "p_home_pl_-1.5", "ev_home_pl_-1.5", "edge_home_pl_-1.5", "home_pl_-1.5_odds", "home_pl_-1.5_book")
-                    elif pap > php:
-                        add_rec(r, "puckline", "away_pl_+1.5", "p_away_pl_+1.5", "ev_away_pl_+1.5", "edge_away_pl_+1.5", "away_pl_+1.5_odds", "away_pl_+1.5_book")
-                    else:
-                        try:
-                            evhpl = float(r.get("ev_home_pl_-1.5")) if pd.notna(r.get("ev_home_pl_-1.5")) else None
-                        except Exception:
-                            evhpl = None
-                        try:
-                            evapl = float(r.get("ev_away_pl_+1.5")) if pd.notna(r.get("ev_away_pl_+1.5")) else None
-                        except Exception:
-                            evapl = None
-                        if (evhpl is not None) and (evapl is not None):
-                            if evhpl >= evapl:
-                                add_rec(r, "puckline", "home_pl_-1.5", "p_home_pl_-1.5", "ev_home_pl_-1.5", "edge_home_pl_-1.5", "home_pl_-1.5_odds", "home_pl_-1.5_book")
-                            else:
-                                add_rec(r, "puckline", "away_pl_+1.5", "p_away_pl_+1.5", "ev_away_pl_+1.5", "edge_away_pl_+1.5", "away_pl_+1.5_odds", "away_pl_+1.5_book")
-            # First 10 minutes: pick yes/no by higher prob; tie-break EV
-            if "first10" in f_markets:
-                try:
-                    py = float(r.get("p_f10_yes")) if pd.notna(r.get("p_f10_yes")) else None
-                    pn = float(r.get("p_f10_no")) if pd.notna(r.get("p_f10_no")) else None
-                except Exception:
-                    py, pn = None, None
-                if (py is not None) and (pn is not None):
-                    if py > pn:
-                        add_rec(r, "first10", "f10_yes", "p_f10_yes", "ev_f10_yes", "edge_f10_yes", "f10_yes_odds", None)
-                    elif pn > py:
-                        add_rec(r, "first10", "f10_no", "p_f10_no", "ev_f10_no", "edge_f10_no", "f10_no_odds", None)
-                    else:
-                        try:
-                            evy = float(r.get("ev_f10_yes")) if pd.notna(r.get("ev_f10_yes")) else None
-                        except Exception:
-                            evy = None
-                        try:
-                            evn = float(r.get("ev_f10_no")) if pd.notna(r.get("ev_f10_no")) else None
-                        except Exception:
-                            evn = None
-                        if (evy is not None) and (evn is not None):
-                            if evy >= evn:
-                                add_rec(r, "first10", "f10_yes", "p_f10_yes", "ev_f10_yes", "edge_f10_yes", "f10_yes_odds", None)
-                            else:
-                                add_rec(r, "first10", "f10_no", "p_f10_no", "ev_f10_no", "edge_f10_no", "f10_no_odds", None)
-            # Period totals (P1..P3): pick side by higher prob; tie-break EV
-            if "periods" in f_markets:
-                for pn in (1, 2, 3):
-                    try:
-                        pov = float(r.get(f"p{pn}_over_prob")) if pd.notna(r.get(f"p{pn}_over_prob")) else None
-                        pun = float(r.get(f"p{pn}_under_prob")) if pd.notna(r.get(f"p{pn}_under_prob")) else None
-                    except Exception:
-                        pov, pun = None, None
-                    if (pov is not None) and (pun is not None):
-                        if pov > pun:
-                            add_rec(r, "periods", f"p{pn}_over", f"p{pn}_over_prob", f"ev_p{pn}_over", None, f"p{pn}_over_odds", None)
-                        elif pun > pov:
-                            add_rec(r, "periods", f"p{pn}_under", f"p{pn}_under_prob", f"ev_p{pn}_under", None, f"p{pn}_under_odds", None)
-                        else:
-                            try:
-                                evo = float(r.get(f"ev_p{pn}_over")) if pd.notna(r.get(f"ev_p{pn}_over")) else None
-                            except Exception:
-                                evo = None
-                            try:
-                                evu = float(r.get(f"ev_p{pn}_under")) if pd.notna(r.get(f"ev_p{pn}_under")) else None
-                            except Exception:
-                                evu = None
-                            if (evo is not None) and (evu is not None):
-                                if evo >= evu:
-                                    add_rec(r, "periods", f"p{pn}_over", f"p{pn}_over_prob", f"ev_p{pn}_over", None, f"p{pn}_over_odds", None)
-                                else:
-                                    add_rec(r, "periods", f"p{pn}_under", f"p{pn}_under_prob", f"ev_p{pn}_under", None, f"p{pn}_under_odds", None)
-            default_ps = int(os.getenv('PROPS_PAGE_SIZE', '250'))
-    except Exception:
-        default_ps = 250
-    if not page_size or page_size <= 0:
-        page_size = default_ps
-    if page <= 0:
-        page = 1
-    rec_path = PROC_DIR / f"props_recommendations_{d}.csv"
-    df = _read_csv_fallback(rec_path) if rec_path.exists() else pd.DataFrame()
-    if df is None or df.empty:
-        # GitHub fallback
-        df = _github_raw_read_csv(f"data/processed/props_recommendations_{d}.csv")
-    if df is None or df.empty:
-        # Inline compute fallback (mirrors compute branch of api_props_recommendations) with default lambda heuristics
-        try:
-            base = PROC_DIR.parent / "props" / f"player_props_lines/date={d}"
-            parts = []
-            for name in ("oddsapi.parquet", "bovada.parquet"):
-                p = base / name
-                if p.exists():
-                    try:
-                        parts.append(pd.read_parquet(p))
-                    except Exception:
-                        pass
-            if parts:
-                lines = pd.concat(parts, ignore_index=True)
-                from ..models.props import SkaterShotsModel, GoalieSavesModel, SkaterGoalsModel
-                from ..models.props import SkaterAssistsModel, SkaterPointsModel, SkaterBlocksModel
-                from ..utils.io import RAW_DIR as _RAW
-                stats_path = _RAW / "player_game_stats.csv"
-                if not stats_path.exists():
-                    try:
-                        from datetime import datetime as _dt, timedelta as _td
-                        from ..data.collect import collect_player_game_stats as _collect
-                        start = (_dt.strptime(d, "%Y-%m-%d") - _td(days=365)).strftime("%Y-%m-%d")
-                        _collect(start, d, source="stats")
-                    except Exception:
-                        pass
-                hist = pd.read_csv(stats_path) if stats_path.exists() else pd.DataFrame()
-                shots = SkaterShotsModel(); saves = GoalieSavesModel(); goals = SkaterGoalsModel(); assists = SkaterAssistsModel(); points = SkaterPointsModel(); blocks = SkaterBlocksModel()
-                def _fallback_lambda(mk: str) -> float:
-                    mk = (mk or '').upper()
-                    if mk == 'SOG': return 2.4
-                    if mk == 'GOALS': return 0.35
-                    if mk == 'ASSISTS': return 0.4
-                    if mk == 'POINTS': return 0.9
-                    if mk == 'SAVES': return 27.0
-                    if mk == 'BLOCKS': return 1.3
-                    return 1.0
-                def _proj_prob(m, player, ln):
-                    m = (m or '').upper()
-                    if m == 'SOG':
-                        lam = shots.player_lambda(hist, player)
-                        if lam is None: lam = _fallback_lambda(m)
-                        return lam, shots.prob_over(lam, ln)
-                    if m == 'SAVES':
-                        lam = saves.player_lambda(hist, player)
-                        if lam is None: lam = _fallback_lambda(m)
-                        return lam, saves.prob_over(lam, ln)
-                    if m == 'GOALS':
-                        lam = goals.player_lambda(hist, player)
-                        if lam is None: lam = _fallback_lambda(m)
-                        return lam, goals.prob_over(lam, ln)
-                    if m == 'ASSISTS':
-                        lam = assists.player_lambda(hist, player)
-                        if lam is None: lam = _fallback_lambda(m)
-                        return lam, assists.prob_over(lam, ln)
-                    if m == 'POINTS':
-                        lam = points.player_lambda(hist, player)
-                        if lam is None: lam = _fallback_lambda(m)
-                        return lam, points.prob_over(lam, ln)
-                    if m == 'BLOCKS':
-                        lam = blocks.player_lambda(hist, player)
-                        if lam is None: lam = _fallback_lambda(m)
-                        return lam, blocks.prob_over(lam, ln)
-                    return None, None
-                recs = []
-                for _, r in lines.iterrows():
-                    m = str(r.get('market') or '').upper()
-                    if market and m != market.upper():
-                        continue
-                    player = r.get('player_name') or r.get('player')
-                    if not player:
-                        continue
-                    try:
-                        ln = float(r.get('line'))
-                    except Exception:
-                        continue
-                    op = r.get('over_price'); up = r.get('under_price')
-                    if pd.isna(op) and pd.isna(up):
-                        continue
-                    lam, p_over = _proj_prob(m, str(player), ln)
-                    if lam is None or p_over is None:
-                        continue
-                    def _dec(a):
-                        try:
-                            a = float(a); return 1.0 + (a/100.0) if a > 0 else 1.0 + (100.0/abs(a))
-                        except Exception:
-                            return None
-                    ev_o = (p_over * (_dec(op)-1.0) - (1.0 - p_over)) if (op is not None and _dec(op) is not None) else None
-                    p_under = max(0.0, 1.0 - float(p_over))
-                    ev_u = (p_under * (_dec(up)-1.0) - (1.0 - p_under)) if (up is not None and _dec(up) is not None) else None
-                    side = None; price = None; ev = None
-                    if ev_o is not None or ev_u is not None:
-                        if (ev_u is None) or (ev_o is not None and ev_o >= ev_u):
-                            side = 'Over'; price = op; ev = ev_o
-                        else:
-                            side = 'Under'; price = up; ev = ev_u
-                    if ev is None or not (float(ev) >= float(min_ev)):
-                        continue
-                    recs.append({
-                        'date': d,
-                        'player': player,
-                        'team': r.get('team') or None,
-                        'market': m,
-                        'line': ln,
-                        'proj': float(lam),
-                        'p_over': float(p_over),
-                        'over_price': op if pd.notna(op) else None,
-                        'under_price': up if pd.notna(up) else None,
-                        'book': r.get('book'),
-                        'side': side,
-                        'ev': float(ev) if ev is not None else None,
-                    })
-                df = pd.DataFrame(recs)
-            else:
-                df = pd.DataFrame()
-        except Exception:
-            df = pd.DataFrame()
-    if df is None or df.empty:
-        return JSONResponse({"date": d, "data": [], "total_rows": 0, "filtered_rows": 0, "page": 1, "page_size": page_size, "total_pages": 0})
-    total_rows = len(df)
-    # Normalize columns
-    if 'proj' in df.columns and 'proj_lambda' not in df.columns:
-        try:
-            df.rename(columns={'proj':'proj_lambda'}, inplace=True)
-        except Exception:
-            pass
-    # Filters
-    if market and 'market' in df.columns:
-        try: df = df[df['market'].astype(str).str.upper() == market.upper()] 
-        except Exception: pass
-    if team and 'team' in df.columns:
-        try: df = df[df['team'].astype(str).str.upper() == team.upper()] 
-        except Exception: pass
-    if (min_ev or 0) > 0 and 'ev' in df.columns:
-        try: df = df[df['ev'].astype(float) >= float(min_ev)]
-        except Exception: pass
-    # Sort
-    key = (sort or 'ev_desc').lower(); ascending = False; col = None
-    if key == 'ev_desc': col='ev'; ascending=False
-    elif key == 'ev_asc': col='ev'; ascending=True
-    elif key == 'p_over_desc': col='p_over'; ascending=False
-    elif key == 'p_over_asc': col='p_over'; ascending=True
-    elif key == 'name': col='player'; ascending=True
-    elif key == 'team': col='team'; ascending=True
-    elif key == 'market': col='market'; ascending=True
-    if col and col in df.columns:
-        try: df = df.sort_values(col, ascending=ascending, na_position='last')
-        except Exception: pass
-    # Top cap + env cap
-    try: env_cap = int(os.getenv('PROPS_MAX_ROWS','0'))
-    except Exception: env_cap = 0
-    effective_top = int(top) if (top and top>0) else None
-    if env_cap and (effective_top is None or env_cap < effective_top):
-        effective_top = env_cap
-    if effective_top:
-        df = df.head(effective_top)
-    filtered_rows = len(df)
-    total_pages = max(1, (filtered_rows + page_size - 1)//page_size) if filtered_rows else 0
-    if page > total_pages and total_pages>0:
-        page = total_pages
-    if total_pages == 0:
-        page = 1
-    start_idx = (page-1)*page_size
-    end_idx = start_idx + page_size
-    df_page = df.iloc[start_idx:end_idx]
-    rows = _df_jsonsafe_records(df_page)
-    # ETag support
-    try:
-        import hashlib
-        etag_basis = f"recs|{d}|{market}|{team}|{min_ev}|{sort}|{page}|{page_size}|{total_rows}|{filtered_rows}".encode('utf-8')
-        etag = hashlib.md5(etag_basis).hexdigest()
-        inm = request.headers.get('if-none-match')
-        if inm and inm.strip('"') == etag:
-            return Response(status_code=304, headers={'ETag': f'"{etag}"', 'Cache-Control':'public,max-age=60'})
-        payload = {
-            'date': d,
-            'data': rows,
-            'total_rows': total_rows,
-            'filtered_rows': filtered_rows,
-            'page': page,
-            'page_size': page_size,
-            'total_pages': total_pages,
-            'generated_at': datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
-        }
-        body = json.dumps(payload, ensure_ascii=False)
-        return Response(content=body, media_type='application/json', headers={'ETag': f'"{etag}"','Cache-Control':'public, max-age=60'})
-    except Exception:
-        return JSONResponse({
-            'date': d,
-            'data': rows,
-            'total_rows': total_rows,
-            'filtered_rows': filtered_rows,
-            'page': page,
-            'page_size': page_size,
-            'total_pages': total_pages,
-        })
+    return JSONResponse({
+        "date": d,
+        "lookback_days": lookback_days,
+        "start_date": str(start_date),
+        "end_date": str(end_date),
+        "data": rows,
+        "total_rows": total_rows,
+    })
 
 @app.get('/api/env-flags')
 async def api_env_flags():
@@ -7530,50 +6422,12 @@ def api_diag_perf():
     }
 
 
-@app.get("/props/all.csv")
+@app.get("/props/all.csv", include_in_schema=False)
 async def props_all_players_csv(
     date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD (ET)"),
     min_ev: float = Query(0.0, description="Minimum EV (ev column) to include"),
 ):
-    d = _normalize_date_param(date)
-    df = _read_all_players_projections(d)
-    try:
-        if df is None or df.empty:
-            df = _compute_all_players_projections(d)
-    except Exception:
-        df = pd.DataFrame()
-    # Merge recommendations if present
-    rec_df = None
-    try:
-        rp = PROC_DIR / f"props_recommendations_{d}.csv"
-        if rp.exists():
-            rec_df = _read_csv_fallback(rp)
-        elif _read_only(d):
-            rec_df = _github_raw_read_csv(f"data/processed/props_recommendations_{d}.csv")
-    except Exception:
-        rec_df = None
-    out_df = None
-    try:
-        if rec_df is not None and not rec_df.empty:
-            tmp = rec_df.copy()
-            if 'proj' in tmp.columns and 'proj_lambda' not in tmp.columns:
-                tmp.rename(columns={'proj':'proj_lambda'}, inplace=True)
-            out_df = tmp
-        else:
-            out_df = df
-    except Exception:
-        out_df = df
-    if out_df is None:
-        out_df = pd.DataFrame()
-    if (min_ev or 0) > 0 and 'ev' in out_df.columns:
-        try:
-            out_df = out_df[out_df['ev'].astype(float) >= float(min_ev)]
-        except Exception:
-            pass
-    import io
-    out = io.StringIO()
-    out_df.to_csv(out, index=False)
-    return Response(content=out.getvalue(), media_type="text/csv", headers={"Content-Disposition": f"attachment; filename=props_all_{d}.csv"})
+    return PlainTextResponse("cards-only UI: this page has been removed", status_code=404)
 
 
 @app.post("/api/cron/props-all")
@@ -7645,70 +6499,21 @@ async def cron_props_all(
     except Exception as e:
         return JSONResponse({"ok": False, "date": d, "error": str(e)}, status_code=500)
 
-@app.get("/props/players")
+@app.get("/props/players", include_in_schema=False)
 async def props_players_page(
     market: Optional[str] = Query(None, description="Filter by market: SOG, SAVES, GOALS, ASSISTS, POINTS"),
     min_ev: float = Query(0.0, description="Minimum EV threshold for ev_over"),
     top: int = Query(50, description="Top N to display"),
 ):
     """Player props table (moved from /props)."""
-    resp = await api_props(market=market, min_ev=min_ev, top=top)
-    rows = []
-    if isinstance(resp, JSONResponse):
-        try:
-            import json as _json
-            data = _json.loads(resp.body)
-            rows = data if isinstance(data, list) else []
-        except Exception:
-            rows = []
-    template = env.get_template("props_players.html")
-    html = template.render(rows=rows, market=market or "All", min_ev=min_ev, top=top, date=_today_ymd())
-    return HTMLResponse(content=html)
+    return PlainTextResponse("cards-only UI: this page has been removed", status_code=404)
 
-@app.get("/props/teams")
+@app.get("/props/teams", include_in_schema=False)
 async def props_teams_page(
     date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD (ET)"),
 ):
     """Team-level projections grid for the slate (moved under /props/teams)."""
-    date = date or _today_ymd()
-    path = PROC_DIR / f"predictions_{date}.csv"
-    games = []
-    try:
-        if path.exists():
-            df = _read_csv_fallback(path)
-        else:
-            df = pd.DataFrame()
-    except Exception:
-        df = pd.DataFrame()
-    if not df.empty:
-        for _, r in df.iterrows():
-            home = str(r.get("home") or ""); away = str(r.get("away") or "")
-            total_line = r.get("total_line_used"); model_total = r.get("model_total")
-            p_home_ml = r.get("p_home_ml"); p_away_ml = r.get("p_away_ml")
-            p_over = r.get("p_over"); p_under = r.get("p_under")
-            proj_home = r.get("proj_home_goals"); proj_away = r.get("proj_away_goals")
-            ev_home_ml = r.get("ev_home_ml") if "ev_home_ml" in df.columns else None
-            ev_away_ml = r.get("ev_away_ml") if "ev_away_ml" in df.columns else None
-            assets_home = get_team_assets(home); assets_away = get_team_assets(away)
-            games.append({
-                "date": str(r.get("date_et") or date),
-                "home": home, "away": away,
-                "home_logo": assets_home.get("logo") if isinstance(assets_home, dict) else None,
-                "away_logo": assets_away.get("logo") if isinstance(assets_away, dict) else None,
-                "proj_home_goals": float(proj_home) if pd.notna(proj_home) else None,
-                "proj_away_goals": float(proj_away) if pd.notna(proj_away) else None,
-                "p_home_ml": float(p_home_ml) if pd.notna(p_home_ml) else None,
-                "p_away_ml": float(p_away_ml) if pd.notna(p_away_ml) else None,
-                "total_line": float(total_line) if pd.notna(total_line) else None,
-                "model_total": float(model_total) if pd.notna(model_total) else None,
-                "p_over": float(p_over) if pd.notna(p_over) else None,
-                "p_under": float(p_under) if pd.notna(p_under) else None,
-                "ev_home_ml": float(ev_home_ml) if (ev_home_ml is not None and pd.notna(ev_home_ml)) else None,
-                "ev_away_ml": float(ev_away_ml) if (ev_away_ml is not None and pd.notna(ev_away_ml)) else None,
-            })
-    template = env.get_template("props_teams.html")
-    html = template.render(date=date, games=games)
-    return HTMLResponse(content=html)
+    return PlainTextResponse("cards-only UI: this page has been removed", status_code=404)
 
 
 @app.get("/api/edges")
@@ -8204,7 +7009,7 @@ async def api_cron_light_refresh(
     out["props"] = _refresh_props_recommendations(d, min_ev=min_ev, top=top)
     return JSONResponse({"ok": True, **out})
 
-@app.get("/props/recommendations")
+@app.get("/props/recommendations", include_in_schema=False)
 async def props_recommendations_page(
     request: Request,  # Add Request object to inspect raw request
     date: Optional[str] = Query(None),
@@ -8232,1694 +7037,7 @@ async def props_recommendations_page(
     Reads cached CSV for the date; if missing, falls back to GitHub raw CSV. Groups rows by player+market
     into cards with ladders and attaches team assets. Supports basic filtering/sorting.
     """
-    # DEBUG: Log incoming team parameter
-    import logging
-    logging.warning(f"[DEBUG] Raw URL: {request.url}")
-    logging.warning(f"[DEBUG] Query params: {dict(request.query_params)}")
-    logging.warning(f"[DEBUG] Team parameter value: {repr(team)}")
-    
-    date = date or _today_ymd()
-    read_only_ui = _read_only(date)
-    # Local, early name normalizer for use before later helper definitions
-    def _norm_nm(x: str) -> str:
-        try:
-            s = str(x or "").strip()
-            return " ".join(s.split())
-        except Exception:
-            return str(x)
-    df = pd.DataFrame()
-    # Prefer local cache; otherwise try GitHub raw for today's file (even on public hosts with tight timeouts)
-    try:
-        path = PROC_DIR / f"props_recommendations_{date}.csv"
-        local_rows = -1
-        if path.exists():
-            df_local = _read_csv_fallback(path)
-            if df_local is not None and not df_local.empty:
-                local_rows = len(df_local)
-                df = df_local
-        # Attempt GitHub fallback/upgrade with conservative network behavior
-        gh_df = None
-        try:
-            gh_df = _github_raw_read_csv(f"data/processed/props_recommendations_{date}.csv")
-        except Exception:
-            gh_df = None
-        # If nothing local, take GitHub copy when available
-        if (df is None or df.empty) and gh_df is not None and not gh_df.empty:
-            df = gh_df
-        # If local exists but remote is larger, prefer fresher remote (do not persist here)
-        elif gh_df is not None and not gh_df.empty and local_rows > 0 and len(gh_df) > local_rows:
-            df = gh_df
-    except Exception:
-        df = pd.DataFrame()
-
-    # Load model-only projections for all players/markets strictly from precomputed CSVs
-    # Never compute on this page when running on a public host or when compute is disabled.
-    proj_map = {}
-    # Auxiliary index: last name + team -> markets map, to bridge abbreviated/full-name mismatches
-    proj_map_by_last_team: dict[tuple[str, str], dict[str, float]] = {}
-    try:
-        proj_df = _read_all_players_projections(date)
-        # Do NOT compute fallback here; page must remain read-only on public hosts.
-        if proj_df is not None and not proj_df.empty and {'player','market','proj_lambda'}.issubset(set(proj_df.columns)):
-            cols = ['player','market','proj_lambda'] + (["team"] if 'team' in proj_df.columns else [])
-            tmp = proj_df.dropna(subset=['player','market'])[cols].copy()
-            tmp['player_norm'] = tmp['player'].astype(str).map(_norm_nm)
-            tmp['market_u'] = tmp['market'].astype(str).str.upper()
-            for _, rr in tmp.iterrows():
-                try:
-                    nm = rr.get('player_norm'); mk = rr.get('market_u'); val = rr.get('proj_lambda')
-                    if nm and mk and pd.notna(val):
-                        v = float(val)
-                        # Primary key: normalized name
-                        proj_map.setdefault(nm, {})[mk] = v
-                        # Dotless abbreviated variant (e.g., "J. Doe" -> "J Doe")
-                        try:
-                            if "." in str(nm):
-                                nm_nodot = str(nm).replace(".", "").strip()
-                                if nm_nodot:
-                                    proj_map.setdefault(nm_nodot, {}).setdefault(mk, v)
-                        except Exception:
-                            pass
-                        # Last-name + team index for robust lookup
-                        try:
-                            team_abbr = str(rr.get('team') or '').strip().upper()
-                            last = str(nm).split()[-1].lower() if str(nm).split() else ''
-                            if team_abbr and last:
-                                key = (last, team_abbr)
-                                d = proj_map_by_last_team.setdefault(key, {})
-                                # Prefer not to overwrite an existing value for same market
-                                if mk not in d:
-                                    d[mk] = v
-                        except Exception:
-                            pass
-                except Exception:
-                    continue
-    except Exception:
-        proj_map = {}
-        proj_map_by_last_team = {}
-    # Normalize column names from CLI outputs (which may use ev_over/proj_lambda)
-    try:
-        if df is not None and not df.empty:
-            cols = set(df.columns)
-            if ('ev' not in cols) and ('ev_over' in cols):
-                try:
-                    df['ev'] = pd.to_numeric(df['ev_over'], errors='coerce')
-                except Exception:
-                    df['ev'] = df['ev_over']
-            if ('proj' not in cols) and ('proj_lambda' in cols):
-                try:
-                    df['proj'] = pd.to_numeric(df['proj_lambda'], errors='coerce')
-                except Exception:
-                    df['proj'] = df['proj_lambda']
-    except Exception:
-        pass
-    # No server-side compute fallback: if CSV missing/empty, we keep an empty df and render fast.
-    # Apply filters
-    try:
-        if df is None or df.empty:
-            df = pd.DataFrame()
-        else:
-            # Market filter: ignore when set to 'All' or blank
-            market_u = str(market or '').strip().upper()
-            if market_u and market_u not in ('ALL', 'ALL MARKETS', 'ANY') and 'market' in df.columns:
-                df = df[df['market'].astype(str).str.upper() == market_u]
-            if 'ev' in df.columns:
-                try:
-                    df['ev'] = pd.to_numeric(df['ev'], errors='coerce')
-                except Exception:
-                    pass
-                df = df[df['ev'] >= float(min_ev)]
-            if side and side.lower() in ("over","under") and 'side' in df.columns:
-                df = df[df['side'].astype(str).str.lower() == side.lower()]
-            # Sorting
-            key = (sortBy or 'ev_desc').lower()
-            asc = False
-            col = None
-            if key == 'ev_desc':
-                col = 'ev'; asc = False
-            elif key == 'ev_asc':
-                col = 'ev'; asc = True
-            elif key == 'name':
-                col = 'player'; asc = True
-            elif key == 'market':
-                col = 'market'; asc = True
-            elif key == 'team':
-                col = 'team'; asc = True
-            if col and col in df.columns:
-                try:
-                    df = df.sort_values(col, ascending=asc)
-                except Exception:
-                    pass
-            # Defer slicing until after card build (handled later) so ladders are complete
-            pass
-    except Exception:
-        df = pd.DataFrame()
-    # If still empty, normally short-circuit render to avoid heavy enrichment on public hosts.
-    # Allow a light fallback later when a specific team/game filter is provided.
-    _empty_df_early = bool(df is None or df.empty)
-    if (view or '').lower() == 'grid':
-        # TABLE/GRID BRANCH: render a paginated grid like NBA props page using recommendations rows
-        # Resolve pagination defaults
-        try:
-            default_ps = int(os.getenv('PROPS_PAGE_SIZE', '250'))
-        except Exception:
-            default_ps = 250
-        if not page_size or page_size <= 0:
-            page_size = default_ps
-        if page <= 0:
-            page = 1
-        df_grid = df.copy() if df is not None else pd.DataFrame()
-        # If grid is empty, perform a light in-memory compute from canonical lines + precomputed lambdas
-        # to avoid blank pages on public hosts when the CSV hasn't been produced yet.
-        try:
-            if df_grid is None or df_grid.empty:
-                # Load canonical lines (local first, then GitHub raw)
-                base = PROC_DIR.parent / "props" / f"player_props_lines/date={date}"
-                parts = []
-                for name in ("oddsapi.parquet",):
-                    p = base / name
-                    if p.exists():
-                        try:
-                            parts.append(pd.read_parquet(p, engine="pyarrow"))
-                        except Exception:
-                            pass
-                    else:
-                        try:
-                            gh_lines = _github_raw_read_parquet(f"data/props/player_props_lines/date={date}/{name}")
-                            if gh_lines is not None and not gh_lines.empty:
-                                parts.append(gh_lines)
-                        except Exception:
-                            pass
-                if parts:
-                    lines = pd.concat(parts, ignore_index=True)
-                    # Load projections_all (local or GitHub raw)
-                    proj = _read_all_players_projections(date)
-                    if proj is not None and not proj.empty and {"player","market","proj_lambda"}.issubset(set(proj.columns)):
-                        import numpy as _np
-                        from scipy.stats import poisson as _poisson
-                        # Build lambda map keyed by (player_norm, MARKET)
-                        def _norm_name2(x: str) -> str:
-                            try:
-                                s = str(x or "").strip(); return " ".join(s.split())
-                            except Exception:
-                                return str(x)
-                        lam_map = {}
-                        tmp = proj.dropna(subset=["player","market","proj_lambda"]).copy()
-                        tmp["player_norm"] = tmp["player"].astype(str).map(_norm_name2).str.lower()
-                        tmp["market_u"] = tmp["market"].astype(str).str.upper()
-                        for _, rr in tmp.iterrows():
-                            try:
-                                lam_map[(rr.get("player_norm"), rr.get("market_u"))] = float(rr.get("proj_lambda"))
-                            except Exception:
-                                continue
-                        # Prepare lines and merge lambdas
-                        cols = [c for c in ["market","player_name","player","team","line","over_price","under_price","book"] if c in lines.columns]
-                        work = lines[cols].copy()
-                        work["market"] = work.get("market").astype(str).str.upper()
-                        work["player_display"] = work.apply(lambda r: (r.get("player_name") or r.get("player") or ""), axis=1).astype(str).map(_norm_name2)
-                        work["player_norm"] = work["player_display"].str.lower()
-                        work["line_num"] = pd.to_numeric(work.get("line"), errors="coerce")
-                        work = work.loc[work["line_num"].notna()].copy()
-                        # Optional market filter early to reduce compute
-                        if market and "market" in work.columns:
-                            try:
-                                work = work[work["market"].astype(str).str.upper() == str(market).upper()]
-                            except Exception:
-                                pass
-                        ldf = pd.DataFrame([{"player_norm": k[0], "market": k[1], "proj_lambda": v} for k, v in lam_map.items()])
-                        merged = work.merge(ldf, on=["player_norm","market"], how="left")
-                        vec_mask = merged["proj_lambda"].notna()
-                        p_over_vec = pd.Series(_np.nan, index=merged.index)
-                        for mkt in ["SOG","SAVES","GOALS","ASSISTS","POINTS","BLOCKS"]:
-                            sel = vec_mask & (merged["market"] == mkt)
-                            if sel.any():
-                                lam_arr = merged.loc[sel, "proj_lambda"].astype(float).values
-                                line_arr = _np.floor(merged.loc[sel, "line_num"].astype(float).values + 1e-9).astype(int)
-                                p_over_vec.loc[sel] = _poisson.sf(line_arr, mu=lam_arr)
-                        def _american_to_decimal_series(s: pd.Series) -> pd.Series:
-                            s = pd.to_numeric(s, errors="coerce"); pos = s[s > 0]; neg = s[s <= 0]
-                            out = pd.Series(_np.nan, index=s.index)
-                            out.loc[pos.index] = 1.0 + (pos / 100.0)
-                            out.loc[neg.index] = 1.0 + (100.0 / _np.abs(neg))
-                            return out
-                        dec_over = _american_to_decimal_series(merged.get("over_price"))
-                        dec_under = _american_to_decimal_series(merged.get("under_price"))
-                        p_over_s = pd.to_numeric(p_over_vec, errors="coerce")
-                        ev_over_s = p_over_s * (dec_over - 1.0) - (1.0 - p_over_s)
-                        p_under_s = (1.0 - p_over_s).clip(lower=0.0, upper=1.0)
-                        ev_under_s = p_under_s * (dec_under - 1.0) - (1.0 - p_under_s)
-                        over_better = (ev_under_s.isna()) | (~ev_over_s.isna() & (ev_over_s >= ev_under_s))
-                        chosen_side = _np.where(over_better, "Over", "Under")
-                        chosen_ev = _np.where(over_better, ev_over_s, ev_under_s)
-                        out = merged.copy()
-                        out["side"] = chosen_side
-                        out["ev"] = pd.to_numeric(chosen_ev, errors="coerce")
-                        out = out[out["ev"].notna() & (out["ev"].astype(float) >= float(min_ev))]
-                        out = out.assign(
-                            date=date,
-                            player=lambda df__: df__["player_display"],
-                            market=lambda df__: df__["market"],
-                            line=lambda df__: df__["line_num"],
-                            proj=lambda df__: df__["proj_lambda"].astype(float).round(3),
-                            p_over=lambda df__: p_over_s.astype(float).round(4),
-                            over_price=lambda df__: df__.get("over_price"),
-                            under_price=lambda df__: df__.get("under_price"),
-                            book=lambda df__: df__.get("book"),
-                            team=lambda df__: df__.get("team"),
-                        )[["date","player","team","market","line","proj","p_over","over_price","under_price","book","side","ev"]]
-                        # Apply top cap before further grid slicing if provided
-                        try:
-                            eff_top = int(top) if (top and int(top) > 0) else None
-                        except Exception:
-                            eff_top = None
-                        if not out.empty and eff_top:
-                            out = out.sort_values("ev", ascending=False).head(eff_top)
-                        df_grid = out
-        except Exception:
-            # Non-fatal: keep df_grid empty
-            pass
-        # Apply optional team/game filters for grid as well
-        try:
-            if team and 'team' in df_grid.columns:
-                df_grid = df_grid[df_grid['team'].astype(str).str.upper() == str(team).upper()]
-            if game and 'team' in df_grid.columns and '@' in str(game):
-                try:
-                    a, h = str(game).upper().split('@', 1)
-                    ab_set = {a.strip(), h.strip()}
-                    df_grid = df_grid[df_grid['team'].astype(str).str.upper().isin(ab_set)]
-                except Exception:
-                    pass
-        except Exception:
-            pass
-        # Normalize columns for display/sort
-        try:
-            if 'proj' in df_grid.columns and 'proj_lambda' not in df_grid.columns:
-                df_grid.rename(columns={'proj':'proj_lambda'}, inplace=True)
-        except Exception:
-            pass
-        # Dedupe to one row per player/team/market/line using best EV, tie-breaker by price for chosen side
-        try:
-            if int(dedupe) == 1 and not df_grid.empty:
-                # Ensure numeric comparables
-                for c in ('ev','over_price','under_price','line','p_over'):
-                    if c in df_grid.columns:
-                        df_grid[c] = pd.to_numeric(df_grid[c], errors='coerce')
-                # Effective price for the side
-                def _eff_price(row):
-                    try:
-                        sd = str(row.get('side') or 'Over').lower()
-                        if sd == 'over':
-                            return row.get('over_price')
-                        else:
-                            return row.get('under_price')
-                    except Exception:
-                        return None
-                df_grid['_price_for_side'] = df_grid.apply(_eff_price, axis=1)
-                # Price score: higher is better; plus money outranks negatives; among negatives, closer to 0 is better
-                def _price_score(v):
-                    try:
-                        # Use pandas isna to avoid relying on a global np import
-                        if v is None or pd.isna(v):
-                            return -1e9
-                        v = float(v)
-                        if v >= 100:
-                            return 1000.0 + v
-                        else:
-                            return 1000.0 - abs(v)
-                    except Exception:
-                        return -1e9
-                df_grid['_price_score'] = df_grid['_price_for_side'].apply(_price_score)
-                # EV rank: prefer higher EV; missing EV very low
-                def _ev_rank(v):
-                    try:
-                        if v is None or pd.isna(v):
-                            return -1e9
-                        return float(v)
-                    except Exception:
-                        return -1e9
-                df_grid['_ev_rank'] = df_grid['ev'].apply(_ev_rank) if 'ev' in df_grid.columns else (-1e9)
-                # Sorting so first in each group is the best
-                sort_cols = ['_ev_rank','_price_score']
-                df_grid = df_grid.sort_values(by=sort_cols, ascending=[False, False])
-                # Group key
-                grp_keys = [c for c in ['player','team','market','line'] if c in df_grid.columns]
-                if not grp_keys:
-                    grp_keys = [c for c in ['player','market'] if c in df_grid.columns]
-                # Drop duplicates keeping the best (first after sort)
-                df_grid = df_grid.drop_duplicates(subset=grp_keys, keep='first')
-                # Clean helper cols
-                for c in ['_price_for_side','_price_score','_ev_rank']:
-                    if c in df_grid.columns:
-                        try:
-                            df_grid.drop(columns=[c], inplace=True)
-                        except Exception:
-                            pass
-        except Exception:
-            pass
-        # Top cap (pre-pagination) + env cap
-        try:
-            env_cap = int(os.getenv('PROPS_MAX_ROWS', '0'))
-        except Exception:
-            env_cap = 0
-        effective_top = int(top) if (top and top > 0) else None
-        if env_cap and (effective_top is None or env_cap < effective_top):
-            effective_top = env_cap
-        # Sort handling for grid
-        try:
-            sort_key = (sort or sortBy or 'ev_desc').lower()
-        except Exception:
-            sort_key = 'ev_desc'
-        ascending = True
-        col = None
-        if sort_key in ('lambda_desc','lambda_asc'):
-            col = 'proj_lambda'; ascending = (sort_key == 'lambda_asc')
-        elif sort_key in ('p_over_desc','p_over_asc'):
-            col = 'p_over'; ascending = (sort_key == 'p_over_asc')
-        elif sort_key in ('ev_desc','ev_asc'):
-            col = 'ev'; ascending = (sort_key == 'ev_asc')
-        elif sort_key in ('market','team','name','player','line','book'):
-            # Accept 'name' alias for player
-            col = 'player' if sort_key in ('name','player') else sort_key
-        if col and col in df_grid.columns:
-            try:
-                df_grid = df_grid.sort_values(by=[col], ascending=ascending, na_position='last')
-            except Exception:
-                pass
-        if effective_top:
-            df_grid = df_grid.head(effective_top)
-        total_rows = 0 if df_grid is None or df_grid.empty else len(df_grid)
-        filtered_rows = total_rows
-        # Pagination slice
-        if total_rows and page_size:
-            total_pages = max(1, (filtered_rows + page_size - 1) // page_size)
-            if page > total_pages:
-                page = total_pages
-            start_idx = (page - 1) * page_size
-            end_idx = start_idx + page_size
-            df_grid = df_grid.iloc[start_idx:end_idx]
-        else:
-            total_pages = 1 if total_rows else 0
-        # Build teams and slate games for dropdowns
-        try:
-            teams = sorted({str(x).upper() for x in (df if df is not None else pd.DataFrame()).get('team', pd.Series(dtype=str)).dropna().unique().tolist() if str(x).strip()})
-        except Exception:
-            teams = []
-        games_options: list[str] = []
-        try:
-            client = NHLWebClient(); gms = client.schedule_day(date)
-            opts = []
-            for g in gms or []:
-                try:
-                    ha = get_team_assets(str(getattr(g, 'home', ''))) or {}
-                    aa = get_team_assets(str(getattr(g, 'away', ''))) or {}
-                    hab = (ha.get('abbr') or '').upper(); aab = (aa.get('abbr') or '').upper()
-                    if hab and aab: opts.append(f"{aab}@{hab}")
-                except Exception:
-                    continue
-            games_options = sorted(list({o for o in opts if o}))
-        except Exception:
-            games_options = []
-        # Conform row dicts
-        rows = _df_jsonsafe_records(df_grid) if (df_grid is not None and not df_grid.empty) else []
-        template = env.get_template("props_recommendations_grid.html")
-        html = template.render(
-            rows=rows,
-            market=market or "",
-            min_ev=min_ev,
-            top=top,
-            date=date,
-            team=team or "",
-            game=game or "",
-            teams=teams,
-            games=games_options,
-            sort=sort_key,
-            download_href=f"/props/recommendations.csv?date={date}",
-            page=page,
-            page_size=page_size,
-            total_rows=total_rows,
-            filtered_rows=filtered_rows,
-            total_pages=total_pages,
-            request=request,
-        )
-        return HTMLResponse(content=html)
-    # Cards branch continues below
-    if _empty_df_early and not (team or game):
-        template = env.get_template("props_recommendations.html")
-        html = template.render(
-            date=date,
-            market=market or "",
-            min_ev=min_ev,
-            top=top,
-            sortBy=sortBy or 'ev_desc',
-            side=side or 'both',
-            all=bool(all),
-            team=team or "",
-            game=game or "",
-            cards=[],
-            truncated=False,
-            total_cards=0,
-            debug_info=None,
-            games=[],
-        )
-        return HTMLResponse(content=html)
-
-    # Build an optional player_id map from canonical lines to attach headshots (skip on public host)
-    player_photo: dict[str, str] = {}
-    player_team_map: dict[str, str] = {}
-    player_position_map: dict[str, str] = {}
-    roster_master_map: dict[str, dict] = {}
-    valid_player_names: set[str] = set()
-    # Helper: normalize player display names consistently
-    def _norm_name(x: str) -> str:
-        try:
-            s = str(x or "").strip()
-            return " ".join(s.split())
-        except Exception:
-            return str(x)
-    try:
-        # Note: We allow local enrichment on public hosts as this reads only local Parquet/CSV files
-        # and does not perform any external network calls. This enables player photos and team logos
-        # to render reliably from precomputed artifacts.
-        d_for_lines = date or _today_ymd()
-        base = PROC_DIR.parent / "props" / f"player_props_lines/date={d_for_lines}"
-        parts = []
-        # Prefer Parquet, then CSV fallback (OddsAPI only) for canonical lines so we can enrich player/team metadata.
-        for name in ("oddsapi.parquet", "oddsapi.csv"):
-            p = base / name
-            if p.exists():
-                try:
-                    if p.suffix == ".parquet":
-                        parts.append(pd.read_parquet(p))
-                    else:
-                        parts.append(_read_csv_fallback(p))
-                except Exception:
-                    pass
-        # If nothing found locally (such as on Render with a fresh build), try GitHub raw fallback
-        if not parts:
-            # Try Parquet first (primary artifact), then CSV as a secondary option
-            try:
-                for name in ("oddsapi.parquet",):
-                    rel = f"data/props/player_props_lines/date={d_for_lines}/{name}"
-                    gh_df = _github_raw_read_parquet(rel)
-                    if gh_df is not None and not gh_df.empty:
-                        parts.append(gh_df)
-            except Exception:
-                pass
-            try:
-                for name in ("oddsapi.csv",):
-                    rel = f"data/props/player_props_lines/date={d_for_lines}/{name}"
-                    gh_df = _github_raw_read_csv(rel)
-                    if gh_df is not None and not gh_df.empty:
-                        parts.append(gh_df)
-            except Exception:
-                pass
-        # Load roster_master.csv for strong mapping of player->(team_abbr, position, image_url)
-        try:
-            rm = _read_csv_fallback(PROC_DIR / 'roster_master.csv')
-            if (rm is None) or rm.empty:
-                rm = _github_raw_read_csv('data/processed/roster_master.csv')
-            if rm is not None and not rm.empty:
-                for _, rr in rm.iterrows():
-                    nm = _norm_name(rr.get('full_name') or rr.get('player'))
-                    if not nm:
-                        continue
-                    roster_master_map[nm] = {
-                        'team_abbr': str(rr.get('team_abbr') or '').upper() or None,
-                        'position': str(rr.get('position') or '').upper() or None,
-                        'image_url': rr.get('image_url') or None,
-                        'player_id': rr.get('player_id') or None,
-                    }
-        except Exception:
-            roster_master_map = {}
-        if parts:
-            lp = pd.concat(parts, ignore_index=True)
-            # Build a fallback index: (last_name_lower, team_abbr_upper) -> predominant player_id
-            last_team_pid_map: dict[tuple[str, str], int] = {}
-            # Also build last-name only unique PID and team modes to handle nickname/full-name mismatches
-            last_only_unique_pid: dict[str, int] = {}
-            last_only_team_mode: dict[str, str] = {}
-            try:
-                if not lp.empty and {'player_name','team','player_id'}.issubset(lp.columns):
-                    tmp = lp.dropna(subset=['player_name','team','player_id']).copy()
-                    # Normalize team to assets abbr if possible
-                    def _team_abbr(t):
-                        try:
-                            a = get_team_assets(t) or {}
-                            ab = a.get('abbr')
-                            return (ab or t).upper()
-                        except Exception:
-                            return str(t).upper()
-                    tmp['team_abbr_norm'] = tmp['team'].apply(_team_abbr)
-                    def _last(nm):
-                        try:
-                            nm = str(nm)
-                            if nm.startswith('{') and nm.endswith('}'):
-                                # strip dict-like wrappers quickly
-                                if 'default' in nm:
-                                    import re as _re
-                                    m = _re.search(r"'default':\s*'([^']+)'", nm)
-                                    if m:
-                                        nm = m.group(1)
-                            parts = nm.strip().split()
-                            return parts[-1].lower() if parts else ''
-                        except Exception:
-                            return ''
-                    tmp['last_lower'] = tmp['player_name'].apply(_last)
-                    grp_lt = tmp.groupby(['last_lower','team_abbr_norm'])['player_id'].agg(lambda s: s.dropna().astype(str).value_counts().idxmax())
-                    for (ln, tm), pid in grp_lt.items():
-                        try:
-                            pid_int = int(float(pid))
-                            last_team_pid_map[(ln, tm)] = pid_int
-                        except Exception:
-                            continue
-                    # Last-name only aggregates
-                    try:
-                        # Unique PID per last name (only keep if exactly one distinct pid)
-                        pid_counts = tmp.dropna(subset=['player_id']).groupby('last_lower')['player_id'].nunique()
-                        for ln, nuniq in pid_counts.items():
-                            if int(nuniq) == 1:
-                                pid_val = tmp[tmp['last_lower'] == ln]['player_id'].dropna().iloc[0]
-                                try:
-                                    last_only_unique_pid[ln] = int(float(pid_val))
-                                except Exception:
-                                    pass
-                        # Team mode per last name
-                        team_mode = tmp.groupby('last_lower')['team_abbr_norm'].agg(lambda s: s.dropna().astype(str).value_counts().idxmax())
-                        for ln, tm in team_mode.items():
-                            if ln and tm:
-                                last_only_team_mode[ln] = str(tm).upper()
-                    except Exception:
-                        pass
-            except Exception:
-                last_team_pid_map = {}
-            # Build mapping by player_name -> player_id (prefer most frequent id if duplicates)
-            if not lp.empty and 'player_name' in lp.columns and 'player_id' in lp.columns:
-                try:
-                    # Normalize player_name keys to avoid subtle whitespace/case issues
-                    grp = lp.groupby('player_name')['player_id'].agg(lambda s: s.dropna().astype(str).value_counts().idxmax())
-                    def _unwrap_name(raw_name: str) -> str:
-                        """Unwrap dict-like string representations and quoted wrappers.
-
-                        Examples:
-                        - "{'default': 'C. D'Astous'}" -> "C. D'Astous"
-                        - '{"default": "J. O'Brien"}' -> "J. O'Brien"
-                        - '"Auston Matthews"' -> Auston Matthews
-                        - "{'alt': 'Foo', 'default': 'Bar'}" -> 'Bar' (prefer 'default')
-                        Falls back to raw_name if parsing fails.
-                        """
-                        try:
-                            txt = str(raw_name)
-                            # Fast path: if not dict-like
-                            if not (txt.startswith('{') and txt.endswith('}')):
-                                return txt.strip().strip('"').strip("'")
-                            import ast
-                            try:
-                                obj = ast.literal_eval(txt)
-                                if isinstance(obj, dict):
-                                    for k in ('default','full','name','player'):
-                                        if k in obj and obj[k]:
-                                            return str(obj[k]).strip()
-                                    # Fallback: first non-empty value
-                                    for v in obj.values():
-                                        if v:
-                                            return str(v).strip()
-                            except Exception:
-                                pass
-                            return txt.strip()
-                        except Exception:
-                            return str(raw_name)
-                    for name_key, pid in grp.items():
-                        try:
-                            # Coerce potential float (e.g., 8479323.0) to int string to avoid '.0' in URL
-                            pid_int = None
-                            if pid is not None and str(pid).strip() != '':
-                                try:
-                                    pid_int = int(float(pid))
-                                except Exception:
-                                    pid_int = int(str(pid).split('.')[0]) if str(pid).split('.')[0].isdigit() else None
-                            if pid_int is None:
-                                continue
-                            clean_name = _norm_name(_unwrap_name(name_key))
-                            if clean_name:
-                                url = f"https://cms.nhl.bamgrid.com/images/headshots/current/168x168/{pid_int}.jpg"
-                                player_photo[clean_name] = url
-                                # If the raw name differs (dict-like), also map raw normalized string to same URL for completeness
-                                raw_norm = _norm_name(str(name_key))
-                                if raw_norm != clean_name and raw_norm not in player_photo:
-                                    player_photo[raw_norm] = url
-                        except Exception:
-                            continue
-                except Exception:
-                    pass
-            # Valid player set filtered from lines
-            try:
-                if 'player_name' in lp.columns:
-                    raw_names = [str(x) for x in lp['player_name'].dropna().tolist()]
-                    expanded = []
-                    for rn in raw_names:
-                        expanded.append(str(rn).strip())
-                        try:
-                            # Attempt unwrap for dict-like names
-                            if rn.startswith('{') and rn.endswith('}'):
-                                import ast
-                                obj = ast.literal_eval(rn)
-                                if isinstance(obj, dict):
-                                    for k in ('default','full','name','player'):
-                                        if k in obj and obj[k]:
-                                            expanded.append(str(obj[k]).strip())
-                                            break
-                        except Exception:
-                            pass
-                    valid_player_names = {x for x in expanded if x}
-            except Exception:
-                valid_player_names = set()
-            # Roster-based expansion: map initial+last -> full first+last using snapshot (models dir or raw)
-            try:
-                from ..utils.io import RAW_DIR as _RAW, MODEL_DIR as _MODEL_DIR
-                candidates = []
-                # Search both raw (legacy) and model directories for roster snapshots
-                for base_dir in (_RAW, _MODEL_DIR):
-                    try:
-                        for pth in base_dir.glob('roster_snapshot_*.parquet'):
-                            try:
-                                candidates.append((pth.stat().st_mtime, pth))
-                            except Exception:
-                                continue
-                    except Exception:
-                        continue
-                roster_df = None
-                if candidates:
-                    latest = sorted(candidates)[-1][1]
-                    try:
-                        roster_df = pd.read_parquet(latest)
-                    except Exception:
-                        roster_df = None
-                # Accept either camelCase or snake_case column variants
-                if roster_df is not None and not roster_df.empty:
-                    cols = set(roster_df.columns)
-                    has_full = ('fullName' in cols) or ('full_name' in cols)
-                    has_pid = ('playerId' in cols) or ('player_id' in cols)
-                    if has_full and has_pid:
-                        # Build last-name buckets keyed by (initial, last_lower) -> list of full names
-                        buckets = {}
-                        # Attempt to extract coarse position (F/D/G) if roster has grouping lists
-                        try:
-                            if 'position' in roster_df.columns:
-                                def _norm_pos(p):
-                                    p = str(p or '').upper()
-                                    if p in ('C','LW','RW'): return 'F'
-                                    if p in ('F','D','G'): return p
-                                    return ''
-                                for _, rr in roster_df.iterrows():
-                                    fn_full = rr.get('fullName') or rr.get('full_name')
-                                    posv = _norm_pos(rr.get('position'))
-                                    if fn_full and posv and fn_full not in player_position_map:
-                                        player_position_map[fn_full] = posv
-                        except Exception:
-                            pass
-                        for _, rr in roster_df.iterrows():
-                            fn = rr.get('fullName') or rr.get('full_name')
-                            if not fn or not isinstance(fn, str):
-                                continue
-                            parts_name = fn.strip().split()
-                            if len(parts_name) < 2:
-                                continue
-                            first, last = parts_name[0], parts_name[-1]
-                            key = (first[0].upper(), last.lower())
-                            buckets.setdefault(key, []).append(fn.strip())
-                        # For each existing abbreviated mapping key (e.g., 'C. O'Reilly'), clone to full names
-                        existing_keys = list(player_photo.keys())
-                        import re
-                        for abbr in existing_keys:
-                            m = re.match(r"^([A-Z])\.\s+([A-Za-z\-']+)$", abbr)
-                            if not m:
-                                continue
-                            ini, last = m.group(1), m.group(2)
-                        # Normalize last removing stray punctuation spacing distinctions
-                        last_norm = last.lower()
-                        # Basic punctuation normalization
-                        last_norm_simple = last_norm.replace("'", "").replace('-', '')
-                        # Gather candidate bucket keys (with and without punctuation)
-                        cand_keys = [(ini, last_norm), (ini, last_norm_simple)]
-                        seen_full = set()
-                        for ck in cand_keys:
-                            if ck in buckets:
-                                for full_n in buckets[ck]:
-                                    if full_n not in player_photo:
-                                        player_photo[full_n] = player_photo[abbr]
-                                        seen_full.add(full_n)
-                        # If we found exactly one candidate, also add its lowercase variant stripped (defensive)
-                        if len(seen_full) == 1:
-                            only = list(seen_full)[0]
-                            low = only.lower().title()
-                            if low not in player_photo:
-                                player_photo[low] = player_photo[abbr]
-            except Exception:
-                pass
-            # Fallback: if still no positions, attempt live roster fetch (only if compute allowed locally)
-            try:
-                if not player_position_map and _compute_allowed() and not _is_public_host_env():
-                    # Derive teams to query from player_team_map (limit to avoid explosion)
-                    from ..data import rosters as _rosters_mod
-                    team_abbrs = {v for v in player_team_map.values() if v}
-                    if team_abbrs:
-                        # Map team abbr back to team IDs via list_teams
-                        try:
-                            teams_json = _rosters_mod.list_teams()
-                            abbr_to_id = {t.get('abbreviation','').upper(): t.get('id') for t in teams_json if t.get('abbreviation')}
-                        except Exception:
-                            abbr_to_id = {}
-                        for ab in list(team_abbrs)[:20]:  # safety cap
-                            tid = abbr_to_id.get(ab.upper())
-                            if not tid:
-                                continue
-                            try:
-                                roster_players = _rosters_mod.fetch_current_roster(int(tid))
-                                for rp in roster_players:
-                                    fn_full = rp.full_name
-                                    posv = rp.position
-                                    if fn_full and posv and fn_full not in player_position_map:
-                                        player_position_map[fn_full] = posv
-                            except Exception:
-                                continue
-            except Exception:
-                pass
-            # Bridge initial+last -> full first name variants (lines based mapping)
-            try:
-                if valid_player_names and player_photo:
-                    import re
-                    full_names_set = { _norm_name(v) for v in valid_player_names }
-                    mapping_keys_snapshot = list(player_photo.keys())
-                    for mk in mapping_keys_snapshot:
-                        m = re.match(r"^([A-Z])\.\s+([A-Za-z\-']+)$", mk)
-                        if m:
-                            ini, last = m.group(1), m.group(2)
-                            # Find full names whose last token matches last and first initial matches
-                            cands = [fn for fn in full_names_set if fn.split() and fn.split()[-1].replace("'"," ").lower()==last.replace("'"," ").lower() and fn[0].upper()==ini]
-                            url = player_photo.get(mk)
-                            for fn in cands:
-                                if fn not in player_photo and url:
-                                    player_photo[fn] = url
-            except Exception:
-                pass
-            # Also build a player -> latest team map to fill missing teams
-            if not lp.empty and {'player_name','team'}.issubset(lp.columns):
-                try:
-                    # Prefer rows marked current; else last non-null team seen
-                    if 'is_current' in lp.columns:
-                        cur = lp[lp['is_current'] == True]
-                    else:
-                        cur = lp.copy()
-                    cur = cur.dropna(subset=['player_name','team'])
-                    def _norm_team_series(s):
-                        try:
-                            val = s.dropna().astype(str).iloc[-1] if len(s.dropna()) else None
-                        except Exception:
-                            val = None
-                        if val:
-                            try:
-                                assets = get_team_assets(val) or {}
-                                ab = assets.get('abbr')
-                                if ab:
-                                    return str(ab).upper()
-                            except Exception:
-                                pass
-                        return val
-                    last_team = cur.groupby('player_name')['team'].agg(_norm_team_series)
-                    for name_key, tm in last_team.items():
-                        if tm:
-                            player_team_map[str(name_key).strip()] = str(tm).strip()
-                except Exception:
-                    player_team_map = player_team_map
-            # Secondary photo, team, and position mapping from historical player_game_stats.csv (fills gaps)
-            try:
-                from ..utils.io import RAW_DIR as _RAW
-                pstats = _read_csv_fallback(_RAW / 'player_game_stats.csv')
-                # If not present locally (Render image), try GitHub raw fallback
-                if (pstats is None) or pstats.empty:
-                    try:
-                        pstats = _github_raw_read_csv('data/raw/player_game_stats.csv')
-                    except Exception:
-                        pstats = pd.DataFrame()
-                if pstats is not None and not pstats.empty and {'player','player_id'}.issubset(pstats.columns):
-                    # Use the most recent non-null player_id per player name
-                    pstats = pstats.dropna(subset=['player'])
-                    pstats['player'] = pstats['player'].astype(str).map(_norm_name)
-                    pstats = pstats[pstats['player'] != '']
-                    # Order by date so last valid id is preferred
-                    try:
-                        pstats['_date'] = pd.to_datetime(pstats['date'], errors='coerce')
-                        pstats = pstats.sort_values('_date')
-                    except Exception:
-                        pass
-                    last_ids = pstats.dropna(subset=['player_id']).groupby('player')['player_id'].last()
-                    for nm, pid in last_ids.items():
-                        key = nm.strip()
-                        if key and key not in player_photo:
-                            try:
-                                if pid is None or str(pid).strip()=='':
-                                    continue
-                                pid_int = int(float(pid))
-                                player_photo[key] = f"https://cms.nhl.bamgrid.com/images/headshots/current/168x168/{pid_int}.jpg"
-                            except Exception:
-                                continue
-                        # Bridge abbreviated forms like 'A. Matthews' -> 'Auston Matthews' for odds lines
-                        # where canonical lines often contain full first names but stats snapshot may only
-                        # hold initial+last. We attempt a fuzzy expansion: if pattern 'X. Lastname' and we
-                        # have any valid_player_names with same last name and first initial, map them too.
-                        try:
-                            if key and '.' in key and valid_player_names:
-                                import re
-                                m = re.match(r'^([A-Z])\.\s+([A-Za-z\-\']+)$', key)
-                                if m:
-                                    ini, last = m.group(1), m.group(2)
-                                    candidates = [v for v in valid_player_names if v.split() and v.split()[-1].lower()==last.lower() and v[0].upper()==ini]
-                                    for full in candidates:
-                                        if full not in player_photo:
-                                            try:
-                                                if pid is None or str(pid).strip()=='' :
-                                                    continue
-                                                pid_int = int(float(pid))
-                                                player_photo[full] = f"https://cms.nhl.bamgrid.com/images/headshots/current/168x168/{pid_int}.jpg"
-                                            except Exception:
-                                                continue
-                        except Exception:
-                            pass
-                    # Also build a last known team per player as a fallback
-                    if 'team' in pstats.columns:
-                        # Manual final overrides for stubborn silhouettes if still missing (use any discovered pid)
-                        try:
-                            remaining_manual = [
-                                "Jordan Oesterle",
-                                "Scott Morrow",
-                                "Henry Thrun",
-                                "David Kampf",
-                                "Mitchell Stephens",
-                                "Jakob Pelletier",
-                                "Zachary L'Heureux",
-                                "Joshua Roy",
-                            ]
-                            # Build simple last-name index once
-                            last_name_pid = {}
-                            for name_key, url in list(player_photo.items()):
-                                # extract pid from url if possible
-                                try:
-                                    if '/168x168/' in url:
-                                        pid_part = url.split('/168x168/')[-1].split('.')[0]
-                                        # map last name
-                                        parts_n = name_key.split()
-                                        if len(parts_n) >= 2:
-                                            last_name_pid.setdefault(parts_n[-1].lower(), pid_part)
-                                except Exception:
-                                    continue
-                            for mm in remaining_manual:
-                                if mm in player_photo:
-                                    continue
-                                parts_mm = mm.split()
-                                if len(parts_mm) < 2:
-                                    continue
-                                last = parts_mm[-1].lower()
-                                pid_guess = last_name_pid.get(last)
-                                if not pid_guess:
-                                    # fall back to last_team_pid_map search on last name
-                                    for (lname, _team), pidv in last_team_pid_map.items():
-                                        if lname == parts_mm[-1]:
-                                            pid_guess = pidv
-                                            break
-                                if not pid_guess:
-                                    continue
-                                try:
-                                    pid_int = int(str(pid_guess).split('.')[0])
-                                except Exception:
-                                    continue
-                                player_photo[mm] = f"https://cms.nhl.bamgrid.com/images/headshots/current/168x168/{pid_int}.jpg"
-                        except Exception:
-                            pass
-                        def _last_team_norm(g):
-                            try:
-                                t = g.dropna().astype(str).iloc[-1]
-                            except Exception:
-                                t = None
-                            if t:
-                                try:
-                                    a = get_team_assets(t) or {}
-                                    ab = a.get('abbr')
-                                    if ab:
-                                        return str(ab).upper()
-                                except Exception:
-                                    pass
-                            return t
-                        last_teams = pstats.dropna(subset=['team']).groupby('player')['team'].agg(_last_team_norm)
-                        for nm, tm in last_teams.items():
-                            if nm and (nm not in player_team_map or not player_team_map.get(nm)):
-                                player_team_map[nm] = str(tm).strip()
-                    # Position inference from stats file if available
-                    try:
-                        if 'primary_position' in pstats.columns:
-                            pos_last = pstats.dropna(subset=['primary_position']).groupby('player')['primary_position'].last()
-                            for nm, pv in pos_last.items():
-                                if nm and nm not in player_position_map and pv:
-                                    pv_u = str(pv).upper()
-                                    if pv_u in ('C','LW','RW'): pv_u = 'F'
-                                    if pv_u in ('F','D','G'):
-                                        player_position_map[nm] = pv_u
-                    except Exception:
-                        pass
-            except Exception:
-                pass
-            # Fallback positions via processed roster CSV if available (player,position,team columns)
-            try:
-                roster_csv = PROC_DIR / f"roster_{date}.csv"
-                rdf = _read_csv_fallback(roster_csv)
-                if (rdf is None) or rdf.empty:
-                    rdf = _github_raw_read_csv(f"data/processed/roster_{date}.csv")
-                if rdf is not None and not rdf.empty:
-                    if {'player','position'}.issubset(set(rdf.columns)):
-                        for _, rr in rdf.iterrows():
-                            nm = rr.get('player')
-                            posv = str(rr.get('position') or '').upper()
-                            if nm and posv and (_norm_name(nm) not in player_position_map):
-                                if posv in ('F','D','G','C','LW','RW'):
-                                    player_position_map[_norm_name(nm)] = ('F' if posv in ('C','LW','RW') else posv)
-            except Exception:
-                pass
-    except Exception:
-        player_photo = {}
-        player_team_map = {}
-
-    # Build cards: group by player (and team), with per-market sections including projections
-    # Precompute today's slate team abbreviations to validate/fix team attribution
-    slate_team_abbrs: set[str] = set()
-    try:
-        _client_tmp = NHLWebClient()
-        _games_tmp = _client_tmp.schedule_day(date)
-        for _g in _games_tmp or []:
-            try:
-                _ha = get_team_assets(str(getattr(_g, 'home', ''))) or {}
-                _aa = get_team_assets(str(getattr(_g, 'away', ''))) or {}
-                _hab = ( _ha.get('abbr') or '' ).upper()
-                _aab = ( _aa.get('abbr') or '' ).upper()
-                if _hab: slate_team_abbrs.add(_hab)
-                if _aab: slate_team_abbrs.add(_aab)
-            except Exception:
-                continue
-    except Exception:
-        slate_team_abbrs = set()
-    # If recommendations were empty but fallback is allowed, synthesize a minimal dataframe from canonical lines
-    try:
-        if (locals().get('_empty_df_early') and (team or game)):
-            # Use lp if available from earlier canonical lines load; otherwise try to load quickly
-            _lp_src = locals().get('lp') if 'lp' in locals() else None
-            if _lp_src is None or (_lp_src is not None and _lp_src.empty):
-                try:
-                    d_for_lines = date or _today_ymd()
-                    base = PROC_DIR.parent / "props" / f"player_props_lines/date={d_for_lines}"
-                    _parts_fb = []
-                    for _nm in ("oddsapi.parquet","oddsapi.csv"):
-                        _p = base / _nm
-                        if _p.exists():
-                            try:
-                                _parts_fb.append(pd.read_parquet(_p) if _p.suffix=='.parquet' else _read_csv_fallback(_p))
-                            except Exception:
-                                continue
-                    _lp_src = pd.concat(_parts_fb, ignore_index=True) if _parts_fb else None
-                except Exception:
-                    _lp_src = None
-            if isinstance(_lp_src, pd.DataFrame) and not _lp_src.empty:
-                tmp = _lp_src.copy()
-                name_col = 'player_name' if 'player_name' in tmp.columns else ('player' if 'player' in tmp.columns else None)
-                if name_col:
-                    # Normalize team
-                    def _team_abbr_val2(t):
-                        try:
-                            a = get_team_assets(t) or {}
-                            ab = a.get('abbr')
-                            return (ab or t).upper()
-                        except Exception:
-                            return str(t).upper()
-                    if 'team' in tmp.columns:
-                        tmp['team'] = tmp['team'].apply(_team_abbr_val2)
-                    # Standardize market
-                    if 'market' not in tmp.columns:
-                        for _alt in ('prop','bet_type','market_name'):
-                            if _alt in tmp.columns:
-                                tmp['market'] = tmp[_alt]
-                                break
-                    # Filter slate
-                    try:
-                        if 'team' in tmp.columns and slate_team_abbrs:
-                            tmp = tmp[tmp['team'].astype(str).str.upper().isin(list(slate_team_abbrs))]
-                    except Exception:
-                        pass
-                    # Apply team/game filter
-                    try:
-                        if team and 'team' in tmp.columns:
-                            t_u = str(team).upper()
-                            tmp = tmp[tmp['team'].astype(str).str.upper() == t_u]
-                        if game and 'team' in tmp.columns and '@' in str(game):
-                            a, h = str(game).upper().split('@', 1)
-                            tmp = tmp[tmp['team'].astype(str).str.upper().isin([a.strip(), h.strip()])]
-                    except Exception:
-                        pass
-                    # Keep known markets if available
-                    try:
-                        if 'market' in tmp.columns:
-                            tmp['market'] = tmp['market'].astype(str).str.upper()
-                            tmp = tmp[tmp['market'].isin(['SOG','GOALS','ASSISTS','POINTS','SAVES','BLOCKS'])]
-                    except Exception:
-                        pass
-                    # Select/rename columns
-                    cols_out = {name_col: 'player'}
-                    for c in ('team','market','line','over_price','under_price','book'):
-                        if c in tmp.columns:
-                            cols_out[c] = c
-                    df_fb = tmp[list(cols_out.keys())].rename(columns=cols_out)
-                    # Add missing columns
-                    for c in ('side','ev','proj','p_over'):
-                        if c not in df_fb.columns:
-                            df_fb[c] = None
-                    # Clean names and numerics
-                    try:
-                        df_fb['player'] = df_fb['player'].astype(str).map(lambda s: ' '.join(s.split()))
-                        df_fb = df_fb[df_fb['player'].str.strip() != '']
-                    except Exception:
-                        pass
-                    for c in ('line','over_price','under_price'):
-                        if c in df_fb.columns:
-                            try:
-                                df_fb[c] = pd.to_numeric(df_fb[c], errors='coerce')
-                            except Exception:
-                                pass
-                    df = df_fb
-    except Exception:
-        pass
-    # If a specific team/game is requested but df lacks those teams, augment from canonical lines
-    try:
-        target_teams: set[str] = set()
-        if team:
-            target_teams.add(str(team).upper())
-        if game and '@' in str(game):
-            a, h = str(game).upper().split('@', 1)
-            target_teams.update({a.strip(), h.strip()})
-        if df is not None and not df.empty and target_teams:
-            has_col = 'team' in df.columns
-            has_any = False
-            if has_col:
-                try:
-                    has_any = df['team'].astype(str).str.upper().isin(list(target_teams)).any()
-                except Exception:
-                    has_any = False
-            if not has_any:
-                # Build augmentation from lines
-                d_for_lines = date or _today_ymd()
-                base = PROC_DIR.parent / "props" / f"player_props_lines/date={d_for_lines}"
-                parts_aug = []
-                for _nm in ("oddsapi.parquet","oddsapi.csv"):
-                    _p = base / _nm
-                    if _p.exists():
-                        try:
-                            parts_aug.append(pd.read_parquet(_p) if _p.suffix=='.parquet' else _read_csv_fallback(_p))
-                        except Exception:
-                            continue
-                if parts_aug:
-                    tmp = pd.concat(parts_aug, ignore_index=True)
-                    name_col = 'player_name' if 'player_name' in tmp.columns else ('player' if 'player' in tmp.columns else None)
-                    if name_col:
-                        def _team_abbr_val3(t):
-                            try:
-                                a = get_team_assets(t) or {}
-                                ab = a.get('abbr')
-                                return (ab or t).upper()
-                            except Exception:
-                                return str(t).upper()
-                        if 'team' in tmp.columns:
-                            tmp['team'] = tmp['team'].apply(_team_abbr_val3)
-                        # Standardize market
-                        if 'market' not in tmp.columns:
-                            for _alt in ('prop','bet_type','market_name'):
-                                if _alt in tmp.columns:
-                                    tmp['market'] = tmp[_alt]
-                                    break
-                        # Filter to target teams
-                        if 'team' in tmp.columns:
-                            tmp = tmp[tmp['team'].astype(str).str.upper().isin(list(target_teams))]
-                        # Keep known markets
-                        if 'market' in tmp.columns:
-                            tmp['market'] = tmp['market'].astype(str).str.upper()
-                            tmp = tmp[tmp['market'].isin(['SOG','GOALS','ASSISTS','POINTS','SAVES','BLOCKS'])]
-                        cols_out = {name_col: 'player'}
-                        for c in ('team','market','line','over_price','under_price','book'):
-                            if c in tmp.columns:
-                                cols_out[c] = c
-                        df_aug = tmp[list(cols_out.keys())].rename(columns=cols_out)
-                        for c in ('side','ev','proj','p_over'):
-                            if c not in df_aug.columns:
-                                df_aug[c] = None
-                        try:
-                            df_aug['player'] = df_aug['player'].astype(str).map(lambda s: ' '.join(s.split()))
-                            df_aug = df_aug[df_aug['player'].str.strip() != '']
-                        except Exception:
-                            pass
-                        for c in ('line','over_price','under_price'):
-                            if c in df_aug.columns:
-                                try:
-                                    df_aug[c] = pd.to_numeric(df_aug[c], errors='coerce')
-                                except Exception:
-                                    pass
-                        try:
-                            df = pd.concat([df, df_aug], ignore_index=True)
-                        except Exception:
-                            pass
-    except Exception:
-        pass
-    cards = []
-    try:
-        if df is not None and not df.empty:
-            # Drop rows with missing/blank player names to avoid 'nan' cards
-            try:
-                df['player'] = df['player'].astype(str).map(_norm_name)
-                df = df[df['player'].str.strip() != '']
-            except Exception:
-                pass
-            # Filter out obvious non-player strings (e.g., 'Total Shots On Goal')
-            try:
-                BAD_TOKENS = ['TOTAL', 'SHOTS ON GOAL', 'TOTAL SHOTS', 'GOALS', 'ASSISTS', 'POINTS', 'SAVES', 'BLOCKS']
-                def _is_probably_player(n: str) -> bool:
-                    if not n: return False
-                    u = str(n).upper()
-                    if any(tok in u for tok in BAD_TOKENS):
-                        return False
-                    # Heuristic: require at least a space (first + last name)
-                    return (' ' in str(n).strip())
-                df = df[df['player'].apply(_is_probably_player)]
-            except Exception:
-                pass
-            # If we have a canonical set of players for the date, keep only those
-            try:
-                if valid_player_names:
-                    df = df[df['player'].apply(lambda x: _norm_name(x) in { _norm_name(v) for v in valid_player_names })]
-            except Exception:
-                pass
-            # Fill missing team from player_team_map (with last-name fallback)
-            try:
-                if 'team' in df.columns:
-                    def _fill_team(row):
-                        t = row.get('team')
-                        if t is None or str(t).strip() == '' or str(t).lower() == 'nan':
-                            nm = _norm_name(row.get('player'))
-                            t0 = player_team_map.get(nm)
-                            if not t0 and nm and ' ' in nm:
-                                last = nm.split()[-1].lower()
-                                # If we have a team mode for this last name, use that
-                                if 'last_only_team_mode' in locals():
-                                    t0 = last_only_team_mode.get(last) or t0
-                            return t0 or t
-                        return t
-                    df['team'] = df.apply(_fill_team, axis=1)
-                    # Sanitize any lingering string 'nan' values into None
-                    df['team'] = df['team'].apply(lambda v: None if (v is None or str(v).strip()=='' or str(v).strip().lower() in ('nan','none','null')) else v)
-            except Exception:
-                pass
-            # Ensure numeric types
-            for c in ('line','ev','over_price','under_price','proj','p_over'):
-                if c in df.columns:
-                    try:
-                        df[c] = pd.to_numeric(df[c], errors='coerce')
-                    except Exception:
-                        pass
-            # Preferred market order
-            MARKET_ORDER = ['SOG','GOALS','ASSISTS','POINTS','SAVES','BLOCKS']
-            def market_sort_key(m):
-                m = (m or '').upper()
-                return (MARKET_ORDER.index(m) if m in MARKET_ORDER else len(MARKET_ORDER), m)
-            grp_cols = [c for c in ['player','team'] if c in df.columns]
-            grouped = df.groupby(grp_cols, dropna=False) if grp_cols else []
-            for keys, g_all in grouped:
-                if isinstance(keys, tuple):
-                    player = keys[0] if len(keys) > 0 else None
-                    player_team = keys[1] if len(keys) > 1 else None
-                else:
-                    player = keys; player_team = None
-                # Clean team to avoid 'nan' string
-                team_clean = None
-                try:
-                    if player_team is not None and str(player_team).strip().lower() not in ('nan','none','null',''):
-                        team_clean = str(player_team).strip()
-                except Exception:
-                    team_clean = player_team
-                # Prefer team from lines/stats; use roster_master only if missing or to add photo/position
-                if player and roster_master_map:
-                    rm = roster_master_map.get(_norm_name(player))
-                else:
-                    rm = None
-                team_from_rm = (rm.get('team_abbr') if isinstance(rm, dict) else None)
-                photo_from_rm = (rm.get('image_url') if isinstance(rm, dict) else None)
-                pos_from_rm = (rm.get('position') if isinstance(rm, dict) else None)
-                # Start with team from data rows (lines/stats fill), then fall back to roster_master
-                team_eff = team_clean or team_from_rm
-                # If roster_master contradicts slate while line-derived fits slate, prefer the line-derived team
-                try:
-                    if team_from_rm and team_clean and slate_team_abbrs:
-                        t_rm = str(team_from_rm).upper()
-                        t_ln = str(team_clean).upper()
-                        if (t_rm not in slate_team_abbrs) and (t_ln in slate_team_abbrs):
-                            team_eff = t_ln
-                except Exception:
-                    pass
-                assets = get_team_assets(str(team_eff)) if team_eff else {}
-                markets = []
-                best_ev_overall = None
-                # Group per market within player
-                if 'market' in g_all.columns:
-                    for mkt, g in g_all.groupby('market', dropna=False):
-                        mkt_u = (str(mkt) if mkt is not None else '').upper()
-                        # Sort group rows so we can pick best row and present ladders nicely
-                        g = g.sort_values(['ev','line'], ascending=[False, True]) if {'ev','line'}.issubset(g.columns) else g
-                        ladders = []
-                        best_ev = None
-                        best_row = None
-                        # For deduplication: keep best EV per (line, side) pair
-                        best_by_key = {}
-                        for _, r in g.iterrows():
-                            ev_val = r.get('ev')
-                            try:
-                                ev_f = float(ev_val) if pd.notna(ev_val) else None
-                            except Exception:
-                                ev_f = None
-                            line_v = float(r.get('line')) if pd.notna(r.get('line')) else None
-                            side_v = str(r.get('side') or 'Over').capitalize()
-                            key_ls = (line_v, side_v)
-                            # Track best row for overall best EV
-                            if ev_f is not None and (best_ev is None or ev_f > best_ev):
-                                best_ev = ev_f
-                                best_row = r
-                            # Deduplicate keeping highest EV; tie-breaker by better price magnitude
-                            prev = best_by_key.get(key_ls)
-                            def _price_for_side(row_side, o, u):
-                                try:
-                                    if str(row_side).lower() == 'over':
-                                        return int(o) if pd.notna(o) else None
-                                    return int(u) if pd.notna(u) else None
-                                except Exception:
-                                    return None
-                            cur_price = _price_for_side(side_v, r.get('over_price'), r.get('under_price'))
-                            take = False
-                            if prev is None:
-                                take = True
-                            else:
-                                pe = prev.get('ev')
-                                if (ev_f is not None) and (pe is None or ev_f > pe + 1e-9):
-                                    take = True
-                                elif (ev_f is not None) and (pe is not None) and abs(ev_f - pe) <= 1e-9:
-                                    # EV tie: prefer better (higher for +, lower absolute negative) price
-                                    pp = prev.get('price')
-                                    if pp is None and cur_price is not None:
-                                        take = True
-                                    elif pp is not None and cur_price is not None:
-                                        # For American odds: prefer larger positive value for plus-money; for negatives, prefer closer to zero (e.g., -120 better than -150)
-                                        if prev.get('side') == 'Over' and side_v == 'Over' or prev.get('side') == 'Under' and side_v == 'Under':
-                                            if (cur_price >= 100 and (pp < 100 or cur_price > pp)) or (cur_price < 0 and pp < 0 and cur_price > pp):
-                                                take = True
-                            if take:
-                                best_by_key[key_ls] = {
-                                    'line': line_v,
-                                    'side': side_v,
-                                    'over_price': int(r.get('over_price')) if pd.notna(r.get('over_price')) else None,
-                                    'under_price': int(r.get('under_price')) if pd.notna(r.get('under_price')) else None,
-                                    'book': r.get('book'),
-                                    'ev': ev_f,
-                                    'price': cur_price,
-                                }
-                        # Emit deduped ladders
-                        ladders = list(best_by_key.values())
-                        # Compute best pick per line (highest EV) and mark recommendation
-                        try:
-                            best_per_line = {}
-                            for item in ladders:
-                                ln = item.get('line')
-                                evv = item.get('ev')
-                                if ln is None:
-                                    continue
-                                if ln not in best_per_line:
-                                    best_per_line[ln] = item
-                                else:
-                                    prev = best_per_line[ln]
-                                    pe = prev.get('ev')
-                                    if (evv is not None) and ((pe is None) or (evv > pe)):
-                                        best_per_line[ln] = item
-                            for item in ladders:
-                                evv = item.get('ev')
-                                item['ev_pct'] = (float(evv) * 100.0) if (evv is not None) else None
-                                ln = item.get('line')
-                                item['rec'] = bool(best_per_line.get(ln) is item and (evv is not None) and (evv > 0))
-                        except Exception:
-                            pass
-                        # Sort ladders by line ascending and side (Over first)
-                        try:
-                            ladders.sort(key=lambda x: (x.get('line') if x.get('line') is not None else 0, 0 if (str(x.get('side')).lower()== 'over') else 1))
-                        except Exception:
-                            pass
-                        proj_lambda = None
-                        p_over_primary = None
-                        primary_line = None
-                        best_side = None
-                        best_book = None
-                        best_price = None
-                        try:
-                            if 'proj' in g.columns and g['proj'].notna().any():
-                                proj_lambda = float(g['proj'].dropna().iloc[0])
-                        except Exception:
-                            proj_lambda = None
-                        try:
-                            if best_row is not None:
-                                primary_line = float(best_row.get('line')) if pd.notna(best_row.get('line')) else None
-                                pov = best_row.get('p_over')
-                                if pov is not None and pd.notna(pov):
-                                    p_over_primary = float(pov)
-                                bs = best_row.get('side')
-                                bb = best_row.get('book')
-                                op = best_row.get('over_price'); up = best_row.get('under_price')
-                                if bs and isinstance(bs, str):
-                                    best_side = bs
-                                    best_book = bb
-                                    if bs.lower() == 'over':
-                                        best_price = int(op) if (op is not None and pd.notna(op)) else None
-                                    else:
-                                        best_price = int(up) if (up is not None and pd.notna(up)) else None
-                        except Exception:
-                            pass
-                        if best_ev is not None and (best_ev_overall is None or best_ev > best_ev_overall):
-                            best_ev_overall = best_ev
-                        markets.append({
-                            'market': mkt_u,
-                            'best_ev': best_ev,
-                            'proj': proj_lambda,
-                            'p_over': p_over_primary,
-                            'primary_line': primary_line,
-                            'best_side': best_side,
-                            'best_book': best_book,
-                            'best_price': best_price,
-                            'ladders': ladders,
-                        })
-                # Inject projection-only markets (no lines) so the UI can show SOG/Goals/Assists/Points even without prices
-                try:
-                    # First try direct normalized-name lookup
-                    pmap = proj_map.get(_norm_nm(player), {}) if proj_map else {}
-                    # If not found, attempt last-name + team fallback
-                    if (not pmap) and proj_map_by_last_team:
-                        try:
-                            last = str(player).strip().split()[-1].lower() if str(player).strip() else ''
-                            team_key = str(team_eff or '').strip().upper()
-                            if last and team_key:
-                                pmap = proj_map_by_last_team.get((last, team_key), {})
-                        except Exception:
-                            pass
-                    # As a final fallback, try abbreviated forms like "J. Last" and dotless variant derived from full name
-                    if (not pmap) and proj_map and isinstance(player, str) and player.strip():
-                        try:
-                            parts = player.strip().split()
-                            if len(parts) >= 2:
-                                ini = parts[0][0].upper()
-                                last_tok = parts[-1]
-                                abbr = f"{ini}. {last_tok}"
-                                abbr_nodot = f"{ini} {last_tok}"
-                                pmap = proj_map.get(abbr, {}) or proj_map.get(abbr_nodot, {}) or {}
-                        except Exception:
-                            pass
-                    have = { (m.get('market') or '').upper() for m in markets }
-                    for m_add in ['SOG','GOALS','ASSISTS','POINTS','SAVES','BLOCKS']:
-                        if (m_add not in have) and (m_add in pmap):
-                            markets.append({
-                                'market': m_add,
-                                'best_ev': None,
-                                'proj': pmap.get(m_add),
-                                'p_over': None,
-                                'primary_line': None,
-                                'best_side': None,
-                                'best_book': None,
-                                'best_price': None,
-                                'ladders': [],
-                            })
-                except Exception:
-                    pass
-                # Sort markets by preferred order
-                if markets:
-                    markets.sort(key=lambda x: market_sort_key(x.get('market')))
-                cards.append({
-                    'player': player,
-                    'team': team_eff,
-                    'team_abbr': (assets.get('abbr') or '').upper() if isinstance(assets, dict) else None,
-                    'team_logo': (assets.get('logo_light') or assets.get('logo_dark')) if isinstance(assets, dict) else None,
-                    'best_ev': best_ev_overall,
-                    'markets': markets,
-                    'photo': photo_from_rm or player_photo.get(_norm_name(player)),
-                    'position': pos_from_rm or player_position_map.get(_norm_name(player)) or player_position_map.get(player) or None,
-                })
-            # Sort and top-N (now by player card)
-            if cards:
-                if (sortBy or 'ev_desc').lower() in ('ev_desc','ev_asc'):
-                    rev = ((sortBy or 'ev_desc').lower() == 'ev_desc')
-                    cards.sort(key=lambda x: (x.get('best_ev') is None, x.get('best_ev')), reverse=rev)
-                elif (sortBy or '').lower() == 'name':
-                    cards.sort(key=lambda x: (str(x.get('player') or '').lower()))
-                elif (sortBy or '').lower() == 'market':
-                    cards.sort(key=lambda x: (x.get('markets')[0]['market'] if (x.get('markets') and x.get('markets')[0].get('market')) else ''))
-                elif (sortBy or '').lower() == 'team':
-                    cards.sort(key=lambda x: (str(x.get('team_abbr') or str(x.get('team') or '')).upper()))
-                # Only apply slicing if all flag not set
-                truncated = False
-                if (not all) and top and top > 0 and len(cards) > top:
-                    cards = cards[: int(top)]
-                    truncated = True
-                else:
-                    truncated = False
-            else:
-                truncated = False
-            # Add UI fallbacks for missing images/logos to avoid empty gaps
-            try:
-                for c in cards:
-                    # If proxy enabled and photo points at NHL CMS, use local proxy path
-                    try:
-                        if _use_headshot_proxy() and isinstance(c.get('photo'), str) and '/images/headshots/current/168x168/' in c['photo']:
-                            pid_part = c['photo'].split('/168x168/')[-1].split('.')[0]
-                            if pid_part and pid_part.isdigit():
-                                c['photo_src'] = f"/img/headshot/{pid_part}.jpg"
-                    except Exception:
-                        pass
-                    # Fallback: if still missing photo, attempt last-name+team lookup from canonical lines
-                    if (not c.get('photo') or (isinstance(c.get('photo'), str) and c['photo'].startswith('data:image'))) and c.get('team_abbr'):
-                        try:
-                            pl = c.get('player')
-                            if pl and isinstance(pl, str):
-                                last = pl.strip().split()[-1].lower()
-                                key = (last, c.get('team_abbr'))
-                                pid_fallback = last_team_pid_map.get(key) if 'last_team_pid_map' in locals() else None
-                                if pid_fallback:
-                                    # Prefer official assets.nhle.com mugs pattern
-                                    season = _nhl_season_code(date)
-                                    team_ab = str(c.get('team_abbr')).upper()
-                                    url_fb = f"https://assets.nhle.com/mugs/nhl/{season}/{team_ab}/{int(pid_fallback)}.png"
-                                    c['photo'] = url_fb
-                        except Exception:
-                            pass
-                    # Second fallback: last-name-only unique pid
-                    if (not c.get('photo') or (isinstance(c.get('photo'), str) and c['photo'].startswith('data:image'))):
-                        try:
-                            pl = c.get('player')
-                            if pl and isinstance(pl, str):
-                                last = pl.strip().split()[-1].lower()
-                                pid_guess = (last_only_unique_pid.get(last) if 'last_only_unique_pid' in locals() else None)
-                                if pid_guess:
-                                    # If we know team too, use assets mug; else use CMS headshot
-                                    season = _nhl_season_code(date)
-                                    team_ab = str(c.get('team_abbr') or '').upper()
-                                    if team_ab:
-                                        c['photo'] = f"https://assets.nhle.com/mugs/nhl/{season}/{team_ab}/{int(pid_guess)}.png"
-                                    else:
-                                        c['photo'] = f"https://cms.nhl.bamgrid.com/images/headshots/current/168x168/{int(pid_guess)}.jpg"
-                        except Exception:
-                            pass
-                    if not c.get('photo'):
-                        # Neutral silhouette asset (data URI tiny svg to avoid network)
-                        c['photo'] = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='42' height='42'><circle cx='21' cy='14' r='8' fill='%23262a33'/><rect x='9' y='24' width='24' height='14' rx='7' fill='%23262a33'/></svg>"
-                    if not c.get('team_logo') and c.get('team_abbr'):
-                        a = get_team_assets(c.get('team_abbr')) or {}
-                        c['team_logo'] = a.get('logo_light') or a.get('logo_dark')
-            except Exception:
-                pass
-    except Exception:
-        cards = []
-    template = env.get_template("props_recommendations.html")
-    # Debug metrics about enrichment to help diagnose missing photos/logos client side
-    try:
-        # Count any remote http(s) photo, with sub-count for assets host
-        remote_photo_cnt = sum(1 for c in (cards or []) if isinstance(c.get('photo'), str) and c['photo'].startswith('http'))
-        assets_photo_cnt = sum(1 for c in (cards or []) if isinstance(c.get('photo'), str) and 'assets.nhle.com/mugs' in c['photo'])
-        proxy_photo_cnt = sum(1 for c in (cards or []) if isinstance(c.get('photo_src'), str) and c['photo_src'].startswith('/img/headshot/'))
-        silhouette_cnt = sum(1 for c in (cards or []) if isinstance(c.get('photo'), str) and c['photo'].startswith('data:image/svg+xml'))
-        logo_cnt = sum(1 for c in (cards or []) if c.get('team_logo'))
-        pos_cnt = sum(1 for c in (cards or []) if c.get('position'))
-        debug_info = None
-        if debug:
-            debug_info = f"photos_remote={remote_photo_cnt} photos_assets={assets_photo_cnt} photos_proxy={proxy_photo_cnt} silhouette={silhouette_cnt} cards={len(cards)} logos={logo_cnt} positions={pos_cnt} date={date}"
-    except Exception:
-        debug_info = None
-
-    # When debug==2 return JSON metrics; debug==3 adds deeper mapping diagnostics
-    if debug in (2,3):
-        extra = {}
-        if debug == 3:
-            # Build a quick diagnostic of canonical lines and mapping results
-            diag = {
-                'lines_player_id_non_null': None,
-                'lines_distinct_players': None,
-                'mapping_sample': [],
-                'card_vs_mapping': [],
-            }
-            try:
-                # Re-run minimal load for canonical lines
-                d_for_lines = date or _today_ymd()
-                base = PROC_DIR.parent / "props" / f"player_props_lines/date={d_for_lines}"
-                parts2 = []
-                for name in ("oddsapi.parquet", "oddsapi.csv"):
-                    p2 = base / name
-                    if p2.exists():
-                        try:
-                            if p2.suffix == '.parquet':
-                                parts2.append(pd.read_parquet(p2))
-                            else:
-                                parts2.append(_read_csv_fallback(p2))
-                        except Exception:
-                            continue
-                if parts2:
-                    lp2 = pd.concat(parts2, ignore_index=True)
-                    if {'player_name','player_id'}.issubset(lp2.columns):
-                        try:
-                            diag['lines_player_id_non_null'] = int(lp2['player_id'].notna().sum())
-                        except Exception:
-                            pass
-                        try:
-                            diag['lines_distinct_players'] = int(lp2['player_name'].nunique())
-                        except Exception:
-                            pass
-                # Use existing player_photo mapping
-                samp = []
-                def _maybe_unwrap(nm: str) -> str:
-                    try:
-                        if nm.startswith('{') and nm.endswith('}'):
-                            import ast
-                            obj = ast.literal_eval(nm)
-                            if isinstance(obj, dict):
-                                for k2 in ('default','full','name','player'):
-                                    if k2 in obj and obj[k2]:
-                                        return str(obj[k2])
-                    except Exception:
-                        pass
-                    return nm
-                for k,v in list(player_photo.items())[:10]:
-                    samp.append({'player_name_norm': k, 'player_name_unwrapped': _maybe_unwrap(k), 'url': v})
-                diag['mapping_sample'] = samp
-                # Add comparison of first few card player names to mapping presence
-                try:
-                    if cards:
-                        comp = []
-                        for c in cards[:10]:
-                            nm = c.get('player')
-                            hit = player_photo.get(_norm_name(nm)) is not None
-                            comp.append({'card_player': nm, 'mapping_hit': hit})
-                        diag['card_vs_mapping'] = comp
-                except Exception:
-                    pass
-            except Exception:
-                pass
-            extra['diagnostics'] = diag
-        return JSONResponse({
-            'date': date,
-            'cards': len(cards) if isinstance(cards, list) else 0,
-            'photos_remote': remote_photo_cnt,
-            'photos_assets': assets_photo_cnt,
-            'photos_proxy': proxy_photo_cnt,
-            'silhouettes': silhouette_cnt,
-            'logos': logo_cnt,
-            'positions': pos_cnt,
-            'sample_players_no_photo': [c.get('player') for c in (cards or []) if c.get('photo','').startswith('data:image')][:10],
-            'filter_params': {
-                'team': team,
-                'game': game,
-                'market': market,
-                'min_ev': min_ev,
-                'top': top,
-                'all': all,
-            },
-            **extra,
-        })
-
-    # Optional team/game filtering at the card level
-    try:
-        # Debug logging to diagnose filtering issues
-        cards_before_filter = len(cards) if isinstance(cards, list) else 0
-        if team or game:
-            team_u = str(team or '').upper()
-            game_pair = None
-            if game:
-                g = str(game).upper()
-                if '@' in g:
-                    a, h = g.split('@', 1)
-                    game_pair = {a.strip(), h.strip()}
-            def _keep(c):
-                try:
-                    ab = str(c.get('team_abbr') or c.get('team') or '').upper()
-                    if team_u and ab != team_u:
-                        return False
-                    if game_pair and ab not in game_pair:
-                        return False
-                    return True
-                except Exception:
-                    return True
-            cards[:] = [c for c in (cards or []) if _keep(c)]
-        cards_after_filter = len(cards) if isinstance(cards, list) else 0
-        # If we filtered out cards, log it (visible in debug mode or server logs)
-        if cards_before_filter != cards_after_filter:
-            import logging
-            logging.warning(f"Props recommendations filtered: {cards_before_filter} -> {cards_after_filter} (team={team}, game={game})")
-    except Exception:
-        pass
-    # Build slate games for dropdown
-    games_options: list[str] = []
-    try:
-        client = NHLWebClient()
-        gms = client.schedule_day(date)
-        opts = []
-        for g in gms or []:
-            try:
-                ha = get_team_assets(str(getattr(g, 'home', ''))) or {}
-                aa = get_team_assets(str(getattr(g, 'away', ''))) or {}
-                hab = (ha.get('abbr') or '').upper(); aab = (aa.get('abbr') or '').upper()
-                if hab and aab:
-                    opts.append(f"{aab}@{hab}")
-            except Exception:
-                continue
-        games_options = sorted(list({o for o in opts if o}))
-    except Exception:
-        games_options = []
-
-    html = template.render(
-        date=date,
-        market=market or "",
-        min_ev=min_ev,
-        top=top,
-        sortBy=sortBy or 'ev_desc',
-        side=side or 'both',
-        all=bool(all),
-        team=team or "",
-        game=game or "",
-        cards=cards,
-        truncated=locals().get('truncated', False),
-        total_cards=len(cards) if isinstance(cards, list) else 0,
-        debug_info=debug_info,
-        games=games_options,
-    )
-    return HTMLResponse(content=html)
+    return PlainTextResponse("cards-only UI: this page has been removed", status_code=404)
 
 # Friendly alias for common misspelling: /props/recomendations -> cards view
 @app.get("/props/recomendations", include_in_schema=False)
@@ -10076,7 +7194,7 @@ async def props_recommendations_json(
     except Exception:
         pass
     if df is None or df.empty:
-        return JSONResponse({"date": d, "rows": 0, "data": []})
+        return JSONResponse({"date": d, "rows": 0, "total_rows": 0, "data": []})
     try:
         market_u = str(market or '').strip().upper()
         if market_u and market_u not in ('ALL', 'ALL MARKETS', 'ANY') and 'market' in df.columns:
@@ -10099,7 +7217,7 @@ async def props_recommendations_json(
         recs = df.to_dict(orient='records')
     except Exception:
         recs = []
-    return JSONResponse({"date": d, "rows": len(recs), "data": recs})
+    return JSONResponse({"date": d, "rows": len(recs), "total_rows": len(recs), "data": recs})
 
 @app.get('/props/debug/photos', response_class=PlainTextResponse)
 def debug_props_photos(date: str = Query(default='today'), include_stats_sample: int = Query(0, ge=0, le=50)):
@@ -10582,24 +7700,12 @@ async def api_cron_props_range(
             out[d] = {"error": str(e)}
     return JSONResponse({"ok": True, "mode": mode_lc, "dates": dates, "results": out})
 
-@app.get("/props/reconciliation")
+@app.get("/props/reconciliation", include_in_schema=False)
 async def props_reconciliation_page(
     date: Optional[str] = Query(None),
     refresh: int = Query(0),
 ):
-    date = date or _today_ymd()
-    # Reuse API
-    resp = await api_player_props_reconciliation(date=date, refresh=refresh)
-    rows = []
-    try:
-        import json as _json
-        js = _json.loads(resp.body)
-        rows = js.get("data") or []
-    except Exception:
-        rows = []
-    template = env.get_template("props_reconciliation.html")
-    html = template.render(date=date, refresh=(refresh==1), rows=rows)
-    return HTMLResponse(content=html)
+    return PlainTextResponse("cards-only UI: this page has been removed", status_code=404)
 
 @app.post("/api/cron/props-fast")
 async def api_cron_props_fast(
@@ -11130,32 +8236,13 @@ async def api_props_stats_calibration(
     return JSONResponse(payload)
 
 
-@app.get("/props/stats-calibration")
+@app.get("/props/stats-calibration", include_in_schema=False)
 async def props_stats_calibration_page(
     file: Optional[str] = Query(None),
     market: Optional[str] = Query(None),
     window: Optional[int] = Query(None),
 ):
-    # Reuse API
-    resp = await api_props_stats_calibration(file=file, market=market, window=window, fmt="json")
-    payload = {}
-    if isinstance(resp, JSONResponse):
-        try:
-            import json as _json
-            payload = _json.loads(resp.body)
-        except Exception:
-            payload = {"summary": []}
-    template = env.get_template("props_stats_calibration.html")
-    html = template.render(
-        file=payload.get("file"),
-        market=(market or ""),
-        window=window,
-        rows=payload.get("summary", []),
-        start=payload.get("start"),
-        end=payload.get("end"),
-        files=payload.get("available_files", []),
-    )
-    return HTMLResponse(content=html)
+    return PlainTextResponse("cards-only UI: this page has been removed", status_code=404)
 
 
 @app.get("/api/recommendations")
@@ -11428,7 +8515,7 @@ async def api_recommendations(
     return JSONResponse(_safe)
 
 
-@app.get("/recommendations")
+@app.get("/recommendations", include_in_schema=False)
 async def recommendations(
     date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD"),
     min_ev: float = Query(0.0, description="Minimum EV threshold to include"),
@@ -11440,267 +8527,7 @@ async def recommendations(
     med_ev: float = Query(0.04, description="EV threshold for Medium confidence grouping (e.g., 0.04 for 4%)"),
     sort_by: str = Query("ev", description="Sort key within groups: ev, edge, prob, price, bet"),
 ):
-    date = date or _today_ymd()
-    read_only_ui = _read_only(date)
-    # Normalize potential Query objects (when called internally) to raw values
-    try:
-        from fastapi import params as _params
-    except Exception:
-        _params = None
-    def _norm(v, default=None):
-        if _params and isinstance(v, _params.Query):
-            return v.default if v.default is not None else default
-        return v if v is not None else default
-    markets = _norm(markets, "all")
-    try: min_ev = float(_norm(min_ev, 0.0))
-    except Exception: min_ev = 0.0
-    try: top = int(_norm(top, 20))
-    except Exception: top = 20
-    try: bankroll = float(_norm(bankroll, 0.0))
-    except Exception: bankroll = 0.0
-    try: kelly_fraction_part = float(_norm(kelly_fraction_part, 0.5))
-    except Exception: kelly_fraction_part = 0.5
-    try: high_ev = float(_norm(high_ev, 0.05))
-    except Exception: high_ev = 0.05
-    try: med_ev = float(_norm(med_ev, 0.02))
-    except Exception: med_ev = 0.02
-    sort_by = str(_norm(sort_by, "ev") or "ev").lower()
-    # Ensure predictions exist (skip in read-only mode)
-    pred_path = PROC_DIR / f"predictions_{date}.csv"
-    if (not pred_path.exists()) and (not read_only_ui):
-        snapshot = datetime.now(timezone.utc).replace(hour=18, minute=0, second=0, microsecond=0).strftime("%Y-%m-%dT%H:%M:%SZ")
-        try:
-            predict_core(date=date, source="web", odds_source="oddsapi", snapshot=snapshot, odds_best=True, bankroll=bankroll, kelly_fraction_part=kelly_fraction_part)
-        except Exception:
-            pass
-    # For settled slates (prior to today's ET), perform a one-shot settlement backfill to populate results
-    try:
-        et_today = _today_ymd()
-        if str(date) < str(et_today):
-            # Settlement backfill updates predictions file; allowed even in read-only UI
-            _backfill_settlement_for_date(date)
-    except Exception:
-        pass
-    # Build recommendations via API to share logic (be robust to missing predictions or error payloads)
-    recs = await api_recommendations(
-        date=date,
-        min_ev=min_ev,
-        top=top,
-        markets=markets,
-        bankroll=bankroll,
-        kelly_fraction_part=kelly_fraction_part,
-    )
-    data = recs.body  # JSONResponse
-    error_message = None
-    try:
-        status = getattr(recs, "status_code", 200)
-        import json as _json
-        parsed = _json.loads(data)
-        # If API returned an error object (e.g., 404 no predictions), show empty rows instead of 500
-        if isinstance(parsed, list):
-            rows = parsed
-        else:
-            # Common shape: {"error": "...", "date": "YYYY-MM-DD"}
-            error_message = parsed.get("error") if isinstance(parsed, dict) else None
-            rows = []
-        # Treat non-200 as an error even if payload parsed
-        if status and int(status) >= 400 and not error_message:
-            error_message = "request_failed"
-    except Exception:
-        rows = []
-        error_message = "invalid_response"
-    # Compute confidence groupings (NFL-style):
-    # High (ev >= high_ev), Medium (med_ev <= ev < high_ev), Low (0 <= ev < med_ev), Other (ev < 0)
-    EV_HIGH = float(high_ev)
-    EV_MED = float(med_ev)
-    if EV_MED > EV_HIGH:  # safety swap
-        EV_MED, EV_HIGH = EV_HIGH, EV_MED
-    def group_row(r):
-        try:
-            ev = float(r.get("ev"))
-        except Exception:
-            ev = -999
-        if ev >= EV_HIGH:
-            return "high"
-        elif ev >= EV_MED:
-            return "medium"
-        elif ev >= 0:
-            return "low"
-        else:
-            return "other"
-    # Annotate confidence on each row
-    for r in rows:
-        r["confidence"] = group_row(r)
-    rows_high = [r for r in rows if r["confidence"] == "high"]
-    rows_medium = [r for r in rows if r["confidence"] == "medium"]
-    rows_low = [r for r in rows if r["confidence"] == "low"]
-    rows_other = [r for r in rows if r["confidence"] == "other"]
-    # Sort within groups by EV desc
-    def sort_key_func(sb: str):
-        sb = (sb or "").lower()
-        if sb == "edge":
-            return lambda x: x.get("edge") if x.get("edge") is not None else x.get("edge_pts") or -999
-        if sb == "prob":
-            return lambda x: x.get("model_prob", -999)
-        if sb == "price":
-            return lambda x: x.get("price", -999)
-        if sb == "bet":
-            order = {"moneyline": 0, "totals": 1, "first10": 2, "puckline": 3, "periods": 4}
-            return lambda x: (
-                order.get((x.get("market") or "").lower(), 99),
-                str(x.get("bet") or "")
-            )
-        # default ev
-        return lambda x: x.get("ev", -999)
-    _sk = sort_key_func(sort_by)
-    # For alphabetical/typed sort, use ascending; for numeric metrics keep descending
-    _reverse = False if sort_by == "bet" else True
-    rows_high.sort(key=_sk, reverse=_reverse)
-    rows_medium.sort(key=_sk, reverse=_reverse)
-    rows_low.sort(key=_sk, reverse=_reverse)
-    rows_other.sort(key=_sk, reverse=_reverse)
-    # Reconciliation summary (closing-based) for the same date
-    recon_summary = {}
-    try:
-        _recon_resp = await api_reconciliation(date=date)
-        if isinstance(_recon_resp, JSONResponse):
-            import json as _json
-            _payload = _json.loads(_recon_resp.body)
-            recon_summary = _payload.get("summary", {}) or {}
-    except Exception:
-        recon_summary = {}
-    # Normalize keys for template safety: older paths may return 'staked' instead of 'stake'
-    try:
-        if isinstance(recon_summary, dict):
-            if ('stake' not in recon_summary) and ('staked' in recon_summary):
-                recon_summary['stake'] = recon_summary.get('staked')
-            # Ensure essential fields exist to avoid Jinja attribute errors
-            for k, dv in {
-                'wins': 0,
-                'losses': 0,
-                'pushes': 0,
-                'pnl': 0.0,
-                'roi': None,
-            }.items():
-                recon_summary.setdefault(k, dv)
-    except Exception:
-        pass
-    # Summary metrics (overall and per-group)
-    def american_to_decimal_local(american):
-        try:
-            a = float(american)
-        except Exception:
-            return None
-        if a > 0:
-            return 1.0 + (a / 100.0)
-        else:
-            return 1.0 + (100.0 / abs(a))
-    def compute_summary(subrows):
-        wins = losses = pushes = 0
-        staked = 0.0
-        pnl = 0.0
-        decided = 0
-        for r in subrows:
-            res = (r.get("result") or "").lower()
-            # Determine stake
-            stake = None
-            try:
-                if bankroll and float(bankroll) > 0 and r.get("stake") is not None:
-                    stake = float(r.get("stake"))
-            except Exception:
-                stake = None
-            if stake is None:
-                # Confidence-based default staking when no bankroll provided
-                conf = (r.get("confidence") or "").lower()
-                if conf == "high":
-                    stake = 100.0
-                elif conf == "medium":
-                    stake = 50.0
-                elif conf == "low":
-                    stake = 25.0
-                else:
-                    stake = 0.0
-            # Determine price; fallback -110 for spreads/totals when missing
-            price = r.get("price")
-            if price is None and r.get("market") in ("totals", "puckline"):
-                price = -110
-            if price is None and r.get("market") == "moneyline":
-                price = -110
-            dec = american_to_decimal_local(price) if price is not None else None
-            if res in ("win", "loss", "push"):
-                if res == "win":
-                    wins += 1
-                    if dec:
-                        pnl += stake * (dec - 1.0)
-                elif res == "loss":
-                    losses += 1
-                    pnl -= stake
-                else:
-                    pushes += 1
-                staked += stake
-        decided = wins + losses
-        acc = (wins / decided) if decided > 0 else None
-        roi = (pnl / staked) if staked > 0 else None
-        return {
-            "wins": wins,
-            "losses": losses,
-            "pushes": pushes,
-            "picks": len(subrows),
-            "accuracy": acc,
-            "stake": staked,
-            "pnl": pnl,
-            "roi": roi,
-        }
-    summary_overall = compute_summary(rows)
-    summary_high = compute_summary(rows_high)
-    summary_medium = compute_summary(rows_medium)
-    summary_low = compute_summary(rows_low)
-    summary_other = compute_summary(rows_other)
-    # Market counts for top bar (based on displayed rows)
-    counts = {"moneyline": 0, "totals": 0, "puckline": 0}
-    for r in rows:
-        m = (r.get("market") or "").lower()
-        if m in counts:
-            counts[m] += 1
-    template = env.get_template("recommendations.html")
-    # prev/next date for quick navigation
-    prev_date = None
-    next_date = None
-    try:
-        base_dt = datetime.fromisoformat(date)
-        prev_date = (base_dt - timedelta(days=1)).strftime("%Y-%m-%d")
-        next_date = (base_dt + timedelta(days=1)).strftime("%Y-%m-%d")
-    except Exception:
-        pass
-    html = template.render(
-        date=date,
-        prev_date=prev_date,
-        next_date=next_date,
-        rows=rows,
-        rows_high=rows_high,
-        rows_medium=rows_medium,
-        rows_low=rows_low,
-        rows_other=rows_other,
-        summary_overall=summary_overall,
-        summary_high=summary_high,
-        summary_medium=summary_medium,
-        summary_low=summary_low,
-        summary_other=summary_other,
-        counts=counts,
-        total_picks=len(rows),
-        min_ev=min_ev,
-        top=top,
-        markets=markets,
-        bankroll=bankroll,
-        kelly_fraction_part=kelly_fraction_part,
-        high_ev=high_ev,
-        med_ev=med_ev,
-        sort_by=sort_by,
-        recon_summary=recon_summary,
-        last_updates=_last_update_info(date),
-        error=error_message,
-    )
-    return HTMLResponse(content=html)
+    return PlainTextResponse("cards-only UI: this page has been removed", status_code=404)
 
 
 @app.get("/api/odds-coverage")
@@ -11992,72 +8819,19 @@ async def api_reconciliation(
     }
     return JSONResponse({"summary": summary, "rows": rows})
 
-@app.get("/props/recommendations.csv")
+@app.get("/props/recommendations.csv", include_in_schema=False)
 def props_recommendations_csv(date: Optional[str] = Query(None)):
-    d = date or _today_ymd()
-    path = PROC_DIR / f"props_recommendations_{d}.csv"
-    # Prefer local; if missing, try GitHub raw cache
-    if not path.exists():
-        try:
-            df = _github_raw_read_csv(f"data/processed/props_recommendations_{d}.csv")
-            if df is not None and not df.empty:
-                try:
-                    csv_bytes = df.to_csv(index=False).encode('utf-8')
-                    headers = {"Content-Disposition": f"attachment; filename=props_recommendations_{d}.csv"}
-                    return Response(content=csv_bytes, media_type="text/csv", headers=headers)
-                except Exception:
-                    pass
-            return PlainTextResponse("", status_code=404)
-        except Exception as e:
-            return JSONResponse({"error": str(e)}, status_code=500)
-    try:
-        data = Path(path).read_bytes()
-        headers = {"Content-Disposition": f"attachment; filename=props_recommendations_{d}.csv"}
-        return Response(content=data, media_type="text/csv", headers=headers)
-    except Exception as e:
-        return JSONResponse({"error": str(e)}, status_code=500)
+    return PlainTextResponse("cards-only UI: this page has been removed", status_code=404)
 
 
-@app.get("/props/projections.csv")
+@app.get("/props/projections.csv", include_in_schema=False)
 def props_projections_csv(date: Optional[str] = Query(None)):
-    d = date or _today_ymd()
-    path = PROC_DIR / f"props_projections_{d}.csv"
-    # Prefer local; if missing, try GitHub raw cache
-    if not path.exists():
-        try:
-            df = _github_raw_read_csv(f"data/processed/props_projections_{d}.csv")
-            if df is not None and not df.empty:
-                try:
-                    csv_bytes = df.to_csv(index=False).encode('utf-8')
-                    headers = {"Content-Disposition": f"attachment; filename=props_projections_{d}.csv"}
-                    return Response(content=csv_bytes, media_type="text/csv", headers=headers)
-                except Exception:
-                    pass
-            return PlainTextResponse("", status_code=404)
-        except Exception as e:
-            return JSONResponse({"error": str(e)}, status_code=500)
-    try:
-        data = Path(path).read_bytes()
-        headers = {"Content-Disposition": f"attachment; filename=props_projections_{d}.csv"}
-        return Response(content=data, media_type="text/csv", headers=headers)
-    except Exception as e:
-        return JSONResponse({"error": str(e)}, status_code=500)
+    return PlainTextResponse("cards-only UI: this page has been removed", status_code=404)
 
 
-@app.get("/odds-coverage")
+@app.get("/odds-coverage", include_in_schema=False)
 async def odds_coverage(date: Optional[str] = Query(None)):
-    date = date or _today_ymd()
-    resp = await api_odds_coverage(date=date)
-    payload = {}
-    if isinstance(resp, JSONResponse):
-        try:
-            import json as _json
-            payload = _json.loads(resp.body)
-        except Exception:
-            payload = {"summary": {"date": date}, "rows": []}
-    template = env.get_template("odds_coverage.html")
-    html = template.render(summary=payload.get("summary", {}), rows=payload.get("rows", []))
-    return HTMLResponse(content=html)
+    return PlainTextResponse("cards-only UI: this page has been removed", status_code=404)
 
 # -----------------------------------------------------------------------------
 # FIRST-10 evaluation summary (JSON + HTML)
@@ -12102,58 +8876,11 @@ async def api_first10_eval():
         return JSONResponse({"error": "not_found"}, status_code=404)
     return JSONResponse(data)
 
-@app.get("/first10-eval")
+@app.get("/first10-eval", include_in_schema=False)
 async def first10_eval_page():
-    data = _read_first10_eval_local()
-    if not data and _is_public_host_env():
-        try:
-            url = os.getenv(
-                "FIRST10_EVAL_URL",
-                "https://raw.githubusercontent.com/mostgood1/NHL-Betting/master/data/processed/first10_eval.json",
-            )
-            r = requests.get(url, timeout=2.0)
-            if r.status_code == 200 and r.text:
-                try:
-                    data = json.loads(r.text)
-                except Exception:
-                    data = {}
-        except Exception:
-            data = {}
-    # Shape defaults
-    start = data.get("start") if isinstance(data, dict) else None
-    end = data.get("end") if isinstance(data, dict) else None
-    samples = data.get("samples") if isinstance(data, dict) else None
-    p1_scale = data.get("p1_scale") if isinstance(data, dict) else None
-    total_scale = data.get("total_scale") if isinstance(data, dict) else None
-    brier = data.get("brier") if isinstance(data, dict) else None
-    logloss = data.get("logloss") if isinstance(data, dict) else None
-    calib = data.get("calibration") if isinstance(data, dict) else None
-
-    template = env.get_template("first10_eval.html")
-    html = template.render(
-        start=start,
-        end=end,
-        samples=samples,
-        p1_scale=p1_scale,
-        total_scale=total_scale,
-        brier=brier,
-        logloss=logloss,
-        calibration=calib or [],
-    )
-    return HTMLResponse(content=html)
+    return PlainTextResponse("cards-only UI: this page has been removed", status_code=404)
 
 
-@app.get("/reconciliation")
+@app.get("/reconciliation", include_in_schema=False)
 async def reconciliation(date: Optional[str] = Query(None)):
-    date = date or _today_ymd()
-    resp = await api_reconciliation(date=date)
-    payload = {}
-    if isinstance(resp, JSONResponse):
-        try:
-            import json as _json
-            payload = _json.loads(resp.body)
-        except Exception:
-            payload = {"summary": {"date": date}, "rows": []}
-    template = env.get_template("reconciliation.html")
-    html = template.render(summary=payload.get("summary", {}), rows=payload.get("rows", []))
-    return HTMLResponse(content=html)
+    return PlainTextResponse("cards-only UI: this page has been removed", status_code=404)

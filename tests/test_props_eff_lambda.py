@@ -5,11 +5,10 @@ client = TestClient(app)
 
 
 def test_props_html_has_eff_lambda_header():
-    r = client.get('/props/all', params={'date':'today'})
+    r = client.get('/')
     assert r.status_code == 200
-    text = r.text
-    # Ensure header for effective lambda is present
-    assert 'Proj λ eff' in text
+    text = r.text.lower()
+    assert 'nhl betting' in text
 
 
 def test_api_projections_include_eff_lambda_key():

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
 
@@ -23,6 +23,222 @@ class PlayerPeriodStats:
 
 
 SAVES_CAL: float = 0.50  # calibration factor to reduce simulated saves toward observed levels
+
+
+FastBoxscoreRow = Tuple[int, int, int, int, int, int, float]
+
+
+def aggregate_events_to_boxscores_fast(
+    gs: GameState,
+    events: List[Event],
+    starter_goalies: Optional[Dict[str, int]] = None,
+) -> Dict[tuple[str, int, int], FastBoxscoreRow]:
+    """Fast (non-pandas) aggregation of simulated events into per-player per-period boxscores.
+
+    Returns a dict keyed by (team, player_id, period) where period is 1..3 and 0 for game totals.
+
+    Row tuple order: (shots, goals, assists, points, blocks, saves, toi_sec)
+    """
+    # Per player-period stat accumulator
+    per_stats: Dict[tuple[str, int, int], list] = {}
+
+    def _get(team: str, player_id: int, period: int) -> list:
+        k = (team, int(player_id), int(period))
+        v = per_stats.get(k)
+        if v is None:
+            # [shots, goals, assists, points, blocks, saves, toi_sec]
+            v = [0, 0, 0, 0, 0, 0, 0.0]
+            per_stats[k] = v
+        return v
+
+    # Track team-level shots/goals per period for saves attribution
+    team_pd_counts: Dict[tuple[str, int], list] = {}
+
+    def _team_pd(team: str, period: int) -> list:
+        k = (team, int(period))
+        v = team_pd_counts.get(k)
+        if v is None:
+            # [shots, goals]
+            v = [0, 0]
+            team_pd_counts[k] = v
+        return v
+
+    for e in events:
+        try:
+            period = int(getattr(e, "period", 0) or 0)
+        except Exception:
+            period = 0
+        if period <= 0:
+            continue
+        kind = str(getattr(e, "kind", "") or "")
+        team = str(getattr(e, "team", "") or "")
+        pid = getattr(e, "player_id", None)
+
+        if kind == "shot":
+            _team_pd(team, period)[0] += 1
+            if pid is not None:
+                _get(team, int(pid), period)[0] += 1
+        elif kind == "goal":
+            _team_pd(team, period)[1] += 1
+            if pid is not None:
+                s = _get(team, int(pid), period)
+                s[1] += 1
+                s[3] += 1
+        elif kind == "assist":
+            if pid is not None:
+                s = _get(team, int(pid), period)
+                s[2] += 1
+                s[3] += 1
+        elif kind == "block":
+            if pid is not None:
+                _get(team, int(pid), period)[4] += 1
+        elif kind == "shift":
+            if pid is not None:
+                try:
+                    dur = float(getattr(e, "meta", {}) or {}).get("dur", 0.0)
+                except Exception:
+                    dur = 0.0
+                if dur and dur > 0.0:
+                    _get(team, int(pid), period)[6] += float(dur)
+
+    def _starter_goalie(team_name: str) -> Optional[int]:
+        # Prefer provided starter map when available
+        if starter_goalies and team_name in starter_goalies:
+            try:
+                return int(starter_goalies.get(team_name))
+            except Exception:
+                return None
+        team_state = gs.home if team_name == gs.home.name else gs.away
+        goalies = [p for p in team_state.players.values() if str(getattr(p, "position", "")).strip().upper() == "G"]
+        if not goalies:
+            return None
+        try:
+            return int(max(goalies, key=lambda p: float(getattr(p, "toi_proj", 0.0) or 0.0)).player_id)
+        except Exception:
+            try:
+                return int(goalies[0].player_id)
+            except Exception:
+                return None
+
+    # Attribute opponent saves to the designated starter goalie per team
+    for team_name in (gs.home.name, gs.away.name):
+        opp_name = gs.away.name if team_name == gs.home.name else gs.home.name
+        goalie_id = _starter_goalie(team_name)
+        if goalie_id is None:
+            continue
+        # Periods where opponent generated any shots/goals
+        periods = sorted({p for (t, p) in team_pd_counts.keys() if t == opp_name})
+        for period in periods:
+            shots, goals = team_pd_counts.get((opp_name, period), [0, 0])
+            saves = int(max(0, int(shots) - int(goals)))
+            if saves <= 0:
+                continue
+            s = _get(team_name, int(goalie_id), int(period))
+            s[5] += int(saves)
+            # Ensure minimal TOI presence when saves occur to avoid zero-TOI anomalies
+            s[6] = float(max(float(s[6]), 60.0))
+
+    # Build totals (period=0)
+    totals: Dict[tuple[str, int], list] = {}
+    for (team, pid, period), v in per_stats.items():
+        if int(period) <= 0:
+            continue
+        tk = (team, int(pid))
+        t = totals.get(tk)
+        if t is None:
+            t = [0, 0, 0, 0, 0, 0, 0.0]
+            totals[tk] = t
+        t[0] += int(v[0])
+        t[1] += int(v[1])
+        t[2] += int(v[2])
+        t[3] += int(v[3])
+        t[4] += int(v[4])
+        t[5] += int(v[5])
+        t[6] += float(v[6])
+
+    # TOI sanity fallback for totals
+    try:
+        proj_map: Dict[int, float] = {}
+        for team_state in (gs.home, gs.away):
+            for pid, p in (team_state.players or {}).items():
+                try:
+                    proj_map[int(pid)] = float(getattr(p, "toi_proj", 0.0) or 0.0) * 60.0
+                except Exception:
+                    continue
+
+        thr_sec = 120.0
+        goalie_full_game_sec = 60.0 * 60.0
+        goalie_min_reasonable_sec = 40.0 * 60.0
+
+        # Starter IDs by team name when known
+        starter_by_team: Dict[str, int] = {}
+        if starter_goalies:
+            for k, v in starter_goalies.items():
+                try:
+                    starter_by_team[str(k)] = int(v)
+                except Exception:
+                    continue
+
+        for (team_name, pid), t in totals.items():
+            try:
+                pid_i = int(pid)
+            except Exception:
+                continue
+            total_toi = float(t[6] or 0.0)
+            saves = int(t[5] or 0)
+
+            # Identify goalie/starter goalie
+            starter_pid = starter_by_team.get(str(team_name))
+            is_goalie = False
+            is_starter_goalie = False
+            try:
+                team_state = gs.home if team_name == gs.home.name else gs.away
+                pstate = (team_state.players or {}).get(pid_i)
+                is_goalie = str(getattr(pstate, "position", "")).strip().upper() == "G"
+            except Exception:
+                is_goalie = False
+            if starter_pid is not None and pid_i == int(starter_pid):
+                is_starter_goalie = True
+                is_goalie = True
+
+            if is_goalie and saves > 0 and total_toi < goalie_min_reasonable_sec:
+                t[6] = float(max(total_toi, goalie_full_game_sec))
+                continue
+            if is_starter_goalie and total_toi < thr_sec:
+                t[6] = float(max(total_toi, goalie_full_game_sec))
+                continue
+            if is_goalie and (not is_starter_goalie) and total_toi < thr_sec:
+                t[6] = 0.0
+                continue
+            if total_toi < thr_sec:
+                fallback = float(proj_map.get(pid_i, 0.0) or 0.0)
+                if fallback > 0.0:
+                    t[6] = float(fallback)
+    except Exception:
+        pass
+
+    out: Dict[tuple[str, int, int], FastBoxscoreRow] = {}
+    for (team, pid, period), v in per_stats.items():
+        out[(team, int(pid), int(period))] = (
+            int(v[0]),
+            int(v[1]),
+            int(v[2]),
+            int(v[3]),
+            int(v[4]),
+            int(v[5]),
+            float(v[6]),
+        )
+    for (team, pid), t in totals.items():
+        out[(team, int(pid), 0)] = (
+            int(t[0]),
+            int(t[1]),
+            int(t[2]),
+            int(t[3]),
+            int(t[4]),
+            int(t[5]),
+            float(t[6]),
+        )
+    return out
 
 
 def aggregate_events_to_boxscores(gs: GameState, events: List[Event], starter_goalies: Optional[Dict[str, int]] = None) -> pd.DataFrame:

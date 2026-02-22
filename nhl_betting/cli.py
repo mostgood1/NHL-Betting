@@ -70,6 +70,34 @@ from .web.teams import get_team_assets
 app = typer.Typer(help="NHL Betting predictive engine CLI")
 
 
+@app.command("bundle-build")
+def bundle_build(
+    date: str = typer.Option(..., help="Bundle date YYYY-MM-DD"),
+):
+    """Write a canonical v1 daily bundle JSON for a given date.
+
+    Output: data/processed/bundles/date=YYYY-MM-DD/bundle.json
+    """
+    from .publish.daily_bundles import write_daily_bundle, write_manifest
+
+    out = write_daily_bundle(date)
+    # Keep manifest in sync for the UI (best-effort)
+    try:
+        write_manifest()
+    except Exception:
+        pass
+    print(f"Wrote bundle: {out}")
+
+
+@app.command("bundle-manifest")
+def bundle_manifest():
+    """(Re)write bundles manifest.json from current processed artifacts."""
+    from .publish.daily_bundles import write_manifest
+
+    out = write_manifest()
+    print(f"Wrote manifest: {out}")
+
+
 @app.command()
 def fetch(
     season: Optional[int] = typer.Option(None, help="Season start year, e.g., 2023"),
@@ -4845,7 +4873,8 @@ def props_recommendations(
         return out
     t0 = time.monotonic()
     parts = _read_any(prefer)
-    _dbg(f"read preferred parts: {[str(p) for p in prefer if p.exists()]} -> {sum((0 if p is None else len(p)) for p in parts)} rows")
+    parts = [p for p in parts if p is not None and not p.empty]
+    _dbg(f"read preferred parts: {[str(p) for p in prefer if p.exists()]} -> {sum(len(p) for p in parts)} rows")
     if not parts:
         # Fast-fail: write empty output instead of aborting to avoid killing parent flows
         print("No props lines found for", date, "- writing empty recommendations")
@@ -5760,6 +5789,54 @@ def props_simulate(
     from .web.teams import get_team_assets as _assets
     from .data.nhl_api_web import NHLWebClient as _Web
 
+    def _coerce_float(v: object, fallback: float) -> float:
+        """Allow calling this Typer command as a normal function.
+
+        When called directly (not via Typer), parameters declared as
+        `typer.Option(...)` can be `OptionInfo` objects. This coerces those
+        to their `.default` values.
+        """
+        try:
+            return float(v)  # type: ignore[arg-type]
+        except Exception:
+            try:
+                default = getattr(v, "default")
+            except Exception:
+                default = None
+            if default is not None:
+                try:
+                    return float(default)
+                except Exception:
+                    pass
+            return float(fallback)
+
+    def _coerce_int(v: object, fallback: int) -> int:
+        try:
+            return int(v)  # type: ignore[arg-type]
+        except Exception:
+            try:
+                default = getattr(v, "default")
+            except Exception:
+                default = None
+            if default is not None:
+                try:
+                    return int(default)
+                except Exception:
+                    pass
+            return int(fallback)
+
+    # Coerce Typer defaults when invoked as a function (tests do this).
+    n_sims = _coerce_int(n_sims, 20000)
+    sim_shared_k = _coerce_float(sim_shared_k, 1.0)
+    props_xg_gamma = _coerce_float(props_xg_gamma, 0.02)
+    props_penalty_gamma = _coerce_float(props_penalty_gamma, 0.06)
+    props_goalie_form_gamma = _coerce_float(props_goalie_form_gamma, 0.02)
+    props_refs_gamma = _coerce_float(props_refs_gamma, 0.0)
+    props_strength_gamma = _coerce_float(props_strength_gamma, 0.04)
+    props_sog_dispersion = _coerce_float(props_sog_dispersion, 0.0)
+    props_sog_pp_gamma = _coerce_float(props_sog_pp_gamma, 0.0)
+    props_sog_pk_gamma = _coerce_float(props_sog_pk_gamma, 0.0)
+
     def _norm(s: str | None) -> str:
         try:
             return " ".join(str(s or "").split())
@@ -5901,6 +5978,21 @@ def props_simulate(
                 abbr_to_opp[h]=a; abbr_to_opp[a]=h
     except Exception:
         abbr_to_opp = {}
+
+    # Fallback: derive opponent mapping from possession events file (available in tests)
+    if not abbr_to_opp:
+        try:
+            ev_path = PROC_DIR / f"sim_events_pos_{date}.csv"
+            if ev_path.exists():
+                ev = pd.read_csv(ev_path)
+                for _, rr in ev.iterrows():
+                    h_ab = _abbr_team(rr.get("home"))
+                    a_ab = _abbr_team(rr.get("away"))
+                    if h_ab and a_ab:
+                        abbr_to_opp[h_ab] = a_ab
+                        abbr_to_opp[a_ab] = h_ab
+        except Exception:
+            pass
     lines["opp_abbr"] = lines["team_abbr"].map(lambda t: abbr_to_opp.get(str(t).upper()) if pd.notna(t) else None)
 
     # Load team features
@@ -6099,7 +6191,11 @@ def props_simulate_boxscores(
     date: str = typer.Option(..., help="Slate date YYYY-MM-DD (ET)"),
     n_sims: int = typer.Option(5000, help="Number of play-level simulations per game"),
     seed: int = typer.Option(42, help="Random seed for reproducibility"),
-    write_samples: bool = typer.Option(True, help="Also write per-sim totals samples for p_over computation"),
+    write_samples: bool = typer.Option(True, help="Write samples used for props backtests (see --samples-mode)."),
+    samples_mode: str = typer.Option(
+        "hist",
+        help="Samples output mode when --write-samples is enabled: 'hist' (compact outcome counts; recommended) or 'full' (per-sim long form; huge). Use 'none' to disable.",
+    ),
     dispersion_shots: float = typer.Option(0.0, help="Lognormal dispersion for shots (per-segment)"),
     dispersion_goals: float = typer.Option(0.0, help="Logit-normal dispersion for goal conversion (per-segment)"),
     pp_shots_mult: float = typer.Option(1.4, help="PP shots rate multiplier (base)"),
@@ -6117,6 +6213,45 @@ def props_simulate_boxscores(
         help="Goalie starter source: 'auto' uses actual played goalie for past dates when available, otherwise uses starting_goalies_{date}.csv; 'snapshot' uses starting_goalies_{date}.csv only; 'proj' uses highest projected TOI goalie.",
     ),
     saves_cal: float = typer.Option(1.0, help="Optional scalar multiplier applied to simulated goalie SAVES outputs (and samples)."),
+    xg_gamma: float = typer.Option(0.01, help="Team xGF/60 multiplier strength applied to calibrated team rates (0=off)."),
+    goalie_form_gamma: float = typer.Option(0.01, help="Opponent goalie sv% (L10) dampening strength applied to goal conversion (0=off)."),
+    fatigue_beta: float = typer.Option(0.03, help="Offensive reduction applied on back-to-back (rest<=1) for shots+goals (0=off)."),
+    travel_beta: float = typer.Option(0.0, help="Additional offensive reduction per 1000km of travel on short rest (rest<=1). 0=off."),
+    rest_source: str = typer.Option(
+        "schedule",
+        help="Rest source for fatigue: 'schedule' (web schedule; includes travel_km) or 'team_games' (legacy processed features; no travel_km).",
+    ),
+    score_effects: str = typer.Option(
+        "dynamic",
+        help="Score-state effects mode in the play-level sim: 'dynamic' (time+diff), 'legacy' (+/-10% fixed), or 'off'.",
+    ),
+    goal_model: str = typer.Option(
+        "from_shots",
+        help="Goal emission model: 'from_shots' (each goal is also a shot; recommended) or 'independent' (legacy).",
+    ),
+    assist_model: str = typer.Option(
+        "onice",
+        help=(
+            "Assist attribution model: 'onice' emits assist events sampled from on-ice teammates (recommended); "
+            "'legacy' uses the old TOI-weighted random fallback; 'off' disables assists entirely."
+        ),
+    ),
+    usage_model: str = typer.Option(
+        "deterministic",
+        help=(
+            "Player usage / TOI allocation model for on-ice rotation: "
+            "'deterministic' uses a stable proportional allocation (default); "
+            "'noisy' perturbs projected-TOI weights slightly per sim (lower variance); "
+            "'stochastic' samples EV line/pair allocations from projected-TOI weights per sim (highest variance)."
+        ),
+    ),
+    usage_noisy_sigma: float = typer.Option(
+        0.18,
+        help=(
+            "Noise strength for --usage-model noisy (Gaussian std-dev applied to log-probabilities; 0 disables noise). "
+            "Ignored for deterministic/stochastic."
+        ),
+    ),
 ):
     """Generate period and game-level simulated player boxscores from the play-level sim engine.
 
@@ -6134,7 +6269,71 @@ def props_simulate_boxscores(
     from .web.teams import get_team_assets
     from .sim.engine import GameSimulator, SimConfig
     from .sim.models import RateModels
-    from .sim.props_boxscore import aggregate_events_to_boxscores
+    from .sim.props_boxscore import aggregate_events_to_boxscores_fast
+    from .data.goalie_form import load_goalie_form
+    from .data.penalty_rates import load_team_penalty_rates
+    from .data.team_stats import load_team_special_teams
+    from .data.team_xg import load_team_xg
+
+    pref = (out_prefix.strip() + "_") if str(out_prefix or "").strip() else ""
+
+    samples_mode_norm = str(samples_mode or "hist").strip().lower()
+    if not bool(write_samples):
+        samples_mode_norm = "none"
+    if samples_mode_norm in ("none", "off", "false", "0"):
+        samples_mode_norm = "none"
+    if samples_mode_norm not in ("none", "hist", "full"):
+        print("Invalid --samples-mode. Use 'hist', 'full', or 'none'.")
+        raise typer.Exit(code=2)
+
+    rest_source_norm = str(rest_source or "schedule").strip().lower()
+    if rest_source_norm not in ("schedule", "team_games", "legacy", "processed"):
+        print("Invalid --rest-source. Use 'schedule' or 'team_games'.")
+        raise typer.Exit(code=2)
+
+    score_effects_norm = str(score_effects or "dynamic").strip().lower()
+    if score_effects_norm in ("none", "false", "0"):
+        score_effects_norm = "off"
+    if score_effects_norm not in ("dynamic", "legacy", "off"):
+        print("Invalid --score-effects. Use 'dynamic', 'legacy', or 'off'.")
+        raise typer.Exit(code=2)
+
+    goal_model_norm = str(goal_model or "from_shots").strip().lower()
+    if goal_model_norm in ("legacy", "old", "ind", "independent"):
+        goal_model_norm = "independent"
+    elif goal_model_norm in ("fromshots", "from_shots", "shots", "shot", "linked"):
+        goal_model_norm = "from_shots"
+    else:
+        print("Invalid --goal-model. Use 'from_shots' or 'independent'.")
+        raise typer.Exit(code=2)
+
+    assist_model_norm = str(assist_model or "onice").strip().lower()
+    if assist_model_norm in ("on_ice", "on-ice"):
+        assist_model_norm = "onice"
+    if assist_model_norm in ("none", "false", "0"):
+        assist_model_norm = "off"
+    if assist_model_norm not in ("onice", "legacy", "off"):
+        print("Invalid --assist-model. Use 'onice', 'legacy', or 'off'.")
+        raise typer.Exit(code=2)
+
+    usage_model_norm = str(usage_model or "deterministic").strip().lower()
+    if usage_model_norm in ("legacy", "stable", "fixed"):
+        usage_model_norm = "deterministic"
+    if usage_model_norm in ("rand", "random", "stoch"):
+        usage_model_norm = "stochastic"
+    if usage_model_norm in ("noisy", "noise", "lite", "light", "stochastic_lite", "stochastic-lite", "stochastic_light", "stochastic-light"):
+        usage_model_norm = "noisy"
+    if usage_model_norm not in ("stochastic", "deterministic", "noisy"):
+        print("Invalid --usage-model. Use 'deterministic', 'noisy', or 'stochastic'.")
+        raise typer.Exit(code=2)
+
+    try:
+        usage_noisy_sigma_f = float(usage_noisy_sigma)
+    except Exception:
+        usage_noisy_sigma_f = 0.18
+    if usage_noisy_sigma_f < 0.0:
+        print("Invalid --usage-noisy-sigma. Must be >= 0.")
+        raise typer.Exit(code=2)
 
     # Best-effort mapping from (team_abbr, normalized player name) -> NHL player_id for this date.
     # Used only when roster snapshots are missing player_id, to avoid synthesizing hashed IDs that
@@ -6183,9 +6382,125 @@ def props_simulate_boxscores(
     # Load lineup snapshot for date (preferred source of line slots/PP/PK)
     try:
         from .utils.io import PROC_DIR as _PROC
-        lineups_all = pd.read_csv(_PROC / f"lineups_{date}.csv") if (_PROC / f"lineups_{date}.csv").exists() else pd.DataFrame(columns=["player_id","full_name","position","line_slot","pp_unit","pk_unit","proj_toi","confidence","team"])
+        # Prefer co-TOI-derived lineups when available (typically less noisy than raw lineup snapshot)
+        lineups_path = _PROC / f"lineups_co_toi_{date}.csv"
+        if not (lineups_path.exists() and getattr(lineups_path.stat(), "st_size", 0) > 0):
+            lineups_path = _PROC / f"lineups_{date}.csv"
+        lineups_all = pd.read_csv(lineups_path) if (lineups_path.exists() and getattr(lineups_path.stat(), "st_size", 0) > 0) else pd.DataFrame(columns=["player_id","full_name","position","line_slot","pp_unit","pk_unit","proj_toi","confidence","team"])
     except Exception:
         lineups_all = pd.DataFrame(columns=["player_id","full_name","position","line_slot","pp_unit","pk_unit","proj_toi","confidence","team"])
+
+    # Load optional team-level features used to shape rates and special teams.
+    # All are best-effort; missing data falls back to neutral behavior.
+    try:
+        xg_by_abbr = load_team_xg(str(date)) or {}
+    except Exception:
+        xg_by_abbr = {}
+    try:
+        goalie_form = load_goalie_form(str(date)) or {}
+    except Exception:
+        goalie_form = {}
+    try:
+        pen_rates = load_team_penalty_rates(str(date)) or {}
+    except Exception:
+        pen_rates = {}
+    try:
+        st_rates = load_team_special_teams(str(date)) or {}
+    except Exception:
+        st_rates = {}
+
+    # Rest/B2B (+ optional travel) from either Web schedule or legacy processed team_games.csv.
+    rest_by_teamabbr: dict[str, dict[str, float]] = {}
+    if rest_source_norm == "schedule":
+        try:
+            from .data.rest_travel import compute_rest_travel_by_abbr
+
+            # Build a mapping team_abbr -> today's game location abbr (home team abbr)
+            # If BOS@TOR, BOS travels to TOR (loc=TOR), TOR stays at TOR (loc=TOR)
+            slate_abbrs: set[str] = set()
+            today_loc_by_abbr: dict[str, str] = {}
+            for g0 in games or []:
+                try:
+                    h_nm = str(getattr(g0, 'home', '') or '')
+                    a_nm = str(getattr(g0, 'away', '') or '')
+                    h_ab = (get_team_assets(h_nm).get('abbr') or '').upper()
+                    a_ab = (get_team_assets(a_nm).get('abbr') or '').upper()
+                    if not (h_ab and a_ab):
+                        continue
+                    slate_abbrs.add(h_ab)
+                    slate_abbrs.add(a_ab)
+                    today_loc_by_abbr[h_ab] = h_ab
+                    today_loc_by_abbr[a_ab] = h_ab
+                except Exception:
+                    continue
+
+            def _abbr_from_name(nm: str) -> str | None:
+                try:
+                    return str((get_team_assets(str(nm)) or {}).get('abbr') or '').strip().upper() or None
+                except Exception:
+                    return None
+
+            info_by_ab = compute_rest_travel_by_abbr(
+                date_ymd=str(date),
+                slate_abbrs=slate_abbrs,
+                slate_home_away=today_loc_by_abbr,
+                lookback_days=14,
+                client=None,
+                abbr_from_team_name=_abbr_from_name,
+            )
+            for ab, info in (info_by_ab or {}).items():
+                try:
+                    rest_by_teamabbr[str(ab).upper()] = {
+                        'rest_days': float(getattr(info, 'rest_days', 7) or 0),
+                        'b2b': float(getattr(info, 'b2b', 0) or 0),
+                        'travel_km': float(getattr(info, 'travel_km', 0.0) or 0.0),
+                    }
+                except Exception:
+                    continue
+        except Exception:
+            rest_by_teamabbr = {}
+    else:
+        # Legacy: use processed team_games.csv (no travel km)
+        try:
+            from .utils.io import PROC_DIR as _PROC
+            tg_path = _PROC / "team_games.csv"
+            if tg_path.exists() and getattr(tg_path.stat(), "st_size", 0) > 0:
+                tg = pd.read_csv(tg_path)
+                if tg is not None and not tg.empty and {"date", "team", "rest_days", "b2b"}.issubset(tg.columns):
+                    tg = tg.copy()
+                    tg["date"] = tg["date"].astype(str).str.slice(0, 10)
+                    tg = tg[tg["date"] == str(date)].copy()
+                    for _, r in tg.iterrows():
+                        try:
+                            team_nm = str(r.get("team") or "")
+                            ab = str((get_team_assets(team_nm) or {}).get("abbr") or "").strip().upper()
+                            if not ab:
+                                continue
+                            rest_by_teamabbr[ab] = {
+                                "rest_days": float(r.get("rest_days") or 0.0),
+                                "b2b": float(r.get("b2b") or 0.0),
+                                "travel_km": 0.0,
+                            }
+                        except Exception:
+                            continue
+        except Exception:
+            rest_by_teamabbr = {}
+
+    def _abbr_for_team_name(team_name: str) -> str | None:
+        try:
+            return str((get_team_assets(team_name) or {}).get("abbr") or "").strip().upper() or None
+        except Exception:
+            return None
+
+    def _league_mean(vals: list[float], default: float) -> float:
+        try:
+            good = [float(v) for v in vals if v is not None]
+            return float(sum(good) / max(1, len(good))) if good else float(default)
+        except Exception:
+            return float(default)
+
+    league_xgf60 = _league_mean([v.get("xgf60") for v in xg_by_abbr.values() if isinstance(v, dict)], 2.6)
+    league_sv = _league_mean(list(goalie_form.values()), 0.905)
 
     toi_mode_norm = str(toi_mode or "auto").strip().lower()
     if toi_mode_norm not in ("auto", "legacy"):
@@ -6973,7 +7288,46 @@ def props_simulate_boxscores(
         return rows, lineups
     # Aggregate across games and sims
     agg_all: list[pd.DataFrame] = []
-    samples_all: list[pd.DataFrame] = []
+
+    # Samples accumulator (columnar) to avoid per-sim pandas melt.
+    # Note: samples are for full-game totals (period=0) only.
+    samp_team: list[str] = []
+    samp_player_id: list[int] = []
+    samp_player: list[str] = []
+    samp_market: list[str] = []
+    samp_value: list[float] = []
+    samp_sim_idx: list[int] = []
+    samp_game_home: list[str] = []
+    samp_game_away: list[str] = []
+    samp_date: list[str] = []
+    samp_period: list[int] = []
+
+    # Compact TEAM-only samples (used when samples_mode='hist')
+    # Writes the canonical props_boxscores_sim_samples_{date}.csv expected by game-recommendations-sim,
+    # but keeps it small by storing only team GOALS by sim_idx (period 0 and periods 1-3).
+    team_samp_team: list[str] = []
+    team_samp_player_id: list[int] = []
+    team_samp_player: list[str] = []
+    team_samp_market: list[str] = []
+    team_samp_value: list[float] = []
+    team_samp_sim_idx: list[int] = []
+    team_samp_game_home: list[str] = []
+    team_samp_game_away: list[str] = []
+    team_samp_date: list[str] = []
+    team_samp_period: list[int] = []
+
+    # Histogram accumulator for compact samples_mode='hist'
+    # Key: (team, player_id, market, value, game_home, game_away, date, period)
+    hist_counts: dict[tuple[str, int, str, float, str, str, str, int], int] = {}
+
+    market_specs = (
+        ("SOG", 0),
+        ("GOALS", 1),
+        ("ASSISTS", 2),
+        ("POINTS", 3),
+        ("BLOCKS", 4),
+        ("SAVES", 5),
+    )
     # Optional: load starting goalies snapshot to improve goalie attribution
     starter_map_by_teamname: dict[str, int] = {}
     try:
@@ -7183,6 +7537,102 @@ def props_simulate_boxscores(
                 special_cal = None
         except Exception:
             special_cal = None
+
+        # Apply team-level adjustments to the calibrated team rates.
+        # - xG: modulates both shots and goals (pace/quality proxy)
+        # - Goalie form: modulates goal conversion via goals_per_60
+        # - Fatigue: B2B reduces shots and goals slightly
+        try:
+            h_ab = _abbr_for_team_name(home) or ""
+            a_ab = _abbr_for_team_name(away) or ""
+
+            xg_g = float(xg_gamma or 0.0)
+            gf_g = float(goalie_form_gamma or 0.0)
+            fat_b = float(fatigue_beta or 0.0)
+            tr_b = float(travel_beta or 0.0)
+
+            def _xg_mult(abbr: str) -> float:
+                if not (abbr and xg_by_abbr and xg_g != 0.0):
+                    return 1.0
+                try:
+                    xgf = float((xg_by_abbr.get(abbr) or {}).get("xgf60"))
+                    return max(0.75, min(1.35, 1.0 + xg_g * ((xgf / max(1e-6, league_xgf60)) - 1.0)))
+                except Exception:
+                    return 1.0
+
+            def _goalie_form_mult(opp_abbr: str) -> float:
+                if not (opp_abbr and goalie_form and gf_g != 0.0):
+                    return 1.0
+                try:
+                    sv = goalie_form.get(opp_abbr)
+                    if sv is None:
+                        return 1.0
+                    return max(0.80, min(1.20, 1.0 - gf_g * (float(sv) - float(league_sv))))
+                except Exception:
+                    return 1.0
+
+            def _fatigue_mult(team_name: str) -> float:
+                if fat_b == 0.0 and tr_b == 0.0:
+                    return 1.0
+                try:
+                    ab = _abbr_for_team_name(str(team_name or ""))
+                    info = rest_by_teamabbr.get(str(ab or '').upper(), {}) if ab else {}
+                    b2b = float(info.get("b2b") or 0.0)
+                    if b2b >= 1.0:
+                        m = 1.0
+                        if fat_b != 0.0:
+                            m *= float(max(0.85, min(1.0, 1.0 - float(fat_b))))
+                        if tr_b != 0.0:
+                            try:
+                                km = float(info.get('travel_km') or 0.0)
+                            except Exception:
+                                km = 0.0
+                            # scale per 1000km; clamp to avoid extreme penalties
+                            m *= float(max(0.85, min(1.0, 1.0 - float(tr_b) * (km / 1000.0))))
+                        return float(max(0.80, min(1.0, m)))
+                    return 1.0
+                except Exception:
+                    return 1.0
+
+            # Home team offense multipliers
+            m_xg_h = _xg_mult(h_ab)
+            m_gf_h = _goalie_form_mult(a_ab)
+            m_fat_h = _fatigue_mult(home)
+            # Away team offense multipliers
+            m_xg_a = _xg_mult(a_ab)
+            m_gf_a = _goalie_form_mult(h_ab)
+            m_fat_a = _fatigue_mult(away)
+
+            rates.home.shots_per_60 = float(max(5.0, rates.home.shots_per_60 * m_xg_h * m_fat_h))
+            rates.away.shots_per_60 = float(max(5.0, rates.away.shots_per_60 * m_xg_a * m_fat_a))
+            rates.home.goals_per_60 = float(max(0.2, rates.home.goals_per_60 * m_xg_h * m_gf_h * m_fat_h))
+            rates.away.goals_per_60 = float(max(0.2, rates.away.goals_per_60 * m_xg_a * m_gf_a * m_fat_a))
+        except Exception:
+            pass
+
+        # Build special teams dicts (PP/PK strength + penalty exposure). These shape PP/PK segment selection.
+        try:
+            h_ab = _abbr_for_team_name(home) or ""
+            a_ab = _abbr_for_team_name(away) or ""
+            h_st = st_rates.get(h_ab) if h_ab else None
+            a_st = st_rates.get(a_ab) if a_ab else None
+            h_pen = pen_rates.get(h_ab) if h_ab else None
+            a_pen = pen_rates.get(a_ab) if a_ab else None
+            st_h = {
+                "pp_pct": float((h_st or {}).get("pp_pct", 0.20)),
+                "pk_pct": float((h_st or {}).get("pk_pct", 0.80)),
+                "drawn_per_game": float((h_pen or {}).get("drawn_per60", 3.0)),
+                "committed_per_game": float((h_pen or {}).get("committed_per60", 3.0)),
+            }
+            st_a = {
+                "pp_pct": float((a_st or {}).get("pp_pct", 0.20)),
+                "pk_pct": float((a_st or {}).get("pk_pct", 0.80)),
+                "drawn_per_game": float((a_pen or {}).get("drawn_per60", 3.0)),
+                "committed_per_game": float((a_pen or {}).get("committed_per60", 3.0)),
+            }
+        except Exception:
+            st_h = None
+            st_a = None
         cfg = SimConfig(
             periods=3,
             seed=seed,
@@ -7192,10 +7642,28 @@ def props_simulate_boxscores(
             pk_shots_mult=float(pk_shots_mult or 0.7),
             pp_goals_mult=float(pp_goals_mult or 1.0),
             pk_goals_mult=float(pk_goals_mult or 1.0),
+            score_effects=str(score_effects_norm),
+            goal_model=str(goal_model_norm),
+            assist_model=str(assist_model_norm),
+            usage_model=str(usage_model_norm),
+            usage_noisy_sigma=float(usage_noisy_sigma_f),
         )
         sim = GameSimulator(cfg=cfg, rates=rates)
-        # Run sims and aggregate per-sim boxscores
-        df_parts = []
+        # Precompute name map once per game
+        name_map = {
+            int(p["player_id"]): str(p.get("full_name") or "")
+            for p in (roster_home + roster_away)
+            if p.get("player_id") is not None
+        }
+
+        # Savings calibration scalar
+        try:
+            sc = float(saves_cal)
+        except Exception:
+            sc = 1.0
+
+        # Run sims and aggregate per-sim boxscores (fast path: no pandas in loop)
+        sum_stats: dict[tuple[str, int, int], list[float]] = {}
         for i in range(int(n_sims)):
             gs, ev = sim.simulate_with_lineups(
                 home_name=home,
@@ -7204,61 +7672,135 @@ def props_simulate_boxscores(
                 roster_away=dressed_away,
                 lineup_home=lineup_home_dressed or [],
                 lineup_away=lineup_away_dressed or [],
+                st_home=st_h,
+                st_away=st_a,
                 special_teams_cal=special_cal,
             )
-            df_i = aggregate_events_to_boxscores(gs, ev, starter_goalies=starter_ids or None)
-            # Optional calibration of goalie SAVES market without changing the underlying shot process.
-            # Keep as float expectations (applied per-sim aggregation) so downstream averaging remains stable.
-            try:
-                sc = float(saves_cal)
-            except Exception:
-                sc = 1.0
-            if sc != 1.0 and (df_i is not None) and (not df_i.empty) and ("saves" in df_i.columns):
-                try:
-                    df_i["saves"] = pd.to_numeric(df_i.get("saves"), errors="coerce").fillna(0.0).astype(float) * float(sc)
-                    df_i["saves"] = df_i["saves"].clip(lower=0.0)
-                except Exception:
-                    pass
-            # Attach player names for convenience
-            name_map = { int(p['player_id']): str(p['full_name']) for p in (roster_home + roster_away) if p.get('player_id') }
-            df_i['player'] = df_i['player_id'].map(lambda pid: name_map.get(int(pid)))
-            df_i['game_home'] = home; df_i['game_away'] = away; df_i['date'] = date
-            # Collect per-sim totals (period=0) in long format for markets
-            if write_samples:
-                # Game totals (period=0) for player props
-                d0 = df_i[df_i['period'] == 0].copy()
-                if not d0.empty:
-                    d0['sim_idx'] = int(i)
-                    long = d0.melt(
-                        id_vars=['team','player_id','player','game_home','game_away','date','period','sim_idx'],
-                        value_vars=['shots','goals','assists','points','blocks','saves'],
-                        var_name='market_raw', value_name='value'
-                    )
-                    long['market'] = long['market_raw'].astype(str).str.upper().map({
-                        'SHOTS':'SOG', 'GOALS':'GOALS', 'ASSISTS':'ASSISTS', 'POINTS':'POINTS', 'BLOCKS':'BLOCKS', 'SAVES':'SAVES'
-                    }).fillna(long['market_raw'].astype(str).str.upper())
-                    samples_all.append(long[['team','player_id','player','market','value','sim_idx','game_home','game_away','date','period']])
-                # Per-period per-player values to support period totals aggregation
-                dper = df_i[df_i['period'] > 0].copy()
-                if not dper.empty:
-                    dper['sim_idx'] = int(i)
-                    long_per = dper.melt(
-                        id_vars=['team','player_id','player','game_home','game_away','date','period','sim_idx'],
-                        value_vars=['shots','goals','assists','points','blocks','saves'],
-                        var_name='market_raw', value_name='value'
-                    )
-                    long_per['market'] = long_per['market_raw'].astype(str).str.upper().map({
-                        'SHOTS':'SOG', 'GOALS':'GOALS', 'ASSISTS':'ASSISTS', 'POINTS':'POINTS', 'BLOCKS':'BLOCKS', 'SAVES':'SAVES'
-                    }).fillna(long_per['market_raw'].astype(str).str.upper())
-                    samples_all.append(long_per[['team','player_id','player','market','value','sim_idx','game_home','game_away','date','period']])
-            df_parts.append(df_i)
-        # Average over sims
-        if df_parts:
-            df_sum = pd.concat(df_parts, ignore_index=True)
-            grp_cols = ['team','player_id','period','player','game_home','game_away','date']
-            df_sum = df_sum.groupby(grp_cols, as_index=False)[['shots','goals','assists','points','blocks','saves','toi_sec']].sum()
-            # Convert to expected means across sims
-            df_sum[['shots','goals','assists','points','blocks','saves','toi_sec']] = df_sum[['shots','goals','assists','points','blocks','saves','toi_sec']].astype(float) / float(n_sims)
+            rows_i = aggregate_events_to_boxscores_fast(gs, ev, starter_goalies=starter_ids or None)
+
+            # Accumulate sums across sims (missing keys implicitly treated as zero)
+            for (team_nm, pid, period), row in (rows_i or {}).items():
+                shots, goals, assists, points, blocks, saves, toi_sec = row
+                # Optional calibration of goalie SAVES market without changing shot process.
+                if sc != 1.0 and saves:
+                    try:
+                        saves = float(saves) * float(sc)
+                        if saves < 0.0:
+                            saves = 0.0
+                    except Exception:
+                        pass
+                key = (str(team_nm), int(pid), int(period))
+                acc = sum_stats.get(key)
+                if acc is None:
+                    acc = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+                    sum_stats[key] = acc
+                acc[0] += float(shots)
+                acc[1] += float(goals)
+                acc[2] += float(assists)
+                acc[3] += float(points)
+                acc[4] += float(blocks)
+                acc[5] += float(saves)
+                acc[6] += float(toi_sec)
+
+            # Collect per-sim samples (period=0 and per-period rows) without pandas melt
+            if write_samples and rows_i:
+                date_s = str(date)
+                for (team_nm, pid, period), row in rows_i.items():
+                    team_nm = str(team_nm)
+                    pid_i = int(pid)
+                    period_i = int(period)
+                    shots, goals, assists, points, blocks, saves, _toi_sec = row
+                    if sc != 1.0 and saves:
+                        try:
+                            saves = float(saves) * float(sc)
+                            if saves < 0.0:
+                                saves = 0.0
+                        except Exception:
+                            pass
+                    player_nm = name_map.get(pid_i) or ""
+                    # Append all markets for this player-period row
+                    vals = (shots, goals, assists, points, blocks, saves)
+                    for mk, idx in market_specs:
+                        try:
+                            v = float(vals[idx])
+                        except Exception:
+                            continue
+                        # Samples are for full-game totals only (period=0)
+                        if samples_mode_norm != "none" and int(period_i) == 0:
+                            if samples_mode_norm == "full":
+                                samp_team.append(team_nm)
+                                samp_player_id.append(pid_i)
+                                samp_player.append(player_nm)
+                                samp_market.append(mk)
+                                samp_value.append(v)
+                                samp_sim_idx.append(int(i))
+                                samp_game_home.append(home)
+                                samp_game_away.append(away)
+                                samp_date.append(date_s)
+                                samp_period.append(0)
+                            elif samples_mode_norm == "hist":
+                                key = (str(team_nm), int(pid_i), str(mk), float(round(v, 3)), str(home), str(away), str(date_s), 0)
+                                hist_counts[key] = int(hist_counts.get(key, 0)) + 1
+
+                # Also emit compact TEAM GOALS samples for downstream game sim consumers.
+                # This avoids huge per-player "full" samples while still enabling
+                # game-recommendations-sim to compute ML/total distributions.
+                if samples_mode_norm == "hist":
+                    try:
+                        tg: dict[tuple[str, int], float] = {}
+                        for (t_nm, _pid, per), row2 in rows_i.items():
+                            try:
+                                per_i = int(per)
+                            except Exception:
+                                continue
+                            if per_i not in (0, 1, 2, 3):
+                                continue
+                            try:
+                                g = float(row2[1])
+                            except Exception:
+                                g = 0.0
+                            if g:
+                                k = (str(t_nm), int(per_i))
+                                tg[k] = float(tg.get(k, 0.0)) + float(g)
+
+                        for t_nm in (str(home), str(away)):
+                            for per_i in (0, 1, 2, 3):
+                                v = float(tg.get((t_nm, int(per_i)), 0.0))
+                                team_samp_team.append(t_nm)
+                                team_samp_player_id.append(0)
+                                team_samp_player.append("TEAM")
+                                team_samp_market.append("GOALS")
+                                team_samp_value.append(v)
+                                team_samp_sim_idx.append(int(i))
+                                team_samp_game_home.append(str(home))
+                                team_samp_game_away.append(str(away))
+                                team_samp_date.append(str(date_s))
+                                team_samp_period.append(int(per_i))
+                    except Exception:
+                        pass
+
+        # Average over sims (build a single DataFrame from the accumulator)
+        if sum_stats:
+            rows = []
+            inv_n = 1.0 / float(n_sims)
+            for (team_nm, pid, period), acc in sum_stats.items():
+                rows.append({
+                    "team": team_nm,
+                    "player_id": int(pid),
+                    "period": int(period),
+                    "shots": float(acc[0]) * inv_n,
+                    "goals": float(acc[1]) * inv_n,
+                    "assists": float(acc[2]) * inv_n,
+                    "points": float(acc[3]) * inv_n,
+                    "blocks": float(acc[4]) * inv_n,
+                    "saves": float(acc[5]) * inv_n,
+                    "toi_sec": float(acc[6]) * inv_n,
+                })
+            df_sum = pd.DataFrame(rows)
+            df_sum["player"] = df_sum["player_id"].map(lambda pid: name_map.get(int(pid)))
+            df_sum["game_home"] = home
+            df_sum["game_away"] = away
+            df_sum["date"] = date
             # Recompute totals (period=0) from per-period means without hard rounding to preserve variance
             def _normalize_boxscores(df: pd.DataFrame) -> pd.DataFrame:
                 df = df.copy()
@@ -7385,12 +7927,22 @@ def props_simulate_boxscores(
         print("No aggregated boxscores generated.")
         raise typer.Exit(code=0)
     out = pd.concat(agg_all, ignore_index=True)
-    pref = (out_prefix.strip() + "_") if str(out_prefix or '').strip() else ""
     out_path = PROC_DIR / f"{pref}props_boxscores_sim_{date}.csv"
     save_df(out, out_path)
     print(f"[props-sim-boxscores] wrote {out_path} rows={len(out)}")
-    if write_samples and samples_all:
-        samp = pd.concat(samples_all, ignore_index=True)
+    if samples_mode_norm == "full" and samp_team:
+        samp = pd.DataFrame({
+            "team": samp_team,
+            "player_id": samp_player_id,
+            "player": samp_player,
+            "market": samp_market,
+            "value": samp_value,
+            "sim_idx": samp_sim_idx,
+            "game_home": samp_game_home,
+            "game_away": samp_game_away,
+            "date": samp_date,
+            "period": samp_period,
+        })
         samp_path = PROC_DIR / f"{pref}props_boxscores_sim_samples_{date}.parquet"
         try:
             import pyarrow as _pa  # noqa: F401
@@ -7400,6 +7952,48 @@ def props_simulate_boxscores(
             samp_path = PROC_DIR / f"{pref}props_boxscores_sim_samples_{date}.csv"
             save_df(samp, samp_path)
         print(f"[props-sim-boxscores] wrote samples {samp_path}")
+    elif samples_mode_norm == "hist" and hist_counts:
+        rows = []
+        for (team_nm, pid, mk, v, gh, ga, d_s, per), cnt in hist_counts.items():
+            rows.append({
+                "team": team_nm,
+                "player_id": int(pid),
+                "player": name_map.get(int(pid)) or "",
+                "market": mk,
+                "value": float(v),
+                "count": int(cnt),
+                "n_sims": int(n_sims),
+                "game_home": gh,
+                "game_away": ga,
+                "date": d_s,
+                "period": int(per),
+            })
+        hist_df = pd.DataFrame(rows)
+        hist_path = PROC_DIR / f"{pref}props_boxscores_sim_hist_{date}.csv"
+        save_df(hist_df, hist_path)
+        print(f"[props-sim-boxscores] wrote histogram {hist_path} rows={len(hist_df)}")
+
+        # Also write compact TEAM GOALS per-sim samples to the canonical samples filename expected by
+        # game-recommendations-sim and strict daily_update checks.
+        try:
+            if team_samp_team:
+                samp_team_df = pd.DataFrame({
+                    "team": team_samp_team,
+                    "player_id": team_samp_player_id,
+                    "player": team_samp_player,
+                    "market": team_samp_market,
+                    "value": team_samp_value,
+                    "sim_idx": team_samp_sim_idx,
+                    "game_home": team_samp_game_home,
+                    "game_away": team_samp_game_away,
+                    "date": team_samp_date,
+                    "period": team_samp_period,
+                })
+                samp_path = PROC_DIR / f"{pref}props_boxscores_sim_samples_{date}.csv"
+                save_df(samp_team_df, samp_path)
+                print(f"[props-sim-boxscores] wrote compact team samples {samp_path} rows={len(samp_team_df)}")
+        except Exception:
+            pass
 
 
 @app.command(name="props-precompute-all")
@@ -8418,6 +9012,7 @@ def props_recommendations_sim(
     min_ev_per_market: str = typer.Option("", help="Optional per-market EV thresholds"),
     min_prob: float = typer.Option(0.0, help="Minimum chosen-side probability threshold (0-1), e.g., 0.60"),
     min_prob_per_market: str = typer.Option("SOG=0.75,GOALS=0.60,ASSISTS=0.60,POINTS=0.60,SAVES=0.60,BLOCKS=0.60", help="Optional per-market probability thresholds, e.g., 'SOG=0.58,GOALS=0.60'"),
+    max_plus_odds: float = typer.Option(0.0, help="If >0, disallow selecting any side priced longer than +max_plus_odds (e.g., 300)"),
 ):
     """Generate recommendations using simulation-backed p_over if available; falls back to model-only if missing."""
     sim_path = PROC_DIR / f"props_simulations_{date}.csv"
@@ -8461,16 +9056,29 @@ def props_recommendations_sim(
         df["over_price"] = _np.nan
     if "under_price" not in df.columns:
         df["under_price"] = _np.nan
+    missing_prices = df["over_price"].isna() & df["under_price"].isna()
     df["dec_over"] = df["over_price"].map(_american_to_decimal)
     df["dec_under"] = df["under_price"].map(_american_to_decimal)
+
+    # Optional odds clamp: disallow longshot sides from being selected
+    try:
+        if float(max_plus_odds) > 0.0:
+            op = pd.to_numeric(df["over_price"], errors="coerce")
+            up = pd.to_numeric(df["under_price"], errors="coerce")
+            df.loc[(op > 0) & (op > float(max_plus_odds)), "dec_over"] = _np.nan
+            df.loc[(up > 0) & (up > float(max_plus_odds)), "dec_under"] = _np.nan
+    except Exception:
+        pass
     p = pd.to_numeric(df["p_over_sim"], errors="coerce")
     ev_over = p * (df["dec_over"] - 1.0) - (1.0 - p)
     p_under = (1.0 - p).clip(lower=0.0, upper=1.0)
     ev_under = p_under * (df["dec_under"] - 1.0) - (1.0 - p_under)
-    # When prices are missing (nolines fallback), treat EVs as 0 for gating by probability
+    # When prices are missing (nolines fallback), treat EVs as 0 for gating by probability.
+    # (Keep NaNs produced by the odds clamp so those sides can be filtered out.)
     try:
-        ev_over = ev_over.fillna(0.0)
-        ev_under = ev_under.fillna(0.0)
+        if missing_prices.any():
+            ev_over = ev_over.where(~missing_prices, 0.0)
+            ev_under = ev_under.where(~missing_prices, 0.0)
     except Exception:
         pass
     over_better = ev_under.isna() | (~ev_over.isna() & (ev_over >= ev_under))
@@ -8538,6 +9146,7 @@ def props_recommendations_boxscores(
     min_ev_per_market: str = typer.Option("", help="Optional per-market EV thresholds"),
     min_prob: float = typer.Option(0.0, help="Minimum chosen-side probability threshold (0-1)"),
     min_prob_per_market: str = typer.Option("", help="Optional per-market probability thresholds, e.g., 'SOG=0.58,GOALS=0.60'"),
+    max_plus_odds: float = typer.Option(0.0, help="If >0, disallow selecting any side priced longer than +max_plus_odds (e.g., 300)"),
 ):
     """Generate player props recommendations using per-sim totals from play-level boxscore simulation.
 
@@ -8668,6 +9277,16 @@ def props_recommendations_boxscores(
             return _np.nan
     prob["dec_over"] = prob["over_price"].map(_american_to_decimal)
     prob["dec_under"] = prob["under_price"].map(_american_to_decimal)
+
+    # Optional odds clamp: disallow longshot sides from being selected
+    try:
+        if float(max_plus_odds) > 0.0:
+            op = pd.to_numeric(prob["over_price"], errors="coerce")
+            up = pd.to_numeric(prob["under_price"], errors="coerce")
+            prob.loc[(op > 0) & (op > float(max_plus_odds)), "dec_over"] = _np.nan
+            prob.loc[(up > 0) & (up > float(max_plus_odds)), "dec_under"] = _np.nan
+    except Exception:
+        pass
     p = pd.to_numeric(prob["p_over_sim"], errors="coerce")
     ev_over = p * (prob["dec_over"] - 1.0) - (1.0 - p)
     p_under = (1.0 - p).clip(lower=0.0, upper=1.0)
@@ -8768,6 +9387,14 @@ def game_recommendations_sim(
     # Filter to goal totals (period=0 totals already baked in the samples)
     s = samples.copy()
     s = s[s.get('market').astype(str).str.upper() == 'GOALS']
+    # If the samples include both period=0 (full-game totals) and period=1..3,
+    # only use period=0 here; otherwise we'd double-count by summing totals + per-period.
+    try:
+        if 'period' in s.columns:
+            per = pd.to_numeric(s.get('period'), errors='coerce').fillna(0).astype(int)
+            s = s[per == 0]
+    except Exception:
+        pass
     if s.empty:
         print("No GOALS market in samples; aborting.")
         raise typer.Exit(code=0)
@@ -8896,7 +9523,10 @@ def game_recommendations_sim(
                 'over_odds': _pick_price(to[to['outcome_name'].astype(str).str.lower()=='over'], None),
                 'under_odds': _pick_price(to[to['outcome_name'].astype(str).str.lower()=='under'], None),
             })
-    odds_df = pd.DataFrame(odds_rows)
+    odds_df = pd.DataFrame(
+        odds_rows,
+        columns=['game_home','game_away','home_ml_odds','away_ml_odds','over_odds','under_odds'],
+    )
     pred_sim = summary.merge(odds_df, on=['game_home','game_away'], how='left')
     # Totals probabilities
     if 'totals_line_used' in pred_sim.columns:
@@ -10212,6 +10842,13 @@ def props_backtest(
     except Exception:
         print("Failed to read player_game_stats.csv; is the file empty or malformed?")
         raise typer.Exit(code=1)
+
+    # Prefer player_id matching for outcomes when possible
+    try:
+        if "player_id" in stats_all.columns:
+            stats_all["player_id_num"] = pd.to_numeric(stats_all["player_id"], errors="coerce")
+    except Exception:
+        pass
     # Normalize dates to strings YYYY-MM-DD for comparisons (UTC and ET)
     stats_all["date_key"] = pd.to_datetime(stats_all["date"], errors="coerce").dt.strftime("%Y-%m-%d")
     # Build ET calendar day to align with props line partitions
@@ -10537,7 +11174,7 @@ def props_backtest(
     if not calib_df.empty:
         bins = np.linspace(0.0, 1.0, 11)
         calib_df["bin"] = pd.cut(calib_df["p_over"], bins=bins, include_lowest=True)
-        for b, g in calib_df.groupby("bin"):
+        for b, g in calib_df.groupby("bin", observed=False):
             try:
                 exp = float(g["p_over"].mean())
                 obs = float(g["over_won"].mean())
@@ -11302,7 +11939,7 @@ def props_backtest_nolines(
     if not calib_df.empty:
         bins = _np.linspace(0.0, 1.0, 11)
         calib_df["bin"] = pd.cut(calib_df["p_over"], bins=bins, include_lowest=True)
-        for b, g in calib_df.groupby("bin"):
+        for b, g in calib_df.groupby("bin", observed=False):
             try:
                 exp = float(g["p_over"].mean()); obs = float(g["over_won"].mean()); cnt = int(len(g))
                 calib_bins.append({"bin": str(b), "expected": exp, "observed": obs, "count": cnt})
@@ -13431,7 +14068,7 @@ def props_backtest_from_projections(
     if not calib_df.empty:
         bins = np.linspace(0.0, 1.0, 11)
         calib_df["bin"] = pd.cut(calib_df["p_over"], bins=bins, include_lowest=True)
-        for b, g in calib_df.groupby("bin"):
+        for b, g in calib_df.groupby("bin", observed=False):
             try:
                 exp = float(g["p_over"].mean())
                 obs = float(g["over_won"].mean())
@@ -13784,7 +14421,7 @@ def props_backtest_from_simulations(
     if not calib_df.empty:
         bins = np.linspace(0.0, 1.0, 11)
         calib_df["bin"] = pd.cut(calib_df["p_over"], bins=bins, include_lowest=True)
-        for b, g in calib_df.groupby("bin"):
+        for b, g in calib_df.groupby("bin", observed=False):
             try:
                 exp = float(g["p_over"].mean())
                 obs = float(g["over_won"].mean())
@@ -13816,6 +14453,7 @@ def props_backtest_from_boxscores(
     stake: float = typer.Option(100.0, help="Flat stake per play for ROI calc"),
     markets: str = typer.Option("SOG,SAVES,GOALS,ASSISTS,POINTS,BLOCKS", help="Comma list of markets to include"),
     min_ev: float = typer.Option(-1.0, help="Filter to plays with EV >= min_ev; set -1 to include all"),
+    max_plus_odds: float = typer.Option(0.0, help="If >0, disallow selecting any side priced longer than +max_plus_odds (e.g., 300)"),
     out_prefix: str = typer.Option("boxscores", help="Output filename prefix under data/processed/"),
     min_ev_per_market: str = typer.Option("", help="Optional per-market EV thresholds, e.g., 'SOG=0.00,GOALS=0.04'"),
     read_prefix: str = typer.Option("", help="Optional input filename prefix matching props-simulate-boxscores --out-prefix"),
@@ -13923,21 +14561,32 @@ def props_backtest_from_boxscores(
         d = cur.strftime("%Y-%m-%d")
         # Load samples for date d
         _pref = (read_prefix.strip() + "_") if str(read_prefix or '').strip() else ""
+        hist_path_csv = PROC_DIR / f"{_pref}props_boxscores_sim_hist_{d}.csv"
         samp_path_parq = PROC_DIR / f"{_pref}props_boxscores_sim_samples_{d}.parquet"
         samp_path_csv = PROC_DIR / f"{_pref}props_boxscores_sim_samples_{d}.csv"
-        if samp_path_parq.exists():
+        sample_kind = ""
+        if hist_path_csv.exists():
+            try:
+                samples = pd.read_csv(hist_path_csv)
+                sample_kind = "hist"
+            except Exception:
+                samples = pd.DataFrame()
+        elif samp_path_parq.exists():
             try:
                 samples = pd.read_parquet(samp_path_parq, engine='pyarrow')
+                sample_kind = "full"
             except Exception:
                 try:
                     import duckdb as _duck
                     f_posix = str(samp_path_parq).replace('\\', '/')
                     samples = _duck.query(f"SELECT * FROM read_parquet('{f_posix}')").df()
+                    sample_kind = "full"
                 except Exception:
                     samples = pd.DataFrame()
         elif samp_path_csv.exists():
             try:
                 samples = pd.read_csv(samp_path_csv)
+                sample_kind = "full"
             except Exception:
                 samples = pd.DataFrame()
         else:
@@ -13947,6 +14596,13 @@ def props_backtest_from_boxscores(
             cur += timedelta(days=1)
             continue
 
+        # Samples are intended to be full-game totals (period=0). Older sample files include per-period rows.
+        try:
+            if "period" in samples.columns:
+                samples = samples[pd.to_numeric(samples["period"], errors="coerce").fillna(-1).astype(int) == 0].copy()
+        except Exception:
+            pass
+
         # Load lines for date d
         base_lines_dir = Path("data/props") / f"player_props_lines/date={d}"
         parts = []
@@ -13955,12 +14611,16 @@ def props_backtest_from_boxscores(
             p_csv = base_lines_dir / f"{prov}.csv"
             if p_parq.exists():
                 try:
-                    parts.append(pd.read_parquet(p_parq))
+                    df_part = pd.read_parquet(p_parq)
+                    if df_part is not None and not df_part.empty:
+                        parts.append(df_part)
                 except Exception:
                     pass
             elif p_csv.exists():
                 try:
-                    parts.append(pd.read_csv(p_csv))
+                    df_part = pd.read_csv(p_csv)
+                    if df_part is not None and not df_part.empty:
+                        parts.append(df_part)
                 except Exception:
                     pass
         if parts:
@@ -14004,7 +14664,14 @@ def props_backtest_from_boxscores(
         lines["market"] = lines.get("market").astype(str).str.upper()
         lines["line_num"] = pd.to_numeric(lines.get("line"), errors="coerce")
         lines = lines[lines["line_num"].notna()].copy()
-        # Create simple join on normalized name
+
+        # Player ID (preferred join key when available)
+        try:
+            if "player_id" in lines.columns:
+                lines["player_id_num"] = pd.to_numeric(lines["player_id"], errors="coerce")
+        except Exception:
+            pass
+        # Create simple join on normalized name (fallback)
         def _create_name_variants(name: str) -> list[str]:
             name = (name or "").strip()
             if not name:
@@ -14023,12 +14690,22 @@ def props_backtest_from_boxscores(
             return (min(v, key=len) if v else "")
         lines["player_norm"] = lines["player_display"].map(_for_join)
         samples = samples.copy()
+        # Ensure numeric player_id is available for ID-based joins
+        try:
+            if "player_id" in samples.columns:
+                samples["player_id_num"] = pd.to_numeric(samples["player_id"], errors="coerce")
+        except Exception:
+            pass
         samples["player_norm"] = samples["player"].astype(str).map(lambda s: min(_create_name_variants(s) or [s], key=len))
         # Team abbr for samples
         def _abbr_team(n: str | None) -> str | None:
             if not n:
                 return None
             try:
+                s = str(n).strip().upper()
+                # Common case: already an abbreviation
+                if 2 <= len(s) <= 4 and s.isalpha():
+                    return s
                 a = _assets(str(n)) or {}
                 return str(a.get("abbr") or "").upper() or None
             except Exception:
@@ -14038,7 +14715,41 @@ def props_backtest_from_boxscores(
         samples["market"] = samples["market"].astype(str).str.upper()
         lines = lines[lines["market"].isin(allowed_markets)]
         samples = samples[samples["market"].isin(allowed_markets)]
-        merged = lines.merge(samples, on=["player_norm","market"], how="inner")
+
+        # Prefer join on player_id when present in both sources; fallback to name join
+        merged = None
+        try:
+            if (
+                "player_id_num" in lines.columns
+                and "player_id_num" in samples.columns
+                and pd.to_numeric(lines["player_id_num"], errors="coerce").notna().any()
+                and pd.to_numeric(samples["player_id_num"], errors="coerce").notna().any()
+            ):
+                merged = lines.merge(samples, on=["player_id_num", "market"], how="inner", suffixes=("_line", "_samp"))
+                # Standardize player/team fields for downstream logic
+                try:
+                    merged["player_id"] = merged["player_id_num"].astype(int)
+                except Exception:
+                    merged["player_id"] = merged["player_id_num"]
+                try:
+                    merged["player"] = merged.get("player_display")
+                except Exception:
+                    pass
+                try:
+                    if "team_line" in merged.columns:
+                        merged["team_abbr"] = merged["team_line"].astype(str).str.upper()
+                except Exception:
+                    pass
+        except Exception:
+            merged = None
+
+        if merged is None:
+            merged = lines.merge(samples, on=["player_norm", "market"], how="inner")
+            try:
+                if "player_id" in merged.columns:
+                    merged["player_id"] = pd.to_numeric(merged["player_id"], errors="coerce")
+            except Exception:
+                pass
         if merged is None or merged.empty:
             cur += timedelta(days=1)
             continue
@@ -14047,14 +14758,38 @@ def props_backtest_from_boxscores(
         except Exception:
             pass
 
-        # Compute p_over from sample counts per group
-        merged["over_win"] = (pd.to_numeric(merged["value"], errors="coerce") > pd.to_numeric(merged["line_num"], errors="coerce")).astype(int)
-        grp_cols = ["date","player","team_abbr","market","line_num","book","over_price","under_price"]
-        prob = merged.groupby(grp_cols, as_index=False)["over_win"].mean().rename(columns={"over_win":"p_over"})
+        # Compute p_over from samples (either long-form per-sim samples, or histogram counts)
+        grp_cols = ["date","player_id","player","team_abbr","market","line_num","book","over_price","under_price"]
+        if "count" in merged.columns:
+            # Histogram: sum counts where value > line, divided by total counts
+            v_num = pd.to_numeric(merged["value"], errors="coerce")
+            ln_num = pd.to_numeric(merged["line_num"], errors="coerce")
+            cnt = pd.to_numeric(merged["count"], errors="coerce").fillna(0).astype(float)
+            over_cnt = np.where(v_num > ln_num, cnt, 0.0)
+            merged = merged.assign(_over_count=over_cnt, _tot_count=cnt)
+            prob = (
+                merged.groupby(grp_cols, as_index=False)
+                .agg(over_count=("_over_count", "sum"), tot_count=("_tot_count", "sum"))
+            )
+            prob["p_over"] = (prob["over_count"] / prob["tot_count"].replace(0, np.nan)).astype(float)
+            prob = prob.drop(columns=["over_count", "tot_count"], errors="ignore")
+        else:
+            merged["over_win"] = (pd.to_numeric(merged["value"], errors="coerce") > pd.to_numeric(merged["line_num"], errors="coerce")).astype(int)
+            prob = merged.groupby(grp_cols, as_index=False)["over_win"].mean().rename(columns={"over_win":"p_over"})
 
         # Prices to decimal and EV
         prob["dec_over"] = prob["over_price"].map(american_to_decimal)
         prob["dec_under"] = prob["under_price"].map(american_to_decimal)
+
+        # Optional odds clamp: disallow longshot sides from being selected
+        try:
+            if float(max_plus_odds) > 0.0:
+                op = pd.to_numeric(prob["over_price"], errors="coerce")
+                up = pd.to_numeric(prob["under_price"], errors="coerce")
+                prob.loc[(op > 0) & (op > float(max_plus_odds)), "dec_over"] = np.nan
+                prob.loc[(up > 0) & (up > float(max_plus_odds)), "dec_under"] = np.nan
+        except Exception:
+            pass
         p = pd.to_numeric(prob["p_over"], errors="coerce").astype(float)
         ev_over = p * (prob["dec_over"].astype(float) - 1.0) - (1.0 - p)
         p_under = (1.0 - p).clip(lower=0.0, upper=1.0)
@@ -14079,24 +14814,37 @@ def props_backtest_from_boxscores(
             if allowed_markets and m not in allowed_markets:
                 continue
             player_disp = r.get("player")
+            pid_match = None
+            try:
+                pid_match = int(float(r.get("player_id"))) if r.get("player_id") is not None else None
+            except Exception:
+                pid_match = None
             ln = r.get("line_num")
             try:
                 ln = float(ln)
             except Exception:
                 continue
-            # Name variants: exact, no-dot, initial-last
-            _full = str(player_disp or "").strip()
-            _parts = [p2 for p2 in _full.split(" ") if p2]
-            _vars = set()
-            if _full:
-                _nm = _norm_name(_full)
-                _vars.add(_nm); _vars.add(_nm.replace(".", ""))
-            if len(_parts) >= 2:
-                _first, _last = _parts[0], _parts[-1]
-                _init_last = f"{_first[0]}. {_last}"
-                _nm2 = _norm_name(_init_last)
-                _vars.add(_nm2); _vars.add(_nm2.replace(".", ""))
-            ps = day_stats[day_stats["player_text_norm"].isin(_vars) | day_stats["player_text_nodot"].isin(_vars)]
+            # Prefer player_id match when available
+            ps = pd.DataFrame()
+            try:
+                if pid_match is not None and "player_id_num" in day_stats.columns:
+                    ps = day_stats[pd.to_numeric(day_stats["player_id_num"], errors="coerce") == float(pid_match)]
+            except Exception:
+                ps = pd.DataFrame()
+            if ps.empty:
+                # Fallback: name variants (exact, no-dot, initial-last)
+                _full = str(player_disp or "").strip()
+                _parts = [p2 for p2 in _full.split(" ") if p2]
+                _vars = set()
+                if _full:
+                    _nm = _norm_name(_full)
+                    _vars.add(_nm); _vars.add(_nm.replace(".", ""))
+                if len(_parts) >= 2:
+                    _first, _last = _parts[0], _parts[-1]
+                    _init_last = f"{_first[0]}. {_last}"
+                    _nm2 = _norm_name(_init_last)
+                    _vars.add(_nm2); _vars.add(_nm2.replace(".", ""))
+                ps = day_stats[day_stats["player_text_norm"].isin(_vars) | day_stats["player_text_nodot"].isin(_vars)]
             actual = None
             if not ps.empty:
                 row = ps.iloc[0]
@@ -14188,11 +14936,10 @@ def props_backtest_from_boxscores(
         try:
             decided = df[df["result"].isin(["win", "loss"])].copy()
             if not decided.empty:
-                p_sel = np.where(
-                    decided["side"].astype(str) == "Over",
-                    pd.to_numeric(decided["p_over"], errors="coerce").astype(float),
-                    1.0 - pd.to_numeric(decided["p_over"], errors="coerce").astype(float),
-                )
+                # NOTE: In this backtest, the rows CSV stores `p_over` as the chosen-side
+                # probability (aka `chosen_prob`), not strictly P(Over). Therefore the
+                # selected probability for Brier is just `p_over`.
+                p_sel = pd.to_numeric(decided["p_over"], errors="coerce").astype(float).to_numpy()
                 y = (decided["result"] == "win").astype(float).to_numpy()
                 p_sel = np.clip(p_sel, 0.0, 1.0)
                 acc = float((y == 1.0).mean()) if len(y) > 0 else None
@@ -14218,7 +14965,7 @@ def props_backtest_from_boxscores(
     if not calib_df.empty:
         bins = np.linspace(0.0, 1.0, 11)
         calib_df["bin"] = pd.cut(calib_df["p_over"], bins=bins, include_lowest=True)
-        for b, g in calib_df.groupby("bin"):
+        for b, g in calib_df.groupby("bin", observed=False):
             try:
                 exp = float(g["p_over"].mean())
                 obs = float(g["over_won"].mean())
@@ -14236,7 +14983,7 @@ def props_backtest_from_boxscores(
             "overall": overall,
             "by_market": by_market,
             "calibration": calib_bins,
-            "filters": {"markets": allowed_markets, "min_ev": min_ev}
+            "filters": {"markets": allowed_markets, "min_ev": min_ev, "max_plus_odds": max_plus_odds}
         }, f, indent=2)
     print(json.dumps({"overall": overall, "by_market": by_market}, indent=2))
     print(f"Saved rows to {rows_path} and summary to {summ_path}")

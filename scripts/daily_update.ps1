@@ -1,4 +1,7 @@
 Param (
+  # Optional: override the "today" anchor date for all date computations in this script.
+  # Useful during schedule breaks (e.g., Olympics) to test against a known slate.
+  [string]$BaseDate = "",
   [int]$DaysAhead = 2,
   [int]$YearsBack = 2,
   [int]$CoreTimeoutSec = 600,
@@ -46,6 +49,7 @@ Param (
   [string]$PropsMinEvPerMarket = "SOG=0.00,GOALS=0.05,ASSISTS=0.00,POINTS=0.12,SAVES=0.02,BLOCKS=0.02",
   [double]$PropsMinProb = 0.0,
   [string]$PropsMinProbPerMarket = "",
+  [int]$PropsMaxPlusOdds = 300,
   [switch]$PropsIncludeGoalies,
   # Props historical backfill (OddsAPI historical event props)
   [switch]$PropsBackfillRange,
@@ -61,6 +65,8 @@ Param (
 
   # Play-level props boxscore sim tuning (impacts web-facing props lambdas)
   [string]$PropsToiMode = "auto",
+  [string]$PropsUsageModel = "deterministic",
+  [double]$PropsUsageNoisySigma = 0.18,
   [string]$PropsStarterSource = "auto",
   [double]$PropsSavesCal = 0.85,
   [int]$PropsSeed = 42
@@ -71,10 +77,22 @@ $RepoRoot = Split-Path -Parent $ScriptDir
 $ProcessedDir = Join-Path $RepoRoot 'data/processed'
 $NpuScript = Join-Path $RepoRoot "activate_npu.ps1"
 
+# Resolve anchor date for this run
+$AnchorNow = $null
+try {
+  if ($BaseDate -and $BaseDate.Trim() -ne "") {
+    $AnchorNow = Get-Date $BaseDate
+  } else {
+    $AnchorNow = Get-Date
+  }
+} catch {
+  $AnchorNow = Get-Date
+}
+
 function Assert-AnyPath {
   param(
-    [int]$CoreTimeoutSec = 600,
-    [int]$PropsBoxscoreTimeoutSec = 3600,
+    [Parameter(Mandatory=$true)][string]$Label,
+    [Parameter(Mandatory=$true)][string[]]$Paths,
     [switch]$NonEmpty,
     [switch]$Strict
   )
@@ -204,8 +222,8 @@ $PyExe = Join-Path $RepoRoot '.venv/Scripts/python.exe'
 # Optional: lightweight PBP backfill via NHL Web API for recent days (true period splits)
 if ($PBPBackfill) {
   try {
-    $start = (Get-Date).AddDays(-1 * [int]$PBPDaysBack).ToString('yyyy-MM-dd')
-    $end = (Get-Date).ToString('yyyy-MM-dd')
+    $start = $AnchorNow.AddDays(-1 * [int]$PBPDaysBack).ToString('yyyy-MM-dd')
+    $end = $AnchorNow.ToString('yyyy-MM-dd')
     Write-Host "[daily_update] PBP web backfill $start..$end" -ForegroundColor Yellow
     python scripts/backfill_pbp_webapi.py --start $start --end $end --sleep 0.0
   } catch {
@@ -215,8 +233,8 @@ if ($PBPBackfill) {
 
 # Refresh roster, lineup (with co-TOI), and injuries for today & tomorrow
 try {
-  $today = (Get-Date).ToString('yyyy-MM-dd')
-  $tomorrow = (Get-Date).AddDays(1).ToString('yyyy-MM-dd')
+  $today = $AnchorNow.ToString('yyyy-MM-dd')
+  $tomorrow = $AnchorNow.AddDays(1).ToString('yyyy-MM-dd')
   Write-Host "[daily_update] Updating roster snapshot for $today …" -ForegroundColor Yellow
   python -m nhl_betting.cli roster-update --date $today
   Write-Host "[daily_update] Updating roster snapshot for $tomorrow …" -ForegroundColor Yellow
@@ -238,9 +256,11 @@ try {
   Write-Warning "[daily_update] roster/lineup/injuries update failed: $($_.Exception.Message)"
 }
 
+# Helper date array (today/tomorrow) used by multiple sections
+$dates = @($AnchorNow.ToString('yyyy-MM-dd'), $AnchorNow.AddDays(1).ToString('yyyy-MM-dd'))
+
 # Generate simulated player boxscores for today & tomorrow (play-level aggregation for web cards)
 try {
-  $dates = @((Get-Date).ToString('yyyy-MM-dd'), (Get-Date).AddDays(1).ToString('yyyy-MM-dd'))
   foreach ($d in $dates) {
     $lineupsPath = _PathInProcessed "lineups_${d}.csv"
     $hasSlate = Has-NonEmptyCsv $lineupsPath
@@ -253,7 +273,7 @@ try {
       # Run with timeout to prevent stalls on future slates
       $job1 = Start-Job -ScriptBlock {
         Set-Location $using:RepoRoot
-        & $using:PyExe -m nhl_betting.cli props-simulate-boxscores --date $using:d --n-sims $using:PropsBoxscoreNSims --seed $using:PropsSeed --toi-mode $using:PropsToiMode --starter-source $using:PropsStarterSource --saves-cal $using:PropsSavesCal 2>&1
+        & $using:PyExe -m nhl_betting.cli props-simulate-boxscores --date $using:d --n-sims $using:PropsBoxscoreNSims --seed $using:PropsSeed --toi-mode $using:PropsToiMode --usage-model $using:PropsUsageModel --usage-noisy-sigma $using:PropsUsageNoisySigma --starter-source $using:PropsStarterSource --saves-cal $using:PropsSavesCal 2>&1
       }
       $done1 = Wait-Job $job1 -Timeout $PropsBoxscoreTimeoutSec
       if (-not $done1) {
@@ -280,6 +300,28 @@ try {
       Write-Warning "[daily_update] props-simulate-boxscores failed for ${d}: $($_.Exception.Message)"
       if ($StrictOutputs) { throw }
     }
+
+    # Ensure team odds exist before sim-native EV computations
+    try {
+      $teamDir = Join-Path $RepoRoot "data/odds/team/date=$d"
+      if (-not (Test-Path $teamDir)) { New-Item -ItemType Directory -Path $teamDir | Out-Null }
+      $teamCsv = Join-Path $teamDir 'oddsapi.csv'
+      $needTeam = $true
+      if (Test-Path $teamCsv) {
+        try {
+          $cnt = (Import-Csv $teamCsv).Count
+          if ($cnt -gt 0) { $needTeam = $false }
+        } catch { }
+      }
+      if ($needTeam) {
+        Write-Host "[daily_update] Collecting team odds for $d (pre-sim EV) …" -ForegroundColor Yellow
+        python -m nhl_betting.cli team-odds-collect --date $d
+      }
+    } catch {
+      Write-Warning "[daily_update] team-odds-collect (pre-sim) failed for ${d}: $($_.Exception.Message)"
+      if ($StrictOutputs) { throw }
+    }
+
     # Produce sim-native game predictions and edges (ML/Totals) directly from per-sim samples
     try {
       Write-Host "[daily_update] Computing sim-native game predictions for $d …" -ForegroundColor DarkYellow
@@ -313,7 +355,6 @@ try {
 
 # Ensure props lines are saved once per slate (CSV+Parquet) without refetching repeatedly
 try {
-  $dates = @((Get-Date).ToString('yyyy-MM-dd'), (Get-Date).AddDays(1).ToString('yyyy-MM-dd'))
   foreach ($d in $dates) {
     $dir = Join-Path $RepoRoot "data/props/player_props_lines/date=$d"
     if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir | Out-Null }
@@ -340,8 +381,8 @@ try {
 # Optional: backfill historical player props via OddsAPI (per-day partitions)
 try {
   if ($PropsBackfillRange) {
-    $start = (Get-Date).AddDays(-1 * [int]$PropsBackfillDays).ToString('yyyy-MM-dd')
-    $end = (Get-Date).ToString('yyyy-MM-dd')
+    $start = $AnchorNow.AddDays(-1 * [int]$PropsBackfillDays).ToString('yyyy-MM-dd')
+    $end = $AnchorNow.ToString('yyyy-MM-dd')
     Write-Host "[daily_update] Backfilling OddsAPI player props $start..$end …" -ForegroundColor Yellow
     # Broaden coverage to US/US2/EU and allow any bookmaker (collector has fallbacks)
     $env:PROPS_ODDSAPI_REGIONS = 'us,us2,eu'
@@ -356,7 +397,6 @@ try {
 
 # Ensure team odds (ML/PL/Totals) and scoreboard snapshots are archived daily
 try {
-  $dates = @((Get-Date).ToString('yyyy-MM-dd'), (Get-Date).AddDays(1).ToString('yyyy-MM-dd'))
   foreach ($d in $dates) {
     # Team odds via OddsAPI
     $teamDir = Join-Path $RepoRoot "data/odds/team/date=$d"
@@ -387,7 +427,7 @@ try {
 
 # Compute accuracy JSON for yesterday (post-settlement)
 try {
-  $yesterday = (Get-Date).AddDays(-1).ToString('yyyy-MM-dd')
+  $yesterday = $AnchorNow.AddDays(-1).ToString('yyyy-MM-dd')
   Write-Host "[daily_update] Writing per-day accuracy for $yesterday …" -ForegroundColor Yellow
   python -m nhl_betting.cli game-accuracy-day --date $yesterday
 } catch { Write-Warning "[daily_update] game-accuracy-day failed: $($_.Exception.Message)" }
@@ -401,13 +441,14 @@ try {
 }
 try {
   Write-Host "[daily_update] Refreshing goalie recent form for today …" -ForegroundColor Yellow
-  python scripts/build_goalie_form_from_pbp.py
+  $today = $AnchorNow.ToString('yyyy-MM-dd')
+  python scripts/build_goalie_form_from_pbp.py --date $today
 } catch {
   Write-Warning "[daily_update] Failed goalie form refresh: $($_.Exception.Message)"
 }
 try {
   Write-Host "[daily_update] Refreshing team xGF/60 (MoneyPuck) …" -ForegroundColor Yellow
-  $today = (Get-Date).ToString('yyyy-MM-dd')
+  $today = $AnchorNow.ToString('yyyy-MM-dd')
   python scripts/build_team_xg_moneypuck.py --date $today
 } catch {
   Write-Warning "[daily_update] Failed team xG refresh: $($_.Exception.Message)"
@@ -433,7 +474,7 @@ try {
 
 # After core daily update, recompute edges for today and forward DaysAhead-1 days
 try {
-  $base = Get-Date
+  $base = $AnchorNow
   for ($i = 0; $i -lt $DaysAhead; $i++) {
     $d = $base.AddDays($i).ToString('yyyy-MM-dd')
     Write-Host "[daily_update] Recomputing team market edges for $d …" -ForegroundColor Cyan
@@ -448,14 +489,14 @@ if ($SimulateGames) {
   try {
     # Calibrate special-teams multipliers before running possession sims (last 30 days)
     try {
-      $calStart = (Get-Date).AddDays(-30).ToString('yyyy-MM-dd')
-      $calEnd = (Get-Date).ToString('yyyy-MM-dd')
+      $calStart = $AnchorNow.AddDays(-30).ToString('yyyy-MM-dd')
+      $calEnd = $AnchorNow.ToString('yyyy-MM-dd')
       Write-Host "[daily_update] Calibrating special teams $calStart..$calEnd …" -ForegroundColor DarkGreen
       python -m nhl_betting.cli game-calibrate-special-teams --start $calStart --end $calEnd
     } catch {
       Write-Warning "[daily_update] Special-teams calibration failed: $($_.Exception.Message)"
     }
-    $base = Get-Date
+    $base = $AnchorNow
     for ($i = 0; $i -lt $DaysAhead; $i++) {
       $d = $base.AddDays($i).ToString('yyyy-MM-dd')
       try {
@@ -507,7 +548,7 @@ if ($SimulateGames) {
 # Optional: generate threshold-based recommendations from simulations
 if ($SimRecommendations) {
   try {
-    $base = Get-Date
+    $base = $AnchorNow
     for ($i = 0; $i -lt $DaysAhead; $i++) {
       $d = $base.AddDays($i).ToString('yyyy-MM-dd')
       $totFlag = if ($SimIncludeTotals) { "--include-totals" } else { "--no-include-totals" }
@@ -523,8 +564,8 @@ if ($SimRecommendations) {
 # Optional: run rolling props backtests (projections) and write dashboard row
 if ($RunPropsBacktests) {
   try {
-    $end = (Get-Date).ToString('yyyy-MM-dd')
-    $start = (Get-Date).AddDays(-1 * [int]$PropsBacktestDays).ToString('yyyy-MM-dd')
+    $end = $AnchorNow.ToString('yyyy-MM-dd')
+    $start = $AnchorNow.AddDays(-1 * [int]$PropsBacktestDays).ToString('yyyy-MM-dd')
     Write-Host "[daily_update] Backtesting props (projections) $start..$end …" -ForegroundColor Yellow
     python -m nhl_betting.cli props-backtest-from-projections --start $start --end $end --stake 100 --markets "SOG,SAVES,GOALS,ASSISTS,POINTS,BLOCKS" --min-ev-per-market $PropsBacktestMinEvPerMarket
 
@@ -553,8 +594,8 @@ if ($RunPropsBacktests) {
 # Optional: run rolling props backtests (sim-backed) and update dashboard
 if ($RunSimPropsBacktests) {
   try {
-    $end = (Get-Date).ToString('yyyy-MM-dd')
-    $start = (Get-Date).AddDays(-1 * [int]$SimPropsBacktestDays).ToString('yyyy-MM-dd')
+    $end = $AnchorNow.ToString('yyyy-MM-dd')
+    $start = $AnchorNow.AddDays(-1 * [int]$SimPropsBacktestDays).ToString('yyyy-MM-dd')
     Write-Host "[daily_update] Backtesting props (sim-backed) $start..$end …" -ForegroundColor Yellow
     python -m nhl_betting.cli props-backtest-from-simulations --start $start --end $end --stake 100 --markets "SOG,SAVES,GOALS,ASSISTS,POINTS,BLOCKS" --min-ev-per-market $SimPropsBacktestMinEvPerMarket
 
@@ -590,8 +631,8 @@ if ($RunSimPropsBacktests) {
 # Optional: run rolling backtest over last BacktestWindowDays (non-fatal)
 if ($BacktestSimulations) {
   try {
-    $end = (Get-Date).ToString('yyyy-MM-dd')
-    $start = (Get-Date).AddDays(-1 * [int]$BacktestWindowDays).ToString('yyyy-MM-dd')
+    $end = $AnchorNow.ToString('yyyy-MM-dd')
+    $start = $AnchorNow.AddDays(-1 * [int]$BacktestWindowDays).ToString('yyyy-MM-dd')
     Write-Host "[daily_update] Backtesting simulations $start..$end …" -ForegroundColor Yellow
     $pyBackArgs = @("-m", "nhl_betting.cli", "game-backtest-sim", "--start", $start, "--end", $end, "--n-sims", "6000", "--use-calibrated")
     if ($SimOverK -gt 0) { $pyBackArgs += @("--sim-overdispersion-k", "$SimOverK") }
@@ -621,12 +662,12 @@ try {
   $calPath = Join-Path $RepoRoot 'data/processed/model_calibration.json'
   $monitorPath = Join-Path $RepoRoot 'data/processed/game_daily_monitor.json'
   $needLearn = $false
-  $today = (Get-Date).ToString('yyyy-MM-dd')
+  $today = $AnchorNow.ToString('yyyy-MM-dd')
   if (Test-Path $calPath) {
     $cal = Get-Content $calPath | ConvertFrom-Json
     if ($cal.ev_gates_last_learned_utc) {
       $last = [DateTime]::Parse($cal.ev_gates_last_learned_utc)
-      if ((Get-Date) - $last -gt [TimeSpan]::FromDays(5)) { $needLearn = $true }
+      if ($AnchorNow - $last -gt [TimeSpan]::FromDays(5)) { $needLearn = $true }
     } else { $needLearn = $true }
   } else { $needLearn = $true }
   if (Test-Path $monitorPath) {
@@ -634,7 +675,7 @@ try {
     if ($mon.overall -and $mon.overall.roi -lt -0.08) { $needLearn = $true }
   }
   if ($needLearn) {
-    $seasonStart = if ((Get-Date).Month -ge 9) { "$((Get-Date).Year)-09-01" } else { "$((Get-Date).AddYears(-1).Year)-09-01" }
+    $seasonStart = if ($AnchorNow.Month -ge 9) { "$($AnchorNow.Year)-09-01" } else { "$($AnchorNow.AddYears(-1).Year)-09-01" }
     Write-Host "[daily_update] EV gate re-learn triggered (seasonStart=$seasonStart -> today)" -ForegroundColor Magenta
     python -m nhl_betting.cli game-learn-ev-gates --start $seasonStart --end $today
   } else {
@@ -673,8 +714,8 @@ try {
 # Note: Web projections now compute strength-aware p_over using scaled lambda (proj_lambda_eff)
 if ($PropsRecs) {
   try {
-    $today = (Get-Date).ToString('yyyy-MM-dd')
-    $tomorrow = (Get-Date).AddDays(1).ToString('yyyy-MM-dd')
+    $today = $AnchorNow.ToString('yyyy-MM-dd')
+    $tomorrow = $AnchorNow.AddDays(1).ToString('yyyy-MM-dd')
     # Step 0: Collect OddsAPI props lines and verify presence (non-fatal)
     try {
       Write-Host "[daily_update] Collecting canonical props lines (OddsAPI) for $today & $tomorrow …" -ForegroundColor Yellow
@@ -728,7 +769,7 @@ if ($PropsRecs) {
       # Weekly auto-tune for SAVES nolines gate (range 0.65–0.68) based on 7-day monitor
       $SavesGate = 0.65
       try {
-        if ((Get-Date).DayOfWeek -eq 'Monday') {
+        if ($AnchorNow.DayOfWeek -eq 'Monday') {
           Write-Host "[daily_update] Auto-tuning SAVES gate via 7-day monitor …" -ForegroundColor DarkGreen
           $monCmd = @("-m", "nhl_betting.cli", "props-nolines-monitor", "--window-days", "7", "--markets", "SAVES,BLOCKS", "--min-prob-per-market", "SAVES=$SavesGate,BLOCKS=0.92")
           python $monCmd
@@ -748,6 +789,10 @@ if ($PropsRecs) {
         Write-Warning "[daily_update] Auto-tune failed: $($_.Exception.Message)"
       }
       $recsSimBase = @("-m", "nhl_betting.cli", "props-recommendations-sim", "--min-ev", "$PropsMinEv", "--top", "$PropsTop", "--min-ev-per-market", $PropsMinEvPerMarket, "--min-prob", "$PropsMinProb", "--min-prob-per-market", $PropsMinProbPerMarket)
+      if ($PropsMaxPlusOdds -and $PropsMaxPlusOdds -gt 0) {
+        Write-Host "[daily_update] Props odds clamp enabled: max plus odds = +$PropsMaxPlusOdds" -ForegroundColor DarkGray
+        $recsSimBase += @("--max-plus-odds", "$PropsMaxPlusOdds")
+      }
       python @($recsSimBase + @("--date", $today))
       python @($recsSimBase + @("--date", $tomorrow))
       # Also produce nolines-only recommendations (SAVES/BLOCKS) without odds
@@ -776,7 +821,7 @@ if ($PropsRecs) {
   # Post-settlement props reconciliation and summary (yesterday)
   try {
     if (-not $NoReconcile) {
-      $yesterday = (Get-Date).AddDays(-1).ToString('yyyy-MM-dd')
+      $yesterday = $AnchorNow.AddDays(-1).ToString('yyyy-MM-dd')
       Write-Host "[daily_update] Backfilling actuals for $yesterday …" -ForegroundColor Yellow
       $oldPythonPath = $env:PYTHONPATH
       try {
@@ -819,3 +864,18 @@ if ($PropsRecs) {
   } catch {
     Write-Warning "[daily_update] props reconciliation pipeline failed: $($_.Exception.Message)"
   }
+
+# Publish stable web/UI artifacts: daily bundles + manifest
+try {
+  $y = $AnchorNow.AddDays(-1).ToString('yyyy-MM-dd')
+  $t = $AnchorNow.ToString('yyyy-MM-dd')
+  $tm = $AnchorNow.AddDays(1).ToString('yyyy-MM-dd')
+  Write-Host "[daily_update] Publishing bundles for $y, $t, $tm …" -ForegroundColor DarkCyan
+  python -m nhl_betting.cli bundle-build --date $y
+  python -m nhl_betting.cli bundle-build --date $t
+  python -m nhl_betting.cli bundle-build --date $tm
+  python -m nhl_betting.cli bundle-manifest
+} catch {
+  Write-Warning "[daily_update] Bundle publish failed: $($_.Exception.Message)"
+  if ($StrictOutputs) { throw "[daily_update] Bundle publish failed under -StrictOutputs: $($_.Exception.Message)" }
+}

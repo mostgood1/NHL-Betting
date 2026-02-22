@@ -30,6 +30,31 @@ class SimConfig:
     # Additional goal conversion multipliers applied after PP/PK adjustments
     pp_goals_mult: float = 1.0
     pk_goals_mult: float = 1.0
+    # Score-state effects mode for play-level simulation.
+    # - dynamic: time-remaining + score-diff dependent multipliers (default)
+    # - legacy: fixed +/-10% based on start-of-period score diff
+    # - off: disable score-state multipliers (also disables empty-net heuristic)
+    score_effects: str = "dynamic"
+    # Goal event emission model.
+    # - from_shots: decide goals as outcomes of individual shot events (so every goal is also a shot)
+    # - independent: legacy mode (goals are sampled from team conversion, then attributed separately)
+    goal_model: str = "from_shots"
+
+    # Assist attribution model.
+    # - onice: emit assist events at goal time, sampled from on-ice teammates (recommended)
+    # - legacy: do not emit assist events in the period sim; rely on legacy fallback attribution
+    # - off: disable assists entirely
+    assist_model: str = "onice"
+
+    # Player usage / TOI allocation model (for on-ice unit rotation).
+    # - deterministic: proportional allocation from projected TOI weights (stable; legacy-ish)
+    # - stochastic: sample segment allocations via multinomial from TOI weights (adds realistic variance)
+    # - noisy: perturb TOI weights slightly per sim, then allocate deterministically (lower variance)
+    usage_model: str = "deterministic"
+
+    # Strength of perturbation used when usage_model == 'noisy'.
+    # Interpreted as Gaussian noise std-dev applied to log-probabilities.
+    usage_noisy_sigma: float = 0.18
 
 
 class PossessionSimulator:
@@ -44,13 +69,14 @@ class PossessionSimulator:
 
 
 class PeriodSimulator:
-    def __init__(self, cfg: SimConfig, rng: random.Random):
+    def __init__(self, cfg: SimConfig, rng: random.Random, np_rng: np.random.Generator):
         self.cfg = cfg
         self.rng = rng
+        self.np_rng = np_rng
 
     def _poisson(self, lam: float) -> int:
-        # Use numpy for stable Poisson sampling
-        return int(np.random.poisson(lam=max(lam, 1e-9)))
+        # Use a local numpy Generator (do not reseed global RNG)
+        return int(self.np_rng.poisson(lam=max(lam, 1e-9)))
 
     def simulate_period(self, gs: GameState, rates: RateModels, period_idx: int) -> Tuple[int, int, List[Event]]:
         T = self.cfg.seconds_per_period
@@ -89,10 +115,37 @@ class PeriodSimulator:
 
         Assumptions:
         - Rotate EV lines roughly equally across the period.
-        - Score effects: trailing team shots +10%, leading team -10% (cap to [0.6, 1.4]).
+                - Score effects: trailing team shoots more and leading team shoots less, with strength
+                    increasing late in games and with larger score differentials (capped to [0.6, 1.4]).
         - Goals drawn proportionally to shots.
         """
         T = int(period_seconds or self.cfg.seconds_per_period)
+
+        usage_model = str(getattr(self.cfg, "usage_model", "deterministic") or "deterministic").strip().lower()
+        if usage_model in ("legacy", "stable", "fixed"):
+            usage_model = "deterministic"
+        if usage_model in ("rand", "random", "stoch"):
+            usage_model = "stochastic"
+        if usage_model in ("noisy", "noise", "lite", "light", "stochastic_lite", "stochastic-lite", "stochastic_light", "stochastic-light"):
+            usage_model = "noisy"
+        if usage_model not in ("deterministic", "stochastic", "noisy"):
+            usage_model = "deterministic"
+
+        assist_model = str(getattr(self.cfg, "assist_model", "onice") or "onice").strip().lower()
+        if assist_model in ("on_ice", "on-ice"):
+            assist_model = "onice"
+        if assist_model in ("none", "false", "0"):
+            assist_model = "off"
+        if assist_model not in ("onice", "legacy", "off"):
+            assist_model = "onice"
+
+        def _f(val: object, default: float) -> float:
+            try:
+                if val is None:
+                    return float(default)
+                return float(val)
+            except Exception:
+                return float(default)
         # Use more realistic shift-like segments to improve TOI realism.
         # Regulation: ~45s target; OT: slightly shorter segments.
         target_seg = 40.0 if T < self.cfg.seconds_per_period else 45.0
@@ -263,6 +316,17 @@ class PeriodSimulator:
                     w = max(0.01, float(ps.shot_weight or 0.0))
                 elif kind == "goal":
                     w = max(0.01, float(ps.goal_weight or (ps.shot_weight or 0.0) * 0.30))
+                elif kind == "assist":
+                    # Assist propensities are not modeled directly; approximate using a playmaking
+                    # proxy from shot involvement, with a mild forward bias.
+                    w = max(0.01, float(ps.shot_weight or 0.0))
+                    try:
+                        if str(ps.position) == "F":
+                            w *= 1.10
+                        elif str(ps.position) == "D":
+                            w *= 0.90
+                    except Exception:
+                        pass
                 elif kind == "block":
                     w = max(0.01, float(ps.block_weight or 0.0))
                 else:
@@ -286,6 +350,8 @@ class PeriodSimulator:
             if not cands:
                 if kind in {"shot", "goal"}:
                     pool = [int(pid) for pid, ps in team.players.items() if str(ps.position) in ("F", "D")]
+                elif kind == "assist":
+                    pool = [int(pid) for pid, ps in team.players.items() if str(ps.position) in ("F", "D")]
                 elif kind == "block":
                     pool = [int(pid) for pid, ps in team.players.items() if str(ps.position) == "D"]
                 else:
@@ -302,6 +368,15 @@ class PeriodSimulator:
                         w = max(0.01, float(ps.shot_weight or 0.0))
                     elif kind == "goal":
                         w = max(0.01, float(ps.goal_weight or (ps.shot_weight or 0.0) * 0.30))
+                    elif kind == "assist":
+                        w = max(0.01, float(ps.shot_weight or 0.0))
+                        try:
+                            if str(ps.position) == "F":
+                                w *= 1.10
+                            elif str(ps.position) == "D":
+                                w *= 0.90
+                        except Exception:
+                            pass
                     elif kind == "block":
                         w = max(0.01, float(ps.block_weight or 0.0))
                     else:
@@ -317,11 +392,21 @@ class PeriodSimulator:
 
             # Normalize, smooth, and cap probabilities to prevent a single skater from soaking up
             # an implausible share of team shots in expectation.
-            import numpy as _np
             try:
-                w = _np.array([max(1e-6, float(x)) for x in weights], dtype=float)
+                def _wf(x: object) -> float:
+                    try:
+                        if x is None:
+                            return 1e-6
+                        v = float(x)
+                        if not np.isfinite(v):
+                            return 1e-6
+                        return max(1e-6, v)
+                    except Exception:
+                        return 1e-6
+
+                w = np.array([_wf(x) for x in weights], dtype=float)
                 # Flatten extremes (temperature-like) while preserving ordering
-                w = _np.power(w, 0.70)
+                w = np.power(w, 0.70)
                 p = w / max(1e-12, float(w.sum()))
                 # Mix in uniform mass to keep distribution realistic across a line
                 alpha = 0.25
@@ -329,9 +414,9 @@ class PeriodSimulator:
                 # Cap the maximum share per event (line-level) then renormalize
                 cap = 0.22
                 if cap > 0:
-                    p = _np.minimum(p, cap)
+                    p = np.minimum(p, cap)
                     p = p / max(1e-12, float(p.sum()))
-                idx = int(_np.random.choice(_np.arange(len(cands)), size=1, replace=True, p=p)[0])
+                idx = int(self.np_rng.choice(np.arange(len(cands)), size=1, replace=True, p=p)[0])
                 return cands[idx]
             except Exception:
                 # Conservative fallback
@@ -453,12 +538,71 @@ class PeriodSimulator:
             for i in range(n):
                 out.append(seq[i % len(seq)])
             return out
+
+        def _alloc_indices_stochastic(weights: List[float], n: int) -> List[int]:
+            # Sample allocation of n slots to indices by weights (adds variance but preserves means)
+            if n <= 0:
+                return []
+            if not weights:
+                return [0] * n
+            try:
+                w = np.array([max(0.0, float(x)) for x in weights], dtype=float)
+                s = float(w.sum())
+                if s <= 0:
+                    return [0] * n
+                p = w / s
+                counts = self.np_rng.multinomial(n=n, pvals=p)
+                seq: List[int] = []
+                for i, c in enumerate(counts.tolist()):
+                    seq.extend([int(i)] * int(c))
+                if len(seq) < n:
+                    seq.extend([0] * int(n - len(seq)))
+                if len(seq) > n:
+                    seq = seq[:n]
+                # Shuffle to avoid deterministic ordering
+                perm = self.np_rng.permutation(int(n)).tolist()
+                return [seq[int(j)] for j in perm]
+            except Exception:
+                return _alloc_indices(weights, n)
+
+        def _alloc_indices_noisy(weights: List[float], n: int) -> List[int]:
+            # Lower-variance stochasticity: perturb weights slightly, then allocate deterministically.
+            # This keeps TOI shares close to expected while introducing realistic variation.
+            if n <= 0:
+                return []
+            if not weights:
+                return [0] * n
+            try:
+                w = np.array([max(0.0, float(x)) for x in weights], dtype=float)
+                s = float(w.sum())
+                if s <= 0.0:
+                    return [0] * n
+                p = w / s
+                # Perturb log-probabilities with small Gaussian noise.
+                try:
+                    sigma = float(getattr(self.cfg, "usage_noisy_sigma", 0.18) or 0.18)
+                except Exception:
+                    sigma = 0.18
+                sigma = float(max(0.0, min(2.0, sigma)))
+                noise = self.np_rng.normal(loc=0.0, scale=float(sigma), size=int(len(p)))
+                p2 = np.exp(np.log(p + 1e-12) + noise)
+                p2 = p2 / max(1e-12, float(p2.sum()))
+                return _alloc_indices([float(x) for x in p2.tolist()], n)
+            except Exception:
+                return _alloc_indices(weights, n)
+
+        if usage_model == "stochastic":
+            alloc_fn = _alloc_indices_stochastic
+        elif usage_model == "noisy":
+            alloc_fn = _alloc_indices_noisy
+        else:
+            alloc_fn = _alloc_indices
         w_lh = _line_weights(l_home, gs.home); w_dh = _line_weights(d_home, gs.home)
         w_la = _line_weights(l_away, gs.away); w_da = _line_weights(d_away, gs.away)
-        rot_lh = _alloc_indices(w_lh, segments) if l_home else []
-        rot_dh = _alloc_indices(w_dh, segments) if d_home else []
-        rot_la = _alloc_indices(w_la, segments) if l_away else []
-        rot_da = _alloc_indices(w_da, segments) if d_away else []
+        rot_lh = alloc_fn(w_lh, segments) if l_home else []
+        rot_dh = alloc_fn(w_dh, segments) if d_home else []
+        rot_la = alloc_fn(w_la, segments) if l_away else []
+        rot_da = alloc_fn(w_da, segments) if d_away else []
         idx_lh = 0; idx_da = 0; idx_la = 0; idx_dh = 0
         # Special teams units
         pp_home = _pp_units(lineup_home, gs.home)
@@ -470,22 +614,25 @@ class PeriodSimulator:
         st_home = st_home or {"pp_pct": 0.2, "pk_pct": 0.8, "drawn_per_game": 3.0, "committed_per_game": 3.0}
         st_away = st_away or {"pp_pct": 0.2, "pk_pct": 0.8, "drawn_per_game": 3.0, "committed_per_game": 3.0}
         # Calibration multipliers (default to neutral 1.0)
-        cal_pp_sh_mult = float((special_teams_cal or {}).get("pp_shot_multiplier", 1.0))
-        cal_pk_sh_mult = float((special_teams_cal or {}).get("pk_shot_multiplier", 1.0))
-        cal_pp_gl_mult = float((special_teams_cal or {}).get("pp_goal_multiplier", 1.0))
-        cal_pk_gl_mult = float((special_teams_cal or {}).get("pk_goal_multiplier", 1.0))
-        # Combined PP intensity from drawn and committed rates (approximate)
-        h_drawn = float(st_home.get("drawn_per_game", 3.0))
-        h_comm = float(st_home.get("committed_per_game", 3.0))
-        a_drawn = float(st_away.get("drawn_per_game", 3.0))
-        a_comm = float(st_away.get("committed_per_game", 3.0))
-        total_pen = max(1e-6, h_drawn + h_comm + a_drawn + a_comm)
-        # Expected PP minutes fraction per game (bounded)
-        pp_frac_total = max(0.0, min(0.45, (h_drawn + a_drawn + h_comm + a_comm) / 60.0))
-        # Side weighting: home PP draws weight from its drawn + opp committed
-        home_pp_weight = max(1e-6, h_drawn + a_comm)
-        away_pp_weight = max(1e-6, a_drawn + h_comm)
-        home_pp_prob = home_pp_weight / (home_pp_weight + away_pp_weight)
+        cal_pp_sh_mult = _f((special_teams_cal or {}).get("pp_shot_multiplier", 1.0), 1.0)
+        cal_pk_sh_mult = _f((special_teams_cal or {}).get("pk_shot_multiplier", 1.0), 1.0)
+        cal_pp_gl_mult = _f((special_teams_cal or {}).get("pp_goal_multiplier", 1.0), 1.0)
+        cal_pk_gl_mult = _f((special_teams_cal or {}).get("pk_goal_multiplier", 1.0), 1.0)
+        # Combined PP intensity from penalty rates.
+        # Use committed rates to avoid double-counting (drawn and committed are the same events).
+        # Approximate total PP time as: minors_per_game * 120s, then convert to fraction of game time.
+        h_comm = _f(st_home.get("committed_per_game", 3.0), 3.0)
+        a_comm = _f(st_away.get("committed_per_game", 3.0), 3.0)
+        try:
+            # Each committed minor yields ~2 minutes of PP time for the opponent.
+            pp_seconds_total = max(0.0, float(h_comm + a_comm)) * 120.0
+            pp_frac_total = max(0.0, min(0.45, float(pp_seconds_total) / float(max(1.0, T))))
+        except Exception:
+            pp_frac_total = max(0.0, min(0.45, float(h_comm + a_comm) * 2.0 / 60.0))
+
+        # Side weighting: home PP occurs when away commits; away PP occurs when home commits.
+        denom = max(1e-6, float(h_comm + a_comm))
+        home_pp_prob = float(a_comm) / denom
 
         # Pre-sample segment strengths so EV rotation can be allocated over EV time only.
         seg_home_pp_flags: List[bool] = []
@@ -500,31 +647,201 @@ class PeriodSimulator:
                 seg_home_pp_flags.append(False)
                 seg_away_pp_flags.append(False)
         ev_seg_count = sum(1 for _k in range(segments) if (not seg_home_pp_flags[_k] and not seg_away_pp_flags[_k]))
-        rot_lh_ev = _alloc_indices(w_lh, ev_seg_count) if (l_home and ev_seg_count > 0) else []
-        rot_dh_ev = _alloc_indices(w_dh, ev_seg_count) if (d_home and ev_seg_count > 0) else []
-        rot_la_ev = _alloc_indices(w_la, ev_seg_count) if (l_away and ev_seg_count > 0) else []
-        rot_da_ev = _alloc_indices(w_da, ev_seg_count) if (d_away and ev_seg_count > 0) else []
+        rot_lh_ev = alloc_fn(w_lh, ev_seg_count) if (l_home and ev_seg_count > 0) else []
+        rot_dh_ev = alloc_fn(w_dh, ev_seg_count) if (d_home and ev_seg_count > 0) else []
+        rot_la_ev = alloc_fn(w_la, ev_seg_count) if (l_away and ev_seg_count > 0) else []
+        rot_da_ev = alloc_fn(w_da, ev_seg_count) if (d_away and ev_seg_count > 0) else []
         ev_ptr = 0
 
         def _sample_index(weights: List[float]) -> int:
             if not weights:
                 return 0
             try:
-                w = np.array([max(0.0, float(x)) for x in weights], dtype=float)
+                def _wf0(x: object) -> float:
+                    try:
+                        if x is None:
+                            return 0.0
+                        v = float(x)
+                        if not np.isfinite(v):
+                            return 0.0
+                        return max(0.0, v)
+                    except Exception:
+                        return 0.0
+
+                w = np.array([_wf0(x) for x in weights], dtype=float)
                 s = float(w.sum())
-                if s <= 0:
+                if s <= 0.0:
                     return 0
                 p = w / s
-                return int(np.random.choice(np.arange(len(p)), size=1, replace=True, p=p)[0])
+                return int(self.np_rng.choice(np.arange(len(p)), size=1, replace=True, p=p)[0])
             except Exception:
                 return 0
 
+        def _pick_unit(units: List[List[int]], p0: float) -> List[int]:
+            if not units:
+                return []
+            if len(units) == 1:
+                return units[0]
+            try:
+                p0 = float(max(0.0, min(1.0, p0)))
+            except Exception:
+                p0 = 0.65
+            rest = max(1, int(len(units) - 1))
+            p_rest = (1.0 - p0) / float(rest)
+            probs = [p0] + [p_rest] * rest
+            try:
+                idx = int(self.np_rng.choice(np.arange(len(units)), size=1, replace=True, p=np.array(probs, dtype=float) / float(sum(probs)))[0])
+            except Exception:
+                idx = 0 if (self.rng.random() < p0) else 1
+            return units[int(idx) % len(units)]
+
+        def _score_effect_delta(diff: int, game_seconds_remaining: float) -> float:
+            """Return a signed shot-rate delta for the HOME team.
+
+            Positive means home shoots more (home trailing), negative means home shoots less (home leading).
+            """
+            if diff == 0:
+                return 0.0
+            # Urgency increases as the game winds down.
+            # 0.0 when >30 minutes left, 1.0 when <=5 minutes left.
+            urg = (1800.0 - float(game_seconds_remaining)) / 1500.0
+            urg = max(0.0, min(1.0, float(urg)))
+            abs_diff = abs(int(diff))
+            if abs_diff <= 1:
+                low, high = 0.04, 0.12
+            else:
+                low, high = 0.07, 0.18
+            mag = float(low + (high - low) * urg)
+            # Home leading => negative delta for home. Home trailing => positive delta for home.
+            return -mag if diff > 0 else mag
+
+        score_mode = str(getattr(self.cfg, "score_effects", "dynamic") or "dynamic").strip().lower()
+        if score_mode in {"none", "false", "0"}:
+            score_mode = "off"
+
+        goal_model = str(getattr(self.cfg, "goal_model", "from_shots") or "from_shots").strip().lower()
+        if goal_model in {"legacy", "old", "independent", "ind"}:
+            goal_model = "independent"
+        elif goal_model in {"fromshots", "from_shots", "shots", "shot", "linked"}:
+            goal_model = "from_shots"
+        else:
+            goal_model = "from_shots"
+
+        def _finishing_mult(team: TeamState, ice: List[int], shooter_pid: Optional[int]) -> float:
+            """Per-shot finishing multiplier based on goal_weight/shot_weight.
+
+            Normalized to mean ~1.0 for the current on-ice group so team-level conversion stays anchored.
+            """
+            if shooter_pid is None:
+                return 1.0
+            try:
+                shooter = team.players.get(int(shooter_pid))
+            except Exception:
+                shooter = None
+            if not shooter:
+                return 1.0
+
+            def _ratio(pid: int) -> float:
+                ps = team.players.get(int(pid))
+                if not ps:
+                    return 1.0
+                try:
+                    gw = float(ps.goal_weight or 0.0)
+                    sw = float(ps.shot_weight or 0.0)
+                    r = gw / max(1e-6, sw)
+                except Exception:
+                    r = 1.0
+                return float(max(0.05, min(3.0, r)))
+
+            try:
+                shooter_r = _ratio(int(shooter_pid))
+                ice_rs = [_ratio(int(pid)) for pid in (ice or []) if int(pid) in team.players]
+                mean_r = float(sum(ice_rs) / max(1, len(ice_rs))) if ice_rs else shooter_r
+                mult = shooter_r / max(1e-6, mean_r)
+                return float(max(0.25, min(3.0, mult)))
+            except Exception:
+                return 1.0
+
+        def _emit_assists(
+            team: TeamState,
+            ice: List[int],
+            scorer_pid: Optional[int],
+            t_goal: float,
+            period_num: int,
+            team_name: str,
+            strength: str,
+        ) -> None:
+            # Typical NHL: many goals have 1-2 assists; approximate rates.
+            p_primary = 0.72
+            p_secondary = 0.36  # conditional on primary, roughly
+            if scorer_pid is None:
+                return
+            teammates = [int(pid) for pid in (ice or []) if pid is not None and int(pid) != int(scorer_pid)]
+            if not teammates:
+                return
+            primary_pid: Optional[int] = None
+            if self.rng.random() < float(p_primary):
+                primary_pid = _weighted_choice(teammates, team, "assist")
+                if primary_pid is not None:
+                    events.append(
+                        Event(
+                            t=t_goal,
+                            period=int(period_num),
+                            team=str(team_name),
+                            kind="assist",
+                            player_id=int(primary_pid),
+                            meta={"strength": strength, "type": "primary"},
+                        )
+                    )
+            if self.rng.random() < float(p_secondary):
+                pool = [pid for pid in teammates if (primary_pid is None or int(pid) != int(primary_pid))]
+                if pool:
+                    secondary_pid = _weighted_choice(pool, team, "assist")
+                    if secondary_pid is not None:
+                        events.append(
+                            Event(
+                                t=t_goal,
+                                period=int(period_num),
+                                team=str(team_name),
+                                kind="assist",
+                                player_id=int(secondary_pid),
+                                meta={"strength": strength, "type": "secondary"},
+                            )
+                        )
+
         # Simulate each segment
         for k in range(segments):
+            time_elapsed = k * seg_len
+            time_remaining = T - time_elapsed
             # score effects factor
-            diff = gs.home.score - gs.away.score
-            home_factor = max(0.6, min(1.4, 1.0 + (-0.10 if diff > 0 else (0.10 if diff < 0 else 0.0))))
-            away_factor = max(0.6, min(1.4, 1.0 + (-0.10 if diff < 0 else (0.10 if diff > 0 else 0.0))))
+            if score_mode == "dynamic":
+                sim_home_score = int(gs.home.score) + int(home_goals)
+                sim_away_score = int(gs.away.score) + int(away_goals)
+                diff = int(sim_home_score - sim_away_score)
+            elif score_mode == "legacy":
+                diff = int(gs.home.score) - int(gs.away.score)
+            else:
+                diff = 0
+            # Approximate game time remaining for regulation periods.
+            if int(period_seconds or self.cfg.seconds_per_period) == int(self.cfg.seconds_per_period):
+                game_seconds_remaining = float((max(0, int(self.cfg.periods) - 1 - int(period_idx)) * int(self.cfg.seconds_per_period)) + time_remaining)
+            else:
+                game_seconds_remaining = float(time_remaining)
+
+            if score_mode == "dynamic":
+                score_delta_home = _score_effect_delta(diff, game_seconds_remaining)
+            elif score_mode == "legacy":
+                if diff > 0:
+                    score_delta_home = -0.10
+                elif diff < 0:
+                    score_delta_home = 0.10
+                else:
+                    score_delta_home = 0.0
+            else:
+                score_delta_home = 0.0
+
+            home_factor = max(0.6, min(1.4, 1.0 + float(score_delta_home)))
+            away_factor = max(0.6, min(1.4, 1.0 - float(score_delta_home)))
             # PP/PK effects: use pre-sampled segment strengths
             seg_is_home_pp = bool(seg_home_pp_flags[k])
             seg_is_away_pp = bool(seg_away_pp_flags[k])
@@ -540,8 +857,6 @@ class PeriodSimulator:
             # Empty-net end-game effects: trailing team increases shot rate; leading team more likely to score into empty net
             # Simple heuristic: apply in final 3 minutes of P3 when down 1, and final 2 minutes when down >=2
             if period_idx == 2:  # third period (0-indexed)
-                time_elapsed = k * seg_len
-                time_remaining = T - time_elapsed
                 empty_net_p = 0.18
                 two_goal_scale = 0.30
                 if time_remaining <= 180:  # last 3 minutes
@@ -565,24 +880,24 @@ class PeriodSimulator:
             if float(self.cfg.dispersion_shots or 0.0) > 0.0:
                 try:
                     sigma = float(self.cfg.dispersion_shots)
-                    lam_h = max(1e-6, float(lam_h) * float(np.random.lognormal(mean=0.0, sigma=sigma)))
-                    lam_a = max(1e-6, float(lam_a) * float(np.random.lognormal(mean=0.0, sigma=sigma)))
+                    lam_h = max(1e-6, float(lam_h) * float(self.np_rng.lognormal(mean=0.0, sigma=sigma)))
+                    lam_a = max(1e-6, float(lam_a) * float(self.np_rng.lognormal(mean=0.0, sigma=sigma)))
                 except Exception:
                     pass
-            sh_h = int(np.random.poisson(lam_h))
-            sh_a = int(np.random.poisson(lam_a))
+            sh_h = int(self.np_rng.poisson(lam_h))
+            sh_a = int(self.np_rng.poisson(lam_a))
             # Goals proportional to shots vs base conversion
             p_goal_home = (rates.home.goals_per_60 / max(rates.home.shots_per_60, 1e-3))
             p_goal_away = (rates.away.goals_per_60 / max(rates.away.shots_per_60, 1e-3))
             if seg_is_home_pp:
-                p_goal_home = p_goal_home * (1.0 + 1.5 * float(st_home.get("pp_pct", 0.2))) * cal_pp_gl_mult
+                p_goal_home = p_goal_home * (1.0 + 1.5 * _f(st_home.get("pp_pct", 0.2), 0.2)) * cal_pp_gl_mult
                 p_goal_home = min(0.45, p_goal_home)
-                p_goal_away = p_goal_away * (0.9 * float(st_away.get("pk_pct", 0.8))) * cal_pk_gl_mult
+                p_goal_away = p_goal_away * (0.9 * _f(st_away.get("pk_pct", 0.8), 0.8)) * cal_pk_gl_mult
                 p_goal_away = max(0.01, p_goal_away)
             elif seg_is_away_pp:
-                p_goal_away = p_goal_away * (1.0 + 1.5 * float(st_away.get("pp_pct", 0.2))) * cal_pp_gl_mult
+                p_goal_away = p_goal_away * (1.0 + 1.5 * _f(st_away.get("pp_pct", 0.2), 0.2)) * cal_pp_gl_mult
                 p_goal_away = min(0.45, p_goal_away)
-                p_goal_home = p_goal_home * (0.9 * float(st_home.get("pk_pct", 0.8))) * cal_pk_gl_mult
+                p_goal_home = p_goal_home * (0.9 * _f(st_home.get("pk_pct", 0.8), 0.8)) * cal_pk_gl_mult
                 p_goal_home = max(0.01, p_goal_home)
             # Apply additional PP/PK goal conversion multipliers from config
             if seg_is_home_pp:
@@ -604,29 +919,35 @@ class PeriodSimulator:
                     def _perturb_prob(p: float) -> float:
                         p = max(1e-4, min(0.99, float(p)))
                         logit = math.log(p / (1.0 - p))
-                        noisy = logit + float(np.random.normal(loc=0.0, scale=sigma_g))
+                        noisy = logit + float(self.np_rng.normal(loc=0.0, scale=sigma_g))
                         val = 1.0 / (1.0 + math.exp(-noisy))
                         return max(0.005, min(0.95, float(val)))
                     p_goal_home = _perturb_prob(p_goal_home)
                     p_goal_away = _perturb_prob(p_goal_away)
                 except Exception:
                     pass
-            g_h = sum(1 for _ in range(sh_h) if self.rng.random() < p_goal_home)
-            g_a = sum(1 for _ in range(sh_a) if self.rng.random() < p_goal_away)
-            home_goals += g_h; away_goals += g_a
+            if goal_model == "independent":
+                g_h = sum(1 for _ in range(sh_h) if self.rng.random() < p_goal_home)
+                g_a = sum(1 for _ in range(sh_a) if self.rng.random() < p_goal_away)
+            else:
+                g_h = 0
+                g_a = 0
             # Times in segment window
             t0 = k * seg_len + period_idx * T
             # Determine on-ice groups for attribution
             strength_h = "PP" if seg_is_home_pp else ("PK" if seg_is_away_pp else "EV")
             strength_a = "PP" if seg_is_away_pp else ("PK" if seg_is_home_pp else "EV")
             if seg_is_home_pp:
-                # Prefer PP unit 1 slightly (approx TOI share)
+                # PP usage: prefer unit 1, but allow stochastic mixing
                 if pp_home:
-                    if len(pp_home) > 1 and self.rng.random() < 0.65:
-                        ice_h = pp_home[0]
+                    if usage_model == "stochastic":
+                        ice_h = _pick_unit(pp_home, p0=0.72)
                     else:
-                        ice_h = pp_home[idx_pp_h % len(pp_home)]
-                        idx_pp_h = (idx_pp_h + 1) % max(1, len(pp_home))
+                        if len(pp_home) > 1 and self.rng.random() < 0.65:
+                            ice_h = pp_home[0]
+                        else:
+                            ice_h = pp_home[idx_pp_h % len(pp_home)]
+                            idx_pp_h = (idx_pp_h + 1) % max(1, len(pp_home))
                 else:
                     # Fallback to EV group if PP units unknown
                     ih = _sample_index(w_lh) if l_home else 0
@@ -634,11 +955,14 @@ class PeriodSimulator:
                     ice_h = ((l_home[ih] if l_home else []) + (d_home[idh] if d_home else []))
                 # Away team on PK if units available
                 if pk_away:
-                    if len(pk_away) > 1 and self.rng.random() < 0.60:
-                        ice_a = pk_away[0]
+                    if usage_model == "stochastic":
+                        ice_a = _pick_unit(pk_away, p0=0.66)
                     else:
-                        ice_a = pk_away[idx_pk_a % len(pk_away)]
-                        idx_pk_a = (idx_pk_a + 1) % max(1, len(pk_away))
+                        if len(pk_away) > 1 and self.rng.random() < 0.60:
+                            ice_a = pk_away[0]
+                        else:
+                            ice_a = pk_away[idx_pk_a % len(pk_away)]
+                            idx_pk_a = (idx_pk_a + 1) % max(1, len(pk_away))
                 else:
                     ia = _sample_index(w_la) if l_away else 0
                     ida = _sample_index(w_da) if d_away else 0
@@ -647,24 +971,30 @@ class PeriodSimulator:
                 ice_h = (ice_h or [])[:5]
                 ice_a = (ice_a or [])[:4]
             elif seg_is_away_pp and pp_away:
-                # Prefer PP unit 1 slightly (approx TOI share)
+                # PP usage: prefer unit 1, but allow stochastic mixing
                 if pp_away:
-                    if len(pp_away) > 1 and self.rng.random() < 0.65:
-                        ice_a = pp_away[0]
+                    if usage_model == "stochastic":
+                        ice_a = _pick_unit(pp_away, p0=0.72)
                     else:
-                        ice_a = pp_away[idx_pp_a % len(pp_away)]
-                        idx_pp_a = (idx_pp_a + 1) % max(1, len(pp_away))
+                        if len(pp_away) > 1 and self.rng.random() < 0.65:
+                            ice_a = pp_away[0]
+                        else:
+                            ice_a = pp_away[idx_pp_a % len(pp_away)]
+                            idx_pp_a = (idx_pp_a + 1) % max(1, len(pp_away))
                 else:
                     ia = _sample_index(w_la) if l_away else 0
                     ida = _sample_index(w_da) if d_away else 0
                     ice_a = ((l_away[ia] if l_away else []) + (d_away[ida] if d_away else []))
                 # Home team on PK if units available
                 if pk_home:
-                    if len(pk_home) > 1 and self.rng.random() < 0.60:
-                        ice_h = pk_home[0]
+                    if usage_model == "stochastic":
+                        ice_h = _pick_unit(pk_home, p0=0.66)
                     else:
-                        ice_h = pk_home[idx_pk_h % len(pk_home)]
-                        idx_pk_h = (idx_pk_h + 1) % max(1, len(pk_home))
+                        if len(pk_home) > 1 and self.rng.random() < 0.60:
+                            ice_h = pk_home[0]
+                        else:
+                            ice_h = pk_home[idx_pk_h % len(pk_home)]
+                            idx_pk_h = (idx_pk_h + 1) % max(1, len(pk_home))
                 else:
                     ih = _sample_index(w_lh) if l_home else 0
                     idh = _sample_index(w_dh) if d_home else 0
@@ -722,24 +1052,53 @@ class PeriodSimulator:
                 events.append(Event(t=t0, period=period_idx + 1, team=gs.home.name, kind="shift", player_id=g_home_id, meta={"dur": seg_len, "strength": strength_h}))
             if g_away_id is not None:
                 events.append(Event(t=t0, period=period_idx + 1, team=gs.away.name, kind="shift", player_id=g_away_id, meta={"dur": seg_len, "strength": strength_a}))
-            # Attribute shots and goals to players on ice
+            # Attribute shots (and optionally goals) to players on ice
             for _ in range(sh_h):
                 pid = _weighted_choice(ice_h, gs.home, "shot") if ice_h else None
-                events.append(Event(t=t0 + self.rng.random() * seg_len, period=period_idx + 1, team=gs.home.name, kind="shot", player_id=pid, meta={"strength": strength_h}))
+                t_sh = t0 + self.rng.random() * seg_len
+                events.append(Event(t=t_sh, period=period_idx + 1, team=gs.home.name, kind="shot", player_id=pid, meta={"strength": strength_h}))
+                if goal_model != "independent":
+                    p = float(p_goal_home)
+                    if pid is not None:
+                        p *= float(_finishing_mult(gs.home, ice_h or [], int(pid)))
+                    p = float(max(0.0005, min(0.95, p)))
+                    if self.rng.random() < p:
+                        g_h += 1
+                        events.append(Event(t=t_sh, period=period_idx + 1, team=gs.home.name, kind="goal", player_id=pid, meta={"strength": strength_h}))
+                        if assist_model == "onice":
+                            _emit_assists(gs.home, ice_h or [], pid, t_sh, period_idx + 1, gs.home.name, strength_h)
+
             for _ in range(sh_a):
                 pid = _weighted_choice(ice_a, gs.away, "shot") if ice_a else None
-                events.append(Event(t=t0 + self.rng.random() * seg_len, period=period_idx + 1, team=gs.away.name, kind="shot", player_id=pid, meta={"strength": strength_a}))
-            for _ in range(g_h):
-                pid = _weighted_choice(ice_h, gs.home, "goal") if ice_h else None
-                events.append(Event(t=t0 + self.rng.random() * seg_len, period=period_idx + 1, team=gs.home.name, kind="goal", player_id=pid, meta={"strength": strength_h}))
-            for _ in range(g_a):
-                pid = _weighted_choice(ice_a, gs.away, "goal") if ice_a else None
-                events.append(Event(t=t0 + self.rng.random() * seg_len, period=period_idx + 1, team=gs.away.name, kind="goal", player_id=pid, meta={"strength": strength_a}))
+                t_sh = t0 + self.rng.random() * seg_len
+                events.append(Event(t=t_sh, period=period_idx + 1, team=gs.away.name, kind="shot", player_id=pid, meta={"strength": strength_a}))
+                if goal_model != "independent":
+                    p = float(p_goal_away)
+                    if pid is not None:
+                        p *= float(_finishing_mult(gs.away, ice_a or [], int(pid)))
+                    p = float(max(0.0005, min(0.95, p)))
+                    if self.rng.random() < p:
+                        g_a += 1
+                        events.append(Event(t=t_sh, period=period_idx + 1, team=gs.away.name, kind="goal", player_id=pid, meta={"strength": strength_a}))
+                        if assist_model == "onice":
+                            _emit_assists(gs.away, ice_a or [], pid, t_sh, period_idx + 1, gs.away.name, strength_a)
+
+            # Legacy independent goal attribution
+            if goal_model == "independent":
+                for _ in range(g_h):
+                    pid = _weighted_choice(ice_h, gs.home, "goal") if ice_h else None
+                    events.append(Event(t=t0 + self.rng.random() * seg_len, period=period_idx + 1, team=gs.home.name, kind="goal", player_id=pid, meta={"strength": strength_h}))
+                for _ in range(g_a):
+                    pid = _weighted_choice(ice_a, gs.away, "goal") if ice_a else None
+                    events.append(Event(t=t0 + self.rng.random() * seg_len, period=period_idx + 1, team=gs.away.name, kind="goal", player_id=pid, meta={"strength": strength_a}))
+
+            home_goals += int(g_h)
+            away_goals += int(g_a)
             # Attribute blocks to defending players on ice (approximate fraction of opponent SOG)
             # Higher block rate on PK segments vs EV; lower on PP defending side
-            p_block_ev = float((special_teams_cal or {}).get("blocks_ev_rate", 0.22))
-            p_block_pk = float((special_teams_cal or {}).get("blocks_pk_rate", 0.28))
-            p_block_pp_def = float((special_teams_cal or {}).get("blocks_pp_def_rate", 0.18))
+            p_block_ev = _f((special_teams_cal or {}).get("blocks_ev_rate", 0.22), 0.22)
+            p_block_pk = _f((special_teams_cal or {}).get("blocks_pk_rate", 0.28), 0.28)
+            p_block_pp_def = _f((special_teams_cal or {}).get("blocks_pp_def_rate", 0.18), 0.18)
             # Away defending blocks vs home shots
             if seg_is_home_pp:
                 p_blk_away = p_block_pk
@@ -783,10 +1142,10 @@ class GameSimulator:
     def __init__(self, cfg: SimConfig, rates: RateModels):
         self.cfg = cfg
         self.rates = rates
-        if cfg.seed is not None:
-            np.random.seed(cfg.seed)
+        # Use local RNG instances; do not reseed global numpy.
+        self.np_rng = np.random.default_rng(cfg.seed)
         self.rng = random.Random(cfg.seed)
-        self.period_sim = PeriodSimulator(cfg, self.rng)
+        self.period_sim = PeriodSimulator(cfg, self.rng, self.np_rng)
 
     def _init_game_state(self, home_name: str, away_name: str, roster_home: List[Dict], roster_away: List[Dict]) -> GameState:
         def _norm_pos(raw: object) -> str:
@@ -848,7 +1207,7 @@ class GameSimulator:
         weights = [(p, max(p.toi_proj, 1e-6) / total) for p in pool]
         # Multinomial draw
         probs = [w for (_, w) in weights]
-        draws = np.random.multinomial(n=count, pvals=probs) if probs else np.zeros(len(weights), dtype=int)
+        draws = self.np_rng.multinomial(n=count, pvals=probs) if probs else np.zeros(len(weights), dtype=int)
         for (p, _), n in zip(weights, draws):
             p.stats[kind] = p.stats.get(kind, 0.0) + float(n)
 
@@ -892,10 +1251,18 @@ class GameSimulator:
     ) -> Tuple[GameState, List[Event]]:
         gs = self._init_game_state(home_name, away_name, roster_home, roster_away)
         events_all: List[Event] = []
+        assist_model = str(getattr(self.cfg, "assist_model", "onice") or "onice").strip().lower()
+        if assist_model in ("on_ice", "on-ice"):
+            assist_model = "onice"
+        if assist_model in ("none", "false", "0"):
+            assist_model = "off"
+        if assist_model not in ("onice", "legacy", "off"):
+            assist_model = "onice"
         for pd in range(self.cfg.periods):
             hg, ag, ev = self.period_sim.simulate_period_with_lines(gs, self.rates, pd, lineup_home, lineup_away, st_home=st_home, st_away=st_away, special_teams_cal=special_teams_cal, period_seconds=self.cfg.seconds_per_period)
             gs.home.score += int(hg)
             gs.away.score += int(ag)
+            has_assist_events = any(getattr(x, "kind", None) == "assist" for x in (ev or []))
             # Attribute player events directly from simulated events (shots/goals)
             for e in ev:
                 if e.kind in ("shot", "goal", "block") and e.player_id is not None:
@@ -905,8 +1272,9 @@ class GameSimulator:
                     if pstate:
                         key = "shots" if e.kind == "shot" else ("goals" if e.kind == "goal" else "blocks")
                         pstate.stats[key] = pstate.stats.get(key, 0.0) + 1.0
-                        # Simple assists attribution: on goals, assign 1-2 assists to random teammates
-                        if e.kind == "goal":
+                        # Legacy fallback: if the period sim did not emit assist events,
+                        # assign 1-2 assists to random teammates for points markets.
+                        if e.kind == "goal" and (not has_assist_events) and assist_model == "legacy":
                             try:
                                 # Choose assisting teammates excluding the scorer
                                 skaters = [p for p in team.players.values() if p.position in ("F","D") and int(p.player_id) != int(e.player_id)]
@@ -918,12 +1286,11 @@ class GameSimulator:
                                     total_w = sum(weights) or 1.0
                                     probs = [w/total_w for w in weights]
                                     # Draw without replacement
-                                    import numpy as _np
                                     idxs = list(range(len(skaters)))
                                     chosen = []
                                     # sample n_assists unique indices
                                     if len(skaters) >= n_assists:
-                                        chosen = list(_np.random.choice(idxs, size=n_assists, replace=False, p=_np.array(probs)))
+                                        chosen = list(self.np_rng.choice(idxs, size=n_assists, replace=False, p=np.array(probs)))
                                     else:
                                         chosen = idxs
                                     for ci in chosen:

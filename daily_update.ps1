@@ -7,6 +7,9 @@ Param(
   [double]$TrendsDecay = 0.98,
   [switch]$ResetTrends,
   [switch]$SkipProps,
+  [int]$PropsMaxPlusOdds = 300,
+  [string]$PropsUsageModel = "deterministic",
+  [double]$PropsUsageNoisySigma = 0.18,
   [switch]$SkipPropsProjections,
   [switch]$SkipPropsCalibration,
   [switch]$SkipGameCalibration,
@@ -106,13 +109,18 @@ if (-not $SkipProps) {
     $today = (Get-Date).ToString('yyyy-MM-dd')
     $tomorrow = (Get-Date).AddDays(1).ToString('yyyy-MM-dd')
     if (-not $Quiet) { Write-Host "[props-sim] Boxscores $today & $tomorrow" -ForegroundColor Cyan }
-    python -m nhl_betting.cli props-simulate-boxscores --date $today --n-sims 2000 --seed 42 --toi-mode auto --starter-source auto --saves-cal 0.85 | Out-Null
-    python -m nhl_betting.cli props-simulate-boxscores --date $tomorrow --n-sims 2000 --seed 42 --toi-mode auto --starter-source auto --saves-cal 0.85 | Out-Null
+    python -m nhl_betting.cli props-simulate-boxscores --date $today --n-sims 2000 --seed 42 --toi-mode auto --usage-model $PropsUsageModel --usage-noisy-sigma $PropsUsageNoisySigma --starter-source auto --saves-cal 0.85 | Out-Null
+    python -m nhl_betting.cli props-simulate-boxscores --date $tomorrow --n-sims 2000 --seed 42 --toi-mode auto --usage-model $PropsUsageModel --usage-noisy-sigma $PropsUsageNoisySigma --starter-source auto --saves-cal 0.85 | Out-Null
     if (-not $Quiet) { Write-Host "[props-recs] From boxscores $today & $tomorrow (prob gating)" -ForegroundColor Cyan }
     # Apply per-market probability gates to improve daily accuracy (especially SOG)
     $probGates = 'SOG=0.68,GOALS=0.60,ASSISTS=0.60,POINTS=0.62,SAVES=0.60,BLOCKS=0.60'
-    python -m nhl_betting.cli props-recommendations-boxscores --date $today --min-ev 0 --top 400 --min-prob-per-market $probGates | Out-Null
-    python -m nhl_betting.cli props-recommendations-boxscores --date $tomorrow --min-ev 0 --top 400 --min-prob-per-market $probGates | Out-Null
+    $clampArgs = @()
+    if ($PropsMaxPlusOdds -and $PropsMaxPlusOdds -gt 0) {
+      if (-not $Quiet) { Write-Host "[props-recs] Odds clamp enabled: max plus odds = +$PropsMaxPlusOdds" -ForegroundColor DarkGray }
+      $clampArgs = @("--max-plus-odds", "$PropsMaxPlusOdds")
+    }
+    python @(@("-m", "nhl_betting.cli", "props-recommendations-boxscores", "--date", $today, "--min-ev", "0", "--top", "400", "--min-prob-per-market", $probGates) + $clampArgs) | Out-Null
+    python @(@("-m", "nhl_betting.cli", "props-recommendations-boxscores", "--date", $tomorrow, "--min-ev", "0", "--top", "400", "--min-prob-per-market", $probGates) + $clampArgs) | Out-Null
   } catch {
     Write-Warning "[props-sim] Failed to generate boxscores/recs: $($_.Exception.Message)"
   }
@@ -238,6 +246,20 @@ if ($RunSimBacktests) {
   }
 }
 
+# Publish stable web/UI artifacts: daily bundles + manifest
+try {
+  $y = (Get-Date).AddDays(-1).ToString('yyyy-MM-dd')
+  $t = (Get-Date).ToString('yyyy-MM-dd')
+  $tm = (Get-Date).AddDays(1).ToString('yyyy-MM-dd')
+  if (-not $Quiet) { Write-Host "[publish] Bundles for $y, $t, $tm" -ForegroundColor Cyan }
+  python -m nhl_betting.cli bundle-build --date $y | Out-Null
+  python -m nhl_betting.cli bundle-build --date $t | Out-Null
+  python -m nhl_betting.cli bundle-build --date $tm | Out-Null
+  python -m nhl_betting.cli bundle-manifest | Out-Null
+} catch {
+  Write-Warning "[publish] Bundle publish failed: $($_.Exception.Message)"
+}
+
 # Optional: push changes to git (models/predictions/reconciliations)
 try {
   $isGit = git rev-parse --is-inside-work-tree 2>$null
@@ -250,6 +272,7 @@ try {
   git add data/models/*.json 2>$null | Out-Null
   git add data/processed/*.csv 2>$null | Out-Null
   git add data/processed/*.json 2>$null | Out-Null
+  git add data/processed/bundles/** 2>$null | Out-Null
   # Also stage canonical props lines so Render has odds inputs (OddsAPI preferred)
   git add data/props/player_props_lines/** 2>$null | Out-Null
       # Commit with timestamped message; ignore if nothing staged

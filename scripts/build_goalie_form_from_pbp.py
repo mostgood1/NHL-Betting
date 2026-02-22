@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 from datetime import date
 from pathlib import Path
 from typing import Dict, Optional
@@ -38,25 +39,40 @@ def _pick_valid_pbp() -> Optional[str]:
         return None
 
 
-def build_goalie_form_from_pbp(pbp_path: Optional[str] = None, lookback_games: int = 10) -> Dict[str, float]:
+def build_goalie_form_from_pbp(
+    pbp_path: Optional[str] = None,
+    lookback_games: int = 10,
+    as_of_date: Optional[str] = None,
+) -> Dict[str, float]:
     con = duckdb.connect()
     src = pbp_path or _pick_valid_pbp()
     if not src:
         return {}
+
+    date_filter_sql = ""
+    params = [str(src)]
+    if as_of_date:
+        date_filter_sql = "and try_cast(game_date as DATE) <= try_cast(? as DATE)"
+        params.append(as_of_date)
+
     con.execute(
         f"""
         create or replace table events as
         select
             game_id::INT as game_id,
-            game_date::VARCHAR as game_date,
+            try_cast(game_date as DATE) as game_date,
             home_abbreviation::VARCHAR as home,
             away_abbreviation::VARCHAR as away,
             event_type::VARCHAR as event_type,
             coalesce(event_team_abbr, event_team)::VARCHAR as shooting_team,
             coalesce(empty_net, false)::BOOLEAN as empty_net
-        from read_parquet('{src}')
+        from read_parquet(?)
         where game_id is not null
+          and try_cast(game_date as DATE) is not null
+          {date_filter_sql}
         """
+        ,
+        params,
     )
 
     # Per-game shots and goals by shooting team
@@ -111,15 +127,30 @@ def build_goalie_form_from_pbp(pbp_path: Optional[str] = None, lookback_games: i
     return forms
 
 
-def main():
+def main(argv: Optional[list[str]] = None):
+    parser = argparse.ArgumentParser(description="Build goalie recent form (rolling SV%) from PBP parquet")
+    parser.add_argument(
+        "--date",
+        dest="as_of_date",
+        default=None,
+        help="Anchor date (YYYY-MM-DD). Computes form using games on/before this date and writes goalie_form_<date>.csv.",
+    )
+    parser.add_argument("--lookback-games", type=int, default=10)
+    parser.add_argument("--pbp-path", type=str, default=None)
+    args = parser.parse_args(argv)
+
     PROC_DIR.mkdir(parents=True, exist_ok=True)
-    forms = build_goalie_form_from_pbp()
+    forms = build_goalie_form_from_pbp(
+        pbp_path=args.pbp_path,
+        lookback_games=args.lookback_games,
+        as_of_date=args.as_of_date,
+    )
     if not forms:
         print("[warn] no forms computed from PBP")
         return
-    today = date.today().strftime("%Y-%m-%d")
+    out_date = args.as_of_date or date.today().strftime("%Y-%m-%d")
     out = pd.DataFrame({"team": list(forms.keys()), "sv_pct_l10": list(forms.values())})
-    out_path = PROC_DIR / f"goalie_form_{today}.csv"
+    out_path = PROC_DIR / f"goalie_form_{out_date}.csv"
     out.to_csv(out_path, index=False)
     print(f"[done] wrote {out_path}")
 

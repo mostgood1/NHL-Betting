@@ -9,9 +9,9 @@
     /* Minimal layout additions; reuse existing palette from style.css */
     header .header-inner { flex-wrap: wrap; }
     .topbar { display:flex; flex-wrap:wrap; align-items:center; gap:10px; width:100%; }
-    .tabs { display:flex; gap:8px; flex-wrap:wrap; }
-    .tab { background:#0f1530; border:1px solid #25316a; color:#cfe0ff; padding:7px 10px; border-radius:999px; cursor:pointer; font-weight:700; font-size:12px; }
-    .tab.active { background:#2b5cff; border-color:#2b5cff; color:#fff; }
+    .date-picker { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .date-picker label { color:#9fb0ff; font-size:12px; font-weight:800; letter-spacing:0.3px; text-transform:uppercase; }
+    .date-input { background:#0f1530; border:1px solid #25316a; color:#cfe0ff; padding:7px 10px; border-radius:10px; font-weight:700; font-size:12px; }
     .spacer { flex:1; }
     .muted { color:#9fb0ff; font-size:12px; }
 
@@ -79,7 +79,10 @@
     <div class="container header-inner">
       <div class="topbar">
         <h1 style="margin:0;">NHL Betting – Cards</h1>
-        <div class="tabs" id="tabs"></div>
+        <div class="date-picker">
+          <label for="datePicker">Date</label>
+          <input id="datePicker" class="date-input" type="date" />
+        </div>
         <div class="spacer"></div>
         <button type="button" id="themeToggle" class="btn" title="Toggle light/dark theme">Toggle Theme</button>
       </div>
@@ -383,19 +386,13 @@
       }
     }
 
-    function buildTrioAroundDate(allDates, date) {
+    function setRequestedDateInUrl(date) {
       try {
-        if (!Array.isArray(allDates) || !date) return [];
-        const idx = allDates.indexOf(date);
-        if (idx < 0) return [];
-        const out = [];
-        if (idx - 1 >= 0) out.push(allDates[idx - 1]);
-        out.push(allDates[idx]);
-        if (idx + 1 < allDates.length) out.push(allDates[idx + 1]);
-        return out;
-      } catch (e) {
-        return [];
-      }
+        const u = new URL(window.location.href);
+        if (date) u.searchParams.set('date', date);
+        else u.searchParams.delete('date');
+        window.history.replaceState({}, '', u.toString());
+      } catch (e) {}
     }
 
     function normKey(s) {
@@ -939,41 +936,6 @@
       setStatus(`${date}: ${preds.length} games${simNote}${note}`);
     }
 
-    function renderTabs(trio, defaultDate=null) {
-      const tabs = $('tabs');
-      tabs.innerHTML = '';
-      for (const d of trio) {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'tab';
-        btn.textContent = d;
-        btn.onclick = async () => {
-          for (const x of tabs.querySelectorAll('.tab')) x.classList.remove('active');
-          btn.classList.add('active');
-          try {
-            await loadDate(d);
-          } catch (e) {
-            stopLivePolling();
-            setStatus('Error loading bundle.');
-            setEmpty(String(e && e.message ? e.message : e));
-          }
-        };
-        tabs.appendChild(btn);
-      }
-
-      let defaultBtn = null;
-      if (defaultDate) {
-        for (const b of tabs.querySelectorAll('.tab')) {
-          if (String(b.textContent || '').trim() === String(defaultDate).trim()) {
-            defaultBtn = b;
-            break;
-          }
-        }
-      }
-      defaultBtn = defaultBtn || tabs.querySelectorAll('.tab')[1] || tabs.querySelectorAll('.tab')[0];
-      if (defaultBtn) defaultBtn.click();
-    }
-
     async function init() {
       $('themeToggle').onclick = () => {
         document.documentElement.classList.toggle('light');
@@ -986,13 +948,27 @@
         const d = await fetchJson('/v1/dates');
         if (!d.ok) throw new Error(d.error || 'dates_error');
         const requested = getRequestedDate();
-        let trio = d.trio || [];
-        if (requested && Array.isArray(d.dates) && d.dates.includes(requested)) {
-          const forced = buildTrioAroundDate(d.dates, requested);
-          if (forced.length) trio = forced;
-        }
-        if (!trio.length) throw new Error('No trio dates returned');
-        renderTabs(trio, requested);
+        const dateInput = $('datePicker');
+        const initialDate = (requested || (Array.isArray(d.trio) ? d.trio[1] : null) || d.latest || '').trim();
+        if (!initialDate) throw new Error('No dates returned');
+
+        dateInput.value = initialDate;
+        dateInput.onchange = async () => {
+          const next = String(dateInput.value || '').trim();
+          if (!next) return;
+          setRequestedDateInUrl(next);
+          try {
+            await loadDate(next);
+          } catch (e) {
+            stopLivePolling();
+            setStatus('Error loading bundle.');
+            setEmpty(String(e && e.message ? e.message : e));
+          }
+        };
+
+        // Trigger initial load.
+        setRequestedDateInUrl(initialDate);
+        await loadDate(initialDate);
       } catch (e) {
         setStatus('Failed to load dates.');
         setEmpty(String(e && e.message ? e.message : e));

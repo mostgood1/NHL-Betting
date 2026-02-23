@@ -5,6 +5,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
+from zoneinfo import ZoneInfo
 
 import requests
 try:
@@ -304,7 +305,11 @@ def normalize_snapshot_to_rows(
         commence = ev.get("commence_time")
         dstr = None
         try:
-            dstr = datetime.fromisoformat(commence.replace("Z", "+00:00")).strftime("%Y-%m-%d")
+            # Bucket events by US/Eastern slate date (not UTC) so late games
+            # don't roll into the next day when commence_time is after 00:00Z.
+            dt_utc = datetime.fromisoformat(commence.replace("Z", "+00:00"))
+            dt_et = dt_utc.astimezone(ZoneInfo("America/New_York"))
+            dstr = dt_et.strftime("%Y-%m-%d")
         except Exception:
             dstr = None
         if not best_of_all:

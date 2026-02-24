@@ -18,6 +18,7 @@ def test_v1_odds_smoke(monkeypatch):
         odds_format: str = "american",
         bookmaker=None,
         best: bool = False,
+        inplay: bool = False,
     ):
         rows = [
             {
@@ -44,6 +45,13 @@ def test_v1_odds_smoke(monkeypatch):
     # Avoid ODDS_API_KEY requirement by bypassing __init__
     monkeypatch.setattr(OddsAPIClient, "__init__", lambda self: None, raising=True)
     monkeypatch.setattr(OddsAPIClient, "flat_snapshot", _flat_snapshot, raising=True)
+
+    # Clear module-level TTL cache so the monkeypatch takes effect.
+    import nhl_betting.web.app as web_app
+    try:
+        web_app._LIVE_ODDS_CACHE.clear()
+    except Exception:
+        pass
 
     r = client.get("/v1/odds/2099-01-01")
     assert r.status_code == 200

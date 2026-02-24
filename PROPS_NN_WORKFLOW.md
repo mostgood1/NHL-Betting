@@ -319,7 +319,7 @@ python -m nhl_betting.cli props-recommendations --date 2025-10-17 --min-ev 0.0 -
 ### 3. View in UI
 ```bash
 # Start local server
-.\launch_local.ps1
+.\run_flask.ps1
 
 # Open browser
 http://localhost:8080/props/recommendations?date=2025-10-17

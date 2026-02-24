@@ -74,7 +74,7 @@ New tests (outline):
 Add a runbook section (README update) describing:
 1. Collect lines: `python -m nhl_betting.cli props-collect --date YYYY-MM-DD`.
 2. Generate recommendations: `python -m nhl_betting.cli props-recommendations --date YYYY-MM-DD`.
-3. Start dev server: `powershell -File dev_server.ps1`.
+3. Start dev server: `powershell -File run_flask.ps1`.
 4. Verify assets: `python scripts/verify_props_assets.py --date YYYY-MM-DD` (future).
 5. Investigate missing photos via `/props/recommendations?date=YYYY-MM-DD&debug=3`.
 

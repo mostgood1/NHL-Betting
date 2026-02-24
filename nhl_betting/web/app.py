@@ -8,57 +8,19 @@ from pathlib import Path
 from typing import Optional, Dict, Any
 import threading
 import uuid
+import asyncio
+from io import StringIO
 
-import pandas as pd
 import numpy as np
-from fastapi import FastAPI, Query, Header, Request
-from fastapi.responses import HTMLResponse, JSONResponse, Response, PlainTextResponse
+import pandas as pd
+import requests
+
+from ..data.odds_api import OddsAPIClient
+
+from fastapi import FastAPI, Request, Query, Header
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from jinja2 import Environment, FileSystemLoader, select_autoescape
-
-from ..utils.io import RAW_DIR, PROC_DIR
-from ..utils.io import MODEL_DIR as _MODEL_DIR
-from ..data.nhl_api_web import NHLWebClient
-from ..data.nhl_api import NHLClient as NHLStatsClient
-from .teams import get_team_assets
-from ..cli import predict_core, fetch as cli_fetch, train as cli_train
-from ..models.poisson import PoissonGoals
-from ..models.dixon_coles import dc_market_probs
-from ..utils.market_anchor import (
-    implied_pair_from_american,
-    implied_pair_from_two_sided,
-    blend_probability,
-)
-from ..utils.io import save_df
-import asyncio
-from ..data.odds_api import OddsAPIClient
-import base64
-import requests
-from io import StringIO
-from ..data import player_props as _props_data
-from ..data import rosters as _rosters
-from ..models.props import (
-    SkaterShotsModel as _SkaterShotsModel,
-    GoalieSavesModel as _GoalieSavesModel,
-    SkaterGoalsModel as _SkaterGoalsModel,
-    SkaterAssistsModel as _SkaterAssistsModel,
-    SkaterPointsModel as _SkaterPointsModel,
-    SkaterBlocksModel as _SkaterBlocksModel,
-)
-# Use a single team assets import throughout
-# Shared game recs/edges/settlement/reconciliation logic
-try:
-    from ..core.recs_shared import recompute_edges_and_recommendations as _recs_recompute_shared
-except Exception:
-    _recs_recompute_shared = None
-
-# Diagnostic: confirm import proceeds (helpful when local tests appear to hang)
-try:
-    if os.getenv('PROPS_VERBOSE','0') == '1':
-        print(f"[startup] web.app imported PROPS_VERBOSE=1 FAST_PROPS_TEST={os.getenv('FAST_PROPS_TEST')} FORCE_SYNTH={os.getenv('PROPS_FORCE_SYNTHETIC')} NO_COMP={os.getenv('PROPS_NO_COMPUTE')}")
-except Exception:
-    pass
-
 # App and templating setup
 BASE_DIR = Path(__file__).resolve().parent
 TEMPLATE_DIR = BASE_DIR / "templates"
@@ -470,6 +432,160 @@ def _live_odds_cache_put(key: str, value: object):
         pass
 
 
+def _norm_game_key(away: object, home: object) -> str:
+    try:
+        a = " ".join(str(away or "").strip().split()).lower()
+        h = " ".join(str(home or "").strip().split()).lower()
+        if not a or not h:
+            return ""
+        return f"{a} @ {h}"
+    except Exception:
+        return ""
+
+
+def _parse_mmss_clock(clock: object) -> Optional[int]:
+    """Parse a scoreboard clock like '12:34' into seconds remaining in period."""
+    try:
+        s = str(clock or "").strip()
+        if not s or ":" not in s:
+            return None
+        mm, ss = s.split(":", 1)
+        mm_i = int(mm)
+        ss_i = int(ss)
+        if mm_i < 0 or ss_i < 0 or ss_i >= 60:
+            return None
+        return 60 * mm_i + ss_i
+    except Exception:
+        return None
+
+
+def _load_bundle_predictions_map(date_ymd: str) -> dict:
+    """Best-effort: load bundle prediction rows keyed by normalized away@home."""
+    try:
+        from ..publish.daily_bundles import bundle_path, build_daily_bundle
+
+        p = bundle_path(date_ymd, PROC_DIR)
+        obj = None
+        if p.exists():
+            try:
+                obj = json.loads(p.read_text(encoding="utf-8"))
+            except Exception:
+                obj = None
+        if obj is None:
+            try:
+                obj = build_daily_bundle(date_ymd, PROC_DIR)
+            except Exception:
+                obj = None
+
+        rows = (
+            (obj or {}).get("data", {})
+            .get("games", {})
+            .get("predictions", {})
+            .get("rows", [])
+        )
+        if not isinstance(rows, list):
+            return {}
+        out: dict = {}
+        for r in rows:
+            if not isinstance(r, dict):
+                continue
+            k = _norm_game_key(r.get("away"), r.get("home"))
+            if k:
+                out[k] = r
+        return out
+    except Exception:
+        return {}
+
+
+def _v1_odds_payload(date_ymd: str, regions: str = "us", best: bool = True, inplay: bool = False) -> dict:
+    """Build odds payload object (as returned by /v1/odds/{date}) with caching."""
+    d = str(date_ymd or "").strip()
+    if not _V1_DATE_RE.fullmatch(d):
+        return {"ok": False, "error": "invalid_date", "date": date_ymd}
+
+    cache_key = f"v1_odds::{d}::{str(regions or 'us').lower()}::{int(bool(best))}::{int(bool(inplay))}"
+    cached = _live_odds_cache_get(cache_key)
+    if cached is not None:
+        return cached
+
+    asof = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
+    try:
+        client = OddsAPIClient()
+    except Exception as e:
+        obj = {"ok": True, "date": d, "asof_utc": asof, "games": [], "note": str(e)}
+        _live_odds_cache_put(cache_key, obj)
+        return obj
+
+    # Flat snapshot returns normalized rows for all current events.
+    df = client.flat_snapshot(
+        d,
+        regions=str(regions or "us"),
+        markets="h2h,totals,spreads",
+        snapshot_iso=None,
+        odds_format="american",
+        bookmaker=None,
+        best=bool(best),
+        inplay=bool(inplay),
+    )
+
+    games: list[dict] = []
+    if df is not None and not df.empty:
+        try:
+            df2 = df[df.get("date") == d].copy()
+        except Exception:
+            df2 = df.copy()
+        if df2 is not None and not df2.empty:
+            def _i(x):
+                try:
+                    return int(x)
+                except Exception:
+                    return None
+
+            def _f(x):
+                try:
+                    if x is None:
+                        return None
+                    return float(x)
+                except Exception:
+                    return None
+
+            for _, r in df2.iterrows():
+                home = str(r.get("home") or "")
+                away = str(r.get("away") or "")
+                if not home or not away:
+                    continue
+                games.append({
+                    "date": d,
+                    "home": home,
+                    "away": away,
+                    "key": _norm_game_key(away, home),
+                    "ml": {
+                        "home": _i(r.get("home_ml")),
+                        "away": _i(r.get("away_ml")),
+                        "home_book": r.get("home_ml_book"),
+                        "away_book": r.get("away_ml_book"),
+                    },
+                    "total": {
+                        "line": _f(r.get("total_line")),
+                        "over": _i(r.get("over")),
+                        "under": _i(r.get("under")),
+                        "over_book": r.get("over_book"),
+                        "under_book": r.get("under_book"),
+                    },
+                    "puckline": {
+                        "home_-1.5": _i(r.get("home_pl_-1.5")),
+                        "away_+1.5": _i(r.get("away_pl_+1.5")),
+                        "home_-1.5_book": r.get("home_pl_-1.5_book"),
+                        "away_+1.5_book": r.get("away_pl_+1.5_book"),
+                    },
+                })
+
+    obj = {"ok": True, "date": d, "asof_utc": asof, "games": games}
+    _live_odds_cache_put(cache_key, obj)
+    return obj
+
+
 @app.get("/v1/manifest")
 async def v1_manifest():
     try:
@@ -864,7 +980,7 @@ async def v1_live(date: str):
 
 
 @app.get("/v1/odds/{date}")
-async def v1_odds(date: str, regions: str = "us", best: bool = True):
+async def v1_odds(date: str, regions: str = "us", best: bool = True, inplay: bool = False):
     """Current game odds snapshot for a slate date (read-only).
 
     Source: OddsAPI (the-odds-api.com). Requires ODDS_API_KEY.
@@ -879,86 +995,350 @@ async def v1_odds(date: str, regions: str = "us", best: bool = True):
         if not _V1_DATE_RE.fullmatch(d):
             return JSONResponse({"ok": False, "error": "invalid_date", "date": date}, status_code=400)
 
-        cache_key = f"v1_odds::{d}::{str(regions or 'us').lower()}::{int(bool(best))}"
-        cached = _live_odds_cache_get(cache_key)
-        if cached is not None:
-            return JSONResponse(cached)
+        obj = await asyncio.to_thread(_v1_odds_payload, d, str(regions or "us"), bool(best), bool(inplay))
+        if not obj.get("ok") and obj.get("error") == "invalid_date":
+            return JSONResponse(obj, status_code=400)
+        return JSONResponse(obj)
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/v1/live-lens/{date}")
+async def v1_live_lens_combined(date: str, regions: str = "us", best: bool = True, include_non_live: bool = False, inplay: bool = True):
+    """Combined live lens endpoint: live game state + live odds + simple guidance signals.
+
+    Intended for the cards-only UI to make a single request while games are live.
+    - Live state source: NHL Web API via NHLWebClient
+    - Odds source: OddsAPI via OddsAPIClient
+    - Guidance: lightweight, best-effort heuristics (pace/SOG/goalie)
+    """
+    try:
+        d = str(date or "").strip()
+        if not _V1_DATE_RE.fullmatch(d):
+            return JSONResponse({"ok": False, "error": "invalid_date", "date": date}, status_code=400)
 
         asof = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
-        try:
-            client = OddsAPIClient()
-        except Exception as e:
-            obj = {"ok": True, "date": d, "asof_utc": asof, "games": [], "note": str(e)}
-            _live_odds_cache_put(cache_key, obj)
-            return JSONResponse(obj)
-
-        # Flat snapshot returns normalized rows for all current events.
-        df = await asyncio.to_thread(
-            client.flat_snapshot,
-            d,
-            regions=str(regions or "us"),
-            markets="h2h,totals,spreads",
-            snapshot_iso=None,
-            odds_format="american",
-            bookmaker=None,
-            best=bool(best),
-        )
-
-        games: list[dict] = []
-        if df is not None and not df.empty:
+        def _is_live_state(s: object) -> bool:
             try:
-                df2 = df[df.get("date") == d].copy()
+                x = str(s or "").upper()
+                return ("LIVE" in x) or ("IN_PROGRESS" in x) or ("CRIT" in x)
             except Exception:
-                df2 = df.copy()
-            if df2 is not None and not df2.empty:
-                # Ensure stable types
-                for _, r in df2.iterrows():
-                    home = str(r.get("home") or "")
-                    away = str(r.get("away") or "")
-                    if not home or not away:
-                        continue
-                    def _i(x):
-                        try:
-                            return int(x)
-                        except Exception:
-                            return None
-                    def _f(x):
-                        try:
-                            if x is None:
-                                return None
-                            return float(x)
-                        except Exception:
-                            return None
-                    games.append({
-                        "date": d,
-                        "home": home,
-                        "away": away,
-                        "key": f"{' '.join(away.split()).lower()} @ {' '.join(home.split()).lower()}",
-                        "ml": {
-                            "home": _i(r.get("home_ml")),
-                            "away": _i(r.get("away_ml")),
-                            "home_book": r.get("home_ml_book"),
-                            "away_book": r.get("away_ml_book"),
-                        },
-                        "total": {
-                            "line": _f(r.get("total_line")),
-                            "over": _i(r.get("over")),
-                            "under": _i(r.get("under")),
-                            "over_book": r.get("over_book"),
-                            "under_book": r.get("under_book"),
-                        },
-                        "puckline": {
-                            "home_-1.5": _i(r.get("home_pl_-1.5")),
-                            "away_+1.5": _i(r.get("away_pl_+1.5")),
-                            "home_-1.5_book": r.get("home_pl_-1.5_book"),
-                            "away_+1.5_book": r.get("away_pl_+1.5_book"),
-                        },
-                    })
+                return False
 
-        obj = {"ok": True, "date": d, "asof_utc": asof, "games": games}
-        _live_odds_cache_put(cache_key, obj)
-        return JSONResponse(obj)
+        def _american_to_implied_prob(price: object) -> Optional[float]:
+            try:
+                if price is None:
+                    return None
+                p = int(price)
+                if p == 0:
+                    return None
+                if p > 0:
+                    return 100.0 / (float(p) + 100.0)
+                return float(-p) / (float(-p) + 100.0)
+            except Exception:
+                return None
+
+        def _poisson_cdf(k: int, mu: float) -> float:
+            try:
+                if mu <= 0:
+                    return 1.0 if k >= 0 else 0.0
+                if k < 0:
+                    return 0.0
+                from math import exp
+
+                pmf = exp(-float(mu))
+                s = pmf
+                for i in range(0, int(k)):
+                    pmf = pmf * float(mu) / float(i + 1)
+                    s += pmf
+                return float(max(0.0, min(1.0, s)))
+            except Exception:
+                return 0.0
+
+        def _poisson_sf(k: int, mu: float) -> float:
+            try:
+                if k <= 0:
+                    return 1.0
+                return float(max(0.0, 1.0 - _poisson_cdf(int(k) - 1, float(mu))))
+            except Exception:
+                return 0.0
+
+        # Pull live lens via existing endpoint logic (single source of truth).
+        live_resp = await v1_live(d)
+        try:
+            live_obj = json.loads(getattr(live_resp, "body", b"{}").decode("utf-8"))
+        except Exception:
+            live_obj = None
+        if not isinstance(live_obj, dict) or not live_obj.get("ok"):
+            # Best-effort: keep endpoint usable even if NHL live fetch fails.
+            return JSONResponse({
+                "ok": True,
+                "date": d,
+                "asof_utc": asof,
+                "regions": str(regions or "us"),
+                "best": bool(best),
+                "odds_asof_utc": None,
+                "games": [],
+                "note": "live_unavailable",
+            })
+
+        # Odds payload (cached)
+        odds_obj = await asyncio.to_thread(_v1_odds_payload, d, str(regions or "us"), bool(best), bool(inplay))
+        odds_map: dict[str, dict] = {}
+        if isinstance(odds_obj, dict):
+            for og in odds_obj.get("games") or []:
+                if not isinstance(og, dict):
+                    continue
+                k = og.get("key") or _norm_game_key(og.get("away"), og.get("home"))
+                k = str(k or "").strip().lower()
+                if k:
+                    odds_map[k] = og
+
+        # Pregame model fields from bundle (best-effort)
+        pred_map = _load_bundle_predictions_map(d)
+
+        out_games: list[dict] = []
+        for g in live_obj.get("games") or []:
+            if not isinstance(g, dict):
+                continue
+            if (not include_non_live) and (not _is_live_state(g.get("gameState"))):
+                continue
+
+            key = str(g.get("key") or _norm_game_key(g.get("away"), g.get("home")) or "").strip().lower()
+            og = odds_map.get(key)
+            pm = pred_map.get(key)
+
+            # Current score
+            score = g.get("score") or {}
+            try:
+                away_goals = int((score or {}).get("away")) if (score or {}).get("away") is not None else None
+            except Exception:
+                away_goals = None
+            try:
+                home_goals = int((score or {}).get("home")) if (score or {}).get("home") is not None else None
+            except Exception:
+                home_goals = None
+            total_goals = (away_goals + home_goals) if (away_goals is not None and home_goals is not None) else None
+
+            # Elapsed time (regulation only)
+            try:
+                period_i = int(g.get("period")) if g.get("period") is not None else None
+            except Exception:
+                period_i = None
+            clock_sec = _parse_mmss_clock(g.get("clock"))
+            elapsed_min = None
+            if period_i is not None and clock_sec is not None and 1 <= period_i <= 3:
+                per_len = 20 * 60
+                elapsed_sec = (period_i - 1) * per_len + (per_len - clock_sec)
+                if elapsed_sec >= 0:
+                    elapsed_min = float(elapsed_sec) / 60.0
+            remaining_min = None
+            if elapsed_min is not None:
+                remaining_min = max(0.0, 60.0 - float(elapsed_min))
+
+            # Lens-derived pace inputs
+            lens = g.get("lens") or {}
+            sog_total = None
+            try:
+                totals = lens.get("totals") if isinstance(lens, dict) else None
+                if isinstance(totals, dict):
+                    a = totals.get("away") or {}
+                    h = totals.get("home") or {}
+                    if isinstance(a, dict) and isinstance(h, dict):
+                        a_sog = a.get("sog")
+                        h_sog = h.get("sog")
+                        if a_sog is not None and h_sog is not None:
+                            sog_total = int(a_sog) + int(h_sog)
+            except Exception:
+                sog_total = None
+
+            goal_pace_60 = None
+            sog_pace_60 = None
+            if elapsed_min is not None and elapsed_min > 0:
+                if total_goals is not None:
+                    goal_pace_60 = 60.0 * (float(total_goals) / float(elapsed_min))
+                if sog_total is not None:
+                    sog_pace_60 = 60.0 * (float(sog_total) / float(elapsed_min))
+
+            goalie_sv: list[float] = []
+            try:
+                gl = lens.get("goalies") if isinstance(lens, dict) else None
+                if isinstance(gl, dict):
+                    for side in ("away", "home"):
+                        arr = gl.get(side)
+                        if isinstance(arr, list) and arr and isinstance(arr[0], dict):
+                            sv = arr[0].get("sv_pct")
+                            if sv is not None:
+                                goalie_sv.append(float(sv))
+            except Exception:
+                goalie_sv = []
+
+            # Pregame model context
+            model_total = None
+            model_spread = None
+            pre_total_line = None
+            if isinstance(pm, dict):
+                model_total = pm.get("model_total")
+                model_spread = pm.get("model_spread")
+                pre_total_line = pm.get("total_line_used")
+
+            live_total_line = None
+            total_over_price = None
+            total_under_price = None
+            try:
+                if isinstance(og, dict):
+                    tot = og.get("total") or {}
+                    if isinstance(tot, dict):
+                        live_total_line = tot.get("line")
+                        total_over_price = tot.get("over")
+                        total_under_price = tot.get("under")
+            except Exception:
+                live_total_line = None
+
+            # Guidance math
+            notes: list[str] = []
+            mu_remaining = None
+            p_over = None
+            p_under = None
+            p_push = None
+            implied_over = _american_to_implied_prob(total_over_price)
+            implied_under = _american_to_implied_prob(total_under_price)
+            edge_over = None
+            edge_under = None
+            lean_total = "neutral"
+
+            # Conservative pace/goalie multipliers (small adjustments only)
+            pace_mult = 1.0
+            if sog_pace_60 is not None:
+                try:
+                    pace_mult = float(sog_pace_60) / 65.0
+                    pace_mult = max(0.85, min(1.15, pace_mult))
+                except Exception:
+                    pace_mult = 1.0
+            goalie_mult = 1.0
+            if goalie_sv:
+                try:
+                    avg_sv = sum(goalie_sv) / float(len(goalie_sv))
+                    if avg_sv <= 0.890:
+                        goalie_mult = 1.05
+                        notes.append("Goaltending underperforming (sv%)")
+                    elif avg_sv >= 0.925:
+                        goalie_mult = 0.95
+                        notes.append("Goaltending strong (sv%)")
+                except Exception:
+                    goalie_mult = 1.0
+
+            try:
+                if model_total is not None and total_goals is not None and remaining_min is not None and live_total_line is not None:
+                    mt = float(model_total)
+                    rm = float(remaining_min)
+                    mu_remaining = max(0.0, mt * (rm / 60.0) * float(pace_mult) * float(goalie_mult))
+
+                    line_f = float(live_total_line)
+                    is_int_line = abs(line_f - round(line_f)) < 1e-9
+                    if is_int_line:
+                        line_i = int(round(line_f))
+                        over_min_total = line_i + 1
+                        under_max_total = line_i - 1
+                        push_total = line_i
+                    else:
+                        over_min_total = int((line_f // 1) + 1)
+                        under_max_total = int(line_f // 1)
+                        push_total = None
+
+                    need_over = int(over_min_total) - int(total_goals)
+                    need_under = int(under_max_total) - int(total_goals)
+                    p_over = 1.0 if need_over <= 0 else _poisson_sf(int(need_over), float(mu_remaining))
+                    p_under = 0.0 if need_under < 0 else _poisson_cdf(int(need_under), float(mu_remaining))
+                    if push_total is not None:
+                        k_push = int(push_total) - int(total_goals)
+                        if k_push < 0:
+                            p_push = 0.0
+                        else:
+                            p_push = max(0.0, _poisson_cdf(k_push, float(mu_remaining)) - _poisson_cdf(k_push - 1, float(mu_remaining)))
+
+                    if p_over is not None and implied_over is not None:
+                        edge_over = float(p_over) - float(implied_over)
+                    if p_under is not None and implied_under is not None:
+                        edge_under = float(p_under) - float(implied_under)
+
+                    thr = 0.03
+                    if edge_over is not None and edge_under is not None:
+                        if float(edge_over) >= float(edge_under) and float(edge_over) >= thr:
+                            lean_total = "over"
+                        elif float(edge_under) > float(edge_over) and float(edge_under) >= thr:
+                            lean_total = "under"
+                    elif edge_over is not None and float(edge_over) >= thr:
+                        lean_total = "over"
+                    elif edge_under is not None and float(edge_under) >= thr:
+                        lean_total = "under"
+
+                    if sog_pace_60 is not None:
+                        try:
+                            if float(sog_pace_60) >= 78.0:
+                                notes.append("High shot volume pace")
+                            elif float(sog_pace_60) <= 55.0:
+                                notes.append("Low shot volume pace")
+                        except Exception:
+                            pass
+
+                    if p_over is not None and implied_over is not None:
+                        notes.append(f"Model O {p_over:.0%} vs implied {implied_over:.0%}")
+                    if p_under is not None and implied_under is not None:
+                        notes.append(f"Model U {p_under:.0%} vs implied {implied_under:.0%}")
+            except Exception:
+                pass
+
+            # Line context note
+            if live_total_line is not None and total_goals is not None:
+                try:
+                    if float(total_goals) >= float(live_total_line):
+                        notes.append("Total already reached")
+                    else:
+                        rem = float(live_total_line) - float(total_goals)
+                        notes.append(f"Needs ~{rem:.1f} more goals to reach total")
+                except Exception:
+                    pass
+
+            out = dict(g)
+            out["odds"] = og
+            out["pregame"] = {
+                "model_total": model_total,
+                "model_spread": model_spread,
+                "total_line_used": pre_total_line,
+            }
+            out["guidance"] = {
+                "asof_utc": asof,
+                "elapsed_min": elapsed_min,
+                "remaining_min": remaining_min,
+                "total_goals": total_goals,
+                "sog_total": sog_total,
+                "goal_pace_60": goal_pace_60,
+                "sog_pace_60": sog_pace_60,
+                "live_total_line": live_total_line,
+                "lean_total": lean_total,
+                "mu_remaining": mu_remaining,
+                "p_over": p_over,
+                "p_under": p_under,
+                "p_push": p_push,
+                "implied_over": implied_over,
+                "implied_under": implied_under,
+                "edge_over": edge_over,
+                "edge_under": edge_under,
+                "notes": notes,
+            }
+            out_games.append(out)
+
+        return JSONResponse({
+            "ok": True,
+            "date": d,
+            "asof_utc": asof,
+            "regions": str(regions or "us"),
+            "best": bool(best),
+            "odds_asof_utc": (odds_obj or {}).get("asof_utc") if isinstance(odds_obj, dict) else None,
+            "games": out_games,
+        })
     except Exception as e:
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
 

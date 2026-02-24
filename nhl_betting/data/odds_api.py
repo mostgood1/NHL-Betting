@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 import time
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 from zoneinfo import ZoneInfo
@@ -181,6 +181,7 @@ class OddsAPIClient:
         odds_format: str = "american",
         bookmaker: Optional[str] = None,
         best: bool = False,
+        inplay: bool = False,
     ) -> pd.DataFrame:
         """
         Convenience: fetch odds (historical if snapshot_iso provided, else current),
@@ -189,6 +190,18 @@ class OddsAPIClient:
         - Tries regular season sport key first, then preseason fallback
         - Supports best-of-all-bookmakers aggregation when best=True
         """
+
+        def _utc_window_for_et_date(d_ymd: str) -> Tuple[Optional[str], Optional[str]]:
+            try:
+                tz_et = ZoneInfo("America/New_York")
+                d0 = datetime.strptime(str(d_ymd), "%Y-%m-%d").replace(tzinfo=tz_et)
+                d1 = d0 + timedelta(days=1)
+                start = d0.astimezone(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+                end = d1.astimezone(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+                return start, end
+            except Exception:
+                return None, None
+
         sport_keys = ["icehockey_nhl", "icehockey_nhl_preseason"]
         df = pd.DataFrame([])
         # Historical snapshot path
@@ -209,6 +222,45 @@ class OddsAPIClient:
                 except Exception:
                     continue
         # Current odds fallback
+        if df is None or df.empty:
+            # Prefer per-event odds when caller requests in-play lines.
+            if inplay and not snapshot_iso:
+                start_iso, end_iso = _utc_window_for_et_date(iso_date)
+                for sk in sport_keys:
+                    try:
+                        events, _ = self.list_events(sk, commence_from_iso=start_iso, commence_to_iso=end_iso)
+                        if not events:
+                            continue
+                        event_rows: List[Dict] = []
+                        # If best-of-all is requested, omit bookmakers to allow best aggregation across books.
+                        bookmakers_param = None if best else bookmaker
+                        for ev in events:
+                            try:
+                                eid = str((ev or {}).get("id") or "").strip()
+                                if not eid:
+                                    continue
+                                data, _ = self.event_odds(
+                                    sport=sk,
+                                    event_id=eid,
+                                    markets=markets,
+                                    regions=regions,
+                                    bookmakers=bookmakers_param,
+                                    odds_format=odds_format,
+                                    date_format="iso",
+                                )
+                                if isinstance(data, dict) and data:
+                                    event_rows.append(data)
+                            except Exception:
+                                continue
+
+                        if event_rows:
+                            tmp = normalize_snapshot_to_rows(event_rows, bookmaker=bookmaker, best_of_all=best)
+                            if tmp is not None and not tmp.empty:
+                                df = tmp
+                                break
+                    except Exception:
+                        continue
+
         if df is None or df.empty:
             import requests as _rq
             base = ODDS_API_BASE

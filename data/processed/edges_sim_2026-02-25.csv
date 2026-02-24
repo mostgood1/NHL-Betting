@@ -1,17 +1,17 @@
 date,home,away,market,ev
-2026-02-25,Tampa Bay Lightning,Toronto Maple Leafs,ev_away_ml,0.386
-2026-02-25,Washington Capitals,Philadelphia Flyers,ev_away_ml,0.37564999999999993
-2026-02-25,Dallas Stars,Seattle Kraken,ev_away_ml,0.28264999999999996
-2026-02-25,Utah Mammoth,Colorado Avalanche,ev_home_ml,0.21919999999999995
-2026-02-25,Vancouver Canucks,Winnipeg Jets,ev_home_ml,0.05461999999999989
-2026-02-25,Anaheim Ducks,Edmonton Oilers,ev_home_ml,0.047090000000000076
-2026-02-25,New Jersey Devils,Buffalo Sabres,ev_home_ml,-0.0040000000000000036
-2026-02-25,Los Angeles Kings,Vegas Golden Knights,ev_home_ml,-0.04281481481481475
-2026-02-25,Los Angeles Kings,Vegas Golden Knights,ev_away_ml,-0.051867256637168124
-2026-02-25,New Jersey Devils,Buffalo Sabres,ev_away_ml,-0.07966666666666661
-2026-02-25,Anaheim Ducks,Edmonton Oilers,ev_away_ml,-0.11037903225806467
-2026-02-25,Vancouver Canucks,Winnipeg Jets,ev_away_ml,-0.12146099290780132
-2026-02-25,Utah Mammoth,Colorado Avalanche,ev_away_ml,-0.21338922155688633
-2026-02-25,Dallas Stars,Seattle Kraken,ev_home_ml,-0.24812820512820516
-2026-02-25,Tampa Bay Lightning,Toronto Maple Leafs,ev_home_ml,-0.2733023255813954
-2026-02-25,Washington Capitals,Philadelphia Flyers,ev_home_ml,-0.27592857142857147
+2026-02-25,Tampa Bay Lightning,Toronto Maple Leafs,ev_away_ml,0.4838541666666666
+2026-02-25,Washington Capitals,Philadelphia Flyers,ev_away_ml,0.35540000000000005
+2026-02-25,Utah Mammoth,Colorado Avalanche,ev_home_ml,0.26539999999999997
+2026-02-25,Dallas Stars,Seattle Kraken,ev_away_ml,0.23058749999999995
+2026-02-25,Vancouver Canucks,Winnipeg Jets,ev_home_ml,0.06854416666666674
+2026-02-25,Anaheim Ducks,Edmonton Oilers,ev_home_ml,0.05355000000000021
+2026-02-25,New Jersey Devils,Buffalo Sabres,ev_home_ml,-0.015000000000000069
+2026-02-25,Los Angeles Kings,Vegas Golden Knights,ev_away_ml,-0.019194690265486758
+2026-02-25,New Jersey Devils,Buffalo Sabres,ev_away_ml,-0.06958333333333333
+2026-02-25,Los Angeles Kings,Vegas Golden Knights,ev_home_ml,-0.07619753086419745
+2026-02-25,Anaheim Ducks,Edmonton Oilers,ev_away_ml,-0.11504032258064517
+2026-02-25,Vancouver Canucks,Winnipeg Jets,ev_away_ml,-0.13242848699763576
+2026-02-25,Dallas Stars,Seattle Kraken,ev_home_ml,-0.2172414529914531
+2026-02-25,Utah Mammoth,Colorado Avalanche,ev_away_ml,-0.24416616766467075
+2026-02-25,Washington Capitals,Philadelphia Flyers,ev_home_ml,-0.2648571428571428
+2026-02-25,Tampa Bay Lightning,Toronto Maple Leafs,ev_home_ml,-0.32543604651162794

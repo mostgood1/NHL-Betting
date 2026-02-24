@@ -501,6 +501,7 @@
 
         <div class="live-lens" style="display:none;">
           <div class="live-lens-body"></div>
+          <div class="live-guidance-body"></div>
           <div class="live-odds-body"></div>
         </div>
 
@@ -750,35 +751,53 @@
       return `<div class="v"><span class="muted">Live odds:</span> ${parts.join(' · ')}</div>`;
     }
 
-    async function maybeLoadLiveOdds(date, preds) {
-      try {
-        if (date !== currentDate) return;
-        const anyLive = (preds || []).some(p => isLiveState(p.game_state));
-        if (!anyLive) return;
+    function renderGuidance(game) {
+      const g = (game && game.guidance) ? game.guidance : null;
+      if (!g) return '';
+      const notes = Array.isArray(g.notes) ? g.notes.filter(x => String(x || '').trim()) : [];
+      const lean = String(g.lean_total || 'neutral').toUpperCase();
 
-        const odds = await fetchJson(`/v1/odds/${encodeURIComponent(date)}?best=1`);
-        if (!odds || !odds.ok) return;
-        const map = new Map();
-        for (const g of (odds.games || [])) {
-          const k = keyForGame(g);
-          map.set(normKey(k), g);
-        }
-
-        for (const card of document.querySelectorAll('.card[data-game-key]')) {
-          const k = normKey(card.dataset.gameKey);
-          const og = map.get(k);
-          if (!og) continue;
-          const box = card.querySelector('.live-lens');
-          if (!box) continue;
-          const oddsHtml = renderOdds(og);
-          if (!oddsHtml) continue;
-          const oddsBody = box.querySelector('.live-odds-body') || box;
-          oddsBody.innerHTML = oddsHtml;
-          box.style.display = 'grid';
-        }
-      } catch (e) {
-        // Best-effort; UI should still work without live odds.
+      const bits = [];
+      if (g.goal_pace_60 !== null && g.goal_pace_60 !== undefined) bits.push(`Goal pace/60 ${fmt(g.goal_pace_60, 1)}`);
+      if (g.sog_pace_60 !== null && g.sog_pace_60 !== undefined) bits.push(`SOG pace/60 ${fmt(g.sog_pace_60, 0)}`);
+      if (g.total_goals !== null && g.total_goals !== undefined && g.live_total_line !== null && g.live_total_line !== undefined) {
+        bits.push(`Total ${g.total_goals} vs line ${fmt(g.live_total_line, 1)}`);
       }
+
+      const hasModel = (g.p_over !== null && g.p_over !== undefined) || (g.p_under !== null && g.p_under !== undefined);
+      const hasEdge = (g.edge_over !== null && g.edge_over !== undefined) || (g.edge_under !== null && g.edge_under !== undefined);
+      const pOver = (g.p_over !== null && g.p_over !== undefined) ? Number(g.p_over) : null;
+      const pUnder = (g.p_under !== null && g.p_under !== undefined) ? Number(g.p_under) : null;
+      const pPush = (g.p_push !== null && g.p_push !== undefined) ? Number(g.p_push) : null;
+      const eOver = (g.edge_over !== null && g.edge_over !== undefined) ? Number(g.edge_over) : null;
+      const eUnder = (g.edge_under !== null && g.edge_under !== undefined) ? Number(g.edge_under) : null;
+
+      const lines = [];
+      lines.push(`<div class="k">Live guidance</div>`);
+      lines.push(`<div class="v"><span class="muted">Lean:</span> <strong>${lean}</strong>${bits.length ? ' · ' + bits.join(' · ') : ''}</div>`);
+
+      if (hasModel) {
+        const parts = [];
+        if (pOver !== null && isFinite(pOver)) {
+          const edgeTxt = (hasEdge && eOver !== null && isFinite(eOver)) ? ` (edge ${eOver >= 0 ? '+' : ''}${fmt(100*eOver, 1)}%)` : '';
+          parts.push(`O ${pct(pOver)}${edgeTxt}`);
+        }
+        if (pUnder !== null && isFinite(pUnder)) {
+          const edgeTxt = (hasEdge && eUnder !== null && isFinite(eUnder)) ? ` (edge ${eUnder >= 0 ? '+' : ''}${fmt(100*eUnder, 1)}%)` : '';
+          parts.push(`U ${pct(pUnder)}${edgeTxt}`);
+        }
+        if (pPush !== null && isFinite(pPush) && pPush > 0.001) {
+          parts.push(`Push ${pct(pPush)}`);
+        }
+        if (parts.length) {
+          lines.push(`<div class="v"><span class="muted">Model vs line:</span> ${parts.join(' · ')}</div>`);
+        }
+      }
+
+      if (notes.length) {
+        lines.push(`<div class="v">${notes.map(n => `• ${String(n)}`).join('<br/>')}</div>`);
+      }
+      return lines.join('');
     }
 
     async function maybeLoadLiveLens(date, preds) {
@@ -787,7 +806,7 @@
         const anyLive = (preds || []).some(p => isLiveState(p.game_state));
         if (!anyLive) return false;
 
-        const live = await fetchJson(`/v1/live/${encodeURIComponent(date)}`);
+        const live = await fetchJson(`/v1/live-lens/${encodeURIComponent(date)}?best=1&inplay=1`);
         if (!live || !live.ok) return false;
         if (date !== currentDate) return false;
         const map = new Map();
@@ -806,6 +825,15 @@
           if (!box) continue;
           const lensBody = box.querySelector('.live-lens-body') || box;
           lensBody.innerHTML = renderLens(g);
+
+          const oddsBody = box.querySelector('.live-odds-body') || box;
+          const oddsHtml = renderOdds(g.odds || null);
+          oddsBody.innerHTML = oddsHtml;
+
+          const guidanceBody = box.querySelector('.live-guidance-body') || box;
+          const guidanceHtml = renderGuidance(g);
+          guidanceBody.innerHTML = guidanceHtml;
+
           box.style.display = 'grid';
         }
 
@@ -834,7 +862,6 @@
         livePollInFlight = true;
         try {
           const stillLive = await maybeLoadLiveLens(date, preds);
-          await maybeLoadLiveOdds(date, preds);
           if (!stillLive) stopLivePolling();
         } finally {
           livePollInFlight = false;
@@ -926,8 +953,6 @@
 
       // Overlay live lens (one fetch per date; best-effort)
       maybeLoadLiveLens(date, preds);
-      // Overlay live odds (one fetch per date; best-effort)
-      maybeLoadLiveOdds(date, preds);
       // Poll for updates while live (single interval; best-effort)
       startLivePolling(date, preds);
 

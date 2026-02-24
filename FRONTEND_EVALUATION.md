@@ -180,7 +180,7 @@ C. **Database** (future):
 1. Run `daily_update.ps1` nightly (or on demand)
 2. Generates all CSVs with NN projections
 3. Commit to GitHub automatically
-4. Launch `.\launch_local.ps1` for testing
+4. Launch `.\run_flask.ps1` for testing
 
 #### Render Production:
 1. Daily cron at 6 AM ET runs `daily_update`

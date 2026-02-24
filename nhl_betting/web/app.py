@@ -6775,6 +6775,34 @@ async def api_env_flags():
     }
     return JSONResponse({'flags': flags})
 
+
+@app.get('/api/oddsapi/status')
+async def api_oddsapi_status():
+    """Validate OddsAPI configuration on the running host (no secrets returned).
+
+    This endpoint makes a small, real request to The Odds API to confirm the
+    ODDS_API_KEY is present and accepted (e.g., not missing/expired).
+    """
+    configured = bool(str(os.getenv('ODDS_API_KEY', '')).strip())
+    if not configured:
+        return JSONResponse({'configured': False, 'ok': False, 'error': 'missing_odds_api_key'})
+    try:
+        client = OddsAPIClient()
+        events, hdrs = client.list_events('icehockey_nhl')
+        hdrs = hdrs or {}
+        return JSONResponse({
+            'configured': True,
+            'ok': True,
+            'event_count': int(len(events or [])),
+            'requests': {
+                'remaining': hdrs.get('x-requests-remaining'),
+                'used': hdrs.get('x-requests-used'),
+                'last': hdrs.get('x-requests-last'),
+            },
+        })
+    except Exception as e:
+        return JSONResponse({'configured': True, 'ok': False, 'error': str(e)})
+
 @app.get('/api/ping')
 def api_ping():
     """Ultra-fast liveness check (lighter than /health)."""

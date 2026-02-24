@@ -696,6 +696,10 @@ async def v1_live(date: str):
         if not _V1_DATE_RE.fullmatch(d):
             return JSONResponse({"ok": False, "error": "invalid_date", "date": date}, status_code=400)
 
+        # Import locally so the endpoint doesn't depend on module import order
+        # (and stays best-effort on constrained deploys).
+        from ..data.nhl_api_web import NHLWebClient
+
         def _norm(s: object) -> str:
             try:
                 return " ".join(str(s or "").strip().split()).lower()

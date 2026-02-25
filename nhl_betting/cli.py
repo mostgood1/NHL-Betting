@@ -9618,7 +9618,8 @@ def game_recommendations_sim(
                         })
             except Exception:
                 continue
-        recs = pd.DataFrame(rec_rows)
+        expected_cols = ['market', 'side', 'price', 'ev', 'home', 'away', 'totals_line']
+        recs = pd.DataFrame(rec_rows, columns=expected_cols)
         if recs is not None and not recs.empty:
             try:
                 recs['ev'] = pd.to_numeric(recs.get('ev'), errors='coerce')

@@ -9357,8 +9357,10 @@ def game_recommendations_sim(
     """Compute sim-backed game probabilities and EV (ML and Totals) from per-sim boxscore samples.
 
     Reads props_boxscores_sim_samples_{date}.{parquet|csv} and team odds (oddsapi).
-    Aggregates per-sim team goals to compute ML and Totals probabilities and EVs, then writes
-    edges_sim_{date}.csv and predictions_sim_{date}.csv with key fields.
+    Aggregates per-sim team goals to compute ML and Totals probabilities and EVs, then writes:
+    - predictions_sim_{date}.csv (wide per-game fields)
+    - edges_sim_{date}.csv (long-form EVs)
+    - recommendations_sim_{date}.csv (UI-friendly picks: market/side/price/ev/home/away/totals_line)
     """
     import pandas as pd
     import numpy as _np
@@ -9562,7 +9564,72 @@ def game_recommendations_sim(
         edges = pred_sim.melt(id_vars=['date','home','away'], value_vars=ev_cols, var_name='market', value_name='ev').dropna()
         edges = edges.sort_values('ev', ascending=False).head(int(top))
         save_df(edges, PROC_DIR / f"edges_sim_{date}.csv")
-    print(f"[game-preds-sim] wrote predictions_sim_{date}.csv and edges_sim_{date}.csv")
+
+    # UI-friendly recommendations (one row per side/market)
+    try:
+        rec_rows = []
+        for _, r in pred_sim.iterrows():
+            try:
+                home = r.get('home')
+                away = r.get('away')
+                tl = r.get('totals_line_used') if 'totals_line_used' in pred_sim.columns else r.get('totals_line')
+                # Moneyline
+                if pd.notna(r.get('ev_home_ml')) and pd.notna(r.get('home_ml_odds')):
+                    rec_rows.append({
+                        'market': 'ML',
+                        'side': str(home) if home is not None else 'Home',
+                        'price': float(r.get('home_ml_odds')),
+                        'ev': float(r.get('ev_home_ml')),
+                        'home': home,
+                        'away': away,
+                        'totals_line': float(tl) if tl is not None and pd.notna(tl) else None,
+                    })
+                if pd.notna(r.get('ev_away_ml')) and pd.notna(r.get('away_ml_odds')):
+                    rec_rows.append({
+                        'market': 'ML',
+                        'side': str(away) if away is not None else 'Away',
+                        'price': float(r.get('away_ml_odds')),
+                        'ev': float(r.get('ev_away_ml')),
+                        'home': home,
+                        'away': away,
+                        'totals_line': float(tl) if tl is not None and pd.notna(tl) else None,
+                    })
+                # Totals
+                if tl is not None and pd.notna(tl):
+                    if pd.notna(r.get('ev_over')) and pd.notna(r.get('over_odds')):
+                        rec_rows.append({
+                            'market': 'TOTAL',
+                            'side': 'Over',
+                            'price': float(r.get('over_odds')),
+                            'ev': float(r.get('ev_over')),
+                            'home': home,
+                            'away': away,
+                            'totals_line': float(tl),
+                        })
+                    if pd.notna(r.get('ev_under')) and pd.notna(r.get('under_odds')):
+                        rec_rows.append({
+                            'market': 'TOTAL',
+                            'side': 'Under',
+                            'price': float(r.get('under_odds')),
+                            'ev': float(r.get('ev_under')),
+                            'home': home,
+                            'away': away,
+                            'totals_line': float(tl),
+                        })
+            except Exception:
+                continue
+        recs = pd.DataFrame(rec_rows)
+        if recs is not None and not recs.empty:
+            try:
+                recs['ev'] = pd.to_numeric(recs.get('ev'), errors='coerce')
+                recs = recs.dropna(subset=['ev']).sort_values('ev', ascending=False).head(int(top))
+            except Exception:
+                pass
+        save_df(recs, PROC_DIR / f"recommendations_sim_{date}.csv")
+    except Exception:
+        pass
+
+    print(f"[game-preds-sim] wrote predictions_sim_{date}.csv, edges_sim_{date}.csv, and recommendations_sim_{date}.csv")
 
 @app.command(name="props-projections-from-sim")
 def props_projections_from_sim(

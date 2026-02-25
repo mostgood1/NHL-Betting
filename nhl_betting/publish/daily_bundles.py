@@ -144,9 +144,9 @@ def build_daily_bundle(date: str, proc_dir: Path = PROC_DIR) -> dict[str, Any]:
     """
     d = _validate_ymd(date)
     # Select best-available sources
-    predictions_p = _pick_existing(proc_dir / f"predictions_{d}.csv", proc_dir / f"predictions_sim_{d}.csv")
+    predictions_p = _pick_existing(proc_dir / f"predictions_sim_{d}.csv", proc_dir / f"predictions_{d}.csv")
     edges_p = _pick_existing(proc_dir / f"edges_sim_{d}.csv", proc_dir / f"edges_{d}.csv")
-    game_recs_p = _pick_existing(proc_dir / f"recommendations_{d}.csv", proc_dir / f"recommendations_sim_{d}.csv")
+    game_recs_p = _pick_existing(proc_dir / f"recommendations_sim_{d}.csv", proc_dir / f"recommendations_{d}.csv")
     props_recs_p = _pick_existing(
         proc_dir / f"props_recommendations_sim_{d}.csv",
         proc_dir / f"props_recommendations_combined_{d}.csv",

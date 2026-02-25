@@ -1848,6 +1848,7 @@ def _compute_props_projections(date: str, market: Optional[str] = None) -> pd.Da
     except Exception:
         pass
     from ..models.props import (
+        PropsConfig,
         SkaterShotsModel, GoalieSavesModel, SkaterGoalsModel,
         SkaterAssistsModel, SkaterPointsModel, SkaterBlocksModel,
     )
@@ -1856,6 +1857,153 @@ def _compute_props_projections(date: str, market: Optional[str] = None) -> pd.Da
     from ..web.teams import get_team_assets as _assets
     shots = SkaterShotsModel(); saves = GoalieSavesModel(); goals = SkaterGoalsModel()
     assists = SkaterAssistsModel(); points = SkaterPointsModel(); blocks = SkaterBlocksModel()
+
+    # Optional player-level guardrails: clamp sim-derived lambdas toward recent/season baselines.
+    # This is intentionally conservative and configurable via env vars.
+    try:
+        _guard_on = str(os.getenv("PROPS_LAMBDA_GUARDRAILS", "1")).strip().lower() in {"1", "true", "yes"}
+    except Exception:
+        _guard_on = True
+    try:
+        _guard_min_ratio = float(os.getenv("PROPS_LAMBDA_GUARD_MIN_RATIO", "0.65"))
+    except Exception:
+        _guard_min_ratio = 0.65
+    try:
+        _guard_max_ratio = float(os.getenv("PROPS_LAMBDA_GUARD_MAX_RATIO", "1.60"))
+    except Exception:
+        _guard_max_ratio = 1.60
+    try:
+        _guard_w_recent = float(os.getenv("PROPS_LAMBDA_GUARD_W_RECENT", "0.55"))
+        _guard_w_season = float(os.getenv("PROPS_LAMBDA_GUARD_W_SEASON", "0.30"))
+        _guard_w_career = float(os.getenv("PROPS_LAMBDA_GUARD_W_CAREER", "0.15"))
+    except Exception:
+        _guard_w_recent, _guard_w_season, _guard_w_career = 0.55, 0.30, 0.15
+    _w_sum = max(1e-9, (_guard_w_recent + _guard_w_season + _guard_w_career))
+    _guard_w_recent /= _w_sum
+    _guard_w_season /= _w_sum
+    _guard_w_career /= _w_sum
+
+    # Baseline model variants (reuse the same implementations, with different windows/weights)
+    _cfg_recent = PropsConfig(
+        window=int(os.getenv("PROPS_LAMBDA_GUARD_RECENT_WINDOW", "10")),
+        recency_alpha=float(os.getenv("PROPS_LAMBDA_GUARD_RECENT_ALPHA", "0.3")),
+    )
+    _cfg_season = PropsConfig(
+        window=int(os.getenv("PROPS_LAMBDA_GUARD_SEASON_WINDOW", "82")),
+        recency_alpha=0.0,
+    )
+    _cfg_career = PropsConfig(
+        window=int(os.getenv("PROPS_LAMBDA_GUARD_CAREER_WINDOW", "164")),
+        recency_alpha=0.0,
+    )
+
+    _shots_recent = SkaterShotsModel(_cfg_recent)
+    _shots_season = SkaterShotsModel(_cfg_season)
+    _shots_career = SkaterShotsModel(_cfg_career)
+    _goals_recent = SkaterGoalsModel(_cfg_recent)
+    _goals_season = SkaterGoalsModel(_cfg_season)
+    _goals_career = SkaterGoalsModel(_cfg_career)
+    _assists_recent = SkaterAssistsModel(_cfg_recent)
+    _assists_season = SkaterAssistsModel(_cfg_season)
+    _assists_career = SkaterAssistsModel(_cfg_career)
+    _points_recent = SkaterPointsModel(_cfg_recent)
+    _points_season = SkaterPointsModel(_cfg_season)
+    _points_career = SkaterPointsModel(_cfg_career)
+    _blocks_recent = SkaterBlocksModel(_cfg_recent)
+    _blocks_season = SkaterBlocksModel(_cfg_season)
+    _blocks_career = SkaterBlocksModel(_cfg_career)
+    _saves_recent = GoalieSavesModel(_cfg_recent)
+    _saves_season = GoalieSavesModel(_cfg_season)
+    _saves_career = GoalieSavesModel(_cfg_career)
+
+    # Season-filtered historical frame (best-effort). Used only for baseline computation.
+    _hist_season = None
+    try:
+        if hist is not None and not hist.empty and 'date' in hist.columns:
+            _dt = pd.to_datetime(hist.get('date'), errors='coerce', utc=True)
+            try:
+                _dt_et = _dt.dt.tz_convert('America/New_York')
+            except Exception:
+                _dt_et = _dt
+            _d0 = pd.to_datetime(str(date), errors='coerce')
+            if _d0 is not None and pd.notna(_d0):
+                y = int(_d0.year)
+                m = int(_d0.month)
+                season_start_year = y if m >= 7 else (y - 1)
+                season_start = pd.Timestamp(year=season_start_year, month=7, day=1)
+                season_end = pd.Timestamp(_d0.date())
+                _mask = (_dt_et.dt.tz_localize(None) >= season_start) & (_dt_et.dt.tz_localize(None) <= season_end)
+                _hist_season = hist.loc[_mask].copy()
+    except Exception:
+        _hist_season = None
+
+    _baseline_cache: dict[tuple[str, str], Optional[float]] = {}
+
+    def _baseline_lambda(market_key: str, player_name: str) -> Optional[float]:
+        if not _guard_on:
+            return None
+        mk = str(market_key or '').upper().strip()
+        nm = _norm_name(player_name)
+        key = (mk, nm)
+        if key in _baseline_cache:
+            return _baseline_cache[key]
+        try:
+            # Recent baseline uses the full hist frame (it already tails a window)
+            if mk == 'SOG':
+                r = float(_shots_recent.player_lambda(hist, player_name))
+                s = float(_shots_season.player_lambda(_hist_season if _hist_season is not None else hist, player_name))
+                c = float(_shots_career.player_lambda(hist, player_name))
+            elif mk == 'GOALS':
+                r = float(_goals_recent.player_lambda(hist, player_name))
+                s = float(_goals_season.player_lambda(_hist_season if _hist_season is not None else hist, player_name))
+                c = float(_goals_career.player_lambda(hist, player_name))
+            elif mk == 'ASSISTS':
+                r = float(_assists_recent.player_lambda(hist, player_name))
+                s = float(_assists_season.player_lambda(_hist_season if _hist_season is not None else hist, player_name))
+                c = float(_assists_career.player_lambda(hist, player_name))
+            elif mk == 'POINTS':
+                r = float(_points_recent.player_lambda(hist, player_name))
+                s = float(_points_season.player_lambda(_hist_season if _hist_season is not None else hist, player_name))
+                c = float(_points_career.player_lambda(hist, player_name))
+            elif mk == 'BLOCKS':
+                r = float(_blocks_recent.player_lambda(hist, player_name))
+                s = float(_blocks_season.player_lambda(_hist_season if _hist_season is not None else hist, player_name))
+                c = float(_blocks_career.player_lambda(hist, player_name))
+            elif mk == 'SAVES':
+                r = float(_saves_recent.player_lambda(hist, player_name))
+                s = float(_saves_season.player_lambda(_hist_season if _hist_season is not None else hist, player_name))
+                c = float(_saves_career.player_lambda(hist, player_name))
+            else:
+                _baseline_cache[key] = None
+                return None
+            base = (_guard_w_recent * r) + (_guard_w_season * s) + (_guard_w_career * c)
+            if not (base is not None and np.isfinite(base) and base > 0):
+                base = None
+            _baseline_cache[key] = base
+            return base
+        except Exception:
+            _baseline_cache[key] = None
+            return None
+
+    def _apply_guardrails(market_key: str, player_name: str, lam_value: Optional[float]) -> Optional[float]:
+        if not _guard_on:
+            return lam_value
+        try:
+            if lam_value is None:
+                return None
+            lam_f = float(lam_value)
+            if not np.isfinite(lam_f) or lam_f <= 0:
+                return lam_value
+            base = _baseline_lambda(market_key, player_name)
+            if base is None:
+                return lam_value
+            lo = float(base) * float(_guard_min_ratio)
+            hi = float(base) * float(_guard_max_ratio)
+            if hi < lo:
+                lo, hi = hi, lo
+            return float(min(max(lam_f, lo), hi))
+        except Exception:
+            return lam_value
     # Load team features used for scaling
     import numpy as _np, json
     xg_path = PROC_DIR / "team_xg_latest.csv"
@@ -1951,6 +2099,7 @@ def _compute_props_projections(date: str, market: Optional[str] = None) -> pd.Da
             lam = sim_map_team.get((p_norm, m, str(team_abbr or ''))) or sim_map.get((p_norm, m))
             if lam is None:
                 lam = shots.player_lambda(hist, player)
+            lam = _apply_guardrails(m, player, lam)
             scale = compute_props_lam_scale_mean(m, team_abbr, opp_abbr,
                 league_xg=league_xg, xg_map=xg_map, league_pen=league_pen, pen_comm=pen_comm,
                 league_sv=league_sv, gf_map=gf_map, league_pp_frac=league_pp_frac,
@@ -1962,6 +2111,7 @@ def _compute_props_projections(date: str, market: Optional[str] = None) -> pd.Da
             lam = sim_map_team.get((p_norm, m, str(team_abbr or ''))) or sim_map.get((p_norm, m))
             if lam is None:
                 lam = saves.player_lambda(hist, player)
+            lam = _apply_guardrails(m, player, lam)
             scale = compute_props_lam_scale_mean(m, team_abbr, opp_abbr,
                 league_xg=league_xg, xg_map=xg_map, league_pen=league_pen, pen_comm=pen_comm,
                 league_sv=league_sv, gf_map=gf_map, league_pp_frac=league_pp_frac,
@@ -1973,6 +2123,7 @@ def _compute_props_projections(date: str, market: Optional[str] = None) -> pd.Da
             lam = sim_map_team.get((p_norm, m, str(team_abbr or ''))) or sim_map.get((p_norm, m))
             if lam is None:
                 lam = goals.player_lambda(hist, player)
+            lam = _apply_guardrails(m, player, lam)
             scale = compute_props_lam_scale_mean(m, team_abbr, opp_abbr,
                 league_xg=league_xg, xg_map=xg_map, league_pen=league_pen, pen_comm=pen_comm,
                 league_sv=league_sv, gf_map=gf_map, league_pp_frac=league_pp_frac,
@@ -1984,6 +2135,7 @@ def _compute_props_projections(date: str, market: Optional[str] = None) -> pd.Da
             lam = sim_map_team.get((p_norm, m, str(team_abbr or ''))) or sim_map.get((p_norm, m))
             if lam is None:
                 lam = assists.player_lambda(hist, player)
+            lam = _apply_guardrails(m, player, lam)
             scale = compute_props_lam_scale_mean(m, team_abbr, opp_abbr,
                 league_xg=league_xg, xg_map=xg_map, league_pen=league_pen, pen_comm=pen_comm,
                 league_sv=league_sv, gf_map=gf_map, league_pp_frac=league_pp_frac,
@@ -1995,6 +2147,7 @@ def _compute_props_projections(date: str, market: Optional[str] = None) -> pd.Da
             lam = sim_map_team.get((p_norm, m, str(team_abbr or ''))) or sim_map.get((p_norm, m))
             if lam is None:
                 lam = points.player_lambda(hist, player)
+            lam = _apply_guardrails(m, player, lam)
             scale = compute_props_lam_scale_mean(m, team_abbr, opp_abbr,
                 league_xg=league_xg, xg_map=xg_map, league_pen=league_pen, pen_comm=pen_comm,
                 league_sv=league_sv, gf_map=gf_map, league_pp_frac=league_pp_frac,
@@ -2006,6 +2159,7 @@ def _compute_props_projections(date: str, market: Optional[str] = None) -> pd.Da
             lam = sim_map_team.get((p_norm, m, str(team_abbr or ''))) or sim_map.get((p_norm, m))
             if lam is None:
                 lam = blocks.player_lambda(hist, player)
+            lam = _apply_guardrails(m, player, lam)
             scale = compute_props_lam_scale_mean(m, team_abbr, opp_abbr,
                 league_xg=league_xg, xg_map=xg_map, league_pen=league_pen, pen_comm=pen_comm,
                 league_sv=league_sv, gf_map=gf_map, league_pp_frac=league_pp_frac,

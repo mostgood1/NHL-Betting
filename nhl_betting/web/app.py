@@ -5654,6 +5654,7 @@ async def api_player_props(
     try:
         base = PROC_DIR.parent / "props" / f"player_props_lines/date={date}"
         parts = []
+        # Prefer parquet (smaller/faster), but fall back to tracked CSV artifacts on Render.
         for name in ("oddsapi.parquet", "bovada.parquet"):
             p = base / name
             if p.exists():
@@ -5661,6 +5662,14 @@ async def api_player_props(
                     parts.append(pd.read_parquet(p))
                 except Exception:
                     pass
+        if not parts:
+            for name in ("oddsapi.csv", "bovada.csv"):
+                p = base / name
+                if p.exists():
+                    try:
+                        parts.append(pd.read_csv(p))
+                    except Exception:
+                        pass
         if not parts:
             return JSONResponse({"date": date, "data": []})
         df = pd.concat(parts, ignore_index=True)

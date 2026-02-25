@@ -9490,7 +9490,7 @@ def game_recommendations_sim(
     # Load team odds (The Odds API team-level) for prices
     team_odds_dir = _Path('data') / 'odds' / 'team' / f'date={date}'
     team_odds = pd.read_csv(team_odds_dir / 'oddsapi.csv') if (team_odds_dir / 'oddsapi.csv').exists() else pd.DataFrame()
-    def _pick_price(g: pd.DataFrame, team_name: str) -> float:
+    def _pick_price(g: pd.DataFrame) -> float:
         if g is None or g.empty:
             return _np.nan
         try:
@@ -9499,6 +9499,9 @@ def game_recommendations_sim(
                 dk = g[g['bookmaker_key'].astype(str).str.lower() == 'draftkings']
                 if not dk.empty:
                     g = dk
+            # Prefer latest update if available
+            if 'book_last_update' in g.columns:
+                g = g.sort_values('book_last_update', ascending=False)
             r = g.iloc[0]
             return float(r.get('outcome_price'))
         except Exception:
@@ -9517,17 +9520,40 @@ def game_recommendations_sim(
             h2 = gg[(gg['market']=='h2h') & (gg['outcome_name']==h)]
             a2 = gg[(gg['market']=='h2h') & (gg['outcome_name']==a)]
             to = gg[gg['market']=='totals']
+            sp = gg[gg['market']=='spreads']
+
+            # Select totals odds for the best-matching line
+            over = to[to['outcome_name'].astype(str).str.lower()=='over']
+            under = to[to['outcome_name'].astype(str).str.lower()=='under']
+            try:
+                tl_used = None
+                if 'totals_line_used' in summary.columns:
+                    m = summary[(summary['game_home']==h) & (summary['game_away']==a)]
+                    if not m.empty:
+                        tl_used = pd.to_numeric(m.iloc[0].get('totals_line_used'), errors='coerce')
+                if tl_used is not None and pd.notna(tl_used) and 'outcome_point' in to.columns:
+                    over = over[pd.to_numeric(over['outcome_point'], errors='coerce') == float(tl_used)]
+                    under = under[pd.to_numeric(under['outcome_point'], errors='coerce') == float(tl_used)]
+            except Exception:
+                pass
+            # If exact line not found, keep whatever is available (best-effort)
+
+            # Puck line odds: prefer canonical -1.5 (home) and +1.5 (away)
+            hpl = sp[(sp['outcome_name']==h) & (pd.to_numeric(sp.get('outcome_point'), errors='coerce') == -1.5)] if 'outcome_point' in sp.columns else pd.DataFrame()
+            apl = sp[(sp['outcome_name']==a) & (pd.to_numeric(sp.get('outcome_point'), errors='coerce') == 1.5)] if 'outcome_point' in sp.columns else pd.DataFrame()
             odds_rows.append({
                 'game_home': h,
                 'game_away': a,
-                'home_ml_odds': _pick_price(h2, h),
-                'away_ml_odds': _pick_price(a2, a),
-                'over_odds': _pick_price(to[to['outcome_name'].astype(str).str.lower()=='over'], None),
-                'under_odds': _pick_price(to[to['outcome_name'].astype(str).str.lower()=='under'], None),
+                'home_ml_odds': _pick_price(h2),
+                'away_ml_odds': _pick_price(a2),
+                'over_odds': _pick_price(over),
+                'under_odds': _pick_price(under),
+                'home_pl_-1.5_odds': _pick_price(hpl),
+                'away_pl_+1.5_odds': _pick_price(apl),
             })
     odds_df = pd.DataFrame(
         odds_rows,
-        columns=['game_home','game_away','home_ml_odds','away_ml_odds','over_odds','under_odds'],
+        columns=['game_home','game_away','home_ml_odds','away_ml_odds','over_odds','under_odds','home_pl_-1.5_odds','away_pl_+1.5_odds'],
     )
     pred_sim = summary.merge(odds_df, on=['game_home','game_away'], how='left')
     # Totals probabilities
@@ -9546,8 +9572,33 @@ def game_recommendations_sim(
             pred_sim['p_under'] = 1.0 - pred_sim['p_over']
         except Exception:
             pass
+
+    # Puck line probabilities from sim (home -1.5, away +1.5)
+    try:
+        pred_sim['p_home_pl_-1.5'] = _np.nan
+        pred_sim['p_away_pl_+1.5'] = _np.nan
+        for i, r in pred_sim.iterrows():
+            try:
+                h = sim_games[(sim_games['game_home']==r['game_home']) & (sim_games['game_away']==r['game_away'])]
+                if h.empty:
+                    continue
+                diff = (h['home_goals'] - h['away_goals'])
+                p_hpl = float((diff >= 2).mean())
+                pred_sim.at[i, 'p_home_pl_-1.5'] = p_hpl
+                pred_sim.at[i, 'p_away_pl_+1.5'] = 1.0 - p_hpl
+            except Exception:
+                continue
+    except Exception:
+        pass
     # EVs using available prices
-    for (p_key, o_key, ev_key) in [('p_home_ml','home_ml_odds','ev_home_ml'), ('p_away_ml','away_ml_odds','ev_away_ml'), ('p_over','over_odds','ev_over'), ('p_under','under_odds','ev_under')]:
+    for (p_key, o_key, ev_key) in [
+        ('p_home_ml','home_ml_odds','ev_home_ml'),
+        ('p_away_ml','away_ml_odds','ev_away_ml'),
+        ('p_over','over_odds','ev_over'),
+        ('p_under','under_odds','ev_under'),
+        ('p_home_pl_-1.5','home_pl_-1.5_odds','ev_home_pl_-1.5'),
+        ('p_away_pl_+1.5','away_pl_+1.5_odds','ev_away_pl_+1.5'),
+    ]:
         if p_key in pred_sim.columns and o_key in pred_sim.columns:
             try:
                 dec = pred_sim[o_key].map(_amer_to_dec)
@@ -9616,6 +9667,28 @@ def game_recommendations_sim(
                             'away': away,
                             'totals_line': float(tl),
                         })
+
+                # Puck line
+                if pd.notna(r.get('ev_home_pl_-1.5')) and pd.notna(r.get('home_pl_-1.5_odds')):
+                    rec_rows.append({
+                        'market': 'PL',
+                        'side': f"{home} -1.5" if home is not None else 'Home -1.5',
+                        'price': float(r.get('home_pl_-1.5_odds')),
+                        'ev': float(r.get('ev_home_pl_-1.5')),
+                        'home': home,
+                        'away': away,
+                        'totals_line': float(tl) if tl is not None and pd.notna(tl) else None,
+                    })
+                if pd.notna(r.get('ev_away_pl_+1.5')) and pd.notna(r.get('away_pl_+1.5_odds')):
+                    rec_rows.append({
+                        'market': 'PL',
+                        'side': f"{away} +1.5" if away is not None else 'Away +1.5',
+                        'price': float(r.get('away_pl_+1.5_odds')),
+                        'ev': float(r.get('ev_away_pl_+1.5')),
+                        'home': home,
+                        'away': away,
+                        'totals_line': float(tl) if tl is not None and pd.notna(tl) else None,
+                    })
             except Exception:
                 continue
         expected_cols = ['market', 'side', 'price', 'ev', 'home', 'away', 'totals_line']
@@ -16385,8 +16458,10 @@ def team_odds_collect(
 ):
     """Collect team odds for the slate and archive to data/odds/team/date=YYYY-MM-DD/oddsapi.{csv,parquet}."""
     try:
-        from .data.team_odds import archive_team_odds_oddsapi
-        res = archive_team_odds_oddsapi(date)
+        from .data.team_odds import collect_oddsapi_team_odds, write_team_odds
+        market_list = [m.strip() for m in str(markets).split(",") if m.strip()]
+        df = collect_oddsapi_team_odds(date, markets=market_list if market_list else None)
+        res = write_team_odds(df, date, source="oddsapi")
         print({
             "date": date,
             "source": "oddsapi",

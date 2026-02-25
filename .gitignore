@@ -93,6 +93,8 @@ data/processed/props_boxscores_sim_samples_*
 ## Also allow daily predictions/edges so web (Render) can use GitHub raw fallback
 !data/processed/predictions_*.csv
 !data/processed/edges_*.csv
+!data/processed/predictions_sim_*.csv
+!data/processed/edges_sim_*.csv
 
 ## Allow game recommendations so cards UI can show bets
 !data/processed/recommendations_*.csv

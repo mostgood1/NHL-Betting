@@ -8,6 +8,7 @@ from typing import Dict, List, Optional, Tuple
 from zoneinfo import ZoneInfo
 
 import requests
+import re
 try:
     from dotenv import load_dotenv
 except Exception:
@@ -37,15 +38,39 @@ BOOKMAKER_PRIORITY = [
 
 class OddsAPIClient:
     def __init__(self, api_key: Optional[str] = None, rate_limit_per_sec: float = 3.0):
-        # Attempt to load .env at repo root so users can store secrets locally
-        if load_dotenv is not None:
+        def _load_env_file_fallback(path: Path) -> dict[str, str]:
+            out: dict[str, str] = {}
             try:
-                root = Path(__file__).resolve().parents[2]
-                dotenv_path = root / ".env"
-                if dotenv_path.exists():
-                    load_dotenv(dotenv_path)
+                for raw in path.read_text(encoding="utf-8").splitlines():
+                    line = raw.strip()
+                    if not line or line.startswith("#"):
+                        continue
+                    if "=" not in line:
+                        continue
+                    k, v = line.split("=", 1)
+                    k = k.strip()
+                    v = v.strip().strip("\"").strip("'")
+                    if k:
+                        out[k] = v
             except Exception:
-                pass
+                return {}
+            return out
+
+        # Attempt to load .env at repo root so users can store secrets locally
+        try:
+            root = Path(__file__).resolve().parents[2]
+            dotenv_path = root / ".env"
+            if dotenv_path.exists():
+                if load_dotenv is not None:
+                    # override=True so local .env wins over a stale system ODDS_API_KEY
+                    load_dotenv(dotenv_path, override=True)
+                else:
+                    # Minimal fallback for environments without python-dotenv.
+                    env_map = _load_env_file_fallback(dotenv_path)
+                    if "ODDS_API_KEY" in env_map:
+                        os.environ["ODDS_API_KEY"] = env_map["ODDS_API_KEY"]
+        except Exception:
+            pass
         self.api_key = api_key or os.environ.get("ODDS_API_KEY")
         if not self.api_key:
             raise RuntimeError("Set ODDS_API_KEY env var or pass api_key to OddsAPIClient.")
@@ -56,7 +81,12 @@ class OddsAPIClient:
         url = f"{ODDS_API_BASE}{path}"
         r = requests.get(url, params=params, timeout=40)
         hdrs = {k.lower(): v for k, v in r.headers.items()}
-        r.raise_for_status()
+        try:
+            r.raise_for_status()
+        except requests.HTTPError as e:
+            raw_url = str(getattr(r, "url", ""))
+            safe_url = re.sub(r"(apiKey=)[^&]+", r"\1REDACTED", raw_url)
+            raise requests.HTTPError(f"{r.status_code} Client Error for url: {safe_url}") from None
         return r.json(), hdrs
 
     def historical_odds_snapshot(

@@ -94,6 +94,10 @@ data/processed/props_boxscores_sim_samples_*
 !data/processed/predictions_*.csv
 !data/processed/edges_*.csv
 
+## Allow game recommendations so cards UI can show bets
+!data/processed/recommendations_*.csv
+!data/processed/recommendations_sim_*.csv
+
 ## Allow canonical player props lines so web can enrich with player_id/team locally
 !data/props/player_props_lines/
 !data/props/player_props_lines/**

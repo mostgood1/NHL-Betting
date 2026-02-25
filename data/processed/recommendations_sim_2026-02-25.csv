@@ -1,0 +1,17 @@
+market,side,price,ev,home,away,totals_line
+ML,Toronto Maple Leafs,175.0,0.43481250000000016,Tampa Bay Lightning,Toronto Maple Leafs,6.5
+ML,Vancouver Canucks,117.0,0.3416024999999999,Vancouver Canucks,Winnipeg Jets,6.5
+ML,Utah Mammoth,140.0,0.24919999999999987,Utah Mammoth,Colorado Avalanche,6.5
+ML,Vegas Golden Knights,-113.0,0.2063716814159292,Los Angeles Kings,Vegas Golden Knights,5.5
+ML,Philadelphia Flyers,170.0,0.20150000000000012,Washington Capitals,Philadelphia Flyers,6.5
+ML,Buffalo Sabres,-120.0,0.12475000000000014,New Jersey Devils,Buffalo Sabres,6.5
+ML,Edmonton Oilers,-155.0,0.03398387096774175,Anaheim Ducks,Edmonton Oilers,6.5
+ML,Dallas Stars,-195.0,0.024935897435897414,Dallas Stars,Seattle Kraken,5.5
+ML,Anaheim Ducks,128.0,-0.15297999999999995,Anaheim Ducks,Edmonton Oilers,6.5
+ML,Seattle Kraken,155.0,-0.17762500000000003,Dallas Stars,Seattle Kraken,5.5
+ML,Washington Capitals,-210.0,-0.1807142857142856,Washington Capitals,Philadelphia Flyers,6.5
+ML,New Jersey Devils,100.0,-0.22699999999999992,New Jersey Devils,Buffalo Sabres,6.5
+ML,Colorado Avalanche,-167.0,-0.23337425149700602,Utah Mammoth,Colorado Avalanche,6.5
+ML,Tampa Bay Lightning,-215.0,-0.29930813953488367,Tampa Bay Lightning,Toronto Maple Leafs,6.5
+ML,Los Angeles Kings,-108.0,-0.30666666666666664,Los Angeles Kings,Vegas Golden Knights,5.5
+ML,Winnipeg Jets,-141.0,-0.3475053191489361,Vancouver Canucks,Winnipeg Jets,6.5

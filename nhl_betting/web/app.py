@@ -17,6 +17,7 @@ import requests
 
 from ..data.odds_api import OddsAPIClient
 from ..utils.io import PROC_DIR, RAW_DIR, MODEL_DIR
+from .teams import get_team_assets
 
 from fastapi import FastAPI, Request, Query, Header
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse

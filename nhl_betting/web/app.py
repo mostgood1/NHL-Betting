@@ -671,6 +671,21 @@ async def v1_bundle(date: str):
         if p.exists():
             try:
                 obj = json.loads(p.read_text(encoding="utf-8"))
+                # Guard against stale persisted bundles (common in read-only deploys):
+                # if the persisted bundle points at older source files than we'd pick today,
+                # rebuild in-memory so the UI sees sim-backed markets (TOTAL/PL) when available.
+                try:
+                    fresh = build_daily_bundle(d, PROC_DIR)
+                except Exception:
+                    fresh = None
+
+                if isinstance(fresh, dict) and isinstance(obj, dict):
+                    try:
+                        if (obj.get("files") or {}) != (fresh.get("files") or {}):
+                            obj = fresh
+                    except Exception:
+                        pass
+
                 obj = _enrich_predictions_team_assets(obj)
                 return JSONResponse({"ok": True, **obj})
             except Exception:

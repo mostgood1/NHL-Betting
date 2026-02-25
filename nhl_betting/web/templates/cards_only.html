@@ -437,8 +437,18 @@
 
       // Pick a few best recs to show (highest EV first)
       const recs = (recsForGame || []).map(normalizeRec).filter(r => r.market && isFinite(r.ev));
-      recs.sort((a,b) => (b.ev - a.ev));
-      const top = recs.slice(0, 3);
+      // Prefer showing one per market (ML/TOTAL/PL) so totals/puckline don't get
+      // hidden behind multiple strong ML edges.
+      const bestByMarket = new Map();
+      recs.forEach(r => {
+        const m = toUpper(r.market);
+        const cur = bestByMarket.get(m);
+        if (!cur || (isFinite(r.ev) && r.ev > cur.ev)) bestByMarket.set(m, r);
+      });
+      const preferredOrder = ['ML','TOTAL','PL'];
+      const top = preferredOrder
+        .map(m => bestByMarket.get(m))
+        .filter(Boolean);
 
       const el = document.createElement('div');
       el.className = 'card';

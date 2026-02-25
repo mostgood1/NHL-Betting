@@ -25,7 +25,7 @@ services:
       - key: GITHUB_COMMIT_EMAIL
         value: render-bot@example.com
       - key: WEB_DISABLE_ODDS_FETCH
-        value: "true"
+        value: "false"
       - key: PROPS_PAGE_SIZE
         value: "100"
       - key: PROPS_MAX_ROWS

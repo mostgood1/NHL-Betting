@@ -160,6 +160,18 @@ def build_daily_bundle(date: str, proc_dir: Path = PROC_DIR) -> dict[str, Any]:
     game_recs_df = _safe_read_csv(game_recs_p) if game_recs_p else pd.DataFrame()
     props_recs_df = _safe_read_csv(props_recs_p) if props_recs_p else pd.DataFrame()
 
+    # Normalize key columns across different artifact variants.
+    # - sim predictions use `totals_line_used` while legacy uses `total_line_used`
+    # - puck line is fixed at +/-1.5 for our sim outputs, so provide a display line
+    try:
+        if predictions_df is not None and not predictions_df.empty:
+            if "total_line_used" not in predictions_df.columns and "totals_line_used" in predictions_df.columns:
+                predictions_df["total_line_used"] = predictions_df["totals_line_used"]
+            if "pl_line_used" not in predictions_df.columns:
+                predictions_df["pl_line_used"] = 1.5
+    except Exception:
+        pass
+
     # Keep bundles reasonably small; UI can fetch large tables via existing /api/* endpoints.
     bundle: dict[str, Any] = {
         "schema_version": 1,
@@ -193,6 +205,12 @@ def build_daily_bundle(date: str, proc_dir: Path = PROC_DIR) -> dict[str, Any]:
                             "pl_line_used",
                             "p_home_pl_-1.5",
                             "p_away_pl_+1.5",
+                            "home_ml_odds",
+                            "away_ml_odds",
+                            "over_odds",
+                            "under_odds",
+                            "home_pl_-1.5_odds",
+                            "away_pl_+1.5_odds",
                             "proj_home_goals",
                             "proj_away_goals",
                             "model_total",

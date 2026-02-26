@@ -4,6 +4,7 @@ import json
 import os
 import re
 import tempfile
+import math
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
@@ -144,6 +145,83 @@ def _pick_existing(*paths: Path) -> Optional[Path]:
         except Exception:
             continue
     return None
+
+
+def _json_sanitize(obj: Any) -> Any:
+    """Convert an object graph to strict-JSON-safe Python primitives.
+
+    Starlette's JSONResponse serializes with allow_nan=False, so any NaN/Inf will
+    raise and result in a 500. This sanitizer converts NaN/Inf -> None and
+    numpy/pandas scalars -> plain Python types.
+    """
+    try:
+        import numpy as _np
+    except Exception:
+        _np = None
+    try:
+        import datetime as _dt
+    except Exception:
+        _dt = None
+
+    def _san(x: Any) -> Any:
+        if x is None:
+            return None
+
+        # dict
+        if isinstance(x, dict):
+            out: dict[str, Any] = {}
+            for k, v in x.items():
+                try:
+                    ks = str(k)
+                except Exception:
+                    ks = "key"
+                out[ks] = _san(v)
+            return out
+
+        # list/tuple
+        if isinstance(x, (list, tuple)):
+            return [_san(v) for v in x]
+
+        # pandas NA / NaN
+        try:
+            if pd.isna(x):
+                return None
+        except Exception:
+            pass
+
+        # numpy scalar
+        try:
+            if _np is not None and isinstance(x, _np.generic):
+                return _san(x.item())
+        except Exception:
+            pass
+
+        # datetime-like
+        try:
+            if isinstance(x, pd.Timestamp):
+                return x.isoformat()
+        except Exception:
+            pass
+        try:
+            if _dt is not None and isinstance(x, (_dt.datetime, _dt.date)):
+                return x.isoformat()
+        except Exception:
+            pass
+
+        # floats: map NaN/Inf -> None
+        if isinstance(x, float):
+            try:
+                if not math.isfinite(x):
+                    return None
+            except Exception:
+                return None
+
+        return x
+
+    try:
+        return _san(obj)
+    except Exception:
+        return obj
 
 
 def discover_dates(proc_dir: Path = PROC_DIR) -> list[str]:
@@ -287,7 +365,7 @@ def build_daily_bundle(date: str, proc_dir: Path = PROC_DIR) -> dict[str, Any]:
             },
         },
     }
-    return bundle
+    return _json_sanitize(bundle)
 
 
 def write_daily_bundle(date: str, proc_dir: Path = PROC_DIR) -> Path:

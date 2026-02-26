@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os, time, json
 import re
+import math
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 from pathlib import Path
@@ -524,6 +525,77 @@ def _parse_mmss_clock(clock: object) -> Optional[int]:
         return None
 
 
+def _strict_json_sanitize(obj: Any) -> Any:
+    """Convert obj graph to strict-JSON-safe primitives (no NaN/Inf).
+
+    Starlette's JSONResponse uses allow_nan=False. If any NaN/Inf slips into the
+    response payload, it raises "Out of range float values are not JSON compliant".
+    This sanitizer converts NaN/Inf -> None and numpy scalars -> Python scalars.
+    """
+    try:
+        import numpy as _np
+    except Exception:
+        _np = None
+    try:
+        import datetime as _dt
+    except Exception:
+        _dt = None
+
+    def _san(x: Any) -> Any:
+        if x is None:
+            return None
+        if isinstance(x, dict):
+            out: dict[str, Any] = {}
+            for k, v in x.items():
+                try:
+                    ks = str(k)
+                except Exception:
+                    ks = "key"
+                out[ks] = _san(v)
+            return out
+        if isinstance(x, (list, tuple)):
+            return [_san(v) for v in x]
+
+        # pandas NA / NaN
+        try:
+            if pd.isna(x):
+                return None
+        except Exception:
+            pass
+
+        # numpy scalar
+        try:
+            if _np is not None and isinstance(x, _np.generic):
+                return _san(x.item())
+        except Exception:
+            pass
+
+        # datetime-like
+        try:
+            if isinstance(x, pd.Timestamp):
+                return x.isoformat()
+        except Exception:
+            pass
+        try:
+            if _dt is not None and isinstance(x, (_dt.datetime, _dt.date)):
+                return x.isoformat()
+        except Exception:
+            pass
+
+        if isinstance(x, float):
+            try:
+                if not math.isfinite(x):
+                    return None
+            except Exception:
+                return None
+        return x
+
+    try:
+        return _san(obj)
+    except Exception:
+        return obj
+
+
 def _load_bundle_predictions_map(date_ymd: str) -> dict:
     """Best-effort: load bundle prediction rows keyed by normalized away@home."""
     try:
@@ -779,6 +851,7 @@ async def v1_bundle(date: str):
                     obj = build_daily_bundle(d, PROC_DIR)
 
                 obj = _enrich_predictions_team_assets(obj)
+                obj = _strict_json_sanitize(obj)
                 return JSONResponse({"ok": True, **obj})
             except Exception:
                 # Fall back to rebuilding in-memory
@@ -786,6 +859,7 @@ async def v1_bundle(date: str):
 
         obj = build_daily_bundle(d, PROC_DIR)
         obj = _enrich_predictions_team_assets(obj)
+        obj = _strict_json_sanitize(obj)
         return JSONResponse({"ok": True, **obj, "note": "bundle_not_persisted"})
     except Exception as e:
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)

@@ -87,6 +87,49 @@ def _df_to_rows(df: pd.DataFrame, keep: Optional[list[str]] = None, limit: Optio
             d2 = d2[cols]
     if limit is not None and limit > 0:
         d2 = d2.head(int(limit))
+
+    # JSONResponse does not automatically coerce numpy/pandas scalars.
+    # Convert to plain Python types to avoid TypeError: Object of type int64 is not JSON serializable.
+    try:
+        import numpy as _np
+        import datetime as _dt
+
+        def _cell(v: Any) -> Any:
+            try:
+                if v is None:
+                    return None
+                # Pandas NA / NaN
+                try:
+                    if pd.isna(v):
+                        return None
+                except Exception:
+                    pass
+                # Numpy scalars
+                try:
+                    if isinstance(v, _np.generic):
+                        return v.item()
+                except Exception:
+                    pass
+                # Timestamps / datetimes
+                if isinstance(v, (pd.Timestamp, _dt.datetime, _dt.date)):
+                    try:
+                        return v.isoformat()
+                    except Exception:
+                        return str(v)
+                return v
+            except Exception:
+                return None
+
+        try:
+            d2 = d2.applymap(_cell)
+        except Exception:
+            for c in d2.columns:
+                try:
+                    d2[c] = d2[c].map(_cell)
+                except Exception:
+                    pass
+    except Exception:
+        pass
     try:
         return d2.to_dict(orient="records")
     except Exception:

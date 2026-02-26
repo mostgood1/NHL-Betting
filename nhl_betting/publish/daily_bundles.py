@@ -293,6 +293,82 @@ def build_daily_bundle(date: str, proc_dir: Path = PROC_DIR) -> dict[str, Any]:
     except Exception:
         pass
 
+    # If recommendations don't carry prob/conf, derive them from predictions.
+    # This keeps the UI/bundle stable across older artifacts.
+    try:
+        if (
+            game_recs_df is not None
+            and not game_recs_df.empty
+            and predictions_df is not None
+            and not predictions_df.empty
+            and {"home", "away"}.issubset(predictions_df.columns)
+        ):
+            if "prob" not in game_recs_df.columns or game_recs_df["prob"].isna().all():
+                game_recs_df["prob"] = None
+            if "conf" not in game_recs_df.columns or game_recs_df["conf"].isna().all():
+                game_recs_df["conf"] = None
+
+            # Only fill missing entries.
+            need_prob = game_recs_df["prob"].isna() if "prob" in game_recs_df.columns else pd.Series([True] * len(game_recs_df))
+            need_conf = game_recs_df["conf"].isna() if "conf" in game_recs_df.columns else pd.Series([True] * len(game_recs_df))
+            if bool(need_prob.any()) or bool(need_conf.any()):
+                pmap = predictions_df.set_index(["home", "away"], drop=False).to_dict(orient="index")
+
+                def _infer_prob(row: pd.Series) -> Optional[float]:
+                    try:
+                        home = row.get("home")
+                        away = row.get("away")
+                        if home is None or away is None:
+                            return None
+                        pm = pmap.get((home, away))
+                        if not isinstance(pm, dict):
+                            return None
+                        mkt = str(row.get("market") or "").upper()
+                        side = str(row.get("side") or "")
+                        side_u = side.upper()
+                        if mkt == "ML":
+                            if side.strip().lower() == str(home).strip().lower():
+                                return float(pm.get("p_home_ml")) if pm.get("p_home_ml") is not None else None
+                            if side.strip().lower() == str(away).strip().lower():
+                                return float(pm.get("p_away_ml")) if pm.get("p_away_ml") is not None else None
+                            return None
+                        if mkt == "TOTAL":
+                            if "OVER" in side_u:
+                                return float(pm.get("p_over")) if pm.get("p_over") is not None else None
+                            if "UNDER" in side_u:
+                                return float(pm.get("p_under")) if pm.get("p_under") is not None else None
+                            return None
+                        if mkt == "PL":
+                            # Side is like "Team -1.5" or "Team +1.5".
+                            s_norm = side.strip().lower()
+                            h_norm = str(home).strip().lower()
+                            a_norm = str(away).strip().lower()
+                            if s_norm.startswith(h_norm):
+                                return float(pm.get("p_home_pl_-1.5")) if pm.get("p_home_pl_-1.5") is not None else None
+                            if s_norm.startswith(a_norm):
+                                return float(pm.get("p_away_pl_+1.5")) if pm.get("p_away_pl_+1.5") is not None else None
+                            return None
+                        return None
+                    except Exception:
+                        return None
+
+                if bool(need_prob.any()):
+                    game_recs_df.loc[need_prob, "prob"] = game_recs_df.loc[need_prob].apply(_infer_prob, axis=1)
+                if bool(need_conf.any()):
+                    def _conf(x: object) -> Optional[float]:
+                        try:
+                            if x is None or pd.isna(x):
+                                return None
+                            v = float(x)
+                            if not math.isfinite(v):
+                                return None
+                            return float(abs(v - 0.5))
+                        except Exception:
+                            return None
+                    game_recs_df.loc[need_conf, "conf"] = game_recs_df.loc[need_conf, "prob"].map(_conf)
+    except Exception:
+        pass
+
     # Keep bundles reasonably small; UI can fetch large tables via existing /api/* endpoints.
     bundle: dict[str, Any] = {
         "schema_version": 1,
@@ -347,7 +423,11 @@ def build_daily_bundle(date: str, proc_dir: Path = PROC_DIR) -> dict[str, Any]:
                 },
                 "recommendations": {
                     "count": int(len(game_recs_df)) if game_recs_df is not None and not game_recs_df.empty else 0,
-                    "rows": _df_to_rows(game_recs_df, keep=["market", "side", "price", "ev", "home", "away", "totals_line"], limit=200),
+                    "rows": _df_to_rows(
+                        game_recs_df,
+                        keep=["market", "side", "price", "ev", "prob", "conf", "home", "away", "totals_line"],
+                        limit=200,
+                    ),
                 },
                 "reconciliation": _safe_read_json(rec_game_p),
             },

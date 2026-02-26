@@ -9353,6 +9353,9 @@ def game_recommendations_sim(
     date: str = typer.Option(..., help="Slate date YYYY-MM-DD (ET)"),
     read_prefix: str = typer.Option("", help="Optional input filename prefix matching props-simulate-boxscores --out-prefix"),
     top: int = typer.Option(100, help="Top N markets to keep after sorting by EV desc"),
+    min_ev: float = typer.Option(0.0, help="Minimum EV filter for keeping picks (applied after sim-rooted side selection)"),
+    min_prob: float = typer.Option(0.5, help="Minimum model probability required for a pick (default 0.5 means never go against the sim)"),
+    min_conf: float = typer.Option(0.0, help="Minimum confidence |p-0.5| required for a pick"),
 ):
     """Compute sim-backed game probabilities and EV (ML and Totals) from per-sim boxscore samples.
 
@@ -9360,7 +9363,11 @@ def game_recommendations_sim(
     Aggregates per-sim team goals to compute ML and Totals probabilities and EVs, then writes:
     - predictions_sim_{date}.csv (wide per-game fields)
     - edges_sim_{date}.csv (long-form EVs)
-    - recommendations_sim_{date}.csv (UI-friendly picks: market/side/price/ev/home/away/totals_line)
+    - recommendations_sim_{date}.csv (UI-friendly picks rooted in sim direction first, then EV)
+
+    Notes:
+    - For each game+market, we only consider the sim-favored side (p >= 0.5 by default).
+    - Optional gates: min_prob/min_conf/min_ev.
     """
     import pandas as pd
     import numpy as _np
@@ -9616,7 +9623,12 @@ def game_recommendations_sim(
         edges = edges.sort_values('ev', ascending=False).head(int(top))
         save_df(edges, PROC_DIR / f"edges_sim_{date}.csv")
 
-    # UI-friendly recommendations (one row per side/market)
+    # UI-friendly recommendations.
+    # IMPORTANT: We want recommendations rooted in the sim/model first, then EV.
+    # Concretely:
+    # - Pick the sim-favored side per market (p >= 0.5) and only recommend that side.
+    # - Apply optional gates (min_prob/min_conf/min_ev).
+    # - Rank by confidence first, EV second (so we don't get longshot EV-only picks).
     try:
         rec_rows = []
         for _, r in pred_sim.iterrows():
@@ -9624,79 +9636,119 @@ def game_recommendations_sim(
                 home = r.get('home')
                 away = r.get('away')
                 tl = r.get('totals_line_used') if 'totals_line_used' in pred_sim.columns else r.get('totals_line')
-                # Moneyline
-                if pd.notna(r.get('ev_home_ml')) and pd.notna(r.get('home_ml_odds')):
-                    rec_rows.append({
-                        'market': 'ML',
-                        'side': str(home) if home is not None else 'Home',
-                        'price': float(r.get('home_ml_odds')),
-                        'ev': float(r.get('ev_home_ml')),
-                        'home': home,
-                        'away': away,
-                        'totals_line': float(tl) if tl is not None and pd.notna(tl) else None,
-                    })
-                if pd.notna(r.get('ev_away_ml')) and pd.notna(r.get('away_ml_odds')):
-                    rec_rows.append({
-                        'market': 'ML',
-                        'side': str(away) if away is not None else 'Away',
-                        'price': float(r.get('away_ml_odds')),
-                        'ev': float(r.get('ev_away_ml')),
-                        'home': home,
-                        'away': away,
-                        'totals_line': float(tl) if tl is not None and pd.notna(tl) else None,
-                    })
-                # Totals
-                if tl is not None and pd.notna(tl):
-                    if pd.notna(r.get('ev_over')) and pd.notna(r.get('over_odds')):
-                        rec_rows.append({
-                            'market': 'TOTAL',
-                            'side': 'Over',
-                            'price': float(r.get('over_odds')),
-                            'ev': float(r.get('ev_over')),
-                            'home': home,
-                            'away': away,
-                            'totals_line': float(tl),
-                        })
-                    if pd.notna(r.get('ev_under')) and pd.notna(r.get('under_odds')):
-                        rec_rows.append({
-                            'market': 'TOTAL',
-                            'side': 'Under',
-                            'price': float(r.get('under_odds')),
-                            'ev': float(r.get('ev_under')),
-                            'home': home,
-                            'away': away,
-                            'totals_line': float(tl),
-                        })
 
-                # Puck line
-                if pd.notna(r.get('ev_home_pl_-1.5')) and pd.notna(r.get('home_pl_-1.5_odds')):
-                    rec_rows.append({
-                        'market': 'PL',
-                        'side': f"{home} -1.5" if home is not None else 'Home -1.5',
-                        'price': float(r.get('home_pl_-1.5_odds')),
-                        'ev': float(r.get('ev_home_pl_-1.5')),
-                        'home': home,
-                        'away': away,
-                        'totals_line': float(tl) if tl is not None and pd.notna(tl) else None,
-                    })
-                if pd.notna(r.get('ev_away_pl_+1.5')) and pd.notna(r.get('away_pl_+1.5_odds')):
-                    rec_rows.append({
-                        'market': 'PL',
-                        'side': f"{away} +1.5" if away is not None else 'Away +1.5',
-                        'price': float(r.get('away_pl_+1.5_odds')),
-                        'ev': float(r.get('ev_away_pl_+1.5')),
-                        'home': home,
-                        'away': away,
-                        'totals_line': float(tl) if tl is not None and pd.notna(tl) else None,
-                    })
+                # Helpers
+                def _num(x):
+                    try:
+                        return float(x) if x is not None and pd.notna(x) else None
+                    except Exception:
+                        return None
+                def _conf(p: float | None) -> float | None:
+                    try:
+                        if p is None:
+                            return None
+                        return float(abs(float(p) - 0.5))
+                    except Exception:
+                        return None
+                def _maybe_add(market: str, side: str, price: float | None, evv: float | None, prob: float | None):
+                    try:
+                        if price is None or evv is None or prob is None:
+                            return
+                        if not _np.isfinite(float(evv)):
+                            return
+                        if float(evv) < float(min_ev):
+                            return
+                        if float(prob) < float(min_prob):
+                            return
+                        c = _conf(prob)
+                        if c is None:
+                            return
+                        if float(c) < float(min_conf):
+                            return
+                        rec_rows.append({
+                            'market': market,
+                            'side': side,
+                            'price': float(price),
+                            'ev': float(evv),
+                            'prob': float(prob),
+                            'conf': float(c),
+                            'home': home,
+                            'away': away,
+                            'totals_line': float(tl) if tl is not None and pd.notna(tl) else None,
+                        })
+                    except Exception:
+                        return
+
+                # Moneyline: choose sim-favored side (never recommend against model)
+                ph = _num(r.get('p_home_ml'))
+                pa = _num(r.get('p_away_ml'))
+                if ph is not None and pa is not None:
+                    if ph >= pa:
+                        _maybe_add(
+                            'ML',
+                            str(home) if home is not None else 'Home',
+                            _num(r.get('home_ml_odds')),
+                            _num(r.get('ev_home_ml')),
+                            ph,
+                        )
+                    else:
+                        _maybe_add(
+                            'ML',
+                            str(away) if away is not None else 'Away',
+                            _num(r.get('away_ml_odds')),
+                            _num(r.get('ev_away_ml')),
+                            pa,
+                        )
+
+                # Totals: choose sim-favored side
+                if tl is not None and pd.notna(tl):
+                    po = _num(r.get('p_over'))
+                    pu = _num(r.get('p_under'))
+                    if po is not None and pu is not None:
+                        if po >= pu:
+                            _maybe_add('TOTAL', 'Over', _num(r.get('over_odds')), _num(r.get('ev_over')), po)
+                        else:
+                            _maybe_add('TOTAL', 'Under', _num(r.get('under_odds')), _num(r.get('ev_under')), pu)
+
+                # Puck line: choose sim-favored side
+                php = _num(r.get('p_home_pl_-1.5'))
+                pap = _num(r.get('p_away_pl_+1.5'))
+                if php is not None and pap is not None:
+                    if php >= pap:
+                        _maybe_add(
+                            'PL',
+                            f"{home} -1.5" if home is not None else 'Home -1.5',
+                            _num(r.get('home_pl_-1.5_odds')),
+                            _num(r.get('ev_home_pl_-1.5')),
+                            php,
+                        )
+                    else:
+                        _maybe_add(
+                            'PL',
+                            f"{away} +1.5" if away is not None else 'Away +1.5',
+                            _num(r.get('away_pl_+1.5_odds')),
+                            _num(r.get('ev_away_pl_+1.5')),
+                            pap,
+                        )
             except Exception:
                 continue
-        expected_cols = ['market', 'side', 'price', 'ev', 'home', 'away', 'totals_line']
+
+        expected_cols = ['market', 'side', 'price', 'ev', 'prob', 'conf', 'home', 'away', 'totals_line']
         recs = pd.DataFrame(rec_rows, columns=expected_cols)
         if recs is not None and not recs.empty:
             try:
                 recs['ev'] = pd.to_numeric(recs.get('ev'), errors='coerce')
-                recs = recs.dropna(subset=['ev']).sort_values('ev', ascending=False).head(int(top))
+                recs['prob'] = pd.to_numeric(recs.get('prob'), errors='coerce')
+                recs['conf'] = pd.to_numeric(recs.get('conf'), errors='coerce')
+                recs = recs.dropna(subset=['ev', 'prob', 'conf'])
+                # One row per game+market: choose highest confidence, tie-break EV
+                recs = recs.sort_values(['conf', 'ev'], ascending=[False, False])
+                try:
+                    idx = recs.groupby(['home', 'away', 'market'], dropna=False).head(1).index
+                    recs = recs.loc[idx]
+                except Exception:
+                    pass
+                recs = recs.sort_values(['conf', 'ev'], ascending=[False, False]).head(int(top))
             except Exception:
                 pass
         save_df(recs, PROC_DIR / f"recommendations_sim_{date}.csv")

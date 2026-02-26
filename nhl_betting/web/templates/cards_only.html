@@ -19,6 +19,14 @@
     .card-title { display:flex; align-items:baseline; justify-content:center; gap:10px; flex-wrap:wrap; text-align:center; }
     .card-title .match { font-weight:900; font-size:16px; color:#f5f7ff; }
     .pill { display:inline-flex; align-items:center; gap:6px; padding:3px 8px; border-radius:999px; background:#0f1530; border:1px solid #25316a; color:#c9d3ff; font-size:11px; font-weight:700; }
+    .pill.active { background:#152055; border-color:#3a4aa6; color:#e8eaf6; }
+    .pill:hover { border-color:#3a4aa6; }
+    .view-toggle { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .final-score { display:none; }
+    .final-score.show { display:inline-flex; }
+
+    #pageTitle { margin:0; }
+    #empty { display:none; }
 
     /* Center the top matchup section within each card */
     .card .row.matchup { justify-items: center; }
@@ -41,6 +49,8 @@
     .bet.pos { background:#0f2d1b; border-color:#1e7a45; color:#a7f3c6; }
     .bet.neg { background:#2a1620; border-color:#7a1e49; color:#ffd5e6; }
 
+    .live-ctx-top:empty { display:none; }
+
     .empty { padding: 18px 0; }
 
     .live-lens { background:#0f1530; border:1px solid #25316a; border-radius:10px; padding:10px; display:grid; gap:6px; }
@@ -49,7 +59,14 @@
     .live-lens .rowline { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
     .live-lens .mono { font-variant-numeric: tabular-nums; }
 
+    /* Live lens box only appears when live data is available. */
+    .live-guidance-body:empty { display:none; }
+    .live-odds-body:empty { display:none; }
+    .live-lens-body:empty { display:none; }
+
     .sim-block { background:#0f1530; border:1px solid #25316a; border-radius:10px; padding:10px; display:grid; gap:10px; }
+
+    .merged-block { background:#0f1530; border:1px solid #25316a; border-radius:10px; padding:10px; display:grid; gap:10px; }
     .section-title { color:#9fb0ff; font-size:11px; font-weight:800; letter-spacing:0.3px; text-transform:uppercase; }
     table.linescore, table.boxscore { width:100%; border-collapse: collapse; }
     table.linescore th, table.linescore td, table.boxscore th, table.boxscore td { border:1px solid #25316a; padding:4px 6px; font-size:12px; font-variant-numeric: tabular-nums; }
@@ -59,7 +76,7 @@
     table.linescore td.total { font-weight:900; }
     table.boxscore td { text-align:center; }
     table.boxscore td.player { text-align:left; }
-    table.boxscore th.sortable { cursor:pointer; user-select:none; }
+    table.boxscore th.sortable { cursor:pointer; -webkit-user-select:none; user-select:none; }
 
     @media (max-width: 900px) {
       .grid-3 { grid-template-columns: 1fr; }
@@ -78,7 +95,7 @@
   <header>
     <div class="container header-inner">
       <div class="topbar">
-        <h1 style="margin:0;">NHL Betting – Cards</h1>
+        <h1 id="pageTitle">NHL Betting – Cards</h1>
         <div class="date-picker">
           <label for="datePicker">Date</label>
           <input id="datePicker" class="date-input" type="date" />
@@ -92,7 +109,7 @@
   <main>
     <div class="container">
       <div id="cards" class="cards"></div>
-      <div id="empty" class="empty muted" style="display:none;"></div>
+      <div id="empty" class="empty muted"></div>
     </div>
   </main>
 
@@ -376,6 +393,50 @@
       return away + ' @ ' + home;
     }
 
+    function startTimeMs(p) {
+      try {
+        const cand = [
+          'commence_time_utc','commence_time','start_time_utc','start_time','start_time_et',
+          'game_time_utc','game_time_et','scheduled_start_utc','scheduled_utc','scheduled','scheduled_start'
+        ];
+        for (const k of cand) {
+          const v = p ? p[k] : null;
+          if (!v) continue;
+          const t = Date.parse(String(v));
+          if (isFinite(t)) return t;
+        }
+      } catch (e) {}
+      return null;
+    }
+
+    function sortPredsByStart(preds) {
+      const arr = (preds || []).slice();
+      arr.sort((a, b) => {
+        const ta = startTimeMs(a);
+        const tb = startTimeMs(b);
+        const aNull = (ta === null || ta === undefined);
+        const bNull = (tb === null || tb === undefined);
+        if (aNull && bNull) return keyForGame(a).localeCompare(keyForGame(b));
+        if (aNull) return 1;
+        if (bNull) return -1;
+        if (ta !== tb) return ta - tb;
+        return keyForGame(a).localeCompare(keyForGame(b));
+      });
+      return arr;
+    }
+
+    function getSelectedGameKeyFromUrl() {
+      try {
+        const p = new URLSearchParams(window.location.search || '');
+        const g = String(p.get('game') || '').trim();
+        if (!g) return null;
+        // Accept AWY@HOME or "AWY @ HOME"
+        return g.replace(/\s+/g,' ').replace('@', ' @ ').replace(/\s+@\s+/, ' @ ').trim();
+      } catch (e) {
+        return null;
+      }
+    }
+
     function getRequestedDate() {
       try {
         const p = new URLSearchParams(window.location.search || '');
@@ -395,6 +456,48 @@
       } catch (e) {}
     }
 
+    function normalizePropRec(rec) {
+      try {
+        const side = toUpper(rec && rec.side);
+        const price = (rec && rec.price !== undefined && rec.price !== null) ? rec.price
+          : (side === 'OVER' ? (rec && rec.over_price) : (rec && rec.under_price));
+        const prob = (rec && rec.prob !== undefined && rec.prob !== null) ? Number(rec.prob)
+          : ((rec && rec.p_over !== undefined && rec.p_over !== null) ? Number(rec.p_over) : NaN);
+        return {
+          team: toUpper(rec && rec.team),
+          player: String((rec && rec.player) ? rec.player : '').trim(),
+          market: toUpper(rec && rec.market),
+          side,
+          line: (rec && rec.line !== undefined) ? rec.line : null,
+          price,
+          ev: Number((rec && rec.ev !== undefined) ? rec.ev : NaN),
+          prob,
+          book: String((rec && rec.book) ? rec.book : '').trim(),
+        };
+      } catch (e) {
+        return { team:'', player:'', market:'', side:'', line:null, price:null, ev:NaN, prob:NaN, book:'' };
+      }
+    }
+
+    function renderPropsEdgesHtml(title, propsRows) {
+      const rows = (propsRows || []).map(normalizePropRec)
+        .filter(r => r && r.player && r.market && isFinite(r.ev));
+      rows.sort((a,b) => (b.ev - a.ev));
+      const top = rows.slice(0, 4);
+      if (!top.length) {
+        return `<div class="market"><div class="k">${title}</div><div class="v muted">No props edges available.</div></div>`;
+      }
+      const body = top.map(r => {
+        const evTxt = isFinite(r.ev) ? (100 * r.ev).toFixed(1) + '%' : '—';
+        const prTxt = isFinite(r.prob) ? (100 * r.prob).toFixed(1) + '%' : '—';
+        const ln = (r.line !== null && r.line !== undefined && String(r.line).trim() !== '') ? String(r.line) : '—';
+        const price = (r.price !== null && r.price !== undefined && String(r.price).trim() !== '') ? String(r.price) : '—';
+        const book = r.book ? ` (${r.book})` : '';
+        return `<div class="v"><strong>${r.player}</strong> ${r.market} ${r.side} ${ln} <span class="muted">@ ${price}${book}</span> · <strong>EV ${evTxt}</strong> <span class="muted">(p ${prTxt})</span></div>`;
+      }).join('');
+      return `<div class="market"><div class="k">${title}</div>${body}</div>`;
+    }
+
     function normKey(s) {
       return String(s || '').trim().replace(/\s+/g,' ').toLowerCase();
     }
@@ -404,6 +507,7 @@
       return {
         market: String(rec.market || ''),
         side: String(rec.side || ''),
+        line: (rec && rec.line !== undefined) ? rec.line : null,
         price: rec.price,
         ev,
         home: String(rec.home || ''),
@@ -411,7 +515,47 @@
       };
     }
 
-    function renderCard(pred, recsForGame, simForGame, nSims=null) {
+    function _normTeamToken(s) {
+      return String(s || '').trim().replace(/\s+/g,' ').toLowerCase();
+    }
+
+    function _inferModelProbForRec(pred, rec) {
+      try {
+        const mkt = toUpper(rec.market);
+        const sideRaw = String(rec.side || '');
+        const side = _normTeamToken(sideRaw);
+        const awayName = _normTeamToken(pred && pred.away);
+        const homeName = _normTeamToken(pred && pred.home);
+
+        const mlAway = (pred && pred.p_away_ml !== undefined && pred.p_away_ml !== null) ? Number(pred.p_away_ml) : null;
+        const mlHome = (pred && pred.p_home_ml !== undefined && pred.p_home_ml !== null) ? Number(pred.p_home_ml) : null;
+        const pOver = (pred && pred.p_over !== undefined && pred.p_over !== null) ? Number(pred.p_over) : null;
+        const pUnder = (pred && pred.p_under !== undefined && pred.p_under !== null) ? Number(pred.p_under) : null;
+        const pHomePl = (pred && pred['p_home_pl_-1.5'] !== undefined && pred['p_home_pl_-1.5'] !== null) ? Number(pred['p_home_pl_-1.5']) : null;
+        const pAwayPl = (pred && pred['p_away_pl_+1.5'] !== undefined && pred['p_away_pl_+1.5'] !== null) ? Number(pred['p_away_pl_+1.5']) : null;
+
+        if (mkt.includes('ML')) {
+          if (awayName && side === awayName) return mlAway;
+          if (homeName && side === homeName) return mlHome;
+          return null;
+        }
+        if (mkt.includes('TOTAL')) {
+          const s = toUpper(sideRaw);
+          if (s.includes('OVER')) return pOver;
+          if (s.includes('UNDER')) return pUnder;
+          return null;
+        }
+        if (mkt.includes('PL') || mkt.includes('PUCK')) {
+          // Side looks like "Team -1.5" or "Team +1.5".
+          if (awayName && side.startsWith(awayName)) return pAwayPl;
+          if (homeName && side.startsWith(homeName)) return pHomePl;
+          return null;
+        }
+      } catch (e) {}
+      return null;
+    }
+
+    function renderCard(pred, recsForGame, simForGame, propsAway=null, propsHome=null) {
       const match = keyForGame(pred);
       const state = String(pred.game_state || '').trim();
       const venue = String(pred.venue || '').trim();
@@ -435,15 +579,28 @@
       const pHomePl = pred['p_home_pl_-1.5'];
       const pAwayPl = pred['p_away_pl_+1.5'];
 
-      // Pick a few best recs to show (highest EV first)
-      const recs = (recsForGame || []).map(normalizeRec).filter(r => r.market && isFinite(r.ev));
-      // Prefer showing one per market (ML/TOTAL/PL) so totals/puckline don't get
-      // hidden behind multiple strong ML edges.
+      // Pick a few best recs to show.
+      // We want picks rooted in the model (confidence) first, then EV.
+      const recs = (recsForGame || [])
+        .map(normalizeRec)
+        .filter(r => r.market && isFinite(r.ev));
+
       const bestByMarket = new Map();
       recs.forEach(r => {
         const m = toUpper(r.market);
+        const pModel = _inferModelProbForRec(pred, r);
+        const conf = (pModel !== null && pModel !== undefined && isFinite(Number(pModel))) ? Math.abs(Number(pModel) - 0.5) : -1;
         const cur = bestByMarket.get(m);
-        if (!cur || (isFinite(r.ev) && r.ev > cur.ev)) bestByMarket.set(m, r);
+        if (!cur) {
+          bestByMarket.set(m, { ...r, _pModel: pModel, _conf: conf });
+          return;
+        }
+        const curConf = (cur && cur._conf !== undefined) ? Number(cur._conf) : -1;
+        const curEv = (cur && cur.ev !== undefined) ? Number(cur.ev) : -Infinity;
+        const evv = Number(r.ev);
+        if (conf > curConf || (conf === curConf && evv > curEv)) {
+          bestByMarket.set(m, { ...r, _pModel: pModel, _conf: conf });
+        }
       });
       const preferredOrder = ['ML','TOTAL','PL'];
       const top = preferredOrder
@@ -453,6 +610,14 @@
       const el = document.createElement('div');
       el.className = 'card';
       el.dataset.gameKey = match;
+      try {
+        const pk = (pred && (pred.gamePk ?? pred.game_pk ?? pred.nhl_game_pk ?? pred.nhlGamePk ?? pred.game_id ?? pred.gameId));
+        if (pk !== undefined && pk !== null && String(pk).trim() !== '') el.dataset.gamePk = String(pk).trim();
+      } catch (e) {}
+      try {
+        if (pred && pred.away_abbr) el.dataset.awayAbbr = String(pred.away_abbr || '').trim();
+        if (pred && pred.home_abbr) el.dataset.homeAbbr = String(pred.home_abbr || '').trim();
+      } catch (e) {}
 
       const pills = [];
       if (state) pills.push(`<span class="pill">${state}</span>`);
@@ -460,6 +625,8 @@
 
       el.innerHTML = `
         <div class="card-title">
+          <span class="match">${match}</span>
+          <span class="pill active final-score" data-role="final-score"></span>
           ${pills.join('')}
         </div>
 
@@ -498,6 +665,7 @@
               <div class="v">Model spread: ${fmt(modelSpread, 2)}</div>
             </div>
           </div>
+          <div class="v live-ctx-top"></div>
         </div>
 
         <div class="bets">
@@ -505,57 +673,50 @@
             const cls = evClass(r.ev);
             const evTxt = (isFinite(r.ev) ? (100*r.ev).toFixed(1)+'%' : '—');
             const price = (r.price !== undefined && r.price !== null && String(r.price).trim() !== '') ? String(r.price) : '—';
-            return `<span class="bet ${cls}"><strong>${r.market}</strong> ${r.side} <span class="muted">${price}</span> <span class="ev">EV ${evTxt}</span></span>`;
+            const mkt = toUpper(r.market);
+            const side = toUpper(r.side);
+            const pModel = (r && r._pModel !== undefined) ? r._pModel : _inferModelProbForRec(pred, r);
+            const pTxt = (pModel !== null && pModel !== undefined && isFinite(Number(pModel))) ? ` <span class="muted">p ${pct(pModel)}</span>` : '';
+            let ln = (r.line !== null && r.line !== undefined && String(r.line).trim() !== '') ? String(r.line) : '';
+            try {
+              if (!ln && mkt.includes('TOTAL') && totalLine !== null && totalLine !== undefined && isFinite(Number(totalLine))) {
+                ln = String(totalLine);
+              }
+            } catch (e) {}
+            const lineAttr = ln ? ` data-line="${ln}"` : '';
+            return `<span class="bet ${cls}" data-market="${mkt}" data-side="${side}"${lineAttr}><strong>${r.market}</strong> ${r.side} <span class="muted">${price}</span> <span class="ev">EV ${evTxt}</span>${pTxt} <span class="muted" data-role="rec-outcome"></span></span>`;
           }).join('') : `<span class="muted">No recommendations available for this game.</span>`}
         </div>
 
-        <div class="live-lens" style="display:none;">
-          <div class="live-lens-body"></div>
-          <div class="live-guidance-body"></div>
-          <div class="live-odds-body"></div>
+        <div class="tile">
+          <div class="markets-row">
+            ${renderPropsEdgesHtml(`Props edges (${pred.away_abbr || 'Away'})`, propsAway)}
+            ${renderPropsEdgesHtml(`Props edges (${pred.home_abbr || 'Home'})`, propsHome)}
+          </div>
         </div>
 
-        <div class="sim-block" style="display:none;">
-          <div class="sim-linescore"></div>
-          <div class="sim-boxscore"></div>
+        <div class="live-lens" style="display:none;">
+          <div class="live-guidance-body"></div>
+          <div class="live-odds-body"></div>
+          <div class="live-lens-body"></div>
+        </div>
+
+        <div class="merged-block">
+          <div class="merged-body"></div>
         </div>
       `;
 
-      // SIM linescore + player boxscore (best-effort)
+      // Always show merged Sim vs Live tables (pregame shows sim-only with blank live columns).
       try {
-        const simBlock = el.querySelector('.sim-block');
-        const simLS = el.querySelector('.sim-linescore');
-        const simBS = el.querySelector('.sim-boxscore');
-        if (simBlock && simLS && simBS && Array.isArray(simForGame) && simForGame.length) {
-          const away = pred.away;
-          const home = pred.home;
-          const awayRow = {
-            p1: sumSim(simForGame, away, 1, 'goals'),
-            p2: sumSim(simForGame, away, 2, 'goals'),
-            p3: sumSim(simForGame, away, 3, 'goals'),
-            total: sumSim(simForGame, away, 0, 'goals'),
-          };
-          const homeRow = {
-            p1: sumSim(simForGame, home, 1, 'goals'),
-            p2: sumSim(simForGame, home, 2, 'goals'),
-            p3: sumSim(simForGame, home, 3, 'goals'),
-            total: sumSim(simForGame, home, 0, 'goals'),
-          };
-          const simTitle = (nSims && isFinite(Number(nSims)))
-            ? `Sim line score (proj goals) · n=${Number(nSims)}`
-            : 'Sim line score (proj goals)';
-          simLS.innerHTML = renderLinescoreHtml(simTitle, away, home, awayRow, homeRow, true);
-          simBS.innerHTML = [
-            renderSimSkatersTableHtml(`Sim skaters (${away})`, simForGame, away),
-            renderSimGoaliesTableHtml(`Sim goalies (${away})`, simForGame, away),
-            renderSimSkatersTableHtml(`Sim skaters (${home})`, simForGame, home),
-            renderSimGoaliesTableHtml(`Sim goalies (${home})`, simForGame, home),
-          ].join('');
-          simBlock.style.display = 'grid';
+        const merged = el.querySelector('.merged-body');
+        if (merged) {
+          if (Array.isArray(simForGame) && simForGame.length) {
+            merged.innerHTML = renderMergedSimLive({ away: pred.away, home: pred.home, lens: { players: { away: [], home: [] }, goalies: { away: [], home: [] } } }, simForGame);
+          } else {
+            merged.innerHTML = `<div class="k">Sim vs Live</div><div class="v muted">No sim boxscores available yet.</div>`;
+          }
         }
-      } catch (e) {
-        // best-effort
-      }
+      } catch (e) {}
 
       return el;
     }
@@ -615,10 +776,15 @@
 
       // Live player boxscore (skaters)
       try {
+        const _shotVal = (r) => {
+          const v = (r && (r.s ?? r.sog ?? r.shots ?? r.shots_on_goal));
+          return (v === null || v === undefined) ? null : Number(v);
+        };
         const renderLivePlayersTable = (title, arr) => {
           const rows = (arr || []).slice();
-          rows.sort((a,b) => (Number(b.p)||0) - (Number(a.p)||0) || (Number(b.s)||0) - (Number(a.s)||0));
+          rows.sort((a,b) => (Number(b.p)||0) - (Number(a.p)||0) || (Number(_shotVal(b))||0) - (Number(_shotVal(a))||0));
           const body = rows.slice(0, 18).map(r => {
+            const shots = (r && (r.s ?? r.sog ?? r.shots ?? r.shots_on_goal));
             return `
               <tr>
                 <td class="player">${r.name ?? '—'}</td>
@@ -626,7 +792,7 @@
                 <td>${r.g ?? '—'}</td>
                 <td>${r.a ?? '—'}</td>
                 <td>${r.p ?? '—'}</td>
-                <td>${r.s ?? '—'}</td>
+                <td>${shots ?? '—'}</td>
                 <td>${r.blk ?? '—'}</td>
                 <td>${r.toi ?? '—'}</td>
               </tr>
@@ -679,23 +845,7 @@
           `;
         };
 
-        if (players && (players.away || players.home)) {
-          if (players.away && Array.isArray(players.away) && players.away.length) {
-            lines.push(renderLivePlayersTable(`Live player box score (${game.away || 'Away'})`, players.away));
-          }
-          if (players.home && Array.isArray(players.home) && players.home.length) {
-            lines.push(renderLivePlayersTable(`Live player box score (${game.home || 'Home'})`, players.home));
-          }
-        }
-
-        if (goalies && (goalies.away || goalies.home)) {
-          if (goalies.away && Array.isArray(goalies.away) && goalies.away.length) {
-            lines.push(renderLiveGoaliesTable(`Live goalies (${game.away || 'Away'})`, goalies.away));
-          }
-          if (goalies.home && Array.isArray(goalies.home) && goalies.home.length) {
-            lines.push(renderLiveGoaliesTable(`Live goalies (${game.home || 'Home'})`, goalies.home));
-          }
-        }
+        // Redundant in Live Lens view: we show merged Sim vs Live tables instead.
       } catch (e) {
         // ignore
       }
@@ -737,6 +887,299 @@
       return `<div class="k">Live lens</div>${lines.join('')}`;
     }
 
+    function normName(s) {
+      return String(s || '').trim().toLowerCase().replace(/[\.'’]/g,'').replace(/\s+/g,' ');
+    }
+
+    function getPlayerId(x) {
+      try {
+        if (!x) return null;
+        const cand = ['player_id','playerId','playerID','id','nhl_player_id','nhlPlayerId'];
+        for (const k of cand) {
+          const v = x[k];
+          if (v === null || v === undefined || v === '') continue;
+          const n = parseInt(String(v), 10);
+          if (isFinite(n)) return n;
+        }
+      } catch (e) {}
+      return null;
+    }
+
+    function nameKey(s) {
+      const n = normName(s);
+      if (!n) return '';
+      const parts = n.split(' ').filter(Boolean);
+      if (parts.length < 2) return n;
+      const first = parts[0];
+      const last = parts[parts.length - 1];
+      const fi = first ? first[0] : '';
+      return (fi && last) ? (fi + ' ' + last) : n;
+    }
+
+    function renderMergedSimLive(game, simRows) {
+      try {
+        const lens = (game && game.lens) ? game.lens : {};
+        const players = (lens && lens.players) ? lens.players : null;
+        const goalies = (lens && lens.goalies) ? lens.goalies : null;
+        const gameState = String((game && (game.gameState || game.game_state)) ? (game.gameState || game.game_state) : '').toUpperCase();
+        const liveLabel = (gameState.includes('FINAL')) ? 'Final' : 'Live';
+        const away = String(game && game.away ? game.away : '').trim();
+        const home = String(game && game.home ? game.home : '').trim();
+
+        const sim = Array.isArray(simRows) ? simRows : [];
+        const simSkaters = sim
+          .filter(r => r && Number(r.period) === 0)
+          .filter(r => String(r.is_dressed) === '1' || r.is_dressed === 1 || r.is_dressed === true)
+          .filter(r => String(r.player || '').trim() && String(r.player || '').toUpperCase() !== 'TEAM')
+          .filter(r => {
+            const saves = Number(r.saves);
+            return !(isFinite(saves) && saves > 0);
+          });
+
+        const simGoalies = sim
+          .filter(r => r && Number(r.period) === 0)
+          .filter(r => String(r.is_dressed) === '1' || r.is_dressed === 1 || r.is_dressed === true)
+          .filter(r => String(r.player || '').trim() && String(r.player || '').toUpperCase() !== 'TEAM')
+          .filter(r => {
+            const saves = Number(r.saves);
+            return isFinite(saves) && saves > 0;
+          });
+
+        const buildSimMap = (teamAbbr) => {
+          const t = String(teamAbbr || '').toUpperCase();
+          const byId = new Map();
+          const byKey = new Map();
+          const byFull = new Map();
+          for (const r of simSkaters) {
+            if (String(r.team || '').toUpperCase() !== t) continue;
+            const pid = getPlayerId(r);
+            const full = normName(r.player);
+            const key = nameKey(r.player);
+            if (pid !== null && pid !== undefined) byId.set(pid, r);
+            if (key) byKey.set(key, r);
+            if (full) byFull.set(full, r);
+          }
+          return { byId, byKey, byFull };
+        };
+
+        const buildSimGoalieMap = (teamAbbr) => {
+          const t = String(teamAbbr || '').toUpperCase();
+          const byId = new Map();
+          const byKey = new Map();
+          const byFull = new Map();
+          for (const r of simGoalies) {
+            if (String(r.team || '').toUpperCase() !== t) continue;
+            const pid = getPlayerId(r);
+            const full = normName(r.player);
+            const key = nameKey(r.player);
+            if (pid !== null && pid !== undefined) byId.set(pid, r);
+            if (key) byKey.set(key, r);
+            if (full) byFull.set(full, r);
+          }
+          return { byId, byKey, byFull };
+        };
+
+        const simAway = buildSimMap(away);
+        const simHome = buildSimMap(home);
+        const simGAway = buildSimGoalieMap(away);
+        const simGHome = buildSimGoalieMap(home);
+
+        const renderMergedSkaters = (title, liveArr, simMap) => {
+          const live = Array.isArray(liveArr) ? liveArr.slice() : [];
+          const rows = [];
+          const seenIds = new Set();
+          const seenKeys = new Set();
+
+          // Prefer ordering by live points then shots
+          live.sort((a,b) => (Number(b.p)||0)-(Number(a.p)||0) || (Number((b && (b.s ?? b.sog ?? b.shots)) )||0)-(Number((a && (a.s ?? a.sog ?? a.shots)) )||0));
+          for (const r of live) {
+            const pid = getPlayerId(r);
+            const k = nameKey(r && r.name);
+            const full = normName(r && r.name);
+            if (!pid && !k && !full) continue;
+            let s = null;
+            if (pid !== null && pid !== undefined) s = (simMap.byId && simMap.byId.get(pid)) || null;
+            if (!s && k) s = (simMap.byKey && simMap.byKey.get(k)) || null;
+            if (!s && full) s = (simMap.byFull && simMap.byFull.get(full)) || null;
+            rows.push({ live: r, sim: s });
+            if (pid !== null && pid !== undefined) seenIds.add(pid);
+            if (k) seenKeys.add(k);
+          }
+          // Add sim-only players (if live list is missing them)
+          try {
+            const byId = simMap.byId || new Map();
+            const byKey = simMap.byKey || new Map();
+            const byFull = simMap.byFull || new Map();
+            if (byId.size) {
+              for (const [pid, s] of byId.entries()) {
+                if (seenIds.has(pid)) continue;
+                rows.push({ live: null, sim: s });
+              }
+            } else {
+              for (const [k2, s] of byKey.entries()) {
+                if (seenKeys.has(k2)) continue;
+                rows.push({ live: null, sim: s });
+              }
+              if (!rows.length) {
+                for (const [_k3, s] of byFull.entries()) {
+                  rows.push({ live: null, sim: s });
+                }
+              }
+            }
+          } catch (e) {}
+
+          const body = rows.slice(0, 20).map(x => {
+            const lp = x.live || {};
+            const sp = x.sim || {};
+            const liveName = lp.name || sp.player || '—';
+            const pos = lp.pos || sp.pos || sp.position || '—';
+            const ltoi = lp.toi || '—';
+            const stoi = (isFinite(Number(sp.toi_sec)))
+              ? `${Math.floor(Number(sp.toi_sec)/60)}:${String(Math.floor(Number(sp.toi_sec)%60)).padStart(2,'0')}`
+              : '—';
+            const lshots = (lp && (lp.s ?? lp.sog ?? lp.shots ?? lp.shots_on_goal));
+            return `
+              <tr>
+                <td class="player">${liveName}</td>
+                <td>${pos}</td>
+                <td>${lp.g ?? '—'}</td>
+                <td>${lp.a ?? '—'}</td>
+                <td>${lp.p ?? '—'}</td>
+                <td>${lshots ?? '—'}</td>
+                <td>${lp.blk ?? '—'}</td>
+                <td>${ltoi}</td>
+                <td>${fmt(Number(sp.goals),2)}</td>
+                <td>${fmt(Number(sp.assists),2)}</td>
+                <td>${fmt(Number(sp.points),2)}</td>
+                <td>${fmt(Number(sp.shots),2)}</td>
+                <td>${fmt(Number(sp.blocks),2)}</td>
+                <td>${stoi}</td>
+              </tr>
+            `;
+          }).join('');
+
+          return `
+            <div class="section-title">${title}</div>
+            <table class="boxscore">
+              <thead><tr>
+                <th class="sortable" data-sort-type="text">Player</th>
+                <th class="sortable" data-sort-type="text">Pos</th>
+                <th colspan="6">${liveLabel}</th>
+                <th colspan="6">Sim (proj)</th>
+              </tr>
+              <tr>
+                <th></th><th></th>
+                <th class="sortable" data-sort-type="num">G</th>
+                <th class="sortable" data-sort-type="num">A</th>
+                <th class="sortable" data-sort-type="num">P</th>
+                <th class="sortable" data-sort-type="num">S</th>
+                <th class="sortable" data-sort-type="num">BLK</th>
+                <th class="sortable" data-sort-type="toi">TOI</th>
+                <th class="sortable" data-sort-type="num">G</th>
+                <th class="sortable" data-sort-type="num">A</th>
+                <th class="sortable" data-sort-type="num">P</th>
+                <th class="sortable" data-sort-type="num">S</th>
+                <th class="sortable" data-sort-type="num">BLK</th>
+                <th class="sortable" data-sort-type="toi">TOI</th>
+              </tr></thead>
+              <tbody>${body || ''}</tbody>
+            </table>
+          `;
+        };
+
+        const renderMergedGoalies = (title, liveArr, simMap) => {
+          const live = Array.isArray(liveArr) ? liveArr.slice(0,2) : [];
+          const rows = [];
+          const seenIds = new Set();
+          for (const r of live) {
+            const pid = getPlayerId(r);
+            const k = nameKey(r && r.name);
+            const full = normName(r && r.name);
+            let s = null;
+            if (pid !== null && pid !== undefined) s = (simMap.byId && simMap.byId.get(pid)) || null;
+            if (!s && k) s = (simMap.byKey && simMap.byKey.get(k)) || null;
+            if (!s && full) s = (simMap.byFull && simMap.byFull.get(full)) || null;
+            rows.push({ live: r, sim: s });
+            if (pid !== null && pid !== undefined) seenIds.add(pid);
+          }
+          try {
+            const byId = simMap.byId || new Map();
+            const byKey = simMap.byKey || new Map();
+            const byFull = simMap.byFull || new Map();
+            if (byId.size) {
+              for (const [pid, s] of byId.entries()) {
+                if (seenIds.has(pid)) continue;
+                rows.push({ live: null, sim: s });
+              }
+            } else {
+              for (const [_k2, s] of byKey.entries()) {
+                rows.push({ live: null, sim: s });
+              }
+              if (!rows.length) {
+                for (const [_k3, s] of byFull.entries()) {
+                  rows.push({ live: null, sim: s });
+                }
+              }
+            }
+          } catch (e) {}
+
+          const body = rows.slice(0, 2).map(x => {
+            const lg = x.live || {};
+            const sg = x.sim || {};
+            const nm = lg.name || sg.player || '—';
+            const svPct = (lg && lg.sv_pct !== undefined && lg.sv_pct !== null && isFinite(Number(lg.sv_pct)))
+              ? (100 * Number(lg.sv_pct)).toFixed(1) + '%'
+              : '—';
+            const stoi = (isFinite(Number(sg.toi_sec)))
+              ? `${Math.floor(Number(sg.toi_sec)/60)}:${String(Math.floor(Number(sg.toi_sec)%60)).padStart(2,'0')}`
+              : '—';
+            return `
+              <tr>
+                <td class="player">${nm}</td>
+                <td>${lg.saves ?? '—'}</td>
+                <td>${lg.shots_against ?? '—'}</td>
+                <td>${svPct}</td>
+                <td>${fmt(Number(sg.saves),2)}</td>
+                <td>${stoi}</td>
+              </tr>
+            `;
+          }).join('');
+
+          return `
+            <div class="section-title">${title}</div>
+            <table class="boxscore">
+              <thead><tr>
+                <th class="sortable" data-sort-type="text">Goalie</th>
+                <th colspan="3">${liveLabel}</th>
+                <th colspan="2">Sim (proj)</th>
+              </tr>
+              <tr>
+                <th></th>
+                <th class="sortable" data-sort-type="num">SV</th>
+                <th class="sortable" data-sort-type="num">SA</th>
+                <th class="sortable" data-sort-type="pct">SV%</th>
+                <th class="sortable" data-sort-type="num">SV</th>
+                <th class="sortable" data-sort-type="toi">TOI</th>
+              </tr></thead>
+              <tbody>${body || ''}</tbody>
+            </table>
+          `;
+        };
+
+        const out = [];
+        out.push(`<div class="k">Sim vs ${liveLabel}</div>`);
+        // Always attempt to render merged tables. If live stats are missing, the table
+        // still shows sim-only rows so the Live Lens card isn't empty pre-live.
+        out.push(renderMergedSkaters(`Skaters (${away || 'Away'})`, (players && players.away) ? players.away : [], simAway));
+        out.push(renderMergedSkaters(`Skaters (${home || 'Home'})`, (players && players.home) ? players.home : [], simHome));
+        out.push(renderMergedGoalies(`Goalies (${away || 'Away'})`, (goalies && goalies.away) ? goalies.away : [], simGAway));
+        out.push(renderMergedGoalies(`Goalies (${home || 'Home'})`, (goalies && goalies.home) ? goalies.home : [], simGHome));
+        return out.join('');
+      } catch (e) {
+        return '';
+      }
+    }
+
     function renderOdds(oddsGame) {
       if (!oddsGame) return '';
       const ml = oddsGame.ml || {};
@@ -761,11 +1204,69 @@
       return `<div class="v"><span class="muted">Live odds:</span> ${parts.join(' · ')}</div>`;
     }
 
+    function renderTopLiveContext(game) {
+      try {
+        const g = (game && game.guidance) ? game.guidance : null;
+        if (!g) return '';
+
+        const parts = [];
+
+        if (g.manpower) {
+          let mp = String(g.manpower);
+          if (g.pp_team) {
+            const side = String(g.pp_team).toUpperCase() === 'HOME' ? 'H' : 'A';
+            mp += ` ${side}PP`;
+            if (g.pp_sec_remaining_est !== null && g.pp_sec_remaining_est !== undefined && isFinite(Number(g.pp_sec_remaining_est))) {
+              const rem = Math.max(0, Math.round(Number(g.pp_sec_remaining_est)));
+              const mm = Math.floor(rem / 60);
+              const ss = rem % 60;
+              mp += ` ${mm}:${String(ss).padStart(2,'0')}`;
+            }
+          }
+          parts.push(mp);
+        }
+
+        if (g.away_empty_net || g.home_empty_net) {
+          const en = [];
+          if (g.away_empty_net) en.push('A-EN');
+          if (g.home_empty_net) en.push('H-EN');
+          parts.push(en.join('/'));
+        }
+
+        if ((g.away_att_l5 !== null && g.away_att_l5 !== undefined) || (g.home_att_l5 !== null && g.home_att_l5 !== undefined)) {
+          const aa5 = (g.away_att_l5 !== null && g.away_att_l5 !== undefined && isFinite(Number(g.away_att_l5))) ? String(Math.round(Number(g.away_att_l5))) : '—';
+          const ha5 = (g.home_att_l5 !== null && g.home_att_l5 !== undefined && isFinite(Number(g.home_att_l5))) ? String(Math.round(Number(g.home_att_l5))) : '—';
+          parts.push(`AttL5 A${aa5}/H${ha5}`);
+        }
+
+        if ((g.away_xg_proxy_l10 !== null && g.away_xg_proxy_l10 !== undefined) || (g.home_xg_proxy_l10 !== null && g.home_xg_proxy_l10 !== undefined)) {
+          const ax = (g.away_xg_proxy_l10 !== null && g.away_xg_proxy_l10 !== undefined && isFinite(Number(g.away_xg_proxy_l10))) ? fmt(Number(g.away_xg_proxy_l10), 2) : '—';
+          const hx = (g.home_xg_proxy_l10 !== null && g.home_xg_proxy_l10 !== undefined && isFinite(Number(g.home_xg_proxy_l10))) ? fmt(Number(g.home_xg_proxy_l10), 2) : '—';
+          parts.push(`xG10 A${ax}/H${hx}`);
+        }
+
+        if (!parts.length) return '';
+        return `<span class="muted">Live context:</span> ${parts.join(' · ')}`;
+      } catch (e) {
+        return '';
+      }
+    }
+
     function renderGuidance(game) {
       const g = (game && game.guidance) ? game.guidance : null;
       if (!g) return '';
       const notes = Array.isArray(g.notes) ? g.notes.filter(x => String(x || '').trim()) : [];
       const lean = String(g.lean_total || 'neutral').toUpperCase();
+
+      const per = (game && game.period !== undefined && game.period !== null) ? game.period : null;
+      const clock = (game && game.clock) ? String(game.clock) : '';
+      const score = (game && game.score) ? game.score : {};
+      const awayScore = (score && score.away !== undefined && score.away !== null) ? score.away : '—';
+      const homeScore = (score && score.home !== undefined && score.home !== null) ? score.home : '—';
+
+      const sigs = (game && Array.isArray(game.signals)) ? game.signals : [];
+      const betSigs = sigs.filter(s => String((s||{}).action||'').toUpperCase() === 'BET');
+      const watchSigs = sigs.filter(s => String((s||{}).action||'').toUpperCase() === 'WATCH');
 
       const bits = [];
       if (g.goal_pace_60 !== null && g.goal_pace_60 !== undefined) bits.push(`Goal pace/60 ${fmt(g.goal_pace_60, 1)}`);
@@ -782,9 +1283,126 @@
       const eOver = (g.edge_over !== null && g.edge_over !== undefined) ? Number(g.edge_over) : null;
       const eUnder = (g.edge_under !== null && g.edge_under !== undefined) ? Number(g.edge_under) : null;
 
+      const totalGoals = (g.total_goals !== null && g.total_goals !== undefined && isFinite(Number(g.total_goals))) ? Number(g.total_goals) : null;
+      const liveLine = (g.live_total_line !== null && g.live_total_line !== undefined && isFinite(Number(g.live_total_line))) ? Number(g.live_total_line) : null;
+      const remMin = (g.remaining_min !== null && g.remaining_min !== undefined && isFinite(Number(g.remaining_min))) ? Number(g.remaining_min) : null;
+      const muRem = (g.mu_remaining !== null && g.mu_remaining !== undefined && isFinite(Number(g.mu_remaining))) ? Number(g.mu_remaining) : null;
+
       const lines = [];
       lines.push(`<div class="k">Live guidance</div>`);
+      if (per !== null || clock || (awayScore !== '—' && homeScore !== '—')) {
+        const headBits = [];
+        if (per !== null) headBits.push(`P${per}`);
+        if (clock) headBits.push(String(clock));
+        headBits.push(`Score ${awayScore}-${homeScore}`);
+        if (totalGoals !== null) headBits.push(`Total ${totalGoals}`);
+        lines.push(`<div class="v"><strong>${headBits.join(' · ')}</strong></div>`);
+      }
       lines.push(`<div class="v"><span class="muted">Lean:</span> <strong>${lean}</strong>${bits.length ? ' · ' + bits.join(' · ') : ''}</div>`);
+
+      // Make the total situation explicit (needs / allows) + a simple projection.
+      try {
+        if (liveLine !== null && totalGoals !== null) {
+          const isInt = Math.abs(liveLine - Math.round(liveLine)) < 1e-9;
+          const overWinTotal = isInt ? (Math.round(liveLine) + 1) : (Math.floor(liveLine) + 1);
+          const underWinTotal = isInt ? (Math.round(liveLine) - 1) : Math.floor(liveLine);
+          const overNeeds = Math.max(0, overWinTotal - totalGoals);
+          const underAllows = (underWinTotal - totalGoals);
+          const tBits = [];
+          tBits.push(`Line ${fmt(liveLine, 1)}`);
+          tBits.push(`Over needs ${overNeeds}${overNeeds === 1 ? ' goal' : ' goals'}+`);
+          if (underAllows >= 0) {
+            tBits.push(`Under allows ${underAllows}${underAllows === 1 ? ' more goal' : ' more goals'}`);
+          } else {
+            tBits.push(`Under likely dead`);
+          }
+          if (remMin !== null) {
+            tBits.push(`Remaining ${fmt(remMin, 1)}m`);
+            if (remMin > 0 && overNeeds > 0) {
+              tBits.push(`Need pace ${(60.0 * overNeeds / remMin).toFixed(1)}/60`);
+            }
+          }
+          lines.push(`<div class="v"><span class="muted">Total situation:</span> ${tBits.join(' · ')}</div>`);
+        }
+        if (totalGoals !== null && muRem !== null) {
+          const projFinal = totalGoals + muRem;
+          lines.push(`<div class="v"><span class="muted">Projection:</span> remaining ${fmt(muRem, 2)} → final ${fmt(projFinal, 2)}</div>`);
+        }
+      } catch (e) {
+        // ignore
+      }
+
+      // Play-by-play context (best-effort): manpower/PP, empty net, and pressure.
+      try {
+        if (g.manpower) {
+          let mp = `Manpower ${String(g.manpower)}`;
+          if (g.pp_team) {
+            mp += ` · ${String(g.pp_team).toUpperCase()} PP`;
+            if (g.pp_sec_remaining_est !== null && g.pp_sec_remaining_est !== undefined && isFinite(Number(g.pp_sec_remaining_est))) {
+              const rem = Math.max(0, Math.round(Number(g.pp_sec_remaining_est)));
+              const mm = Math.floor(rem / 60);
+              const ss = rem % 60;
+              mp += ` (est ${mm}:${String(ss).padStart(2,'0')})`;
+            }
+          }
+          lines.push(`<div class="v"><span class="muted">Context:</span> ${mp}</div>`);
+        }
+
+        if (g.home_empty_net || g.away_empty_net) {
+          const en = [];
+          if (g.away_empty_net) en.push('Away EN');
+          if (g.home_empty_net) en.push('Home EN');
+          lines.push(`<div class="v"><span class="muted">Context:</span> Empty net ${en.join(' / ')}</div>`);
+        }
+
+        if ((g.away_att_l5 !== null && g.away_att_l5 !== undefined) || (g.home_att_l5 !== null && g.home_att_l5 !== undefined)) {
+          const aa5 = (g.away_att_l5 !== null && g.away_att_l5 !== undefined && isFinite(Number(g.away_att_l5))) ? String(Math.round(Number(g.away_att_l5))) : '—';
+          const ha5 = (g.home_att_l5 !== null && g.home_att_l5 !== undefined && isFinite(Number(g.home_att_l5))) ? String(Math.round(Number(g.home_att_l5))) : '—';
+          lines.push(`<div class="v"><span class="muted">Pressure:</span> Attempts last5 A ${aa5} / H ${ha5}</div>`);
+        }
+
+        if ((g.away_xg_proxy_l10 !== null && g.away_xg_proxy_l10 !== undefined) || (g.home_xg_proxy_l10 !== null && g.home_xg_proxy_l10 !== undefined)) {
+          const ax = (g.away_xg_proxy_l10 !== null && g.away_xg_proxy_l10 !== undefined && isFinite(Number(g.away_xg_proxy_l10))) ? fmt(Number(g.away_xg_proxy_l10), 2) : '—';
+          const hx = (g.home_xg_proxy_l10 !== null && g.home_xg_proxy_l10 !== undefined && isFinite(Number(g.home_xg_proxy_l10))) ? fmt(Number(g.home_xg_proxy_l10), 2) : '—';
+          lines.push(`<div class="v"><span class="muted">Pressure:</span> xG proxy last10 A ${ax} / H ${hx}</div>`);
+        }
+      } catch (e) {
+        // ignore
+      }
+
+      // Signals (WATCH/BET)
+      try {
+        const renderSigPill = (s) => {
+          const act = String((s||{}).action || 'WATCH').toUpperCase();
+          const cls = (act === 'BET') ? 'bet pos' : 'bet';
+          const label = String((s||{}).label || '').trim() || 'Signal';
+          const p = (s && s.p_model !== undefined && s.p_model !== null && isFinite(Number(s.p_model))) ? pct(Number(s.p_model)) : null;
+          const edge = (s && s.edge !== undefined && s.edge !== null && isFinite(Number(s.edge))) ? (Number(s.edge) >= 0 ? '+' : '') + fmt(100*Number(s.edge), 1) + '%' : null;
+          const price = (s && s.price !== undefined && s.price !== null) ? String(s.price) : null;
+          const fair = (s && s.fair_price_american !== undefined && s.fair_price_american !== null) ? String(s.fair_price_american) : null;
+          const maxp = (s && s.target_max_price_american !== undefined && s.target_max_price_american !== null) ? String(s.target_max_price_american) : null;
+
+          const meta = [];
+          if (p) meta.push(`p ${p}`);
+          if (edge) meta.push(`edge ${edge}`);
+          if (price) meta.push(`live ${price}`);
+          if (fair) meta.push(`fair ${fair}`);
+          if (maxp) meta.push(`max ${maxp}`);
+
+          const metaTxt = meta.length ? ` <span class="muted">(${meta.join(' · ')})</span>` : '';
+          return `<span class="${cls}">${act}: ${label}</span>${metaTxt}`;
+        };
+
+        const shown = [];
+        for (const s of betSigs.slice(0, 6)) shown.push(renderSigPill(s));
+        for (const s of watchSigs.slice(0, Math.max(0, 6 - shown.length))) shown.push(renderSigPill(s));
+        if (shown.length) {
+          lines.push(`<div class="v"><span class="muted">Signals:</span></div>`);
+          lines.push(`<div class="bets">${shown.join(' ')}</div>`);
+        }
+      } catch (e) {
+        // ignore
+      }
 
       if (hasModel) {
         const parts = [];
@@ -810,41 +1428,175 @@
       return lines.join('');
     }
 
-    async function maybeLoadLiveLens(date, preds) {
+    async function maybeLoadLiveLens(date, preds, opts=null) {
       try {
         if (date !== currentDate) return false;
-        const anyLive = (preds || []).some(p => isLiveState(p.game_state));
-        if (!anyLive) return false;
+        const o = opts || {};
+        const inplay = (o.inplay !== undefined && o.inplay !== null) ? Number(o.inplay) : 1;
+        const includeNonLive = (o.includeNonLive !== undefined && o.includeNonLive !== null)
+          ? Number(o.includeNonLive)
+          : (inplay ? 0 : 1);
 
-        const live = await fetchJson(`/v1/live-lens/${encodeURIComponent(date)}?best=1&inplay=1`);
+        const settleRecOutcome = (market, side, line, awayGoals, homeGoals) => {
+          try {
+            const m = String(market || '').toUpperCase();
+            const s = String(side || '').toUpperCase();
+            const ag = Number(awayGoals);
+            const hg = Number(homeGoals);
+            if (!isFinite(ag) || !isFinite(hg)) return null;
+
+            if (m.includes('ML')) {
+              if (hg === ag) return 'P';
+              const winner = (hg > ag) ? 'HOME' : 'AWAY';
+              if (s.includes('HOME')) return (winner === 'HOME') ? 'W' : 'L';
+              if (s.includes('AWAY')) return (winner === 'AWAY') ? 'W' : 'L';
+              return null;
+            }
+
+            if (m.includes('TOTAL')) {
+              const tot = ag + hg;
+              const ln = (line !== null && line !== undefined && String(line).trim() !== '') ? Number(line) : NaN;
+              if (!isFinite(ln)) return null;
+              if (Math.abs(ln - Math.round(ln)) < 1e-9 && Math.abs(tot - Math.round(ln)) < 1e-9) return 'P';
+              if (s.includes('OVER')) return (tot > ln) ? 'W' : 'L';
+              if (s.includes('UNDER')) return (tot < ln) ? 'W' : 'L';
+              return null;
+            }
+
+            if (m.includes('PL') || m.includes('PUCK')) {
+              // Assume standard ±1.5.
+              const diff = hg - ag;
+              if (s.includes('HOME') && s.includes('-1.5')) return (diff >= 2) ? 'W' : 'L';
+              if (s.includes('AWAY') && (s.includes('+1.5') || s.includes('1.5'))) return (diff <= 1) ? 'W' : 'L';
+              // If side omits the line, infer from HOME/AWAY.
+              if (s.includes('HOME')) return (diff >= 2) ? 'W' : 'L';
+              if (s.includes('AWAY')) return (diff <= 1) ? 'W' : 'L';
+              return null;
+            }
+            return null;
+          } catch (e) {
+            return null;
+          }
+        };
+
+        const live = await fetchJson(`/v1/live-lens/${encodeURIComponent(date)}?best=1&inplay=${inplay ? 1 : 0}&include_non_live=${includeNonLive ? 1 : 0}`);
         if (!live || !live.ok) return false;
         if (date !== currentDate) return false;
-        const map = new Map();
+        const mapByKey = new Map();
+        const mapByPk = new Map();
         for (const g of (live.games || [])) {
-          const k = keyForGame(g);
-          map.set(normKey(k), g);
+          try {
+            const k0 = (g && g.key) ? String(g.key) : '';
+            const k1 = keyForGame(g);
+            if (k0.trim()) mapByKey.set(normKey(k0), g);
+            if (k1.trim()) mapByKey.set(normKey(k1), g);
+          } catch (e) {}
+          try {
+            const pk = (g && g.gamePk !== undefined && g.gamePk !== null) ? String(g.gamePk).trim() : '';
+            if (pk) mapByPk.set(pk, g);
+          } catch (e) {}
         }
 
         const anyLiveNow = (live.games || []).some(g => isLiveState(g.gameState));
 
         for (const card of document.querySelectorAll('.card[data-game-key]')) {
           const k = normKey(card.dataset.gameKey);
-          const g = map.get(k);
-          if (!g) continue;
           const box = card.querySelector('.live-lens');
           if (!box) continue;
           const lensBody = box.querySelector('.live-lens-body') || box;
-          lensBody.innerHTML = renderLens(g);
-
           const oddsBody = box.querySelector('.live-odds-body') || box;
-          const oddsHtml = renderOdds(g.odds || null);
-          oddsBody.innerHTML = oddsHtml;
-
           const guidanceBody = box.querySelector('.live-guidance-body') || box;
-          const guidanceHtml = renderGuidance(g);
-          guidanceBody.innerHTML = guidanceHtml;
+          let g = null;
+          try {
+            const pk = String(card.dataset.gamePk || '').trim();
+            if (pk && mapByPk.has(pk)) g = mapByPk.get(pk);
+          } catch (e) {}
+          if (!g) {
+            g = mapByKey.get(k) || null;
+          }
+          if (!g) {
+            // Best-effort fallback if future payloads ever key by abbreviations.
+            const ak = String(card.dataset.awayAbbr || '').trim();
+            const hk = String(card.dataset.homeAbbr || '').trim();
+            if (ak && hk) g = mapByKey.get(normKey(`${ak} @ ${hk}`)) || null;
+          }
 
-          box.style.display = 'grid';
+          // FINAL score at top for historic slates.
+          try {
+            const fs = card.querySelector('[data-role="final-score"]');
+            const st = String(g && g.gameState ? g.gameState : '').toUpperCase();
+            const sc = (g && g.score) ? g.score : null;
+            const ag = sc && sc.away !== undefined ? sc.away : null;
+            const hg = sc && sc.home !== undefined ? sc.home : null;
+            if (fs) {
+              if (g && st.includes('FINAL') && ag !== null && hg !== null) {
+                fs.textContent = `FINAL ${ag}-${hg}`;
+                fs.classList.add('show');
+              } else {
+                fs.textContent = '';
+                fs.classList.remove('show');
+              }
+            }
+          } catch (e) {}
+
+          // Reconcile displayed recommendations for FINAL games.
+          try {
+            const st = String(g && g.gameState ? g.gameState : '').toUpperCase();
+            if (g && st.includes('FINAL') && g.score) {
+              const ag = g.score.away;
+              const hg = g.score.home;
+              for (const betEl of card.querySelectorAll('.bets .bet[data-market][data-side]')) {
+                const m = betEl.dataset.market;
+                const s = betEl.dataset.side;
+                const line = (betEl.dataset.line !== undefined) ? betEl.dataset.line : null;
+                const out = settleRecOutcome(m, s, line, ag, hg);
+                const outEl = betEl.querySelector('[data-role="rec-outcome"]');
+                if (outEl) outEl.textContent = out ? `· ${out}` : '';
+              }
+            } else {
+              for (const betEl of card.querySelectorAll('.bets .bet [data-role="rec-outcome"]')) {
+                betEl.textContent = '';
+              }
+            }
+          } catch (e) {}
+
+          // Always keep top live context line in sync.
+          try {
+            const ctxTop = card.querySelector('.live-ctx-top');
+            if (ctxTop) ctxTop.innerHTML = g ? renderTopLiveContext(g) : '';
+          } catch (e) {}
+
+          // Update merged Sim vs Live tables using the pregame team names so sim rows match.
+          try {
+            const displayKey = String(card.dataset.gameKey || '').trim();
+            const simRows = (window.__SIM_BY_GAME__ && window.__SIM_BY_GAME__.get) ? (window.__SIM_BY_GAME__.get(displayKey) || []) : [];
+            const pred = (window.__PREDS_BY_GAME__ && window.__PREDS_BY_GAME__.get) ? (window.__PREDS_BY_GAME__.get(displayKey) || null) : null;
+            const awayNm = pred ? (pred.away || '') : (g ? (g.away || '') : '');
+            const homeNm = pred ? (pred.home || '') : (g ? (g.home || '') : '');
+            const mergedEl = card.querySelector('.merged-body');
+            if (mergedEl && Array.isArray(simRows) && simRows.length) {
+              const gMerge = {
+                away: awayNm,
+                home: homeNm,
+                gameState: g ? g.gameState : null,
+                lens: (g && g.lens) ? g.lens : { players: { away: [], home: [] }, goalies: { away: [], home: [] } },
+              };
+              mergedEl.innerHTML = renderMergedSimLive(gMerge, simRows);
+            }
+          } catch (e) {}
+
+          // Show live lens drivers only when the game is actually live.
+          if (g && isLiveState(g.gameState)) {
+            lensBody.innerHTML = renderLens(g);
+            oddsBody.innerHTML = renderOdds(g.odds || null);
+            guidanceBody.innerHTML = renderGuidance(g);
+            box.style.display = 'grid';
+          } else {
+            lensBody.innerHTML = '';
+            oddsBody.innerHTML = '';
+            guidanceBody.innerHTML = '';
+            box.style.display = 'none';
+          }
         }
 
         return anyLiveNow;
@@ -861,18 +1613,18 @@
       }
     }
 
-    function startLivePolling(date, preds) {
+    function startLivePolling(date, preds, opts=null) {
       stopLivePolling();
-      const anyLive = (preds || []).some(p => isLiveState(p.game_state));
-      if (!anyLive) return;
+      const o = opts || {};
+      const inplay = (o.inplay !== undefined && o.inplay !== null) ? Number(o.inplay) : 1;
+      const includeNonLive = (o.includeNonLive !== undefined && o.includeNonLive !== null) ? Number(o.includeNonLive) : 0;
 
       livePollTimer = setInterval(async () => {
         if (date !== currentDate) return;
         if (livePollInFlight) return;
         livePollInFlight = true;
         try {
-          const stillLive = await maybeLoadLiveLens(date, preds);
-          if (!stillLive) stopLivePolling();
+          await maybeLoadLiveLens(date, preds, { inplay, includeNonLive });
         } finally {
           livePollInFlight = false;
         }
@@ -927,6 +1679,7 @@
 
       const preds = (((b.data||{}).games||{}).predictions||{}).rows || [];
       const recs = (((b.data||{}).games||{}).recommendations||{}).rows || [];
+      const propsRecs = (((b.data||{}).props||{}).recommendations||{}).rows || [];
 
       const simRows = (sim && (sim.rows || sim.data)) ? (sim.rows || sim.data) : [];
       const nSims = (simSummary && simSummary.ok) ? simSummary.n_sims : null;
@@ -939,12 +1692,30 @@
           simByGame.get(k).push(r);
         }
       }
+      // Expose for live lens merging
+      try { window.__SIM_BY_GAME__ = simByGame; } catch (e) {}
+
+      // Expose predictions for live lens merging (so merged sim/live uses team names consistently)
+      try {
+        const predsByGame = new Map();
+        for (const p of (preds || [])) {
+          const kk = keyForGame(p);
+          predsByGame.set(kk, p);
+        }
+        window.__PREDS_BY_GAME__ = predsByGame;
+      } catch (e) {}
 
       if (!preds.length) {
         setStatus(`No games found for ${date}.`);
         setEmpty('No predictions rows available for this date yet.');
         return;
       }
+
+      // Sort games by scheduled start time.
+      const predsSorted = sortPredsByStart(preds);
+
+      // Single unified view: always show the full slate.
+      const predsToShow = predsSorted;
 
       // index recs by game key (away@home)
       const byGame = new Map();
@@ -954,21 +1725,43 @@
         byGame.get(k).push(r);
       }
 
+      // Index props recommendations by team abbreviation
+      const propsByTeam = new Map();
+      for (const r of (propsRecs || [])) {
+        const tm = toUpper(r && r.team);
+        if (!tm) continue;
+        if (!propsByTeam.has(tm)) propsByTeam.set(tm, []);
+        propsByTeam.get(tm).push(r);
+      }
+
       const frag = document.createDocumentFragment();
-      for (const p of preds) {
+      for (const p of predsToShow) {
         const k = keyForGame(p);
-        frag.appendChild(renderCard(p, byGame.get(k) || [], simByGame.get(k) || [], nSims));
+        const aAb = toUpper(p && p.away_abbr);
+        const hAb = toUpper(p && p.home_abbr);
+        frag.appendChild(renderCard(
+          p,
+          byGame.get(k) || [],
+          simByGame.get(k) || [],
+          (aAb && propsByTeam.get(aAb)) ? propsByTeam.get(aAb) : [],
+          (hAb && propsByTeam.get(hAb)) ? propsByTeam.get(hAb) : [],
+        ));
       }
       $('cards').appendChild(frag);
 
-      // Overlay live lens (one fetch per date; best-effort)
-      maybeLoadLiveLens(date, preds);
-      // Poll for updates while live (single interval; best-effort)
-      startLivePolling(date, preds);
+      // Overlay live lens:
+      // - For today: poll live-only (inplay=1)
+      // - For past/future slates: fetch non-live too (include_non_live=1) so FINAL results show next to sim
+      const todayIso = String(new Date().toISOString().slice(0, 10));
+      const isToday = String(date) === todayIso;
+      const inplay = isToday ? 1 : 0;
+      const includeNonLive = isToday ? 0 : 1;
+      await maybeLoadLiveLens(date, preds, { inplay, includeNonLive });
+      if (isToday) startLivePolling(date, preds, { inplay, includeNonLive });
 
       const note = b.note ? ` (${b.note})` : '';
-      const simNote = (nSims && isFinite(Number(nSims))) ? ` · sim n=${Number(nSims)}` : '';
-      setStatus(`${date}: ${preds.length} games${simNote}${note}`);
+      const liveCount = predsSorted.filter(p => isLiveState(p.game_state)).length;
+      setStatus(`${date}: ${predsToShow.length} games · live ${liveCount}/${predsSorted.length}${note}`);
     }
 
     async function init() {
@@ -978,6 +1771,12 @@
           localStorage.setItem('theme', document.documentElement.classList.contains('light') ? 'light' : 'dark');
         } catch (e) {}
       };
+
+      try {
+        const titleEl = $('pageTitle');
+        if (titleEl) titleEl.textContent = 'NHL Betting – Cards';
+        document.title = 'NHL Betting – Cards';
+      } catch (e) {}
 
       try {
         const d = await fetchJson('/v1/dates');

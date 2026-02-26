@@ -984,8 +984,11 @@
         if (!d.ok) throw new Error(d.error || 'dates_error');
         const requested = getRequestedDate();
         const dateInput = $('datePicker');
-        const initialDate = (requested || (Array.isArray(d.trio) ? d.trio[1] : null) || d.latest || '').trim();
-        if (!initialDate) throw new Error('No dates returned');
+        let initialDate = (requested || (Array.isArray(d.trio) ? d.trio[1] : null) || d.latest || '').trim();
+        if (!initialDate) {
+          // Last-resort fallback so the UI can still load even if server has no artifacts yet.
+          initialDate = String(new Date().toISOString().slice(0,10));
+        }
 
         dateInput.value = initialDate;
         dateInput.onchange = async () => {

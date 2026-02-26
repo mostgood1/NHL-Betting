@@ -154,6 +154,8 @@ async def _cards_only_ui_mw(request: Request, call_next):
     # Allow the single page + assets + APIs + docs
     if path == "/":
         return await call_next(request)
+    if path.startswith("/diag/"):
+        return await call_next(request)
     if path.startswith("/static/") or path.startswith("/v1/") or path.startswith("/api/"):
         return await call_next(request)
     if path in {"/openapi.json", "/docs", "/redoc"}:
@@ -672,23 +674,42 @@ async def v1_manifest():
 
 @app.get("/v1/dates")
 async def v1_dates():
+    # IMPORTANT: this endpoint must never 500 because the cards-only UI depends on it.
+    note = None
+    dates: list[str] = []
+    latest = None
     try:
         from ..publish.daily_bundles import build_manifest
 
         man = build_manifest(PROC_DIR)
-        dates = man.get("dates") or []
-        # Provide convenience trio for the UI (yesterday/today/tomorrow)
-        try:
-            today = _today_ymd()
-            y = (datetime.now(timezone.utc) - timedelta(days=1)).astimezone(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
-            t = today
-            tm = (datetime.now(timezone.utc) + timedelta(days=1)).astimezone(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
-            trio = [y, t, tm]
-        except Exception:
-            trio = []
-        return JSONResponse({"ok": True, "dates": dates, "latest": man.get("latest"), "trio": trio})
+        if isinstance(man, dict):
+            dates = man.get("dates") or []
+            latest = man.get("latest")
+        else:
+            note = "manifest_not_dict"
     except Exception as e:
-        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+        note = f"manifest_error: {e}"
+
+    # Provide convenience trio for the UI (yesterday/today/tomorrow)
+    trio: list[str] = []
+    try:
+        try:
+            t = _today_ymd()
+        except Exception:
+            t = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        base = datetime.strptime(t, "%Y-%m-%d")
+        trio = [
+            (base - timedelta(days=1)).strftime("%Y-%m-%d"),
+            base.strftime("%Y-%m-%d"),
+            (base + timedelta(days=1)).strftime("%Y-%m-%d"),
+        ]
+    except Exception:
+        trio = []
+
+    payload: dict[str, Any] = {"ok": True, "dates": dates, "latest": latest, "trio": trio}
+    if note:
+        payload["note"] = note
+    return JSONResponse(payload)
 
 
 @app.get("/v1/bundle/{date}")

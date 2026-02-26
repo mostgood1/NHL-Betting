@@ -20,6 +20,7 @@ from ..utils.io import PROC_DIR, RAW_DIR, MODEL_DIR
 from .teams import get_team_assets
 
 from fastapi import FastAPI, Request, Query, Header
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from jinja2 import Environment, FileSystemLoader, select_autoescape
@@ -75,6 +76,66 @@ def _compute_allowed() -> bool:
     return not _is_public_host_env()
 
 app = FastAPI()
+
+
+@app.exception_handler(StarletteHTTPException)
+async def _http_exc_handler(request: Request, exc: StarletteHTTPException):
+    try:
+        return JSONResponse(
+            {
+                "ok": False,
+                "error": "http_exception",
+                "status_code": int(getattr(exc, "status_code", 500) or 500),
+                "detail": getattr(exc, "detail", None),
+                "path": str(getattr(request.url, "path", "")),
+                "commit": (_git_commit_hash() or "")[:12],
+            },
+            status_code=int(getattr(exc, "status_code", 500) or 500),
+        )
+    except Exception:
+        return JSONResponse({"ok": False, "error": "http_exception"}, status_code=500)
+
+
+@app.exception_handler(Exception)
+async def _unhandled_exc_handler(request: Request, exc: Exception):
+    # Last-resort guardrail: ensure callers get a JSON body rather than a blank 500.
+    # Do not include stack traces in the response (Render logs will still show them).
+    try:
+        try:
+            import traceback
+
+            print("UNHANDLED_EXCEPTION", getattr(request.url, "path", ""))
+            traceback.print_exc()
+        except Exception:
+            pass
+        return JSONResponse(
+            {
+                "ok": False,
+                "error": "unhandled_exception",
+                "detail": str(exc),
+                "path": str(getattr(request.url, "path", "")),
+                "commit": (_git_commit_hash() or "")[:12],
+            },
+            status_code=500,
+        )
+    except Exception:
+        return JSONResponse({"ok": False, "error": "unhandled_exception"}, status_code=500)
+
+
+@app.get("/diag/healthz")
+def diag_healthz():
+    """Ultra-minimal readiness probe with a little file-system context."""
+    try:
+        return {
+            "ok": True,
+            "commit": (_git_commit_hash() or "")[:12],
+            "cwd": os.getcwd(),
+            "template_dir": str(TEMPLATE_DIR),
+            "templates_exist": bool(TEMPLATE_DIR.exists()),
+            "cards_only_exists": bool((TEMPLATE_DIR / "cards_only.html").exists()),
+        }
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
 
 # ----------------------------------------------------------------------------------
 # Cards-only UI mode: treat all other HTML pages as removed.
@@ -3593,8 +3654,8 @@ def health_render():
     except Exception:
         et_today = ""
     try:
-        template = env.get_template("cards.html")
-        html = template.render(date=et_today, original_date=None, rows=[], note=None, live_now=False, settled=False)
+        template = env.get_template("cards_only.html")
+        html = template.render()
         return HTMLResponse(content=html)
     except Exception as e:
         return JSONResponse({"status": "error", "error": str(e)}, status_code=500)
@@ -3942,8 +4003,12 @@ async def _ensure_models(quick: bool = False) -> None:
 async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD")):
     # Cards-only UI: serve a single static page that pulls from the read-only /v1 bundles API.
     # This intentionally avoids server-side compute/odds fetching in response to user page loads.
-    template = env.get_template("cards_only.html")
-    return HTMLResponse(content=template.render())
+    try:
+        template = env.get_template("cards_only.html")
+        return HTMLResponse(content=template.render())
+    except Exception as e:
+        h = (_git_commit_hash() or "")[:12]
+        return PlainTextResponse(f"cards UI unavailable: {e} (commit {h})", status_code=200)
     rows = df.to_dict(orient="records") if not df.empty else []
     # Fallback/sanitization: if predictions CSV lacks projection fields (older files) or they are NaN, derive them now
     if rows:

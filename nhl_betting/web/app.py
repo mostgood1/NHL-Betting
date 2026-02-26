@@ -597,10 +597,13 @@ async def v1_manifest():
         if p.exists():
             try:
                 obj = json.loads(p.read_text(encoding="utf-8"))
-                return JSONResponse({"ok": True, **obj})
+                if isinstance(obj, dict):
+                    return JSONResponse({"ok": True, **obj})
             except Exception:
                 pass
         obj = build_manifest(PROC_DIR)
+        if not isinstance(obj, dict):
+            return JSONResponse({"ok": False, "error": "invalid_manifest_format"}, status_code=500)
         return JSONResponse({"ok": True, **obj})
     except Exception as e:
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
@@ -671,6 +674,8 @@ async def v1_bundle(date: str):
         if p.exists():
             try:
                 obj = json.loads(p.read_text(encoding="utf-8"))
+                if not isinstance(obj, dict):
+                    obj = None
                 # Guard against stale persisted bundles (common in read-only deploys):
                 # if the persisted bundle points at older source files than we'd pick today,
                 # rebuild in-memory so the UI sees sim-backed markets (TOTAL/PL) when available.
@@ -685,6 +690,11 @@ async def v1_bundle(date: str):
                             obj = fresh
                     except Exception:
                         pass
+                elif isinstance(fresh, dict) and obj is None:
+                    obj = fresh
+
+                if not isinstance(obj, dict):
+                    obj = build_daily_bundle(d, PROC_DIR)
 
                 obj = _enrich_predictions_team_assets(obj)
                 return JSONResponse({"ok": True, **obj})

@@ -9228,6 +9228,85 @@ async def api_oddsapi_status():
     except Exception as e:
         return JSONResponse({'configured': True, 'ok': False, 'error': str(e)})
 
+
+@app.get('/api/live-lens/disk-status')
+async def api_live_lens_disk_status(write_test: bool = Query(False, description="If true, attempt a short write/delete test in LIVE_LENS_DIR")):
+    """Diagnostic for Render Disk persistence.
+
+    Reports LIVE_LENS_DIR/NHL_LIVE_LENS_DIR config, directory existence, and optionally
+    verifies write permissions by creating and deleting a tiny temp file.
+    """
+    snap_dir_s = (os.getenv("NHL_LIVE_LENS_DIR") or os.getenv("LIVE_LENS_DIR") or "").strip()
+    if not snap_dir_s:
+        return JSONResponse({
+            "configured": False,
+            "dir": None,
+            "exists": False,
+            "writable": False,
+            "error": "missing_live_lens_dir",
+            "recent_files": [],
+        })
+    p = Path(snap_dir_s)
+    exists = False
+    try:
+        exists = p.exists()
+    except Exception:
+        exists = False
+
+    writable = False
+    write_err = None
+    if write_test:
+        try:
+            p.mkdir(parents=True, exist_ok=True)
+            tmp = p / "__write_test.txt"
+            tmp.write_text(f"ok {datetime.now(timezone.utc).isoformat()}\n", encoding="utf-8")
+            try:
+                tmp.unlink(missing_ok=True)
+            except TypeError:
+                # Python <3.8 compatibility
+                if tmp.exists():
+                    tmp.unlink()
+            writable = True
+        except Exception as e:
+            writable = False
+            write_err = str(e)
+    else:
+        # Best-effort: infer writability by trying to create dir only.
+        try:
+            p.mkdir(parents=True, exist_ok=True)
+            writable = True
+        except Exception as e:
+            writable = False
+            write_err = str(e)
+
+    recent = []
+    try:
+        if p.exists():
+            files = list(p.glob("live_lens_signals_*.json*"))
+            files.sort(key=lambda fp: fp.stat().st_mtime if fp.exists() else 0, reverse=True)
+            for fp in files[:25]:
+                try:
+                    recent.append({
+                        "name": fp.name,
+                        "bytes": int(fp.stat().st_size),
+                        "mtime_utc": datetime.fromtimestamp(fp.stat().st_mtime, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    })
+                except Exception:
+                    recent.append({"name": fp.name})
+    except Exception:
+        recent = recent or []
+
+    return JSONResponse({
+        "configured": True,
+        "dir": str(p),
+        "exists": bool(exists),
+        "writable": bool(writable),
+        "write_test": bool(write_test),
+        "error": write_err,
+        "recent_files": recent,
+        "min_snapshot_seconds": (lambda: (float(os.getenv("LIVE_LENS_SNAPSHOT_MIN_SECONDS", "60") or "60")))(),
+    })
+
 @app.get('/api/ping')
 def api_ping():
     """Ultra-fast liveness check (lighter than /health)."""

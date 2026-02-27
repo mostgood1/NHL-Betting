@@ -10698,11 +10698,19 @@ async def api_props_lines_json(
         try: df = df[df['player_name'].astype(str).str.lower() == player.lower()]
         except Exception: pass
     keep = [c for c in ['date','player_name','player_id','team','market','line','over_price','under_price','book','first_seen_at','last_seen_at','is_current'] if c in df.columns]
-    if df.empty:
-        df = df[keep]
-    rows = _df_jsonsafe_records(df.rename(columns={'player_name':'player'}))
+    if keep:
+        try:
+            df = df[keep].copy()
+        except Exception:
+            pass
+    rows = _df_jsonsafe_records(df.rename(columns={'player_name': 'player'}))
     rows = [_normalize_props_row_dict(r) for r in rows]
-    return JSONResponse({"date": d, "data": rows, "total_rows": len(rows)})
+    payload = {"date": d, "data": rows, "total_rows": len(rows)}
+    try:
+        payload = _json_sanitize(payload)
+    except Exception:
+        pass
+    return JSONResponse(payload)
 
 @app.get('/api/props/projections/history.json')
 async def api_props_projections_history_json(

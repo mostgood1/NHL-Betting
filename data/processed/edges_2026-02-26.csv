@@ -1,5 +1,7 @@
 date,home,away,market,ev
-2026-02-27T03:30:00Z,Los Angeles Kings,Edmonton Oilers,ev_away_pl_+1.5,0.5702
-2026-02-27T03:30:00Z,Los Angeles Kings,Edmonton Oilers,ev_under,-0.0113
-2026-02-27T03:30:00Z,Los Angeles Kings,Edmonton Oilers,ev_over,-0.0682
-2026-02-27T03:30:00Z,Los Angeles Kings,Edmonton Oilers,ev_home_pl_-1.5,-0.6611
+2026-02-27T03:30:00Z,Los Angeles Kings,Edmonton Oilers,ev_away_pl_+1.5,0.3326
+2026-02-27T03:30:00Z,Los Angeles Kings,Edmonton Oilers,ev_under,0.2638
+2026-02-27T03:30:00Z,Los Angeles Kings,Edmonton Oilers,ev_f10_yes,0.0901
+2026-02-27T03:30:00Z,Los Angeles Kings,Edmonton Oilers,ev_over,-0.034
+2026-02-27T03:30:00Z,Los Angeles Kings,Edmonton Oilers,ev_f10_no,-0.4234
+2026-02-27T03:30:00Z,Los Angeles Kings,Edmonton Oilers,ev_home_pl_-1.5,-0.4236

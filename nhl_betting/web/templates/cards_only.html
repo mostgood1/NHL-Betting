@@ -47,20 +47,21 @@
     .scoreboard-strip .s-item.live { border-color:#3a4aa6; }
     .scoreboard-strip .s-item.bet { background:#0f2d1b; border-color:#1e7a45; color:#a7f3c6; }
     .scoreboard-strip .s-item.watch { background:#152055; border-color:#3a4aa6; color:#e8eaf6; }
-    .scoreboard-strip .s-top { display:flex; align-items:center; justify-content:space-between; gap:8px; }
-    .scoreboard-strip .s-match { font-weight:900; font-size:12px; letter-spacing:0.2px; }
-    .scoreboard-strip .s-status { color:#9fb0ff; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.3px; }
-    .scoreboard-strip .s-score { font-variant-numeric: tabular-nums; font-size:12px; font-weight:900; }
-    .scoreboard-strip .s-tag {
+    .scoreboard-strip .s-time { color:#9fb0ff; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.3px; }
+    .scoreboard-strip .s-teamline { display:flex; align-items:center; gap:8px; font-weight:900; font-size:12px; letter-spacing:0.2px; }
+    .scoreboard-strip .s-teamline .nm { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .scoreboard-strip .team-logo { width:18px; height:18px; object-fit:contain; }
+    .scoreboard-strip .s-sig {
       font-size:11px;
-      font-weight:900;
+      font-weight:800;
       white-space:nowrap;
       overflow:hidden;
       text-overflow:ellipsis;
-      max-width: 150px;
-      justify-self:end;
       opacity: 0.95;
     }
+    .scoreboard-strip .s-sig:empty { display:none; }
+    .scoreboard-strip .s-sig.bet { color:#a7f3c6; }
+    .scoreboard-strip .s-sig.watch { color:#e8eaf6; }
     .lens-card-tag {
       display:inline-flex;
       align-items:center;
@@ -802,28 +803,48 @@
       if (!strip) return;
       strip.innerHTML = '';
 
+      function _fmtStartEt(p) {
+        try {
+          const t = startTimeMs(p);
+          if (!isFinite(Number(t))) return '';
+          const d = new Date(Number(t));
+          const fmt = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' });
+          return `${fmt.format(d)} ET`;
+        } catch (e) {
+          return '';
+        }
+      }
+
       const frag = document.createDocumentFragment();
       for (const p of (preds || [])) {
         const k = keyForGame(p);
         const a = toUpper(p && p.away_abbr) || String(p && p.away || '').trim();
         const h = toUpper(p && p.home_abbr) || String(p && p.home || '').trim();
         const state = String(p && p.game_state || '').trim();
+        const awayLogo = (p && p.away_logo) ? String(p.away_logo) : '';
+        const homeLogo = (p && p.home_logo) ? String(p.home_logo) : '';
+        const startEt = _fmtStartEt(p);
+        const timeLine = (startEt || state || '—');
 
         const aEl = document.createElement('a');
         aEl.href = '#';
         aEl.className = 's-item';
         aEl.dataset.gameKey = k;
+        try { aEl.dataset.awayName = String(p && (p.away_abbr || p.away) || '').trim(); } catch (e) {}
+        try { aEl.dataset.homeName = String(p && (p.home_abbr || p.home) || '').trim(); } catch (e) {}
+        try { if (awayLogo) aEl.dataset.awayLogo = awayLogo; } catch (e) {}
+        try { if (homeLogo) aEl.dataset.homeLogo = homeLogo; } catch (e) {}
         try {
           const pk = (p && (p.gamePk ?? p.game_pk ?? p.nhl_game_pk ?? p.nhlGamePk ?? p.game_id ?? p.gameId));
           if (pk !== undefined && pk !== null && String(pk).trim() !== '') aEl.dataset.gamePk = String(pk).trim();
         } catch (e) {}
         aEl.innerHTML = `
-          <div class="s-top">
-            <div class="s-match">${a || '—'} @ ${h || '—'}</div>
-            <div class="s-tag"></div>
-          </div>
-          <div class="s-status">${state || '—'}</div>
-          <div class="s-score">—</div>
+          <div class="s-time">${timeLine}</div>
+          <div class="s-teamline">${awayLogo ? `<img class="team-logo" src="${awayLogo}" alt="${a || ''}" />` : ''}<div class="nm">${a || '—'}</div></div>
+          <div class="s-teamline">${homeLogo ? `<img class="team-logo" src="${homeLogo}" alt="${h || ''}" />` : ''}<div class="nm">${h || '—'}</div></div>
+          <div class="s-sig" data-role="sig-1"></div>
+          <div class="s-sig" data-role="sig-2"></div>
+          <div class="s-sig" data-role="sig-3"></div>
         `;
         aEl.addEventListener('click', (ev) => {
           ev.preventDefault();
@@ -840,6 +861,84 @@
       // Prefer game-scoped signals; fallback to top overall.
       const g = signals.find(s => String(s && s.scope || '').toLowerCase() === 'game');
       return g || signals[0];
+    }
+
+    function _signalLineText(sig) {
+      try {
+        if (!sig) return '';
+        const action = String(sig.action || '').toUpperCase();
+        const label = String(sig.label || '').trim();
+        if (!label) return '';
+
+        const bits = [];
+        // Live-lens drivers (prefer edge/price/target/fair/elapsed)
+        try {
+          const px = Number(sig.price);
+          if (isFinite(px)) bits.push(`@ ${Math.round(px)}`);
+        } catch (e) {}
+        try {
+          const mx = Number(sig.target_max_price_american);
+          if (isFinite(mx)) bits.push(`≤ ${Math.round(mx)}`);
+        } catch (e) {}
+        try {
+          const fair = Number(sig.fair_price_american);
+          if (isFinite(fair)) bits.push(`fair ${Math.round(fair)}`);
+        } catch (e) {}
+        try {
+          const e = Number(sig.edge);
+          if (isFinite(e)) bits.push(`edge ${(100 * e).toFixed(1)}%`);
+        } catch (e) {}
+        try {
+          const em = Number(sig.elapsed_min);
+          if (isFinite(em)) bits.push(`t ${Math.round(em)}m`);
+        } catch (e) {}
+        // Stat-based context when present (e.g., PLAYER_SHOTS signals)
+        try {
+          const shots = Number(sig.shots);
+          const toi = Number(sig.toi_min);
+          if (isFinite(shots) && isFinite(toi)) bits.push(`${Math.round(shots)} shots · ${toi.toFixed(1)} TOI`);
+        } catch (e) {}
+        try {
+          const need = Number(sig.need);
+          if (isFinite(need)) bits.push(`need ${Math.round(need)}`);
+        } catch (e) {}
+        // If live odds are missing, keep the explicit note
+        try {
+          const note = String(sig.note || '').trim();
+          if (note) bits.push(note);
+        } catch (e) {}
+
+        const reason = bits.filter(Boolean).join(' · ');
+        const prefix = (action === 'BET') ? 'BET' : ((action === 'WATCH') ? 'WATCH' : action);
+        return reason ? `${prefix} ${label} — ${reason}` : `${prefix} ${label}`;
+      } catch (e) {
+        return '';
+      }
+    }
+
+    function _pickTopSignals(signals, maxN=3) {
+      const arr = Array.isArray(signals) ? signals.slice() : [];
+      function rank(s) {
+        const a = String(s && s.action || '').toUpperCase();
+        const scope = String(s && s.scope || '').toLowerCase();
+        const ar = (a === 'BET') ? 0 : ((a === 'WATCH') ? 1 : 2);
+        const sr = (scope === 'game') ? 0 : ((scope === 'prop') ? 1 : 2);
+        let edgeAbs = 0;
+        try { const e = Number(s && s.edge); if (isFinite(e)) edgeAbs = Math.abs(e); } catch (e) {}
+        let p = 0;
+        try { const pm = Number(s && s.p_model); if (isFinite(pm)) p = pm; } catch (e) {}
+        return [ar, sr, -edgeAbs, -p];
+      }
+      arr.sort((x, y) => {
+        const rx = rank(x), ry = rank(y);
+        for (let i = 0; i < Math.max(rx.length, ry.length); i++) {
+          const dx = rx[i] ?? 0, dy = ry[i] ?? 0;
+          if (dx < dy) return -1;
+          if (dx > dy) return 1;
+        }
+        return 0;
+      });
+      return arr.slice(0, Math.max(0, maxN));
     }
 
     function _compactSignalText(sig) {
@@ -888,29 +987,41 @@
         try {
           const cls = _signalClass(g.signals);
           if (cls) item.classList.add(cls);
-          const tagEl = item.querySelector('.s-tag');
-          const sig = _pickSignalForTag(g.signals);
-          if (tagEl) tagEl.textContent = (sig && cls) ? String(cls).toUpperCase() : '';
-        } catch (e) {}
-
-        try {
-          const stEl = item.querySelector('.s-status');
-          const per = (g && g.period !== undefined && g.period !== null) ? g.period : null;
-          const clk = g && g.clock ? String(g.clock) : '';
-          const st = String(g && g.gameState ? g.gameState : '').trim();
-          if (stEl) {
-            if (isLiveState(st)) stEl.textContent = `P${per || '—'} ${clk || ''}`.trim();
-            else stEl.textContent = (st || '—');
+          // Render up to 3 signal lines with reasons (line 4/5/6)
+          const sigs = _pickTopSignals(g.signals, 3);
+          const sigEls = [
+            item.querySelector('[data-role="sig-1"]'),
+            item.querySelector('[data-role="sig-2"]'),
+            item.querySelector('[data-role="sig-3"]'),
+          ];
+          for (let i = 0; i < sigEls.length; i++) {
+            const el = sigEls[i];
+            if (!el) continue;
+            const s = sigs[i] || null;
+            el.classList.remove('bet','watch');
+            if (!s) { el.textContent = ''; continue; }
+            const act = String(s.action || '').toUpperCase();
+            if (act === 'BET') el.classList.add('bet');
+            else if (act === 'WATCH') el.classList.add('watch');
+            el.textContent = _signalLineText(s);
           }
         } catch (e) {}
 
         try {
-          const scEl = item.querySelector('.s-score');
-          const sc = (g && g.score) ? g.score : null;
-          const ag = (sc && sc.away !== undefined) ? sc.away : null;
-          const hg = (sc && sc.home !== undefined) ? sc.home : null;
-          if (scEl) {
-            scEl.textContent = (ag !== null && hg !== null) ? `${ag}-${hg}` : '—';
+          const stEl = item.querySelector('.s-time');
+          const per = (g && g.period !== undefined && g.period !== null) ? g.period : null;
+          const clk = g && g.clock ? String(g.clock) : '';
+          const st = String(g && g.gameState ? g.gameState : '').trim();
+          if (stEl) {
+            if (isLiveState(st)) {
+              stEl.textContent = `P${per || '—'} ${clk || ''}`.trim();
+            } else {
+              // Preserve scheduled start time from initial render if present.
+              const existing = String(stEl.textContent || '').trim();
+              const next = (st || '').trim();
+              if (!existing || existing === '—') stEl.textContent = (next || '—');
+              else if (next && (next.toUpperCase().includes('FINAL') || next.toUpperCase().includes('POST') || next.toUpperCase().includes('END'))) stEl.textContent = next;
+            }
           }
         } catch (e) {}
       }

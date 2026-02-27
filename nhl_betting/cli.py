@@ -9470,13 +9470,13 @@ def game_recommendations_sim(
                             h1 = float(row.get('period1_home_proj')) if pd.notna(row.get('period1_home_proj')) else None
                             a1 = float(row.get('period1_away_proj')) if pd.notna(row.get('period1_away_proj')) else None
                             if h1 is None or a1 is None:
-                                return np.nan
+                                return _np.nan
                             # Factor can be tuned downstream; use sensible default 0.55
                             f = 0.55
                             lam10 = f * (h1 + a1)
-                            return float(1.0 - np.exp(-lam10)) if lam10 >= 0 else np.nan
+                            return float(1.0 - _np.exp(-lam10)) if lam10 >= 0 else _np.nan
                         except Exception:
-                            return np.nan
+                            return _np.nan
                     summary['p_f10_yes'] = summary.apply(_approx_f10, axis=1)
                     summary['p_f10_no'] = 1.0 - summary['p_f10_yes']
     except Exception:
@@ -9497,6 +9497,68 @@ def game_recommendations_sim(
     # Load team odds (The Odds API team-level) for prices
     team_odds_dir = _Path('data') / 'odds' / 'team' / f'date={date}'
     team_odds = pd.read_csv(team_odds_dir / 'oddsapi.csv') if (team_odds_dir / 'oddsapi.csv').exists() else pd.DataFrame()
+
+    # Prefer deriving the totals line from the archived team odds for this date.
+    # This avoids silently inheriting a default (e.g. 6.0) from predictions_{date}.csv.
+    def _choose_totals_line(g_totals: pd.DataFrame) -> float | None:
+        try:
+            if g_totals is None or g_totals.empty:
+                return None
+            if 'outcome_point' not in g_totals.columns:
+                return None
+            g2 = g_totals.copy()
+            g2['pt'] = pd.to_numeric(g2.get('outcome_point'), errors='coerce')
+            g2 = g2.dropna(subset=['pt'])
+            if g2.empty:
+                return None
+
+            # If DraftKings has a totals line, prefer it so the chosen line aligns
+            # with our preferred price selection (we also prefer DK in _pick_price).
+            try:
+                if 'bookmaker_key' in g2.columns:
+                    dk = g2[g2['bookmaker_key'].astype(str).str.lower() == 'draftkings']
+                    if not dk.empty:
+                        vc = dk['pt'].astype(float).value_counts()
+                        if not vc.empty:
+                            return float(vc.index[0])
+            except Exception:
+                pass
+
+            # Prefer the most common line across books (max unique bookmaker count)
+            if 'bookmaker_key' in g2.columns:
+                counts = g2.groupby('pt')['bookmaker_key'].nunique()
+            else:
+                counts = g2.groupby('pt').size()
+            if counts.empty:
+                return None
+            maxc = float(counts.max())
+            cands = sorted([float(x) for x in counts[counts == maxc].index.tolist()])
+            if not cands:
+                return None
+
+            # Tie-breaker: median of modal candidates
+            return float(cands[len(cands)//2])
+        except Exception:
+            return None
+
+    try:
+        if team_odds is not None and not team_odds.empty and {'home','away','market'}.issubset(team_odds.columns):
+            line_rows = []
+            for (h, a), g in team_odds.groupby(['home', 'away']):
+                to = g[g['market'].astype(str).str.lower() == 'totals']
+                ln = _choose_totals_line(to)
+                line_rows.append({'game_home': h, 'game_away': a, 'totals_line_from_odds': ln})
+            lines_df = pd.DataFrame(line_rows)
+            if lines_df is not None and not lines_df.empty:
+                summary = summary.merge(lines_df, on=['game_home', 'game_away'], how='left')
+                if 'totals_line_used' in summary.columns:
+                    summary['totals_line_used'] = summary.get('totals_line_from_odds').combine_first(summary.get('totals_line_used'))
+                else:
+                    summary['totals_line_used'] = summary.get('totals_line_from_odds')
+                if 'totals_line_from_odds' in summary.columns:
+                    summary = summary.drop(columns=['totals_line_from_odds'])
+    except Exception:
+        pass
     def _pick_price(g: pd.DataFrame) -> float:
         if g is None or g.empty:
             return _np.nan
@@ -9567,16 +9629,23 @@ def game_recommendations_sim(
     if 'totals_line_used' in pred_sim.columns:
         try:
             pred_sim['p_over'] = _np.nan
+            pred_sim['p_under'] = _np.nan
+            pred_sim['p_push_total'] = _np.nan
             for i, r in pred_sim.iterrows():
                 try:
                     ln = float(r.get('totals_line_used'))
                     h = sim_games[(sim_games['game_home']==r['game_home']) & (sim_games['game_away']==r['game_away'])]
                     if not h.empty:
-                        over = (h['total_goals'] > ln).mean()
-                        pred_sim.at[i,'p_over'] = float(over)
+                        tg = h['total_goals']
+                        p_over_win = float((tg > ln).mean())
+                        p_under_win = float((tg < ln).mean())
+                        # Pushes only matter on whole-number lines
+                        p_push = float((tg == ln).mean()) if abs(ln - round(ln)) < 1e-9 else 0.0
+                        pred_sim.at[i,'p_over'] = p_over_win
+                        pred_sim.at[i,'p_under'] = p_under_win
+                        pred_sim.at[i,'p_push_total'] = p_push
                 except Exception:
                     continue
-            pred_sim['p_under'] = 1.0 - pred_sim['p_over']
         except Exception:
             pass
 
@@ -9610,7 +9679,13 @@ def game_recommendations_sim(
             try:
                 dec = pred_sim[o_key].map(_amer_to_dec)
                 p = pd.to_numeric(pred_sim[p_key], errors='coerce')
-                pred_sim[ev_key] = p * (dec - 1.0) - (1.0 - p)
+                # Handle push odds on totals whole-number lines when available
+                if ev_key in ('ev_over', 'ev_under') and 'p_push_total' in pred_sim.columns:
+                    p_push = pd.to_numeric(pred_sim.get('p_push_total'), errors='coerce').fillna(0.0)
+                    p_lose = (1.0 - p - p_push).clip(lower=0.0, upper=1.0)
+                    pred_sim[ev_key] = p * (dec - 1.0) - p_lose
+                else:
+                    pred_sim[ev_key] = p * (dec - 1.0) - (1.0 - p)
             except Exception:
                 pred_sim[ev_key] = _np.nan
     # Persist predictions_sim and edges_sim

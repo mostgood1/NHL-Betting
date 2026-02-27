@@ -15,6 +15,72 @@
     .spacer { flex:1; }
     .muted { color:#9fb0ff; font-size:12px; }
 
+    /* NBA-style compact scoreboard strip + card tags */
+    .scoreboard-strip {
+      display:flex;
+      gap:8px;
+      overflow-x:auto;
+      padding:10px 0;
+      margin: 8px 0 12px;
+      border-top: 1px solid #25316a;
+      border-bottom: 1px solid #25316a;
+      background: #0b1020;
+      position: sticky;
+      top: 0;
+      z-index: 5;
+    }
+    .scoreboard-strip:empty { display:none; }
+    .scoreboard-strip .s-item {
+      flex: 0 0 auto;
+      min-width: 170px;
+      max-width: 220px;
+      background:#0f1530;
+      border:1px solid #25316a;
+      border-radius:12px;
+      padding:8px 10px;
+      text-decoration:none;
+      color:#cfe0ff;
+      display:grid;
+      gap:4px;
+    }
+    .scoreboard-strip .s-item:hover { border-color:#3a4aa6; }
+    .scoreboard-strip .s-item.live { border-color:#3a4aa6; }
+    .scoreboard-strip .s-item.bet { background:#0f2d1b; border-color:#1e7a45; color:#a7f3c6; }
+    .scoreboard-strip .s-item.watch { background:#152055; border-color:#3a4aa6; color:#e8eaf6; }
+    .scoreboard-strip .s-top { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+    .scoreboard-strip .s-match { font-weight:900; font-size:12px; letter-spacing:0.2px; }
+    .scoreboard-strip .s-status { color:#9fb0ff; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.3px; }
+    .scoreboard-strip .s-score { font-variant-numeric: tabular-nums; font-size:12px; font-weight:900; }
+    .scoreboard-strip .s-tag {
+      font-size:11px;
+      font-weight:900;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      max-width: 150px;
+      justify-self:end;
+      opacity: 0.95;
+    }
+    .lens-card-tag {
+      display:inline-flex;
+      align-items:center;
+      padding:3px 8px;
+      border-radius:999px;
+      border:1px solid #25316a;
+      background:#0f1530;
+      color:#cfe0ff;
+      font-size:11px;
+      font-weight:900;
+      letter-spacing:0.2px;
+      white-space:nowrap;
+      max-width: 360px;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .lens-card-tag:empty { display:none; }
+    .lens-card-tag.bet { background:#0f2d1b; border-color:#1e7a45; color:#a7f3c6; }
+    .lens-card-tag.watch { background:#152055; border-color:#3a4aa6; color:#e8eaf6; }
+
     .card { gap: 12px; }
     .card-title { display:flex; align-items:baseline; justify-content:center; gap:10px; flex-wrap:wrap; text-align:center; }
     .card-title .match { font-weight:900; font-size:16px; color:#f5f7ff; }
@@ -108,6 +174,7 @@
   </header>
   <main>
     <div class="container">
+      <div id="scoreboardStrip" class="scoreboard-strip"></div>
       <div id="cards" class="cards"></div>
       <div id="empty" class="empty muted"></div>
     </div>
@@ -626,6 +693,7 @@
       el.innerHTML = `
         <div class="card-title">
           <span class="match">${match}</span>
+          <span class="lens-card-tag" data-role="lens-card-tag"></span>
           <span class="pill active final-score" data-role="final-score"></span>
           ${pills.join('')}
         </div>
@@ -719,6 +787,133 @@
       } catch (e) {}
 
       return el;
+    }
+
+    function _findCardByGameKey(gameKey) {
+      const k = normKey(gameKey);
+      for (const el of document.querySelectorAll('.card[data-game-key]')) {
+        if (normKey(el.dataset.gameKey) === k) return el;
+      }
+      return null;
+    }
+
+    function buildScoreboardStrip(preds) {
+      const strip = $('scoreboardStrip');
+      if (!strip) return;
+      strip.innerHTML = '';
+
+      const frag = document.createDocumentFragment();
+      for (const p of (preds || [])) {
+        const k = keyForGame(p);
+        const a = toUpper(p && p.away_abbr) || String(p && p.away || '').trim();
+        const h = toUpper(p && p.home_abbr) || String(p && p.home || '').trim();
+        const state = String(p && p.game_state || '').trim();
+
+        const aEl = document.createElement('a');
+        aEl.href = '#';
+        aEl.className = 's-item';
+        aEl.dataset.gameKey = k;
+        try {
+          const pk = (p && (p.gamePk ?? p.game_pk ?? p.nhl_game_pk ?? p.nhlGamePk ?? p.game_id ?? p.gameId));
+          if (pk !== undefined && pk !== null && String(pk).trim() !== '') aEl.dataset.gamePk = String(pk).trim();
+        } catch (e) {}
+        aEl.innerHTML = `
+          <div class="s-top">
+            <div class="s-match">${a || '—'} @ ${h || '—'}</div>
+            <div class="s-tag"></div>
+          </div>
+          <div class="s-status">${state || '—'}</div>
+          <div class="s-score">—</div>
+        `;
+        aEl.addEventListener('click', (ev) => {
+          ev.preventDefault();
+          const card = _findCardByGameKey(k);
+          if (card && card.scrollIntoView) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+        frag.appendChild(aEl);
+      }
+      strip.appendChild(frag);
+    }
+
+    function _pickSignalForTag(signals) {
+      if (!Array.isArray(signals) || !signals.length) return null;
+      // Prefer game-scoped signals; fallback to top overall.
+      const g = signals.find(s => String(s && s.scope || '').toLowerCase() === 'game');
+      return g || signals[0];
+    }
+
+    function _compactSignalText(sig) {
+      try {
+        if (!sig) return '';
+        const action = String(sig.action || '').toUpperCase();
+        const label = String(sig.label || '').trim();
+        if (!label) return '';
+        const prefix = (action === 'BET') ? 'BET' : ((action === 'WATCH') ? 'WATCH' : '');
+        return prefix ? `${prefix} · ${label}` : label;
+      } catch (e) {
+        return '';
+      }
+    }
+
+    function _signalClass(signals) {
+      try {
+        if (!Array.isArray(signals) || !signals.length) return '';
+        const anyBet = signals.some(s => String(s && s.action || '').toUpperCase() === 'BET');
+        if (anyBet) return 'bet';
+        const anyWatch = signals.some(s => String(s && s.action || '').toUpperCase() === 'WATCH');
+        if (anyWatch) return 'watch';
+      } catch (e) {}
+      return '';
+    }
+
+    function updateScoreboardStripFromLive(mapByKey, mapByPk) {
+      const strip = $('scoreboardStrip');
+      if (!strip) return;
+      for (const item of strip.querySelectorAll('.s-item[data-game-key]')) {
+        const k = normKey(item.dataset.gameKey);
+        let g = null;
+        try {
+          const pk = String(item.dataset.gamePk || '').trim();
+          if (pk && mapByPk && mapByPk.has(pk)) g = mapByPk.get(pk);
+        } catch (e) {}
+        if (!g) g = (mapByKey && mapByKey.get) ? (mapByKey.get(k) || null) : null;
+
+        item.classList.remove('live', 'bet', 'watch');
+        if (!g) continue;
+
+        try {
+          if (isLiveState(g.gameState)) item.classList.add('live');
+        } catch (e) {}
+
+        try {
+          const cls = _signalClass(g.signals);
+          if (cls) item.classList.add(cls);
+          const tagEl = item.querySelector('.s-tag');
+          const sig = _pickSignalForTag(g.signals);
+          if (tagEl) tagEl.textContent = (sig && cls) ? String(cls).toUpperCase() : '';
+        } catch (e) {}
+
+        try {
+          const stEl = item.querySelector('.s-status');
+          const per = (g && g.period !== undefined && g.period !== null) ? g.period : null;
+          const clk = g && g.clock ? String(g.clock) : '';
+          const st = String(g && g.gameState ? g.gameState : '').trim();
+          if (stEl) {
+            if (isLiveState(st)) stEl.textContent = `P${per || '—'} ${clk || ''}`.trim();
+            else stEl.textContent = (st || '—');
+          }
+        } catch (e) {}
+
+        try {
+          const scEl = item.querySelector('.s-score');
+          const sc = (g && g.score) ? g.score : null;
+          const ag = (sc && sc.away !== undefined) ? sc.away : null;
+          const hg = (sc && sc.home !== undefined) ? sc.home : null;
+          if (scEl) {
+            scEl.textContent = (ag !== null && hg !== null) ? `${ag}-${hg}` : '—';
+          }
+        } catch (e) {}
+      }
     }
 
     function isLiveState(s) {
@@ -1500,6 +1695,9 @@
 
         const anyLiveNow = (live.games || []).some(g => isLiveState(g.gameState));
 
+        // Update compact top strip from the same live payload.
+        try { updateScoreboardStripFromLive(mapByKey, mapByPk); } catch (e) {}
+
         for (const card of document.querySelectorAll('.card[data-game-key]')) {
           const k = normKey(card.dataset.gameKey);
           const box = card.querySelector('.live-lens');
@@ -1515,6 +1713,22 @@
           if (!g) {
             g = mapByKey.get(k) || null;
           }
+
+          // Compact per-card lens tag (BET/WATCH) in the title.
+          try {
+            const tagEl = card.querySelector('[data-role="lens-card-tag"]');
+            if (tagEl) {
+              tagEl.classList.remove('bet', 'watch');
+              if (g && Array.isArray(g.signals) && g.signals.length) {
+                const cls = _signalClass(g.signals);
+                if (cls) tagEl.classList.add(cls);
+                const sig = _pickSignalForTag(g.signals);
+                tagEl.textContent = _compactSignalText(sig);
+              } else {
+                tagEl.textContent = '';
+              }
+            }
+          } catch (e) {}
           if (!g) {
             // Best-effort fallback if future payloads ever key by abbreviations.
             const ak = String(card.dataset.awayAbbr || '').trim();
@@ -1727,6 +1941,9 @@
 
       // Single unified view: always show the full slate.
       const predsToShow = predsSorted;
+
+      // Render the compact top strip (updated during live polling).
+      try { buildScoreboardStrip(predsToShow); } catch (e) {}
 
       // index recs by game key (away@home)
       const byGame = new Map();

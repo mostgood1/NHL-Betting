@@ -3218,6 +3218,84 @@ async def v1_live_lens_combined(
             "games": out_games,
         }
         payload = _strict_json_sanitize(payload)
+
+        # Optional: persist a compact snapshot on disk (Render disk-friendly).
+        # This is best-effort and should never fail the endpoint.
+        try:
+            snap_dir_s = (os.getenv("NHL_LIVE_LENS_DIR") or os.getenv("LIVE_LENS_DIR") or "").strip()
+            if snap_dir_s:
+                try:
+                    min_sec = float(os.getenv("LIVE_LENS_SNAPSHOT_MIN_SECONDS", "60") or "60")
+                except Exception:
+                    min_sec = 60.0
+
+                snap_dir = Path(snap_dir_s)
+                snap_dir.mkdir(parents=True, exist_ok=True)
+
+                # Append compact JSONL for later ROI/audit tools.
+                # Keep it intentionally small: no full lens ladders, just score/state + signals.
+                def _compact_game(x: dict) -> dict:
+                    try:
+                        return {
+                            "gamePk": x.get("gamePk"),
+                            "key": x.get("key"),
+                            "away": x.get("away"),
+                            "home": x.get("home"),
+                            "gameState": x.get("gameState"),
+                            "period": x.get("period"),
+                            "clock": x.get("clock"),
+                            "score": x.get("score"),
+                            "signals": x.get("signals") or [],
+                        }
+                    except Exception:
+                        return {"signals": x.get("signals") or []}
+
+                rec = {
+                    "asof_utc": payload.get("asof_utc"),
+                    "date": payload.get("date"),
+                    "games": [_compact_game(g) for g in (payload.get("games") or [])],
+                }
+
+                # Only write when there is something to log.
+                has_any_signal = False
+                try:
+                    for gg in rec.get("games") or []:
+                        if gg.get("signals"):
+                            has_any_signal = True
+                            break
+                except Exception:
+                    has_any_signal = False
+
+                # Throttle writes (per date) so polling doesn't explode disk usage.
+                do_write = bool(has_any_signal)
+                try:
+                    now_ts = datetime.now(timezone.utc).timestamp()
+                    m = getattr(app.state, "live_lens_last_snapshot_by_date", None)
+                    if not isinstance(m, dict):
+                        m = {}
+                        setattr(app.state, "live_lens_last_snapshot_by_date", m)
+                    last_ts = float(m.get(d) or 0.0)
+                    if (now_ts - last_ts) < float(min_sec):
+                        do_write = False
+                    else:
+                        m[d] = float(now_ts)
+                except Exception:
+                    # If throttling fails, still write (best-effort).
+                    do_write = bool(has_any_signal)
+
+                if not do_write:
+                    raise RuntimeError("skip_live_lens_snapshot")
+
+                out_jsonl = snap_dir / f"live_lens_signals_{d}.jsonl"
+                with open(out_jsonl, "a", encoding="utf-8") as fh:
+                    fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
+
+                # Overwrite a "latest" pointer for quick manual inspection.
+                latest_fp = snap_dir / f"live_lens_signals_{d}_latest.json"
+                latest_fp.write_text(json.dumps(rec, ensure_ascii=False, indent=2), encoding="utf-8")
+        except Exception:
+            pass
+
         return JSONResponse(payload)
     except Exception as e:
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)

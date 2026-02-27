@@ -61,3 +61,8 @@ services:
       - key: WEB_ON_DEPLOY_REFRESH_EDGES
         value: "1"
 
+      # Optional: write compact live-lens JSONL snapshots to this directory
+      # (recommended to point at a mounted Render Disk path)
+      - key: LIVE_LENS_DIR
+        sync: false
+

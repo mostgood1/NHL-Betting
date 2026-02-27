@@ -1,0 +1,5 @@
+market,side,price,ev,prob,conf,home,away,totals_line
+ML,Buffalo Sabres,170.0,0.40827499999999994,0.5215833333333333,0.021583333333333288,Tampa Bay Lightning,Buffalo Sabres,6.0
+ML,Detroit Red Wings,160.0,0.3439833333333334,0.5169166666666667,0.01691666666666669,Carolina Hurricanes,Detroit Red Wings,6.0
+ML,Chicago Blackhawks,310.0,1.100908333333333,0.5124166666666666,0.012416666666666631,Colorado Avalanche,Chicago Blackhawks,6.0
+ML,Vancouver Canucks,150.0,0.2587499999999999,0.5035,0.0034999999999999476,Seattle Kraken,Vancouver Canucks,6.0

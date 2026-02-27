@@ -1,17 +1,17 @@
 date,home,away,market,ev
-2026-02-27,Florida Panthers,Buffalo Sabres,ev_away_ml,0.13826249999999995
-2026-02-27,Washington Capitals,Vegas Golden Knights,ev_over,0.12050000000000011
-2026-02-27,Utah Mammoth,Minnesota Wild,ev_over,0.09928205128205114
-2026-02-27,Anaheim Ducks,Winnipeg Jets,ev_away_ml,0.09812500000000013
-2026-02-27,Washington Capitals,Vegas Golden Knights,ev_away_ml,0.03134523809523804
-2026-02-27,Anaheim Ducks,Winnipeg Jets,ev_over,0.031100000000000017
-2026-02-27,Florida Panthers,Buffalo Sabres,ev_over,-0.010666666666666769
-2026-02-27,Utah Mammoth,Minnesota Wild,ev_home_ml,-0.01270987654320982
-2026-02-27,Florida Panthers,Buffalo Sabres,ev_under,-0.07355555555555554
-2026-02-27,Utah Mammoth,Minnesota Wild,ev_away_ml,-0.07373666666666673
-2026-02-27,Anaheim Ducks,Winnipeg Jets,ev_under,-0.09946153846153849
-2026-02-27,Washington Capitals,Vegas Golden Knights,ev_home_ml,-0.11803260869565224
-2026-02-27,Anaheim Ducks,Winnipeg Jets,ev_home_ml,-0.15592948717948724
-2026-02-27,Florida Panthers,Buffalo Sabres,ev_home_ml,-0.19945000000000002
-2026-02-27,Utah Mammoth,Minnesota Wild,ev_under,-0.20479999999999993
-2026-02-27,Washington Capitals,Vegas Golden Knights,ev_under,-0.22612500000000013
+2026-02-27,Utah Mammoth,Minnesota Wild,ev_away_ml,0.9440116666666662
+2026-02-27,Anaheim Ducks,Winnipeg Jets,ev_under,0.7011153846153846
+2026-02-27,Washington Capitals,Vegas Golden Knights,ev_under,0.6857833333333332
+2026-02-27,Florida Panthers,Buffalo Sabres,ev_under,0.377138888888889
+2026-02-27,Utah Mammoth,Minnesota Wild,ev_under,0.14275000000000004
+2026-02-27,Anaheim Ducks,Winnipeg Jets,ev_home_ml,0.12714743589743588
+2026-02-27,Washington Capitals,Vegas Golden Knights,ev_away_ml,0.06795238095238099
+2026-02-27,Florida Panthers,Buffalo Sabres,ev_home_ml,0.016249999999999987
+2026-02-27,Florida Panthers,Buffalo Sabres,ev_away_ml,-0.10739583333333341
+2026-02-27,Washington Capitals,Vegas Golden Knights,ev_home_ml,-0.1530869565217391
+2026-02-27,Utah Mammoth,Minnesota Wild,ev_over,-0.19352564102564107
+2026-02-27,Anaheim Ducks,Winnipeg Jets,ev_away_ml,-0.23787499999999995
+2026-02-27,Florida Panthers,Buffalo Sabres,ev_over,-0.5023333333333333
+2026-02-27,Washington Capitals,Vegas Golden Knights,ev_over,-0.6802
+2026-02-27,Utah Mammoth,Minnesota Wild,ev_home_ml,-0.8405771604938271
+2026-02-27,Anaheim Ducks,Winnipeg Jets,ev_over,-0.91915

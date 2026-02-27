@@ -1,0 +1,27 @@
+date,home,away,market,ev
+2026-02-28T23:00:00Z,Colorado Avalanche,Chicago Blackhawks,ev_away_ml,0.6019
+2026-03-01T00:00:00Z,Montréal Canadiens,Washington Capitals,ev_away_ml,0.3996
+2026-02-28T21:00:00Z,San Jose Sharks,Edmonton Oilers,ev_away_ml,0.3798
+2026-03-01T00:00:00Z,Los Angeles Kings,Calgary Flames,ev_away_ml,0.2877
+2026-03-01T00:00:00Z,Toronto Maple Leafs,Ottawa Senators,ev_home_ml,0.1676
+2026-03-01T03:00:00Z,Seattle Kraken,Vancouver Canucks,ev_away_ml,0.1241
+2026-02-28T23:00:00Z,Columbus Blue Jackets,New York Islanders,ev_home_ml,0.1212
+2026-03-01T00:00:00Z,Tampa Bay Lightning,Buffalo Sabres,ev_home_ml,0.0622
+2026-02-28T22:00:00Z,St. Louis Blues,New Jersey Devils,ev_home_ml,0.0386
+2026-02-28T17:30:00Z,New York Rangers,Pittsburgh Penguins,ev_away_ml,0.0267
+2026-02-28T20:00:00Z,Philadelphia Flyers,Boston Bruins,ev_home_ml,0.0216
+2026-03-01T00:00:00Z,Carolina Hurricanes,Detroit Red Wings,ev_home_ml,-0.0165
+2026-03-01T01:00:00Z,Dallas Stars,Nashville Predators,ev_away_ml,-0.0262
+2026-03-01T01:00:00Z,Dallas Stars,Nashville Predators,ev_home_ml,-0.0541
+2026-03-01T00:00:00Z,Carolina Hurricanes,Detroit Red Wings,ev_away_ml,-0.0903
+2026-02-28T20:00:00Z,Philadelphia Flyers,Boston Bruins,ev_away_ml,-0.1125
+2026-02-28T17:30:00Z,New York Rangers,Pittsburgh Penguins,ev_home_ml,-0.1195
+2026-02-28T22:00:00Z,St. Louis Blues,New Jersey Devils,ev_away_ml,-0.1352
+2026-03-01T03:00:00Z,Seattle Kraken,Vancouver Canucks,ev_home_ml,-0.1472
+2026-02-28T23:00:00Z,Colorado Avalanche,Chicago Blackhawks,ev_home_ml,-0.2384
+2026-03-01T00:00:00Z,Tampa Bay Lightning,Buffalo Sabres,ev_away_ml,-0.2429
+2026-02-28T23:00:00Z,Columbus Blue Jackets,New York Islanders,ev_away_ml,-0.247
+2026-03-01T00:00:00Z,Los Angeles Kings,Calgary Flames,ev_home_ml,-0.2486
+2026-03-01T00:00:00Z,Toronto Maple Leafs,Ottawa Senators,ev_away_ml,-0.2747
+2026-03-01T00:00:00Z,Montréal Canadiens,Washington Capitals,ev_home_ml,-0.3538
+2026-02-28T21:00:00Z,San Jose Sharks,Edmonton Oilers,ev_home_ml,-0.6419

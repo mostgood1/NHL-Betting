@@ -4634,13 +4634,44 @@ def _artifact_info_for_date(d: str) -> dict:
         # Canonical lines parquet by book
         lines_base = PROC_DIR.parent / "props" / f"player_props_lines/date={d}"
         books = {
-            "oddsapi": lines_base / "oddsapi.parquet",
-            "bovada": lines_base / "bovada.parquet",
+            # Prefer parquet when present, but treat CSV as valid canonical input too.
+            "oddsapi": [lines_base / "oddsapi.parquet", lines_base / "oddsapi.csv"],
+            "bovada": [lines_base / "bovada.parquet", lines_base / "bovada.csv"],
         }
+
+        def _pick_existing(paths: list[Path]) -> Optional[Path]:
+            try:
+                for p in paths:
+                    if p.exists():
+                        return p
+            except Exception:
+                return None
+            return None
+
+        def _rows_any(p: Optional[Path]):
+            try:
+                if p is None or (not p.exists()):
+                    return None
+                if str(p).lower().endswith(".parquet"):
+                    return _rows_parquet(p)
+                return _rows_csv(p)
+            except Exception:
+                return None
+
+        books_info: dict[str, Any] = {}
+        for bk, paths in books.items():
+            chosen = _pick_existing(paths)
+            books_info[bk] = {
+                "exists": bool(chosen and chosen.exists()),
+                "format": (chosen.suffix.lstrip(".") if chosen else None),
+                "path": (str(chosen) if chosen else None),
+                "rows": _rows_any(chosen),
+                "mtime": _file_mtime_iso(chosen) if chosen else None,
+            }
         info["props_lines"] = {
             "path": str(lines_base),
             "exists": lines_base.exists(),
-            "books": {bk: {"exists": p.exists(), "rows": _rows_parquet(p), "mtime": _file_mtime_iso(p)} for bk, p in books.items()},
+            "books": books_info,
         }
     except Exception:
         pass
@@ -8764,8 +8795,32 @@ async def health_props(date: Optional[str] = Query(None, description="Slate date
         "recommendations_rows": _rows(rec_path),
         "projections_all_synthetic_like": (lambda: (lambda _df: (_looks_like_synthetic_props(_df) if _df is not None and not _df.empty else False))(_read_csv_fallback(proj_path)))(),
         # Lines presence for the date
-    "lines_present": (lambda: ( (PROC_DIR.parent/"props"/f"player_props_lines/date={d}").exists() and (PROC_DIR.parent/"props"/f"player_props_lines/date={d}/oddsapi.parquet").exists() ))(),
-    "lines_books": (lambda: [name for name,path in ( ("oddsapi", PROC_DIR.parent/"props"/f"player_props_lines/date={d}/oddsapi.parquet"), ) if path.exists() ])(),
+        "lines_present": (lambda: (
+            (PROC_DIR.parent/"props"/f"player_props_lines/date={d}").exists()
+            and (
+                (PROC_DIR.parent/"props"/f"player_props_lines/date={d}/oddsapi.parquet").exists()
+                or (PROC_DIR.parent/"props"/f"player_props_lines/date={d}/oddsapi.csv").exists()
+            )
+        ))(),
+        "lines_books": (lambda: [
+            name for name, paths in (
+                (
+                    "oddsapi",
+                    [
+                        PROC_DIR.parent/"props"/f"player_props_lines/date={d}/oddsapi.parquet",
+                        PROC_DIR.parent/"props"/f"player_props_lines/date={d}/oddsapi.csv",
+                    ],
+                ),
+                (
+                    "bovada",
+                    [
+                        PROC_DIR.parent/"props"/f"player_props_lines/date={d}/bovada.parquet",
+                        PROC_DIR.parent/"props"/f"player_props_lines/date={d}/bovada.csv",
+                    ],
+                ),
+            )
+            if any(p.exists() for p in paths)
+        ])(),
         "fast_mode": os.getenv('FAST_PROPS_TEST','0') == '1',
         "force_synthetic": os.getenv('PROPS_FORCE_SYNTHETIC','0') == '1',
         "no_compute": os.getenv('PROPS_NO_COMPUTE','0') == '1',
@@ -10544,11 +10599,14 @@ async def api_props_lines_json(
     d = _normalize_date_param(date)
     base = PROC_DIR.parent / 'props' / f'player_props_lines/date={d}'
     parts = []
-    for fname in ('oddsapi.parquet',):
+    for fname in ('oddsapi.parquet', 'oddsapi.csv'):
         p = base / fname
         if p.exists():
             try:
-                parts.append(pd.read_parquet(p))
+                if str(p).lower().endswith('.parquet'):
+                    parts.append(pd.read_parquet(p))
+                else:
+                    parts.append(_read_csv_fallback(p))
             except Exception:
                 pass
     if not parts:

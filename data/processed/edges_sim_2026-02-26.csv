@@ -1,45 +1,45 @@
 date,home,away,market,ev
-2026-02-26,Los Angeles Kings,Edmonton Oilers,ev_away_ml,0.4151136363636364
-2026-02-26,Nashville Predators,Chicago Blackhawks,ev_away_ml,0.38125
-2026-02-26,Pittsburgh Penguins,New Jersey Devils,ev_home_ml,0.32818518518518514
-2026-02-26,Pittsburgh Penguins,New Jersey Devils,ev_under,0.2627999999999999
-2026-02-26,Montréal Canadiens,New York Islanders,ev_away_ml,0.19082500000000002
-2026-02-26,Florida Panthers,Toronto Maple Leafs,ev_away_ml,0.1886
-2026-02-26,Colorado Avalanche,Minnesota Wild,ev_away_ml,0.17817499999999986
-2026-02-26,New York Rangers,Philadelphia Flyers,ev_home_ml,0.1371630434782607
-2026-02-26,Ottawa Senators,Detroit Red Wings,ev_away_ml,0.10770000000000002
-2026-02-26,Los Angeles Kings,Edmonton Oilers,ev_under,0.07303846153846155
-2026-02-26,Ottawa Senators,Detroit Red Wings,ev_over,0.06359259259259253
-2026-02-26,Carolina Hurricanes,Tampa Bay Lightning,ev_away_ml,0.04994999999999994
-2026-02-26,Nashville Predators,Chicago Blackhawks,ev_over,0.03789999999999982
-2026-02-26,San Jose Sharks,Calgary Flames,ev_away_ml,0.03371249999999981
-2026-02-26,Boston Bruins,Columbus Blue Jackets,ev_away_ml,0.03186363636363637
-2026-02-26,Colorado Avalanche,Minnesota Wild,ev_under,0.011434782608695626
-2026-02-26,Carolina Hurricanes,Tampa Bay Lightning,ev_under,-0.003699999999999981
-2026-02-26,Montréal Canadiens,New York Islanders,ev_over,-0.005649999999999933
-2026-02-26,Florida Panthers,Toronto Maple Leafs,ev_over,-0.018249999999999877
-2026-02-26,Boston Bruins,Columbus Blue Jackets,ev_over,-0.03600000000000003
-2026-02-26,New York Rangers,Philadelphia Flyers,ev_over,-0.04150000000000004
-2026-02-26,New York Rangers,Philadelphia Flyers,ev_under,-0.04162500000000002
-2026-02-26,San Jose Sharks,Calgary Flames,ev_under,-0.041847826086956696
-2026-02-26,San Jose Sharks,Calgary Flames,ev_over,-0.04821428571428571
-2026-02-26,Boston Bruins,Columbus Blue Jackets,ev_under,-0.05033333333333323
-2026-02-26,Florida Panthers,Toronto Maple Leafs,ev_under,-0.05788461538461548
-2026-02-26,Montréal Canadiens,New York Islanders,ev_under,-0.06850000000000012
-2026-02-26,Carolina Hurricanes,Tampa Bay Lightning,ev_over,-0.08467500000000006
-2026-02-26,Nashville Predators,Chicago Blackhawks,ev_under,-0.10351851851851851
-2026-02-26,Colorado Avalanche,Minnesota Wild,ev_over,-0.10385714285714281
-2026-02-26,Carolina Hurricanes,Tampa Bay Lightning,ev_home_ml,-0.10585483870967749
-2026-02-26,San Jose Sharks,Calgary Flames,ev_home_ml,-0.10764999999999991
-2026-02-26,Boston Bruins,Columbus Blue Jackets,ev_home_ml,-0.1227727272727272
-2026-02-26,Ottawa Senators,Detroit Red Wings,ev_home_ml,-0.15385211267605642
-2026-02-26,Ottawa Senators,Detroit Red Wings,ev_under,-0.16754000000000008
-2026-02-26,Los Angeles Kings,Edmonton Oilers,ev_over,-0.17364999999999997
-2026-02-26,Florida Panthers,Toronto Maple Leafs,ev_home_ml,-0.191183734939759
-2026-02-26,Colorado Avalanche,Minnesota Wild,ev_home_ml,-0.1975725806451613
-2026-02-26,Montréal Canadiens,New York Islanders,ev_home_ml,-0.20662096774193545
-2026-02-26,New York Rangers,Philadelphia Flyers,ev_away_ml,-0.23515476190476192
-2026-02-26,Nashville Predators,Chicago Blackhawks,ev_home_ml,-0.3038888888888889
-2026-02-26,Pittsburgh Penguins,New Jersey Devils,ev_over,-0.30879999999999996
-2026-02-26,Pittsburgh Penguins,New Jersey Devils,ev_away_ml,-0.4928200000000001
-2026-02-26,Los Angeles Kings,Edmonton Oilers,ev_home_ml,-0.5060227272727272
+2026-02-26,Los Angeles Kings,Edmonton Oilers,ev_away_ml,0.3899772727272728
+2026-02-26,Nashville Predators,Chicago Blackhawks,ev_away_ml,0.3441666666666666
+2026-02-26,Pittsburgh Penguins,New Jersey Devils,ev_home_ml,0.23433024691358018
+2026-02-26,Montréal Canadiens,New York Islanders,ev_away_ml,0.18833333333333335
+2026-02-26,Florida Panthers,Toronto Maple Leafs,ev_away_ml,0.17079999999999995
+2026-02-26,Pittsburgh Penguins,New Jersey Devils,ev_under,0.16952499999999993
+2026-02-26,Colorado Avalanche,Minnesota Wild,ev_away_ml,0.1505749999999998
+2026-02-26,New York Rangers,Philadelphia Flyers,ev_home_ml,0.1465108695652172
+2026-02-26,Ottawa Senators,Detroit Red Wings,ev_away_ml,0.12566666666666682
+2026-02-26,Ottawa Senators,Detroit Red Wings,ev_over,0.10188888888888886
+2026-02-26,Los Angeles Kings,Edmonton Oilers,ev_under,0.04591025641025631
+2026-02-26,Nashville Predators,Chicago Blackhawks,ev_over,0.03290666666666653
+2026-02-26,Carolina Hurricanes,Tampa Bay Lightning,ev_away_ml,0.01429999999999998
+2026-02-26,San Jose Sharks,Calgary Flames,ev_away_ml,0.007574999999999998
+2026-02-26,Boston Bruins,Columbus Blue Jackets,ev_away_ml,0.0025909090909091437
+2026-02-26,Montréal Canadiens,New York Islanders,ev_over,-0.006349999999999856
+2026-02-26,Carolina Hurricanes,Tampa Bay Lightning,ev_under,-0.024700000000000055
+2026-02-26,Florida Panthers,Toronto Maple Leafs,ev_under,-0.029282051282051358
+2026-02-26,Boston Bruins,Columbus Blue Jackets,ev_over,-0.030333333333333323
+2026-02-26,New York Rangers,Philadelphia Flyers,ev_over,-0.036699999999999955
+2026-02-26,Colorado Avalanche,Minnesota Wild,ev_under,-0.04153623188405797
+2026-02-26,San Jose Sharks,Calgary Flames,ev_over,-0.043658730158730175
+2026-02-26,San Jose Sharks,Calgary Flames,ev_under,-0.046210144927536334
+2026-02-26,New York Rangers,Philadelphia Flyers,ev_under,-0.047091666666666754
+2026-02-26,Colorado Avalanche,Minnesota Wild,ev_over,-0.048539682539682494
+2026-02-26,Florida Panthers,Toronto Maple Leafs,ev_over,-0.05219999999999997
+2026-02-26,Boston Bruins,Columbus Blue Jackets,ev_under,-0.05552777777777773
+2026-02-26,Carolina Hurricanes,Tampa Bay Lightning,ev_over,-0.06075833333333347
+2026-02-26,Montréal Canadiens,New York Islanders,ev_under,-0.06791025641025639
+2026-02-26,Carolina Hurricanes,Tampa Bay Lightning,ev_home_ml,-0.08035483870967741
+2026-02-26,San Jose Sharks,Calgary Flames,ev_home_ml,-0.08470000000000005
+2026-02-26,Boston Bruins,Columbus Blue Jackets,ev_home_ml,-0.09349999999999997
+2026-02-26,Nashville Predators,Chicago Blackhawks,ev_under,-0.09945679012345687
+2026-02-26,Los Angeles Kings,Edmonton Oilers,ev_over,-0.1414499999999999
+2026-02-26,Ottawa Senators,Detroit Red Wings,ev_home_ml,-0.16776995305164327
+2026-02-26,Colorado Avalanche,Minnesota Wild,ev_home_ml,-0.17783064516129032
+2026-02-26,Florida Panthers,Toronto Maple Leafs,ev_home_ml,-0.17929919678714862
+2026-02-26,Montréal Canadiens,New York Islanders,ev_home_ml,-0.20483870967741935
+2026-02-26,Ottawa Senators,Detroit Red Wings,ev_under,-0.21462000000000014
+2026-02-26,Pittsburgh Penguins,New Jersey Devils,ev_over,-0.2269
+2026-02-26,New York Rangers,Philadelphia Flyers,ev_away_ml,-0.24491666666666678
+2026-02-26,Nashville Predators,Chicago Blackhawks,ev_home_ml,-0.2808148148148149
+2026-02-26,Pittsburgh Penguins,New Jersey Devils,ev_away_ml,-0.3774383333333334
+2026-02-26,Los Angeles Kings,Edmonton Oilers,ev_home_ml,-0.4808863636363637

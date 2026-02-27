@@ -4343,8 +4343,14 @@ def _today_ymd() -> str:
         et = ZoneInfo("America/New_York")
         return datetime.now(et).strftime("%Y-%m-%d")
     except Exception:
-        # Fallback to UTC if zoneinfo not available
-        return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        # If the IANA timezone database isn't available (common in minimal Linux images),
+        # prefer a fixed-offset Eastern fallback over UTC to avoid date rollovers during
+        # evening ET (which breaks live slate lookups).
+        try:
+            et_fixed = timezone(timedelta(hours=-5))
+            return datetime.now(et_fixed).strftime("%Y-%m-%d")
+        except Exception:
+            return datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
 
 def _git_commit_hash() -> Optional[str]:
@@ -4376,7 +4382,7 @@ def _normalize_date_param(d: Optional[str]) -> str:
     try:
         et = ZoneInfo("America/New_York")
     except Exception:
-        et = timezone.utc
+        et = timezone(timedelta(hours=-5))
     now_et = datetime.now(et)
     if s == "today":
         return now_et.strftime("%Y-%m-%d")

@@ -1479,7 +1479,8 @@
           }
         };
 
-        const live = await fetchJson(`/v1/live-lens/${encodeURIComponent(date)}?best=1&inplay=${inplay ? 1 : 0}&include_non_live=${includeNonLive ? 1 : 0}`);
+  const cb = (inplay ? `&_=${Date.now()}` : '');
+  const live = await fetchJson(`/v1/live-lens/${encodeURIComponent(date)}?best=1&inplay=${inplay ? 1 : 0}&include_non_live=${includeNonLive ? 1 : 0}${cb}`);
         if (!live || !live.ok) return false;
         if (date !== currentDate) return false;
         const mapByKey = new Map();
@@ -1632,9 +1633,19 @@
     }
 
     async function fetchJson(url) {
-      const r = await fetch(url, { headers: { 'Accept': 'application/json' } });
+      const r = await fetch(url, { cache: 'no-store', headers: { 'Accept': 'application/json' } });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       return await r.json();
+    }
+
+    function todayYmdInTZ(tzName) {
+      try {
+        const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: tzName, year: 'numeric', month: '2-digit', day: '2-digit' });
+        return String(fmt.format(new Date()));
+      } catch (e) {
+        // Fallback: UTC date (may be off by 1 vs ET during evening ET).
+        return String(new Date().toISOString().slice(0, 10));
+      }
     }
 
     function setStatus(msg) {
@@ -1752,7 +1763,7 @@
       // Overlay live lens:
       // - For today: poll live-only (inplay=1)
       // - For past/future slates: fetch non-live too (include_non_live=1) so FINAL results show next to sim
-      const todayIso = String(new Date().toISOString().slice(0, 10));
+      const todayIso = todayYmdInTZ('America/New_York');
       const isToday = String(date) === todayIso;
       const inplay = isToday ? 1 : 0;
       const includeNonLive = isToday ? 0 : 1;

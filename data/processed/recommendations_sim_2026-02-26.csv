@@ -1,23 +1,21 @@
 market,side,price,ev,prob,conf,home,away,totals_line
-PL,Edmonton Oilers +1.5,-295.0,0.2211525423728814,0.912,0.41200000000000003,Los Angeles Kings,Edmonton Oilers,6.5
-PL,Chicago Blackhawks +1.5,-162.0,0.28331481481481485,0.7935,0.2935,Nashville Predators,Chicago Blackhawks,6.5
-PL,Columbus Blue Jackets +1.5,-258.0,0.09273255813953485,0.7875,0.2875,Boston Bruins,Columbus Blue Jackets,6.5
-PL,New York Islanders +1.5,-198.0,0.17544444444444462,0.781,0.281,Montréal Canadiens,New York Islanders,6.5
-PL,Minnesota Wild +1.5,-198.0,0.16189898989899004,0.772,0.272,Colorado Avalanche,Minnesota Wild,6.5
-PL,Detroit Red Wings +1.5,-205.0,0.14486585365853655,0.7695,0.26949999999999996,Ottawa Senators,Detroit Red Wings,5.5
-ML,Pittsburgh Penguins,-135.0,0.32818518518518514,0.763,0.263,Pittsburgh Penguins,New Jersey Devils,5.5
-PL,Calgary Flames +1.5,-225.0,0.09849999999999992,0.7605,0.26049999999999995,San Jose Sharks,Calgary Flames,6.5
-PL,Toronto Maple Leafs +1.5,-192.0,0.1482291666666668,0.755,0.255,Florida Panthers,Toronto Maple Leafs,6.5
-ML,Edmonton Oilers,-110.0,0.4151136363636364,0.74125,0.24124999999999996,Los Angeles Kings,Edmonton Oilers,6.5
-PL,Tampa Bay Lightning +1.5,-198.0,0.11223232323232335,0.739,0.239,Carolina Hurricanes,Tampa Bay Lightning,6.5
-TOTAL,Under,105.0,0.2627999999999999,0.616,0.11599999999999999,Pittsburgh Penguins,New Jersey Devils,5.5
-TOTAL,Over,-135.0,0.06359259259259253,0.611,0.11099999999999999,Ottawa Senators,Detroit Red Wings,5.5
-ML,New York Rangers,-115.0,0.1371630434782607,0.60825,0.10824999999999996,New York Rangers,Philadelphia Flyers,5.5
-TOTAL,Under,-130.0,0.07303846153846155,0.6065,0.10650000000000004,Los Angeles Kings,Edmonton Oilers,6.5
-ML,Chicago Blackhawks,150.0,0.38125,0.5525,0.05249999999999999,Nashville Predators,Chicago Blackhawks,6.5
-TOTAL,Under,-115.0,0.011434782608695626,0.541,0.041000000000000036,Colorado Avalanche,Minnesota Wild,6.5
-ML,Columbus Blue Jackets,-110.0,0.03186363636363637,0.5405,0.04049999999999998,Boston Bruins,Columbus Blue Jackets,6.5
-ML,New York Islanders,130.0,0.19082500000000002,0.51775,0.017750000000000044,Montréal Canadiens,New York Islanders,6.5
-ML,Minnesota Wild,130.0,0.17817499999999986,0.51225,0.012249999999999983,Colorado Avalanche,Minnesota Wild,6.5
-ML,Calgary Flames,105.0,0.03371249999999981,0.50425,0.004249999999999976,San Jose Sharks,Calgary Flames,6.5
-ML,Detroit Red Wings,120.0,0.10770000000000002,0.5035,0.0034999999999999476,Ottawa Senators,Detroit Red Wings,5.5
+PL,Edmonton Oilers +1.5,-295.0,0.2137881355932203,0.9065,0.4065,Los Angeles Kings,Edmonton Oilers,6.5
+PL,Chicago Blackhawks +1.5,-162.0,0.27846296296296297,0.7905,0.2905,Nashville Predators,Chicago Blackhawks,6.5
+PL,Columbus Blue Jackets +1.5,-258.0,0.08856976744186046,0.7845,0.2845,Boston Bruins,Columbus Blue Jackets,6.5
+PL,New York Islanders +1.5,-198.0,0.17293602693602705,0.7793333333333333,0.2793333333333333,Montréal Canadiens,New York Islanders,6.5
+PL,Detroit Red Wings +1.5,-205.0,0.15453658536585368,0.776,0.276,Ottawa Senators,Detroit Red Wings,5.5
+PL,Minnesota Wild +1.5,-198.0,0.15261784511784526,0.7658333333333334,0.26583333333333337,Colorado Avalanche,Minnesota Wild,6.5
+PL,Calgary Flames +1.5,-225.0,0.09079629629629626,0.7551666666666667,0.25516666666666665,San Jose Sharks,Calgary Flames,6.5
+PL,Toronto Maple Leafs +1.5,-192.0,0.14797569444444458,0.7548333333333334,0.25483333333333336,Florida Panthers,Toronto Maple Leafs,6.5
+ML,Edmonton Oilers,-110.0,0.3899772727272728,0.7280833333333333,0.2280833333333333,Los Angeles Kings,Edmonton Oilers,6.5
+PL,Tampa Bay Lightning +1.5,-198.0,0.08438888888888885,0.7204999999999999,0.22049999999999992,Carolina Hurricanes,Tampa Bay Lightning,6.5
+ML,Pittsburgh Penguins,-135.0,0.23433024691358018,0.7090833333333333,0.2090833333333333,Pittsburgh Penguins,New Jersey Devils,5.5
+TOTAL,Over,-135.0,0.10188888888888886,0.633,0.133,Ottawa Senators,Detroit Red Wings,5.5
+ML,New York Rangers,-115.0,0.1465108695652172,0.61325,0.11324999999999996,New York Rangers,Philadelphia Flyers,5.5
+TOTAL,Under,-130.0,0.04591025641025631,0.5911666666666666,0.09116666666666662,Los Angeles Kings,Edmonton Oilers,6.5
+TOTAL,Under,105.0,0.16952499999999993,0.5705,0.07050000000000001,Pittsburgh Penguins,New Jersey Devils,5.5
+ML,Chicago Blackhawks,150.0,0.3441666666666666,0.5376666666666666,0.037666666666666626,Nashville Predators,Chicago Blackhawks,6.5
+ML,Columbus Blue Jackets,-110.0,0.0025909090909091437,0.5251666666666667,0.02516666666666667,Boston Bruins,Columbus Blue Jackets,6.5
+ML,New York Islanders,130.0,0.18833333333333335,0.5166666666666667,0.01666666666666672,Montréal Canadiens,New York Islanders,6.5
+ML,Detroit Red Wings,120.0,0.12566666666666682,0.5116666666666667,0.011666666666666714,Ottawa Senators,Detroit Red Wings,5.5
+ML,Minnesota Wild,130.0,0.1505749999999998,0.50025,0.00024999999999997247,Colorado Avalanche,Minnesota Wild,6.5

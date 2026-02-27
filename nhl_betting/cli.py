@@ -6861,6 +6861,20 @@ def props_simulate_boxscores(
         dressed_roster = [r for r in rr if (r.get("player_id") in dressed_ids)]
         undressed_roster = [r for r in rr if (r.get("player_id") not in dressed_ids)]
 
+        # Guardrail: warn if we couldn't build a standard 12F/6D/1G dressed roster.
+        try:
+            f_cnt = sum(1 for r in dressed_roster if _norm_pos(r.get("position")) == "F")
+            d_cnt = sum(1 for r in dressed_roster if _norm_pos(r.get("position")) == "D")
+            g_cnt = sum(1 for r in dressed_roster if _norm_pos(r.get("position")) == "G")
+            if not (f_cnt == 12 and d_cnt == 6 and g_cnt == 1):
+                print({
+                    "dressed_roster_warning": True,
+                    "counts": {"F": int(f_cnt), "D": int(d_cnt), "G": int(g_cnt), "total": int(len(dressed_roster))},
+                    "available": {"F": int(len(forwards)), "D": int(len(defense)), "G": int(len(goalies))},
+                })
+        except Exception:
+            pass
+
         # Rescale TOI projections so totals match a real game.
         # Forwards: 3 skaters * 60 = 180 skater-minutes; Defense: 2 skaters * 60 = 120 skater-minutes.
         try:

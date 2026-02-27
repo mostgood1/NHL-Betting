@@ -1,0 +1,10 @@
+market,side,price,ev,prob,conf,home,away,totals_line
+PL,Buffalo Sabres +1.5,-230.0,0.1425652173913043,0.7963333333333333,0.29633333333333334,Florida Panthers,Buffalo Sabres,6.5
+PL,Winnipeg Jets +1.5,-230.0,0.12271739130434772,0.7825,0.2825,Anaheim Ducks,Winnipeg Jets,6.5
+PL,Vegas Golden Knights +1.5,-250.0,0.08173333333333321,0.7726666666666666,0.2726666666666666,Washington Capitals,Vegas Golden Knights,5.5
+PL,Minnesota Wild +1.5,-225.0,0.020981481481481434,0.7068333333333333,0.2068333333333333,Utah Mammoth,Minnesota Wild,5.5
+TOTAL,Over,-125.0,0.12050000000000011,0.6225,0.12250000000000005,Washington Capitals,Vegas Golden Knights,5.5
+TOTAL,Over,-130.0,0.09928205128205114,0.6213333333333333,0.1213333333333333,Utah Mammoth,Minnesota Wild,5.5
+ML,Buffalo Sabres,105.0,0.13826249999999995,0.55525,0.05525000000000002,Florida Panthers,Buffalo Sabres,6.5
+ML,Vegas Golden Knights,-105.0,0.03134523809523804,0.52825,0.028249999999999997,Washington Capitals,Vegas Golden Knights,5.5
+ML,Winnipeg Jets,110.0,0.09812500000000013,0.5229166666666667,0.022916666666666696,Anaheim Ducks,Winnipeg Jets,6.5

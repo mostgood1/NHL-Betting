@@ -317,6 +317,14 @@ def build_player_props_vs_actuals(date: str, verbose: bool = False) -> None:
             save_df(pd.DataFrame(), PROC_DIR / f"player_props_vs_actuals_{date}.csv")
             _vprint(verbose, f"[vs_actuals] no lines for {date}; wrote empty cache")
             return
+        # Use ONLY the current slate for this date; canonical storage may contain stale rows.
+        if "is_current" in lines.columns:
+            cur = pd.to_numeric(lines["is_current"], errors="coerce")
+            lines = lines[cur == 1].copy()
+        if lines.empty:
+            save_df(pd.DataFrame(), PROC_DIR / f"player_props_vs_actuals_{date}.csv")
+            _vprint(verbose, f"[vs_actuals] no current lines for {date}; wrote empty cache")
+            return
         # Ensure stats exist and load
         try:
             collect_player_game_stats(date, date, source="stats")

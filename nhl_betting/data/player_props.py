@@ -80,7 +80,23 @@ def collect_oddsapi_props(date: str) -> pd.DataFrame:
         "player_blocks": "BLOCKS",
         "player_blocked_shots": "BLOCKS",
     }
+    from zoneinfo import ZoneInfo
+
+    def _commence_date_et(commence_time_iso: Optional[str]) -> Optional[str]:
+        if not commence_time_iso:
+            return None
+        try:
+            dt = datetime.fromisoformat(str(commence_time_iso).replace("Z", "+00:00"))
+            return dt.astimezone(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
+        except Exception:
+            return None
+
     def _parse_event_markets(event_odds_obj: Dict):
+        ev_id = event_odds_obj.get("id")
+        commence_time = event_odds_obj.get("commence_time")
+        home_team = event_odds_obj.get("home_team")
+        away_team = event_odds_obj.get("away_team")
+        commence_date_et = _commence_date_et(commence_time)
         bks = event_odds_obj.get("bookmakers", [])
         for bk in bks:
             book_key = bk.get("key") or "oddsapi"
@@ -112,31 +128,38 @@ def collect_oddsapi_props(date: str) -> pd.DataFrame:
                         "side": side,
                         "book": book_key,
                         "date": date,
+                        "event_id": ev_id,
+                        "commence_time": commence_time,
+                        "commence_date_et": commence_date_et,
+                        "home_team": home_team,
+                        "away_team": away_team,
                         "collected_at": _utc_now_iso(),
                     })
     # Fast path: current events + concurrent per-event odds (no pre-probe to avoid empty keys)
     try:
         client = OddsAPIClient(rate_limit_per_sec=10.0)
-        # CRITICAL: NHL games on an ET calendar day can extend into the next UTC day
-        # (e.g., a 9:00 PM PT game on 2025-10-17 ET starts at 2025-10-18T04:00:00Z).
-        # Use an extended UTC window from ET day start (05:00Z) to next day end (08:59Z)
-        # to capture all games on the ET slate without missing late West Coast games.
-        from datetime import datetime, timedelta, timezone
-        from zoneinfo import ZoneInfo
+        # IMPORTANT: Filter events by ET calendar day.
+        # OddsAPI commence_time is in UTC. A 7:00 PM ET game on date D starts at 00:00Z on D+1.
+        # We should extend the *end* of the UTC window, not shift the start backward.
+        from datetime import timedelta, timezone
         try:
-            # Parse input date as ET calendar day, get UTC bounds
-            et_date = datetime.strptime(date, "%Y-%m-%d").replace(tzinfo=ZoneInfo("America/New_York"))
-            # ET calendar day starts at midnight ET; earliest NHL game ~7:00 PM ET (00:00Z next day)
-            # Convert to UTC and extend window backward to capture 7 PM ET games (which are ~00:00Z)
-            # and forward to capture late PT games (which can be ~05:00Z next UTC day)
-            utc_start = et_date.astimezone(timezone.utc) - timedelta(hours=5)  # 7 PM previous ET day
-            utc_end = utc_start + timedelta(hours=33)  # covers full ET day + late games
+            et_start = datetime.strptime(date, "%Y-%m-%d").replace(tzinfo=ZoneInfo("America/New_York"))
+            utc_start = et_start.astimezone(timezone.utc)
+            utc_end = (et_start + timedelta(days=1)).astimezone(timezone.utc)
             from_dt = utc_start.strftime("%Y-%m-%dT%H:%M:%SZ")
             to_dt = utc_end.strftime("%Y-%m-%dT%H:%M:%SZ")
         except Exception:
             # Fallback: old logic (will miss late games but better than nothing)
             from_dt = f"{date}T00:00:00Z"; to_dt = f"{date}T23:59:59Z"
         evs, _ = client.list_events("icehockey_nhl", commence_from_iso=from_dt, commence_to_iso=to_dt)
+        # Hard filter by ET date to prevent accidentally including previous/next slate games.
+        try:
+            evs = [
+                ev for ev in (evs or [])
+                if _commence_date_et(ev.get("commence_time")) == date
+            ]
+        except Exception:
+            pass
         if isinstance(evs, list) and evs:
             # Fallback-aware fetch: probe event-specific available market keys first, then request odds
             def fetch(ev_id: str):
@@ -191,8 +214,7 @@ def collect_oddsapi_props(date: str) -> pd.DataFrame:
         def _is_same_day(ev: Dict) -> bool:
             try:
                 ct = ev.get("commence_time")
-                d = datetime.fromisoformat(str(ct).replace("Z", "+00:00")).strftime("%Y-%m-%d")
-                return d == date
+                return _commence_date_et(ct) == date
             except Exception:
                 return False
         events = [e for e in data if _is_same_day(e)]
@@ -690,7 +712,8 @@ def write_props(df: pd.DataFrame, cfg: PropsCollectionConfig, date: str) -> str:
             return pq_path if os.path.exists(pq_path) else csv_path
     except Exception:
         pass
-    # Merge: keep latest rows per key, preserve earlier rows when new fetch is partial
+    # Merge: keep latest rows per key, preserve earlier rows for history,
+    # but ensure `is_current` reflects membership in the latest fetch.
     try:
         # Normalize required columns presence
         for c in ["date","player_id","player_name","team","market","line","over_price","under_price","book","first_seen_at","last_seen_at","is_current"]:
@@ -705,7 +728,6 @@ def write_props(df: pd.DataFrame, cfg: PropsCollectionConfig, date: str) -> str:
                     existing[c] = None
                 except Exception:
                     pass
-        comb = pd.concat([existing, df], ignore_index=True)
         # Build a robust merge key (prefer player_id, else normalized name)
         def _mk_key_row(r):
             try:
@@ -719,26 +741,50 @@ def write_props(df: pd.DataFrame, cfg: PropsCollectionConfig, date: str) -> str:
             except Exception:
                 nm = ""
             return f"name::{nm}" if nm else None
+
+        # Compute merge keys for existing + new separately
         try:
-            comb["_merge_key"] = comb.apply(_mk_key_row, axis=1)
+            existing = existing.copy()
+            existing["_merge_key"] = existing.apply(_mk_key_row, axis=1)
         except Exception:
-            comb["_merge_key"] = None
+            existing["_merge_key"] = None
+        try:
+            df = df.copy()
+            df["_merge_key"] = df.apply(_mk_key_row, axis=1)
+        except Exception:
+            df["_merge_key"] = None
+
         # Keys for uniqueness
-        subset = ["date","_merge_key","market","line","book"]
+        subset = ["date", "_merge_key", "market", "line", "book"]
+
+        # Mark currentness: only rows present in the latest fetch are current.
+        try:
+            existing["is_current"] = False
+        except Exception:
+            pass
+        try:
+            df["is_current"] = True
+        except Exception:
+            pass
+
+        comb = pd.concat([existing, df], ignore_index=True)
+
         # Compute min first_seen_at per key for historical continuity
         try:
-            fst_min = comb.groupby(subset)["first_seen_at"].min().reset_index().rename(columns={"first_seen_at":"_first_seen_min"})
+            fst_min = comb.groupby(subset)["first_seen_at"].min().reset_index().rename(columns={"first_seen_at": "_first_seen_min"})
         except Exception:
             fst_min = pd.DataFrame(columns=subset + ["_first_seen_min"])
+
         # Keep last occurrence per key (so newer prices/timestamps win)
         try:
-            comb.sort_values(["date","last_seen_at"], inplace=True)
+            comb.sort_values(["date", "last_seen_at"], inplace=True)
         except Exception:
             pass
         try:
             dedup = comb.drop_duplicates(subset=subset, keep="last").copy()
         except Exception:
             dedup = comb.copy()
+
         # Attach min first_seen_at
         try:
             dedup = dedup.merge(fst_min, on=subset, how="left")
@@ -747,11 +793,17 @@ def write_props(df: pd.DataFrame, cfg: PropsCollectionConfig, date: str) -> str:
                 dedup.drop(columns=["_first_seen_min"], inplace=True)
         except Exception:
             pass
-        # Ensure is_current is True for dedup rows
+
+        # Ensure is_current aligns to latest fetched keys (in case of odd sort/dedup)
         try:
-            dedup["is_current"] = True
+            cur_keys = df[subset].drop_duplicates().copy()
+            cur_keys["__cur"] = True
+            dedup = dedup.merge(cur_keys, on=subset, how="left")
+            dedup["is_current"] = dedup["__cur"].fillna(False)
+            dedup.drop(columns=["__cur"], inplace=True)
         except Exception:
             pass
+
         # Use this merged frame for writing
         df = dedup
     except Exception:

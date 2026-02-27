@@ -52,7 +52,6 @@ def _load_elo_config() -> EloConfig:
 from .models.trends import TrendAdjustments, team_keys, get_adjustment
 from .utils.odds import american_to_decimal, decimal_to_implied_prob, remove_vig_two_way, ev_unit, kelly_stake
 from .data.collect import collect_player_game_stats
-from .models.props import SkaterShotsModel, GoalieSavesModel, SkaterGoalsModel, SkaterAssistsModel, SkaterPointsModel, SkaterBlocksModel
 from .props.utils import compute_props_lam_scale_mean
 from .data.odds_api import OddsAPIClient, normalize_snapshot_to_rows
 from .data import player_props as props_data
@@ -68,6 +67,27 @@ from .sim.models import RateModels
 from .web.teams import get_team_assets
 
 app = typer.Typer(help="NHL Betting predictive engine CLI")
+
+
+def _load_props_models():
+    # Lazy import: these pull in heavier scientific deps (e.g. SciPy) on some platforms.
+    from .models.props import (
+        SkaterShotsModel,
+        GoalieSavesModel,
+        SkaterGoalsModel,
+        SkaterAssistsModel,
+        SkaterPointsModel,
+        SkaterBlocksModel,
+    )
+
+    return (
+        SkaterShotsModel,
+        GoalieSavesModel,
+        SkaterGoalsModel,
+        SkaterAssistsModel,
+        SkaterPointsModel,
+        SkaterBlocksModel,
+    )
 
 
 @app.command("bundle-build")
@@ -4542,6 +4562,14 @@ def props_predict(odds_csv: str = typer.Option(..., help="CSV with columns: mark
     except Exception:
         hist = pd.read_csv(stats_path) if stats_path.exists() else pd.DataFrame()
     req = pd.read_csv(odds_csv)
+    (
+        SkaterShotsModel,
+        GoalieSavesModel,
+        SkaterGoalsModel,
+        SkaterAssistsModel,
+        SkaterPointsModel,
+        SkaterBlocksModel,
+    ) = _load_props_models()
     shots = SkaterShotsModel()
     saves = GoalieSavesModel()
     goals = SkaterGoalsModel()
@@ -5072,6 +5100,14 @@ def props_recommendations(
     except Exception:
         lam_map = lam_map
     # Instantiate models (probabilities only). We'll only compute lambdas from history for missing players lazily.
+    (
+        SkaterShotsModel,
+        GoalieSavesModel,
+        SkaterGoalsModel,
+        SkaterAssistsModel,
+        SkaterPointsModel,
+        SkaterBlocksModel,
+    ) = _load_props_models()
     shots = SkaterShotsModel(); saves = GoalieSavesModel(); goals = SkaterGoalsModel(); assists = SkaterAssistsModel(); points = SkaterPointsModel(); blocks = SkaterBlocksModel()
     # Do NOT load or backfill history here; rely on precomputed projections_all. Use conservative fallbacks for misses.
     def _fallback_lambda(mk: str) -> float:
@@ -8355,6 +8391,14 @@ def props_precompute_all(
         save_df(pd.DataFrame(columns=["date","player","team","position","market","proj_lambda"]), PROC_DIR / f"props_projections_all_{date}.csv")
         print(f"[props-precompute] wrote empty projections for {date}")
         return
+    (
+        SkaterShotsModel,
+        GoalieSavesModel,
+        SkaterGoalsModel,
+        SkaterAssistsModel,
+        SkaterPointsModel,
+        SkaterBlocksModel,
+    ) = _load_props_models()
     shots = SkaterShotsModel(); saves = GoalieSavesModel(); goals = SkaterGoalsModel(); assists = SkaterAssistsModel(); points = SkaterPointsModel(); blocks = SkaterBlocksModel()
     def _clean_player_display_name(s: str) -> str:
         try:
@@ -8668,6 +8712,14 @@ def props_projections_force(
         hist = pd.DataFrame()
         if verbose:
             print("[props-force] history missing; proceeding with defaults")
+    (
+        SkaterShotsModel,
+        GoalieSavesModel,
+        SkaterGoalsModel,
+        SkaterAssistsModel,
+        SkaterPointsModel,
+        SkaterBlocksModel,
+    ) = _load_props_models()
     shots = SkaterShotsModel(); saves = GoalieSavesModel(); goals = SkaterGoalsModel(); assists = SkaterAssistsModel(); points = SkaterPointsModel(); blocks = SkaterBlocksModel()
     def _clean_name(s: str) -> str:
         try:
@@ -8760,66 +8812,158 @@ def props_sanity_sim_averages(
     except Exception:
         hist = pd.DataFrame()
     # Prepare historical aggregates
-    have_date = hist is not None and not hist.empty and ('game_date' in hist.columns)
+    # data/raw/player_game_stats.csv uses columns like:
+    #   date (ISO timestamp), blocked, timeOnIce
+    # and player strings often look like "{'default': 'C. Keller'}".
     if hist is None or hist.empty:
-        print("History file missing or empty; will compute season averages as NaN.")
-        hist = pd.DataFrame(columns=['player','shots','goals','assists','points','blocks','saves','toi_min'])
-    # Normalize name column
-    if 'player' in hist.columns:
-        hist['player'] = hist['player'].astype(str).map(_norm_name)
-    # Derive minutes from any TOI-like field when present
-    toi_cols = [c for c in hist.columns if c.lower() in ('toi','timeonice','toi_min','time_on_ice_min')]
-    if toi_cols:
-        c = toi_cols[0]
-        hist['toi_min'] = pd.to_numeric(hist[c], errors='coerce')
-    else:
-        sec_cols = [c for c in hist.columns if c.lower() in ('toi_sec','time_on_ice_sec')]
-        if sec_cols:
-            c = sec_cols[0]
-            hist['toi_min'] = pd.to_numeric(hist[c], errors='coerce')/60.0
-        else:
-            hist['toi_min'] = _np.nan
-    # Filter history to pre-date when dates are present
-    if have_date:
-        try:
-            hist['game_date'] = pd.to_datetime(hist['game_date'])
-            cutoff = datetime.strptime(date, "%Y-%m-%d")
-            hist = hist[hist['game_date'] <= cutoff]
-        except Exception:
-            pass
-    # Compute per-player season averages
-    agg_cols = {c: 'mean' for c in ['shots','goals','assists','points','blocks','saves','toi_min'] if c in hist.columns}
-    season_avg = pd.DataFrame()
-    if agg_cols:
-        season_avg = hist.groupby('player', as_index=False).agg(agg_cols)
-        season_avg = season_avg.rename(columns={k: f"avg_{k}" for k in agg_cols.keys()})
-    # Compute rolling averages (last N games) when dates present; else use last N rows per player
-    roll_avg = pd.DataFrame()
-    if agg_cols:
-        cols = list(agg_cols.keys())
-        def _roll_grp(df: pd.DataFrame) -> pd.Series:
-            x = df.sort_values('game_date') if 'game_date' in df.columns else df.copy()
-            x = x.tail(int(rolling_games))
-            return pd.Series({ f"roll_{c}": pd.to_numeric(x.get(c), errors='coerce').mean() for c in cols })
-        # Avoid FutureWarning by excluding grouping columns from apply
-        try:
-            sel_cols = cols + ([ 'game_date' ] if 'game_date' in hist.columns else [])
+        print("History file missing or empty; will compute season/rolling/actual as NaN.")
+        hist = pd.DataFrame(columns=['player_id','player','shots','goals','assists','blocked','saves','timeOnIce','date'])
+
+    # Normalize player_id
+    try:
+        hist['player_id'] = pd.to_numeric(hist.get('player_id'), errors='coerce')
+    except Exception:
+        hist['player_id'] = _np.nan
+
+    # Normalize player display name (best-effort)
+    def _extract_player_name(v: object) -> str:
+        s = str(v or '').strip()
+        if not s:
+            return ''
+        # Common format: "{'default': 'C. Keller'}"
+        if s.startswith('{') and 'default' in s:
             try:
-                roll_avg = hist.groupby('player')[sel_cols].apply(_roll_grp).reset_index()
+                import ast
+
+                obj = ast.literal_eval(s)
+                if isinstance(obj, dict) and obj.get('default'):
+                    return _norm_name(obj.get('default'))
             except Exception:
-                # Fallback to original behavior
-                roll_avg = hist.groupby('player', group_keys=False).apply(_roll_grp).reset_index()
-        except TypeError:
-            # Fallback for older pandas without include_groups
-            roll_avg = hist.groupby('player', group_keys=False).apply(_roll_grp).reset_index()
-    # Merge sim means with averages
-    keep_cols = ['team','player_id','player','shots','goals','assists','points','blocks','saves','sim_toi_min']
+                pass
+            try:
+                import re
+
+                m = re.search(r"'default'\s*:\s*'([^']+)'", s)
+                if m:
+                    return _norm_name(m.group(1))
+            except Exception:
+                pass
+        return _norm_name(s)
+
+    if 'player' in hist.columns:
+        hist['player_name'] = hist['player'].map(_extract_player_name)
+    else:
+        hist['player_name'] = ''
+
+    # Canonicalize blocks + points
+    if 'blocks' not in hist.columns and 'blocked' in hist.columns:
+        hist['blocks'] = pd.to_numeric(hist.get('blocked'), errors='coerce')
+    if 'points' not in hist.columns:
+        try:
+            g = pd.to_numeric(hist.get('goals'), errors='coerce')
+            a = pd.to_numeric(hist.get('assists'), errors='coerce')
+            hist['points'] = g.fillna(0.0) + a.fillna(0.0)
+        except Exception:
+            hist['points'] = _np.nan
+
+    # Derive minutes from timeOnIce or other TOI-like fields
+    def _toi_to_min(v: object) -> float:
+        try:
+            if v is None or (isinstance(v, float) and _np.isnan(v)):
+                return _np.nan
+            s = str(v).strip()
+            if not s:
+                return _np.nan
+            if ':' in s:
+                parts = s.split(':')
+                parts = [p.strip() for p in parts]
+                if len(parts) == 2:
+                    mm = float(parts[0]); ss = float(parts[1])
+                    return (mm * 60.0 + ss) / 60.0
+                if len(parts) == 3:
+                    hh = float(parts[0]); mm = float(parts[1]); ss = float(parts[2])
+                    return (hh * 3600.0 + mm * 60.0 + ss) / 60.0
+            # Assume already minutes
+            return float(v)
+        except Exception:
+            return _np.nan
+
+    toi_src = None
+    for cand in ('toi_min', 'timeOnIce', 'toi', 'TimeOnIce'):
+        if cand in hist.columns:
+            toi_src = cand
+            break
+    if toi_src:
+        if str(toi_src).lower() in ('timeonice', 'timeonice'):
+            hist['toi_min'] = hist[toi_src].map(_toi_to_min)
+        else:
+            # If it's numeric but might be seconds, attempt heuristic later
+            hist['toi_min'] = pd.to_numeric(hist.get(toi_src), errors='coerce')
+    else:
+        hist['toi_min'] = _np.nan
+
+    # Normalize date column
+    date_col = 'game_date' if 'game_date' in hist.columns else ('date' if 'date' in hist.columns else None)
+    if date_col:
+        try:
+            hist['_dt'] = pd.to_datetime(hist[date_col], errors='coerce', utc=True)
+            hist['_ymd'] = hist['_dt'].dt.strftime('%Y-%m-%d')
+        except Exception:
+            hist['_dt'] = pd.NaT
+            hist['_ymd'] = ''
+    else:
+        hist['_dt'] = pd.NaT
+        hist['_ymd'] = ''
+
+    # Compute per-player season/rolling averages from history before the target date
+    metrics = ['shots','goals','assists','points','blocks','saves','toi_min']
+    for c in metrics:
+        if c in hist.columns:
+            hist[c] = pd.to_numeric(hist.get(c), errors='coerce')
+        else:
+            hist[c] = _np.nan
+
+    hist_pre = hist.copy()
+    try:
+        # Strictly before the slate date to avoid leakage
+        hist_pre = hist_pre[hist_pre['_ymd'].astype(str) < str(date)].copy()
+    except Exception:
+        pass
+
+    season_avg = pd.DataFrame()
+    if not hist_pre.empty and 'player_id' in hist_pre.columns:
+        season_avg = hist_pre.groupby('player_id', as_index=False)[metrics].mean(numeric_only=True)
+        season_avg = season_avg.rename(columns={k: f"avg_{k}" for k in metrics})
+
+    roll_avg = pd.DataFrame()
+    if not hist_pre.empty and 'player_id' in hist_pre.columns:
+        try:
+            hist_pre2 = hist_pre.sort_values('_dt') if '_dt' in hist_pre.columns else hist_pre
+            def _roll_grp(df: pd.DataFrame) -> pd.Series:
+                x = df.tail(int(rolling_games))
+                return pd.Series({f"roll_{c}": pd.to_numeric(x.get(c), errors='coerce').mean() for c in metrics})
+            roll_avg = hist_pre2.groupby('player_id', group_keys=False).apply(_roll_grp).reset_index()
+        except Exception:
+            roll_avg = pd.DataFrame()
+
+    # Actuals for the slate date (if present)
+    actual = pd.DataFrame()
+    try:
+        hist_day = hist[hist['_ymd'].astype(str) == str(date)].copy()
+        if not hist_day.empty:
+            actual = hist_day.groupby('player_id', as_index=False)[metrics].sum(numeric_only=True)
+            actual = actual.rename(columns={k: f"actual_{k}" for k in metrics})
+    except Exception:
+        actual = pd.DataFrame()
+    # Merge sim means with averages (join primarily by player_id)
+    keep_cols = ['team','player_id','player','shots','goals','assists','points','blocks','saves','sim_toi_min','is_dressed']
     for c in keep_cols:
         if c not in sim0.columns:
             sim0[c] = _np.nan
     base = sim0[keep_cols].copy()
-    out = base.merge(season_avg, on='player', how='left') if (season_avg is not None and not season_avg.empty) else base.copy()
-    out = out.merge(roll_avg, on='player', how='left') if (roll_avg is not None and not roll_avg.empty) else out
+    out = base.merge(season_avg, on='player_id', how='left') if (season_avg is not None and not season_avg.empty) else base.copy()
+    out = out.merge(roll_avg, on='player_id', how='left') if (roll_avg is not None and not roll_avg.empty) else out
+    out = out.merge(actual, on='player_id', how='left') if (actual is not None and not actual.empty) else out
     # Compute deltas
     for c in ['shots','goals','assists','points','blocks','saves','sim_toi_min']:
         ac = f"avg_{c}" if c != 'sim_toi_min' else 'avg_toi_min'
@@ -8828,6 +8972,12 @@ def props_sanity_sim_averages(
             out[f"delta_sim_vs_season_{c}"] = out[c].astype(float) - out[ac].astype(float)
         if c in out.columns and rc in out.columns:
             out[f"delta_sim_vs_rolling_{c}"] = out[c].astype(float) - out[rc].astype(float)
+        try:
+            actc = f"actual_{c}" if c != 'sim_toi_min' else 'actual_toi_min'
+            if c in out.columns and actc in out.columns:
+                out[f"delta_sim_vs_actual_{c}"] = out[c].astype(float) - out[actc].astype(float)
+        except Exception:
+            pass
     # Flag large deviations
     def _flag(row):
         flags = []
@@ -8844,11 +8994,13 @@ def props_sanity_sim_averages(
         return ','.join(flags)
     out['deviation_flags'] = out.apply(_flag, axis=1)
     # Order columns for readability
-    order = ['team','player_id','player','shots','goals','assists','points','blocks','saves','sim_toi_min',
+    order = ['team','player_id','player','is_dressed','shots','goals','assists','points','blocks','saves','sim_toi_min',
              'avg_shots','avg_goals','avg_assists','avg_points','avg_blocks','avg_saves','avg_toi_min',
              'roll_shots','roll_goals','roll_assists','roll_points','roll_blocks','roll_saves','roll_toi_min',
+             'actual_shots','actual_goals','actual_assists','actual_points','actual_blocks','actual_saves','actual_toi_min',
              'delta_sim_vs_season_shots','delta_sim_vs_season_goals','delta_sim_vs_season_assists','delta_sim_vs_season_points','delta_sim_vs_season_blocks','delta_sim_vs_season_saves','delta_sim_vs_season_sim_toi_min',
              'delta_sim_vs_rolling_shots','delta_sim_vs_rolling_goals','delta_sim_vs_rolling_assists','delta_sim_vs_rolling_points','delta_sim_vs_rolling_blocks','delta_sim_vs_rolling_saves','delta_sim_vs_rolling_sim_toi_min',
+             'delta_sim_vs_actual_shots','delta_sim_vs_actual_goals','delta_sim_vs_actual_assists','delta_sim_vs_actual_points','delta_sim_vs_actual_blocks','delta_sim_vs_actual_saves','delta_sim_vs_actual_sim_toi_min',
              'deviation_flags']
     for c in order:
         if c not in out.columns:
@@ -10269,6 +10421,14 @@ def props_project_all(
         return " ".join(x.split())
     # Models - use neural networks if requested
     # Always initialize traditional models for per-player fallback
+    (
+        SkaterShotsModel,
+        GoalieSavesModel,
+        SkaterGoalsModel,
+        SkaterAssistsModel,
+        SkaterPointsModel,
+        SkaterBlocksModel,
+    ) = _load_props_models()
     shots = SkaterShotsModel()
     saves = GoalieSavesModel()
     goals = SkaterGoalsModel()
@@ -11223,6 +11383,14 @@ def props_backtest(
         return vars
     # Models with configured window
     cfg = PropsConfig(window=window)
+    (
+        SkaterShotsModel,
+        GoalieSavesModel,
+        SkaterGoalsModel,
+        SkaterAssistsModel,
+        SkaterPointsModel,
+        SkaterBlocksModel,
+    ) = _load_props_models()
     shots = SkaterShotsModel(cfg); saves = GoalieSavesModel(cfg); goals = SkaterGoalsModel(cfg); assists = SkaterAssistsModel(cfg); points = SkaterPointsModel(cfg); blocks = SkaterBlocksModel(cfg)
     allowed_markets = [m.strip().upper() for m in (markets or "").split(",") if m.strip()]
     # Iterate dates

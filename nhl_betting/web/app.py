@@ -814,6 +814,10 @@ async def v1_bundle(date: str):
                         away = str(r.get("away") or "")
                         h = get_team_assets(home) or {}
                         a = get_team_assets(away) or {}
+                        # Abbreviations are required to attach per-team props recommendations.
+                        # Keep this best-effort so we don't break older artifacts.
+                        r.setdefault("home_abbr", h.get("abbr"))
+                        r.setdefault("away_abbr", a.get("abbr"))
                         r.setdefault("home_logo", h.get("logo_dark") or h.get("logo_light") or h.get("logo"))
                         r.setdefault("away_logo", a.get("logo_dark") or a.get("logo_light") or a.get("logo"))
                     except Exception:

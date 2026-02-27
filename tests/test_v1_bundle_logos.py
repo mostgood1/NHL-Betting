@@ -41,6 +41,9 @@ def test_v1_bundle_enriches_team_logos(tmp_path: Path, monkeypatch):
     assert row0.get("home") == "Boston Bruins"
     assert row0.get("away") == "New York Rangers"
 
+    assert row0.get("home_abbr") in {"BOS", "bos"}
+    assert row0.get("away_abbr") in {"NYR", "nyr"}
+
     assert isinstance(row0.get("home_logo"), str)
     assert isinstance(row0.get("away_logo"), str)
     assert "assets.nhle.com/logos/nhl/svg" in row0["home_logo"]

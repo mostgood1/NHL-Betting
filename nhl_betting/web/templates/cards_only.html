@@ -293,6 +293,28 @@
       return String(s || '').toUpperCase();
     }
 
+    function inferTeamAbbrFromLogoUrl(url) {
+      const s = String(url || '').trim();
+      if (!s) return '';
+      // Common NHL logo pattern: .../svg/NYR_dark.svg or .../svg/NYR.svg
+      const m = s.match(/\/([A-Za-z]{2,4})(?:_[^\/]+)?\.(?:svg|png|jpg|jpeg)(?:\?|#|$)/);
+      if (!m) return '';
+      const ab = toUpper(m[1]);
+      return /^[A-Z]{2,4}$/.test(ab) ? ab : '';
+    }
+
+    function predTeamAbbr(pred, side) {
+      try {
+        const direct = toUpper(pred && pred[side + '_abbr']);
+        if (direct) return direct;
+        const fromLogo = inferTeamAbbrFromLogoUrl(pred && pred[side + '_logo']);
+        if (fromLogo) return fromLogo;
+        const maybe = toUpper(pred && pred[side]);
+        if (maybe && /^[A-Z]{2,4}$/.test(maybe)) return maybe;
+      } catch (e) {}
+      return '';
+    }
+
     function keyForSimRow(r) {
       const away = String(r.game_away || '').trim();
       const home = String(r.game_home || '').trim();
@@ -683,8 +705,10 @@
         if (pk !== undefined && pk !== null && String(pk).trim() !== '') el.dataset.gamePk = String(pk).trim();
       } catch (e) {}
       try {
-        if (pred && pred.away_abbr) el.dataset.awayAbbr = String(pred.away_abbr || '').trim();
-        if (pred && pred.home_abbr) el.dataset.homeAbbr = String(pred.home_abbr || '').trim();
+        const aab = predTeamAbbr(pred, 'away');
+        const hab = predTeamAbbr(pred, 'home');
+        if (aab) el.dataset.awayAbbr = aab;
+        if (hab) el.dataset.homeAbbr = hab;
       } catch (e) {}
 
       const pills = [];
@@ -2076,8 +2100,8 @@
       const frag = document.createDocumentFragment();
       for (const p of predsToShow) {
         const k = keyForGame(p);
-        const aAb = toUpper(p && p.away_abbr);
-        const hAb = toUpper(p && p.home_abbr);
+        const aAb = predTeamAbbr(p, 'away');
+        const hAb = predTeamAbbr(p, 'home');
         frag.appendChild(renderCard(
           p,
           byGame.get(k) || [],

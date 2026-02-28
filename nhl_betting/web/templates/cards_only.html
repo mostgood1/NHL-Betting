@@ -32,8 +32,8 @@
     .scoreboard-strip:empty { display:none; }
     .scoreboard-strip .s-item {
       flex: 0 0 auto;
-      min-width: 170px;
-      max-width: 220px;
+      min-width: 210px;
+      max-width: none;
       background:#0f1530;
       border:1px solid #25316a;
       border-radius:12px;
@@ -54,9 +54,10 @@
     .scoreboard-strip .s-sig {
       font-size:11px;
       font-weight:800;
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
+      white-space:normal;
+      overflow:visible;
+      text-overflow:clip;
+      overflow-wrap:anywhere;
       opacity: 0.95;
     }
     .scoreboard-strip .s-sig:empty { display:none; }
@@ -1519,22 +1520,80 @@
       const tot = oddsGame.total || {};
       const pl = oddsGame.puckline || {};
 
-      const parts = [];
-      if (ml.away !== null && ml.away !== undefined && ml.home !== null && ml.home !== undefined) {
-        parts.push(`ML <span class="mono">A ${ml.away} (${ml.away_book || '—'})</span> · <span class="mono">H ${ml.home} (${ml.home_book || '—'})</span>`);
+      function hasVal(x) {
+        return x !== null && x !== undefined && x !== '';
       }
-      if (tot.line !== null && tot.line !== undefined && (tot.over !== null || tot.under !== null)) {
-        parts.push(`Total <span class="mono">${fmt(tot.line,1)}</span> O ${tot.over ?? '—'} (${tot.over_book || '—'}) / U ${tot.under ?? '—'} (${tot.under_book || '—'})`);
+
+      const rows = [];
+
+      // Core game markets
+      {
+        const parts = [];
+        if (hasVal(ml.away) && hasVal(ml.home)) {
+          parts.push(`ML <span class="mono">A ${ml.away} (${ml.away_book || '—'})</span> · <span class="mono">H ${ml.home} (${ml.home_book || '—'})</span>`);
+        }
+        if (hasVal(tot.line) && (hasVal(tot.over) || hasVal(tot.under))) {
+          parts.push(`Total <span class="mono">${fmt(tot.line,1)}</span> O ${tot.over ?? '—'} (${tot.over_book || '—'}) / U ${tot.under ?? '—'} (${tot.under_book || '—'})`);
+        }
+        const plAway = pl['away_+1.5'];
+        const plAwayBook = pl['away_+1.5_book'];
+        const plHome = pl['home_-1.5'];
+        const plHomeBook = pl['home_-1.5_book'];
+        if (hasVal(plAway) && hasVal(plHome)) {
+          parts.push(`PL A+1.5 ${plAway} (${plAwayBook || '—'}) · H-1.5 ${plHome} (${plHomeBook || '—'})`);
+        }
+        if (parts.length) rows.push(`<span class="muted">Game:</span> ${parts.join(' · ')}`);
       }
-      const plAway = pl['away_+1.5'];
-      const plAwayBook = pl['away_+1.5_book'];
-      const plHome = pl['home_-1.5'];
-      const plHomeBook = pl['home_-1.5_book'];
-      if (plAway !== null && plAway !== undefined && plHome !== null && plHome !== undefined) {
-        parts.push(`PL A+1.5 ${plAway} (${plAwayBook || '—'}) · H-1.5 ${plHome} (${plHomeBook || '—'})`);
+
+      // Regulation 3-way (1X2)
+      {
+        const r = oddsGame.reg_3way || null;
+        if (r && (hasVal(r.home) || hasVal(r.draw) || hasVal(r.away))) {
+          rows.push(`<span class="muted">Reg 1X2:</span> <span class="mono">H ${r.home ?? '—'} (${r.home_book || '—'})</span> · <span class="mono">D ${r.draw ?? '—'} (${r.draw_book || '—'})</span> · <span class="mono">A ${r.away ?? '—'} (${r.away_book || '—'})</span>`);
+        }
       }
-      if (!parts.length) return '';
-      return `<div class="v"><span class="muted">Live odds:</span> ${parts.join(' · ')}</div>`;
+
+      function renderPeriodRow(lbl, blk) {
+        if (!blk) return '';
+        const parts = [];
+        const mlp = blk.ml || null;
+        const totp = blk.total || null;
+        const spr = blk.spread || null;
+        const tw = blk.three_way || null;
+
+        if (mlp && (hasVal(mlp.home) || hasVal(mlp.away))) {
+          parts.push(`ML <span class="mono">H ${mlp.home ?? '—'} (${mlp.home_book || '—'})</span> · <span class="mono">A ${mlp.away ?? '—'} (${mlp.away_book || '—'})</span>`);
+        }
+        if (totp && hasVal(totp.line) && (hasVal(totp.over) || hasVal(totp.under))) {
+          parts.push(`Tot <span class="mono">${fmt(totp.line,1)}</span> O ${totp.over ?? '—'} (${totp.over_book || '—'}) / U ${totp.under ?? '—'} (${totp.under_book || '—'})`);
+        }
+        if (spr && (hasVal(spr.home) || hasVal(spr.away)) && (hasVal(spr.home_point) || hasVal(spr.away_point))) {
+          const hp = hasVal(spr.home_point) ? fmt(spr.home_point,1) : '—';
+          const ap = hasVal(spr.away_point) ? fmt(spr.away_point,1) : '—';
+          parts.push(`Spr <span class="mono">H ${hp} ${spr.home ?? '—'} (${spr.home_book || '—'})</span> · <span class="mono">A ${ap} ${spr.away ?? '—'} (${spr.away_book || '—'})</span>`);
+        }
+        if (tw && (hasVal(tw.home) || hasVal(tw.draw) || hasVal(tw.away))) {
+          parts.push(`3W <span class="mono">H ${tw.home ?? '—'} (${tw.home_book || '—'})</span> · <span class="mono">D ${tw.draw ?? '—'} (${tw.draw_book || '—'})</span> · <span class="mono">A ${tw.away ?? '—'} (${tw.away_book || '—'})</span>`);
+        }
+        if (!parts.length) return '';
+        return `<span class="muted">${lbl}:</span> ${parts.join(' · ')}`;
+      }
+
+      // Per-period markets
+      {
+        const pls = oddsGame.period_lines || null;
+        if (pls) {
+          const p1 = renderPeriodRow('P1', pls.p1 || null);
+          const p2 = renderPeriodRow('P2', pls.p2 || null);
+          const p3 = renderPeriodRow('P3', pls.p3 || null);
+          if (p1) rows.push(p1);
+          if (p2) rows.push(p2);
+          if (p3) rows.push(p3);
+        }
+      }
+
+      if (!rows.length) return '';
+      return `<div class="v"><span class="muted">Live lines:</span>${rows.map(r => `<div class="rowline">${r}</div>`).join('')}</div>`;
     }
 
     function renderTopLiveContext(game) {

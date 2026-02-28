@@ -655,16 +655,45 @@ def _v1_odds_payload(date_ymd: str, regions: str = "us", best: bool = True, inpl
         return obj
 
     # Flat snapshot returns normalized rows for all current events.
+    # When in-play, try to also request period totals (best-effort) so Live Lens can surface live period lines.
+    # Some OddsAPI sport feeds may not support these market keys; in that case, fall back to core markets.
+    core_markets = "h2h,totals,spreads"
+    extended_markets = (
+        "h2h,totals,spreads,"
+        "h2h_3_way,"
+        "totals_1st_period,totals_2nd_period,totals_3rd_period,"
+        "h2h_1st_period,h2h_2nd_period,h2h_3rd_period,"
+        "spreads_1st_period,spreads_2nd_period,spreads_3rd_period,"
+        "h2h_3_way_1st_period,h2h_3_way_2nd_period,h2h_3_way_3rd_period"
+    )
+    markets = extended_markets if bool(inplay) else core_markets
+
     df = client.flat_snapshot(
         d,
         regions=str(regions or "us"),
-        markets="h2h,totals,spreads",
+        markets=markets,
         snapshot_iso=None,
         odds_format="american",
         bookmaker=None,
         best=bool(best),
         inplay=bool(inplay),
     )
+
+    # Robust fallback: if extended markets yielded nothing, retry with core markets.
+    try:
+        if bool(inplay) and (df is None or df.empty):
+            df = client.flat_snapshot(
+                d,
+                regions=str(regions or "us"),
+                markets=core_markets,
+                snapshot_iso=None,
+                odds_format="american",
+                bookmaker=None,
+                best=bool(best),
+                inplay=bool(inplay),
+            )
+    except Exception:
+        pass
 
     games: list[dict] = []
     if df is not None and not df.empty:
@@ -715,6 +744,132 @@ def _v1_odds_payload(date_ymd: str, regions: str = "us", best: bool = True, inpl
                         "away_+1.5": _i(r.get("away_pl_+1.5")),
                         "home_-1.5_book": r.get("home_pl_-1.5_book"),
                         "away_+1.5_book": r.get("away_pl_+1.5_book"),
+                    },
+                    "reg_3way": {
+                        "home": _i(r.get("reg3_home")),
+                        "draw": _i(r.get("reg3_draw")),
+                        "away": _i(r.get("reg3_away")),
+                        "home_book": r.get("reg3_home_book"),
+                        "draw_book": r.get("reg3_draw_book"),
+                        "away_book": r.get("reg3_away_book"),
+                    },
+                    "period_totals": {
+                        "p1": {
+                            "line": _f(r.get("p1_total_line")),
+                            "over": _i(r.get("p1_over")),
+                            "under": _i(r.get("p1_under")),
+                            "over_book": r.get("p1_over_book"),
+                            "under_book": r.get("p1_under_book"),
+                        },
+                        "p2": {
+                            "line": _f(r.get("p2_total_line")),
+                            "over": _i(r.get("p2_over")),
+                            "under": _i(r.get("p2_under")),
+                            "over_book": r.get("p2_over_book"),
+                            "under_book": r.get("p2_under_book"),
+                        },
+                        "p3": {
+                            "line": _f(r.get("p3_total_line")),
+                            "over": _i(r.get("p3_over")),
+                            "under": _i(r.get("p3_under")),
+                            "over_book": r.get("p3_over_book"),
+                            "under_book": r.get("p3_under_book"),
+                        },
+                    },
+                    "period_lines": {
+                        "p1": {
+                            "ml": {
+                                "home": _i(r.get("p1_ml_home")),
+                                "away": _i(r.get("p1_ml_away")),
+                                "home_book": r.get("p1_ml_home_book"),
+                                "away_book": r.get("p1_ml_away_book"),
+                            },
+                            "total": {
+                                "line": _f(r.get("p1_total_line")),
+                                "over": _i(r.get("p1_over")),
+                                "under": _i(r.get("p1_under")),
+                                "over_book": r.get("p1_over_book"),
+                                "under_book": r.get("p1_under_book"),
+                            },
+                            "spread": {
+                                "home_point": _f(r.get("p1_spr_home_point")),
+                                "home": _i(r.get("p1_spr_home")),
+                                "away_point": _f(r.get("p1_spr_away_point")),
+                                "away": _i(r.get("p1_spr_away")),
+                                "home_book": r.get("p1_spr_home_book"),
+                                "away_book": r.get("p1_spr_away_book"),
+                            },
+                            "three_way": {
+                                "home": _i(r.get("p1_3w_home")),
+                                "draw": _i(r.get("p1_3w_draw")),
+                                "away": _i(r.get("p1_3w_away")),
+                                "home_book": r.get("p1_3w_home_book"),
+                                "draw_book": r.get("p1_3w_draw_book"),
+                                "away_book": r.get("p1_3w_away_book"),
+                            },
+                        },
+                        "p2": {
+                            "ml": {
+                                "home": _i(r.get("p2_ml_home")),
+                                "away": _i(r.get("p2_ml_away")),
+                                "home_book": r.get("p2_ml_home_book"),
+                                "away_book": r.get("p2_ml_away_book"),
+                            },
+                            "total": {
+                                "line": _f(r.get("p2_total_line")),
+                                "over": _i(r.get("p2_over")),
+                                "under": _i(r.get("p2_under")),
+                                "over_book": r.get("p2_over_book"),
+                                "under_book": r.get("p2_under_book"),
+                            },
+                            "spread": {
+                                "home_point": _f(r.get("p2_spr_home_point")),
+                                "home": _i(r.get("p2_spr_home")),
+                                "away_point": _f(r.get("p2_spr_away_point")),
+                                "away": _i(r.get("p2_spr_away")),
+                                "home_book": r.get("p2_spr_home_book"),
+                                "away_book": r.get("p2_spr_away_book"),
+                            },
+                            "three_way": {
+                                "home": _i(r.get("p2_3w_home")),
+                                "draw": _i(r.get("p2_3w_draw")),
+                                "away": _i(r.get("p2_3w_away")),
+                                "home_book": r.get("p2_3w_home_book"),
+                                "draw_book": r.get("p2_3w_draw_book"),
+                                "away_book": r.get("p2_3w_away_book"),
+                            },
+                        },
+                        "p3": {
+                            "ml": {
+                                "home": _i(r.get("p3_ml_home")),
+                                "away": _i(r.get("p3_ml_away")),
+                                "home_book": r.get("p3_ml_home_book"),
+                                "away_book": r.get("p3_ml_away_book"),
+                            },
+                            "total": {
+                                "line": _f(r.get("p3_total_line")),
+                                "over": _i(r.get("p3_over")),
+                                "under": _i(r.get("p3_under")),
+                                "over_book": r.get("p3_over_book"),
+                                "under_book": r.get("p3_under_book"),
+                            },
+                            "spread": {
+                                "home_point": _f(r.get("p3_spr_home_point")),
+                                "home": _i(r.get("p3_spr_home")),
+                                "away_point": _f(r.get("p3_spr_away_point")),
+                                "away": _i(r.get("p3_spr_away")),
+                                "home_book": r.get("p3_spr_home_book"),
+                                "away_book": r.get("p3_spr_away_book"),
+                            },
+                            "three_way": {
+                                "home": _i(r.get("p3_3w_home")),
+                                "draw": _i(r.get("p3_3w_draw")),
+                                "away": _i(r.get("p3_3w_away")),
+                                "home_book": r.get("p3_3w_home_book"),
+                                "draw_book": r.get("p3_3w_draw_book"),
+                                "away_book": r.get("p3_3w_away_book"),
+                            },
+                        },
                     },
                 })
 
@@ -2787,6 +2942,387 @@ async def v1_live_lens_combined(
             except Exception:
                 pass
 
+            # 1c) Regulation 3-way signal (HOME/DRAW/AWAY) when prices exist
+            try:
+                em = _to_float(elapsed_min)
+                rm = _to_float(remaining_min)
+                if em is not None and rm is not None and em >= 2.0:
+                    reg3 = None
+                    try:
+                        if isinstance(og, dict):
+                            reg3 = og.get("reg_3way")
+                    except Exception:
+                        reg3 = None
+                    if isinstance(reg3, dict) and model_total is not None and model_spread is not None and home_goals is not None and away_goals is not None:
+                        gd = int(home_goals) - int(away_goals)
+                        mt = float(model_total)
+                        ms = float(model_spread)
+                        mu_home_full = max(0.0, (mt + ms) / 2.0)
+                        mu_away_full = max(0.0, (mt - ms) / 2.0)
+                        mu_home_rem = mu_home_full * (float(rm) / 60.0) * float(pace_mult) * float(goalie_mult)
+                        mu_away_rem = mu_away_full * (float(rm) / 60.0) * float(pace_mult) * float(goalie_mult)
+                        mu_home_rem += float(pp_bonus_home) * (float(rm) / 60.0) + float(en_bonus_home)
+                        mu_away_rem += float(pp_bonus_away) * (float(rm) / 60.0) + float(en_bonus_away)
+
+                        pr = _win_cover_probs(int(gd), float(mu_home_rem), float(mu_away_rem))
+                        p_home = _safe_prob(pr.get("p_home_win"))
+                        p_away = _safe_prob(pr.get("p_away_win"))
+                        p_draw = _safe_prob(pr.get("p_tie"))
+                        # compare to implied
+                        cand: list[tuple[str, float, Optional[int], Optional[float]]] = []
+                        for side, p, price in (
+                            ("HOME", p_home, reg3.get("home")),
+                            ("DRAW", p_draw, reg3.get("draw")),
+                            ("AWAY", p_away, reg3.get("away")),
+                        ):
+                            if p is None or price is None:
+                                continue
+                            imp = _american_to_implied_prob(price)
+                            if imp is None:
+                                continue
+                            edge = float(p) - float(imp)
+                            cand.append((side, edge, _to_int(price), float(p)))
+                        if cand:
+                            cand.sort(key=lambda x: float(x[1]), reverse=True)
+                            side, edge, price_i, p_model = cand[0]
+                            if edge is not None and float(edge) >= 0.03:
+                                action = "WATCH"
+                                if float(em) >= 6.0 and float(edge) >= 0.05:
+                                    action = "BET"
+                                if float(em) >= 12.0 and float(edge) >= 0.04:
+                                    action = "BET"
+                                fair = _prob_to_american(float(p_model))
+                                max_price = _prob_to_american(max(0.01, min(0.99, float(p_model) - 0.03)))
+                                signals.append(_signal(
+                                    action,
+                                    scope="game",
+                                    market="REG_3WAY",
+                                    label=f"Reg 3-way {side}",
+                                    side=side,
+                                    price=price_i,
+                                    p_model=float(p_model),
+                                    implied=float(_american_to_implied_prob(price_i)) if price_i is not None else None,
+                                    edge=float(edge),
+                                    fair_price_american=fair,
+                                    target_max_price_american=max_price,
+                                    elapsed_min=float(em),
+                                ))
+            except Exception:
+                pass
+
+            # 1d) Period markets signals (P1/P2/P3 totals/ML/spreads/3-way), best-effort
+            try:
+                em = _to_float(elapsed_min)
+                if em is None:
+                    raise RuntimeError("no_elapsed")
+
+                # period goals from lens
+                per_goals: dict[int, dict[str, int]] = {}
+                try:
+                    if isinstance(lens, dict) and isinstance(lens.get("periods"), list):
+                        for p in lens.get("periods") or []:
+                            if not isinstance(p, dict):
+                                continue
+                            try:
+                                pn = int(p.get("period"))
+                            except Exception:
+                                continue
+                            h = p.get("home") if isinstance(p.get("home"), dict) else {}
+                            a = p.get("away") if isinstance(p.get("away"), dict) else {}
+                            try:
+                                hg = int(h.get("goals")) if h.get("goals") is not None else 0
+                            except Exception:
+                                hg = 0
+                            try:
+                                ag = int(a.get("goals")) if a.get("goals") is not None else 0
+                            except Exception:
+                                ag = 0
+                            per_goals[pn] = {"home": int(hg), "away": int(ag)}
+                except Exception:
+                    per_goals = {}
+
+                period_lines = None
+                try:
+                    if isinstance(og, dict):
+                        period_lines = og.get("period_lines")
+                except Exception:
+                    period_lines = None
+                if not isinstance(period_lines, dict):
+                    raise RuntimeError("no_period_lines")
+
+                # model params
+                if model_total is None or model_spread is None:
+                    raise RuntimeError("no_model")
+                mt = float(model_total)
+                ms = float(model_spread)
+                mu_home_full = max(0.0, (mt + ms) / 2.0)
+                mu_away_full = max(0.0, (mt - ms) / 2.0)
+                mu_home_per = float(mu_home_full) / 3.0
+                mu_away_per = float(mu_away_full) / 3.0
+                mu_tot_per = float(mt) / 3.0
+
+                # current period remaining minutes
+                cur_period = None
+                try:
+                    if period_i is not None:
+                        cur_period = int(period_i)
+                except Exception:
+                    cur_period = None
+                per_rem_min = None
+                try:
+                    if cur_period is not None and clock_sec is not None and 1 <= int(cur_period) <= 3:
+                        per_rem_min = float(clock_sec) / 60.0
+                except Exception:
+                    per_rem_min = None
+
+                def _period_time_remaining_min(pn: int) -> float:
+                    if cur_period is None:
+                        return 20.0
+                    if pn < int(cur_period):
+                        return 0.0
+                    if pn > int(cur_period):
+                        return 20.0
+                    return float(per_rem_min) if per_rem_min is not None else 20.0
+
+                def _period_elapsed_min(pn: int) -> float:
+                    rem = float(_period_time_remaining_min(int(pn)))
+                    return float(max(0.0, 20.0 - rem))
+
+                def _sig_action_for_period(pn: int, edge: float) -> str:
+                    # Conservative: only BET for current period with time-on-ice.
+                    if cur_period is not None and int(pn) == int(cur_period):
+                        ep = _period_elapsed_min(int(pn))
+                        if ep >= 6.0 and abs(float(edge)) >= 0.04:
+                            return "BET"
+                        if ep >= 3.0 and abs(float(edge)) >= 0.06:
+                            return "BET"
+                    return "WATCH"
+
+                def _poisson_prob_over_under(line_f: float, goals_so_far: int, mu_rem: float) -> tuple[Optional[float], Optional[float], Optional[float]]:
+                    try:
+                        line_f = float(line_f)
+                        goals_so_far = int(goals_so_far)
+                        mu_rem = float(max(0.0, mu_rem))
+                        is_int_line = abs(line_f - round(line_f)) < 1e-9
+                        if is_int_line:
+                            line_i = int(round(line_f))
+                            over_min_total = line_i + 1
+                            under_max_total = line_i - 1
+                            push_total = line_i
+                        else:
+                            over_min_total = int((line_f // 1) + 1)
+                            under_max_total = int(line_f // 1)
+                            push_total = None
+
+                        need_over = int(over_min_total) - int(goals_so_far)
+                        need_under = int(under_max_total) - int(goals_so_far)
+                        p_over = 1.0 if need_over <= 0 else _poisson_sf(int(need_over), float(mu_rem))
+                        p_under = 0.0 if need_under < 0 else _poisson_cdf(int(need_under), float(mu_rem))
+                        p_push = None
+                        if push_total is not None:
+                            k_push = int(push_total) - int(goals_so_far)
+                            if k_push < 0:
+                                p_push = 0.0
+                            else:
+                                p_push = max(0.0, _poisson_cdf(k_push, float(mu_rem)) - _poisson_cdf(k_push - 1, float(mu_rem)))
+                        return float(p_over), float(p_under), (float(p_push) if p_push is not None else None)
+                    except Exception:
+                        return None, None, None
+
+                for pn, key in ((1, "p1"), (2, "p2"), (3, "p3")):
+                    blk = period_lines.get(key)
+                    if not isinstance(blk, dict):
+                        continue
+
+                    rem = float(_period_time_remaining_min(int(pn)))
+                    if rem <= 0.0:
+                        continue
+
+                    frac = max(0.0, min(1.0, float(rem) / 20.0))
+                    mu_home_rem = float(mu_home_per) * float(frac) * float(pace_mult) * float(goalie_mult)
+                    mu_away_rem = float(mu_away_per) * float(frac) * float(pace_mult) * float(goalie_mult)
+                    mu_tot_rem = float(mu_tot_per) * float(frac) * float(pace_mult) * float(goalie_mult)
+                    # Mild PP bump for current period only
+                    try:
+                        if cur_period is not None and int(pn) == int(cur_period):
+                            mu_home_rem += float(pp_bonus_home) * float(frac)
+                            mu_away_rem += float(pp_bonus_away) * float(frac)
+                            mu_tot_rem += float(pp_bonus_home + pp_bonus_away) * float(frac)
+                    except Exception:
+                        pass
+
+                    hg_p = int((per_goals.get(int(pn), {}) or {}).get("home") or 0)
+                    ag_p = int((per_goals.get(int(pn), {}) or {}).get("away") or 0)
+                    goals_p = int(hg_p + ag_p)
+                    gd_p = int(hg_p - ag_p)
+                    pr = _win_cover_probs(int(gd_p), float(mu_home_rem), float(mu_away_rem))
+                    p_home = _safe_prob(pr.get("p_home_win"))
+                    p_away = _safe_prob(pr.get("p_away_win"))
+                    p_tie = _safe_prob(pr.get("p_tie"))
+
+                    # Period total signal
+                    try:
+                        tot = blk.get("total") if isinstance(blk.get("total"), dict) else None
+                        if isinstance(tot, dict) and tot.get("line") is not None:
+                            line_f = float(tot.get("line"))
+                            p_over, p_under, _ = _poisson_prob_over_under(float(line_f), int(goals_p), float(mu_tot_rem))
+                            # Pick best side by edge
+                            cand = []
+                            if tot.get("over") is not None and p_over is not None:
+                                imp = _american_to_implied_prob(tot.get("over"))
+                                if imp is not None:
+                                    cand.append(("OVER", float(p_over) - float(imp), _to_int(tot.get("over")), float(p_over)))
+                            if tot.get("under") is not None and p_under is not None:
+                                imp = _american_to_implied_prob(tot.get("under"))
+                                if imp is not None:
+                                    cand.append(("UNDER", float(p_under) - float(imp), _to_int(tot.get("under")), float(p_under)))
+                            if cand:
+                                cand.sort(key=lambda x: float(x[1]), reverse=True)
+                                side, edge, price_i, p_model = cand[0]
+                                if float(edge) >= 0.03:
+                                    action = _sig_action_for_period(int(pn), float(edge))
+                                    fair = _prob_to_american(float(p_model))
+                                    max_price = _prob_to_american(max(0.01, min(0.99, float(p_model) - 0.03)))
+                                    signals.append(_signal(
+                                        action,
+                                        scope="game",
+                                        market="PERIOD_TOTAL",
+                                        label=f"P{pn} Total {side} {line_f:g}",
+                                        period=int(pn),
+                                        side=side,
+                                        line=float(line_f),
+                                        price=price_i,
+                                        p_model=float(p_model),
+                                        edge=float(edge),
+                                        fair_price_american=fair,
+                                        target_max_price_american=max_price,
+                                        elapsed_min=float(em),
+                                        goals_in_period=int(goals_p),
+                                    ))
+                    except Exception:
+                        pass
+
+                    # Period ML (treat as DNB: condition on non-tie)
+                    try:
+                        ml = blk.get("ml") if isinstance(blk.get("ml"), dict) else None
+                        if isinstance(ml, dict) and ml.get("home") is not None and ml.get("away") is not None and p_home is not None and p_away is not None and p_tie is not None:
+                            denom = max(1e-6, 1.0 - float(p_tie))
+                            p_home_dnb = float(p_home) / float(denom)
+                            p_away_dnb = float(p_away) / float(denom)
+                            cand = []
+                            imp_h = _american_to_implied_prob(ml.get("home"))
+                            if imp_h is not None:
+                                cand.append(("HOME", float(p_home_dnb) - float(imp_h), _to_int(ml.get("home")), float(p_home_dnb)))
+                            imp_a = _american_to_implied_prob(ml.get("away"))
+                            if imp_a is not None:
+                                cand.append(("AWAY", float(p_away_dnb) - float(imp_a), _to_int(ml.get("away")), float(p_away_dnb)))
+                            if cand:
+                                cand.sort(key=lambda x: float(x[1]), reverse=True)
+                                side, edge, price_i, p_model = cand[0]
+                                if float(edge) >= 0.03:
+                                    action = _sig_action_for_period(int(pn), float(edge))
+                                    fair = _prob_to_american(float(p_model))
+                                    max_price = _prob_to_american(max(0.01, min(0.99, float(p_model) - 0.03)))
+                                    signals.append(_signal(
+                                        action,
+                                        scope="game",
+                                        market="PERIOD_ML",
+                                        label=f"P{pn} ML {side}",
+                                        period=int(pn),
+                                        side=side,
+                                        price=price_i,
+                                        p_model=float(p_model),
+                                        edge=float(edge),
+                                        fair_price_american=fair,
+                                        target_max_price_american=max_price,
+                                        elapsed_min=float(em),
+                                        note="dnb_conditional_on_non_tie",
+                                    ))
+                    except Exception:
+                        pass
+
+                    # Period spread (assumes +/-0.5): home covers on win, away covers on win or tie
+                    try:
+                        spr = blk.get("spread") if isinstance(blk.get("spread"), dict) else None
+                        if isinstance(spr, dict) and p_home is not None and p_away is not None and p_tie is not None:
+                            cand = []
+                            if spr.get("home") is not None and spr.get("home_point") is not None:
+                                ph = float(p_home)  # -0.5 -> must win
+                                imp = _american_to_implied_prob(spr.get("home"))
+                                if imp is not None:
+                                    cand.append(("HOME", float(ph) - float(imp), _to_int(spr.get("home")), ph, _to_float(spr.get("home_point"))))
+                            if spr.get("away") is not None and spr.get("away_point") is not None:
+                                pa = float(p_away) + float(p_tie)  # +0.5 -> not lose
+                                imp = _american_to_implied_prob(spr.get("away"))
+                                if imp is not None:
+                                    cand.append(("AWAY", float(pa) - float(imp), _to_int(spr.get("away")), pa, _to_float(spr.get("away_point"))))
+                            if cand:
+                                cand.sort(key=lambda x: float(x[1]), reverse=True)
+                                side, edge, price_i, p_model, pt = cand[0]
+                                if float(edge) >= 0.03 and pt is not None:
+                                    action = _sig_action_for_period(int(pn), float(edge))
+                                    fair = _prob_to_american(float(p_model))
+                                    max_price = _prob_to_american(max(0.01, min(0.99, float(p_model) - 0.03)))
+                                    signals.append(_signal(
+                                        action,
+                                        scope="game",
+                                        market="PERIOD_SPREAD",
+                                        label=f"P{pn} Spread {side} {pt:+g}",
+                                        period=int(pn),
+                                        side=side,
+                                        line=float(pt),
+                                        price=price_i,
+                                        p_model=float(p_model),
+                                        edge=float(edge),
+                                        fair_price_american=fair,
+                                        target_max_price_american=max_price,
+                                        elapsed_min=float(em),
+                                    ))
+                    except Exception:
+                        pass
+
+                    # Period 3-way
+                    try:
+                        tw = blk.get("three_way") if isinstance(blk.get("three_way"), dict) else None
+                        if isinstance(tw, dict) and p_home is not None and p_away is not None and p_tie is not None:
+                            cand = []
+                            for side, p, price in (
+                                ("HOME", p_home, tw.get("home")),
+                                ("DRAW", p_tie, tw.get("draw")),
+                                ("AWAY", p_away, tw.get("away")),
+                            ):
+                                if p is None or price is None:
+                                    continue
+                                imp = _american_to_implied_prob(price)
+                                if imp is None:
+                                    continue
+                                cand.append((side, float(p) - float(imp), _to_int(price), float(p)))
+                            if cand:
+                                cand.sort(key=lambda x: float(x[1]), reverse=True)
+                                side, edge, price_i, p_model = cand[0]
+                                if float(edge) >= 0.03:
+                                    action = _sig_action_for_period(int(pn), float(edge))
+                                    fair = _prob_to_american(float(p_model))
+                                    max_price = _prob_to_american(max(0.01, min(0.99, float(p_model) - 0.03)))
+                                    signals.append(_signal(
+                                        action,
+                                        scope="game",
+                                        market="PERIOD_3WAY",
+                                        label=f"P{pn} 3-way {side}",
+                                        period=int(pn),
+                                        side=side,
+                                        price=price_i,
+                                        p_model=float(p_model),
+                                        edge=float(edge),
+                                        fair_price_american=fair,
+                                        target_max_price_american=max_price,
+                                        elapsed_min=float(em),
+                                    ))
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+
             # 2) Player shots signals (pace + TOI)
             try:
                 em = _to_float(elapsed_min)
@@ -3227,6 +3763,13 @@ async def v1_live_lens_combined(
         # This is best-effort and should never fail the endpoint.
         try:
             snap_dir_s = (os.getenv("NHL_LIVE_LENS_DIR") or os.getenv("LIVE_LENS_DIR") or "").strip()
+            # Local default: persist under data/processed/live_lens so signals can be audited later.
+            if not snap_dir_s and not _is_public_host_env():
+                try:
+                    snap_dir_s = str((PROC_DIR / "live_lens").resolve())
+                except Exception:
+                    snap_dir_s = str(PROC_DIR / "live_lens")
+
             if snap_dir_s:
                 try:
                     min_sec = float(os.getenv("LIVE_LENS_SNAPSHOT_MIN_SECONDS", "60") or "60")
@@ -9241,6 +9784,14 @@ async def api_live_lens_disk_status(write_test: bool = Query(False, description=
     verifies write permissions by creating and deleting a tiny temp file.
     """
     snap_dir_s = (os.getenv("NHL_LIVE_LENS_DIR") or os.getenv("LIVE_LENS_DIR") or "").strip()
+    # Mirror v1_live_lens_combined behavior: default locally to data/processed/live_lens.
+    defaulted = False
+    if not snap_dir_s and not _is_public_host_env():
+        defaulted = True
+        try:
+            snap_dir_s = str((PROC_DIR / "live_lens").resolve())
+        except Exception:
+            snap_dir_s = str(PROC_DIR / "live_lens")
     if not snap_dir_s:
         return JSONResponse({
             "configured": False,
@@ -9302,6 +9853,7 @@ async def api_live_lens_disk_status(write_test: bool = Query(False, description=
 
     return JSONResponse({
         "configured": True,
+        "defaulted": bool(defaulted),
         "dir": str(p),
         "exists": bool(exists),
         "writable": bool(writable),

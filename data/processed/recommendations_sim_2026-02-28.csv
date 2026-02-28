@@ -1,5 +1,9 @@
 market,side,price,ev,prob,conf,home,away,totals_line
-ML,San Jose Sharks,128.0,0.33627000000000007,0.5860833333333333,0.08608333333333329,San Jose Sharks,Edmonton Oilers,6.0
-ML,Pittsburgh Penguins,-114.0,0.01368421052631591,0.54,0.040000000000000036,New York Rangers,Pittsburgh Penguins,6.0
-ML,Chicago Blackhawks,310.0,1.089975,0.50975,0.009750000000000036,Colorado Avalanche,Chicago Blackhawks,6.0
-ML,Calgary Flames,150.0,0.27312499999999995,0.50925,0.00924999999999998,Los Angeles Kings,Calgary Flames,6.0
+ML,Colorado Avalanche,-400.0,0.03218749999999998,0.82575,0.32575,Colorado Avalanche,Chicago Blackhawks,6.5
+ML,Carolina Hurricanes,-195.0,0.2151730769230769,0.80325,0.30325,Carolina Hurricanes,Detroit Red Wings,6.5
+ML,Seattle Kraken,-182.0,0.1666071428571429,0.7529166666666667,0.2529166666666667,Seattle Kraken,Vancouver Canucks,5.5
+ML,Edmonton Oilers,-157.0,0.18964808917197445,0.72675,0.22675,San Jose Sharks,Edmonton Oilers,6.5
+ML,Pittsburgh Penguins,-114.0,0.2789941520467837,0.6813333333333333,0.18133333333333335,New York Rangers,Pittsburgh Penguins,5.5
+ML,Boston Bruins,-110.0,0.20161363636363638,0.6294166666666666,0.12941666666666662,Philadelphia Flyers,Boston Bruins,6.5
+ML,Calgary Flames,150.0,0.44958333333333333,0.5798333333333333,0.07983333333333331,Los Angeles Kings,Calgary Flames,5.5
+ML,Nashville Predators,150.0,0.4245833333333332,0.5698333333333333,0.0698333333333333,Dallas Stars,Nashville Predators,5.5

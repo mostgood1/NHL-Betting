@@ -48,6 +48,8 @@
     .scoreboard-strip .s-item.bet { background:#0f2d1b; border-color:#1e7a45; color:#a7f3c6; }
     .scoreboard-strip .s-item.watch { background:#152055; border-color:#3a4aa6; color:#e8eaf6; }
     .scoreboard-strip .s-time { color:#9fb0ff; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.3px; }
+    .scoreboard-strip .s-score { color:#cfe0ff; font-size:11px; font-weight:900; letter-spacing:0.2px; }
+    .scoreboard-strip .s-score:empty { display:none; }
     .scoreboard-strip .s-teamline { display:flex; align-items:center; gap:8px; font-weight:900; font-size:12px; letter-spacing:0.2px; }
     .scoreboard-strip .s-teamline .nm { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .scoreboard-strip .team-logo { width:18px; height:18px; object-fit:contain; }
@@ -91,6 +93,7 @@
     .pill:hover { border-color:#3a4aa6; }
     .view-toggle { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
     .live-clock:empty { display:none; }
+    .live-score:empty { display:none; }
     .final-score { display:none; }
     .final-score.show { display:inline-flex; }
 
@@ -721,6 +724,7 @@
         <div class="card-title">
           <span class="match">${match}</span>
           <span class="lens-card-tag" data-role="lens-card-tag"></span>
+          <span class="pill active live-score" data-role="live-score"></span>
           <span class="pill active live-clock" data-role="live-clock"></span>
           <span class="pill active final-score" data-role="final-score"></span>
           ${pills.join('')}
@@ -868,6 +872,7 @@
         } catch (e) {}
         aEl.innerHTML = `
           <div class="s-time">${timeLine}</div>
+          <div class="s-score" data-role="score"></div>
           <div class="s-teamline">${awayLogo ? `<img class="team-logo" src="${awayLogo}" alt="${a || ''}" />` : ''}<div class="nm">${a || '—'}</div></div>
           <div class="s-teamline">${homeLogo ? `<img class="team-logo" src="${homeLogo}" alt="${h || ''}" />` : ''}<div class="nm">${h || '—'}</div></div>
           <div class="s-sig" data-role="sig-1"></div>
@@ -1122,6 +1127,7 @@
             return `
               <tr>
                 <td class="player">${r.name ?? '—'}</td>
+                const scEl = item.querySelector('[data-role="score"]');
                 <td>${r.pos ?? '—'}</td>
                 <td>${r.g ?? '—'}</td>
                 <td>${r.a ?? '—'}</td>
@@ -1132,6 +1138,19 @@
               </tr>
             `;
           }).join('');
+                if (scEl) {
+                  try {
+                    const sc = (g && g.score) ? g.score : null;
+                    const ag = sc && sc.away !== undefined && sc.away !== null ? sc.away : null;
+                    const hg = sc && sc.home !== undefined && sc.home !== null ? sc.home : null;
+                    const up = String(st || '').toUpperCase();
+                    if (ag !== null && hg !== null && (isLiveState(st) || up.includes('FINAL'))) {
+                      scEl.textContent = up.includes('FINAL') ? `FINAL ${ag}-${hg}` : `Score ${ag}-${hg}`;
+                    } else {
+                      scEl.textContent = '';
+                    }
+                  } catch (e) { scEl.textContent = ''; }
+                }
           return `
             <div class="section-title">${title}</div>
             <table class="boxscore">
@@ -1954,6 +1973,7 @@
           // Time remaining in period (live games)
           try {
             const lc = card.querySelector('[data-role="live-clock"]');
+            const ls = card.querySelector('[data-role="live-score"]');
             const st = String(g && g.gameState ? g.gameState : '').trim();
             const per = (g && g.period !== undefined && g.period !== null) ? g.period : null;
             const clk = (g && g.clock) ? String(g.clock).trim() : '';
@@ -1965,6 +1985,20 @@
                 lc.textContent = bits.join(' ');
               } else {
                 lc.textContent = '';
+              }
+            }
+            if (ls) {
+              try {
+                const sc = (g && g.score) ? g.score : null;
+                const ag = sc && sc.away !== undefined ? sc.away : null;
+                const hg = sc && sc.home !== undefined ? sc.home : null;
+                if (g && isLiveState(st) && ag !== null && hg !== null) {
+                  ls.textContent = `Score ${ag}-${hg}`;
+                } else {
+                  ls.textContent = '';
+                }
+              } catch (e) {
+                ls.textContent = '';
               }
             }
           } catch (e) {}

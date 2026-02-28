@@ -89,6 +89,7 @@
     .pill.active { background:#152055; border-color:#3a4aa6; color:#e8eaf6; }
     .pill:hover { border-color:#3a4aa6; }
     .view-toggle { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .live-clock:empty { display:none; }
     .final-score { display:none; }
     .final-score.show { display:inline-flex; }
 
@@ -719,6 +720,7 @@
         <div class="card-title">
           <span class="match">${match}</span>
           <span class="lens-card-tag" data-role="lens-card-tag"></span>
+          <span class="pill active live-clock" data-role="live-clock"></span>
           <span class="pill active final-score" data-role="final-score"></span>
           ${pills.join('')}
         </div>
@@ -842,8 +844,9 @@
       const frag = document.createDocumentFragment();
       for (const p of (preds || [])) {
         const k = keyForGame(p);
-        const a = toUpper(p && p.away_abbr) || String(p && p.away || '').trim();
-        const h = toUpper(p && p.home_abbr) || String(p && p.home || '').trim();
+        // Compact strip should show full team names (not 2-3 letter abbreviations).
+        const a = String(p && p.away || '').trim() || toUpper(p && p.away_abbr);
+        const h = String(p && p.home || '').trim() || toUpper(p && p.home_abbr);
         const state = String(p && p.game_state || '').trim();
         const awayLogo = (p && p.away_logo) ? String(p.away_logo) : '';
         const homeLogo = (p && p.home_logo) ? String(p.home_logo) : '';
@@ -854,8 +857,8 @@
         aEl.href = '#';
         aEl.className = 's-item';
         aEl.dataset.gameKey = k;
-        try { aEl.dataset.awayName = String(p && (p.away_abbr || p.away) || '').trim(); } catch (e) {}
-        try { aEl.dataset.homeName = String(p && (p.home_abbr || p.home) || '').trim(); } catch (e) {}
+        try { aEl.dataset.awayName = String(p && p.away || '').trim(); } catch (e) {}
+        try { aEl.dataset.homeName = String(p && p.home || '').trim(); } catch (e) {}
         try { if (awayLogo) aEl.dataset.awayLogo = awayLogo; } catch (e) {}
         try { if (homeLogo) aEl.dataset.homeLogo = homeLogo; } catch (e) {}
         try {
@@ -1885,6 +1888,24 @@
               } else {
                 fs.textContent = '';
                 fs.classList.remove('show');
+              }
+            }
+          } catch (e) {}
+
+          // Time remaining in period (live games)
+          try {
+            const lc = card.querySelector('[data-role="live-clock"]');
+            const st = String(g && g.gameState ? g.gameState : '').trim();
+            const per = (g && g.period !== undefined && g.period !== null) ? g.period : null;
+            const clk = (g && g.clock) ? String(g.clock).trim() : '';
+            if (lc) {
+              if (g && isLiveState(st) && (per !== null || clk)) {
+                const bits = [];
+                if (per !== null) bits.push(`P${per}`);
+                if (clk) bits.push(clk);
+                lc.textContent = bits.join(' ');
+              } else {
+                lc.textContent = '';
               }
             }
           } catch (e) {}

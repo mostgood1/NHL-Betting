@@ -1612,16 +1612,40 @@
         return `<span class="muted">${lbl}:</span> ${parts.join(' · ')}`;
       }
 
+      function renderPeriodTotalsOnlyRow(lbl, totp) {
+        if (!totp) return '';
+        const parts = [];
+        if (hasVal(totp.line) && (hasVal(totp.over) || hasVal(totp.under))) {
+          parts.push(`Tot <span class="mono">${fmt(totp.line,1)}</span> O ${totp.over ?? '—'} (${totp.over_book || '—'}) / U ${totp.under ?? '—'} (${totp.under_book || '—'})`);
+        }
+        if (!parts.length) return '';
+        return `<span class="muted">${lbl}:</span> ${parts.join(' · ')}`;
+      }
+
       // Per-period markets
       {
         const pls = oddsGame.period_lines || null;
+        let anyPeriod = false;
         if (pls) {
           const p1 = renderPeriodRow('P1', pls.p1 || null);
           const p2 = renderPeriodRow('P2', pls.p2 || null);
           const p3 = renderPeriodRow('P3', pls.p3 || null);
-          if (p1) rows.push(p1);
-          if (p2) rows.push(p2);
-          if (p3) rows.push(p3);
+          if (p1) { rows.push(p1); anyPeriod = true; }
+          if (p2) { rows.push(p2); anyPeriod = true; }
+          if (p3) { rows.push(p3); anyPeriod = true; }
+        }
+
+        // Fallback: some feeds only provide per-period totals even when ML/spreads/3W are missing.
+        if (!anyPeriod) {
+          const pt = oddsGame.period_totals || null;
+          if (pt) {
+            const t1 = renderPeriodTotalsOnlyRow('P1', pt.p1 || null);
+            const t2 = renderPeriodTotalsOnlyRow('P2', pt.p2 || null);
+            const t3 = renderPeriodTotalsOnlyRow('P3', pt.p3 || null);
+            if (t1) rows.push(t1);
+            if (t2) rows.push(t2);
+            if (t3) rows.push(t3);
+          }
         }
       }
 

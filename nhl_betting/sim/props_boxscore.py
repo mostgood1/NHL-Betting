@@ -95,7 +95,9 @@ def aggregate_events_to_boxscores_fast(
         elif kind == "shift":
             if pid is not None:
                 try:
-                    dur = float(getattr(e, "meta", {}) or {}).get("dur", 0.0)
+                    meta = getattr(e, "meta", None)
+                    meta = meta if isinstance(meta, dict) else {}
+                    dur = float(meta.get("dur", 0.0) or 0.0)
                 except Exception:
                     dur = 0.0
                 if dur and dur > 0.0:

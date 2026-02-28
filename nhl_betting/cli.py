@@ -6567,6 +6567,14 @@ def props_simulate_boxscores(
     toi_by_team_pid_hist: dict[tuple[str, int], float] = {}
     toi_by_team_pid_stats: dict[tuple[str, int], float] = {}
     toi_by_pid_stats: dict[int, float] = {}
+    # Derived per-minute stat rates from recent actuals (used to build realistic attribution weights
+    # for players that don't have a projection for a given market).
+    shot_rate_by_team_pid_stats: dict[tuple[str, int], float] = {}
+    shot_rate_by_pid_stats: dict[int, float] = {}
+    block_rate_by_team_pid_stats: dict[tuple[str, int], float] = {}
+    block_rate_by_pid_stats: dict[int, float] = {}
+    goal_per_shot_by_team_pid_stats: dict[tuple[str, int], float] = {}
+    goal_per_shot_by_pid_stats: dict[int, float] = {}
     try:
         if lineups_all is not None and not lineups_all.empty and {"team", "player_id", "proj_toi"}.issubset(lineups_all.columns):
             _lu = lineups_all[["team", "player_id", "proj_toi"]].copy()
@@ -6623,10 +6631,13 @@ def props_simulate_boxscores(
         from .utils.io import RAW_DIR as _RAW
         stats_path = _RAW / "player_game_stats.csv"
         if stats_path.exists() and getattr(stats_path.stat(), "st_size", 0) > 1024:
-            usecols = ["date", "team", "player_id", "timeOnIce"]
+            usecols = ["date", "team", "player_id", "timeOnIce", "shots", "blocked", "goals"]
             st = pd.read_csv(stats_path, usecols=usecols, low_memory=False)
             if st is not None and not st.empty:
                 st["player_id"] = pd.to_numeric(st.get("player_id"), errors="coerce")
+                st["shots"] = pd.to_numeric(st.get("shots"), errors="coerce")
+                st["blocked"] = pd.to_numeric(st.get("blocked"), errors="coerce")
+                st["goals"] = pd.to_numeric(st.get("goals"), errors="coerce")
 
                 def _clock_to_min(x):
                     try:
@@ -6673,6 +6684,24 @@ def props_simulate_boxscores(
                 st = st[(st["player_id"].notna()) & (st["toi_min"].notna())]
                 st["player_id"] = st["player_id"].astype(int)
 
+                # Build per-minute rates from the same recent window.
+                def _safe_rate(numer: float | None, denom: float | None) -> float | None:
+                    try:
+                        if numer is None or denom is None:
+                            return None
+                        if not pd.notna(numer) or not pd.notna(denom):
+                            return None
+                        d = float(denom)
+                        if d <= 1e-6:
+                            return None
+                        return float(numer) / d
+                    except Exception:
+                        return None
+
+                # Require a minimum TOI sample so tiny call-ups don't get extreme rates.
+                MIN_TOI_MIN = 30.0
+                MIN_SHOTS_FOR_GPS = 5.0
+
                 n_hist = 10
                 # Team-specific last-N games
                 st_team = st[(st["team_abbr"].notna()) & (st["team_abbr"].astype(str).str.len() > 0)].copy()
@@ -6688,6 +6717,37 @@ def props_simulate_boxscores(
                         except Exception:
                             continue
 
+                    # Stat rates: sum over last-N games for stability
+                    sums = tail.groupby(["team_abbr", "player_id"], sort=False).agg(
+                        toi_sum=("toi_min", "sum"),
+                        shots_sum=("shots", "sum"),
+                        goals_sum=("goals", "sum"),
+                        blk_sum=("blocked", "sum"),
+                    )
+                    for (tm, pid), r in sums.iterrows():
+                        try:
+                            tm_u = str(tm or "").upper()
+                            pid_i = int(pid)
+                            toi_sum = float(r.get("toi_sum") or 0.0)
+                            if not tm_u or toi_sum < MIN_TOI_MIN:
+                                continue
+                            sr = _safe_rate(r.get("shots_sum"), toi_sum)
+                            br = _safe_rate(r.get("blk_sum"), toi_sum)
+                            if sr is not None and sr >= 0:
+                                shot_rate_by_team_pid_stats[(tm_u, pid_i)] = float(sr)
+                            if br is not None and br >= 0:
+                                block_rate_by_team_pid_stats[(tm_u, pid_i)] = float(br)
+                            try:
+                                shots_sum = float(r.get("shots_sum") or 0.0)
+                                if shots_sum >= MIN_SHOTS_FOR_GPS:
+                                    gps = _safe_rate(r.get("goals_sum"), shots_sum)
+                                    if gps is not None and gps >= 0:
+                                        goal_per_shot_by_team_pid_stats[(tm_u, pid_i)] = float(gps)
+                            except Exception:
+                                pass
+                        except Exception:
+                            continue
+
                 # Player-only fallback last-N games
                 st_any = st.sort_values(["player_id", "et_date"])
                 tail2 = st_any.groupby(["player_id"], sort=False).tail(n_hist)
@@ -6698,9 +6758,44 @@ def props_simulate_boxscores(
                             toi_by_pid_stats[int(pid)] = float(v)
                     except Exception:
                         continue
+
+                sums2 = tail2.groupby(["player_id"], sort=False).agg(
+                    toi_sum=("toi_min", "sum"),
+                    shots_sum=("shots", "sum"),
+                    goals_sum=("goals", "sum"),
+                    blk_sum=("blocked", "sum"),
+                )
+                for pid, r in sums2.iterrows():
+                    try:
+                        pid_i = int(pid)
+                        toi_sum = float(r.get("toi_sum") or 0.0)
+                        if toi_sum < MIN_TOI_MIN:
+                            continue
+                        sr = _safe_rate(r.get("shots_sum"), toi_sum)
+                        br = _safe_rate(r.get("blk_sum"), toi_sum)
+                        if sr is not None and sr >= 0:
+                            shot_rate_by_pid_stats[pid_i] = float(sr)
+                        if br is not None and br >= 0:
+                            block_rate_by_pid_stats[pid_i] = float(br)
+                        try:
+                            shots_sum = float(r.get("shots_sum") or 0.0)
+                            if shots_sum >= MIN_SHOTS_FOR_GPS:
+                                gps = _safe_rate(r.get("goals_sum"), shots_sum)
+                                if gps is not None and gps >= 0:
+                                    goal_per_shot_by_pid_stats[pid_i] = float(gps)
+                        except Exception:
+                            pass
+                    except Exception:
+                        continue
     except Exception:
         toi_by_team_pid_stats = {}
         toi_by_pid_stats = {}
+        shot_rate_by_team_pid_stats = {}
+        shot_rate_by_pid_stats = {}
+        block_rate_by_team_pid_stats = {}
+        block_rate_by_pid_stats = {}
+        goal_per_shot_by_team_pid_stats = {}
+        goal_per_shot_by_pid_stats = {}
     # Prefer processed roster snapshot for the given date to avoid live API dependency
     roster_snapshot_df = None
     try:
@@ -6770,7 +6865,10 @@ def props_simulate_boxscores(
             return "F"
         if s in ("G", "GOALIE", "GOALTENDER") or s.startswith("G"):
             return "G"
-        if s in ("D", "DEF", "DEFENSE", "DEFENCEMAN") or s.startswith("D"):
+        # Normalize common defense positions seen in roster snapshots (e.g., LD/RD).
+        if s in ("D", "DEF", "DEFENSE", "DEFENCEMAN", "LD", "RD", "LHD", "RHD"):
+            return "D"
+        if s.startswith("D"):
             return "D"
         return "F"
 
@@ -7297,6 +7395,51 @@ def props_simulate_boxscores(
                         rr['goal_weight'] = float(gw)
                     if bw is not None and not _math.isnan(bw):
                         rr['block_weight'] = float(bw)
+
+                # If missing projection weights, derive realistic per-game totals from recent actual rates.
+                # IMPORTANT: weights are used proportionally and then divided by proj_toi to get per-minute
+                # propensities; so we must keep them in the same units as projection lambdas (per-game totals).
+                try:
+                    pid = int(rr.get('player_id'))
+                except Exception:
+                    pid = None
+
+                try:
+                    toi = float(rr.get('proj_toi') or 0.0)
+                except Exception:
+                    toi = 0.0
+
+                # Clamp rates to avoid extreme outliers from small samples.
+                def _clamp(x: float | None, lo: float, hi: float) -> float | None:
+                    try:
+                        if x is None:
+                            return None
+                        v = float(x)
+                        if not _math.isfinite(v):
+                            return None
+                        return float(min(hi, max(lo, v)))
+                    except Exception:
+                        return None
+
+                if (rr.get('shot_weight') is None) and pid is not None and toi > 0:
+                    sr = shot_rate_by_team_pid_stats.get((str(abbr).upper(), int(pid))) or shot_rate_by_pid_stats.get(int(pid))
+                    sr = _clamp(sr, 0.00, 0.30)
+                    if sr is not None and sr > 0:
+                        rr['shot_weight'] = float(toi) * float(sr)
+
+                if (rr.get('block_weight') is None) and pid is not None and toi > 0:
+                    br = block_rate_by_team_pid_stats.get((str(abbr).upper(), int(pid))) or block_rate_by_pid_stats.get(int(pid))
+                    br = _clamp(br, 0.00, 0.30)
+                    if br is not None and br > 0:
+                        rr['block_weight'] = float(toi) * float(br)
+
+                # Derive goal_weight from a per-shot conversion when goal_weight is missing.
+                # Keep conservative clamps so it can't dominate shot selection.
+                if (rr.get('goal_weight') is None) and (rr.get('shot_weight') is not None) and pid is not None:
+                    gps = goal_per_shot_by_team_pid_stats.get((str(abbr).upper(), int(pid))) or goal_per_shot_by_pid_stats.get(int(pid))
+                    gps = _clamp(gps, 0.03, 0.25)
+                    if gps is not None:
+                        rr['goal_weight'] = float(rr.get('shot_weight')) * float(gps)
         except Exception:
             pass
         # Ensure player_id exists; synthesize stable IDs when missing

@@ -406,13 +406,13 @@ class PeriodSimulator:
 
                 w = np.array([_wf(x) for x in weights], dtype=float)
                 # Flatten extremes (temperature-like) while preserving ordering
-                w = np.power(w, 0.70)
+                w = np.power(w, 0.85)
                 p = w / max(1e-12, float(w.sum()))
                 # Mix in uniform mass to keep distribution realistic across a line
-                alpha = 0.25
+                alpha = 0.12
                 p = (1.0 - alpha) * p + alpha * (1.0 / max(1, len(p)))
                 # Cap the maximum share per event (line-level) then renormalize
-                cap = 0.22
+                cap = 0.35
                 if cap > 0:
                     p = np.minimum(p, cap)
                     p = p / max(1e-12, float(p.sum()))
@@ -625,10 +625,24 @@ class PeriodSimulator:
         a_comm = _f(st_away.get("committed_per_game", 3.0), 3.0)
         try:
             # Each committed minor yields ~2 minutes of PP time for the opponent.
+            # `h_comm`/`a_comm` are per-game rates, so convert to a fraction of *game* time.
+            # This function runs once per period; sampling PP segments using per-period seconds
+            # would overstate PP/PK time by ~3x.
             pp_seconds_total = max(0.0, float(h_comm + a_comm)) * 120.0
-            pp_frac_total = max(0.0, min(0.45, float(pp_seconds_total) / float(max(1.0, T))))
+            # Regulation game seconds used for per-period sampling.
+            reg_game_seconds = float(max(1.0, float(self.cfg.periods) * float(self.cfg.seconds_per_period)))
+            denom_seconds = reg_game_seconds
+            # In OT, treat the OT window as its own clock.
+            if int(T) != int(self.cfg.seconds_per_period):
+                denom_seconds = float(max(1.0, float(T)))
+            pp_frac_total = max(0.0, min(0.45, float(pp_seconds_total) / float(denom_seconds)))
         except Exception:
-            pp_frac_total = max(0.0, min(0.45, float(h_comm + a_comm) * 2.0 / 60.0))
+            # Fallback: convert minutes of PP per game into a fraction of regulation time.
+            try:
+                reg_game_seconds = float(max(1.0, float(self.cfg.periods) * float(self.cfg.seconds_per_period)))
+                pp_frac_total = max(0.0, min(0.45, (float(h_comm + a_comm) * 120.0) / reg_game_seconds))
+            except Exception:
+                pp_frac_total = 0.18
 
         # Side weighting: home PP occurs when away commits; away PP occurs when home commits.
         denom = max(1e-6, float(h_comm + a_comm))
@@ -1154,7 +1168,11 @@ class GameSimulator:
                 return ""
             if s in {"G", "GOL", "GOALIE", "GOALTENDER"} or s.startswith("G"):
                 return "G"
-            if s in {"D", "DEF", "DEFENSE", "DEFENCE"} or s.startswith("D"):
+            # Normalize defense positions commonly seen in lineup data.
+            # Examples: D, LD, RD, LHD, RHD.
+            if s in {"D", "DEF", "DEFENSE", "DEFENCE", "LD", "RD", "LHD", "RHD"}:
+                return "D"
+            if s.startswith("D"):
                 return "D"
             if s in {"F", "C", "LW", "RW", "W"}:
                 return "F"
@@ -1172,8 +1190,11 @@ class GameSimulator:
             bw = row.get("block_weight")
             if sw is None or gw is None or bw is None:
                 # Baseline heuristic
-                sw_h = toi * (1.25 if pos == "F" else (0.65 if pos == "D" else 0.10))
-                bw_h = toi * (1.20 if pos == "D" else (0.60 if pos == "F" else 0.05))
+                # NOTE: weights are interpreted as per-game totals and later divided by proj_toi
+                # to produce per-minute propensities. Keep these defaults in realistic units
+                # (shots/min, blocks/min), otherwise missing-projection players will dominate.
+                sw_h = toi * (0.105 if pos == "F" else (0.060 if pos == "D" else 0.010))
+                bw_h = toi * (0.085 if pos == "D" else (0.040 if pos == "F" else 0.010))
                 gw_h = max(0.01, sw_h * 0.30)
                 sw = float(sw if sw is not None else sw_h)
                 bw = float(bw if bw is not None else bw_h)
@@ -1188,8 +1209,8 @@ class GameSimulator:
             gw = row.get("goal_weight")
             bw = row.get("block_weight")
             if sw is None or gw is None or bw is None:
-                sw_h = toi * (1.25 if pos == "F" else (0.65 if pos == "D" else 0.10))
-                bw_h = toi * (1.20 if pos == "D" else (0.60 if pos == "F" else 0.05))
+                sw_h = toi * (0.105 if pos == "F" else (0.060 if pos == "D" else 0.010))
+                bw_h = toi * (0.085 if pos == "D" else (0.040 if pos == "F" else 0.010))
                 gw_h = max(0.01, sw_h * 0.30)
                 sw = float(sw if sw is not None else sw_h)
                 bw = float(bw if bw is not None else bw_h)

@@ -376,7 +376,25 @@ def recompute_edges_and_recommendations(date_str: str, min_ev: float = 0.0) -> L
     ev_cols = [c for c in df.columns if c.startswith("ev_")]
     if ev_cols:
         edges = df.melt(id_vars=["date", "home", "away"], value_vars=ev_cols, var_name="market", value_name="ev").dropna()
-        edges = edges.sort_values("ev", ascending=False)
+        try:
+            from .game_edge_signals import attach_game_edge_signals
+
+            edges = attach_game_edge_signals(date_str, edges, predictions=df)
+        except Exception:
+            pass
+        try:
+            if "edge_score" in edges.columns:
+                edges["_edge_score"] = pd.to_numeric(edges.get("edge_score"), errors="coerce")
+                edges["_ev"] = pd.to_numeric(edges.get("ev"), errors="coerce")
+                edges = edges.sort_values(["_edge_score", "_ev"], ascending=[False, False])
+                edges = edges.drop(columns=["_edge_score", "_ev"], errors="ignore")
+            else:
+                edges = edges.sort_values("ev", ascending=False)
+        except Exception:
+            try:
+                edges = edges.sort_values("ev", ascending=False)
+            except Exception:
+                pass
         edges_path = PROC_DIR / f"edges_{date_str}.csv"
         edges.to_csv(edges_path, index=False)
     # Load per-market EV thresholds from calibration (if available)

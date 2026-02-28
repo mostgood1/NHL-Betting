@@ -785,9 +785,11 @@ class PeriodSimulator:
             team_name: str,
             strength: str,
         ) -> None:
-            # Typical NHL: many goals have 1-2 assists; approximate rates.
-            p_primary = 0.72
-            p_secondary = 0.36  # conditional on primary, roughly
+            # Typical NHL: most goals have at least one assist, and many have two.
+            # Use a simple model: primary assist with prob p_primary; conditional secondary
+            # assist with prob p_secondary_given_primary.
+            p_primary = 0.85
+            p_secondary_given_primary = 0.90
             if scorer_pid is None:
                 return
             teammates = [int(pid) for pid in (ice or []) if pid is not None and int(pid) != int(scorer_pid)]
@@ -807,8 +809,8 @@ class PeriodSimulator:
                             meta={"strength": strength, "type": "primary"},
                         )
                     )
-            if self.rng.random() < float(p_secondary):
-                pool = [pid for pid in teammates if (primary_pid is None or int(pid) != int(primary_pid))]
+            if primary_pid is not None and self.rng.random() < float(p_secondary_given_primary):
+                pool = [pid for pid in teammates if int(pid) != int(primary_pid)]
                 if pool:
                     secondary_pid = _weighted_choice(pool, team, "assist")
                     if secondary_pid is not None:
@@ -1110,9 +1112,13 @@ class PeriodSimulator:
             away_goals += int(g_a)
             # Attribute blocks to defending players on ice (approximate fraction of opponent SOG)
             # Higher block rate on PK segments vs EV; lower on PP defending side
-            p_block_ev = _f((special_teams_cal or {}).get("blocks_ev_rate", 0.22), 0.22)
-            p_block_pk = _f((special_teams_cal or {}).get("blocks_pk_rate", 0.28), 0.28)
-            p_block_pp_def = _f((special_teams_cal or {}).get("blocks_pp_def_rate", 0.18), 0.18)
+            # NOTE: A blocked shot is recorded on a shot attempt, not a shot on goal.
+            # Our sim's "shot" event is closer to SOG (used for props), so a higher default
+            # block probability is needed to match observed per-game block totals when
+            # no external calibration is supplied.
+            p_block_ev = _f((special_teams_cal or {}).get("blocks_ev_rate", 0.45), 0.45)
+            p_block_pk = _f((special_teams_cal or {}).get("blocks_pk_rate", 0.55), 0.55)
+            p_block_pp_def = _f((special_teams_cal or {}).get("blocks_pp_def_rate", 0.35), 0.35)
             # Away defending blocks vs home shots
             if seg_is_home_pp:
                 p_blk_away = p_block_pk
@@ -1129,16 +1135,28 @@ class PeriodSimulator:
                 p_blk_home = p_block_ev
             b_away = sum(1 for _ in range(sh_h) if self.rng.random() < p_blk_away)
             b_home = sum(1 for _ in range(sh_a) if self.rng.random() < p_blk_home)
-            # Choose defending units for block attribution
-            def _defenders_for_home() -> List[int]:
-                if seg_is_away_pp and pk_home:
-                    return pk_home[0 if len(pk_home)==1 else (idx_pk_h % len(pk_home))]
-                return (d_home[rot_dh[idx_dh % max(1, len(rot_dh) or 1)]] if d_home else [])
-            def _defenders_for_away() -> List[int]:
-                if seg_is_home_pp and pk_away:
-                    return pk_away[0 if len(pk_away)==1 else (idx_pk_a % len(pk_away))]
-                return (d_away[rot_da[idx_da % max(1, len(rot_da) or 1)]] if d_away else [])
-            def_h = _defenders_for_home(); def_a = _defenders_for_away()
+            # Attribute blocks to the defending skaters actually on the ice.
+            # Previously we only attributed EV blocks to the defense pair, which
+            # systematically under-credited forwards and over-credited defensemen.
+            def _skaters_on_ice(pids: List[int], team: TeamState) -> List[int]:
+                out: List[int] = []
+                for pid in (pids or []):
+                    try:
+                        pid_i = int(pid)
+                    except Exception:
+                        continue
+                    ps = team.players.get(pid_i)
+                    if not ps:
+                        continue
+                    if str(ps.position) not in ("F", "D"):
+                        continue
+                    out.append(pid_i)
+                return out
+
+            # b_home = home blocks vs away shots, so use home skaters currently on ice.
+            # b_away = away blocks vs home shots, so use away skaters currently on ice.
+            def_h = _skaters_on_ice(ice_h or [], gs.home)
+            def_a = _skaters_on_ice(ice_a or [], gs.away)
             for _ in range(b_home):
                 pid = _weighted_choice(def_h, gs.home, "block") if def_h else None
                 events.append(Event(t=t0 + self.rng.random() * seg_len, period=period_idx + 1, team=gs.home.name, kind="block", player_id=pid, meta={"strength": strength_h}))

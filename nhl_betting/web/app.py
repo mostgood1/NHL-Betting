@@ -5796,7 +5796,22 @@ async def _recompute_edges_and_recommendations(date: str) -> None:
         if ev_cols:
             try:
                 edges = df.melt(id_vars=["date", "home", "away"], value_vars=ev_cols, var_name="market", value_name="ev").dropna()
-                edges = edges.sort_values("ev", ascending=False)
+                try:
+                    from ..core.game_edge_signals import attach_game_edge_signals
+
+                    edges = attach_game_edge_signals(date, edges, predictions=df)
+                except Exception:
+                    pass
+                try:
+                    if "edge_score" in edges.columns:
+                        edges["_edge_score"] = pd.to_numeric(edges.get("edge_score"), errors="coerce")
+                        edges["_ev"] = pd.to_numeric(edges.get("ev"), errors="coerce")
+                        edges = edges.sort_values(["_edge_score", "_ev"], ascending=[False, False])
+                        edges = edges.drop(columns=["_edge_score", "_ev"], errors="ignore")
+                    else:
+                        edges = edges.sort_values("ev", ascending=False)
+                except Exception:
+                    edges = edges.sort_values("ev", ascending=False)
                 edges_path = PROC_DIR / f"edges_{date}.csv"
                 edges.to_csv(edges_path, index=False)
                 _gh_upsert_file_if_configured(edges_path, f"web: update edges for {date}")
@@ -10293,6 +10308,7 @@ def _refresh_props_recommendations(date: str, min_ev: float = 0.0, top: int = 20
     """
     import numpy as _np
     from scipy.stats import poisson as _poisson
+    from ..core.props_edge_signals import attach_prop_edge_signals
     d = _normalize_date_param(date)
     # Load canonical lines (ONLY OddsAPI), prefer local; GH fallback allowed in cron
     base = PROC_DIR.parent / "props" / f"player_props_lines/date={d}"
@@ -10387,34 +10403,97 @@ def _refresh_props_recommendations(date: str, min_ev: float = 0.0, top: int = 20
     dec_over = _american_to_decimal_series(merged.get("over_price"))
     dec_under = _american_to_decimal_series(merged.get("under_price"))
     p_over_s = pd.to_numeric(p_over_vec, errors="coerce")
-    ev_over_s = p_over_s * (dec_over - 1.0) - (1.0 - p_over_s)
-    p_under_s = (1.0 - p_over_s).clip(lower=0.0, upper=1.0)
-    ev_under_s = p_under_s * (dec_under - 1.0) - (1.0 - p_under_s)
-    over_better = (ev_under_s.isna()) | (~ev_over_s.isna() & (ev_over_s >= ev_under_s))
-    chosen_side = _np.where(over_better, "Over", "Under")
-    chosen_ev = _np.where(over_better, ev_over_s, ev_under_s)
-    out = merged.copy()
-    out["side"] = chosen_side
-    out["ev"] = pd.to_numeric(chosen_ev, errors="coerce")
-    out = out[out["ev"].notna() & (out["ev"].astype(float) >= float(min_ev))]
-    out = out.assign(
-        date=d,
+
+    # Decide side using non-EV signals at the prop level, then choose best available price for that side.
+    base = merged.assign(
         player=lambda df: df["player_display"],
         market=lambda df: df["market"],
         line=lambda df: df["line_num"],
-        proj=lambda df: df["proj_lambda"].astype(float).round(3),
-        p_over=lambda df: p_over_s.astype(float).round(4),
-        over_price=lambda df: df.get("over_price"),
-        under_price=lambda df: df.get("under_price"),
-        book=lambda df: df.get("book"),
+        p_over=p_over_s,
         team=lambda df: df.get("team"),
-    )[["date","player","team","market","line","proj","p_over","over_price","under_price","book","side","ev"]]
+    )[["team", "player", "market", "line", "proj_lambda", "p_over"]].copy()
+    try:
+        base = base.groupby(["team", "player", "market", "line"], as_index=False).first()
+    except Exception:
+        base = base.drop_duplicates(subset=["team", "player", "market", "line"], keep="first")
+    base = attach_prop_edge_signals(date=d, props=base)
+
+    out = merged.copy()
+    out["p_over"] = p_over_s
+    out["dec_over"] = dec_over
+    out["dec_under"] = dec_under
+    out = out.merge(
+        base[[c for c in ["team", "player", "market", "line", "opp", "side_suggested", "chosen_prob", "edge_score", "edge_reasons"] if c in base.columns]],
+        left_on=["team", "player_display", "market", "line_num"],
+        right_on=["team", "player", "market", "line"],
+        how="left",
+    )
+    out["side"] = out.get("side_suggested")
+    out["price"] = _np.where(out["side"] == "Over", out.get("over_price"), out.get("under_price"))
+    out["cand_dec"] = _np.where(out["side"] == "Over", out.get("dec_over"), out.get("dec_under"))
+    out["_cand"] = pd.to_numeric(out["cand_dec"], errors="coerce").fillna(-_np.inf)
+    try:
+        idx = out.groupby(["team", "player_display", "market", "line_num"])["_cand"].idxmax()
+        out = out.loc[idx]
+    except Exception:
+        out = out.sort_values(["team", "player_display", "market", "line_num"]).drop_duplicates(
+            subset=["team", "player_display", "market", "line_num"], keep="first"
+        )
+    out = out.drop(columns=["_cand"], errors="ignore")
+
+    prob = pd.to_numeric(out.get("chosen_prob"), errors="coerce")
+    dec = pd.to_numeric(out.get("cand_dec"), errors="coerce")
+    ev = prob * (dec - 1.0) - (1.0 - prob)
+    # If prices are missing, treat EV as 0 (so probability-only rows can still surface if min_ev=0).
+    try:
+        miss = out.get("over_price").isna() & out.get("under_price").isna()
+        if miss.any():
+            ev = ev.where(~miss, 0.0)
+    except Exception:
+        pass
+    out["ev"] = pd.to_numeric(ev, errors="coerce")
+    out = out[out["ev"].notna() & (out["ev"].astype(float) >= float(min_ev))]
+
+    out = out.assign(
+        date=d,
+        player=lambda df: df["player_display"],
+        team=lambda df: df.get("team"),
+        opp=lambda df: df.get("opp"),
+        market=lambda df: df["market"],
+        line=lambda df: df["line_num"],
+        proj=lambda df: df["proj_lambda"].astype(float).round(3),
+        p_over=lambda df: pd.to_numeric(df.get("p_over"), errors="coerce").astype(float).round(4),
+        book=lambda df: df.get("book"),
+        prob=lambda df: pd.to_numeric(df.get("chosen_prob"), errors="coerce"),
+        chosen_prob=lambda df: pd.to_numeric(df.get("chosen_prob"), errors="coerce"),
+    )[[
+        "date",
+        "player",
+        "team",
+        "opp",
+        "market",
+        "line",
+        "proj",
+        "p_over",
+        "over_price",
+        "under_price",
+        "book",
+        "side",
+        "price",
+        "ev",
+        "prob",
+        "chosen_prob",
+        "edge_score",
+        "edge_reasons",
+    ]]
     if not out.empty:
-        out = out.sort_values("ev", ascending=False).head(int(top))
+        sort_cols = [c for c in ["edge_score", "ev"] if c in out.columns]
+        if sort_cols:
+            out = out.sort_values(sort_cols, ascending=[False] * len(sort_cols)).head(int(top))
+        else:
+            out = out.sort_values("ev", ascending=False).head(int(top))
         if "proj" in out.columns and "proj_lambda" not in out.columns:
             out["proj_lambda"] = out["proj"]
-        if "ev" in out.columns and "ev_over" not in out.columns:
-            out["ev_over"] = out["ev"]
     path = PROC_DIR / f"props_recommendations_{d}.csv"
     save_df(out, path)
     try:

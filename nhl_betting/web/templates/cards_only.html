@@ -562,35 +562,63 @@
           : ((rec && rec.p_over !== undefined && rec.p_over !== null) ? Number(rec.p_over) : NaN);
         return {
           team: toUpper(rec && rec.team),
+          opp: toUpper(rec && rec.opp),
           player: String((rec && rec.player) ? rec.player : '').trim(),
           market: toUpper(rec && rec.market),
           side,
           line: (rec && rec.line !== undefined) ? rec.line : null,
           price,
           ev: Number((rec && rec.ev !== undefined) ? rec.ev : NaN),
+          edgeScore: Number((rec && rec.edge_score !== undefined) ? rec.edge_score : NaN),
+          edgeReasons: String((rec && rec.edge_reasons) ? rec.edge_reasons : '').trim(),
           prob,
           book: String((rec && rec.book) ? rec.book : '').trim(),
         };
       } catch (e) {
-        return { team:'', player:'', market:'', side:'', line:null, price:null, ev:NaN, prob:NaN, book:'' };
+        return { team:'', opp:'', player:'', market:'', side:'', line:null, price:null, ev:NaN, edgeScore:NaN, edgeReasons:'', prob:NaN, book:'' };
       }
     }
 
     function renderPropsEdgesHtml(title, propsRows) {
-      const rows = (propsRows || []).map(normalizePropRec)
-        .filter(r => r && r.player && r.market && isFinite(r.ev));
-      rows.sort((a,b) => (b.ev - a.ev));
+      function americanToDecimal(x) {
+        const v = Number(x);
+        if (!isFinite(v) || v === 0) return NaN;
+        return (v > 0) ? (1 + v/100.0) : (1 + 100.0/Math.abs(v));
+      }
+
+      // Normalize; prefer edge score, but fallback to EV for older bundles.
+      const raw = (propsRows || []).map(normalizePropRec)
+        .filter(r => r && r.player && r.market && r.side && (isFinite(r.edgeScore) || isFinite(r.ev)));
+
+      // Dedupe: show each prop once by best available price.
+      const best = new Map();
+      for (const r of raw) {
+        const ln = (r.line !== null && r.line !== undefined && String(r.line).trim() !== '') ? String(r.line).trim() : '';
+        const key = `${normKey(r.player)}|${toUpper(r.market)}|${toUpper(r.side)}|${ln}`;
+        const cur = best.get(key);
+        if (!cur) { best.set(key, r); continue; }
+        const decNew = americanToDecimal(r.price);
+        const decCur = americanToDecimal(cur.price);
+        if (isFinite(decNew) && (!isFinite(decCur) || decNew > decCur)) { best.set(key, r); continue; }
+        // Tie-break: higher edge score, then EV.
+        if (r.edgeScore > cur.edgeScore) { best.set(key, r); continue; }
+        if (r.edgeScore === cur.edgeScore && isFinite(r.ev) && (!isFinite(cur.ev) || r.ev > cur.ev)) { best.set(key, r); }
+      }
+      const rows = Array.from(best.values());
+      rows.sort((a,b) => ((isFinite(b.edgeScore) ? b.edgeScore : -1e9) - (isFinite(a.edgeScore) ? a.edgeScore : -1e9)) || ((b.ev||0) - (a.ev||0)));
       const top = rows.slice(0, 4);
       if (!top.length) {
         return `<div class="market"><div class="k">${title}</div><div class="v muted">No props edges available.</div></div>`;
       }
       const body = top.map(r => {
+        const edgeTxt = isFinite(r.edgeScore) ? (100 * r.edgeScore).toFixed(0) : '—';
         const evTxt = isFinite(r.ev) ? (100 * r.ev).toFixed(1) + '%' : '—';
         const prTxt = isFinite(r.prob) ? (100 * r.prob).toFixed(1) + '%' : '—';
         const ln = (r.line !== null && r.line !== undefined && String(r.line).trim() !== '') ? String(r.line) : '—';
         const price = (r.price !== null && r.price !== undefined && String(r.price).trim() !== '') ? String(r.price) : '—';
         const book = r.book ? ` (${r.book})` : '';
-        return `<div class="v"><strong>${r.player}</strong> ${r.market} ${r.side} ${ln} <span class="muted">@ ${price}${book}</span> · <strong>EV ${evTxt}</strong> <span class="muted">(p ${prTxt})</span></div>`;
+        const reasons = r.edgeReasons ? ` <span class="muted">· ${r.edgeReasons}</span>` : '';
+        return `<div class="v"><strong>${r.player}</strong> ${r.market} ${r.side} ${ln} <span class="muted">@ ${price}${book}</span> · <strong>Edge ${edgeTxt}</strong> <span class="muted">(p ${prTxt}${isFinite(r.ev) ? `, EV ${evTxt}` : ''})</span>${reasons}</div>`;
       }).join('');
       return `<div class="market"><div class="k">${title}</div>${body}</div>`;
     }

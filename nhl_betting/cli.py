@@ -6936,7 +6936,43 @@ def props_simulate_boxscores(
                     return 0.0
             return sorted(rows, key=_toi, reverse=True)[:k]
 
-        # Choose 12F / 6D
+        # Choose skaters. Prefer 12F/6D, but allow other realistic dressings.
+        # Key invariant for the engine: dress 18 skaters when possible.
+        k_f = 12
+        k_d = 6
+        try:
+            n_f = int(len(forwards))
+            n_d = int(len(defense))
+            if (n_f + n_d) >= 18:
+                # Start by taking up to 12 forwards, then fill remaining with defense.
+                k_f = min(12, n_f)
+                k_d = 18 - k_f
+                # If we don't have enough defense to fill, shift spots back to forwards.
+                if k_d > n_d:
+                    k_d = n_d
+                    k_f = min(n_f, 18 - k_d)
+                # If we still don't have 18 skaters due to odd availability, just use what we can.
+                if (k_f + k_d) > (n_f + n_d):
+                    k_f = min(k_f, n_f)
+                    k_d = min(k_d, n_d)
+            else:
+                k_f = min(12, n_f)
+                k_d = min(6, n_d)
+                # Try to fill remaining skaters (if any) from whichever pool has extras.
+                while (k_f + k_d) < (n_f + n_d) and (k_f + k_d) < 18:
+                    if k_f < n_f and (k_d >= n_d):
+                        k_f += 1
+                    elif k_d < n_d and (k_f >= n_f):
+                        k_d += 1
+                    elif k_d < n_d:
+                        k_d += 1
+                    elif k_f < n_f:
+                        k_f += 1
+                    else:
+                        break
+        except Exception:
+            k_f, k_d = 12, 6
+
         dressed_f_ids: list[int] = []
         for x in lu_f:
             try:
@@ -6947,14 +6983,14 @@ def props_simulate_boxscores(
         # Filter to actual forward pool
         forward_ids_set = set(int(r.get("player_id")) for r in forwards if r.get("player_id") is not None)
         dressed_f_ids = [pid for pid in dressed_f_ids if pid in forward_ids_set]
-        if len(dressed_f_ids) < 12:
-            for r in _top_by_toi(forwards, 12):
+        if len(dressed_f_ids) < k_f:
+            for r in _top_by_toi(forwards, k_f):
                 pid = int(r.get("player_id"))
                 if pid not in dressed_f_ids:
                     dressed_f_ids.append(pid)
-                if len(dressed_f_ids) >= 12:
+                if len(dressed_f_ids) >= k_f:
                     break
-        dressed_f_ids = dressed_f_ids[:12]
+        dressed_f_ids = dressed_f_ids[:k_f]
 
         dressed_d_ids: list[int] = []
         for x in lu_d:
@@ -6965,14 +7001,14 @@ def props_simulate_boxscores(
         dressed_d_ids = list(dict.fromkeys(dressed_d_ids))
         defense_ids_set = set(int(r.get("player_id")) for r in defense if r.get("player_id") is not None)
         dressed_d_ids = [pid for pid in dressed_d_ids if pid in defense_ids_set]
-        if len(dressed_d_ids) < 6:
-            for r in _top_by_toi(defense, 6):
+        if len(dressed_d_ids) < k_d:
+            for r in _top_by_toi(defense, k_d):
                 pid = int(r.get("player_id"))
                 if pid not in dressed_d_ids:
                     dressed_d_ids.append(pid)
-                if len(dressed_d_ids) >= 6:
+                if len(dressed_d_ids) >= k_d:
                     break
-        dressed_d_ids = dressed_d_ids[:6]
+        dressed_d_ids = dressed_d_ids[:k_d]
 
         # Choose 1 goalie (starter if available)
         dressed_goalie_id: int | None = None
@@ -7000,7 +7036,13 @@ def props_simulate_boxscores(
             f_cnt = sum(1 for r in dressed_roster if _norm_pos(r.get("position")) == "F")
             d_cnt = sum(1 for r in dressed_roster if _norm_pos(r.get("position")) == "D")
             g_cnt = sum(1 for r in dressed_roster if _norm_pos(r.get("position")) == "G")
-            if not (f_cnt == 12 and d_cnt == 6 and g_cnt == 1):
+            # Accept common alternates: 11F/7D/1G, 13F/5D/1G.
+            ok = (
+                (f_cnt == 12 and d_cnt == 6 and g_cnt == 1)
+                or (f_cnt == 11 and d_cnt == 7 and g_cnt == 1)
+                or (f_cnt == 13 and d_cnt == 5 and g_cnt == 1)
+            )
+            if not ok:
                 print({
                     "dressed_roster_warning": True,
                     "counts": {"F": int(f_cnt), "D": int(d_cnt), "G": int(g_cnt), "total": int(len(dressed_roster))},
@@ -7051,7 +7093,7 @@ def props_simulate_boxscores(
 
         # Synthetic line slots
         for idx, pid in enumerate(dressed_f_ids):
-            slot = f"L{1 + (idx // 3)}"
+            slot = f"L{min(4, 1 + (idx // 3))}"
             src = existing.get(int(pid), {})
             dressed_lineup.append({
                 "player_id": int(pid),
@@ -7060,7 +7102,7 @@ def props_simulate_boxscores(
                 "pk_unit": src.get("pk_unit"),
             })
         for idx, pid in enumerate(dressed_d_ids):
-            slot = f"D{1 + (idx // 2)}"
+            slot = f"D{min(3, 1 + (idx // 2))}"
             src = existing.get(int(pid), {})
             dressed_lineup.append({
                 "player_id": int(pid),
@@ -7108,10 +7150,77 @@ def props_simulate_boxscores(
 
                     sub = act_stats_for_day[act_stats_for_day["team_key"].astype(str).str.upper() == str(abbr).upper()].copy()
                     if sub is not None and not sub.empty:
+                        # If we have a processed roster snapshot for this date, use it to recover
+                        # true positions (especially goalies). The actual-stats feed often lacks
+                        # position/role fields, which can cause backup goalies (0 TOI, 0 saves)
+                        # to be misclassified as skaters.
+                        pos_by_pid: dict[int, str] = {}
+                        try:
+                            if roster_snapshot_df is not None and not roster_snapshot_df.empty and {"team", "player_id"}.issubset(roster_snapshot_df.columns):
+                                rs = roster_snapshot_df[roster_snapshot_df["team"].astype(str).str.upper() == str(abbr).upper()].copy()
+                                if rs is not None and not rs.empty:
+                                    if "position" not in rs.columns:
+                                        rs["position"] = rs.get("pos", "")
+                                    rs["player_id"] = _pd.to_numeric(rs.get("player_id"), errors="coerce")
+                                    for _, rr in rs.iterrows():
+                                        try:
+                                            pid0 = int(rr.get("player_id"))
+                                        except Exception:
+                                            continue
+                                        pos_by_pid[pid0] = _norm_pos(rr.get("position"))
+                        except Exception:
+                            pos_by_pid = {}
+
                         sub["toi_num"] = _pd.to_numeric(sub.get("toi_min"), errors="coerce").fillna(0.0)
                         sub["saves_num"] = _pd.to_numeric(sub.get("saves"), errors="coerce").fillna(0.0)
                         sub["blk_num"] = _pd.to_numeric(sub.get("blocked"), errors="coerce").fillna(0.0)
-                        sub["is_goalie"] = (sub["saves_num"] > 0) | (sub["toi_num"] > 45.0)
+                        # Identify goalies robustly.
+                        # The earlier heuristic (saves>0 or TOI>45) misclassified backup goalies
+                        # (0 saves, 0 TOI) as skaters, which then let them accrue skater stats in sim.
+                        pos_raw = sub.get("primary_position", sub.get("position", ""))
+                        role_raw = sub.get("role", "")
+                        try:
+                            pos_raw = pos_raw.astype(str).str.upper().str.strip()
+                        except Exception:
+                            pos_raw = pos_raw
+                        try:
+                            role_raw = role_raw.astype(str).str.upper().str.strip()
+                        except Exception:
+                            role_raw = role_raw
+                        is_goalie_by_pos = False
+                        try:
+                            is_goalie_by_pos = pos_raw.astype(str).str.startswith("G")
+                        except Exception:
+                            try:
+                                is_goalie_by_pos = _pd.Series(pos_raw).astype(str).str.upper().str.startswith("G")
+                            except Exception:
+                                is_goalie_by_pos = False
+                        is_goalie_by_role = False
+                        try:
+                            is_goalie_by_role = role_raw.astype(str).str.contains("GOAL", na=False) | role_raw.astype(str).str.startswith("G")
+                        except Exception:
+                            try:
+                                _rr = _pd.Series(role_raw).astype(str).str.upper()
+                                is_goalie_by_role = _rr.str.contains("GOAL", na=False) | _rr.str.startswith("G")
+                            except Exception:
+                                is_goalie_by_role = False
+                        # Prefer snapshot positions when available (most reliable).
+                        try:
+                            if pos_by_pid:
+                                pids = _pd.to_numeric(sub.get("player_id"), errors="coerce")
+                                sub["snap_pos"] = pids.map(lambda x: pos_by_pid.get(int(x)) if _pd.notna(x) else None)
+                            else:
+                                sub["snap_pos"] = None
+                        except Exception:
+                            sub["snap_pos"] = None
+
+                        sub["is_goalie"] = (
+                            (sub.get("snap_pos").astype(str).str.upper() == "G")
+                            | is_goalie_by_pos
+                            | is_goalie_by_role
+                            | (sub["saves_num"] > 0)
+                            | (sub["toi_num"] > 45.0)
+                        )
 
                         sk = sub[~sub["is_goalie"]].copy()
                         sk = sk.sort_values(["blk_num", "toi_num"], ascending=[False, False])
@@ -7129,17 +7238,81 @@ def props_simulate_boxscores(
                                 continue
                             name = str(r.get("player") or r.get("full_name") or "").strip()
                             toi = float(r.get("toi_num") or 0.0)
-                            if bool(r.get("is_goalie")):
-                                pos = "G"
-                                toi = max(toi, 50.0)
+                            snap_pos = None
+                            try:
+                                snap_pos = r.get("snap_pos")
+                            except Exception:
+                                snap_pos = None
+
+                            if snap_pos is not None and str(snap_pos).strip():
+                                pos = _norm_pos(snap_pos)
                             else:
-                                pos = "D" if pid in d_ids else "F"
+                                if bool(r.get("is_goalie")):
+                                    pos = "G"
+                                else:
+                                    pos = "D" if pid in d_ids else "F"
+
+                            if pos == "G":
+                                # Starter should be ~60; backups often have 0 and should not
+                                # be promoted into the skater pool via defaults.
+                                if toi > 1.0:
+                                    toi = max(toi, 50.0)
+                                else:
+                                    toi = 5.0
+                            else:
                                 if toi <= 0.0:
                                     toi = 15.0
                             out_rows.append({"player_id": pid, "full_name": name, "position": pos, "proj_toi": float(toi)})
 
                         if out_rows:
-                            return out_rows, []
+                            try:
+                                n_goalies = sum(1 for rr in out_rows if str(rr.get("position") or "").upper().startswith("G"))
+                            except Exception:
+                                n_goalies = 0
+                            # If the actual-stats feed is missing a dressed skater (rare but happens),
+                            # backfill from the processed roster snapshot so we can still dress 18 skaters.
+                            try:
+                                n_skaters = sum(1 for rr in out_rows if _norm_pos(rr.get("position")) in ("F", "D"))
+                            except Exception:
+                                n_skaters = 0
+                            try:
+                                if n_goalies >= 1 and n_skaters < 18 and roster_snapshot_df is not None and not roster_snapshot_df.empty:
+                                    rs = roster_snapshot_df[roster_snapshot_df["team"].astype(str).str.upper() == str(abbr).upper()].copy()
+                                    if rs is not None and not rs.empty:
+                                        if "position" not in rs.columns:
+                                            rs["position"] = rs.get("pos", "")
+                                        rs["player_id"] = _pd.to_numeric(rs.get("player_id"), errors="coerce")
+                                        have_ids = set()
+                                        for rr in out_rows:
+                                            try:
+                                                have_ids.add(int(rr.get("player_id")))
+                                            except Exception:
+                                                continue
+                                        for _, rr in rs.iterrows():
+                                            if n_skaters >= 18:
+                                                break
+                                            try:
+                                                pid0 = int(rr.get("player_id"))
+                                            except Exception:
+                                                continue
+                                            if pid0 in have_ids:
+                                                continue
+                                            pos0 = _norm_pos(rr.get("position"))
+                                            if pos0 not in ("F", "D"):
+                                                continue
+                                            nm0 = str(rr.get("full_name") or rr.get("player") or "").strip()
+                                            if not nm0:
+                                                nm0 = f"pid:{pid0}"
+                                            out_rows.append({"player_id": pid0, "full_name": nm0, "position": pos0, "proj_toi": 15.0})
+                                            have_ids.add(pid0)
+                                            n_skaters += 1
+                            except Exception:
+                                pass
+                            # Safety: if we failed to identify any goalies from the actual-stats feed,
+                            # do not use this roster (it will cause goalie/TOI anomalies). Fall back
+                            # to the normal roster snapshot / API paths.
+                            if n_goalies >= 1:
+                                return out_rows, []
                 except Exception:
                     pass
 
@@ -7621,8 +7794,12 @@ def props_simulate_boxscores(
             # Historical override: use actual played goalie when available
             if actual_goalie_pid_by_teamkey:
                 try:
-                    pid_h_actual = actual_goalie_pid_by_teamkey.get(str(home).upper())
-                    pid_a_actual = actual_goalie_pid_by_teamkey.get(str(away).upper())
+                    # `actual_goalie_pid_by_teamkey` is keyed by `team_key` from the actuals feed,
+                    # which is typically the team abbreviation. Use that first; full names won't match.
+                    key_h = str(h_ab or '').upper()
+                    key_a = str(a_ab or '').upper()
+                    pid_h_actual = actual_goalie_pid_by_teamkey.get(key_h) if key_h else None
+                    pid_a_actual = actual_goalie_pid_by_teamkey.get(key_a) if key_a else None
                     if pid_h_actual:
                         starter_ids[home] = int(pid_h_actual)
                     if pid_a_actual:
@@ -7718,7 +7895,10 @@ def props_simulate_boxscores(
                     # Baseline expected blocks
                     base_blk_total = base_ev * ev_share * exp_sh_total + base_pk * pk_share * exp_sh_total + base_ppd * ppd_share * exp_sh_total
                     if base_blk_total > 0:
-                        scale = max(0.5, min(1.8, float(total_blk) / float(base_blk_total)))
+                        # Blocks are recorded on shot attempts (incl. non-SOG), while our sim's
+                        # "shot" event is closer to SOG. This often requires a larger scale
+                        # factor than 1.8 to match observed block totals.
+                        scale = max(0.5, min(3.0, float(total_blk) / float(base_blk_total)))
                 except Exception:
                     scale = 1.0
                 special_cal = {
@@ -9354,6 +9534,7 @@ def props_recommendations_sim(
         print("No simulation results present, aborting.")
         raise typer.Exit(code=0)
     import numpy as _np
+    from .core.props_edge_signals import attach_prop_edge_signals
     def _american_to_decimal(s):
         try:
             s = float(s)
@@ -9365,6 +9546,16 @@ def props_recommendations_sim(
         df["over_price"] = _np.nan
     if "under_price" not in df.columns:
         df["under_price"] = _np.nan
+    # Normalize key columns
+    try:
+        df["market"] = df["market"].astype(str).str.upper()
+    except Exception:
+        pass
+    try:
+        df["line"] = pd.to_numeric(df.get("line"), errors="coerce")
+    except Exception:
+        pass
+
     missing_prices = df["over_price"].isna() & df["under_price"].isna()
     df["dec_over"] = df["over_price"].map(_american_to_decimal)
     df["dec_under"] = df["under_price"].map(_american_to_decimal)
@@ -9378,29 +9569,59 @@ def props_recommendations_sim(
             df.loc[(up > 0) & (up > float(max_plus_odds)), "dec_under"] = _np.nan
     except Exception:
         pass
-    p = pd.to_numeric(df["p_over_sim"], errors="coerce")
-    ev_over = p * (df["dec_over"] - 1.0) - (1.0 - p)
-    p_under = (1.0 - p).clip(lower=0.0, upper=1.0)
-    ev_under = p_under * (df["dec_under"] - 1.0) - (1.0 - p_under)
-    # When prices are missing (nolines fallback), treat EVs as 0 for gating by probability.
-    # (Keep NaNs produced by the odds clamp so those sides can be filtered out.)
+    # Build a prop-level table (one row per player/market/line) to decide side
+    keys = [c for c in ["team", "player", "market", "line"] if c in df.columns]
+    base_cols = [c for c in ["team", "player", "market", "line", "proj_lambda", "p_over_sim"] if c in df.columns]
+    base = df[base_cols].copy()
+    if "p_over_sim" in base.columns and "p_over" not in base.columns:
+        base = base.rename(columns={"p_over_sim": "p_over"})
     try:
-        if missing_prices.any():
-            ev_over = ev_over.where(~missing_prices, 0.0)
-            ev_under = ev_under.where(~missing_prices, 0.0)
+        base = base.groupby(keys, as_index=False).first()
+    except Exception:
+        base = base.drop_duplicates(subset=keys, keep="first")
+    base = attach_prop_edge_signals(date=str(date), props=base)
+    # Merge prop-level side/prob/edge_score back onto book-level rows.
+    # Note: simulations may already include an 'opp' column, so avoid suffixing by renaming.
+    base_merge = base[[c for c in keys + ["opp", "side_suggested", "chosen_prob", "edge_score", "edge_reasons"] if c in base.columns]].copy()
+    if "opp" in base_merge.columns:
+        base_merge = base_merge.rename(columns={"opp": "opp_edge"})
+    out = df.merge(base_merge, on=keys, how="left")
+    try:
+        if "opp" not in out.columns and "opp_edge" in out.columns:
+            out["opp"] = out["opp_edge"]
+        elif "opp" in out.columns and "opp_edge" in out.columns:
+            out["opp"] = out["opp"].where(out["opp"].notna() & (out["opp"].astype(str).str.strip() != ""), out["opp_edge"])
     except Exception:
         pass
-    over_better = ev_under.isna() | (~ev_over.isna() & (ev_over >= ev_under))
-    side = _np.where(over_better, "Over", "Under")
-    ev_chosen = _np.where(over_better, ev_over, ev_under)
-    # chosen-side probability
-    chosen_prob = _np.where(over_better, p, (1.0 - p))
-    out = df.assign(
-        ev_over=ev_over,
-        side=side,
-        ev=ev_chosen,
-        chosen_prob=chosen_prob,
-    )
+    out = out.drop(columns=["opp_edge"], errors="ignore")
+    out["side"] = out.get("side_suggested")
+    # Choose best price across books for the suggested side
+    out["cand_dec"] = _np.where(out["side"] == "Over", out["dec_over"], out["dec_under"])
+    out["price"] = _np.where(out["side"] == "Over", out["over_price"], out["under_price"])
+    # For groups with all NaN prices (nolines), pick the first row.
+    out["_cand"] = pd.to_numeric(out["cand_dec"], errors="coerce").fillna(-_np.inf)
+    try:
+        idx = out.groupby(keys)["_cand"].idxmax()
+        out = out.loc[idx]
+    except Exception:
+        out = out.sort_values(keys).drop_duplicates(subset=keys, keep="first")
+    out = out.drop(columns=["_cand"], errors="ignore")
+
+    # Compute EV using chosen-side probability and the best available price
+    p_over = pd.to_numeric(out.get("p_over_sim"), errors="coerce")
+    if p_over is None:
+        p_over = pd.to_numeric(out.get("p_over"), errors="coerce")
+    prob = pd.to_numeric(out.get("chosen_prob"), errors="coerce")
+    dec = pd.to_numeric(out.get("cand_dec"), errors="coerce")
+    ev = prob * (dec - 1.0) - (1.0 - prob)
+    # When prices are missing (nolines fallback), treat EV as 0 for gating by probability.
+    try:
+        miss = out["over_price"].isna() & out["under_price"].isna()
+        if miss.any():
+            ev = ev.where(~miss, 0.0)
+    except Exception:
+        pass
+    out["ev"] = pd.to_numeric(ev, errors="coerce")
     def _parse_thresholds(s: str) -> dict:
         d = {}
         for part in (s or "").split(","):
@@ -9425,16 +9646,38 @@ def props_recommendations_sim(
     if prob_thr_map or (float(min_prob) > 0.0):
         prob_series = out["market"].astype(str).str.upper().map(lambda m: prob_thr_map.get(m, float(min_prob))).astype(float)
         out = out[(out["chosen_prob"].notna()) & (out["chosen_prob"].astype(float) >= prob_series)]
-    out = out.sort_values("ev", ascending=False).head(int(top))
-    final = out[["date","player","team","market","line","proj_lambda","p_over_sim","over_price","under_price","book","side","ev","chosen_prob"]].copy()
-    # Deduplicate: one row per (team, player, market, line, side) by best EV
-    try:
-        final["ev"] = pd.to_numeric(final["ev"], errors="coerce")
-        idx = final.groupby(["team","player","market","line","side"])['ev'].idxmax()
-        final = final.loc[idx]
-    except Exception:
-        final = final.drop_duplicates(subset=["team","player","market","line","side"], keep="first")
-    final.rename(columns={"p_over_sim":"p_over"}, inplace=True)
+
+    # Rank by non-EV edge score first; EV is still present as a separate column.
+    if "edge_score" in out.columns:
+        out = out.sort_values(["edge_score", "ev"], ascending=[False, False])
+    else:
+        out = out.sort_values("ev", ascending=False)
+    out = out.head(int(top))
+
+    keep = [
+        "date",
+        "player",
+        "team",
+        "opp",
+        "market",
+        "line",
+        "proj_lambda",
+        "p_over_sim",
+        "over_price",
+        "under_price",
+        "book",
+        "side",
+        "price",
+        "ev",
+        "chosen_prob",
+        "edge_score",
+        "edge_reasons",
+    ]
+    final = out[[c for c in keep if c in out.columns]].copy()
+    final.rename(columns={"p_over_sim": "p_over", "chosen_prob": "prob"}, inplace=True)
+    # Backward-compatible alias
+    if "prob" in final.columns and "chosen_prob" not in final.columns:
+        final["chosen_prob"] = final["prob"]
     out_path = PROC_DIR / f"props_recommendations_{date}.csv"
     save_df(final, out_path)
     # Also write sim-specific filename for downstream consumers
@@ -9465,6 +9708,7 @@ def props_recommendations_boxscores(
     import numpy as _np
     from glob import glob as _glob
     from .web.teams import get_team_assets as _assets
+    from .core.props_edge_signals import attach_prop_edge_signals
     # Load samples
     _pref = (str(read_prefix).strip() + "_") if str(read_prefix or "").strip() else ""
     samp_path_parq = PROC_DIR / f"{_pref}props_boxscores_sim_samples_{date}.parquet"
@@ -9596,15 +9840,35 @@ def props_recommendations_boxscores(
             prob.loc[(up > 0) & (up > float(max_plus_odds)), "dec_under"] = _np.nan
     except Exception:
         pass
-    p = pd.to_numeric(prob["p_over_sim"], errors="coerce")
-    ev_over = p * (prob["dec_over"] - 1.0) - (1.0 - p)
-    p_under = (1.0 - p).clip(lower=0.0, upper=1.0)
-    ev_under = p_under * (prob["dec_under"] - 1.0) - (1.0 - p_under)
-    over_better = ev_under.isna() | (~ev_over.isna() & (ev_over >= ev_under))
-    side = _np.where(over_better, "Over", "Under")
-    ev_chosen = _np.where(over_better, ev_over, ev_under)
-    chosen_prob = _np.where(over_better, p, (1.0 - p))
-    out = prob.assign(side=side, ev=ev_chosen, chosen_prob=chosen_prob)
+    # Decide side at the prop level (team/player/market/line) using non-EV signals.
+    keys = ["team_abbr", "player", "market", "line_num"]
+    base = prob.rename(columns={"team_abbr": "team", "line_num": "line"}).copy()
+    base = base[[c for c in ["team", "player", "market", "line", "p_over_sim"] if c in base.columns]].copy()
+    base = base.rename(columns={"p_over_sim": "p_over"})
+    try:
+        base = base.groupby(["team", "player", "market", "line"], as_index=False).first()
+    except Exception:
+        base = base.drop_duplicates(subset=["team", "player", "market", "line"], keep="first")
+    base = attach_prop_edge_signals(date=str(date), props=base)
+    out = prob.rename(columns={"team_abbr": "team", "line_num": "line"}).merge(
+        base[[c for c in ["team", "player", "market", "line", "opp", "side_suggested", "chosen_prob", "edge_score", "edge_reasons"] if c in base.columns]],
+        on=["team", "player", "market", "line"],
+        how="left",
+    )
+    out["side"] = out.get("side_suggested")
+    out["cand_dec"] = _np.where(out["side"] == "Over", out["dec_over"], out["dec_under"])
+    out["price"] = _np.where(out["side"] == "Over", out["over_price"], out["under_price"])
+    out["_cand"] = pd.to_numeric(out["cand_dec"], errors="coerce").fillna(-_np.inf)
+    try:
+        idx = out.groupby(["team", "player", "market", "line"])["_cand"].idxmax()
+        out = out.loc[idx]
+    except Exception:
+        out = out.sort_values(["team", "player", "market", "line"]).drop_duplicates(subset=["team", "player", "market", "line"], keep="first")
+    out = out.drop(columns=["_cand"], errors="ignore")
+    # EV using chosen-side prob + best price
+    prob_s = pd.to_numeric(out.get("chosen_prob"), errors="coerce")
+    dec_s = pd.to_numeric(out.get("cand_dec"), errors="coerce")
+    out["ev"] = pd.to_numeric(prob_s * (dec_s - 1.0) - (1.0 - prob_s), errors="coerce")
     # Thresholds
     def _parse_thresholds(s: str) -> dict:
         d = {}
@@ -9636,16 +9900,33 @@ def props_recommendations_boxscores(
     if prob_thr_map or (float(min_prob) > 0.0):
         prob_series = out["market"].astype(str).str.upper().map(lambda m: prob_thr_map.get(m, float(min_prob))).astype(float)
         out = out[(out["chosen_prob"].notna()) & (out["chosen_prob"].astype(float) >= prob_series)]
-    out = out.sort_values("ev", ascending=False).head(int(top))
-    final = out.rename(columns={"line_num":"line"})[["date","player","team_abbr","market","line","p_over_sim","over_price","under_price","book","side","ev","chosen_prob"]].copy()
-    final.rename(columns={"team_abbr":"team","p_over_sim":"p_over"}, inplace=True)
-    # Deduplicate: one row per (team, player, market, line, side) by best EV
-    try:
-        final["ev"] = pd.to_numeric(final["ev"], errors="coerce")
-        idx = final.groupby(["team","player","market","line","side"])['ev'].idxmax()
-        final = final.loc[idx]
-    except Exception:
-        final = final.drop_duplicates(subset=["team","player","market","line","side"], keep="first")
+    if "edge_score" in out.columns:
+        out = out.sort_values(["edge_score", "ev"], ascending=[False, False]).head(int(top))
+    else:
+        out = out.sort_values("ev", ascending=False).head(int(top))
+    keep = [
+        "date",
+        "player",
+        "team",
+        "opp",
+        "market",
+        "line",
+        "p_over_sim",
+        "over_price",
+        "under_price",
+        "book",
+        "side",
+        "price",
+        "ev",
+        "chosen_prob",
+        "edge_score",
+        "edge_reasons",
+    ]
+    final = out[[c for c in keep if c in out.columns]].copy()
+    final.rename(columns={"p_over_sim": "p_over", "chosen_prob": "prob"}, inplace=True)
+    # Backward-compatible alias
+    if "prob" in final.columns and "chosen_prob" not in final.columns:
+        final["chosen_prob"] = final["prob"]
     out_path = PROC_DIR / f"props_recommendations_{date}.csv"
     save_df(final, out_path)
     # Also write sim-specific filename for downstream consumers
@@ -10004,7 +10285,23 @@ def game_recommendations_sim(
     ev_cols = [c for c in ['ev_home_ml','ev_away_ml','ev_over','ev_under'] if c in pred_sim.columns]
     if ev_cols:
         edges = pred_sim.melt(id_vars=['date','home','away'], value_vars=ev_cols, var_name='market', value_name='ev').dropna()
-        edges = edges.sort_values('ev', ascending=False).head(int(top))
+        try:
+            from .core.game_edge_signals import attach_game_edge_signals
+
+            edges = attach_game_edge_signals(str(date), edges, predictions=pred_sim)
+        except Exception:
+            pass
+        try:
+            if 'edge_score' in edges.columns:
+                edges['_edge_score'] = pd.to_numeric(edges.get('edge_score'), errors='coerce')
+                edges['_ev'] = pd.to_numeric(edges.get('ev'), errors='coerce')
+                edges = edges.sort_values(['_edge_score','_ev'], ascending=[False, False])
+                edges = edges.drop(columns=['_edge_score','_ev'], errors='ignore')
+            else:
+                edges = edges.sort_values('ev', ascending=False)
+        except Exception:
+            edges = edges.sort_values('ev', ascending=False)
+        edges = edges.head(int(top))
         save_df(edges, PROC_DIR / f"edges_sim_{date}.csv")
 
     # UI-friendly recommendations.
@@ -13911,7 +14208,22 @@ def game_recompute_edges(
         ev_cols = [c for c in df.columns if c.startswith('ev_')]
         if ev_cols:
             edges = df.melt(id_vars=['date','home','away'], value_vars=ev_cols, var_name='market', value_name='ev').dropna()
-            edges = edges.sort_values('ev', ascending=False)
+            try:
+                from .core.game_edge_signals import attach_game_edge_signals
+
+                edges = attach_game_edge_signals(d, edges, predictions=df)
+            except Exception:
+                pass
+            try:
+                if 'edge_score' in edges.columns:
+                    edges['_edge_score'] = pd.to_numeric(edges.get('edge_score'), errors='coerce')
+                    edges['_ev'] = pd.to_numeric(edges.get('ev'), errors='coerce')
+                    edges = edges.sort_values(['_edge_score','_ev'], ascending=[False, False])
+                    edges = edges.drop(columns=['_edge_score','_ev'], errors='ignore')
+                else:
+                    edges = edges.sort_values('ev', ascending=False)
+            except Exception:
+                edges = edges.sort_values('ev', ascending=False)
             edges_path = PROC_DIR / f"edges_{d}.csv"
             save_df(edges, edges_path)
     except Exception:

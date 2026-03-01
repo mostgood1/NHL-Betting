@@ -809,7 +809,18 @@ if ($PropsRecs) {
       python -m nhl_betting.cli props-nolines-monitor --window-days 7 --markets "SAVES,BLOCKS" --min-prob-per-market "SAVES=$SavesGate,BLOCKS=0.92"
     } else {
       Write-Host "[daily_update] Generating props recommendations (model-only) for $today & $tomorrow …" -ForegroundColor Cyan
-      $recsArgsBase = @("-m", "nhl_betting.cli", "props-recommendations", "--min-ev", "$PropsMinEv", "--top", "$PropsTop", "--min-ev-per-market", $PropsMinEvPerMarket)
+      $recsArgsBase = @(
+        "-m", "nhl_betting.cli", "props-recommendations",
+        "--min-ev", "$PropsMinEv",
+        "--top", "$PropsTop",
+        "--min-ev-per-market", $PropsMinEvPerMarket,
+        "--min-prob", "$PropsMinProb",
+        "--min-prob-per-market", $PropsMinProbPerMarket
+      )
+      if ($PropsMaxPlusOdds -and $PropsMaxPlusOdds -gt 0) {
+        Write-Host "[daily_update] Props odds clamp enabled: max plus odds = +$PropsMaxPlusOdds" -ForegroundColor DarkGray
+        $recsArgsBase += @("--max-plus-odds", "$PropsMaxPlusOdds")
+      }
       python @($recsArgsBase + @("--date", $today))
       python @($recsArgsBase + @("--date", $tomorrow))
     }

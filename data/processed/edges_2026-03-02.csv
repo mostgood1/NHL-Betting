@@ -1,29 +1,29 @@
 date,home,away,market,ev
-2026-03-03T03:30:00Z,Los Angeles Kings,Colorado Avalanche,ev_home_ml,0.8845
-2026-03-03T00:00:00Z,New York Rangers,Columbus Blue Jackets,ev_home_ml,0.4981
-2026-03-03T03:00:00Z,Seattle Kraken,Carolina Hurricanes,ev_home_ml,0.4551
-2026-03-02T19:00:00Z,Nashville Predators,Detroit Red Wings,ev_home_ml,0.2364
-2026-03-03T03:30:00Z,Los Angeles Kings,Colorado Avalanche,ev_over,0.0796
-2026-03-03T03:00:00Z,Vancouver Canucks,Dallas Stars,ev_home_ml,0.0723
-2026-03-03T00:30:00Z,Toronto Maple Leafs,Philadelphia Flyers,ev_home_pl_-1.5,0.0543
-2026-03-03T00:00:00Z,New York Rangers,Columbus Blue Jackets,ev_over,0.0408
-2026-03-03T03:00:00Z,Vancouver Canucks,Dallas Stars,ev_over,0.0176
-2026-03-02T19:00:00Z,Nashville Predators,Detroit Red Wings,ev_over,0.0056
-2026-03-03T00:30:00Z,Toronto Maple Leafs,Philadelphia Flyers,ev_under,-0.019
-2026-03-03T00:30:00Z,Toronto Maple Leafs,Philadelphia Flyers,ev_away_ml,-0.0209
-2026-03-03T03:00:00Z,Seattle Kraken,Carolina Hurricanes,ev_under,-0.0356
-2026-03-02T19:00:00Z,Nashville Predators,Detroit Red Wings,ev_home_pl_-1.5,-0.0372
-2026-03-02T19:00:00Z,Nashville Predators,Detroit Red Wings,ev_away_pl_+1.5,-0.0431
-2026-03-03T03:00:00Z,Seattle Kraken,Carolina Hurricanes,ev_over,-0.0437
-2026-03-03T00:30:00Z,Toronto Maple Leafs,Philadelphia Flyers,ev_home_ml,-0.0557
-2026-03-03T00:30:00Z,Toronto Maple Leafs,Philadelphia Flyers,ev_over,-0.0644
-2026-03-02T19:00:00Z,Nashville Predators,Detroit Red Wings,ev_under,-0.0772
-2026-03-03T00:30:00Z,Toronto Maple Leafs,Philadelphia Flyers,ev_away_pl_+1.5,-0.0906
-2026-03-03T00:00:00Z,New York Rangers,Columbus Blue Jackets,ev_under,-0.1059
-2026-03-03T03:00:00Z,Vancouver Canucks,Dallas Stars,ev_under,-0.1078
-2026-03-03T03:00:00Z,Vancouver Canucks,Dallas Stars,ev_away_ml,-0.1117
-2026-03-03T03:30:00Z,Los Angeles Kings,Colorado Avalanche,ev_under,-0.1872
-2026-03-02T19:00:00Z,Nashville Predators,Detroit Red Wings,ev_away_ml,-0.3273
-2026-03-03T03:00:00Z,Seattle Kraken,Carolina Hurricanes,ev_away_ml,-0.3303
-2026-03-03T00:00:00Z,New York Rangers,Columbus Blue Jackets,ev_away_ml,-0.4778
-2026-03-03T03:30:00Z,Los Angeles Kings,Colorado Avalanche,ev_away_ml,-0.6485
+2026-03-03T03:30:00Z,Los Angeles Kings,Colorado Avalanche,ev_home_ml,0.9937
+2026-03-03T00:00:00Z,New York Rangers,Columbus Blue Jackets,ev_home_ml,0.4579
+2026-03-03T03:00:00Z,Seattle Kraken,Carolina Hurricanes,ev_home_ml,0.4232
+2026-03-02T19:00:00Z,Nashville Predators,Detroit Red Wings,ev_home_ml,0.2103
+2026-03-03T03:00:00Z,Vancouver Canucks,Dallas Stars,ev_home_ml,0.1141
+2026-03-03T00:00:00Z,New York Rangers,Columbus Blue Jackets,ev_over,0.0355
+2026-03-03T00:30:00Z,Toronto Maple Leafs,Philadelphia Flyers,ev_home_pl_-1.5,0.0315
+2026-03-03T03:00:00Z,Vancouver Canucks,Dallas Stars,ev_over,0.0292
+2026-03-03T00:30:00Z,Toronto Maple Leafs,Philadelphia Flyers,ev_under,0.0063
+2026-03-03T03:30:00Z,Los Angeles Kings,Colorado Avalanche,ev_over,-0.0081
+2026-03-03T00:30:00Z,Toronto Maple Leafs,Philadelphia Flyers,ev_away_ml,-0.0147
+2026-03-02T19:00:00Z,Nashville Predators,Detroit Red Wings,ev_home_pl_-1.5,-0.0333
+2026-03-03T03:00:00Z,Seattle Kraken,Carolina Hurricanes,ev_over,-0.0355
+2026-03-02T19:00:00Z,Nashville Predators,Detroit Red Wings,ev_over,-0.0374
+2026-03-02T19:00:00Z,Nashville Predators,Detroit Red Wings,ev_away_pl_+1.5,-0.0447
+2026-03-03T03:00:00Z,Seattle Kraken,Carolina Hurricanes,ev_under,-0.0448
+2026-03-02T19:00:00Z,Nashville Predators,Detroit Red Wings,ev_under,-0.0452
+2026-03-03T00:30:00Z,Toronto Maple Leafs,Philadelphia Flyers,ev_home_ml,-0.0607
+2026-03-03T03:30:00Z,Los Angeles Kings,Colorado Avalanche,ev_under,-0.0661
+2026-03-03T00:30:00Z,Toronto Maple Leafs,Philadelphia Flyers,ev_away_pl_+1.5,-0.0787
+2026-03-03T00:30:00Z,Toronto Maple Leafs,Philadelphia Flyers,ev_over,-0.0961
+2026-03-03T00:00:00Z,New York Rangers,Columbus Blue Jackets,ev_under,-0.1032
+2026-03-03T03:00:00Z,Vancouver Canucks,Dallas Stars,ev_under,-0.1217
+2026-03-03T03:00:00Z,Vancouver Canucks,Dallas Stars,ev_away_ml,-0.1308
+2026-03-02T19:00:00Z,Nashville Predators,Detroit Red Wings,ev_away_ml,-0.3115
+2026-03-03T03:00:00Z,Seattle Kraken,Carolina Hurricanes,ev_away_ml,-0.3227
+2026-03-03T00:00:00Z,New York Rangers,Columbus Blue Jackets,ev_away_ml,-0.459
+2026-03-03T03:30:00Z,Los Angeles Kings,Colorado Avalanche,ev_away_ml,-0.6687

@@ -873,13 +873,23 @@
       if (!strip) return;
       strip.innerHTML = '';
 
-      function _fmtStartEt(p) {
+      function _dispState(s) {
+        try {
+          return isFinalLikeState(s) ? 'Final' : String(s || '').trim();
+        } catch (e) {
+          return String(s || '').trim();
+        }
+      }
+
+      function _fmtStartLocal(p) {
         try {
           const t = startTimeMs(p);
           if (!isFinite(Number(t))) return '';
           const d = new Date(Number(t));
-          const fmt = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' });
-          return `${fmt.format(d)} ET`;
+          // Browser-local time. Include a short timezone name so users don't confuse ET/CT/etc.
+          // (Some browsers may show a GMT offset instead of CST/CDT; that's still unambiguous.)
+          const fmt = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
+          return String(fmt.format(d));
         } catch (e) {
           return '';
         }
@@ -891,11 +901,11 @@
         // Compact strip should show full team names (not 2-3 letter abbreviations).
         const a = String(p && p.away || '').trim() || toUpper(p && p.away_abbr);
         const h = String(p && p.home || '').trim() || toUpper(p && p.home_abbr);
-        const state = String(p && p.game_state || '').trim();
+        const state = _dispState(p && p.game_state);
         const awayLogo = (p && p.away_logo) ? String(p.away_logo) : '';
         const homeLogo = (p && p.home_logo) ? String(p.home_logo) : '';
-        const startEt = _fmtStartEt(p);
-        const timeLine = (startEt || state || '—');
+        const startLocal = _fmtStartLocal(p);
+        const timeLine = (startLocal || state || '—');
 
         const aEl = document.createElement('a');
         aEl.href = '#';
@@ -1120,7 +1130,7 @@
               const existing = String(stEl.textContent || '').trim();
               const next = (st || '').trim();
               if (!existing || existing === '—') stEl.textContent = (next || '—');
-              else if (next && (next.toUpperCase().includes('FINAL') || next.toUpperCase().includes('POST') || next.toUpperCase().includes('END'))) stEl.textContent = next;
+              else if (next && isFinalLikeState(next)) stEl.textContent = 'Final';
             }
           }
         } catch (e) {}
@@ -1130,6 +1140,12 @@
     function isLiveState(s) {
       const x = String(s || '').toUpperCase();
       return x.includes('LIVE') || x.includes('IN_PROGRESS') || x.includes('IN PROGRESS') || x.includes('IN-PROGRESS') || x.includes('CRIT');
+    }
+
+    function isFinalLikeState(s) {
+      const x = String(s || '').toUpperCase();
+      // NHL Web schedule commonly uses OFF for completed games.
+      return x.includes('FINAL') || x.includes('POST') || x.includes('END') || (x === 'OFF');
     }
 
     function formatPeriodLabel(period, gameState) {
@@ -2206,7 +2222,7 @@
               const sc = (g && g.score) ? g.score : null;
               const ag = sc && sc.away !== undefined && sc.away !== null ? sc.away : null;
               const hg = sc && sc.home !== undefined && sc.home !== null ? sc.home : null;
-              const show = (ag !== null && hg !== null) && (isLiveState(st) || up.includes('FINAL') || up.includes('POST') || up.includes('END'));
+              const show = (ag !== null && hg !== null) && (isLiveState(st) || isFinalLikeState(up));
               if (aBig) aBig.textContent = show ? String(ag) : '';
               if (hBig) hBig.textContent = show ? String(hg) : '';
             } catch (e) {
@@ -2221,8 +2237,8 @@
             if (g && st.includes('FINAL') && g.score) {
               const ag = g.score.away;
               const hg = g.score.home;
-              for (const betEl of card.querySelectorAll('.bets .bet[data-market][data-side]')) {
-                const m = betEl.dataset.market;
+              if (g && isFinalLikeState(st) && ag !== null && hg !== null) {
+                fs.textContent = `FINAL ${ag}-${hg}`;
                 const s = betEl.dataset.side;
                 const line = (betEl.dataset.line !== undefined) ? betEl.dataset.line : null;
                 const out = settleRecOutcome(m, s, line, ag, hg);
@@ -2261,15 +2277,16 @@
             }
           } catch (e) {}
 
-          // Show live lens drivers only when the game is actually live AND lens payload exists.
-          if (g && g.lens && isLiveState(g.gameState)) {
+          // Show boxscore-derived stats for LIVE and FINAL games.
+          // (Previously FINAL games were hidden, which made already-finished games look like they had no stats.)
+          if (g && g.lens && (isLiveState(g.gameState) || isFinalLikeState(g.gameState))) {
             lensBody.innerHTML = renderLens(g);
             oddsBody.innerHTML = renderOdds(g.odds || null);
             guidanceBody.innerHTML = renderGuidance(g);
             box.style.display = 'grid';
           } else {
             lensBody.innerHTML = '';
-            oddsBody.innerHTML = '';
+            if (g && isFinalLikeState(st) && g.score) {
             guidanceBody.innerHTML = '';
             box.style.display = 'none';
           }
@@ -2318,8 +2335,13 @@
         const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: tzName, year: 'numeric', month: '2-digit', day: '2-digit' });
         return String(fmt.format(new Date()));
       } catch (e) {
-        // Fallback: UTC date (may be off by 1 vs ET during evening ET).
-        return String(new Date().toISOString().slice(0, 10));
+        // Fallback: browser-local date (avoid UTC rollovers).
+        try {
+          const fmt2 = new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit' });
+          return String(fmt2.format(new Date()));
+        } catch (e2) {
+          return String(new Date().toISOString().slice(0, 10));
+        }
       }
     }
 
@@ -2441,8 +2463,13 @@
       // Overlay live lens:
       // - For today: poll live-only (inplay=1)
       // - For past/future slates: fetch non-live too (include_non_live=1) so FINAL results show next to sim
-      const todayIso = todayYmdInTZ('America/New_York');
-      const isToday = String(date) === todayIso;
+      // "Today" is computed in the viewer's local timezone to avoid UTC/ET rollover bugs.
+      // Also allow ET equality since artifact dates are ET-based.
+      let userTz = null;
+      try { userTz = (Intl.DateTimeFormat().resolvedOptions() || {}).timeZone || null; } catch (e) { userTz = null; }
+      const todayLocal = todayYmdInTZ(userTz || 'UTC');
+      const todayEt = todayYmdInTZ('America/New_York');
+      const isToday = (String(date) === String(todayLocal)) || (String(date) === String(todayEt));
       const inplay = isToday ? 1 : 0;
       const includeNonLive = 1;
       await maybeLoadLiveLens(date, preds, { inplay, includeNonLive });
@@ -2475,7 +2502,13 @@
         let initialDate = (requested || (Array.isArray(d.trio) ? d.trio[1] : null) || d.latest || '').trim();
         if (!initialDate) {
           // Last-resort fallback so the UI can still load even if server has no artifacts yet.
-          initialDate = String(new Date().toISOString().slice(0,10));
+          // Use browser-local date to avoid UTC rollovers.
+          try {
+            const fmt = new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit' });
+            initialDate = String(fmt.format(new Date()));
+          } catch (e) {
+            initialDate = String(new Date().toISOString().slice(0,10));
+          }
         }
 
         dateInput.value = initialDate;

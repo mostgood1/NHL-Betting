@@ -4851,6 +4851,9 @@ def props_recommendations(
     top: int = typer.Option(200, help="Top N to keep after sorting by EV desc"),
     market: str = typer.Option("", help="Optional filter: SOG,SAVES,GOALS,ASSISTS,POINTS"),
     min_ev_per_market: str = typer.Option("", help="Optional per-market EV thresholds, e.g., 'SOG=0.00,GOALS=0.05,ASSISTS=0.00,POINTS=0.12'"),
+    min_prob: float = typer.Option(0.0, help="Minimum chosen-side probability threshold (0-1), e.g., 0.60"),
+    min_prob_per_market: str = typer.Option("", help="Optional per-market probability thresholds, e.g., 'SOG=0.58,GOALS=0.60'"),
+    max_plus_odds: float = typer.Option(0.0, help="If >0, disallow selecting any side priced longer than +max_plus_odds (e.g., 300)"),
 ):
     """Build props recommendations_{date}.csv from canonical Parquet lines and simple Poisson projections.
 
@@ -5213,6 +5216,7 @@ def props_recommendations(
     # Vectorized EV computation using precomputed lambdas; fallback row-wise for misses
     import numpy as _np
     from scipy.stats import poisson as _poisson
+    from .core.props_edge_signals import attach_prop_edge_signals
     # Prepare normalized working frame (explicit core columns to avoid accidental column loss)
     core_cols = [c for c in [
         "market","player_name","player","team","line","over_price","under_price","book"
@@ -5411,7 +5415,8 @@ def props_recommendations(
             except Exception:
                 p_over_vec.loc[sel] = raw_p
     merged["p_over_vec"] = p_over_vec
-    # Vectorized EVs
+
+    # American -> decimal odds
     def _american_to_decimal_series(s: pd.Series) -> pd.Series:
         s = pd.to_numeric(s, errors="coerce")
         pos = s[s > 0]
@@ -5420,30 +5425,17 @@ def props_recommendations(
         out.loc[pos.index] = 1.0 + (pos / 100.0)
         out.loc[neg.index] = 1.0 + (100.0 / _np.abs(neg))
         return out
-    # Build vectorized output rows (only where we had lambda)
-    vec_out = merged[vec_mask].copy()
-    # Keep raw probability for diagnostics if calibration applied
+
+    # Normalize optional args when called as a function (Typer OptionInfo defaults)
     try:
-        if cal_map and not vec_out.empty:
-            vec_out["p_over_raw"] = vec_out.get("p_over_vec")
+        if not isinstance(min_ev_per_market, str):
+            min_ev_per_market = ""
+        if not isinstance(min_prob_per_market, str):
+            min_prob_per_market = ""
     except Exception:
         pass
-    
-    # Compute EV on the filtered data
-    dec_over = _american_to_decimal_series(vec_out.get("over_price"))
-    dec_under = _american_to_decimal_series(vec_out.get("under_price"))
-    p_over_s = pd.to_numeric(vec_out["p_over_vec"], errors="coerce")
-    ev_over_s = p_over_s * (dec_over - 1.0) - (1.0 - p_over_s)
-    p_under_s = (1.0 - p_over_s).clip(lower=0.0, upper=1.0)
-    ev_under_s = p_under_s * (dec_under - 1.0) - (1.0 - p_under_s)
-    # Choose side with better EV, handling NaNs
-    over_better = (ev_under_s.isna()) | (~ev_over_s.isna() & (ev_over_s >= ev_under_s))
-    chosen_side = _np.where(over_better, "Over", "Under")
-    chosen_price = _np.where(over_better, vec_out.get("over_price"), vec_out.get("under_price"))
-    chosen_ev = _np.where(over_better, ev_over_s, ev_under_s)
-    
-    vec_out["side"] = chosen_side
-    vec_out["ev"] = pd.to_numeric(chosen_ev, errors="coerce")
+
+    # Parse per-market thresholds if provided
     # Parse per-market thresholds if provided
     def _parse_thresholds(s: str) -> dict:
         d = {}
@@ -5457,37 +5449,42 @@ def props_recommendations(
             except Exception:
                 continue
         return d
-    _thr_map = _parse_thresholds(min_ev_per_market)
-    if _thr_map:
-        # Build a per-row threshold series with fallback to global min_ev
-        thr_series = vec_out["market"].astype(str).str.upper().map(lambda m: _thr_map.get(m, float(min_ev))).astype(float)
-        vec_out = vec_out[vec_out["ev"].notna() & (vec_out["ev"].astype(float) >= thr_series)]
-    else:
-        vec_out = vec_out[vec_out["ev"].notna() & (vec_out["ev"].astype(float) >= float(min_ev))]
+    ev_thr_map = _parse_thresholds(min_ev_per_market)
+    prob_thr_map = _parse_thresholds(min_prob_per_market)
+
+    # Collect rows with probabilities (vectorized + fallback)
+    vec_rows = merged[vec_mask].copy()
+    # Keep raw probability for diagnostics if calibration applied
+    try:
+        if cal_map and not vec_rows.empty:
+            vec_rows["p_over_raw"] = vec_rows.get("p_over_vec")
+    except Exception:
+        pass
+
     # Choose best team: prefer previously resolved _team_final; else fallback to input team or map
-    if "_team_final" in vec_out.columns:
-        vec_out["team_final"] = vec_out["_team_final"]
+    if "_team_final" in vec_rows.columns:
+        vec_rows["team_final"] = vec_rows["_team_final"]
     else:
-        vec_out["team_final"] = vec_out.get("team")
+        vec_rows["team_final"] = vec_rows.get("team")
         try:
-            missing_team = vec_out["team_final"].isna() | (vec_out["team_final"].astype(str).str.strip() == "")
-            vec_out.loc[missing_team, "team_final"] = vec_out.loc[missing_team, "player_norm"].map(lambda nm: player_team_map.get(nm))
+            missing_team = vec_rows["team_final"].isna() | (vec_rows["team_final"].astype(str).str.strip() == "")
+            vec_rows.loc[missing_team, "team_final"] = vec_rows.loc[missing_team, "player_norm"].map(lambda nm: player_team_map.get(nm))
         except Exception:
             pass
-    out_vec = vec_out.assign(
-        date=date,
+
+    vec_base = vec_rows.assign(
+        team=lambda df: df["team_final"],
         player=lambda df: df["player_display"],
-        market=lambda df: df["market"],
         line=lambda df: df["line_num"],
-        proj=lambda df: df["proj_lambda"].astype(float).round(3),
-        p_over=lambda df: df["p_over_vec"].astype(float).round(4),
+        p_over=lambda df: df["p_over_vec"],
+        proj_lambda=lambda df: df["proj_lambda"],
         over_price=lambda df: df.get("over_price"),
         under_price=lambda df: df.get("under_price"),
         book=lambda df: df.get("book"),
-        team=lambda df: df["team_final"],
-    )[[
-        "date","player","team","market","line","proj","p_over","over_price","under_price","book","side","ev"
-    ]]
+    )[[c for c in [
+        "team","player","market","line","proj_lambda","p_over","over_price","under_price","book"
+    ] if c in vec_rows.columns or c in ("team","player","line","p_over","proj_lambda","over_price","under_price","book")]].copy()
+
     # Fallback: row-wise compute for rows missing proj_lambda (should be small)
     remain = merged[~vec_mask]
     _dbg(f"fallback row-wise count: {len(remain)}")
@@ -5521,52 +5518,151 @@ def props_recommendations(
                 pass
         if lam is None or p_over is None:
             continue
-        ev_o = ev_unit(float(p_over), american_to_decimal(float(op))) if pd.notna(op) else None
-        p_under = max(0.0, 1.0 - float(p_over))
-        ev_u = ev_unit(float(p_under), american_to_decimal(float(up))) if pd.notna(up) else None
-        side = None; ev = None
-        if ev_o is not None or ev_u is not None:
-            if (ev_u is None) or (ev_o is not None and ev_o >= ev_u):
-                side = "Over"; ev = ev_o
-            else:
-                side = "Under"; ev = ev_u
-        # Apply per-market or global min_ev
-        thr_map = _thr_map if _thr_map else {}
-        thr_val = float(thr_map.get(m, float(min_ev)))
-        if ev is None or float(ev) < thr_val:
-            continue
         # Prefer map over line for consistency
         team_val = rr.get("_team_from_map") or rr.get("_team_final") or rr.get("team") or player_team_map.get(_norm_name(player).lower())
         rows_fallback.append({
-            "date": date,
+            "team": str(team_val).strip().upper() if team_val else None,
             "player": player,
-            "team": team_val or None,
             "market": m,
             "line": float(ln),
-            "proj": round(float(lam), 3),
-            "p_over": round(float(p_over), 4),
+            "proj_lambda": float(lam),
+            "p_over": float(p_over),
             "over_price": op if pd.notna(op) else None,
             "under_price": up if pd.notna(up) else None,
             "book": rr.get("book"),
-            "side": side,
-            "ev": round(float(ev), 4) if ev is not None else None,
         })
-    out = pd.concat([out_vec, pd.DataFrame(rows_fallback)], ignore_index=True) if not out_vec.empty or rows_fallback else pd.DataFrame()
-    if not out.empty:
-        # Normalize column names at write-time
-        if 'proj' in out.columns and 'proj_lambda' not in out.columns:
-            out['proj_lambda'] = out['proj']
-        if 'ev' in out.columns and 'ev_over' not in out.columns:
-            out['ev_over'] = out['ev']
-        # Primary sort now by ev_over if present
-        sort_col = 'ev_over' if 'ev_over' in out.columns else ('ev' if 'ev' in out.columns else None)
-        if sort_col:
-            out = out.sort_values(sort_col, ascending=False)
-        out = out.head(top)
+
+    all_rows = pd.concat([vec_base, pd.DataFrame(rows_fallback)], ignore_index=True) if (not vec_base.empty or rows_fallback) else pd.DataFrame()
+    if all_rows is None or all_rows.empty:
+        out = pd.DataFrame(columns=["date","player","team","market","line","proj_lambda","p_over","over_price","under_price","book","side","ev"])
+        out_path = PROC_DIR / f"props_recommendations_{date}.csv"
+        save_df(out, out_path)
+        dt = round(time.monotonic() - t0, 2)
+        print(f"Wrote {out_path} with 0 rows; took {dt}s")
+        return
+
+    # Normalize
+    all_rows["market"] = all_rows["market"].astype(str).str.upper()
+    all_rows["line"] = pd.to_numeric(all_rows.get("line"), errors="coerce")
+    all_rows["p_over"] = pd.to_numeric(all_rows.get("p_over"), errors="coerce")
+    all_rows["proj_lambda"] = pd.to_numeric(all_rows.get("proj_lambda"), errors="coerce")
+
+    # Drop degenerate / invalid model outputs (commonly from missing inputs)
+    # to avoid artifacts like p_over≈0 -> chosen_prob≈1.0 getting ranked highly.
+    # NOTE: We use an epsilon-bounded filter (not just strict 0/1) because we have
+    # observed near-zero lambdas producing near-certain probabilities (e.g., 0.999998)
+    # that are functionally degenerate for recommendation ranking.
+    try:
+        p_eps = 1e-3  # filters out probabilities more extreme than 99.9% on either side
+        lam_eps = 1e-9
+        lam = pd.to_numeric(all_rows["proj_lambda"], errors="coerce").astype(float)
+        p = pd.to_numeric(all_rows["p_over"], errors="coerce").astype(float)
+        all_rows = all_rows[_np.isfinite(lam) & (lam > lam_eps)]
+        all_rows = all_rows[_np.isfinite(p) & (p > p_eps) & (p < (1.0 - p_eps))]
+    except Exception:
+        pass
+
+    if all_rows is None or all_rows.empty:
+        out = pd.DataFrame(columns=["date","player","team","market","line","proj_lambda","p_over","over_price","under_price","book","side","ev"])
+        out_path = PROC_DIR / f"props_recommendations_{date}.csv"
+        save_df(out, out_path)
+        dt = round(time.monotonic() - t0, 2)
+        print(f"Wrote {out_path} with 0 rows; took {dt}s")
+        return
+
+    # Attach non-EV edge signals at the prop level, then merge back.
+    keys = ["team", "player", "market", "line"]
+    base = all_rows[[c for c in keys + ["p_over"] if c in all_rows.columns]].copy()
+    try:
+        base = base.groupby(keys, as_index=False).first()
+    except Exception:
+        base = base.drop_duplicates(subset=keys, keep="first")
+    base = attach_prop_edge_signals(date=str(date), props=base)
+    base_merge = base[[c for c in keys + ["opp", "side_suggested", "chosen_prob", "edge_score", "edge_reasons"] if c in base.columns]].copy()
+    out = all_rows.merge(base_merge, on=keys, how="left")
+
+    # Prices -> decimal
+    out["dec_over"] = _american_to_decimal_series(out.get("over_price"))
+    out["dec_under"] = _american_to_decimal_series(out.get("under_price"))
+    # Optional odds clamp: disallow longshot sides from being selected
+    try:
+        if float(max_plus_odds) > 0.0:
+            op = pd.to_numeric(out["over_price"], errors="coerce")
+            up = pd.to_numeric(out["under_price"], errors="coerce")
+            out.loc[(op > 0) & (op > float(max_plus_odds)), "dec_over"] = _np.nan
+            out.loc[(up > 0) & (up > float(max_plus_odds)), "dec_under"] = _np.nan
+    except Exception:
+        pass
+
+    # Use non-EV signals to pick side; pick best available price across books for that side.
+    out["side"] = out.get("side_suggested")
+    out["cand_dec"] = _np.where(out["side"] == "Over", out["dec_over"], out["dec_under"])
+    out["price"] = _np.where(out["side"] == "Over", out.get("over_price"), out.get("under_price"))
+    out["_cand"] = pd.to_numeric(out["cand_dec"], errors="coerce").fillna(-_np.inf)
+    try:
+        idx = out.groupby(keys)["_cand"].idxmax()
+        out = out.loc[idx]
+    except Exception:
+        out = out.sort_values(keys).drop_duplicates(subset=keys, keep="first")
+    out = out.drop(columns=["_cand"], errors="ignore")
+
+    # EV using chosen-side prob and best price
+    prob_s = pd.to_numeric(out.get("chosen_prob"), errors="coerce")
+    dec_s = pd.to_numeric(out.get("cand_dec"), errors="coerce")
+    out["ev"] = pd.to_numeric(prob_s * (dec_s - 1.0) - (1.0 - prob_s), errors="coerce")
+
+    # Apply EV thresholds (per-market or global)
+    if ev_thr_map:
+        thr_series = out["market"].astype(str).str.upper().map(lambda m: ev_thr_map.get(m, float(min_ev))).astype(float)
+        out = out[(out["ev"].notna()) & (out["ev"].astype(float) >= thr_series)]
+    else:
+        out = out[(out["ev"].notna()) & (out["ev"].astype(float) >= float(min_ev))]
+
+    # Apply probability thresholds
+    if prob_thr_map or (float(min_prob) > 0.0):
+        prob_series = out["market"].astype(str).str.upper().map(lambda m: prob_thr_map.get(m, float(min_prob))).astype(float)
+        out = out[(out["chosen_prob"].notna()) & (out["chosen_prob"].astype(float) >= prob_series)]
+
+    # Rank primarily by non-EV edge score, then EV
+    if "edge_score" in out.columns:
+        out = out.sort_values(["edge_score", "ev"], ascending=[False, False])
+    else:
+        out = out.sort_values("ev", ascending=False)
+    out = out.head(int(top))
+
+    # Final formatting + backward-compatible aliases
+    out["date"] = str(date)
+    out["proj_lambda"] = pd.to_numeric(out.get("proj_lambda"), errors="coerce")
+    out["p_over"] = pd.to_numeric(out.get("p_over"), errors="coerce")
+    out["ev_over"] = pd.to_numeric(out.get("ev"), errors="coerce")
+    keep = [
+        "date",
+        "player",
+        "team",
+        "opp",
+        "market",
+        "line",
+        "proj_lambda",
+        "p_over",
+        "over_price",
+        "under_price",
+        "book",
+        "side",
+        "price",
+        "ev",
+        "ev_over",
+        "chosen_prob",
+        "edge_score",
+        "edge_reasons",
+    ]
+    final = out[[c for c in keep if c in out.columns]].copy()
+    # Backward-compatible alias used elsewhere
+    if "proj_lambda" in final.columns and "proj" not in final.columns:
+        final["proj"] = final["proj_lambda"]
     out_path = PROC_DIR / f"props_recommendations_{date}.csv"
-    save_df(out, out_path)
+    save_df(final, out_path)
     dt = round(time.monotonic() - t0, 2)
-    print(f"Wrote {out_path} with {len(out)} rows (normalized cols: {', '.join([c for c in ['proj_lambda','ev_over'] if c in out.columns])}); took {dt}s")
+    print(f"Wrote {out_path} with {len(final)} rows (cols: {', '.join([c for c in ['proj_lambda','ev_over','edge_score'] if c in final.columns])}); took {dt}s")
 
 
 @app.command(name="props-collect")

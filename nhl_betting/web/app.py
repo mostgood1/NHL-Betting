@@ -6413,6 +6413,8 @@ def _df_jsonsafe_records(df: pd.DataFrame) -> list[dict]:
     try:
         if df is None or df.empty:
             return []
+        # Starlette's JSONResponse uses strict JSON (allow_nan=False), so we must
+        # ensure no NaN/Inf survive to Python floats.
         _df = df.replace([np.inf, -np.inf], np.nan).copy()
         # Normalize datetime-like columns to YYYY-MM-DD strings
         try:
@@ -6460,6 +6462,12 @@ def _df_jsonsafe_records(df: pd.DataFrame) -> list[dict]:
                         _df[c] = _df[c].map(_coerce)
                     except Exception:
                         pass
+        except Exception:
+            pass
+        # Convert to object dtype before inserting None; otherwise float columns
+        # will re-coerce None back to NaN.
+        try:
+            _df = _df.astype(object)
         except Exception:
             pass
         _df = _df.where(pd.notnull(_df), None)

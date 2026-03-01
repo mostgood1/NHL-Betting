@@ -950,6 +950,28 @@
       return g || signals[0];
     }
 
+    function _isBetOrWatchSignal(s) {
+      try {
+        const a = String(s && s.action || '').toUpperCase();
+        return a === 'BET' || a === 'WATCH';
+      } catch (e) {
+        return false;
+      }
+    }
+
+    function _filterGameBetWatchSignals(signals) {
+      const arr = Array.isArray(signals) ? signals : [];
+      return arr.filter(s => {
+        try {
+          const scope = String(s && s.scope || '').toLowerCase();
+          if (scope !== 'game') return false;
+          return _isBetOrWatchSignal(s);
+        } catch (e) {
+          return false;
+        }
+      });
+    }
+
     function _signalLineText(sig) {
       try {
         if (!sig) return '';
@@ -1043,7 +1065,7 @@
         const label = String(sig.label || '').trim();
         if (!label) return '';
         const prefix = (action === 'BET') ? 'BET' : ((action === 'WATCH') ? 'WATCH' : '');
-        return prefix ? `${prefix} · ${label}` : label;
+        return prefix ? `${prefix} · ${label}` : '';
       } catch (e) {
         return '';
       }
@@ -1093,10 +1115,11 @@
         } catch (e) {}
 
         try {
-          const cls = _signalClass(g.signals);
+          const gameSigs = _filterGameBetWatchSignals(g.signals);
+          const cls = _signalClass(gameSigs);
           if (cls) item.classList.add(cls);
           // Render up to 3 signal lines with reasons (line 4/5/6)
-          const sigs = _pickTopSignals(g.signals, 3);
+          const sigs = _pickTopSignals(gameSigs, 3);
           const sigEls = [
             item.querySelector('[data-role="sig-1"]'),
             item.querySelector('[data-role="sig-2"]'),
@@ -1123,8 +1146,7 @@
           const st = String(g && g.gameState ? g.gameState : '').trim();
           if (stEl) {
             if (isLiveState(st)) {
-              const perLabel = perDisp || formatPeriodLabel(per, st);
-              stEl.textContent = `${perLabel} ${clk || ''}`.trim();
+              stEl.textContent = formatLiveClockText(st, per, clk, perDisp);
             } else {
               // Preserve scheduled start time from initial render if present.
               const existing = String(stEl.textContent || '').trim();
@@ -2157,9 +2179,10 @@
             if (tagEl) {
               tagEl.classList.remove('bet', 'watch');
               if (g && Array.isArray(g.signals) && g.signals.length) {
-                const cls = _signalClass(g.signals);
+                const gameSigs = _filterGameBetWatchSignals(g.signals);
+                const cls = _signalClass(gameSigs);
                 if (cls) tagEl.classList.add(cls);
-                const sig = _pickSignalForTag(g.signals);
+                const sig = _pickSignalForTag(gameSigs);
                 tagEl.textContent = _compactSignalText(sig);
               } else {
                 tagEl.textContent = '';
@@ -2202,7 +2225,7 @@
             const perDisp = (g && (g.period_disp !== undefined && g.period_disp !== null)) ? String(g.period_disp).trim() : '';
             const clk = (g && g.clock) ? String(g.clock).trim() : '';
             if (lc) {
-              if (g && isLiveState(st) && (per !== null || clk)) {
+              if (g && isLiveState(st) && (per !== null || perDisp || clk)) {
                 lc.textContent = formatLiveClockText(st, per, clk, perDisp);
               } else {
                 lc.textContent = '';

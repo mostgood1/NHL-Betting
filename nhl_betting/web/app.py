@@ -1614,7 +1614,13 @@ async def v1_live_lens_combined(
         def _is_live_state(s: object) -> bool:
             try:
                 x = str(s or "").upper()
-                return ("LIVE" in x) or ("IN_PROGRESS" in x) or ("CRIT" in x)
+                return (
+                    ("LIVE" in x)
+                    or ("IN_PROGRESS" in x)
+                    or ("IN PROGRESS" in x)
+                    or ("IN-PROGRESS" in x)
+                    or ("CRIT" in x)
+                )
             except Exception:
                 return False
 
@@ -1890,6 +1896,19 @@ async def v1_live_lens_combined(
                 k = str(k or "").strip().lower()
                 if k:
                     odds_map[k] = og
+
+        # Odds staleness (seconds) for diagnostics; do not gate decisions on this yet.
+        odds_age_sec = None
+        try:
+            odds_asof = (odds_obj or {}).get("asof_utc") if isinstance(odds_obj, dict) else None
+            if odds_asof and asof:
+                dt0 = datetime.fromisoformat(str(asof).replace("Z", "+00:00"))
+                dt1 = datetime.fromisoformat(str(odds_asof).replace("Z", "+00:00"))
+                odds_age_sec = float((dt0 - dt1).total_seconds())
+                if not math.isfinite(float(odds_age_sec)):
+                    odds_age_sec = None
+        except Exception:
+            odds_age_sec = None
 
         # Player props odds (OddsAPI; cached, best-effort)
         try:
@@ -2666,6 +2685,35 @@ async def v1_live_lens_combined(
                     pu = _safe_prob(p_under)
                     line_f = _to_float(live_total_line)
 
+                    driver_tags: list[str] = ["market:TOTAL"]
+                    try:
+                        if pace_mult is not None:
+                            if float(pace_mult) >= 1.08:
+                                driver_tags.append("pace:up")
+                            elif float(pace_mult) <= 0.92:
+                                driver_tags.append("pace:down")
+                    except Exception:
+                        pass
+                    try:
+                        if goalie_mult is not None:
+                            if float(goalie_mult) >= 1.03:
+                                driver_tags.append("goalie:weak")
+                            elif float(goalie_mult) <= 0.97:
+                                driver_tags.append("goalie:strong")
+                    except Exception:
+                        pass
+                    try:
+                        if pbp_ctx.get("pp_team") == "home":
+                            driver_tags.append("manpower:pp_home")
+                        elif pbp_ctx.get("pp_team") == "away":
+                            driver_tags.append("manpower:pp_away")
+                        if pbp_ctx.get("home_empty_net"):
+                            driver_tags.append("empty_net:home")
+                        if pbp_ctx.get("away_empty_net"):
+                            driver_tags.append("empty_net:away")
+                    except Exception:
+                        pass
+
                     side = None
                     edge = None
                     p_model = None
@@ -2690,10 +2738,29 @@ async def v1_live_lens_combined(
                         if em >= 6.0 and abs_edge >= 0.06:
                             action = "BET"
 
+                        try:
+                            if float(abs_edge) >= 0.06:
+                                driver_tags.append("edge:>=0.06")
+                            elif float(abs_edge) >= 0.04:
+                                driver_tags.append("edge:>=0.04")
+                            elif float(abs_edge) >= 0.03:
+                                driver_tags.append("edge:>=0.03")
+                        except Exception:
+                            pass
+                        try:
+                            if action == "BET":
+                                if em >= 6.0 and abs_edge >= 0.06:
+                                    driver_tags.append("gate:em>=6_edge>=0.06")
+                                elif em >= 10.0 and abs_edge >= 0.04:
+                                    driver_tags.append("gate:em>=10_edge>=0.04")
+                        except Exception:
+                            pass
+
                         # If total already reached, it's usually not a normal live bet.
                         try:
                             if float(total_goals) >= float(line_f):
                                 action = "WATCH"
+                                driver_tags.append("guard:total_already_reached")
                         except Exception:
                             pass
 
@@ -2713,6 +2780,18 @@ async def v1_live_lens_combined(
                             fair_price_american=fair,
                             target_max_price_american=max_price,
                             elapsed_min=float(em),
+                            driver_tags=driver_tags,
+                            driver_meta={
+                                "total_goals": int(total_goals) if total_goals is not None else None,
+                                "sog_total": int(sog_total) if sog_total is not None else None,
+                                "mu_remaining": float(mu_remaining) if mu_remaining is not None else None,
+                                "pace_mult": float(pace_mult) if pace_mult is not None else None,
+                                "goalie_mult": float(goalie_mult) if goalie_mult is not None else None,
+                                "odds_age_sec": float(odds_age_sec) if odds_age_sec is not None else None,
+                                "pp_team": pbp_ctx.get("pp_team"),
+                                "home_empty_net": bool(pbp_ctx.get("home_empty_net")),
+                                "away_empty_net": bool(pbp_ctx.get("away_empty_net")),
+                            },
                         ))
             except Exception:
                 pass
@@ -2753,6 +2832,7 @@ async def v1_live_lens_combined(
                     except Exception:
                         p0_home = None
                     if p0_home is not None:
+                        ml_prob_source = "logit"
                         # Score/time adjustment (conservative heuristic), enriched with attempts/xG proxy/manpower.
                         gd = None
                         if home_goals is not None and away_goals is not None:
@@ -2815,6 +2895,7 @@ async def v1_live_lens_combined(
                                 if pr.get("p_home_win") is not None:
                                     p_home_live = float(pr.get("p_home_win"))
                                     p_away_live = float(pr.get("p_away_win"))
+                                    ml_prob_source = "poisson"
                                     # expose for UI/debug
                                     out["guidance"]["p_home_win"] = p_home_live
                                     out["guidance"]["p_away_win"] = p_away_live
@@ -2834,6 +2915,24 @@ async def v1_live_lens_combined(
                                 ml_watch_side = "AWAY"
                                 ml_watch_p = float(p_away_live)
                             if ml_watch_side and ml_watch_p is not None:
+                                driver_tags = ["market:ML", f"prob_source:{ml_prob_source}"]
+                                try:
+                                    if gd is not None:
+                                        if int(gd) > 0:
+                                            driver_tags.append("score:home_leading")
+                                        elif int(gd) < 0:
+                                            driver_tags.append("score:away_leading")
+                                        else:
+                                            driver_tags.append("score:tied")
+                                except Exception:
+                                    pass
+                                try:
+                                    if pbp_ctx.get("pp_team") == "home":
+                                        driver_tags.append("manpower:pp_home")
+                                    elif pbp_ctx.get("pp_team") == "away":
+                                        driver_tags.append("manpower:pp_away")
+                                except Exception:
+                                    pass
                                 fair = _prob_to_american(float(ml_watch_p))
                                 max_price = _prob_to_american(max(0.01, min(0.99, float(ml_watch_p) - 0.03)))
                                 price = ml_home_price if ml_watch_side == "HOME" else ml_away_price
@@ -2845,6 +2944,24 @@ async def v1_live_lens_combined(
                                         action = "BET"
                                     if float(em) >= 4.0 and float(edge) >= 0.06:
                                         action = "BET"
+                                try:
+                                    if edge is not None:
+                                        if float(edge) >= 0.06:
+                                            driver_tags.append("edge:>=0.06")
+                                        elif float(edge) >= 0.045:
+                                            driver_tags.append("edge:>=0.045")
+                                        elif float(edge) >= 0.03:
+                                            driver_tags.append("edge:>=0.03")
+                                except Exception:
+                                    pass
+                                try:
+                                    if action == "BET":
+                                        if float(em) >= 4.0 and edge is not None and float(edge) >= 0.06:
+                                            driver_tags.append("gate:em>=4_edge>=0.06")
+                                        elif float(em) >= 8.0 and edge is not None and float(edge) >= 0.045:
+                                            driver_tags.append("gate:em>=8_edge>=0.045")
+                                except Exception:
+                                    pass
                                 signals.append(_signal(
                                     action,
                                     scope="game",
@@ -2858,6 +2975,16 @@ async def v1_live_lens_combined(
                                     fair_price_american=fair,
                                     target_max_price_american=max_price,
                                     elapsed_min=float(em),
+                                    driver_tags=driver_tags,
+                                    driver_meta={
+                                        "prob_source": ml_prob_source,
+                                        "gd": int(gd) if gd is not None else None,
+                                        "sd": int(sd) if sd is not None else None,
+                                        "ad": int(ad) if ad is not None else None,
+                                        "xd": float(xd) if xd is not None else None,
+                                        "odds_age_sec": float(odds_age_sec) if odds_age_sec is not None else None,
+                                        "pp_team": pbp_ctx.get("pp_team"),
+                                    },
                                 ))
                         except Exception:
                             pass
@@ -2912,6 +3039,7 @@ async def v1_live_lens_combined(
                                     pl_watch_p = float(p_home_m15)
 
                                 if pl_watch_side and pl_watch_p is not None:
+                                    driver_tags = ["market:PUCKLINE"]
                                     price = pl_away_p15 if pl_watch_side == "AWAY_+1.5" else pl_home_m15
                                     implied = implied_pl_away if pl_watch_side == "AWAY_+1.5" else implied_pl_home
                                     edge = (float(pl_watch_p) - float(implied)) if implied is not None else None
@@ -2921,6 +3049,24 @@ async def v1_live_lens_combined(
                                             action = "BET"
                                         if float(em) >= 4.0 and float(edge) >= 0.065:
                                             action = "BET"
+                                    try:
+                                        if edge is not None:
+                                            if float(edge) >= 0.065:
+                                                driver_tags.append("edge:>=0.065")
+                                            elif float(edge) >= 0.05:
+                                                driver_tags.append("edge:>=0.05")
+                                            elif float(edge) >= 0.03:
+                                                driver_tags.append("edge:>=0.03")
+                                    except Exception:
+                                        pass
+                                    try:
+                                        if action == "BET":
+                                            if float(em) >= 4.0 and edge is not None and float(edge) >= 0.065:
+                                                driver_tags.append("gate:em>=4_edge>=0.065")
+                                            elif float(em) >= 8.0 and edge is not None and float(edge) >= 0.05:
+                                                driver_tags.append("gate:em>=8_edge>=0.05")
+                                    except Exception:
+                                        pass
                                     fair = _prob_to_american(float(pl_watch_p))
                                     max_price = _prob_to_american(max(0.01, min(0.99, float(pl_watch_p) - 0.03)))
                                     signals.append(_signal(
@@ -2936,6 +3082,14 @@ async def v1_live_lens_combined(
                                         fair_price_american=fair,
                                         target_max_price_american=max_price,
                                         elapsed_min=float(em),
+                                        driver_tags=driver_tags,
+                                        driver_meta={
+                                            "gd": int(gd) if gd is not None else None,
+                                            "pace_mult": float(pace_mult) if pace_mult is not None else None,
+                                            "goalie_mult": float(goalie_mult) if goalie_mult is not None else None,
+                                            "odds_age_sec": float(odds_age_sec) if odds_age_sec is not None else None,
+                                            "pp_team": pbp_ctx.get("pp_team"),
+                                        },
                                     ))
                         except Exception:
                             pass
@@ -2986,11 +3140,21 @@ async def v1_live_lens_combined(
                             cand.sort(key=lambda x: float(x[1]), reverse=True)
                             side, edge, price_i, p_model = cand[0]
                             if edge is not None and float(edge) >= 0.03:
+                                driver_tags = ["market:REG_3WAY"]
                                 action = "WATCH"
                                 if float(em) >= 6.0 and float(edge) >= 0.05:
                                     action = "BET"
                                 if float(em) >= 12.0 and float(edge) >= 0.04:
                                     action = "BET"
+                                try:
+                                    if float(edge) >= 0.05:
+                                        driver_tags.append("edge:>=0.05")
+                                    elif float(edge) >= 0.04:
+                                        driver_tags.append("edge:>=0.04")
+                                    elif float(edge) >= 0.03:
+                                        driver_tags.append("edge:>=0.03")
+                                except Exception:
+                                    pass
                                 fair = _prob_to_american(float(p_model))
                                 max_price = _prob_to_american(max(0.01, min(0.99, float(p_model) - 0.03)))
                                 signals.append(_signal(
@@ -3006,6 +3170,14 @@ async def v1_live_lens_combined(
                                     fair_price_american=fair,
                                     target_max_price_american=max_price,
                                     elapsed_min=float(em),
+                                    driver_tags=driver_tags,
+                                    driver_meta={
+                                        "gd": int(gd) if gd is not None else None,
+                                        "pace_mult": float(pace_mult) if pace_mult is not None else None,
+                                        "goalie_mult": float(goalie_mult) if goalie_mult is not None else None,
+                                        "odds_age_sec": float(odds_age_sec) if odds_age_sec is not None else None,
+                                        "pp_team": pbp_ctx.get("pp_team"),
+                                    },
                                 ))
             except Exception:
                 pass
@@ -3097,6 +3269,29 @@ async def v1_live_lens_combined(
                         if ep >= 3.0 and abs(float(edge)) >= 0.06:
                             return "BET"
                     return "WATCH"
+
+                def _period_driver_tags(pn: int, edge: float) -> list[str]:
+                    tags = [f"market:PERIOD", f"period:{int(pn)}"]
+                    try:
+                        ae = abs(float(edge))
+                        if ae >= 0.06:
+                            tags.append("edge:>=0.06")
+                        elif ae >= 0.04:
+                            tags.append("edge:>=0.04")
+                        elif ae >= 0.03:
+                            tags.append("edge:>=0.03")
+                    except Exception:
+                        pass
+                    try:
+                        if cur_period is not None and int(pn) == int(cur_period):
+                            ep = _period_elapsed_min(int(pn))
+                            if ep >= 3.0 and abs(float(edge)) >= 0.06:
+                                tags.append("gate:p_elapsed>=3_edge>=0.06")
+                            elif ep >= 6.0 and abs(float(edge)) >= 0.04:
+                                tags.append("gate:p_elapsed>=6_edge>=0.04")
+                    except Exception:
+                        pass
+                    return tags
 
                 def _poisson_prob_over_under(line_f: float, goals_so_far: int, mu_rem: float) -> tuple[Optional[float], Optional[float], Optional[float]]:
                     try:
@@ -3198,6 +3393,7 @@ async def v1_live_lens_combined(
                                         target_max_price_american=max_price,
                                         elapsed_min=float(em),
                                         goals_in_period=int(goals_p),
+                                        driver_tags=_period_driver_tags(int(pn), float(edge)),
                                     ))
                     except Exception:
                         pass
@@ -3237,6 +3433,7 @@ async def v1_live_lens_combined(
                                         target_max_price_american=max_price,
                                         elapsed_min=float(em),
                                         note="dnb_conditional_on_non_tie",
+                                        driver_tags=_period_driver_tags(int(pn), float(edge)),
                                     ))
                     except Exception:
                         pass
@@ -3277,6 +3474,7 @@ async def v1_live_lens_combined(
                                         fair_price_american=fair,
                                         target_max_price_american=max_price,
                                         elapsed_min=float(em),
+                                        driver_tags=_period_driver_tags(int(pn), float(edge)),
                                     ))
                     except Exception:
                         pass
@@ -3317,6 +3515,7 @@ async def v1_live_lens_combined(
                                         fair_price_american=fair,
                                         target_max_price_american=max_price,
                                         elapsed_min=float(em),
+                                        driver_tags=_period_driver_tags(int(pn), float(edge)),
                                     ))
                     except Exception:
                         pass
@@ -3634,6 +3833,12 @@ async def v1_live_lens_combined(
                                     fair_price_american=fair,
                                     target_max_price_american=max_price,
                                     elapsed_min=float(em),
+                                    driver_tags=["market:PROP", "source:oddsapi", f"mk:{mk}"],
+                                    driver_meta={
+                                        "cur": int(cur) if cur is not None else None,
+                                        "mu_rem": float(mu_rem) if mu_rem is not None else None,
+                                        "odds_age_sec": float(odds_age_sec) if odds_age_sec is not None else None,
+                                    },
                                 ))
 
                         # Keep a manageable number, prefer BET then highest edge
@@ -3799,11 +4004,14 @@ async def v1_live_lens_combined(
 
                 rec = {
                     "asof_utc": payload.get("asof_utc"),
+                    "odds_asof_utc": payload.get("odds_asof_utc"),
+                    "regions": payload.get("regions"),
+                    "best": payload.get("best"),
                     "date": payload.get("date"),
                     "games": [_compact_game(g) for g in (payload.get("games") or [])],
                 }
 
-                # Only write when there is something to log.
+                # Only write when there is something to log (unless explicitly forced).
                 has_any_signal = False
                 try:
                     for gg in rec.get("games") or []:
@@ -3813,22 +4021,32 @@ async def v1_live_lens_combined(
                 except Exception:
                     has_any_signal = False
 
-                # Throttle writes (per date) so polling doesn't explode disk usage.
-                do_write = bool(has_any_signal)
+                force_snap = False
                 try:
-                    now_ts = datetime.now(timezone.utc).timestamp()
-                    m = getattr(app.state, "live_lens_last_snapshot_by_date", None)
-                    if not isinstance(m, dict):
-                        m = {}
-                        setattr(app.state, "live_lens_last_snapshot_by_date", m)
-                    last_ts = float(m.get(d) or 0.0)
-                    if (now_ts - last_ts) < float(min_sec):
-                        do_write = False
-                    else:
-                        m[d] = float(now_ts)
+                    force_snap = str(os.getenv("LIVE_LENS_SNAPSHOT_ALWAYS", "0") or "0").strip().lower() in {"1", "true", "yes"}
+                except Exception:
+                    force_snap = False
+
+                # Throttle writes (per date) so polling doesn't explode disk usage.
+                # Important: only advance the per-date timestamp when we actually write.
+                # Otherwise a non-signal request can block a subsequent forced snapshot.
+                do_write = bool(has_any_signal) or bool(force_snap)
+                try:
+                    if do_write:
+                        now_ts = datetime.now(timezone.utc).timestamp()
+                        m = getattr(app.state, "live_lens_last_snapshot_by_date", None)
+                        if not isinstance(m, dict):
+                            m = {}
+                            setattr(app.state, "live_lens_last_snapshot_by_date", m)
+                        last_ts = float(m.get(d) or 0.0)
+                        # Forced snapshots are used for debugging/audit collection and should not be throttled.
+                        if (not force_snap) and (now_ts - last_ts) < float(min_sec):
+                            do_write = False
+                        if do_write:
+                            m[d] = float(now_ts)
                 except Exception:
                     # If throttling fails, still write (best-effort).
-                    do_write = bool(has_any_signal)
+                    do_write = bool(has_any_signal) or bool(force_snap)
 
                 if not do_write:
                     raise RuntimeError("skip_live_lens_snapshot")

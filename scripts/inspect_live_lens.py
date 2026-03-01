@@ -30,6 +30,16 @@ def main() -> int:
     ap.add_argument("--regions", default="us")
     ap.add_argument("--best", action="store_true")
     ap.add_argument("--timeout-sec", type=float, default=1.0)
+    ap.add_argument(
+        "--disk-status",
+        action="store_true",
+        help="Call /api/live-lens/disk-status after the request and print where snapshots are written",
+    )
+    ap.add_argument(
+        "--disk-status-write-test",
+        action="store_true",
+        help="When used with --disk-status, attempt a short write/delete test in the snapshot directory",
+    )
     ap.add_argument("--dump-game", default="", help="Optional: dump the full game JSON for the first game whose match contains this substring")
     ap.add_argument("--dump-players", action="store_true", help="Print a small sample of player rows for the dumped game")
     args = ap.parse_args()
@@ -59,6 +69,19 @@ def main() -> int:
     print("status", resp.status_code)
     obj = resp.json()
     print("ok", obj.get("ok"), "date", obj.get("date"), "games", len(obj.get("games") or []))
+
+    if args.disk_status:
+        try:
+            ds = client.get(
+                f"/api/live-lens/disk-status?write_test={1 if args.disk_status_write_test else 0}"
+            )
+            print("disk_status", ds.status_code)
+            try:
+                print(json.dumps(ds.json(), indent=2)[:8000])
+            except Exception:
+                print(ds.text[:8000])
+        except Exception as e:
+            print("disk_status_error", str(e))
 
     games = obj.get("games") or []
     summ = []
@@ -94,7 +117,7 @@ def main() -> int:
     # Print a small histogram of signal labels
     lbl = {}
     for g in games:
-        sig = (g.get("lens") or {}).get("signals") or []
+        sig = g.get("signals") or []
         for s in sig:
             lab = str(s.get("label") or "").strip() or "(blank)"
             lbl[lab] = lbl.get(lab, 0) + 1

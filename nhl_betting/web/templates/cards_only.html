@@ -105,8 +105,11 @@
     /* Center the top matchup section within each card */
     .card .row.matchup { justify-items: center; }
     .card .team.side { justify-items: center; }
-    .card .team-line { justify-content: center; }
-    .card .team .name { text-align: center; }
+    .card .team-line { display:flex; align-items:center; justify-content:space-between; width:100%; }
+    .card .team-line .lhs { display:flex; align-items:center; gap:8px; min-width:0; }
+    .card .team .name { text-align: left; }
+    .team-pts-big { font-size: 28px; font-weight: 900; font-variant-numeric: tabular-nums; line-height: 1; }
+    .team-pts-big:empty { display:none; }
 
     .grid-3 { display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px; }
     .tile { background:#0f1530; border:1px solid #25316a; border-radius:10px; padding:10px; display:grid; gap:6px; }
@@ -762,7 +765,10 @@
 
         <div class="row matchup">
           <div class="team side">
-            <div class="team-line">${awayLogo ? `<img class="team-logo" src="${awayLogo}" alt="${pred.away || ''}" />` : ''}<div class="name">${pred.away || '—'}</div></div>
+            <div class="team-line">
+              <div class="lhs">${awayLogo ? `<img class="team-logo" src="${awayLogo}" alt="${pred.away || ''}" />` : ''}<div class="name">${pred.away || '—'}</div></div>
+              <div class="team-pts-big" data-role="away-pts-big"></div>
+            </div>
             <div class="score-block">
               <div class="sub">Proj goals: <strong>${fmt(projAway, 2)}</strong></div>
               <div class="sub">ML: <strong>${pct(mlAway)}</strong></div>
@@ -770,7 +776,10 @@
           </div>
           <div class="vs">@</div>
           <div class="team side">
-            <div class="team-line">${homeLogo ? `<img class="team-logo" src="${homeLogo}" alt="${pred.home || ''}" />` : ''}<div class="name">${pred.home || '—'}</div></div>
+            <div class="team-line">
+              <div class="lhs">${homeLogo ? `<img class="team-logo" src="${homeLogo}" alt="${pred.home || ''}" />` : ''}<div class="name">${pred.home || '—'}</div></div>
+              <div class="team-pts-big" data-role="home-pts-big"></div>
+            </div>
             <div class="score-block">
               <div class="sub">Proj goals: <strong>${fmt(projHome, 2)}</strong></div>
               <div class="sub">ML: <strong>${pct(mlHome)}</strong></div>
@@ -1099,11 +1108,13 @@
         try {
           const stEl = item.querySelector('.s-time');
           const per = (g && g.period !== undefined && g.period !== null) ? g.period : null;
+          const perDisp = (g && (g.period_disp !== undefined && g.period_disp !== null)) ? String(g.period_disp).trim() : '';
           const clk = g && g.clock ? String(g.clock) : '';
           const st = String(g && g.gameState ? g.gameState : '').trim();
           if (stEl) {
             if (isLiveState(st)) {
-              stEl.textContent = `P${per || '—'} ${clk || ''}`.trim();
+              const perLabel = perDisp || formatPeriodLabel(per, st);
+              stEl.textContent = `${perLabel} ${clk || ''}`.trim();
             } else {
               // Preserve scheduled start time from initial render if present.
               const existing = String(stEl.textContent || '').trim();
@@ -1118,7 +1129,29 @@
 
     function isLiveState(s) {
       const x = String(s || '').toUpperCase();
-      return x.includes('LIVE') || x.includes('IN_PROGRESS') || x.includes('CRIT');
+      return x.includes('LIVE') || x.includes('IN_PROGRESS') || x.includes('IN PROGRESS') || x.includes('IN-PROGRESS') || x.includes('CRIT');
+    }
+
+    function formatPeriodLabel(period, gameState) {
+      try {
+        const st = String(gameState || '').toUpperCase();
+        const p = (period !== null && period !== undefined) ? Number(period) : NaN;
+        if (!isFinite(p) || p <= 0) return '—';
+        if (st.includes('SO')) return 'SO';
+        if (p >= 4) return 'OT';
+        if (p === 1) return '1st';
+        if (p === 2) return '2nd';
+        if (p === 3) return '3rd';
+        return `P${p}`;
+      } catch (e) {
+        return '—';
+      }
+    }
+
+    function formatLiveClockText(gameState, period, clock, periodDisp) {
+      const lbl = String(periodDisp || '').trim() || formatPeriodLabel(period, gameState);
+      const clk = String(clock || '').trim();
+      return `${lbl} ${clk}`.trim();
     }
 
     function renderLens(game) {
@@ -1956,28 +1989,134 @@
           }
         };
 
-  const cb = (inplay ? `&_=${Date.now()}` : '');
-  const live = await fetchJson(`/v1/live-lens/${encodeURIComponent(date)}?best=1&inplay=${inplay ? 1 : 0}&include_non_live=${includeNonLive ? 1 : 0}${cb}`);
-        if (!live || !live.ok) return false;
-        if (date !== currentDate) return false;
-        const mapByKey = new Map();
-        const mapByPk = new Map();
-        for (const g of (live.games || [])) {
+        function normalizeScoreboardRow(r) {
           try {
-            const k0 = (g && g.key) ? String(g.key) : '';
-            const k1 = keyForGame(g);
-            if (k0.trim()) mapByKey.set(normKey(k0), g);
-            if (k1.trim()) mapByKey.set(normKey(k1), g);
-          } catch (e) {}
-          try {
-            const pk = (g && g.gamePk !== undefined && g.gamePk !== null) ? String(g.gamePk).trim() : '';
-            if (pk) mapByPk.set(pk, g);
-          } catch (e) {}
+            function pick() {
+              for (let i = 0; i < arguments.length; i++) {
+                const v = arguments[i];
+                if (v !== undefined && v !== null) return v;
+              }
+              return undefined;
+            }
+            const pkRaw = r ? pick(r.gamePk, r.game_pk, r.gameId, r.game_id) : undefined;
+            const pk = (pkRaw !== undefined) ? String(pkRaw).trim() : '';
+            const st = String(r ? pick(r.gameState, r.game_state, r.state) : '' || '').trim();
+            const awayName = String(r ? pick(r.away, r.awayTeam, r.away_team) : '' || '').trim();
+            const homeName = String(r ? pick(r.home, r.homeTeam, r.home_team) : '' || '').trim();
+            const awayAbbr = String(r ? pick(r.away_abbr, r.awayAbbr) : '' || '').trim().toUpperCase();
+            const homeAbbr = String(r ? pick(r.home_abbr, r.homeAbbr) : '' || '').trim().toUpperCase();
+            const perRaw = r ? pick(r.period, r.web_period) : undefined;
+            const per = (perRaw !== undefined) ? perRaw : null;
+            const clkRaw = r ? pick(r.clock, r.web_clock) : undefined;
+            const clk = clkRaw ? String(clkRaw).trim() : '';
+            const perDispRaw = r ? pick(r.period_disp, r.periodDisp) : undefined;
+            const perDisp = perDispRaw ? String(perDispRaw).trim() : '';
+            const agRaw = r ? pick(r.awayScore, r.away_score, (r.score && r.score.away)) : undefined;
+            const hgRaw = r ? pick(r.homeScore, r.home_score, (r.score && r.score.home)) : undefined;
+            const ag = (agRaw !== undefined) ? agRaw : null;
+            const hg = (hgRaw !== undefined) ? hgRaw : null;
+            return {
+              gamePk: pk,
+              gameState: st,
+              away: awayName || awayAbbr,
+              home: homeName || homeAbbr,
+              away_abbr: awayAbbr,
+              home_abbr: homeAbbr,
+              period: per,
+              period_disp: perDisp,
+              clock: clk,
+              score: {
+                away: (ag !== null && ag !== undefined && ag !== '') ? Number(ag) : null,
+                home: (hg !== null && hg !== undefined && hg !== '') ? Number(hg) : null,
+              },
+            };
+          } catch (e) {
+            return null;
+          }
         }
 
-        const anyLiveNow = (live.games || []).some(g => isLiveState(g.gameState));
+        // Fetch scoreboard first so score/clock updates still work even if live-lens fails.
+        let sbRows = null;
+        try {
+          sbRows = await fetchJson(`/api/scoreboard?date=${encodeURIComponent(date)}&_=${Date.now()}`);
+        } catch (e) {
+          sbRows = null;
+        }
+        const sbByKey = new Map();
+        const sbByPk = new Map();
+        if (Array.isArray(sbRows)) {
+          for (const r of sbRows) {
+            const sg = normalizeScoreboardRow(r);
+            if (!sg) continue;
+            const pk = String(sg.gamePk || '').trim();
+            if (pk) sbByPk.set(pk, sg);
+            try {
+              const kAbbr = (sg.away_abbr && sg.home_abbr) ? normKey(`${sg.away_abbr} @ ${sg.home_abbr}`) : '';
+              if (kAbbr) sbByKey.set(kAbbr, sg);
+            } catch (e) {}
+            try {
+              const kName = normKey(keyForGame(sg));
+              if (kName) sbByKey.set(kName, sg);
+            } catch (e) {}
+          }
+        }
 
-        // Update compact top strip from the same live payload.
+        const cb = (inplay ? `&_=${Date.now()}` : '');
+        let live = null;
+        try {
+          live = await fetchJson(`/v1/live-lens/${encodeURIComponent(date)}?best=1&inplay=${inplay ? 1 : 0}&include_non_live=${includeNonLive ? 1 : 0}${cb}`);
+        } catch (e) {
+          live = null;
+        }
+        if (date !== currentDate) return false;
+
+        // Build merged maps: start from scoreboard rows, then overlay live-lens (preserving scoreboard score/clock).
+        const mapByKey = new Map(sbByKey);
+        const mapByPk = new Map(sbByPk);
+        if (live && live.ok && Array.isArray(live.games)) {
+          for (const g of (live.games || [])) {
+            if (!g) continue;
+            let base = null;
+            try {
+              const pk = (g && g.gamePk !== undefined && g.gamePk !== null) ? String(g.gamePk).trim() : '';
+              if (pk && sbByPk.has(pk)) base = sbByPk.get(pk);
+            } catch (e) {}
+            if (!base) {
+              try {
+                const k0 = (g && g.key) ? normKey(String(g.key)) : '';
+                const k1 = normKey(keyForGame(g));
+                base = (k0 && sbByKey.has(k0)) ? sbByKey.get(k0) : ((k1 && sbByKey.has(k1)) ? sbByKey.get(k1) : null);
+              } catch (e) {
+                base = null;
+              }
+            }
+            try {
+              if (base) {
+                // Prefer scoreboard for score/clock/period/state (more reliable on Render).
+                if (base.score && base.score.away !== null && base.score.home !== null) g.score = base.score;
+                if (base.clock) g.clock = base.clock;
+                if (base.period !== null && base.period !== undefined) g.period = base.period;
+                if (base.period_disp) g.period_disp = base.period_disp;
+                if (base.gameState) g.gameState = base.gameState;
+              }
+            } catch (e) {}
+
+            try {
+              const k0 = (g && g.key) ? String(g.key) : '';
+              const k1 = keyForGame(g);
+              if (k0.trim()) mapByKey.set(normKey(k0), g);
+              if (k1.trim()) mapByKey.set(normKey(k1), g);
+            } catch (e) {}
+            try {
+              const pk = (g && g.gamePk !== undefined && g.gamePk !== null) ? String(g.gamePk).trim() : '';
+              if (pk) mapByPk.set(pk, g);
+            } catch (e) {}
+          }
+        }
+
+        const anyLiveNow = Array.from(mapByPk.values()).some(g => isLiveState(g && g.gameState));
+
+        // Update compact top strip from merged payload.
         try { updateScoreboardStripFromLive(mapByKey, mapByPk); } catch (e) {}
 
         for (const card of document.querySelectorAll('.card[data-game-key]')) {
@@ -2040,32 +2179,39 @@
           try {
             const lc = card.querySelector('[data-role="live-clock"]');
             const ls = card.querySelector('[data-role="live-score"]');
+            const aBig = card.querySelector('[data-role="away-pts-big"]');
+            const hBig = card.querySelector('[data-role="home-pts-big"]');
             const st = String(g && g.gameState ? g.gameState : '').trim();
             const per = (g && g.period !== undefined && g.period !== null) ? g.period : null;
+            const perDisp = (g && (g.period_disp !== undefined && g.period_disp !== null)) ? String(g.period_disp).trim() : '';
             const clk = (g && g.clock) ? String(g.clock).trim() : '';
             if (lc) {
               if (g && isLiveState(st) && (per !== null || clk)) {
-                const bits = [];
-                if (per !== null) bits.push(`P${per}`);
-                if (clk) bits.push(clk);
-                lc.textContent = bits.join(' ');
+                lc.textContent = formatLiveClockText(st, per, clk, perDisp);
               } else {
                 lc.textContent = '';
               }
             }
             if (ls) {
               try {
-                const sc = (g && g.score) ? g.score : null;
-                const ag = sc && sc.away !== undefined ? sc.away : null;
-                const hg = sc && sc.home !== undefined ? sc.home : null;
-                if (g && isLiveState(st) && ag !== null && hg !== null) {
-                  ls.textContent = `Score ${ag}-${hg}`;
-                } else {
-                  ls.textContent = '';
-                }
+                // Score is shown next to each team name/logo.
+                ls.textContent = '';
               } catch (e) {
                 ls.textContent = '';
               }
+            }
+
+            try {
+              const up = String(st || '').toUpperCase();
+              const sc = (g && g.score) ? g.score : null;
+              const ag = sc && sc.away !== undefined && sc.away !== null ? sc.away : null;
+              const hg = sc && sc.home !== undefined && sc.home !== null ? sc.home : null;
+              const show = (ag !== null && hg !== null) && (isLiveState(st) || up.includes('FINAL') || up.includes('POST') || up.includes('END'));
+              if (aBig) aBig.textContent = show ? String(ag) : '';
+              if (hBig) hBig.textContent = show ? String(hg) : '';
+            } catch (e) {
+              if (aBig) aBig.textContent = '';
+              if (hBig) hBig.textContent = '';
             }
           } catch (e) {}
 
@@ -2115,8 +2261,8 @@
             }
           } catch (e) {}
 
-          // Show live lens drivers only when the game is actually live.
-          if (g && isLiveState(g.gameState)) {
+          // Show live lens drivers only when the game is actually live AND lens payload exists.
+          if (g && g.lens && isLiveState(g.gameState)) {
             lensBody.innerHTML = renderLens(g);
             oddsBody.innerHTML = renderOdds(g.odds || null);
             guidanceBody.innerHTML = renderGuidance(g);
@@ -2298,7 +2444,7 @@
       const todayIso = todayYmdInTZ('America/New_York');
       const isToday = String(date) === todayIso;
       const inplay = isToday ? 1 : 0;
-      const includeNonLive = isToday ? 0 : 1;
+      const includeNonLive = 1;
       await maybeLoadLiveLens(date, preds, { inplay, includeNonLive });
       if (isToday) startLivePolling(date, preds, { inplay, includeNonLive });
 

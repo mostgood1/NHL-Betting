@@ -136,3 +136,5 @@ def test_live_lens_prop_signals_use_oddsapi_prices(monkeypatch: pytest.MonkeyPat
     assert s0.get("price") is not None
     assert s0.get("implied") is not None
     assert s0.get("edge") is not None
+    assert isinstance(s0.get("driver_tags"), list)
+    assert isinstance(s0.get("driver_meta"), dict)

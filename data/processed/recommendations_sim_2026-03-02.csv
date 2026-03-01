@@ -1,0 +1,10 @@
+market,side,price,ev,prob,conf,home,away,totals_line
+PL,Philadelphia Flyers +1.5,-218.0,0.1283165137614678,0.7735,0.27349999999999997,Toronto Maple Leafs,Philadelphia Flyers,6.5
+PL,Detroit Red Wings +1.5,-278.0,0.037687050359712204,0.7631666666666667,0.26316666666666666,Nashville Predators,Detroit Red Wings,6.5
+TOTAL,Over,-135.0,0.13148148148148148,0.65,0.15000000000000002,Seattle Kraken,Carolina Hurricanes,5.5
+TOTAL,Over,-130.0,0.10576923076923073,0.625,0.125,Vancouver Canucks,Dallas Stars,5.5
+TOTAL,Over,-135.0,0.045604938271604945,0.6006666666666667,0.10066666666666668,Los Angeles Kings,Colorado Avalanche,5.5
+TOTAL,Under,-130.0,0.04414102564102551,0.5901666666666666,0.09016666666666662,Toronto Maple Leafs,Philadelphia Flyers,6.5
+TOTAL,Over,114.0,0.08676333333333319,0.5078333333333334,0.007833333333333359,Nashville Predators,Detroit Red Wings,6.5
+ML,New York Rangers,114.0,0.08337499999999975,0.50625,0.006249999999999978,New York Rangers,Columbus Blue Jackets,6.5
+ML,Philadelphia Flyers,114.0,0.07695499999999977,0.50325,0.003249999999999975,Toronto Maple Leafs,Philadelphia Flyers,6.5

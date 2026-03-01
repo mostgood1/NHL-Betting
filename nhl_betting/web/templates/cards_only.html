@@ -2181,7 +2181,7 @@
             const ag = sc && sc.away !== undefined ? sc.away : null;
             const hg = sc && sc.home !== undefined ? sc.home : null;
             if (fs) {
-              if (g && st.includes('FINAL') && ag !== null && hg !== null) {
+              if (g && isFinalLikeState(st) && ag !== null && hg !== null) {
                 fs.textContent = `FINAL ${ag}-${hg}`;
                 fs.classList.add('show');
               } else {
@@ -2234,7 +2234,7 @@
           // Reconcile displayed recommendations for FINAL games.
           try {
             const st = String(g && g.gameState ? g.gameState : '').toUpperCase();
-            if (g && st.includes('FINAL') && g.score) {
+            if (g && isFinalLikeState(st) && g.score) {
               const ag = g.score.away;
               const hg = g.score.home;
               if (g && isFinalLikeState(st) && ag !== null && hg !== null) {
@@ -2286,7 +2286,7 @@
             box.style.display = 'grid';
           } else {
             lensBody.innerHTML = '';
-            if (g && isFinalLikeState(st) && g.score) {
+            oddsBody.innerHTML = '';
             guidanceBody.innerHTML = '';
             box.style.display = 'none';
           }

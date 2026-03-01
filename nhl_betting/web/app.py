@@ -2318,13 +2318,19 @@ async def v1_live_lens_combined(
                         except Exception:
                             pass
 
-                    # Shot attempts + xG proxy
+                    # Shot attempts + xG proxy (+ faceoffs as a simple possession proxy)
                     try:
                         att_types = {"shot-on-goal", "missed-shot", "blocked-shot", "goal"}
                         home_att = away_att = 0
                         home_att_l5 = away_att_l5 = 0
                         home_xg = away_xg = 0.0
                         home_xg_l10 = away_xg_l10 = 0.0
+
+                        # Faceoffs (wins + attempts) overall and recent window.
+                        home_fo_w = away_fo_w = 0
+                        home_fo_t = away_fo_t = 0
+                        home_fo_w_l10 = away_fo_w_l10 = 0
+                        home_fo_t_l10 = away_fo_t_l10 = 0
 
                         def _xg_weight(dd: dict) -> float:
                             try:
@@ -2358,10 +2364,9 @@ async def v1_live_lens_combined(
                             for ev in plays:
                                 if not isinstance(ev, dict):
                                     continue
-                                if str(ev.get("typeDescKey") or "") not in att_types:
-                                    continue
+                                td = str(ev.get("typeDescKey") or "").strip().lower()
                                 dd = ev.get("details") if isinstance(ev.get("details"), dict) else {}
-                                tid = dd.get("eventOwnerTeamId")
+
                                 # clock window
                                 pdn = (ev.get("periodDescriptor") or {}).get("number")
                                 tin = _parse_mmss(ev.get("timeInPeriod"))
@@ -2369,21 +2374,44 @@ async def v1_live_lens_combined(
                                 if pdn is not None and tin is not None and 1 <= int(pdn) <= 3:
                                     abs_sec = int((int(pdn) - 1) * 1200 + int(tin))
 
-                                w = _xg_weight(dd)
-                                if tid == home_id:
-                                    home_att += 1
-                                    home_xg += w
-                                    if abs_sec is not None and (cur_abs_sec - abs_sec) <= 5 * 60:
-                                        home_att_l5 += 1
+                                # Shot attempts / xG proxy
+                                if td in att_types:
+                                    tid = dd.get("eventOwnerTeamId")
+                                    w = _xg_weight(dd)
+                                    if tid == home_id:
+                                        home_att += 1
+                                        home_xg += w
+                                        if abs_sec is not None and (cur_abs_sec - abs_sec) <= 5 * 60:
+                                            home_att_l5 += 1
+                                        if abs_sec is not None and (cur_abs_sec - abs_sec) <= 10 * 60:
+                                            home_xg_l10 += w
+                                    elif tid == away_id:
+                                        away_att += 1
+                                        away_xg += w
+                                        if abs_sec is not None and (cur_abs_sec - abs_sec) <= 5 * 60:
+                                            away_att_l5 += 1
+                                        if abs_sec is not None and (cur_abs_sec - abs_sec) <= 10 * 60:
+                                            away_xg_l10 += w
+
+                                # Faceoffs
+                                if td == "faceoff":
+                                    # Each faceoff is an attempt for both teams.
+                                    home_fo_t += 1
+                                    away_fo_t += 1
                                     if abs_sec is not None and (cur_abs_sec - abs_sec) <= 10 * 60:
-                                        home_xg_l10 += w
-                                elif tid == away_id:
-                                    away_att += 1
-                                    away_xg += w
-                                    if abs_sec is not None and (cur_abs_sec - abs_sec) <= 5 * 60:
-                                        away_att_l5 += 1
-                                    if abs_sec is not None and (cur_abs_sec - abs_sec) <= 10 * 60:
-                                        away_xg_l10 += w
+                                        home_fo_t_l10 += 1
+                                        away_fo_t_l10 += 1
+
+                                    # Winner teamId is usually eventOwnerTeamId for faceoffs.
+                                    tid = dd.get("eventOwnerTeamId")
+                                    if tid == home_id:
+                                        home_fo_w += 1
+                                        if abs_sec is not None and (cur_abs_sec - abs_sec) <= 10 * 60:
+                                            home_fo_w_l10 += 1
+                                    elif tid == away_id:
+                                        away_fo_w += 1
+                                        if abs_sec is not None and (cur_abs_sec - abs_sec) <= 10 * 60:
+                                            away_fo_w_l10 += 1
 
                         pbp_ctx.update({
                             "home_att": home_att,
@@ -2394,7 +2422,28 @@ async def v1_live_lens_combined(
                             "away_xg_proxy": float(away_xg),
                             "home_xg_proxy_l10": float(home_xg_l10),
                             "away_xg_proxy_l10": float(away_xg_l10),
+                            "home_fo_wins": int(home_fo_w),
+                            "away_fo_wins": int(away_fo_w),
+                            "home_fo_taken": int(home_fo_t),
+                            "away_fo_taken": int(away_fo_t),
+                            "home_fo_wins_l10": int(home_fo_w_l10),
+                            "away_fo_wins_l10": int(away_fo_w_l10),
+                            "home_fo_taken_l10": int(home_fo_t_l10),
+                            "away_fo_taken_l10": int(away_fo_t_l10),
                         })
+
+                        # Derived FO% metrics (0..100) for UI + signal heuristics.
+                        try:
+                            if int(home_fo_t) > 0:
+                                pbp_ctx["home_fo_pct"] = 100.0 * float(home_fo_w) / float(home_fo_t)
+                            if int(away_fo_t) > 0:
+                                pbp_ctx["away_fo_pct"] = 100.0 * float(away_fo_w) / float(away_fo_t)
+                            if int(home_fo_t_l10) > 0:
+                                pbp_ctx["home_fo_pct_l10"] = 100.0 * float(home_fo_w_l10) / float(home_fo_t_l10)
+                            if int(away_fo_t_l10) > 0:
+                                pbp_ctx["away_fo_pct_l10"] = 100.0 * float(away_fo_w_l10) / float(away_fo_t_l10)
+                        except Exception:
+                            pass
                     except Exception:
                         pass
             except Exception as e:
@@ -2846,6 +2895,18 @@ async def v1_live_lens_combined(
                                 ad = int(pbp_ctx.get("home_att") or 0) - int(pbp_ctx.get("away_att") or 0)
                         except Exception:
                             ad = None
+                        fd = None
+                        try:
+                            # Faceoff possession proxy (use recent window when available).
+                            hf = _to_float(pbp_ctx.get("home_fo_pct_l10"))
+                            af = _to_float(pbp_ctx.get("away_fo_pct_l10"))
+                            if hf is None or af is None:
+                                hf = _to_float(pbp_ctx.get("home_fo_pct"))
+                                af = _to_float(pbp_ctx.get("away_fo_pct"))
+                            if hf is not None and af is not None:
+                                fd = float(hf) - float(af)  # percentage points
+                        except Exception:
+                            fd = None
                         xd = None
                         try:
                             if pbp_ctx.get("home_xg_proxy_l10") is not None and pbp_ctx.get("away_xg_proxy_l10") is not None:
@@ -2864,6 +2925,9 @@ async def v1_live_lens_combined(
                         if ad is not None:
                             # Attempts advantage: mild but more stable than SOG
                             z += 0.012 * float(max(-30, min(30, ad)))
+                        if fd is not None:
+                            # Faceoff win% advantage: mild possession proxy.
+                            z += 0.015 * float(max(-20.0, min(20.0, float(fd))))
                         if xd is not None:
                             # xG proxy last10: very small influence
                             z += 0.60 * float(max(-1.5, min(1.5, xd)))

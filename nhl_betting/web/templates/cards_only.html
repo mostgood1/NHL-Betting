@@ -1793,6 +1793,45 @@
           parts.push(`xG10 A${ax}/H${hx}`);
         }
 
+        // Faceoffs (possession proxy)
+        try {
+          const aT10 = (g.away_fo_taken_l10 !== null && g.away_fo_taken_l10 !== undefined && isFinite(Number(g.away_fo_taken_l10))) ? Number(g.away_fo_taken_l10) : null;
+          const hT10 = (g.home_fo_taken_l10 !== null && g.home_fo_taken_l10 !== undefined && isFinite(Number(g.home_fo_taken_l10))) ? Number(g.home_fo_taken_l10) : null;
+          const use10 = ((aT10 !== null && aT10 > 0) || (hT10 !== null && hT10 > 0));
+
+          const aW = use10
+            ? ((g.away_fo_wins_l10 !== null && g.away_fo_wins_l10 !== undefined && isFinite(Number(g.away_fo_wins_l10))) ? Number(g.away_fo_wins_l10) : null)
+            : ((g.away_fo_wins !== null && g.away_fo_wins !== undefined && isFinite(Number(g.away_fo_wins))) ? Number(g.away_fo_wins) : null);
+          const hW = use10
+            ? ((g.home_fo_wins_l10 !== null && g.home_fo_wins_l10 !== undefined && isFinite(Number(g.home_fo_wins_l10))) ? Number(g.home_fo_wins_l10) : null)
+            : ((g.home_fo_wins !== null && g.home_fo_wins !== undefined && isFinite(Number(g.home_fo_wins))) ? Number(g.home_fo_wins) : null);
+
+          const aT = use10
+            ? aT10
+            : ((g.away_fo_taken !== null && g.away_fo_taken !== undefined && isFinite(Number(g.away_fo_taken))) ? Number(g.away_fo_taken) : null);
+          const hT = use10
+            ? hT10
+            : ((g.home_fo_taken !== null && g.home_fo_taken !== undefined && isFinite(Number(g.home_fo_taken))) ? Number(g.home_fo_taken) : null);
+
+          const aP = use10
+            ? ((g.away_fo_pct_l10 !== null && g.away_fo_pct_l10 !== undefined && isFinite(Number(g.away_fo_pct_l10))) ? Number(g.away_fo_pct_l10) : null)
+            : ((g.away_fo_pct !== null && g.away_fo_pct !== undefined && isFinite(Number(g.away_fo_pct))) ? Number(g.away_fo_pct) : null);
+          const hP = use10
+            ? ((g.home_fo_pct_l10 !== null && g.home_fo_pct_l10 !== undefined && isFinite(Number(g.home_fo_pct_l10))) ? Number(g.home_fo_pct_l10) : null)
+            : ((g.home_fo_pct !== null && g.home_fo_pct !== undefined && isFinite(Number(g.home_fo_pct))) ? Number(g.home_fo_pct) : null);
+
+          if ((aT !== null && aT > 0) || (hT !== null && hT > 0)) {
+            const scope = use10 ? 'FO10' : 'FO';
+            const aTxt = (aW !== null && aT !== null) ? `${Math.round(aW)}/${Math.round(aT)}` : '—';
+            const hTxt = (hW !== null && hT !== null) ? `${Math.round(hW)}/${Math.round(hT)}` : '—';
+            const aPct = (aP !== null) ? `${fmt(aP, 0)}%` : '—';
+            const hPct = (hP !== null) ? `${fmt(hP, 0)}%` : '—';
+            parts.push(`${scope} A${aTxt} (${aPct})/H${hTxt} (${hPct})`);
+          }
+        } catch (e) {
+          // ignore
+        }
+
         if (!parts.length) return '';
         return `<span class="muted">Live context:</span> ${parts.join(' · ')}`;
       } catch (e) {
@@ -1913,6 +1952,45 @@
           const ax = (g.away_xg_proxy_l10 !== null && g.away_xg_proxy_l10 !== undefined && isFinite(Number(g.away_xg_proxy_l10))) ? fmt(Number(g.away_xg_proxy_l10), 2) : '—';
           const hx = (g.home_xg_proxy_l10 !== null && g.home_xg_proxy_l10 !== undefined && isFinite(Number(g.home_xg_proxy_l10))) ? fmt(Number(g.home_xg_proxy_l10), 2) : '—';
           lines.push(`<div class="v"><span class="muted">Pressure:</span> xG proxy last10 A ${ax} / H ${hx}</div>`);
+        }
+
+        // Faceoffs
+        try {
+          const aT10 = (g.away_fo_taken_l10 !== null && g.away_fo_taken_l10 !== undefined && isFinite(Number(g.away_fo_taken_l10))) ? Number(g.away_fo_taken_l10) : null;
+          const hT10 = (g.home_fo_taken_l10 !== null && g.home_fo_taken_l10 !== undefined && isFinite(Number(g.home_fo_taken_l10))) ? Number(g.home_fo_taken_l10) : null;
+          const use10 = ((aT10 !== null && aT10 > 0) || (hT10 !== null && hT10 > 0));
+
+          const aW = use10
+            ? ((g.away_fo_wins_l10 !== null && g.away_fo_wins_l10 !== undefined && isFinite(Number(g.away_fo_wins_l10))) ? Number(g.away_fo_wins_l10) : null)
+            : ((g.away_fo_wins !== null && g.away_fo_wins !== undefined && isFinite(Number(g.away_fo_wins))) ? Number(g.away_fo_wins) : null);
+          const hW = use10
+            ? ((g.home_fo_wins_l10 !== null && g.home_fo_wins_l10 !== undefined && isFinite(Number(g.home_fo_wins_l10))) ? Number(g.home_fo_wins_l10) : null)
+            : ((g.home_fo_wins !== null && g.home_fo_wins !== undefined && isFinite(Number(g.home_fo_wins))) ? Number(g.home_fo_wins) : null);
+
+          const aT = use10
+            ? aT10
+            : ((g.away_fo_taken !== null && g.away_fo_taken !== undefined && isFinite(Number(g.away_fo_taken))) ? Number(g.away_fo_taken) : null);
+          const hT = use10
+            ? hT10
+            : ((g.home_fo_taken !== null && g.home_fo_taken !== undefined && isFinite(Number(g.home_fo_taken))) ? Number(g.home_fo_taken) : null);
+
+          const aP = use10
+            ? ((g.away_fo_pct_l10 !== null && g.away_fo_pct_l10 !== undefined && isFinite(Number(g.away_fo_pct_l10))) ? Number(g.away_fo_pct_l10) : null)
+            : ((g.away_fo_pct !== null && g.away_fo_pct !== undefined && isFinite(Number(g.away_fo_pct))) ? Number(g.away_fo_pct) : null);
+          const hP = use10
+            ? ((g.home_fo_pct_l10 !== null && g.home_fo_pct_l10 !== undefined && isFinite(Number(g.home_fo_pct_l10))) ? Number(g.home_fo_pct_l10) : null)
+            : ((g.home_fo_pct !== null && g.home_fo_pct !== undefined && isFinite(Number(g.home_fo_pct))) ? Number(g.home_fo_pct) : null);
+
+          if ((aT !== null && aT > 0) || (hT !== null && hT > 0)) {
+            const scope = use10 ? 'last10' : 'overall';
+            const aTxt = (aW !== null && aT !== null) ? `${Math.round(aW)}/${Math.round(aT)}` : '—';
+            const hTxt = (hW !== null && hT !== null) ? `${Math.round(hW)}/${Math.round(hT)}` : '—';
+            const aPct = (aP !== null) ? `${fmt(aP, 0)}%` : '—';
+            const hPct = (hP !== null) ? `${fmt(hP, 0)}%` : '—';
+            lines.push(`<div class="v"><span class="muted">Possession:</span> Faceoffs ${scope} A ${aTxt} (${aPct}) / H ${hTxt} (${hPct})</div>`);
+          }
+        } catch (e) {
+          // ignore
         }
       } catch (e) {
         // ignore

@@ -268,10 +268,12 @@ def build_daily_bundle(date: str, proc_dir: Path = PROC_DIR) -> dict[str, Any]:
     predictions_p = _pick_existing(proc_dir / f"predictions_sim_{d}.csv", proc_dir / f"predictions_{d}.csv")
     edges_p = _pick_existing(proc_dir / f"edges_sim_{d}.csv", proc_dir / f"edges_{d}.csv")
     game_recs_p = _pick_existing(proc_dir / f"recommendations_sim_{d}.csv", proc_dir / f"recommendations_{d}.csv")
+    # Prefer the base props recommendations artifact when available.
+    # It carries the most complete schema (including `edge_drivers` for pill UI).
     props_recs_p = _pick_existing(
-        proc_dir / f"props_recommendations_sim_{d}.csv",
-        proc_dir / f"props_recommendations_combined_{d}.csv",
         proc_dir / f"props_recommendations_{d}.csv",
+        proc_dir / f"props_recommendations_combined_{d}.csv",
+        proc_dir / f"props_recommendations_sim_{d}.csv",
     )
     rec_game_p = proc_dir / f"reconciliation_{d}.json"
     rec_props_p = proc_dir / f"reconciliation_props_{d}.json"
@@ -466,6 +468,7 @@ def build_daily_bundle(date: str, proc_dir: Path = PROC_DIR) -> dict[str, Any]:
                             "prob",
                             "ev",
                             "edge_score",
+                            "edge_drivers",
                             "edge_reasons",
                         ],
                         limit=500,

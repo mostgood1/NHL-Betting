@@ -2845,6 +2845,432 @@ async def v1_live_lens_combined(
             except Exception:
                 pass
 
+            # 1a) Period signals (current period only; best-effort)
+            # Mirror the NBA Live Lens notion of a simple driver label driven by "Sim–Actual" drift,
+            # but keep output hockey-native and drivers-only (UI filters out market/edge/gate tags).
+            try:
+                if period_i is not None and clock_sec is not None and 1 <= int(period_i) <= 3:
+                    em = _to_float(elapsed_min)
+                    per_i = int(period_i)
+                    per_key = f"p{per_i}"
+
+                    per_rem_min = float(clock_sec) / 60.0
+                    per_rem_min = float(max(0.0, min(20.0, per_rem_min)))
+                    per_elapsed_min = float(max(0.0, min(20.0, 20.0 - per_rem_min)))
+
+                    # Period goals from lens (preferred) so we don't have to infer from play-by-play.
+                    per_goals = None
+                    per_home_goals = None
+                    per_away_goals = None
+                    try:
+                        per_list = lens.get("periods") if isinstance(lens, dict) else None
+                        if isinstance(per_list, list):
+                            for p in per_list:
+                                if not isinstance(p, dict):
+                                    continue
+                                try:
+                                    pnum = int(p.get("period"))
+                                except Exception:
+                                    continue
+                                if pnum != per_i:
+                                    continue
+                                h = p.get("home") if isinstance(p.get("home"), dict) else {}
+                                a = p.get("away") if isinstance(p.get("away"), dict) else {}
+                                hg = _to_int(h.get("goals"))
+                                ag = _to_int(a.get("goals"))
+                                if hg is not None and ag is not None:
+                                    per_home_goals = int(hg)
+                                    per_away_goals = int(ag)
+                                    per_goals = int(hg) + int(ag)
+                                    break
+                    except Exception:
+                        per_goals = None
+
+                    # Pull current-period odds (if present).
+                    per_total_line = None
+                    per_over_price = None
+                    per_under_price = None
+                    per_ml_home_price = None
+                    per_ml_away_price = None
+                    try:
+                        if isinstance(og, dict):
+                            pt = (og.get("period_totals") or {}).get(per_key) or {}
+                            if isinstance(pt, dict):
+                                per_total_line = pt.get("line")
+                                per_over_price = pt.get("over")
+                                per_under_price = pt.get("under")
+                            pl = (og.get("period_lines") or {}).get(per_key) or {}
+                            if isinstance(pl, dict):
+                                ml = pl.get("ml") or {}
+                                if isinstance(ml, dict):
+                                    per_ml_home_price = ml.get("home")
+                                    per_ml_away_price = ml.get("away")
+                    except Exception:
+                        pass
+
+                    # Period total (Over/Under)
+                    try:
+                        line_f = _to_float(per_total_line)
+                        if (
+                            line_f is not None
+                            and per_goals is not None
+                            and model_total is not None
+                            and per_elapsed_min is not None
+                        ):
+                            implied_over_p = _american_to_implied_prob(per_over_price)
+                            implied_under_p = _american_to_implied_prob(per_under_price)
+
+                            # Simple period prior: split model_total evenly across 3 periods,
+                            # then scale remaining by time left and conservative live multipliers.
+                            mt = float(model_total)
+                            mu_per_full = max(0.0, (mt / 3.0) * float(pace_mult) * float(goalie_mult))
+                            mu_per_rem = max(0.0, mu_per_full * (float(per_rem_min) / 20.0))
+
+                            # Small PP / empty-net bumps (period-local; EN only relevant in P3).
+                            mu_per_rem = float(mu_per_rem) + float(pp_bonus_home + pp_bonus_away) * (float(per_rem_min) / 60.0)
+                            try:
+                                if per_i == 3:
+                                    en_factor = max(0.0, min(1.0, float(per_rem_min) / 3.0))
+                                    if pbp_ctx.get("away_empty_net"):
+                                        mu_per_rem = float(mu_per_rem) + 0.55 * float(en_factor)
+                                    if pbp_ctx.get("home_empty_net"):
+                                        mu_per_rem = float(mu_per_rem) + 0.55 * float(en_factor)
+                            except Exception:
+                                pass
+
+                            # Convert total line to required goals remaining in the period.
+                            is_int_line = abs(float(line_f) - round(float(line_f))) < 1e-9
+                            if is_int_line:
+                                line_i = int(round(float(line_f)))
+                                over_min_total = line_i + 1
+                                under_max_total = line_i - 1
+                                push_total = line_i
+                            else:
+                                over_min_total = int((float(line_f) // 1) + 1)
+                                under_max_total = int(float(line_f) // 1)
+                                push_total = None
+
+                            need_over = int(over_min_total) - int(per_goals)
+                            need_under = int(under_max_total) - int(per_goals)
+                            p_over_p = 1.0 if need_over <= 0 else _poisson_sf(int(need_over), float(mu_per_rem))
+                            p_under_p = 0.0 if need_under < 0 else _poisson_cdf(int(need_under), float(mu_per_rem))
+                            if push_total is not None:
+                                k_push = int(push_total) - int(per_goals)
+                                if k_push < 0:
+                                    p_push_p = 0.0
+                                else:
+                                    p_push_p = max(0.0, _poisson_cdf(k_push, float(mu_per_rem)) - _poisson_cdf(k_push - 1, float(mu_per_rem)))
+                            else:
+                                p_push_p = None
+
+                            edge_over_p = (float(p_over_p) - float(implied_over_p)) if (implied_over_p is not None) else None
+                            edge_under_p = (float(p_under_p) - float(implied_under_p)) if (implied_under_p is not None) else None
+
+                            # Pick a side (require some minimal edge if odds are present).
+                            lean_side = None
+                            edge = None
+                            p_model = None
+                            price = None
+                            implied = None
+                            if edge_over_p is not None and edge_under_p is not None:
+                                if float(edge_over_p) >= float(edge_under_p) and float(edge_over_p) >= 0.03:
+                                    lean_side = "OVER"
+                                    edge = float(edge_over_p)
+                                    p_model = float(p_over_p)
+                                    price = per_over_price
+                                    implied = implied_over_p
+                                elif float(edge_under_p) > float(edge_over_p) and float(edge_under_p) >= 0.03:
+                                    lean_side = "UNDER"
+                                    edge = float(edge_under_p)
+                                    p_model = float(p_under_p)
+                                    price = per_under_price
+                                    implied = implied_under_p
+                            elif edge_over_p is not None and float(edge_over_p) >= 0.03:
+                                lean_side = "OVER"
+                                edge = float(edge_over_p)
+                                p_model = float(p_over_p)
+                                price = per_over_price
+                                implied = implied_over_p
+                            elif edge_under_p is not None and float(edge_under_p) >= 0.03:
+                                lean_side = "UNDER"
+                                edge = float(edge_under_p)
+                                p_model = float(p_under_p)
+                                price = per_under_price
+                                implied = implied_under_p
+
+                            if lean_side and edge is not None and p_model is not None:
+                                abs_edge = abs(float(edge))
+                                action = "WATCH"
+                                # Scale the game-total gates down for a 20-minute period.
+                                if per_elapsed_min >= 4.0 and abs_edge >= 0.04:
+                                    action = "BET"
+                                if per_elapsed_min >= 2.5 and abs_edge >= 0.06:
+                                    action = "BET"
+
+                                # Human drivers (compact UI)
+                                driver_tags: list[str] = [f"P{per_i}", "period_total"]
+                                try:
+                                    # Sim-vs-act drift for the *period* (analogous to NBA Live Lens driver)
+                                    mu_sofar = mu_per_full * (float(per_elapsed_min) / 20.0)
+                                    drift = float(per_goals) - float(mu_sofar)
+                                    if drift >= 0.7:
+                                        driver_tags.append("goals_ahead")
+                                    elif drift <= -0.7:
+                                        driver_tags.append("goals_behind")
+                                    else:
+                                        driver_tags.append("goals_on_track")
+                                except Exception:
+                                    pass
+                                try:
+                                    if pace_mult is not None:
+                                        if float(pace_mult) >= 1.08:
+                                            driver_tags.append("pace:up")
+                                        elif float(pace_mult) <= 0.92:
+                                            driver_tags.append("pace:down")
+                                except Exception:
+                                    pass
+                                try:
+                                    if goalie_mult is not None:
+                                        if float(goalie_mult) >= 1.03:
+                                            driver_tags.append("goalie:weak")
+                                        elif float(goalie_mult) <= 0.97:
+                                            driver_tags.append("goalie:strong")
+                                except Exception:
+                                    pass
+                                try:
+                                    if pbp_ctx.get("pp_team") == "home":
+                                        driver_tags.append("manpower:pp_home")
+                                    elif pbp_ctx.get("pp_team") == "away":
+                                        driver_tags.append("manpower:pp_away")
+                                    if pbp_ctx.get("home_empty_net"):
+                                        driver_tags.append("empty_net:home")
+                                    if pbp_ctx.get("away_empty_net"):
+                                        driver_tags.append("empty_net:away")
+                                except Exception:
+                                    pass
+                                try:
+                                    ha5 = _to_int(pbp_ctx.get("home_att_l5"))
+                                    aa5 = _to_int(pbp_ctx.get("away_att_l5"))
+                                    if ha5 is not None and aa5 is not None:
+                                        att5 = int(ha5) + int(aa5)
+                                        if att5 >= 18:
+                                            driver_tags.append("pressure_high")
+                                        elif att5 <= 8:
+                                            driver_tags.append("pressure_low")
+                                except Exception:
+                                    pass
+
+                                # Guard: if total already reached, don't surface as BET.
+                                try:
+                                    if float(per_goals) >= float(line_f):
+                                        action = "WATCH"
+                                        driver_tags.append("total_already_reached")
+                                except Exception:
+                                    pass
+
+                                p_target = max(0.01, min(0.99, float(p_model) - 0.03))
+                                fair = _prob_to_american(float(p_model))
+                                max_price = _prob_to_american(float(p_target))
+                                signals.append(_signal(
+                                    action,
+                                    scope="game",
+                                    market="PERIOD_TOTAL",
+                                    label=f"P{per_i} Total {lean_side} {float(line_f):g}",
+                                    period=int(per_i),
+                                    side=lean_side,
+                                    line=float(line_f),
+                                    price=_to_int(price),
+                                    p_model=float(p_model),
+                                    implied=float(implied) if implied is not None else None,
+                                    edge=float(edge),
+                                    fair_price_american=fair,
+                                    target_max_price_american=max_price,
+                                    elapsed_min=float(em) if em is not None else None,
+                                    driver_tags=driver_tags,
+                                    driver_meta={
+                                        "period": int(per_i),
+                                        "period_elapsed_min": float(per_elapsed_min),
+                                        "period_remaining_min": float(per_rem_min),
+                                        "period_goals": int(per_goals),
+                                        "period_goals_home": int(per_home_goals) if per_home_goals is not None else None,
+                                        "period_goals_away": int(per_away_goals) if per_away_goals is not None else None,
+                                        "mu_period_remaining": float(mu_per_rem),
+                                        "p_push": float(p_push_p) if p_push_p is not None else None,
+                                        "pace_mult": float(pace_mult) if pace_mult is not None else None,
+                                        "goalie_mult": float(goalie_mult) if goalie_mult is not None else None,
+                                        "pp_team": pbp_ctx.get("pp_team"),
+                                    },
+                                ))
+                    except Exception:
+                        pass
+
+                    # Period moneyline (2-way; treat ties as push, so compare conditional win probs)
+                    try:
+                        if (
+                            per_ml_home_price is not None
+                            and per_ml_away_price is not None
+                            and per_home_goals is not None
+                            and per_away_goals is not None
+                            and model_total is not None
+                            and model_spread is not None
+                            and per_rem_min is not None
+                        ):
+                            implied_home = _american_to_implied_prob(per_ml_home_price)
+                            implied_away = _american_to_implied_prob(per_ml_away_price)
+
+                            mt = float(model_total)
+                            ms = float(model_spread)
+                            mu_home_full = max(0.0, (mt + ms) / 2.0)
+                            mu_away_full = max(0.0, (mt - ms) / 2.0)
+                            mu_home_per_full = max(0.0, (mu_home_full / 3.0) * float(pace_mult) * float(goalie_mult))
+                            mu_away_per_full = max(0.0, (mu_away_full / 3.0) * float(pace_mult) * float(goalie_mult))
+                            mu_home_rem = max(0.0, mu_home_per_full * (float(per_rem_min) / 20.0))
+                            mu_away_rem = max(0.0, mu_away_per_full * (float(per_rem_min) / 20.0))
+
+                            # PP bump to advantaged side (period-local)
+                            try:
+                                if pbp_ctx.get("pp_team") == "home":
+                                    mu_home_rem += float(pp_bonus_home) * (float(per_rem_min) / 60.0)
+                                elif pbp_ctx.get("pp_team") == "away":
+                                    mu_away_rem += float(pp_bonus_away) * (float(per_rem_min) / 60.0)
+                            except Exception:
+                                pass
+
+                            # EN bump (P3 only; period-local)
+                            try:
+                                if per_i == 3:
+                                    en_factor = max(0.0, min(1.0, float(per_rem_min) / 3.0))
+                                    if pbp_ctx.get("away_empty_net"):
+                                        mu_home_rem += 0.55 * float(en_factor)
+                                    if pbp_ctx.get("home_empty_net"):
+                                        mu_away_rem += 0.55 * float(en_factor)
+                            except Exception:
+                                pass
+
+                            gd_per = int(per_home_goals) - int(per_away_goals)
+
+                            # Exact (truncated) win/loss/tie probs for the remaining part of the period.
+                            def _wlt_probs(gd: int, mu_h: float, mu_a: float) -> dict:
+                                try:
+                                    mu_h = float(max(0.0, mu_h))
+                                    mu_a = float(max(0.0, mu_a))
+                                    mu_tot = mu_h + mu_a
+                                    kmax = int(min(10, max(6, math.ceil(mu_tot + 5.0 * math.sqrt(max(1e-6, mu_tot))))))
+                                    ph = _poisson_pmf_array(mu_h, kmax)
+                                    pa = _poisson_pmf_array(mu_a, kmax)
+                                    p_home = 0.0
+                                    p_away = 0.0
+                                    p_tie = 0.0
+                                    for hi, p_hi in enumerate(ph):
+                                        if p_hi <= 0:
+                                            continue
+                                        for ai, p_ai in enumerate(pa):
+                                            if p_ai <= 0:
+                                                continue
+                                            p_ = p_hi * p_ai
+                                            dlt = int(gd) + int(hi) - int(ai)
+                                            if dlt > 0:
+                                                p_home += p_
+                                            elif dlt < 0:
+                                                p_away += p_
+                                            else:
+                                                p_tie += p_
+                                    return {
+                                        "p_home": float(max(0.0, min(1.0, p_home))),
+                                        "p_away": float(max(0.0, min(1.0, p_away))),
+                                        "p_tie": float(max(0.0, min(1.0, p_tie))),
+                                    }
+                                except Exception:
+                                    return {"p_home": None, "p_away": None, "p_tie": None}
+
+                            pr = _wlt_probs(gd_per, float(mu_home_rem), float(mu_away_rem))
+                            p_home = pr.get("p_home")
+                            p_away = pr.get("p_away")
+                            p_tie = pr.get("p_tie")
+                            denom = (float(p_home) + float(p_away)) if (p_home is not None and p_away is not None) else None
+                            p_home_cond = (float(p_home) / float(denom)) if denom is not None and denom > 1e-9 else None
+                            p_away_cond = (float(p_away) / float(denom)) if denom is not None and denom > 1e-9 else None
+
+                            if p_home_cond is not None and p_away_cond is not None and implied_home is not None and implied_away is not None:
+                                edge_home = float(p_home_cond) - float(implied_home)
+                                edge_away = float(p_away_cond) - float(implied_away)
+                                pick_home = abs(float(edge_home)) >= abs(float(edge_away))
+                                side = "HOME" if pick_home else "AWAY"
+                                p_model = float(p_home_cond) if pick_home else float(p_away_cond)
+                                implied = float(implied_home) if pick_home else float(implied_away)
+                                edge = float(edge_home) if pick_home else float(edge_away)
+                                price = per_ml_home_price if pick_home else per_ml_away_price
+
+                                if abs(float(edge)) >= 0.03:
+                                    abs_edge = abs(float(edge))
+                                    action = "WATCH"
+                                    if per_elapsed_min >= 4.0 and abs_edge >= 0.045:
+                                        action = "BET"
+                                    if per_elapsed_min >= 2.5 and abs_edge >= 0.06:
+                                        action = "BET"
+
+                                    driver_tags: list[str] = [f"P{per_i}", "period_ml"]
+                                    try:
+                                        if gd_per > 0:
+                                            driver_tags.append("score:home_leading")
+                                        elif gd_per < 0:
+                                            driver_tags.append("score:away_leading")
+                                        else:
+                                            driver_tags.append("score:tied")
+                                    except Exception:
+                                        pass
+                                    try:
+                                        if pbp_ctx.get("pp_team") == "home":
+                                            driver_tags.append("manpower:pp_home")
+                                        elif pbp_ctx.get("pp_team") == "away":
+                                            driver_tags.append("manpower:pp_away")
+                                    except Exception:
+                                        pass
+                                    try:
+                                        if pbp_ctx.get("home_empty_net"):
+                                            driver_tags.append("empty_net:home")
+                                        if pbp_ctx.get("away_empty_net"):
+                                            driver_tags.append("empty_net:away")
+                                    except Exception:
+                                        pass
+
+                                    fair = _prob_to_american(float(p_model))
+                                    max_price = _prob_to_american(max(0.01, min(0.99, float(p_model) - 0.03)))
+                                    signals.append(_signal(
+                                        action,
+                                        scope="game",
+                                        market="PERIOD_ML",
+                                        label=f"P{per_i} ML {side}",
+                                        period=int(per_i),
+                                        side=side,
+                                        price=_to_int(price),
+                                        p_model=float(p_model),
+                                        implied=float(implied),
+                                        edge=float(edge),
+                                        fair_price_american=fair,
+                                        target_max_price_american=max_price,
+                                        elapsed_min=float(em) if em is not None else None,
+                                        driver_tags=driver_tags,
+                                        driver_meta={
+                                            "period": int(per_i),
+                                            "period_elapsed_min": float(per_elapsed_min),
+                                            "period_remaining_min": float(per_rem_min),
+                                            "gd_period": int(gd_per),
+                                            "p_tie": float(p_tie) if p_tie is not None else None,
+                                            "p_home_raw": float(p_home) if p_home is not None else None,
+                                            "p_away_raw": float(p_away) if p_away is not None else None,
+                                            "mu_home_rem": float(mu_home_rem),
+                                            "mu_away_rem": float(mu_away_rem),
+                                            "pace_mult": float(pace_mult) if pace_mult is not None else None,
+                                            "goalie_mult": float(goalie_mult) if goalie_mult is not None else None,
+                                            "pp_team": pbp_ctx.get("pp_team"),
+                                        },
+                                    ))
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+
             # 1b) Moneyline and puck line signals (best-effort)
             try:
                 em = _to_float(elapsed_min)

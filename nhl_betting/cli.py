@@ -830,6 +830,35 @@ def predict_core(
             "goals_against_last10": float(np.mean(goals_against)) if goals_against else 0.0,
             "wins_last10": float(wins)
         }
+
+    # Optional: team faceoff rates (cached) for mild possession/goal-share adjustment.
+    # This mirrors the sim-engine FO logic: clamp diff, apply symmetric multipliers.
+    try:
+        from .data.faceoff_rates import load_team_faceoff_rates
+
+        fo_rates = load_team_faceoff_rates(str(date)) or {}
+    except Exception:
+        fo_rates = {}
+
+    def _fo_pct_for_abbr(_abbr: str) -> float:
+        try:
+            rec = (fo_rates or {}).get(str(_abbr or "").upper()) or {}
+            v = rec.get("faceoff_win_pct")
+            return float(v) if v is not None else 0.5
+        except Exception:
+            return 0.5
+
+    def _fo_mults(home_abbr: str, away_abbr: str) -> tuple[float, float]:
+        try:
+            h = _fo_pct_for_abbr(home_abbr)
+            a = _fo_pct_for_abbr(away_abbr)
+            fo_diff = float(np.clip(h - a, -0.12, 0.12))
+            fo_alpha = 0.35
+            m_h = float(np.clip(1.0 + fo_alpha * fo_diff, 0.90, 1.10))
+            m_a = float(np.clip(1.0 - fo_alpha * fo_diff, 0.90, 1.10))
+            return m_h, m_a
+        except Exception:
+            return 1.0, 1.0
     
     for g in games:
         # Skip non-NHL matchups if any slipped through
@@ -1117,18 +1146,40 @@ def predict_core(
         if _sim_available:
             try:
                 sim_cfg = SimConfig(n_sims=int(_os.getenv("SIM_N_SIMS", "20000")))  # uses default seed for reproducibility
+                # Faceoff-based possession adjustment (best-effort)
+                m_h = m_a = 1.0
+                try:
+                    from .web.teams import get_team_assets as _assets
+
+                    h_ab = (str((_assets(g.home) or {}).get("abbr") or "").upper())
+                    a_ab = (str((_assets(g.away) or {}).get("abbr") or "").upper())
+                    m_h, m_a = _fo_mults(h_ab, a_ab)
+                except Exception:
+                    m_h = m_a = 1.0
+
                 if (p1_home is not None) and (p1_away is not None) and (p2_home is not None) and (p2_away is not None) and (p3_home is not None) and (p3_away is not None):
                     sim = simulate_from_period_lambdas(
-                        home_periods=[float(p1_home), float(p2_home), float(p3_home)],
-                        away_periods=[float(p1_away), float(p2_away), float(p3_away)],
+                        home_periods=[float(p1_home) * m_h, float(p2_home) * m_h, float(p3_home) * m_h],
+                        away_periods=[float(p1_away) * m_a, float(p2_away) * m_a, float(p3_away) * m_a],
                         total_line=per_game_total,
                         puck_line=-1.5,
                         cfg=sim_cfg,
                     )
                 else:
+                    try:
+                        from .models.simulator import derive_team_lambdas
+
+                        lh, la = derive_team_lambdas(float(model_total), float(model_spread))
+                        lh = float(np.clip(lh * m_h, 0.05, 8.0))
+                        la = float(np.clip(la * m_a, 0.05, 8.0))
+                        total_mean = lh + la
+                        diff_mean = lh - la
+                    except Exception:
+                        total_mean = float(model_total)
+                        diff_mean = float(model_spread)
                     sim = simulate_from_totals_diff(
-                        total_mean=float(model_total),
-                        diff_mean=float(model_spread),
+                        total_mean=float(total_mean),
+                        diff_mean=float(diff_mean),
                         total_line=per_game_total,
                         puck_line=-1.5,
                         cfg=sim_cfg,
@@ -1709,6 +1760,14 @@ def game_simulate(
     except Exception:
         goalie_form_map = None
 
+    # Optional team faceoff rates (cached)
+    try:
+        from .data.faceoff_rates import load_team_faceoff_rates
+
+        fo_rates = load_team_faceoff_rates(date) or {}
+    except Exception:
+        fo_rates = {}
+
     for g in games:
         # Get total_line if available
         per_game_total = 2.0 * (base_mu or 3.05)
@@ -2057,10 +2116,26 @@ def game_simulate(
 
         # Run simulation
         sim = None
+        # Faceoff-based possession adjustment (mild, symmetric; best-effort)
+        fo_mult_home = fo_mult_away = 1.0
+        try:
+            from .web.teams import get_team_assets as _assets
+
+            h_abbr_fo = (str((_assets(g.home) or {}).get("abbr") or "").upper())
+            a_abbr_fo = (str((_assets(g.away) or {}).get("abbr") or "").upper())
+            h_fo = float(((fo_rates or {}).get(h_abbr_fo) or {}).get("faceoff_win_pct") or 0.5)
+            a_fo = float(((fo_rates or {}).get(a_abbr_fo) or {}).get("faceoff_win_pct") or 0.5)
+            fo_diff = float(np.clip(h_fo - a_fo, -0.12, 0.12))
+            fo_alpha = 0.35
+            fo_mult_home = float(np.clip(1.0 + fo_alpha * fo_diff, 0.90, 1.10))
+            fo_mult_away = float(np.clip(1.0 - fo_alpha * fo_diff, 0.90, 1.10))
+        except Exception:
+            fo_mult_home = fo_mult_away = 1.0
+
         if (p1_home is not None) and (p1_away is not None) and (p2_home is not None) and (p2_away is not None) and (p3_home is not None) and (p3_away is not None):
             # Apply pace + goalie defensive multipliers per team if enabled
-            h_periods = [max(0.0, float(x)) * pace_mult_home * xg_mult_home * refs_mult * goalie_def_away * goalie_form_def_away * fatigue_mult_home * roll_mult_home * pp_mult_home * pk_mult_away_def * pen_mult_home for x in [p1_home, p2_home, p3_home]]
-            a_periods = [max(0.0, float(x)) * pace_mult_away * xg_mult_away * refs_mult * goalie_def_home * goalie_form_def_home * fatigue_mult_away * roll_mult_away * pp_mult_away * pk_mult_home_def * pen_mult_away for x in [p1_away, p2_away, p3_away]]
+            h_periods = [max(0.0, float(x)) * pace_mult_home * xg_mult_home * refs_mult * goalie_def_away * goalie_form_def_away * fatigue_mult_home * roll_mult_home * pp_mult_home * pk_mult_away_def * pen_mult_home * fo_mult_home for x in [p1_home, p2_home, p3_home]]
+            a_periods = [max(0.0, float(x)) * pace_mult_away * xg_mult_away * refs_mult * goalie_def_home * goalie_form_def_home * fatigue_mult_away * roll_mult_away * pp_mult_away * pk_mult_home_def * pen_mult_away * fo_mult_away for x in [p1_away, p2_away, p3_away]]
             sim = simulate_from_period_lambdas(
                 home_periods=h_periods,
                 away_periods=a_periods,
@@ -2073,8 +2148,8 @@ def game_simulate(
             try:
                 from .models.simulator import derive_team_lambdas
                 lh, la = derive_team_lambdas(float(model_total), float(model_spread))
-                lh_adj = float(np.clip(lh * pace_mult_home * xg_mult_home * refs_mult * goalie_def_away * goalie_form_def_away * fatigue_mult_home * roll_mult_home * pp_mult_home * pk_mult_away_def * pen_mult_home, 0.05, 8.0))
-                la_adj = float(np.clip(la * pace_mult_away * xg_mult_away * refs_mult * goalie_def_home * goalie_form_def_home * fatigue_mult_away * roll_mult_away * pp_mult_away * pk_mult_home_def * pen_mult_away, 0.05, 8.0))
+                lh_adj = float(np.clip(lh * pace_mult_home * xg_mult_home * refs_mult * goalie_def_away * goalie_form_def_away * fatigue_mult_home * roll_mult_home * pp_mult_home * pk_mult_away_def * pen_mult_home * fo_mult_home, 0.05, 8.0))
+                la_adj = float(np.clip(la * pace_mult_away * xg_mult_away * refs_mult * goalie_def_home * goalie_form_def_home * fatigue_mult_away * roll_mult_away * pp_mult_away * pk_mult_home_def * pen_mult_away * fo_mult_away, 0.05, 8.0))
                 adj_total = lh_adj + la_adj
                 adj_diff = lh_adj - la_adj
             except Exception:
@@ -2171,6 +2246,14 @@ def game_backtest_sim(
     totals_xg_gamma: float = typer.Option(0.0, help="Strength of expected goals (xGF/60) pace adjustment (0=off)"),
     totals_refs_gamma: float = typer.Option(0.0, help="Strength of referee penalty-rate adjustment (0=off)"),
     totals_goalie_form_gamma: float = typer.Option(0.0, help="Strength of goalie recent form adjustment (0=off)"),
+    faceoff_enabled: bool = typer.Option(True, help="Apply faceoff-based possession multipliers (team FO%)"),
+    faceoff_asof_days_back: int = typer.Option(1, help="Use team FO rates as-of (date - N days) to avoid leakage in backtests"),
+    faceoff_alpha: float = typer.Option(0.35, help="Faceoff multiplier strength (alpha)"),
+    faceoff_diff_clip: float = typer.Option(0.12, help="Clip FO% differential to +/- this"),
+    faceoff_mult_clip_low: float = typer.Option(0.90, help="Clip FO multiplier low"),
+    faceoff_mult_clip_high: float = typer.Option(1.10, help="Clip FO multiplier high"),
+    faceoff_source: str = typer.Option("team", help="Faceoff source: 'team' or 'players' (lineup-weighted)"),
+    faceoff_players_min_taken: int = typer.Option(20, help="Min faceoffs taken (as-of) for player to contribute to lineup FO estimate"),
 ):
     """Backtest simulation probabilities vs outcomes over a date range using predictions files.
 
@@ -2208,6 +2291,23 @@ def game_backtest_sim(
         pass
     cur = _dt.strptime(start, "%Y-%m-%d")
     end_dt = _dt.strptime(end, "%Y-%m-%d")
+
+    def _fo_multipliers_for_teams(home_team: object, away_team: object, fo: Dict[str, Dict[str, float]]) -> tuple[float, float]:
+        if not faceoff_enabled:
+            return 1.0, 1.0
+        try:
+            from .web.teams import get_team_assets as _assets
+
+            h_abbr = (str((_assets(str(home_team)) or {}).get("abbr") or "")).upper()
+            a_abbr = (str((_assets(str(away_team)) or {}).get("abbr") or "")).upper()
+            h_fo = float(((fo or {}).get(h_abbr) or {}).get("faceoff_win_pct") or 0.5)
+            a_fo = float(((fo or {}).get(a_abbr) or {}).get("faceoff_win_pct") or 0.5)
+            fo_diff = float(np.clip(h_fo - a_fo, -float(faceoff_diff_clip), float(faceoff_diff_clip)))
+            m_home = float(np.clip(1.0 + float(faceoff_alpha) * fo_diff, float(faceoff_mult_clip_low), float(faceoff_mult_clip_high)))
+            m_away = float(np.clip(1.0 - float(faceoff_alpha) * fo_diff, float(faceoff_mult_clip_low), float(faceoff_mult_clip_high)))
+            return m_home, m_away
+        except Exception:
+            return 1.0, 1.0
     # Preload props projections cache by date for totals feature adjustments
     props_cache: Dict[str, Optional[pd.DataFrame]] = {}
     # Precompute last game date per team for rest-day fatigue
@@ -2222,6 +2322,8 @@ def game_backtest_sim(
         last_game_map = {}
     while cur <= end_dt:
         d = cur.strftime("%Y-%m-%d")
+        asof_dt = cur - _td(days=max(0, int(faceoff_asof_days_back)))
+        asof = asof_dt.strftime("%Y-%m-%d")
         pred_path = PROC_DIR / f"predictions_{d}.csv"
         use_df = None
         use_mode = None  # 'pred' or 'sim'
@@ -2242,6 +2344,47 @@ def game_backtest_sim(
         if use_df is None:
             cur += _td(days=1)
             continue
+
+        # Optional team faceoff rates for this date (cached)
+        try:
+            from .data.faceoff_rates import load_team_faceoff_rates_asof
+            fo_rates = load_team_faceoff_rates_asof(d, as_of_date=asof) or {}
+        except Exception:
+            fo_rates = {}
+
+        # Optional player-derived team FO% using lineup snapshot + player faceoff stats
+        if faceoff_enabled and str(faceoff_source).strip().lower().startswith("player"):
+            try:
+                lineup_path = PROC_DIR / f"lineups_{d}.csv"
+                if lineup_path.exists() and getattr(lineup_path.stat(), "st_size", 0) > 0:
+                    lineups_df = pd.read_csv(lineup_path)
+                    if ("team" in lineups_df.columns) and ("player_id" in lineups_df.columns):
+                        from .data.player_faceoff_rates import load_player_faceoff_rates_asof
+
+                        pfo = load_player_faceoff_rates_asof(d, as_of_date=asof) or {}
+                        derived: Dict[str, Dict[str, float]] = {}
+                        for team, sub in lineups_df.groupby("team"):
+                            won_sum = 0.0
+                            taken_sum = 0.0
+                            try:
+                                pids = sub["player_id"].dropna().astype(int).tolist()
+                            except Exception:
+                                pids = []
+                            for pid in pids:
+                                st = (pfo.get(str(int(pid))) or {})
+                                taken = float(st.get("faceoffs_taken") or 0.0)
+                                won = float(st.get("faceoffs_won") or 0.0)
+                                if taken >= float(faceoff_players_min_taken):
+                                    taken_sum += taken
+                                    won_sum += won
+                            if taken_sum > 0.0:
+                                derived[str(team).strip().upper()] = {
+                                    "faceoff_win_pct": float(np.clip(won_sum / taken_sum, 0.0, 1.0))
+                                }
+                        if derived:
+                            fo_rates = {**(fo_rates or {}), **derived}
+            except Exception:
+                pass
 
         # Optional props projections for this date
         props_df = None
@@ -2333,6 +2476,9 @@ def game_backtest_sim(
             if use_mode == 'pred':
                 # simulate from predictions row
                 try:
+                    # Faceoff-based possession adjustment (mild, symmetric; best-effort)
+                    fo_mult_home, fo_mult_away = _fo_multipliers_for_teams(r.get("home"), r.get("away"), fo_rates)
+
                     if pd.notna(r.get("period1_home_proj")) and pd.notna(r.get("period1_away_proj")) and pd.notna(r.get("period2_home_proj")) and pd.notna(r.get("period2_away_proj")) and pd.notna(r.get("period3_home_proj")) and pd.notna(r.get("period3_away_proj")):
                         # Optionally adjust period lambdas by props-derived pace and goalie defensive multipliers
                         h_periods = [float(r.get("period1_home_proj")), float(r.get("period2_home_proj")), float(r.get("period3_home_proj"))]
@@ -2488,6 +2634,9 @@ def game_backtest_sim(
                                 a_periods = [max(0.0, float(x)) * pace_mult_away * refs_mult * goalie_def_home * goalie_form_def_home * fat_a * roll_a * pp_mult_away * pk_mult_home_def * pen_mult_away * xg_mult_away for x in a_periods]
                         except Exception:
                             pass
+                        # Apply FO multipliers last (avoid coupling with other feature multipliers)
+                        h_periods = [float(x) * fo_mult_home for x in h_periods]
+                        a_periods = [float(x) * fo_mult_away for x in a_periods]
                         sim = simulate_from_period_lambdas(
                             home_periods=h_periods,
                             away_periods=a_periods,
@@ -2657,6 +2806,14 @@ def game_backtest_sim(
                                 adj_diff = lh_adj - la_adj
                         except Exception:
                             pass
+                        # Apply FO multipliers to team means (best-effort)
+                        try:
+                            lh_adj = float(np.clip(float(lh_adj) * fo_mult_home, 0.05, 8.0))
+                            la_adj = float(np.clip(float(la_adj) * fo_mult_away, 0.05, 8.0))
+                            adj_total = lh_adj + la_adj
+                            adj_diff = lh_adj - la_adj
+                        except Exception:
+                            pass
                         sim = simulate_from_totals_diff(
                             total_mean=adj_total,
                             diff_mean=adj_diff,
@@ -2741,6 +2898,16 @@ def game_backtest_sim(
         return float(np.mean(((np.array(p) >= 0.5).astype(int) == np.array(y).astype(int))))
     res = {
         "range": {"start": start, "end": end},
+        "faceoff": {
+            "enabled": bool(faceoff_enabled),
+            "source": str(faceoff_source),
+            "asof_days_back": int(faceoff_asof_days_back),
+            "alpha": float(faceoff_alpha),
+            "diff_clip": float(faceoff_diff_clip),
+            "mult_clip_low": float(faceoff_mult_clip_low),
+            "mult_clip_high": float(faceoff_mult_clip_high),
+            "players_min_taken": int(faceoff_players_min_taken),
+        },
         "moneyline_raw": {"n": len(ml_y), "brier": _brier(ml_y, ml_p), "accuracy": _accuracy(ml_y, ml_p)},
         "totals_raw": {"n": len(tot_y), "brier": _brier(tot_y, tot_p), "accuracy": _accuracy(tot_y, tot_p)},
         "puckline_raw": {"n": len(pl_y), "brier": _brier(pl_y, pl_p), "accuracy": _accuracy(pl_y, pl_p)},
@@ -2751,7 +2918,8 @@ def game_backtest_sim(
             "totals_cal": {"n": len(tot_y), "brier": _brier(tot_y, tot_p_cal), "accuracy": _accuracy(tot_y, tot_p_cal)},
             "puckline_cal": {"n": len(pl_y), "brier": _brier(pl_y, pl_p_cal), "accuracy": _accuracy(pl_y, pl_p_cal)},
         })
-    out_path = PROC_DIR / f"sim_backtest_{start}_to_{end}.json"
+    fo_tag = f"fo{1 if faceoff_enabled else 0}_{str(faceoff_source).strip().lower()}_asof{max(0, int(faceoff_asof_days_back))}"
+    out_path = PROC_DIR / f"sim_backtest_{start}_to_{end}_{fo_tag}.json"
     with out_path.open("w", encoding="utf-8") as f:
         json.dump(res, f, indent=2)
     print(res)
@@ -2907,6 +3075,14 @@ def game_backtest_sim_thresholds(
     totals_xg_gamma: float = typer.Option(0.0, help="Strength of expected goals (xGF/60) pace adjustment (0=off)"),
     totals_refs_gamma: float = typer.Option(0.0, help="Strength of referee penalty-rate adjustment (0=off)"),
     totals_goalie_form_gamma: float = typer.Option(0.0, help="Strength of goalie recent form adjustment (0=off)"),
+    faceoff_enabled: bool = typer.Option(True, help="Apply faceoff-based possession multipliers (team FO%)"),
+    faceoff_asof_days_back: int = typer.Option(1, help="Use team FO rates as-of (date - N days) to avoid leakage in backtests"),
+    faceoff_alpha: float = typer.Option(0.35, help="Faceoff multiplier strength (alpha)"),
+    faceoff_diff_clip: float = typer.Option(0.12, help="Clip FO% differential to +/- this"),
+    faceoff_mult_clip_low: float = typer.Option(0.90, help="Clip FO multiplier low"),
+    faceoff_mult_clip_high: float = typer.Option(1.10, help="Clip FO multiplier high"),
+    faceoff_source: str = typer.Option("team", help="Faceoff source: 'team' or 'players' (lineup-weighted)"),
+    faceoff_players_min_taken: int = typer.Option(20, help="Min faceoffs taken (as-of) for player to contribute to lineup FO estimate"),
 ):
     """Evaluate accuracy vs decision thresholds for ML, Totals, and Puckline using calibrated simulation probabilities.
 
@@ -2949,8 +3125,27 @@ def game_backtest_sim_thresholds(
     cur = _dt.strptime(start, "%Y-%m-%d"); end_dt = _dt.strptime(end, "%Y-%m-%d")
     # Cache props projections by date for totals feature adjustments
     props_cache: Dict[str, Optional[pd.DataFrame]] = {}
+
+    def _fo_multipliers_for_teams(home_team: object, away_team: object, fo: Dict[str, Dict[str, float]]) -> tuple[float, float]:
+        if not faceoff_enabled:
+            return 1.0, 1.0
+        try:
+            from .web.teams import get_team_assets as _assets
+
+            h_abbr = (str((_assets(str(home_team)) or {}).get("abbr") or "")).upper()
+            a_abbr = (str((_assets(str(away_team)) or {}).get("abbr") or "")).upper()
+            h_fo = float(((fo or {}).get(h_abbr) or {}).get("faceoff_win_pct") or 0.5)
+            a_fo = float(((fo or {}).get(a_abbr) or {}).get("faceoff_win_pct") or 0.5)
+            fo_diff = float(np.clip(h_fo - a_fo, -float(faceoff_diff_clip), float(faceoff_diff_clip)))
+            m_home = float(np.clip(1.0 + float(faceoff_alpha) * fo_diff, float(faceoff_mult_clip_low), float(faceoff_mult_clip_high)))
+            m_away = float(np.clip(1.0 - float(faceoff_alpha) * fo_diff, float(faceoff_mult_clip_low), float(faceoff_mult_clip_high)))
+            return m_home, m_away
+        except Exception:
+            return 1.0, 1.0
     while cur <= end_dt:
         d = cur.strftime("%Y-%m-%d")
+        asof_dt = cur - _td(days=max(0, int(faceoff_asof_days_back)))
+        asof = asof_dt.strftime("%Y-%m-%d")
         # choose source
         use_df = None; use_mode = None
         pred_path = PROC_DIR / f"predictions_{d}.csv"
@@ -2968,6 +3163,47 @@ def game_backtest_sim_thresholds(
                     use_df = None
         if use_df is None:
             cur += _td(days=1); continue
+
+        # Optional team faceoff rates for this date (cached)
+        try:
+            from .data.faceoff_rates import load_team_faceoff_rates_asof
+            fo_rates = load_team_faceoff_rates_asof(d, as_of_date=asof) or {}
+        except Exception:
+            fo_rates = {}
+
+        # Optional player-derived team FO% using lineup snapshot + player faceoff stats
+        if faceoff_enabled and str(faceoff_source).strip().lower().startswith("player"):
+            try:
+                lineup_path = PROC_DIR / f"lineups_{d}.csv"
+                if lineup_path.exists() and getattr(lineup_path.stat(), "st_size", 0) > 0:
+                    lineups_df = pd.read_csv(lineup_path)
+                    if ("team" in lineups_df.columns) and ("player_id" in lineups_df.columns):
+                        from .data.player_faceoff_rates import load_player_faceoff_rates_asof
+
+                        pfo = load_player_faceoff_rates_asof(d, as_of_date=asof) or {}
+                        derived: Dict[str, Dict[str, float]] = {}
+                        for team, sub in lineups_df.groupby("team"):
+                            won_sum = 0.0
+                            taken_sum = 0.0
+                            try:
+                                pids = sub["player_id"].dropna().astype(int).tolist()
+                            except Exception:
+                                pids = []
+                            for pid in pids:
+                                st = (pfo.get(str(int(pid))) or {})
+                                taken = float(st.get("faceoffs_taken") or 0.0)
+                                won = float(st.get("faceoffs_won") or 0.0)
+                                if taken >= float(faceoff_players_min_taken):
+                                    taken_sum += taken
+                                    won_sum += won
+                            if taken_sum > 0.0:
+                                derived[str(team).strip().upper()] = {
+                                    "faceoff_win_pct": float(np.clip(won_sum / taken_sum, 0.0, 1.0))
+                                }
+                        if derived:
+                            fo_rates = {**(fo_rates or {}), **derived}
+            except Exception:
+                pass
 
         # Optional team special teams for this date
         team_st: Optional[Dict[str, Dict[str, float]]] = None
@@ -3010,6 +3246,9 @@ def game_backtest_sim_thresholds(
             # calibrated probabilities
             if use_mode == 'pred':
                 try:
+                    # Faceoff-based possession adjustment (mild, symmetric; best-effort)
+                    fo_mult_home, fo_mult_away = _fo_multipliers_for_teams(r.get("home"), r.get("away"), fo_rates)
+
                     if pd.notna(r.get("period1_home_proj")) and pd.notna(r.get("period1_away_proj")) and pd.notna(r.get("period2_home_proj")) and pd.notna(r.get("period2_away_proj")) and pd.notna(r.get("period3_home_proj")) and pd.notna(r.get("period3_away_proj")):
                         # Optionally adjust period lambdas by props-derived + fatigue multipliers
                         h_periods = [float(r.get("period1_home_proj")), float(r.get("period2_home_proj")), float(r.get("period3_home_proj"))]
@@ -3171,6 +3410,8 @@ def game_backtest_sim_thresholds(
                             a_periods = [max(0.0, float(x)) * pace_mult_away * refs_mult * goalie_def_home * goalie_form_def_home * fat_a * roll_a * pp_mult_away * pk_mult_home_def * pen_mult_away * xg_mult_away for x in a_periods]
                         except Exception:
                             pass
+                        h_periods = [float(x) * fo_mult_home for x in h_periods]
+                        a_periods = [float(x) * fo_mult_away for x in a_periods]
                         sim = simulate_from_period_lambdas(
                             home_periods=h_periods,
                             away_periods=a_periods,
@@ -3348,6 +3589,14 @@ def game_backtest_sim_thresholds(
                                     pass
                                 adj_total = lh_adj + la_adj
                                 adj_diff = lh_adj - la_adj
+                        except Exception:
+                            pass
+                        # Apply FO multipliers to team means (best-effort)
+                        try:
+                            lh_adj = float(np.clip(float(lh_adj) * fo_mult_home, 0.05, 8.0))
+                            la_adj = float(np.clip(float(la_adj) * fo_mult_away, 0.05, 8.0))
+                            adj_total = lh_adj + la_adj
+                            adj_diff = lh_adj - la_adj
                         except Exception:
                             pass
                         sim = simulate_from_totals_diff(
@@ -6541,6 +6790,13 @@ def props_simulate_boxscores(
     except Exception:
         st_rates = {}
 
+    try:
+        from .data.faceoff_rates import load_team_faceoff_rates
+
+        fo_rates = load_team_faceoff_rates(str(date)) or {}
+    except Exception:
+        fo_rates = {}
+
     # Rest/B2B (+ optional travel) from either Web schedule or legacy processed team_games.csv.
     rest_by_teamabbr: dict[str, dict[str, float]] = {}
     if rest_source_norm == "schedule":
@@ -7947,6 +8203,18 @@ def props_simulate_boxscores(
             pass
         # Simple baseline rates per game; future: inject team-specific rates
         rates = RateModels.baseline()
+
+        # Team faceoff win% (mild possession/shot-share signal for the sim engine)
+        try:
+            if fo_rates:
+                h_ab = _abbr_for_team_name(home) or ""
+                a_ab = _abbr_for_team_name(away) or ""
+                if h_ab:
+                    rates.home.faceoff_win_pct = float((fo_rates.get(str(h_ab).upper()) or {}).get("faceoff_win_pct") or 0.5)
+                if a_ab:
+                    rates.away.faceoff_win_pct = float((fo_rates.get(str(a_ab).upper()) or {}).get("faceoff_win_pct") or 0.5)
+        except Exception:
+            pass
         # Calibrate team rates from projections-derived weights to improve stat accuracy
         try:
             def _exp_totals(rows: list[dict]) -> tuple[float, float, float]:
@@ -11732,6 +12000,13 @@ def props_watch(
                 sim_cfg = SimConfig(seed=seed)
                 sim_rates = RateModels.baseline(base_mu=base_mu)
                 sim = GameSimulator(cfg=sim_cfg, rates=sim_rates)
+                # Optional faceoff rates (cached)
+                try:
+                    from .data.faceoff_rates import load_team_faceoff_rates
+
+                    fo_rates = load_team_faceoff_rates(d) or {}
+                except Exception:
+                    fo_rates = {}
                 game_rows = []
                 box_rows = []
                 for g in games:
@@ -11739,6 +12014,13 @@ def props_watch(
                         # Map full team names to abbreviations
                         h_ab = get_team_assets(g.home).get("abbr") or g.home
                         a_ab = get_team_assets(g.away).get("abbr") or g.away
+                        # Set per-game FO% on shared baseline rates
+                        try:
+                            sim_rates.home.faceoff_win_pct = float(((fo_rates or {}).get(str(h_ab).upper()) or {}).get("faceoff_win_pct") or 0.5)
+                            sim_rates.away.faceoff_win_pct = float(((fo_rates or {}).get(str(a_ab).upper()) or {}).get("faceoff_win_pct") or 0.5)
+                        except Exception:
+                            sim_rates.home.faceoff_win_pct = 0.5
+                            sim_rates.away.faceoff_win_pct = 0.5
                         roster_home = build_roster_snapshot(h_ab).to_dict(orient="records")
                         roster_away = build_roster_snapshot(a_ab).to_dict(orient="records")
                         gs, _events = sim.simulate(home_name=g.home, away_name=g.away, roster_home=roster_home, roster_away=roster_away)
@@ -16689,6 +16971,13 @@ if __name__ == "__main__":
         sim_cfg = SimConfig(seed=seed)
         sim_rates = RateModels.baseline(base_mu=base_mu)
         sim = GameSimulator(cfg=sim_cfg, rates=sim_rates)
+        # Optional faceoff rates (cached)
+        try:
+            from .data.faceoff_rates import load_team_faceoff_rates
+
+            fo_rates = load_team_faceoff_rates(d) or {}
+        except Exception:
+            fo_rates = {}
         game_rows = []
         box_rows = []
         evt_rows = []
@@ -16696,6 +16985,13 @@ if __name__ == "__main__":
             try:
                 h_ab = get_team_assets(g.home).get("abbr") or g.home
                 a_ab = get_team_assets(g.away).get("abbr") or g.away
+                # Set per-game FO% on shared baseline rates
+                try:
+                    sim_rates.home.faceoff_win_pct = float(((fo_rates or {}).get(str(h_ab).upper()) or {}).get("faceoff_win_pct") or 0.5)
+                    sim_rates.away.faceoff_win_pct = float(((fo_rates or {}).get(str(a_ab).upper()) or {}).get("faceoff_win_pct") or 0.5)
+                except Exception:
+                    sim_rates.home.faceoff_win_pct = 0.5
+                    sim_rates.away.faceoff_win_pct = 0.5
                 roster_home = build_roster_snapshot(h_ab).to_dict(orient="records")
                 roster_away = build_roster_snapshot(a_ab).to_dict(orient="records")
                 gs, _events = sim.simulate(home_name=g.home, away_name=g.away, roster_home=roster_home, roster_away=roster_away)
@@ -16747,6 +17043,13 @@ if __name__ == "__main__":
         sim_cfg = SimConfig(seed=seed)
         sim_rates = RateModels.baseline(base_mu=base_mu)
         sim = GameSimulator(cfg=sim_cfg, rates=sim_rates)
+        # Optional faceoff rates (cached)
+        try:
+            from .data.faceoff_rates import load_team_faceoff_rates
+
+            fo_rates = load_team_faceoff_rates(d) or {}
+        except Exception:
+            fo_rates = {}
         # Load calibrated special-teams multipliers (optional)
         st_cal: Dict[str, float] = {}
         try:
@@ -16799,6 +17102,13 @@ if __name__ == "__main__":
             try:
                 h_ab = get_team_assets(g.home).get("abbr") or g.home
                 a_ab = get_team_assets(g.away).get("abbr") or g.away
+                # Set per-game FO% on shared baseline rates
+                try:
+                    sim_rates.home.faceoff_win_pct = float(((fo_rates or {}).get(str(h_ab).upper()) or {}).get("faceoff_win_pct") or 0.5)
+                    sim_rates.away.faceoff_win_pct = float(((fo_rates or {}).get(str(a_ab).upper()) or {}).get("faceoff_win_pct") or 0.5)
+                except Exception:
+                    sim_rates.home.faceoff_win_pct = 0.5
+                    sim_rates.away.faceoff_win_pct = 0.5
                 roster_home_df = build_roster_snapshot(h_ab)
                 roster_away_df = build_roster_snapshot(a_ab)
                 # Merge TOI projections (priority: lineup snapshot > same-day shifts > rolling history > default)
@@ -17101,6 +17411,14 @@ if __name__ == "__main__":
         sim_cfg = SimConfig(seed=int(seed) if seed is not None else None)
         sim_rates = RateModels.baseline(base_mu=base_mu)
 
+        # Optional faceoff rates (cached)
+        try:
+            from .data.faceoff_rates import load_team_faceoff_rates
+
+            fo_rates = load_team_faceoff_rates(d) or {}
+        except Exception:
+            fo_rates = {}
+
         for g in games:
             home = str(getattr(g, 'home', ''))
             away = str(getattr(g, 'away', ''))
@@ -17108,6 +17426,13 @@ if __name__ == "__main__":
                 continue
             h_ab = (get_team_assets(home).get('abbr') or '').upper()
             a_ab = (get_team_assets(away).get('abbr') or '').upper()
+            # Set per-game FO% on shared baseline rates
+            try:
+                sim_rates.home.faceoff_win_pct = float(((fo_rates or {}).get(str(h_ab).upper()) or {}).get('faceoff_win_pct') or 0.5)
+                sim_rates.away.faceoff_win_pct = float(((fo_rates or {}).get(str(a_ab).upper()) or {}).get('faceoff_win_pct') or 0.5)
+            except Exception:
+                sim_rates.home.faceoff_win_pct = 0.5
+                sim_rates.away.faceoff_win_pct = 0.5
             roster_home, lineup_home = _roster_for_name(home)
             roster_away, lineup_away = _roster_for_name(away)
             if not roster_home or not roster_away:

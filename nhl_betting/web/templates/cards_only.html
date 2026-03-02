@@ -638,9 +638,24 @@
         line: (rec && rec.line !== undefined) ? rec.line : null,
         price: rec.price,
         ev,
+        edgeReasons: String((rec && (rec.edge_reasons || rec.drivers || rec.reason)) ? (rec.edge_reasons || rec.drivers || rec.reason) : '').trim(),
         home: String(rec.home || ''),
         away: String(rec.away || ''),
       };
+    }
+
+    function _shortDriversText(s) {
+      try {
+        const x = String(s || '').trim();
+        if (!x) return '';
+        // Prefer the first 1-2 clauses; keep compact.
+        const parts = x.split(/\s*[;|]\s*|\s*\u00b7\s*|\s*,\s*/).map(p => p.trim()).filter(Boolean);
+        const keep = parts.slice(0, 2).join(' · ');
+        const out = keep || x;
+        return out.length > 90 ? (out.slice(0, 87) + '...') : out;
+      } catch (e) {
+        return '';
+      }
     }
 
     function _normTeamToken(s) {
@@ -810,12 +825,11 @@
         <div class="bets">
           ${top.length ? top.map(r => {
             const cls = evClass(r.ev);
-            const evTxt = (isFinite(r.ev) ? (100*r.ev).toFixed(1)+'%' : '—');
-            const price = (r.price !== undefined && r.price !== null && String(r.price).trim() !== '') ? String(r.price) : '—';
             const mkt = toUpper(r.market);
             const side = toUpper(r.side);
             const pModel = (r && r._pModel !== undefined) ? r._pModel : _inferModelProbForRec(pred, r);
-            const pTxt = (pModel !== null && pModel !== undefined && isFinite(Number(pModel))) ? ` <span class="muted">p ${pct(pModel)}</span>` : '';
+            const drv = _shortDriversText(r.edgeReasons);
+            const drvTxt = drv ? ` <span class="muted">· ${drv}</span>` : '';
             let ln = (r.line !== null && r.line !== undefined && String(r.line).trim() !== '') ? String(r.line) : '';
             try {
               if (!ln && mkt.includes('TOTAL') && totalLine !== null && totalLine !== undefined && isFinite(Number(totalLine))) {
@@ -823,7 +837,7 @@
               }
             } catch (e) {}
             const lineAttr = ln ? ` data-line="${ln}"` : '';
-            return `<span class="bet ${cls}" data-market="${mkt}" data-side="${side}"${lineAttr}><strong>${r.market}</strong> ${r.side} <span class="muted">${price}</span> <span class="ev">EV ${evTxt}</span>${pTxt} <span class="muted" data-role="rec-outcome"></span></span>`;
+            return `<span class="bet ${cls}" data-market="${mkt}" data-side="${side}"${lineAttr}><strong>${r.market}</strong> ${r.side}${drvTxt} <span class="muted" data-role="rec-outcome"></span></span>`;
           }).join('') : `<span class="muted">No recommendations available for this game.</span>`}
         </div>
 
@@ -979,27 +993,40 @@
         const label = String(sig.label || '').trim();
         if (!label) return '';
 
+        function _prettyDriverTag(t) {
+          try {
+            const s = String(t || '').trim();
+            if (!s) return '';
+            if (s === 'pace:up') return 'pace ↑';
+            if (s === 'pace:down') return 'pace ↓';
+            if (s === 'goalie:weak') return 'goalie weak';
+            if (s === 'goalie:strong') return 'goalie strong';
+            if (s === 'manpower:pp_home') return 'PP home';
+            if (s === 'manpower:pp_away') return 'PP away';
+            if (s === 'score:tied') return 'score tied';
+            if (s === 'score:home_leading') return 'home leading';
+            if (s === 'score:away_leading') return 'away leading';
+            if (s === 'empty_net:home') return 'home EN';
+            if (s === 'empty_net:away') return 'away EN';
+            return s.replace(/_/g, ' ');
+          } catch (e) {
+            return '';
+          }
+        }
+
         const bits = [];
-        // Live-lens drivers (prefer edge/price/target/fair/elapsed)
+        // Live-lens drivers (compact): human driver_tags only; avoid EV/edge/price/time.
         try {
-          const px = Number(sig.price);
-          if (isFinite(px)) bits.push(`@ ${Math.round(px)}`);
-        } catch (e) {}
-        try {
-          const mx = Number(sig.target_max_price_american);
-          if (isFinite(mx)) bits.push(`≤ ${Math.round(mx)}`);
-        } catch (e) {}
-        try {
-          const fair = Number(sig.fair_price_american);
-          if (isFinite(fair)) bits.push(`fair ${Math.round(fair)}`);
-        } catch (e) {}
-        try {
-          const e = Number(sig.edge);
-          if (isFinite(e)) bits.push(`edge ${(100 * e).toFixed(1)}%`);
-        } catch (e) {}
-        try {
-          const em = Number(sig.elapsed_min);
-          if (isFinite(em)) bits.push(`t ${Math.round(em)}m`);
+          const tags = Array.isArray(sig.driver_tags) ? sig.driver_tags : [];
+          const keep = tags
+            .map(_prettyDriverTag)
+            .filter(Boolean)
+            .filter(x => {
+              const s = String(x || '').toLowerCase();
+              return !(s.startsWith('market:') || s.startsWith('edge:') || s.startsWith('gate:') || s.startsWith('prob_source:') || s.startsWith('guard:'));
+            })
+            .slice(0, 4);
+          if (keep.length) bits.push(keep.join(' · '));
         } catch (e) {}
         // Stat-based context when present (e.g., PLAYER_SHOTS signals)
         try {

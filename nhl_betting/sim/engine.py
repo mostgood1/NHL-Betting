@@ -56,6 +56,38 @@ class SimConfig:
     # Interpreted as Gaussian noise std-dev applied to log-probabilities.
     usage_noisy_sigma: float = 0.18
 
+    # Faceoff-driven possession/shot-share adjustment knobs.
+    # These are intentionally conservative by default.
+    faceoff_enabled: bool = True
+    faceoff_alpha: float = 0.35
+    faceoff_diff_clip: float = 0.12
+    faceoff_mult_clip_low: float = 0.90
+    faceoff_mult_clip_high: float = 1.10
+    faceoff_ev_only: bool = True
+
+
+def _faceoff_multipliers(cfg: SimConfig, home_pct: float, away_pct: float) -> Tuple[float, float]:
+    """Return (m_home, m_away) multipliers from faceoff win%.
+
+    - Symmetric: increases one side while decreasing the other.
+    - Clamped by `faceoff_diff_clip` and `faceoff_mult_clip_*`.
+    """
+    try:
+        if not bool(getattr(cfg, "faceoff_enabled", True)):
+            return 1.0, 1.0
+        fo_h = float(home_pct) if home_pct is not None else 0.5
+        fo_a = float(away_pct) if away_pct is not None else 0.5
+        diff_clip = float(getattr(cfg, "faceoff_diff_clip", 0.12) or 0.12)
+        alpha = float(getattr(cfg, "faceoff_alpha", 0.35) or 0.35)
+        lo = float(getattr(cfg, "faceoff_mult_clip_low", 0.90) or 0.90)
+        hi = float(getattr(cfg, "faceoff_mult_clip_high", 1.10) or 1.10)
+        fo_diff = max(-diff_clip, min(diff_clip, fo_h - fo_a))
+        m_fo_h = max(lo, min(hi, 1.0 + alpha * fo_diff))
+        m_fo_a = max(lo, min(hi, 1.0 - alpha * fo_diff))
+        return float(m_fo_h), float(m_fo_a)
+    except Exception:
+        return 1.0, 1.0
+
 
 class PossessionSimulator:
     """Placeholder for future possession-level simulation.
@@ -81,8 +113,15 @@ class PeriodSimulator:
     def simulate_period(self, gs: GameState, rates: RateModels, period_idx: int) -> Tuple[int, int, List[Event]]:
         T = self.cfg.seconds_per_period
         # Convert per-60 rates to period totals (EV approximation)
-        home_shots = self._poisson(rates.home.shots_per_60 * T / 3600.0)
-        away_shots = self._poisson(rates.away.shots_per_60 * T / 3600.0)
+        # Mild faceoff-driven possession/shot-share adjustment (EV approximation).
+        m_fo_h, m_fo_a = _faceoff_multipliers(
+            self.cfg,
+            float(getattr(rates.home, "faceoff_win_pct", 0.5) or 0.5),
+            float(getattr(rates.away, "faceoff_win_pct", 0.5) or 0.5),
+        )
+
+        home_shots = self._poisson(rates.home.shots_per_60 * m_fo_h * T / 3600.0)
+        away_shots = self._poisson(rates.away.shots_per_60 * m_fo_a * T / 3600.0)
         home_goals = self._poisson(rates.home.goals_per_60 * T / 3600.0)
         away_goals = self._poisson(rates.away.goals_per_60 * T / 3600.0)
         events: List[Event] = []
@@ -892,6 +931,17 @@ class PeriodSimulator:
             # Expected shots in segment
             lam_h = max(1e-6, rates.home.shots_per_60 * seg_len / 3600.0 * home_factor * period_pace_bias)
             lam_a = max(1e-6, rates.away.shots_per_60 * seg_len / 3600.0 * away_factor * period_pace_bias)
+            # Mild faceoff-driven possession/shot-share adjustment.
+            # Applies a small symmetric shift between teams, clamped to avoid destabilizing calibration.
+            ev_only = bool(getattr(self.cfg, "faceoff_ev_only", True))
+            if ((not ev_only) or ((not seg_is_home_pp) and (not seg_is_away_pp))):
+                m_fo_h, m_fo_a = _faceoff_multipliers(
+                    self.cfg,
+                    float(getattr(rates.home, "faceoff_win_pct", 0.5) or 0.5),
+                    float(getattr(rates.away, "faceoff_win_pct", 0.5) or 0.5),
+                )
+                lam_h = float(lam_h) * float(m_fo_h)
+                lam_a = float(lam_a) * float(m_fo_a)
             # Apply overdispersion via lognormal multiplicative noise
             if float(self.cfg.dispersion_shots or 0.0) > 0.0:
                 try:

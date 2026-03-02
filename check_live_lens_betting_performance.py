@@ -273,6 +273,127 @@ def _final_scores_from_player_stats(player_stats_csv: Path, game_pks: set[int], 
     return out
 
 
+def _final_period_goals_web(game_pks: set[int], timeout_sec: float = 10.0) -> dict[tuple[int, int], tuple[int, int]]:
+    """Fetch final per-period goal splits from NHL Web API.
+
+    Returns mapping (gamePk, period) -> (home_goals, away_goals).
+
+    Notes:
+    - Best-effort: some games/periods may be missing.
+    - Uses /gamecenter/{gamePk}/boxscore first; falls back to /landing summary.scoring.
+    """
+
+    def _extract_from_box(box: Any) -> dict[int, tuple[int, int]]:
+        try:
+            if not isinstance(box, dict):
+                return {}
+            periods = box.get("periods") or box.get("periodSummary") or []
+            if not isinstance(periods, list):
+                return {}
+            out: dict[int, tuple[int, int]] = {}
+            for p in periods:
+                if not isinstance(p, dict):
+                    continue
+                pd = p.get("periodDescriptor") or {}
+                per = None
+                if isinstance(pd, dict):
+                    per = pd.get("number") or pd.get("period")
+                if per is None:
+                    per = p.get("period") or p.get("currentPeriod")
+                per_i = _safe_int(per)
+                if per_i is None:
+                    continue
+
+                home_p = p.get("home") or p.get("homeTeam") or {}
+                away_p = p.get("away") or p.get("awayTeam") or {}
+                if not isinstance(home_p, dict):
+                    home_p = {}
+                if not isinstance(away_p, dict):
+                    away_p = {}
+
+                hg = _safe_int(home_p.get("goals"))
+                if hg is None:
+                    hg = _safe_int(home_p.get("score"))
+                ag = _safe_int(away_p.get("goals"))
+                if ag is None:
+                    ag = _safe_int(away_p.get("score"))
+                if hg is None or ag is None:
+                    continue
+                out[int(per_i)] = (int(hg), int(ag))
+            return out
+        except Exception:
+            return {}
+
+    def _extract_from_landing(landing: Any) -> dict[int, tuple[int, int]]:
+        try:
+            if not isinstance(landing, dict):
+                return {}
+            summary = landing.get("summary") if isinstance(landing, dict) else None
+            scoring = (summary or {}).get("scoring") if isinstance(summary, dict) else None
+            if not isinstance(scoring, list):
+                return {}
+
+            out: dict[int, tuple[int, int]] = {}
+            for bucket in scoring:
+                if not isinstance(bucket, dict):
+                    continue
+                pd = bucket.get("periodDescriptor") or {}
+                per = None
+                if isinstance(pd, dict):
+                    per = pd.get("number") or pd.get("period")
+                if per is None:
+                    per = bucket.get("period")
+                per_i = _safe_int(per)
+                if per_i is None:
+                    continue
+
+                goals = bucket.get("goals")
+                home_g = 0
+                away_g = 0
+                if isinstance(goals, list):
+                    for goal in goals:
+                        if not isinstance(goal, dict):
+                            continue
+                        ih = goal.get("isHome")
+                        if ih is True:
+                            home_g += 1
+                        elif ih is False:
+                            away_g += 1
+                out[int(per_i)] = (int(home_g), int(away_g))
+            return out
+        except Exception:
+            return {}
+
+    if not game_pks:
+        return {}
+
+    client = NHLWebClient(timeout=float(timeout_sec))
+    out: dict[tuple[int, int], tuple[int, int]] = {}
+    for gamePk in sorted(set(int(x) for x in game_pks)):
+        per_map: dict[int, tuple[int, int]] = {}
+        # Try boxscore first
+        try:
+            box = client.boxscore(int(gamePk))
+            per_map = _extract_from_box(box)
+        except Exception:
+            per_map = {}
+
+        # Fallback: landing summary scoring (counts goals list)
+        if not per_map:
+            try:
+                landing = client._get(f"/gamecenter/{int(gamePk)}/landing", params=None, retries=2)
+                per_map = _extract_from_landing(landing)
+            except Exception:
+                per_map = {}
+
+        for per, (hg, ag) in per_map.items():
+            if per is None:
+                continue
+            out[(int(gamePk), int(per))] = (int(hg), int(ag))
+
+    return out
+
+
 def _parse_player_field_to_name(player_field: Any) -> str:
     """player_game_stats.csv stores player as a stringified dict like {'default': 'N. Schmaltz'}"""
     s = str(player_field or "").strip()
@@ -408,7 +529,11 @@ def _final_scores(
     return out
 
 
-def _settle_row(row: pd.Series, final_scores: dict[int, tuple[Optional[int], Optional[int]]]) -> dict[str, Any]:
+def _settle_row(
+    row: pd.Series,
+    final_scores: dict[int, tuple[Optional[int], Optional[int]]],
+    final_period_scores: Optional[dict[tuple[int, int], tuple[int, int]]] = None,
+) -> dict[str, Any]:
     gamePk = int(row["gamePk"])
     hg, ag = final_scores.get(gamePk, (None, None))
     if hg is None or ag is None:
@@ -428,6 +553,23 @@ def _settle_row(row: pd.Series, final_scores: dict[int, tuple[Optional[int], Opt
         else:
             result = None
 
+    elif market == "PERIOD_ML":
+        per_i = _safe_int(row.get("sig_period"))
+        if final_period_scores is None or per_i is None:
+            result = None
+        else:
+            phg, pag = final_period_scores.get((gamePk, int(per_i)), (None, None))
+            if phg is None or pag is None:
+                result = None
+            else:
+                # Two-way period ML: treat a tied period as PUSH.
+                if side == "HOME":
+                    result = "WIN" if phg > pag else ("LOSE" if phg < pag else "PUSH")
+                elif side == "AWAY":
+                    result = "WIN" if pag > phg else ("LOSE" if pag < phg else "PUSH")
+                else:
+                    result = None
+
     elif market == "TOTAL":
         if line is None or not math.isfinite(float(line)):
             result = None
@@ -439,6 +581,25 @@ def _settle_row(row: pd.Series, final_scores: dict[int, tuple[Optional[int], Opt
                 result = "WIN" if total > float(line) else ("LOSE" if total < float(line) else "PUSH")
             else:
                 result = None
+
+    elif market == "PERIOD_TOTAL":
+        per_i = _safe_int(row.get("sig_period"))
+        if final_period_scores is None or per_i is None:
+            result = None
+        elif line is None or not math.isfinite(float(line)):
+            result = None
+        else:
+            phg, pag = final_period_scores.get((gamePk, int(per_i)), (None, None))
+            if phg is None or pag is None:
+                result = None
+            else:
+                total = int(phg) + int(pag)
+                if side == "UNDER":
+                    result = "WIN" if total < float(line) else ("LOSE" if total > float(line) else "PUSH")
+                elif side == "OVER":
+                    result = "WIN" if total > float(line) else ("LOSE" if total < float(line) else "PUSH")
+                else:
+                    result = None
 
     elif market == "PUCKLINE":
         # Expected sides: HOME_-1.5, AWAY_+1.5
@@ -766,6 +927,17 @@ def main() -> int:
         allow_web_fetch=bool(args.allow_web_fetch),
     )
 
+    # Final per-period goal splits (only needed for PERIOD_* markets)
+    final_period_scores: dict[tuple[int, int], tuple[int, int]] = {}
+    try:
+        period_mask = bets["market"].astype(str).str.upper().isin(["PERIOD_ML", "PERIOD_TOTAL"])
+        if bool(args.allow_web_fetch) and bool(period_mask.any()):
+            pks = set(bets.loc[period_mask, "gamePk"].dropna().astype(int).tolist())
+            # Keep timeout modest; this script is for backtesting and should finish.
+            final_period_scores = _final_period_goals_web(pks, timeout_sec=10.0)
+    except Exception:
+        final_period_scores = {}
+
     # Preload player stats for priced props we can settle
     prop_mask = bets["market"].astype(str).str.upper().str.startswith("PROP_")
     prop_bets = bets[prop_mask].copy()
@@ -781,7 +953,7 @@ def main() -> int:
         if market.startswith("PROP_"):
             settled_rows.append(_settle_prop_row(r, player_stats))
         else:
-            settled_rows.append(_settle_row(r, final_scores))
+            settled_rows.append(_settle_row(r, final_scores, final_period_scores=final_period_scores))
     settled_df = pd.concat([bets.reset_index(drop=True), pd.DataFrame(settled_rows)], axis=1)
 
     # Summary

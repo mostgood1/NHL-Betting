@@ -10,6 +10,8 @@ class TeamRates:
     goals_per_60: float = 2.9
     blocks_per_60: float = 12.0
     penalties_per_60: float = 3.0
+    # Pregame team-level faceoff win percentage (0..1). Used as a mild possession/shot-share signal.
+    faceoff_win_pct: float = 0.5
 
 
 @dataclass

@@ -22,7 +22,7 @@ from .teams import get_team_assets
 
 from fastapi import FastAPI, Request, Query, Header
 from starlette.exceptions import HTTPException as StarletteHTTPException
-from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 # App and templating setup
@@ -7769,6 +7769,18 @@ async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-M
     except Exception as e:
         h = (_git_commit_hash() or "")[:12]
         return PlainTextResponse(f"cards UI unavailable: {e} (commit {h})", status_code=200)
+
+
+@app.get("/cards")
+@app.get("/cards/")
+async def cards_alias(request: Request):
+    """Alias for legacy /cards links.
+
+    The cards-only UI now lives at `/`.
+    """
+    qs = str(request.url.query or "").strip()
+    target = "/" + (f"?{qs}" if qs else "")
+    return RedirectResponse(url=target, status_code=307)
     rows = df.to_dict(orient="records") if not df.empty else []
     # Fallback/sanitization: if predictions CSV lacks projection fields (older files) or they are NaN, derive them now
     if rows:

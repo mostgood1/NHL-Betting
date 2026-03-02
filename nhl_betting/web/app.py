@@ -9774,9 +9774,26 @@ async def api_props_recommendations(
                             a = float(a); return 1.0 + (a/100.0) if a > 0 else 1.0 + (100.0/abs(a))
                         except Exception:
                             return None
-                    ev_o = (p_over * (_dec(op)-1.0) - (1.0 - p_over)) if (op is not None and _dec(op) is not None) else None
-                    p_under = max(0.0, 1.0 - float(p_over))
-                    ev_u = (p_under * (_dec(up)-1.0) - (1.0 - p_under)) if (up is not None and _dec(up) is not None) else None
+                    try:
+                        from ..models.props import poisson_over_under_push_probs, ev_two_way_decimal
+                        p_over_win, p_under_win, p_push = poisson_over_under_push_probs(float(lam), float(ln))
+                    except Exception:
+                        p_over_win = float(p_over)
+                        p_under_win = max(0.0, 1.0 - float(p_over_win))
+                        p_push = 0.0
+
+                    dec_o = _dec(op) if (op is not None) else None
+                    dec_u = _dec(up) if (up is not None) else None
+                    ev_o = (
+                        ev_two_way_decimal(prob_win=float(p_over_win), dec_odds=float(dec_o), prob_push=float(p_push))
+                        if (dec_o is not None)
+                        else None
+                    )
+                    ev_u = (
+                        ev_two_way_decimal(prob_win=float(p_under_win), dec_odds=float(dec_u), prob_push=float(p_push))
+                        if (dec_u is not None)
+                        else None
+                    )
                     side = None; price = None; ev = None
                     if ev_o is not None or ev_u is not None:
                         if (ev_u is None) or (ev_o is not None and ev_o >= ev_u):
@@ -9792,7 +9809,9 @@ async def api_props_recommendations(
                         'market': m,
                         'line': ln,
                         'proj': float(lam),
-                        'p_over': float(p_over),
+                        'p_over': float(p_over_win),
+                        'p_under': float(p_under_win),
+                        'p_push': float(p_push),
                         'over_price': op if pd.notna(op) else None,
                         'under_price': up if pd.notna(up) else None,
                         'book': r.get('book'),
@@ -11457,6 +11476,16 @@ def _refresh_props_recommendations(date: str, min_ev: float = 0.0, top: int = 20
     p_over_s = pd.to_numeric(p_over_vec, errors="coerce")
 
     # Decide side using non-EV signals at the prop level, then choose best available price for that side.
+    # Consensus books contributing to each prop (pregame driver).
+    try:
+        if "book" in merged.columns:
+            cons_books = merged.groupby(["team", "player_display", "market", "line_num"])["book"].nunique(dropna=True)
+        else:
+            cons_books = merged.groupby(["team", "player_display", "market", "line_num"]).size()
+        cons_books = cons_books.rename("cons_books").reset_index()
+    except Exception:
+        cons_books = pd.DataFrame(columns=["team", "player_display", "market", "line_num", "cons_books"])
+
     base = merged.assign(
         player=lambda df: df["player_display"],
         market=lambda df: df["market"],
@@ -11464,6 +11493,17 @@ def _refresh_props_recommendations(date: str, min_ev: float = 0.0, top: int = 20
         p_over=p_over_s,
         team=lambda df: df.get("team"),
     )[["team", "player", "market", "line", "proj_lambda", "p_over"]].copy()
+    try:
+        if cons_books is not None and not cons_books.empty:
+            base = base.merge(
+                cons_books,
+                left_on=["team", "player", "market", "line"],
+                right_on=["team", "player_display", "market", "line_num"],
+                how="left",
+            )
+            base = base.drop(columns=["player_display", "line_num"], errors="ignore")
+    except Exception:
+        pass
     try:
         base = base.groupby(["team", "player", "market", "line"], as_index=False).first()
     except Exception:
@@ -11475,11 +11515,15 @@ def _refresh_props_recommendations(date: str, min_ev: float = 0.0, top: int = 20
     out["dec_over"] = dec_over
     out["dec_under"] = dec_under
     out = out.merge(
-        base[[c for c in ["team", "player", "market", "line", "opp", "side_suggested", "chosen_prob", "edge_score", "edge_reasons"] if c in base.columns]],
+        base[[c for c in ["team", "player", "market", "line", "opp", "side_suggested", "chosen_prob", "p_push", "p_under", "edge_score", "edge_reasons", "edge_drivers"] if c in base.columns]],
         left_on=["team", "player_display", "market", "line_num"],
         right_on=["team", "player", "market", "line"],
         how="left",
     )
+    # Backward-compatible defaults
+    for col, default in [("p_under", np.nan), ("p_push", 0.0), ("edge_drivers", "")]:
+        if col not in out.columns:
+            out[col] = default
     out["side"] = out.get("side_suggested")
     out["price"] = _np.where(out["side"] == "Over", out.get("over_price"), out.get("under_price"))
     out["cand_dec"] = _np.where(out["side"] == "Over", out.get("dec_over"), out.get("dec_under"))
@@ -11494,8 +11538,10 @@ def _refresh_props_recommendations(date: str, min_ev: float = 0.0, top: int = 20
     out = out.drop(columns=["_cand"], errors="ignore")
 
     prob = pd.to_numeric(out.get("chosen_prob"), errors="coerce")
+    p_push = pd.to_numeric(out.get("p_push"), errors="coerce").fillna(0.0)
     dec = pd.to_numeric(out.get("cand_dec"), errors="coerce")
-    ev = prob * (dec - 1.0) - (1.0 - prob)
+    # EV with push: EV = p_win*(dec-1) - (1 - p_win - p_push)
+    ev = prob * (dec - 1.0) - (1.0 - prob - p_push)
     # If prices are missing, treat EV as 0 (so probability-only rows can still surface if min_ev=0).
     try:
         miss = out.get("over_price").isna() & out.get("under_price").isna()
@@ -11505,6 +11551,132 @@ def _refresh_props_recommendations(date: str, min_ev: float = 0.0, top: int = 20
         pass
     out["ev"] = pd.to_numeric(ev, errors="coerce")
     out = out[out["ev"].notna() & (out["ev"].astype(float) >= float(min_ev))]
+
+    # Pregame driver: CLV / movement within the chosen book.
+    # Uses first_seen_at (open-ish) vs current (is_current or latest last_seen_at).
+    try:
+        if {"first_seen_at", "last_seen_at", "is_current", "book", "player_display", "market", "line_num"}.issubset(set(merged.columns)):
+            mv = merged[[
+                "player_display",
+                "market",
+                "book",
+                "line_num",
+                "over_price",
+                "under_price",
+                "first_seen_at",
+                "last_seen_at",
+                "is_current",
+            ]].copy()
+            mv["_fs"] = pd.to_datetime(mv["first_seen_at"], utc=True, errors="coerce")
+            mv["_ls"] = pd.to_datetime(mv["last_seen_at"], utc=True, errors="coerce")
+            mv["line_num"] = pd.to_numeric(mv["line_num"], errors="coerce")
+
+            # Open row per (player, market, book)
+            open_idx = mv.dropna(subset=["_fs"]).groupby(["player_display", "market", "book"])["_fs"].idxmin()
+            open_df = mv.loc[open_idx, ["player_display", "market", "book", "line_num", "over_price", "under_price"]].copy()
+            open_df = open_df.rename(columns={
+                "line_num": "open_line",
+                "over_price": "open_over_price",
+                "under_price": "open_under_price",
+            })
+
+            # Current row per (player, market, book)
+            cur_pool = mv.copy()
+            try:
+                cur_pool["is_current"] = cur_pool["is_current"].astype(bool)
+            except Exception:
+                pass
+            cur_use = cur_pool[cur_pool["is_current"] == True].copy()  # noqa: E712
+            if cur_use.empty:
+                cur_use = cur_pool
+            cur_idx = cur_use.dropna(subset=["_ls"]).groupby(["player_display", "market", "book"])["_ls"].idxmax()
+            cur_df = cur_use.loc[cur_idx, ["player_display", "market", "book", "line_num", "over_price", "under_price"]].copy()
+            cur_df = cur_df.rename(columns={
+                "line_num": "cur_line",
+                "over_price": "cur_over_price",
+                "under_price": "cur_under_price",
+            })
+
+            mv_map = open_df.merge(cur_df, on=["player_display", "market", "book"], how="inner")
+
+            out = out.merge(
+                mv_map,
+                left_on=["player_display", "market", "book"],
+                right_on=["player_display", "market", "book"],
+                how="left",
+            )
+
+            def _am_to_dec(x):
+                try:
+                    v = float(x)
+                    if not np.isfinite(v) or v == 0:
+                        return np.nan
+                    return 1.0 + (v / 100.0) if v > 0 else 1.0 + (100.0 / abs(v))
+                except Exception:
+                    return np.nan
+
+            def _mv_tags(r: pd.Series) -> str:
+                try:
+                    side = str(r.get("side") or "").strip().lower()
+                    if side not in ("over", "under"):
+                        return ""
+                    open_line = r.get("open_line")
+                    cur_line = r.get("cur_line")
+                    tags = []
+                    try:
+                        ol = float(open_line) if open_line is not None and pd.notna(open_line) else np.nan
+                        cl = float(cur_line) if cur_line is not None and pd.notna(cur_line) else np.nan
+                        if np.isfinite(ol) and np.isfinite(cl) and abs(cl - ol) > 1e-9:
+                            if side == "over":
+                                tags.append("MOVE+" if cl < ol else "MOVE-")
+                            else:
+                                tags.append("MOVE+" if cl > ol else "MOVE-")
+                    except Exception:
+                        pass
+
+                    # Price movement (chosen side)
+                    op = r.get("open_over_price") if side == "over" else r.get("open_under_price")
+                    cp = r.get("cur_over_price") if side == "over" else r.get("cur_under_price")
+                    od = _am_to_dec(op)
+                    cd = _am_to_dec(cp)
+                    if np.isfinite(od) and np.isfinite(cd) and abs(cd - od) >= 0.01:
+                        tags.append("PRICE+" if cd > od else "PRICE-")
+
+                    return " · ".join(tags)
+                except Exception:
+                    return ""
+
+            mv_tag = out.apply(_mv_tags, axis=1)
+            drv_s = out.get("edge_drivers").astype(str).fillna("") if ("edge_drivers" in out.columns) else pd.Series("", index=out.index)
+            out["edge_drivers"] = np.where(
+                mv_tag.astype(str).str.len() > 0,
+                mv_tag.astype(str) + np.where(drv_s.str.len() > 0, " · " + drv_s, ""),
+                drv_s,
+            )
+            out["edge_reasons"] = out.get("edge_drivers", "")
+    except Exception:
+        pass
+
+    # Pregame driver: juice on chosen side price.
+    try:
+        price = pd.to_numeric(out.get("price"), errors="coerce")
+        abs_price = price.abs()
+        juice_tag = np.where(abs_price >= 160, "JUICE+", np.where(abs_price >= 135, "JUICE", ""))
+        drv = out.get("edge_drivers")
+        if drv is None:
+            out["edge_drivers"] = pd.Series(juice_tag, index=out.index)
+        else:
+            drv_s = drv.astype(str).fillna("")
+            # Prefix juice so it shows up in capped pills.
+            out["edge_drivers"] = np.where(
+                (juice_tag != "") & (drv_s.str.contains("JUICE", case=False, na=False) == False),
+                juice_tag + " · " + drv_s,
+                drv_s,
+            )
+        # Keep edge_reasons aligned for compatibility.
+        out["edge_reasons"] = out.get("edge_drivers", "")
+    except Exception:
+        pass
 
     out = out.assign(
         date=d,
@@ -11527,6 +11699,8 @@ def _refresh_props_recommendations(date: str, min_ev: float = 0.0, top: int = 20
         "line",
         "proj",
         "p_over",
+        "p_under",
+        "p_push",
         "over_price",
         "under_price",
         "book",
@@ -11537,6 +11711,7 @@ def _refresh_props_recommendations(date: str, min_ev: float = 0.0, top: int = 20
         "chosen_prob",
         "edge_score",
         "edge_reasons",
+        "edge_drivers",
     ]]
     if not out.empty:
         sort_cols = [c for c in ["edge_score", "ev"] if c in out.columns]

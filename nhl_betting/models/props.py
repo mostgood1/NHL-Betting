@@ -9,6 +9,82 @@ import pandas as pd
 from scipy.stats import poisson
 
 
+def is_integer_line(line: float, *, tol: float = 1e-9) -> bool:
+    try:
+        x = float(line)
+    except Exception:
+        return False
+    if not np.isfinite(x):
+        return False
+    return abs(x - round(x)) <= tol
+
+
+def poisson_over_under_push_probs(lam: float, line: float) -> tuple[float, float, float]:
+    """Return (p_over_win, p_under_win, p_push) for a Poisson rate and a betting line.
+
+    Semantics:
+    - Over wins if X > line for integer lines, else X > floor(line).
+      (Equivalently: for x.5 lines, Over wins if X >= ceil(line).)
+    - Under wins if X < line for integer lines, else X <= floor(line).
+    - Push exists only when line is integer: X == line.
+    """
+    try:
+        mu = float(lam)
+        ln = float(line)
+    except Exception:
+        return (float("nan"), float("nan"), float("nan"))
+    if not np.isfinite(mu) or mu < 0 or not np.isfinite(ln):
+        return (float("nan"), float("nan"), float("nan"))
+
+    threshold = int(np.floor(ln + 1e-9))
+    p_over = float(poisson.sf(threshold, mu=mu))
+
+    if is_integer_line(ln):
+        k = int(round(ln))
+        p_push = float(poisson.pmf(k, mu=mu))
+        p_under = float(poisson.cdf(k - 1, mu=mu))
+    else:
+        p_push = 0.0
+        p_under = float(max(0.0, 1.0 - p_over))
+
+    # Clamp for numeric stability
+    def _clamp01(x: float) -> float:
+        if not np.isfinite(x):
+            return float("nan")
+        if x < 0.0:
+            return 0.0
+        if x > 1.0:
+            return 1.0
+        return float(x)
+
+    p_over = _clamp01(p_over)
+    p_under = _clamp01(p_under)
+    p_push = _clamp01(p_push)
+
+    return (p_over, p_under, p_push)
+
+
+def ev_two_way_decimal(*, prob_win: float, dec_odds: float, prob_push: float = 0.0) -> float:
+    """Expected profit for a $1 stake using decimal odds.
+
+    - Win profit: (dec_odds - 1)
+    - Loss profit: -1
+    - Push profit: 0
+    """
+    try:
+        p = float(prob_win)
+        d = float(dec_odds)
+        pp = float(prob_push)
+    except Exception:
+        return float("nan")
+    if not (np.isfinite(p) and np.isfinite(d) and np.isfinite(pp)):
+        return float("nan")
+    if d <= 0:
+        return float("nan")
+    # EV = p_win*(d-1) - p_lose, where p_lose = 1 - p_win - p_push
+    return (p * (d - 1.0)) - (1.0 - p - pp)
+
+
 @dataclass
 class PropsConfig:
     window: int = 10

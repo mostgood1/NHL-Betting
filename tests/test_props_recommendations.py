@@ -19,7 +19,9 @@ def test_recommendations_etag_and_ev_consistency():
         if r2.status_code == 304:
             # Nothing changed; acceptable
             pass
-    # EV consistency: ev_over (or ev) ≈ p_over * (dec_odds - 1) - (1-p_over) where dec_odds from over_price
+    # EV consistency (push-aware):
+    # ev_over (or ev) ≈ p_over * (dec_odds - 1) - (1 - p_over - p_push)
+    # where dec_odds from over_price. If p_push missing, assume 0.
     rows = data.get('data') or []
     checked = 0
     for row in rows:
@@ -36,9 +38,13 @@ def test_recommendations_etag_and_ev_consistency():
             price = float(over_price)
         except Exception:
             continue
+        try:
+            p_push = float(row.get('p_push') or 0.0)
+        except Exception:
+            p_push = 0.0
         # american to decimal conversion
         dec = (price / 100.0 + 1.0) if price > 0 else (100.0 / abs(price) + 1.0)
-        theo = p * (dec - 1.0) - (1.0 - p)
+        theo = p * (dec - 1.0) - (1.0 - p - p_push)
         assert not (theo != theo), 'NaN theoretical EV'
         assert abs(theo - float(ev_val)) < 0.15, f"EV mismatch: theo={theo} stored={ev_val} row={row}"
         checked += 1

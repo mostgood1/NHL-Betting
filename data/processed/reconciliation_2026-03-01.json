@@ -1,0 +1,159 @@
+{
+  "summary": {
+    "date": "2026-03-01",
+    "picks": 12,
+    "decided": 12,
+    "wins": 8,
+    "losses": 4,
+    "pushes": 0,
+    "staked": 1200.0,
+    "pnl": 363.5280316999742,
+    "roi": 0.30294002641664514
+  },
+  "rows": [
+    {
+      "date": "2026-03-01T21:00:00Z",
+      "home": "Utah Mammoth",
+      "away": "Chicago Blackhawks",
+      "market": "moneyline",
+      "bet": "home_ml",
+      "ev": 0.0607,
+      "price": -305,
+      "result": "loss",
+      "stake": 100.0,
+      "payout": -100.0
+    },
+    {
+      "date": "2026-03-01T21:00:00Z",
+      "home": "Utah Mammoth",
+      "away": "Chicago Blackhawks",
+      "market": "totals",
+      "bet": "over",
+      "ev": 0.0626,
+      "price": 100,
+      "result": "loss",
+      "stake": 100.0,
+      "payout": -100.0
+    },
+    {
+      "date": "2026-03-01T21:00:00Z",
+      "home": "Utah Mammoth",
+      "away": "Chicago Blackhawks",
+      "market": "puckline",
+      "bet": "away_pl_+1.5",
+      "ev": 0.1171,
+      "price": 110.0,
+      "result": "win",
+      "stake": 100.0,
+      "payout": 110.00000000000001
+    },
+    {
+      "date": "2026-03-01T21:00:00Z",
+      "home": "San Jose Sharks",
+      "away": "Winnipeg Jets",
+      "market": "moneyline",
+      "bet": "home_ml",
+      "ev": 0.1652,
+      "price": 104,
+      "result": "win",
+      "stake": 100.0,
+      "payout": 104.0
+    },
+    {
+      "date": "2026-03-01T21:00:00Z",
+      "home": "San Jose Sharks",
+      "away": "Winnipeg Jets",
+      "market": "totals",
+      "bet": "under",
+      "ev": 0.0946,
+      "price": -113,
+      "result": "win",
+      "stake": 100.0,
+      "payout": 88.49557522123894
+    },
+    {
+      "date": "2026-03-01T22:00:00Z",
+      "home": "Minnesota Wild",
+      "away": "St. Louis Blues",
+      "market": "moneyline",
+      "bet": "home_ml",
+      "ev": 0.1093,
+      "price": -220,
+      "result": "loss",
+      "stake": 100.0,
+      "payout": -100.0
+    },
+    {
+      "date": "2026-03-01T22:00:00Z",
+      "home": "Minnesota Wild",
+      "away": "St. Louis Blues",
+      "market": "totals",
+      "bet": "under",
+      "ev": 0.2854,
+      "price": -108,
+      "result": "win",
+      "stake": 100.0,
+      "payout": 92.59259259259261
+    },
+    {
+      "date": "2026-03-01T22:00:00Z",
+      "home": "Minnesota Wild",
+      "away": "St. Louis Blues",
+      "market": "puckline",
+      "bet": "away_pl_+1.5",
+      "ev": 0.1023,
+      "price": -122.0,
+      "result": "win",
+      "stake": 100.0,
+      "payout": 81.9672131147541
+    },
+    {
+      "date": "2026-03-01T23:30:00Z",
+      "home": "New York Islanders",
+      "away": "Florida Panthers",
+      "market": "moneyline",
+      "bet": "home_ml",
+      "ev": 0.2702,
+      "price": 135,
+      "result": "win",
+      "stake": 100.0,
+      "payout": 135.0
+    },
+    {
+      "date": "2026-03-02T01:00:00Z",
+      "home": "Anaheim Ducks",
+      "away": "Calgary Flames",
+      "market": "moneyline",
+      "bet": "away_ml",
+      "ev": 0.1241,
+      "price": 165,
+      "result": "loss",
+      "stake": 100.0,
+      "payout": -100.0
+    },
+    {
+      "date": "2026-03-02T01:00:00Z",
+      "home": "Anaheim Ducks",
+      "away": "Calgary Flames",
+      "market": "totals",
+      "bet": "under",
+      "ev": 0.2416,
+      "price": -115,
+      "result": "win",
+      "stake": 100.0,
+      "payout": 86.95652173913042
+    },
+    {
+      "date": "2026-03-02T01:00:00Z",
+      "home": "Anaheim Ducks",
+      "away": "Calgary Flames",
+      "market": "puckline",
+      "bet": "away_pl_+1.5",
+      "ev": 0.0845,
+      "price": -155.0,
+      "result": "win",
+      "stake": 100.0,
+      "payout": 64.51612903225805
+    }
+  ]
+}

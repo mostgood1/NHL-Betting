@@ -1316,6 +1316,42 @@ def run(days_ahead: int = 2, years_back: int = 2, reconcile_yesterday: bool = Tr
                 if hasattr(cmd, 'callback') and callable(getattr(cmd, 'callback')):
                     return cmd.callback(**kwargs)
                 elif callable(cmd):
+                    # Typer-decorated commands often have defaults that are OptionInfo objects;
+                    # calling them as plain functions can leak those into the runtime.
+                    try:
+                        import inspect
+                        sig = inspect.signature(cmd)
+                        has_typer_defaults = any(
+                            (type(p.default).__name__ in ("OptionInfo", "ArgumentInfo"))
+                            for p in sig.parameters.values()
+                        )
+                    except Exception:
+                        has_typer_defaults = False
+
+                    if has_typer_defaults:
+                        import sys
+                        root = _ROOT if '_ROOT' in globals() else Path(__file__).resolve().parents[2]
+                        date = str(kwargs.get("date", ""))
+                        min_ev = kwargs.get("min_ev", 0.0)
+                        top = kwargs.get("top", 200)
+                        market = str(kwargs.get("market", "") or "")
+                        args = [
+                            sys.executable,
+                            "-m",
+                            "nhl_betting.cli",
+                            "props-recommendations",
+                            "--date",
+                            date,
+                            "--min-ev",
+                            str(min_ev),
+                            "--top",
+                            str(top),
+                        ]
+                        if market:
+                            args += ["--market", market]
+                        subprocess.run(args, cwd=str(root), check=True)
+                        return None
+
                     return cmd(**kwargs)
                 else:
                     raise RuntimeError('Unsupported command object for props recommendations')
@@ -1384,7 +1420,30 @@ def run(days_ahead: int = 2, years_back: int = 2, reconcile_yesterday: bool = Tr
                     try:
                         outp = PROC_DIR / f"props_recommendations_{d}.csv"
                         if not outp.exists():
-                            pd.DataFrame(columns=["date","player_id","player_name","team","market","line","over_price","under_price","book","ev","p_over"]).to_csv(outp, index=False)
+                            pd.DataFrame(
+                                columns=[
+                                    "date",
+                                    "player",
+                                    "team",
+                                    "opp",
+                                    "market",
+                                    "line",
+                                    "proj_lambda",
+                                    "proj",
+                                    "p_over",
+                                    "over_price",
+                                    "under_price",
+                                    "book",
+                                    "side",
+                                    "price",
+                                    "ev",
+                                    "ev_over",
+                                    "chosen_prob",
+                                    "edge_score",
+                                    "edge_drivers",
+                                    "edge_reasons",
+                                ]
+                            ).to_csv(outp, index=False)
                             _vprint(verbose, f"[run] wrote empty props_recommendations_{d}.csv placeholder")
                         produced_artifacts.append(str(outp))
                     except Exception:
@@ -1431,6 +1490,42 @@ def run(days_ahead: int = 2, years_back: int = 2, reconcile_yesterday: bool = Tr
             except Exception:
                 pass
         _vprint(verbose, f"[run] Reconciliation completed in {time.perf_counter() - t2:.1f}s")
+
+    # 3b) Publish stable web/UI artifacts: daily bundles + manifest (best-effort)
+    try:
+        from nhl_betting.cli import bundle_build as _bundle_build
+        from nhl_betting.cli import bundle_manifest as _bundle_manifest
+
+        def _call_typer_or_func_bundle(cmd, **kwargs):
+            if hasattr(cmd, 'callback') and callable(getattr(cmd, 'callback')):
+                return cmd.callback(**kwargs)
+            elif callable(cmd):
+                return cmd(**kwargs)
+            else:
+                raise RuntimeError('Unsupported command object for bundle build')
+
+        base_et = _today_et().date()
+        bundle_dates: list[str] = []
+        if reconcile_yesterday:
+            bundle_dates.append((base_et - timedelta(days=1)).strftime('%Y-%m-%d'))
+        bundle_dates.append(base_et.strftime('%Y-%m-%d'))
+        if days_ahead and int(days_ahead) > 1:
+            bundle_dates.append((base_et + timedelta(days=1)).strftime('%Y-%m-%d'))
+        # Dedup while preserving order
+        seen: set[str] = set(); bundle_dates = [d for d in bundle_dates if not (d in seen or seen.add(d))]
+
+        for d in bundle_dates:
+            try:
+                _vprint(verbose, f"[run] Publishing bundle for {d}…")
+                _call_typer_or_func_bundle(_bundle_build, date=d)
+            except Exception as e:
+                _vprint(verbose, f"[run] bundle-build failed for {d}: {e}")
+        try:
+            _call_typer_or_func_bundle(_bundle_manifest)
+        except Exception:
+            pass
+    except Exception as e:
+        _vprint(verbose, f"[run] bundle publish skipped: {e}")
     # End-of-run summary
     total_dur = time.perf_counter() - t_start
     try:
@@ -1440,13 +1535,13 @@ def run(days_ahead: int = 2, years_back: int = 2, reconcile_yesterday: bool = Tr
         tr_goals = len(tr.goals)
     except Exception:
         tr_ml = tr_goals = 0
-    pred_dates = []
+    pred_dates: list[str] = []
     try:
-        base = _today_et().astimezone(timezone.utc)
-        for i in range(0, min(2, max(1, days_ahead))):
-            pred_dates.append(_ymd(base + timedelta(days=i)))
+        base_et = _today_et().date()
+        for i in range(0, min(2, max(1, int(days_ahead) if days_ahead else 1))):
+            pred_dates.append((base_et + timedelta(days=i)).strftime('%Y-%m-%d'))
     except Exception:
-        pass
+        pred_dates = []
     if verbose:
         _vprint(verbose, f"[summary] Predicted: {', '.join(pred_dates)}; Trends: ml_keys={tr_ml}, goals_keys={tr_goals}; Duration: {total_dur:.1f}s")
     else:
@@ -1492,6 +1587,50 @@ def run(days_ahead: int = 2, years_back: int = 2, reconcile_yesterday: bool = Tr
                         props_proj_file = root / "data" / "processed" / f"props_projections_all_{d}.csv"
                         if props_proj_file.exists():
                             _run(["git", "add", "-f", str(props_proj_file)])
+
+                        # Props recs (pill drivers live here)
+                        props_recs_file = root / "data" / "processed" / f"props_recommendations_{d}.csv"
+                        if props_recs_file.exists():
+                            _run(["git", "add", "-f", str(props_recs_file)])
+
+                        # Daily bundles consumed by UI (stable artifact)
+                        bundle_file = root / "data" / "processed" / "bundles" / f"date={d}" / "bundle.json"
+                        if bundle_file.exists():
+                            _run(["git", "add", "-f", str(bundle_file)])
+
+                    # Manifest and rolling history
+                    man = root / "data" / "processed" / "bundles" / "manifest.json"
+                    if man.exists():
+                        _run(["git", "add", "-f", str(man)])
+                    props_hist = root / "data" / "processed" / "props_recommendations_history.csv"
+                    if props_hist.exists():
+                        _run(["git", "add", "-f", str(props_hist)])
+
+                    # Reconciliation artifacts (yesterday)
+                    try:
+                        y_et = _today_et().date() - timedelta(days=1)
+                        y = y_et.strftime('%Y-%m-%d')
+                        # Bundle for yesterday (published when reconciliation runs)
+                        y_bundle = root / "data" / "processed" / "bundles" / f"date={y}" / "bundle.json"
+                        if y_bundle.exists():
+                            _run(["git", "add", "-f", str(y_bundle)])
+                        recon_game = root / "data" / "processed" / f"reconciliation_{y}.json"
+                        if recon_game.exists():
+                            _run(["git", "add", "-f", str(recon_game)])
+                        recon_props = root / "data" / "processed" / f"reconciliation_props_{y}.json"
+                        if recon_props.exists():
+                            _run(["git", "add", "-f", str(recon_props)])
+                        recon_log = root / "data" / "processed" / "reconciliations_log.csv"
+                        if recon_log.exists():
+                            _run(["git", "add", "-f", str(recon_log)])
+                        recon_props_log = root / "data" / "processed" / "props_reconciliations_log.csv"
+                        if recon_props_log.exists():
+                            _run(["git", "add", "-f", str(recon_props_log)])
+                        pva = root / "data" / "processed" / f"player_props_vs_actuals_{y}.csv"
+                        if pva.exists():
+                            _run(["git", "add", "-f", str(pva)])
+                    except Exception:
+                        pass
                     _vprint(verbose, f"[git] Force-added essential CSV files for: {', '.join(pred_dates)}")
                 except Exception as e:
                     _vprint(verbose, f"[git] Warning: failed to force-add CSV files: {e}")
@@ -1544,6 +1683,40 @@ def reconcile_props_date(date: str, flat_stake: float = 100.0, verbose: bool = F
                 if hasattr(cmd, 'callback') and callable(getattr(cmd, 'callback')):
                     return cmd.callback(**kwargs)
                 elif callable(cmd):
+                    try:
+                        import inspect
+                        sig = inspect.signature(cmd)
+                        has_typer_defaults = any(
+                            (type(p.default).__name__ in ("OptionInfo", "ArgumentInfo"))
+                            for p in sig.parameters.values()
+                        )
+                    except Exception:
+                        has_typer_defaults = False
+
+                    if has_typer_defaults:
+                        import sys
+                        root = _ROOT if '_ROOT' in globals() else Path(__file__).resolve().parents[2]
+                        date = str(kwargs.get("date", ""))
+                        min_ev = kwargs.get("min_ev", 0.0)
+                        top = kwargs.get("top", 200)
+                        market = str(kwargs.get("market", "") or "")
+                        args = [
+                            sys.executable,
+                            "-m",
+                            "nhl_betting.cli",
+                            "props-recommendations",
+                            "--date",
+                            date,
+                            "--min-ev",
+                            str(min_ev),
+                            "--top",
+                            str(top),
+                        ]
+                        if market:
+                            args += ["--market", market]
+                        subprocess.run(args, cwd=str(root), check=True)
+                        return None
+
                     return cmd(**kwargs)
                 else:
                     raise RuntimeError('Unsupported command object for props recommendations')

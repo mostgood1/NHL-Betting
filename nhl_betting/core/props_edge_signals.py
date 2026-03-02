@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from datetime import timedelta
 from functools import lru_cache
 from typing import Any
 
@@ -9,6 +10,7 @@ import pandas as pd
 
 from ..utils.io import PROC_DIR, RAW_DIR
 from ..web.teams import get_team_assets
+from ..models.props import poisson_over_under_push_probs
 
 
 def _norm_name(x: Any) -> str:
@@ -34,6 +36,25 @@ def _safe_date(x: Any) -> pd.Timestamp | None:
         if pd.isna(ts):
             return None
         return ts
+    except Exception:
+        return None
+
+
+def _toi_to_sec(x: Any) -> float | None:
+    """Parse NHL time-on-ice strings like "18:42" into seconds."""
+    try:
+        s = str(x or "").strip()
+        if not s:
+            return None
+        parts = s.split(":")
+        parts = [int(p) for p in parts]
+        if len(parts) == 2:
+            mm, ss = parts
+            return float(mm * 60 + ss)
+        if len(parts) == 3:
+            hh, mm, ss = parts
+            return float(hh * 3600 + mm * 60 + ss)
+        return None
     except Exception:
         return None
 
@@ -68,6 +89,7 @@ def _load_player_game_history() -> pd.DataFrame:
         "goals",
         "assists",
         "blocked",
+        "timeOnIce",
         "saves",
     ]
     try:
@@ -120,6 +142,13 @@ def _load_player_game_history() -> pd.DataFrame:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce")
 
+    # Time on ice
+    if "timeOnIce" in df.columns:
+        df["toi_sec"] = df["timeOnIce"].map(_toi_to_sec)
+        df["toi_sec"] = pd.to_numeric(df["toi_sec"], errors="coerce")
+    else:
+        df["toi_sec"] = np.nan
+
     keep = [
         "gamePk",
         "game_date",
@@ -130,6 +159,7 @@ def _load_player_game_history() -> pd.DataFrame:
         "goals",
         "assists",
         "blocked",
+        "toi_sec",
         "saves",
     ]
     return df[keep].copy()
@@ -197,6 +227,10 @@ def attach_prop_edge_signals(
     df["market"] = df["market"].astype(str).str.upper()
     df["line"] = pd.to_numeric(df.get("line"), errors="coerce")
     df["p_over"] = pd.to_numeric(df.get("p_over"), errors="coerce")
+    if "proj_lambda" in df.columns:
+        df["proj_lambda"] = pd.to_numeric(df.get("proj_lambda"), errors="coerce")
+    else:
+        df["proj_lambda"] = np.nan
 
     team_to_opp = build_team_opponent_map(date)
     df["opp"] = df["team"].map(lambda t: team_to_opp.get(str(t).upper(), None))
@@ -207,11 +241,32 @@ def attach_prop_edge_signals(
         model_dir = (df["p_over"].fillna(0.5) - 0.5)
         df["direction_score"] = (2.0 * model_dir).astype(float)
         df["side_suggested"] = np.where(df["direction_score"] >= 0, "Over", "Under")
-        df["chosen_prob"] = np.where(df["side_suggested"] == "Over", df["p_over"], (1.0 - df["p_over"]))
+        # Push-aware win probabilities when we have lambda; otherwise fall back to 2-way probabilities.
+        def _calc_probs(r: pd.Series):
+            lam = r.get("proj_lambda")
+            ln = r.get("line")
+            p_over = r.get("p_over")
+            if lam is not None and pd.notna(lam) and ln is not None and pd.notna(ln):
+                po, pu, pp = poisson_over_under_push_probs(float(lam), float(ln))
+                return pd.Series({"p_over_win": po, "p_under_win": pu, "p_push": pp})
+            # Fallback: no push handling possible without lambda
+            try:
+                po = float(p_over) if p_over is not None and pd.notna(p_over) else np.nan
+            except Exception:
+                po = np.nan
+            pu = (1.0 - po) if (po == po) else np.nan
+            return pd.Series({"p_over_win": po, "p_under_win": pu, "p_push": 0.0})
+
+        probs = df.apply(_calc_probs, axis=1)
+        for c in ["p_over_win", "p_under_win", "p_push"]:
+            df[c] = pd.to_numeric(probs.get(c), errors="coerce")
+        df["p_under"] = df["p_under_win"]
+        df["chosen_prob"] = np.where(df["side_suggested"] == "Over", df["p_over_win"], df["p_under_win"])
         df["edge_score"] = ((df["chosen_prob"].fillna(0.5) - 0.5) * 2.0).clip(lower=0.0, upper=1.0)
-        df["edge_reasons"] = df.apply(
-            lambda r: f"p {float(r.get('chosen_prob') or 0.0):.0%} (model-only)", axis=1
+        df["edge_drivers"] = df.apply(
+            lambda r: f"model leans {r.get('side_suggested') or ''}".strip(), axis=1
         )
+        df["edge_reasons"] = df["edge_drivers"]
         return df.drop(columns=["player_norm"], errors="ignore")
 
     cutoff = _ymd_to_date(date)
@@ -243,6 +298,18 @@ def attach_prop_edge_signals(
     player_recent: dict[tuple[str, str], float] = {}
     player_season: dict[tuple[str, str], float] = {}
     player_h2h: dict[tuple[str, str, str], float] = {}
+
+    # Recent TOI (minutes proxy) per player
+    player_toi_recent_min: dict[str, float] = {}
+    try:
+        if "toi_sec" in hsub.columns:
+            toi = pd.to_numeric(hsub["toi_sec"], errors="coerce")
+            toi_mean = hsub.assign(_v=toi).groupby("player_norm")["_v"].apply(lambda s: s.tail(int(recent_games)).mean())
+            for k, vv in toi_mean.items():
+                if pd.notna(vv) and np.isfinite(vv) and float(vv) > 0:
+                    player_toi_recent_min[str(k)] = float(vv) / 60.0
+    except Exception:
+        player_toi_recent_min = {}
 
     for m in markets:
         col = stat_cols.get(m)
@@ -372,6 +439,13 @@ def attach_prop_edge_signals(
         lambda r: opp_allow.get((str(r.get("opp") or ""), str(r.get("market") or ""))), axis=1
     )
 
+    # TOI minutes tier
+    try:
+        df["toi_recent_min"] = df["player_norm"].map(lambda pn: player_toi_recent_min.get(str(pn), np.nan))
+        df["toi_recent_min"] = pd.to_numeric(df["toi_recent_min"], errors="coerce")
+    except Exception:
+        df["toi_recent_min"] = np.nan
+
     # Direction score (non-EV): combine model direction + player recency + opponent defense + H2H.
     model_dir = (df["p_over"].fillna(0.5) - 0.5) * 2.0  # [-1, 1]
     mkt = df["market"].astype(str)
@@ -393,7 +467,27 @@ def attach_prop_edge_signals(
     direction = (0.60 * model_dir) + (0.20 * recent_z) + (0.15 * opp_z) + (0.05 * h2h_z)
     df["direction_score"] = pd.to_numeric(direction, errors="coerce").fillna(0.0)
     df["side_suggested"] = np.where(df["direction_score"] >= 0, "Over", "Under")
-    df["chosen_prob"] = np.where(df["side_suggested"] == "Over", df["p_over"], (1.0 - df["p_over"]))
+
+    # Push-aware win probabilities (preferred) when we have lambda.
+    def _calc_probs_full(r: pd.Series):
+        lam = r.get("proj_lambda")
+        ln = r.get("line")
+        p_over = r.get("p_over")
+        if lam is not None and pd.notna(lam) and ln is not None and pd.notna(ln):
+            po, pu, pp = poisson_over_under_push_probs(float(lam), float(ln))
+            return pd.Series({"p_over_win": po, "p_under_win": pu, "p_push": pp})
+        try:
+            po = float(p_over) if p_over is not None and pd.notna(p_over) else np.nan
+        except Exception:
+            po = np.nan
+        pu = (1.0 - po) if (po == po) else np.nan
+        return pd.Series({"p_over_win": po, "p_under_win": pu, "p_push": 0.0})
+
+    probs2 = df.apply(_calc_probs_full, axis=1)
+    for c in ["p_over_win", "p_under_win", "p_push"]:
+        df[c] = pd.to_numeric(probs2.get(c), errors="coerce")
+    df["p_under"] = df["p_under_win"]
+    df["chosen_prob"] = np.where(df["side_suggested"] == "Over", df["p_over_win"], df["p_under_win"])
 
     # Support scores in [0,1] for ranking (higher = stronger).
     # Align deltas to the suggested side.
@@ -406,38 +500,133 @@ def attach_prop_edge_signals(
         0.0, 1.0
     )
 
-    def _reason_row(r: pd.Series) -> str:
-        try:
-            p = float(r.get("chosen_prob") or 0.0)
-        except Exception:
-            p = 0.0
-        parts: list[str] = [f"p {p:.0%}"]
-        try:
-            ra = r.get("player_recent_avg")
-            if ra is not None and pd.notna(ra):
-                parts.append(f"L{int(recent_games)} {float(ra):.2f}")
-        except Exception:
-            pass
-        try:
-            hh = r.get("player_h2h_avg")
-            if hh is not None and pd.notna(hh):
-                parts.append(f"H2H {float(hh):.2f}")
-        except Exception:
-            pass
-        try:
-            oa = r.get("opp_allow_avg")
-            if oa is not None and pd.notna(oa):
-                parts.append(f"opp allow {float(oa):.2f}")
-        except Exception:
-            pass
-        try:
-            ln = r.get("line")
-            if ln is not None and pd.notna(ln):
-                parts.append(f"line {float(ln):.1f}")
-        except Exception:
-            pass
-        return "; ".join(parts)
+    # Team rest tags (B2B / 3IN4) based on historical game dates.
+    rest_tags: dict[str, list[str]] = {}
+    try:
+        team_games = hist[(hist["game_date"] < cutoff) & (hist["team_abbr"].notna())][
+            ["team_abbr", "game_date", "gamePk"]
+        ].drop_duplicates()
+        if not team_games.empty:
+            yday = cutoff - timedelta(days=1)
+            w4 = cutoff - timedelta(days=3)
+            recent = team_games[team_games["game_date"].between(w4, yday, inclusive="both")]
+            cnt = recent.groupby("team_abbr")["gamePk"].nunique()
+            played_yday = (
+                team_games[team_games["game_date"] == yday].groupby("team_abbr")["gamePk"].nunique().astype(int)
+            )
+            for tm in team_games["team_abbr"].dropna().astype(str).unique().tolist():
+                tags: list[str] = []
+                try:
+                    if int(played_yday.get(tm, 0)) > 0:
+                        tags.append("B2B")
+                except Exception:
+                    pass
+                try:
+                    if int(cnt.get(tm, 0)) >= 3:
+                        tags.append("3IN4")
+                except Exception:
+                    pass
+                if tags:
+                    rest_tags[str(tm)] = tags
+    except Exception:
+        rest_tags = {}
 
-    df["edge_reasons"] = df.apply(_reason_row, axis=1)
+    def _cons_tag(n: Any) -> str | None:
+        try:
+            if n is None or pd.isna(n):
+                return None
+            v = int(float(n))
+            if v <= 0:
+                return None
+            if v >= 3:
+                return f"CONS{v}+"
+            if v == 2:
+                return "CONS2"
+            return "SINGLE"
+        except Exception:
+            return None
+
+    def _reason_row(r: pd.Series) -> str:
+        # Drivers-only: short, pill-friendly tags.
+        side = str(r.get("side_suggested") or "").strip() or "Over"
+        side_tag = "MODEL OVR" if side.lower().startswith("o") else "MODEL UND"
+        parts: list[str] = [side_tag]
+
+        # Confidence tags from push-aware chosen probability.
+        try:
+            p = float(r.get("chosen_prob"))
+            if np.isfinite(p):
+                if p >= 0.60:
+                    parts.append("CONF60+")
+                elif p >= 0.55:
+                    parts.append("CONF55+")
+        except Exception:
+            pass
+
+        # Push risk (integer lines) when meaningful.
+        try:
+            pp = float(r.get("p_push"))
+            if np.isfinite(pp) and pp >= 0.08:
+                parts.append("PUSH")
+        except Exception:
+            pass
+
+        # Consensus books (if provided by caller).
+        cons = _cons_tag(r.get("cons_books"))
+        if cons:
+            parts.append(cons)
+
+        # TOI tier (skaters): helps pregame identify minutes risk.
+        try:
+            m = str(r.get("market") or "").upper()
+            if m != "SAVES":
+                toi_m = float(r.get("toi_recent_min"))
+                if np.isfinite(toi_m) and toi_m > 0:
+                    if toi_m >= 20.0:
+                        parts.append("TOI20+")
+                    elif toi_m >= 16.0:
+                        parts.append("TOI16-20")
+                    else:
+                        parts.append("TOI<16")
+        except Exception:
+            pass
+
+        # Rest tags.
+        try:
+            tm = str(r.get("team") or "").upper().strip()
+            for t in (rest_tags.get(tm) or []):
+                parts.append(t)
+        except Exception:
+            pass
+
+        # Support vs suggested side: FORM / MATCHUP / H2H.
+        try:
+            s = 1.0 if side.lower().startswith("o") else -1.0
+        except Exception:
+            s = 1.0
+        try:
+            rz = float(recent_z.loc[r.name])
+            if np.isfinite(rz) and abs(rz) >= 0.35 and (r.get("player_recent_avg") is not None and pd.notna(r.get("player_recent_avg"))):
+                parts.append("FORM+" if (s * rz) > 0 else "FORM-")
+        except Exception:
+            pass
+        try:
+            oz = float(opp_z.loc[r.name])
+            if np.isfinite(oz) and abs(oz) >= 0.35 and (r.get("opp_allow_avg") is not None and pd.notna(r.get("opp_allow_avg"))):
+                parts.append("MATCHUP+" if (s * oz) > 0 else "MATCHUP-")
+        except Exception:
+            pass
+        try:
+            hz = float(h2h_z.loc[r.name])
+            if np.isfinite(hz) and abs(hz) >= 0.35 and (r.get("player_h2h_avg") is not None and pd.notna(r.get("player_h2h_avg"))):
+                parts.append("H2H+" if (s * hz) > 0 else "H2H-")
+        except Exception:
+            pass
+
+        # Keep it compact; UI will also cap pills.
+        return " · ".join(parts[:7])
+
+    df["edge_drivers"] = df.apply(_reason_row, axis=1)
+    df["edge_reasons"] = df["edge_drivers"]
 
     return df.drop(columns=["player_norm"], errors="ignore")

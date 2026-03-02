@@ -82,6 +82,10 @@ data/props/**
 !data/processed/props_recommendations_history.csv
 !data/processed/player_props_vs_actuals_*.csv
 
+## Reconciliation + bundle artifacts
+## Keep these ignored by default to avoid accidentally staging a huge backlog.
+## The daily update script force-adds the specific dates/logs/bundles needed for public deploy parity.
+
 ## Allow committing sim artifacts used by web /api/sim/* (small CSVs; no Parquet samples)
 data/processed/props_boxscores_sim_samples_*
 !data/processed/props_boxscores_sim_????-??-??.csv

@@ -1,0 +1,15 @@
+date,home,away,market,bet,prob,price,book,ev
+2026-03-03T03:30:00Z,Los Angeles Kings,Colorado Avalanche,moneyline,home_ml,0.7286806566810609,145.0,draftkings,0.7853
+2026-03-03T03:00:00Z,Vancouver Canucks,Dallas Stars,puckline,away_pl_+1.5,0.90635,-110.0,draftkings,0.7303
+2026-03-03T00:00:00Z,New York Rangers,Columbus Blue Jackets,moneyline,home_ml,0.7829406566810608,105.0,draftkings,0.605
+2026-03-03T03:30:00Z,Los Angeles Kings,Colorado Avalanche,puckline,away_pl_+1.5,0.7253000000000001,-110.0,draftkings,0.3847
+2026-03-03T00:00:00Z,New York Rangers,Columbus Blue Jackets,puckline,away_pl_+1.5,0.7111000000000001,-110.0,draftkings,0.3576
+2026-03-02T19:00:00Z,Nashville Predators,Detroit Red Wings,puckline,away_pl_+1.5,0.70015,-110.0,draftkings,0.3367
+2026-03-03T03:00:00Z,Seattle Kraken,Carolina Hurricanes,puckline,away_pl_+1.5,0.6923,-110.0,draftkings,0.3217
+2026-03-03T03:00:00Z,Seattle Kraken,Carolina Hurricanes,moneyline,home_ml,0.5045917247225753,154.0,draftkings,0.2817
+2026-03-03T00:00:00Z,New York Rangers,Columbus Blue Jackets,first10,f10_yes,0.67793439114992,-150.0,,0.1299
+2026-03-03T03:30:00Z,Los Angeles Kings,Colorado Avalanche,first10,f10_yes,0.6671289163019205,-150.0,,0.1119
+2026-03-02T19:00:00Z,Nashville Predators,Detroit Red Wings,first10,f10_yes,0.6597246036596991,-150.0,,0.0995
+2026-03-03T00:30:00Z,Toronto Maple Leafs,Philadelphia Flyers,first10,f10_yes,0.6578479328659166,-150.0,,0.0964
+2026-03-03T03:00:00Z,Vancouver Canucks,Dallas Stars,first10,f10_yes,0.6540634838174593,-150.0,,0.0901
+2026-03-03T03:00:00Z,Seattle Kraken,Carolina Hurricanes,first10,f10_yes,0.6444182150217139,-150.0,,0.074

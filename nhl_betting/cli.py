@@ -5158,7 +5158,30 @@ def props_recommendations(
     if not parts:
         # Fast-fail: write empty output instead of aborting to avoid killing parent flows
         print("No props lines found for", date, "- writing empty recommendations")
-        out = pd.DataFrame(columns=["date","player","team","market","line","proj","p_over","over_price","under_price","book","side","ev"])
+        out = pd.DataFrame(
+            columns=[
+                "date",
+                "player",
+                "team",
+                "opp",
+                "market",
+                "line",
+                "proj_lambda",
+                "proj",
+                "p_over",
+                "over_price",
+                "under_price",
+                "book",
+                "side",
+                "price",
+                "ev",
+                "ev_over",
+                "chosen_prob",
+                "edge_score",
+                "edge_drivers",
+                "edge_reasons",
+            ]
+        )
         out_path = PROC_DIR / f"props_recommendations_{date}.csv"
         save_df(out, out_path)
         print(f"Wrote {out_path} with 0 rows")
@@ -5171,7 +5194,30 @@ def props_recommendations(
         lines = next((p for p in parts if p is not None and not p.empty), pd.DataFrame())
         if lines is None or lines.empty:
             print("No readable props lines for", date, "- writing empty recommendations")
-            out = pd.DataFrame(columns=["date","player","team","market","line","proj","p_over","over_price","under_price","book","side","ev"])
+            out = pd.DataFrame(
+                columns=[
+                    "date",
+                    "player",
+                    "team",
+                    "opp",
+                    "market",
+                    "line",
+                    "proj_lambda",
+                    "proj",
+                    "p_over",
+                    "over_price",
+                    "under_price",
+                    "book",
+                    "side",
+                    "price",
+                    "ev",
+                    "ev_over",
+                    "chosen_prob",
+                    "edge_score",
+                    "edge_drivers",
+                    "edge_reasons",
+                ]
+            )
             out_path = PROC_DIR / f"props_recommendations_{date}.csv"
             save_df(out, out_path)
             print(f"Wrote {out_path} with 0 rows")
@@ -5466,9 +5512,21 @@ def props_recommendations(
     import numpy as _np
     from scipy.stats import poisson as _poisson
     from .core.props_edge_signals import attach_prop_edge_signals
+    # Optional: movement tags from first_seen/current snapshots (if canonical timestamps are present)
+    movement_by_key: pd.DataFrame | None = None
     # Prepare normalized working frame (explicit core columns to avoid accidental column loss)
     core_cols = [c for c in [
-        "market","player_name","player","team","line","over_price","under_price","book"
+        "market",
+        "player_name",
+        "player",
+        "team",
+        "line",
+        "over_price",
+        "under_price",
+        "book",
+        "first_seen_at",
+        "last_seen_at",
+        "is_current",
     ] if c in lines.columns]
     work = lines[core_cols].copy()
     _dbg(f"work core cols kept={core_cols}; rows={len(work)}")
@@ -5487,6 +5545,69 @@ def props_recommendations(
     # Parse numeric line and keep valid (preserve all columns using loc)
     work["line_num"] = pd.to_numeric(work.get("line"), errors="coerce")
     work = work.loc[work["line_num"].notna()].copy()
+
+    # Build movement snapshots per (player, market, book) if canonical timestamps exist.
+    try:
+        if {"first_seen_at", "last_seen_at"}.issubset(work.columns) and "book" in work.columns:
+            mov = work[[
+                "player_display",
+                "market",
+                "book",
+                "line_num",
+                "over_price",
+                "under_price",
+                "first_seen_at",
+                "last_seen_at",
+            ] + (["is_current"] if "is_current" in work.columns else [])].copy()
+            mov["_first"] = pd.to_datetime(mov.get("first_seen_at"), errors="coerce")
+            mov["_last"] = pd.to_datetime(mov.get("last_seen_at"), errors="coerce")
+            key_cols = ["player_display", "market", "book"]
+
+            # Open = earliest first_seen row per key.
+            mov_open = mov.sort_values(["_first", "_last"], ascending=[True, True]).dropna(subset=key_cols)
+            try:
+                open_idx = mov_open.groupby(key_cols)["_first"].idxmin()
+                mov_open = mov_open.loc[open_idx]
+            except Exception:
+                mov_open = mov_open.drop_duplicates(subset=key_cols, keep="first")
+            mov_open = mov_open.rename(
+                columns={
+                    "line_num": "open_line",
+                    "over_price": "open_over_price",
+                    "under_price": "open_under_price",
+                }
+            )
+
+            # Current = is_current row (preferred); else most recent last_seen row.
+            mov_cur_src = mov
+            try:
+                if "is_current" in mov.columns:
+                    mov_cur_src = mov[mov["is_current"] == True].copy()
+            except Exception:
+                mov_cur_src = mov
+            if mov_cur_src is None or mov_cur_src.empty:
+                mov_cur_src = mov
+            mov_cur = mov_cur_src.sort_values(["_last", "_first"], ascending=[True, True]).dropna(subset=key_cols)
+            try:
+                cur_idx = mov_cur.groupby(key_cols)["_last"].idxmax()
+                mov_cur = mov_cur.loc[cur_idx]
+            except Exception:
+                mov_cur = mov_cur.drop_duplicates(subset=key_cols, keep="last")
+            mov_cur = mov_cur.rename(
+                columns={
+                    "line_num": "cur_line",
+                    "over_price": "cur_over_price",
+                    "under_price": "cur_under_price",
+                }
+            )
+
+            movement_by_key = mov_open[key_cols + ["open_line", "open_over_price", "open_under_price"]].merge(
+                mov_cur[key_cols + ["cur_line", "cur_over_price", "cur_under_price"]],
+                on=key_cols,
+                how="outer",
+            ).rename(columns={"player_display": "player"})
+    except Exception:
+        movement_by_key = None
     # Attach normalized name for join - use abbreviated variant preferentially for matching
     def _norm_for_join(name: str) -> str:
         """Normalize name for joining - try all variants and pick most compact (abbreviated if available)."""
@@ -5783,7 +5904,30 @@ def props_recommendations(
 
     all_rows = pd.concat([vec_base, pd.DataFrame(rows_fallback)], ignore_index=True) if (not vec_base.empty or rows_fallback) else pd.DataFrame()
     if all_rows is None or all_rows.empty:
-        out = pd.DataFrame(columns=["date","player","team","market","line","proj_lambda","p_over","over_price","under_price","book","side","ev"])
+        out = pd.DataFrame(
+            columns=[
+                "date",
+                "player",
+                "team",
+                "opp",
+                "market",
+                "line",
+                "proj_lambda",
+                "proj",
+                "p_over",
+                "over_price",
+                "under_price",
+                "book",
+                "side",
+                "price",
+                "ev",
+                "ev_over",
+                "chosen_prob",
+                "edge_score",
+                "edge_drivers",
+                "edge_reasons",
+            ]
+        )
         out_path = PROC_DIR / f"props_recommendations_{date}.csv"
         save_df(out, out_path)
         dt = round(time.monotonic() - t0, 2)
@@ -5812,7 +5956,30 @@ def props_recommendations(
         pass
 
     if all_rows is None or all_rows.empty:
-        out = pd.DataFrame(columns=["date","player","team","market","line","proj_lambda","p_over","over_price","under_price","book","side","ev"])
+        out = pd.DataFrame(
+            columns=[
+                "date",
+                "player",
+                "team",
+                "opp",
+                "market",
+                "line",
+                "proj_lambda",
+                "proj",
+                "p_over",
+                "over_price",
+                "under_price",
+                "book",
+                "side",
+                "price",
+                "ev",
+                "ev_over",
+                "chosen_prob",
+                "edge_score",
+                "edge_drivers",
+                "edge_reasons",
+            ]
+        )
         out_path = PROC_DIR / f"props_recommendations_{date}.csv"
         save_df(out, out_path)
         dt = round(time.monotonic() - t0, 2)
@@ -5826,8 +5993,21 @@ def props_recommendations(
         base = base.groupby(keys, as_index=False).first()
     except Exception:
         base = base.drop_duplicates(subset=keys, keep="first")
+
+    # Consensus = number of books offering this prop at this line.
+    try:
+        cons = all_rows.dropna(subset=keys + ["book"]).groupby(keys)["book"].nunique().reset_index().rename(columns={"book": "cons_books"})
+        base = base.merge(cons, on=keys, how="left")
+    except Exception:
+        base["cons_books"] = _np.nan
+
     base = attach_prop_edge_signals(date=str(date), props=base)
-    base_merge = base[[c for c in keys + ["opp", "side_suggested", "chosen_prob", "edge_score", "edge_reasons"] if c in base.columns]].copy()
+    base_merge = base[[
+        c
+        for c in keys
+        + ["opp", "side_suggested", "chosen_prob", "edge_score", "edge_drivers", "edge_reasons"]
+        if c in base.columns
+    ]].copy()
     out = all_rows.merge(base_merge, on=keys, how="left")
 
     # Prices -> decimal
@@ -5854,6 +6034,89 @@ def props_recommendations(
     except Exception:
         out = out.sort_values(keys).drop_duplicates(subset=keys, keep="first")
     out = out.drop(columns=["_cand"], errors="ignore")
+
+    # Prefix movement/price/juice drivers (pill-friendly), if movement snapshots are available.
+    try:
+        if movement_by_key is not None and not movement_by_key.empty:
+            out = out.merge(movement_by_key, on=["player", "market", "book"], how="left")
+    except Exception:
+        pass
+
+    def _american_to_decimal(v: object) -> float | None:
+        try:
+            x = float(v)
+        except Exception:
+            return None
+        if x > 0:
+            return 1.0 + (x / 100.0)
+        return 1.0 + (100.0 / abs(x))
+
+    def _driver_tokens(s: object) -> list[str]:
+        try:
+            t = str(s or "").strip()
+        except Exception:
+            return []
+        if not t:
+            return []
+        return [p.strip() for p in t.split(" · ") if p.strip()]
+
+    def _augment_drivers_row(r: pd.Series) -> str:
+        toks = _driver_tokens(r.get("edge_drivers") or r.get("edge_reasons"))
+        # Keep model direction pill first if present.
+        head = toks[:1]
+        tail = toks[1:] if len(toks) > 1 else []
+
+        side = str(r.get("side") or r.get("side_suggested") or "").strip()
+        tags: list[str] = []
+
+        # Move: compare current line vs open line for chosen book.
+        try:
+            ol = float(r.get("open_line"))
+            cl = float(r.get("cur_line"))
+            if _np.isfinite(ol) and _np.isfinite(cl) and abs(cl - ol) >= 1e-9:
+                if side.lower().startswith("o"):
+                    tags.append("MOVE+" if cl < ol else "MOVE-")
+                elif side.lower().startswith("u"):
+                    tags.append("MOVE+" if cl > ol else "MOVE-")
+        except Exception:
+            pass
+
+        # Price move: compare decimal odds now vs open for chosen side.
+        try:
+            if side.lower().startswith("o"):
+                od = _american_to_decimal(r.get("open_over_price"))
+                cd = _american_to_decimal(r.get("cur_over_price"))
+            else:
+                od = _american_to_decimal(r.get("open_under_price"))
+                cd = _american_to_decimal(r.get("cur_under_price"))
+            if od is not None and cd is not None and _np.isfinite(od) and _np.isfinite(cd) and abs(cd - od) >= 1e-9:
+                tags.append("PRICE+" if cd > od else "PRICE-")
+        except Exception:
+            pass
+
+        # Juice: based on chosen-side American odds.
+        try:
+            pr = float(pd.to_numeric(r.get("price"), errors="coerce"))
+            if _np.isfinite(pr) and pr < 0:
+                if pr <= -170:
+                    tags.append("JUICE+")
+                elif pr <= -140:
+                    tags.append("JUICE")
+        except Exception:
+            pass
+
+        if not tags:
+            return " · ".join(head + tail)
+        # Insert after the first (model) pill.
+        out_toks = head + tags + tail if head else (tags + tail)
+        return " · ".join([x for x in out_toks if x])
+
+    try:
+        if "edge_drivers" in out.columns or "edge_reasons" in out.columns:
+            out["edge_drivers"] = out.apply(_augment_drivers_row, axis=1)
+            out["edge_reasons"] = out["edge_drivers"]
+    except Exception:
+        pass
 
     # EV using chosen-side prob and best price
     prob_s = pd.to_numeric(out.get("chosen_prob"), errors="coerce")
@@ -5902,6 +6165,7 @@ def props_recommendations(
         "ev_over",
         "chosen_prob",
         "edge_score",
+        "edge_drivers",
         "edge_reasons",
     ]
     final = out[[c for c in keep if c in out.columns]].copy()

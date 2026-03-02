@@ -1,0 +1,31 @@
+date,home,away,market,bet,prob,price,book,ev
+2026-03-04T02:00:00Z,Calgary Flames,Dallas Stars,puckline,away_pl_+1.5,0.86695,-110.0,,0.6551
+2026-03-04T03:00:00Z,San Jose Sharks,Montréal Canadiens,puckline,away_pl_+1.5,0.8446,-110.0,,0.6124
+2026-03-04T00:00:00Z,New Jersey Devils,Florida Panthers,puckline,away_pl_+1.5,0.79235,-110.0,,0.5127
+2026-03-04T02:30:00Z,Minnesota Wild,Tampa Bay Lightning,puckline,away_pl_+1.5,0.7685500000000001,-110.0,,0.4672
+2026-03-04T03:00:00Z,Anaheim Ducks,Colorado Avalanche,puckline,away_pl_+1.5,0.7666,-110.0,,0.4635
+2026-03-04T03:00:00Z,San Jose Sharks,Montréal Canadiens,totals,under,0.6637,-110.0,,0.4271
+2026-03-04T00:00:00Z,Washington Capitals,Utah Mammoth,puckline,away_pl_+1.5,0.7445999999999999,-110.0,,0.4215
+2026-03-04T00:00:00Z,Buffalo Sabres,Vegas Golden Knights,puckline,away_pl_+1.5,0.7376,-110.0,,0.4081
+2026-03-04T00:00:00Z,Boston Bruins,Pittsburgh Penguins,puckline,away_pl_+1.5,0.6763,-110.0,,0.2911
+2026-03-04T02:00:00Z,Edmonton Oilers,Ottawa Senators,totals,under,0.67315,-110.0,,0.2851
+2026-03-04T01:00:00Z,Winnipeg Jets,Chicago Blackhawks,totals,under,0.6727000000000001,-110.0,,0.2842
+2026-03-04T02:00:00Z,Edmonton Oilers,Ottawa Senators,puckline,away_pl_+1.5,0.653,-110.0,,0.2466
+2026-03-04T00:00:00Z,Columbus Blue Jackets,Nashville Predators,puckline,away_pl_+1.5,0.6497999999999999,-110.0,,0.2405
+2026-03-04T00:00:00Z,Boston Bruins,Pittsburgh Penguins,totals,under,0.63305,-110.0,,0.2086
+2026-03-04T00:00:00Z,Washington Capitals,Utah Mammoth,totals,under,0.62635,-110.0,,0.1958
+2026-03-04T02:00:00Z,Calgary Flames,Dallas Stars,totals,under,0.61975,-110.0,,0.1832
+2026-03-04T02:30:00Z,Minnesota Wild,Tampa Bay Lightning,totals,under,0.61625,-110.0,,0.1765
+2026-03-04T03:00:00Z,Anaheim Ducks,Colorado Avalanche,totals,under,0.6042000000000001,-110.0,,0.1535
+2026-03-04T00:00:00Z,Columbus Blue Jackets,Nashville Predators,first10,f10_yes,0.6597246036596992,-150.0,,0.0995
+2026-03-04T00:00:00Z,Buffalo Sabres,Vegas Golden Knights,first10,f10_yes,0.6578479328659165,-150.0,,0.0964
+2026-03-04T00:00:00Z,Washington Capitals,Utah Mammoth,first10,f10_yes,0.6559609119460121,-150.0,,0.0933
+2026-03-04T01:00:00Z,Winnipeg Jets,Chicago Blackhawks,puckline,away_pl_+1.5,0.57035,-110.0,,0.0889
+2026-03-04T03:00:00Z,Anaheim Ducks,Colorado Avalanche,first10,f10_yes,0.6502371760284711,-150.0,,0.0837
+2026-03-04T00:00:00Z,New Jersey Devils,Florida Panthers,first10,f10_yes,0.6483081806219332,-150.0,,0.0805
+2026-03-04T02:00:00Z,Calgary Flames,Dallas Stars,first10,f10_yes,0.6424571271562766,-150.0,,0.0708
+2026-03-04T00:00:00Z,Boston Bruins,Pittsburgh Penguins,first10,f10_yes,0.6404852235916711,-150.0,,0.0675
+2026-03-04T03:00:00Z,San Jose Sharks,Montréal Canadiens,first10,f10_yes,0.6385024446776646,-150.0,,0.0642
+2026-03-04T02:30:00Z,Minnesota Wild,Tampa Bay Lightning,first10,f10_yes,0.6324882543913064,-150.0,,0.0541
+2026-03-04T02:00:00Z,Edmonton Oilers,Ottawa Senators,first10,f10_yes,0.6284233089779543,-150.0,,0.0474
+2026-03-04T01:00:00Z,Winnipeg Jets,Chicago Blackhawks,first10,f10_yes,0.6138386532144895,-150.0,,0.0231

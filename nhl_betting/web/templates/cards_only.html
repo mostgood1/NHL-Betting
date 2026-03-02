@@ -87,6 +87,27 @@
     .lens-card-tag.bet { background:#0f2d1b; border-color:#1e7a45; color:#a7f3c6; }
     .lens-card-tag.watch { background:#152055; border-color:#3a4aa6; color:#e8eaf6; }
 
+    /* Driver pills (compact tag chips) */
+    .driver-pills { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+    .driver-pills.inline { display:inline-flex; margin-top:0; margin-left:6px; vertical-align:middle; }
+    .driver-pill {
+      display:inline-flex;
+      align-items:center;
+      padding:2px 8px;
+      border-radius:999px;
+      border:1px solid #25316a;
+      background:#0b1020;
+      color:#cfe0ff;
+      font-size:11px;
+      font-weight:800;
+      letter-spacing:0.2px;
+      white-space:nowrap;
+      max-width: 360px;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .driver-pill:empty { display:none; }
+
     .card { gap: 12px; }
     .card-title { display:flex; align-items:baseline; justify-content:center; gap:10px; flex-wrap:wrap; text-align:center; }
     .card-title .match { font-weight:900; font-size:16px; color:#f5f7ff; }
@@ -585,7 +606,7 @@
           price,
           ev: Number((rec && rec.ev !== undefined) ? rec.ev : NaN),
           edgeScore: Number((rec && rec.edge_score !== undefined) ? rec.edge_score : NaN),
-          edgeReasons: String((rec && rec.edge_reasons) ? rec.edge_reasons : '').trim(),
+          edgeReasons: String((rec && (rec.edge_drivers || rec.edge_reasons || rec.drivers || rec.reason)) ? (rec.edge_drivers || rec.edge_reasons || rec.drivers || rec.reason) : '').trim(),
           prob,
           book: String((rec && rec.book) ? rec.book : '').trim(),
         };
@@ -632,8 +653,8 @@
         const ln = (r.line !== null && r.line !== undefined && String(r.line).trim() !== '') ? String(r.line) : '—';
         const price = (r.price !== null && r.price !== undefined && String(r.price).trim() !== '') ? String(r.price) : '—';
         const book = r.book ? ` (${r.book})` : '';
-        const reasons = r.edgeReasons ? ` <span class="muted">· ${r.edgeReasons}</span>` : '';
-        return `<div class="v"><strong>${r.player}</strong> ${r.market} ${r.side} ${ln} <span class="muted">@ ${price}${book}</span> · <strong>Edge ${edgeTxt}</strong> <span class="muted">(p ${prTxt}${isFinite(r.ev) ? `, EV ${evTxt}` : ''})</span>${reasons}</div>`;
+        const pills = r.edgeReasons ? renderDriverPills(r.edgeReasons, 3, false) : '';
+        return `<div class="v"><strong>${r.player}</strong> ${r.market} ${r.side} ${ln} <span class="muted">@ ${price}${book}</span> · <strong>Edge ${edgeTxt}</strong> <span class="muted">(p ${prTxt}${isFinite(r.ev) ? `, EV ${evTxt}` : ''})</span>${pills}</div>`;
       }).join('');
       return `<div class="market"><div class="k">${title}</div>${body}</div>`;
     }
@@ -650,7 +671,7 @@
         line: (rec && rec.line !== undefined) ? rec.line : null,
         price: rec.price,
         ev,
-        edgeReasons: String((rec && (rec.edge_reasons || rec.drivers || rec.reason)) ? (rec.edge_reasons || rec.drivers || rec.reason) : '').trim(),
+        edgeReasons: String((rec && (rec.edge_drivers || rec.edge_reasons || rec.drivers || rec.reason)) ? (rec.edge_drivers || rec.edge_reasons || rec.drivers || rec.reason) : '').trim(),
         home: String(rec.home || ''),
         away: String(rec.away || ''),
       };
@@ -668,6 +689,49 @@
       } catch (e) {
         return '';
       }
+    }
+
+    function escHtml(s) {
+      try {
+        return String(s || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/\"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      } catch (e) {
+        return '';
+      }
+    }
+
+    function splitDrivers(s) {
+      try {
+        const x = String(s || '').trim();
+        if (!x) return [];
+        const parts = x
+          .split(/\s*[;|]\s*|\s*\u00b7\s*|\s*,\s*/)
+          .map(p => String(p || '').trim())
+          .filter(Boolean);
+        const seen = new Set();
+        const out = [];
+        for (const p of parts) {
+          const k = p.toLowerCase();
+          if (seen.has(k)) continue;
+          seen.add(k);
+          out.push(p);
+        }
+        return out;
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function renderDriverPills(s, maxPills=3, inline=false) {
+      const parts = splitDrivers(s);
+      if (!parts.length) return '';
+      const keep = parts.slice(0, Math.max(1, Number(maxPills) || 3));
+      const cls = inline ? 'driver-pills inline' : 'driver-pills';
+      return `<span class="${cls}">` + keep.map(p => `<span class="driver-pill">${escHtml(p)}</span>`).join('') + `</span>`;
     }
 
     function _normTeamToken(s) {
@@ -840,8 +904,7 @@
             const mkt = toUpper(r.market);
             const side = toUpper(r.side);
             const pModel = (r && r._pModel !== undefined) ? r._pModel : _inferModelProbForRec(pred, r);
-            const drv = _shortDriversText(r.edgeReasons);
-            const drvTxt = drv ? ` <span class="muted">· ${drv}</span>` : '';
+            const drvPills = r.edgeReasons ? renderDriverPills(r.edgeReasons, 2, true) : '';
             let ln = (r.line !== null && r.line !== undefined && String(r.line).trim() !== '') ? String(r.line) : '';
             try {
               if (!ln && mkt.includes('TOTAL') && totalLine !== null && totalLine !== undefined && isFinite(Number(totalLine))) {
@@ -849,7 +912,7 @@
               }
             } catch (e) {}
             const lineAttr = ln ? ` data-line="${ln}"` : '';
-            return `<span class="bet ${cls}" data-market="${mkt}" data-side="${side}"${lineAttr}><strong>${r.market}</strong> ${r.side}${drvTxt} <span class="muted" data-role="rec-outcome"></span></span>`;
+            return `<span class="bet ${cls}" data-market="${mkt}" data-side="${side}"${lineAttr}><strong>${r.market}</strong> ${r.side}${drvPills} <span class="muted" data-role="rec-outcome"></span></span>`;
           }).join('') : `<span class="muted">No recommendations available for this game.</span>`}
         </div>
 

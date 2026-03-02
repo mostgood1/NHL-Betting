@@ -661,10 +661,12 @@ def _v1_odds_payload(date_ymd: str, regions: str = "us", best: bool = True, inpl
     extended_markets = (
         "h2h,totals,spreads,"
         "h2h_3_way,"
-        "totals_1st_period,totals_2nd_period,totals_3rd_period,"
-        "h2h_1st_period,h2h_2nd_period,h2h_3rd_period,"
-        "spreads_1st_period,spreads_2nd_period,spreads_3rd_period,"
-        "h2h_3_way_1st_period,h2h_3_way_2nd_period,h2h_3_way_3rd_period"
+        # Period markets: OddsAPI commonly exposes period markets as *_p1/_p2/_p3
+        # (not *_1st_period). We request them best-effort; if unavailable, downstream code simply sees nulls.
+        "totals_p1,totals_p2,totals_p3,"
+        "h2h_p1,h2h_p2,h2h_p3,"
+        "spreads_p1,spreads_p2,spreads_p3,"
+        "h2h_3_way_p1,h2h_3_way_p2,h2h_3_way_p3"
     )
     markets = extended_markets if bool(inplay) else core_markets
 
@@ -2849,14 +2851,30 @@ async def v1_live_lens_combined(
             # Mirror the NBA Live Lens notion of a simple driver label driven by "Sim–Actual" drift,
             # but keep output hockey-native and drivers-only (UI filters out market/edge/gate tags).
             try:
-                if period_i is not None and clock_sec is not None and 1 <= int(period_i) <= 3:
+                if period_i is not None and 1 <= int(period_i) <= 3:
                     em = _to_float(elapsed_min)
                     per_i = int(period_i)
                     per_key = f"p{per_i}"
 
-                    per_rem_min = float(clock_sec) / 60.0
-                    per_rem_min = float(max(0.0, min(20.0, per_rem_min)))
-                    per_elapsed_min = float(max(0.0, min(20.0, 20.0 - per_rem_min)))
+                    # Prefer the official clock when present; otherwise infer per-period time from
+                    # elapsed_min (which we can backfill from play-by-play even when g['clock'] is null).
+                    per_rem_min = None
+                    per_elapsed_min = None
+                    try:
+                        if clock_sec is not None:
+                            per_rem_min = float(clock_sec) / 60.0
+                            per_rem_min = float(max(0.0, min(20.0, per_rem_min)))
+                            per_elapsed_min = float(max(0.0, min(20.0, 20.0 - per_rem_min)))
+                        elif em is not None:
+                            per_elapsed_min = float(em) - float((per_i - 1) * 20.0)
+                            per_elapsed_min = float(max(0.0, min(20.0, per_elapsed_min)))
+                            per_rem_min = float(max(0.0, min(20.0, 20.0 - per_elapsed_min)))
+                    except Exception:
+                        per_rem_min = None
+                        per_elapsed_min = None
+
+                    if per_rem_min is None or per_elapsed_min is None:
+                        raise RuntimeError("no_period_clock")
 
                     # Period goals from lens (preferred) so we don't have to infer from play-by-play.
                     per_goals = None

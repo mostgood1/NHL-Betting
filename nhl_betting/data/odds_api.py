@@ -399,22 +399,35 @@ def _extract_prices_from_markets(markets: List[Dict]) -> Dict[str, any]:
     _extract_totals_market("totals_1st_period", "p1tot")
     _extract_totals_market("totals_2nd_period", "p2tot")
     _extract_totals_market("totals_3rd_period", "p3tot")
+    # Alternate key scheme used by OddsAPI for some sports/books
+    _extract_totals_market("totals_p1", "p1tot")
+    _extract_totals_market("totals_p2", "p2tot")
+    _extract_totals_market("totals_p3", "p3tot")
 
     # Period moneyline (if requested)
     _extract_h2h_market("h2h_1st_period", "p1ml")
     _extract_h2h_market("h2h_2nd_period", "p2ml")
     _extract_h2h_market("h2h_3rd_period", "p3ml")
+    _extract_h2h_market("h2h_p1", "p1ml")
+    _extract_h2h_market("h2h_p2", "p2ml")
+    _extract_h2h_market("h2h_p3", "p3ml")
 
     # Regulation + period 3-way (if requested)
     _extract_h2h_3way_market("h2h_3_way", "reg3")
     _extract_h2h_3way_market("h2h_3_way_1st_period", "p13w")
     _extract_h2h_3way_market("h2h_3_way_2nd_period", "p23w")
     _extract_h2h_3way_market("h2h_3_way_3rd_period", "p33w")
+    _extract_h2h_3way_market("h2h_3_way_p1", "p13w")
+    _extract_h2h_3way_market("h2h_3_way_p2", "p23w")
+    _extract_h2h_3way_market("h2h_3_way_p3", "p33w")
 
     # Period spreads (typically +/-0.5)
     _extract_spreads_market("spreads_1st_period", "p1spr", abs_points={0.5})
     _extract_spreads_market("spreads_2nd_period", "p2spr", abs_points={0.5})
     _extract_spreads_market("spreads_3rd_period", "p3spr", abs_points={0.5})
+    _extract_spreads_market("spreads_p1", "p1spr", abs_points={0.5})
+    _extract_spreads_market("spreads_p2", "p2spr", abs_points={0.5})
+    _extract_spreads_market("spreads_p3", "p3spr", abs_points={0.5})
 
     # Spreads (puck line) - look for +/-1.5
     m_spr = next((m for m in markets if m.get("key") == "spreads"), None)

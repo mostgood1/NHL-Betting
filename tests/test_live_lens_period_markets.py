@@ -125,10 +125,124 @@ def test_live_lens_emits_period_total_and_ml(monkeypatch: pytest.MonkeyPatch):
     assert period_ml[0].get("period") == 2
 
 
+def test_live_lens_emits_period_signals_when_clock_null_with_pbp_fallback(monkeypatch: pytest.MonkeyPatch):
+    """Regression: period signals should still emit when NHL clock is null.
+
+    Live Lens can infer elapsed time from play-by-play events; period signal code
+    should use that inferred elapsed_min.
+    """
+
+    date = "2099-01-02"
+    game_key = "mtl @ bos"
+
+    async def fake_v1_live(d: str):
+        assert d == date
+        return JSONResponse(
+            {
+                "ok": True,
+                "date": date,
+                "games": [
+                    {
+                        "date": date,
+                        "gamePk": 1,
+                        "home": "BOS",
+                        "away": "MTL",
+                        "key": game_key,
+                        "gameState": "LIVE",
+                        "period": 2,
+                        "clock": None,
+                        "score": {"home": 1, "away": 1},
+                        "lens": {
+                            "totals": {"home": {"sog": 10}, "away": {"sog": 12}},
+                            "periods": [
+                                {"period": 1, "home": {"goals": 1, "sog": 5}, "away": {"goals": 1, "sog": 6}},
+                                {"period": 2, "home": {"goals": 0, "sog": 5}, "away": {"goals": 0, "sog": 6}},
+                            ],
+                            "players": {"home": [], "away": []},
+                            "goalies": {
+                                "home": [{"name": "Test Goalie", "saves": 11, "shots_against": 12, "sv_pct": 0.917}],
+                                "away": [{"name": "Away Goalie", "saves": 9, "shots_against": 10, "sv_pct": 0.9}],
+                            },
+                        },
+                    }
+                ],
+            }
+        )
+
+    def fake_v1_odds_payload(*_args, **_kwargs):
+        return {
+            "ok": True,
+            "asof_utc": "2099-01-02T00:00:00Z",
+            "date": date,
+            "games": [
+                {
+                    "date": date,
+                    "home": "BOS",
+                    "away": "MTL",
+                    "key": game_key,
+                    "ml": {"home": -115, "away": 105},
+                    "total": {"line": 5.5, "over": -110, "under": -110},
+                    "puckline": {"home_-1.5": -110, "away_+1.5": -110},
+                    "period_totals": {"p2": {"line": 0.5, "over": -110, "under": -110}},
+                    "period_lines": {"p2": {"ml": {"home": 120, "away": -140}, "total": {"line": 0.5, "over": -110, "under": -110}}},
+                    "h2h": {"home": -115, "away": 105},
+                    "totals": {"line": 5.5, "over": -110, "under": -110},
+                    "spreads": {"home": -110, "away": -110, "line": 1.5},
+                }
+            ],
+        }
+
+    def fake_v1_props_odds_payload(*_args, **_kwargs):
+        return {
+            "ok": True,
+            "date": date,
+            "asof_utc": "2099-01-02T00:00:00Z",
+            "games": [{"date": date, "home": "BOS", "away": "MTL", "key": game_key, "props": {}}],
+        }
+
+    def fake_read_all_players_projections(d: str):
+        assert d == date
+        return pd.DataFrame(columns=["date", "player", "team", "position", "market", "proj_lambda"])
+
+    def fake_bundle_predictions_map(d: str):
+        assert d == date
+        return {game_key: {"model_total": 9.0, "model_spread": 2.0, "total_line_used": 5.5}}
+
+    # Ensure elapsed_min backfills from play-by-play when g['clock'] is null.
+    import nhl_betting.data.nhl_api_web as nhl_api_web
+
+    def fake_pbp_get(self, path: str, params: object, retries: int):
+        assert "/play-by-play" in str(path)
+        return {
+            "homeTeam": {"id": 1},
+            "awayTeam": {"id": 2},
+            "plays": [
+                {"sortOrder": 1, "periodDescriptor": {"number": 2}, "timeInPeriod": "10:00"},
+            ],
+        }
+
+    monkeypatch.setattr(nhl_api_web.NHLWebClient, "_get", fake_pbp_get, raising=True)
+    monkeypatch.setattr(web_app, "v1_live", fake_v1_live, raising=True)
+    monkeypatch.setattr(web_app, "_v1_odds_payload", fake_v1_odds_payload, raising=True)
+    monkeypatch.setattr(web_app, "_v1_props_odds_payload", fake_v1_props_odds_payload, raising=True)
+    monkeypatch.setattr(web_app, "_read_all_players_projections", fake_read_all_players_projections, raising=True)
+    monkeypatch.setattr(web_app, "_load_bundle_predictions_map", fake_bundle_predictions_map, raising=True)
+
+    client = TestClient(web_app.app)
+    resp = client.get(f"/v1/live-lens/{date}?regions=us&best=1&include_non_live=1&inplay=1")
+    assert resp.status_code == 200
+    js = resp.json()
+    sigs = (js["games"][0].get("signals") or [])
+
+    assert any(s.get("market") == "PERIOD_TOTAL" for s in sigs), "Expected PERIOD_TOTAL signal"
+    assert any(s.get("market") == "PERIOD_ML" for s in sigs), "Expected PERIOD_ML signal"
+
+
 def test_settle_row_period_total_and_ml():
     from check_live_lens_betting_performance import _settle_row
 
-    final_scores = {1: (3, 2)}
+    # Period markets should settle without needing final game score.
+    final_scores = {}
     final_period_scores = {
         (1, 2): (1, 0),  # BOS wins P2 1-0
         (1, 1): (1, 2),

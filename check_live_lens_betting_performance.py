@@ -124,6 +124,114 @@ def _iter_snapshots(jsonl_path: Path) -> Iterable[dict]:
             yield json.loads(line)
 
 
+def _parse_mmss_clock(s: Any) -> Optional[int]:
+    """Parse a MM:SS clock string into seconds."""
+    if not s:
+        return None
+    try:
+        parts = str(s).strip().split(":")
+        if len(parts) != 2:
+            return None
+        mm = int(parts[0])
+        ss = int(parts[1])
+        if mm < 0 or ss < 0 or ss >= 60:
+            return None
+        return mm * 60 + ss
+    except Exception:
+        return None
+
+
+def _is_live_state(game_state: Any) -> bool:
+    st = str(game_state or "").upper().strip()
+    if not st:
+        return False
+    # Be permissive: different sources use LIVE/CRIT/IN_PROGRESS.
+    return ("LIVE" in st) or ("CRIT" in st) or ("IN_PROGRESS" in st)
+
+
+def _is_final_state(game_state: Any) -> bool:
+    st = str(game_state or "").upper().strip()
+    return bool(st) and st.startswith("FINAL")
+
+
+def _update_final_scores_from_snapshot(snapshot: dict, out: dict[int, tuple[int, int]]) -> None:
+    """Update gamePk->(home_goals, away_goals) for games that are FINAL in a snapshot."""
+    games = snapshot.get("games") or []
+    if not isinstance(games, list):
+        return
+    for g in games:
+        if not isinstance(g, dict):
+            continue
+        if not _is_final_state(g.get("gameState")):
+            continue
+        gamePk = _safe_int(g.get("gamePk"))
+        if gamePk is None:
+            continue
+        score = g.get("score") if isinstance(g.get("score"), dict) else None
+        if not isinstance(score, dict):
+            continue
+        hg = _safe_int(score.get("home"))
+        ag = _safe_int(score.get("away"))
+        if hg is None or ag is None:
+            continue
+        out[int(gamePk)] = (int(hg), int(ag))
+
+
+def _update_period_scores_from_snapshot(snapshot: dict, out: dict[tuple[int, int], tuple[int, int]]) -> None:
+    """Update (gamePk, period)->(home_goals, away_goals) when a period is complete.
+
+    This enables settling PERIOD_* bets during a live game once we advance past that period
+    (or the period clock hits 00:00).
+    """
+    games = snapshot.get("games") or []
+    if not isinstance(games, list):
+        return
+    for g in games:
+        if not isinstance(g, dict):
+            continue
+        gamePk = _safe_int(g.get("gamePk"))
+        if gamePk is None:
+            continue
+        try:
+            cur_period = int(g.get("period")) if g.get("period") is not None else None
+        except Exception:
+            cur_period = None
+        clock_sec = _parse_mmss_clock(g.get("clock"))
+        st_live = _is_live_state(g.get("gameState"))
+
+        lens = g.get("lens") if isinstance(g.get("lens"), dict) else None
+        per_list = lens.get("periods") if isinstance(lens, dict) else None
+        if not isinstance(per_list, list):
+            continue
+
+        # If clock is 00:00, treat the current period as complete too.
+        cur_period_complete = (cur_period is not None) and (clock_sec is not None) and (clock_sec <= 0)
+
+        for p in per_list:
+            if not isinstance(p, dict):
+                continue
+            pn = _safe_int(p.get("period"))
+            if pn is None or pn < 1 or pn > 3:
+                continue
+            h = p.get("home") if isinstance(p.get("home"), dict) else {}
+            a = p.get("away") if isinstance(p.get("away"), dict) else {}
+            hg = _safe_int(h.get("goals"))
+            ag = _safe_int(a.get("goals"))
+            if hg is None or ag is None:
+                continue
+
+            complete = False
+            if not st_live:
+                complete = True
+            elif cur_period is not None and cur_period > int(pn):
+                complete = True
+            elif cur_period_complete and cur_period == int(pn):
+                complete = True
+
+            if complete:
+                out[(int(gamePk), int(pn))] = (int(hg), int(ag))
+
+
 def _extract_bets_from_snapshot(snapshot: dict, source_path: Path) -> list[dict]:
     rows: list[dict] = []
     asof_utc = snapshot.get("asof_utc")
@@ -535,25 +643,15 @@ def _settle_row(
     final_period_scores: Optional[dict[tuple[int, int], tuple[int, int]]] = None,
 ) -> dict[str, Any]:
     gamePk = int(row["gamePk"])
-    hg, ag = final_scores.get(gamePk, (None, None))
-    if hg is None or ag is None:
-        return {"home_goals_final": None, "away_goals_final": None, "result": None, "profit_units": None}
-
     market = str(row["market"] or "").upper()
     side = str(row["side"] or "").upper() if row.get("side") is not None else None
     line = row.get("line")
 
     result: Optional[str] = None
 
-    if market == "ML":
-        if side == "HOME":
-            result = "WIN" if hg > ag else ("LOSE" if hg < ag else "PUSH")
-        elif side == "AWAY":
-            result = "WIN" if ag > hg else ("LOSE" if ag < hg else "PUSH")
-        else:
-            result = None
-
-    elif market == "PERIOD_ML":
+    # NOTE: Period markets can settle as soon as we know the period-final goals,
+    # even if the game is still live (final_scores may be unavailable).
+    if market == "PERIOD_ML":
         per_i = _safe_int(row.get("sig_period"))
         if final_period_scores is None or per_i is None:
             result = None
@@ -570,19 +668,20 @@ def _settle_row(
                 else:
                     result = None
 
-    elif market == "TOTAL":
-        if line is None or not math.isfinite(float(line)):
-            result = None
-        else:
-            total = int(hg) + int(ag)
-            if side == "UNDER":
-                result = "WIN" if total < float(line) else ("LOSE" if total > float(line) else "PUSH")
-            elif side == "OVER":
-                result = "WIN" if total > float(line) else ("LOSE" if total < float(line) else "PUSH")
+        # Profit only depends on odds.
+        price = _safe_int(row.get("price_american"))
+        profit: Optional[float] = None
+        if result in {"WIN", "LOSE", "PUSH"} and price is not None:
+            dec = float(american_to_decimal(int(price)))
+            if result == "WIN":
+                profit = dec - 1.0
+            elif result == "LOSE":
+                profit = -1.0
             else:
-                result = None
+                profit = 0.0
+        return {"home_goals_final": None, "away_goals_final": None, "result": result, "profit_units": profit}
 
-    elif market == "PERIOD_TOTAL":
+    if market == "PERIOD_TOTAL":
         per_i = _safe_int(row.get("sig_period"))
         if final_period_scores is None or per_i is None:
             result = None
@@ -600,6 +699,43 @@ def _settle_row(
                     result = "WIN" if total > float(line) else ("LOSE" if total < float(line) else "PUSH")
                 else:
                     result = None
+
+        price = _safe_int(row.get("price_american"))
+        profit = None
+        if result in {"WIN", "LOSE", "PUSH"} and price is not None:
+            dec = float(american_to_decimal(int(price)))
+            if result == "WIN":
+                profit = dec - 1.0
+            elif result == "LOSE":
+                profit = -1.0
+            else:
+                profit = 0.0
+        return {"home_goals_final": None, "away_goals_final": None, "result": result, "profit_units": profit}
+
+    # Non-period markets require final game score.
+    hg, ag = final_scores.get(gamePk, (None, None))
+    if hg is None or ag is None:
+        return {"home_goals_final": None, "away_goals_final": None, "result": None, "profit_units": None}
+
+    if market == "ML":
+        if side == "HOME":
+            result = "WIN" if hg > ag else ("LOSE" if hg < ag else "PUSH")
+        elif side == "AWAY":
+            result = "WIN" if ag > hg else ("LOSE" if ag < hg else "PUSH")
+        else:
+            result = None
+
+    elif market == "TOTAL":
+        if line is None or not math.isfinite(float(line)):
+            result = None
+        else:
+            total = int(hg) + int(ag)
+            if side == "UNDER":
+                result = "WIN" if total < float(line) else ("LOSE" if total > float(line) else "PUSH")
+            elif side == "OVER":
+                result = "WIN" if total > float(line) else ("LOSE" if total < float(line) else "PUSH")
+            else:
+                result = None
 
     elif market == "PUCKLINE":
         # Expected sides: HOME_-1.5, AWAY_+1.5
@@ -621,12 +757,7 @@ def _settle_row(
         else:
             profit = 0.0
 
-    return {
-        "home_goals_final": int(hg),
-        "away_goals_final": int(ag),
-        "result": result,
-        "profit_units": profit,
-    }
+    return {"home_goals_final": int(hg), "away_goals_final": int(ag), "result": result, "profit_units": profit}
 
 
 def _settle_prop_row(row: pd.Series, player_stats: dict[tuple[int, str], dict[str, float]]) -> dict[str, Any]:
@@ -892,8 +1023,19 @@ def main() -> int:
         raise SystemExit(f"No JSONL files found for dates={dates} in {signals_dir}")
 
     bet_rows: list[dict] = []
+    # Snapshot-derived settlement helpers (enables real-time settlement without waiting for game final web fetch)
+    period_scores_from_snaps: dict[tuple[int, int], tuple[int, int]] = {}
+    final_scores_from_snaps: dict[int, tuple[int, int]] = {}
     for p in jsonl_paths:
         for snap in _iter_snapshots(p):
+            try:
+                _update_period_scores_from_snapshot(snap, period_scores_from_snaps)
+            except Exception:
+                pass
+            try:
+                _update_final_scores_from_snapshot(snap, final_scores_from_snaps)
+            except Exception:
+                pass
             bet_rows.extend(_extract_bets_from_snapshot(snap, source_path=p))
 
     if not bet_rows:
@@ -927,16 +1069,25 @@ def main() -> int:
         allow_web_fetch=bool(args.allow_web_fetch),
     )
 
-    # Final per-period goal splits (only needed for PERIOD_* markets)
-    final_period_scores: dict[tuple[int, int], tuple[int, int]] = {}
+    # Overlay snapshot-observed FINAL scores (authoritative for that day; avoids needing web fetch).
+    try:
+        final_scores.update({int(k): (int(v[0]), int(v[1])) for k, v in final_scores_from_snaps.items()})
+    except Exception:
+        pass
+
+    # Final per-period goal splits (PERIOD_*): prefer snapshot-derived period finals,
+    # then optionally augment with web fetch.
+    final_period_scores: dict[tuple[int, int], tuple[int, int]] = dict(period_scores_from_snaps)
     try:
         period_mask = bets["market"].astype(str).str.upper().isin(["PERIOD_ML", "PERIOD_TOTAL"])
         if bool(args.allow_web_fetch) and bool(period_mask.any()):
             pks = set(bets.loc[period_mask, "gamePk"].dropna().astype(int).tolist())
             # Keep timeout modest; this script is for backtesting and should finish.
-            final_period_scores = _final_period_goals_web(pks, timeout_sec=10.0)
+            web_scores = _final_period_goals_web(pks, timeout_sec=10.0)
+            # Web data is authoritative; let it overwrite snapshot-derived values.
+            final_period_scores.update(web_scores)
     except Exception:
-        final_period_scores = {}
+        pass
 
     # Preload player stats for priced props we can settle
     prop_mask = bets["market"].astype(str).str.upper().str.startswith("PROP_")

@@ -1291,7 +1291,8 @@
     function formatLiveClockText(gameState, period, clock, periodDisp) {
       const lbl = String(periodDisp || '').trim() || formatPeriodLabel(period, gameState);
       const clk = String(clock || '').trim();
-      return `${lbl} ${clk}`.trim();
+      if (!clk) return `${lbl}`.trim();
+      return `${lbl} ${clk} left`.trim();
     }
 
     function renderLens(game) {
@@ -1857,11 +1858,22 @@
     function renderTopLiveContext(game) {
       try {
         const g = (game && game.guidance) ? game.guidance : null;
-        if (!g) return '';
-
         const parts = [];
 
-        if (g.manpower) {
+        try {
+          const st = String((game && (game.gameState || game.game_state || game.state)) || '').trim();
+          if (isLiveState(st)) {
+            const per = (game && game.period !== undefined && game.period !== null) ? game.period : null;
+            const perDisp = (game && (game.period_disp !== undefined && game.period_disp !== null)) ? String(game.period_disp).trim() : '';
+            const clk = (game && game.clock) ? String(game.clock).trim() : '';
+            const t = formatLiveClockText(st, per, clk, perDisp);
+            if (t && t !== '—') parts.push(t);
+          }
+        } catch (e) {
+          // ignore
+        }
+
+        if (g && g.manpower) {
           let mp = String(g.manpower);
           if (g.pp_team) {
             const side = String(g.pp_team).toUpperCase() === 'HOME' ? 'H' : 'A';
@@ -1876,20 +1888,20 @@
           parts.push(mp);
         }
 
-        if (g.away_empty_net || g.home_empty_net) {
+        if (g && (g.away_empty_net || g.home_empty_net)) {
           const en = [];
           if (g.away_empty_net) en.push('A-EN');
           if (g.home_empty_net) en.push('H-EN');
           parts.push(en.join('/'));
         }
 
-        if ((g.away_att_l5 !== null && g.away_att_l5 !== undefined) || (g.home_att_l5 !== null && g.home_att_l5 !== undefined)) {
+        if (g && ((g.away_att_l5 !== null && g.away_att_l5 !== undefined) || (g.home_att_l5 !== null && g.home_att_l5 !== undefined))) {
           const aa5 = (g.away_att_l5 !== null && g.away_att_l5 !== undefined && isFinite(Number(g.away_att_l5))) ? String(Math.round(Number(g.away_att_l5))) : '—';
           const ha5 = (g.home_att_l5 !== null && g.home_att_l5 !== undefined && isFinite(Number(g.home_att_l5))) ? String(Math.round(Number(g.home_att_l5))) : '—';
           parts.push(`AttL5 A${aa5}/H${ha5}`);
         }
 
-        if ((g.away_xg_proxy_l10 !== null && g.away_xg_proxy_l10 !== undefined) || (g.home_xg_proxy_l10 !== null && g.home_xg_proxy_l10 !== undefined)) {
+        if (g && ((g.away_xg_proxy_l10 !== null && g.away_xg_proxy_l10 !== undefined) || (g.home_xg_proxy_l10 !== null && g.home_xg_proxy_l10 !== undefined))) {
           const ax = (g.away_xg_proxy_l10 !== null && g.away_xg_proxy_l10 !== undefined && isFinite(Number(g.away_xg_proxy_l10))) ? fmt(Number(g.away_xg_proxy_l10), 2) : '—';
           const hx = (g.home_xg_proxy_l10 !== null && g.home_xg_proxy_l10 !== undefined && isFinite(Number(g.home_xg_proxy_l10))) ? fmt(Number(g.home_xg_proxy_l10), 2) : '—';
           parts.push(`xG10 A${ax}/H${hx}`);
@@ -1897,6 +1909,7 @@
 
         // Faceoffs (possession proxy)
         try {
+          if (!g) throw new Error('no_guidance');
           const aT10 = (g.away_fo_taken_l10 !== null && g.away_fo_taken_l10 !== undefined && isFinite(Number(g.away_fo_taken_l10))) ? Number(g.away_fo_taken_l10) : null;
           const hT10 = (g.home_fo_taken_l10 !== null && g.home_fo_taken_l10 !== undefined && isFinite(Number(g.home_fo_taken_l10))) ? Number(g.home_fo_taken_l10) : null;
           const use10 = ((aT10 !== null && aT10 > 0) || (hT10 !== null && hT10 > 0));

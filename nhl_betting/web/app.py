@@ -9055,6 +9055,10 @@ async def api_scoreboard(date: Optional[str] = Query(None), debug_cache: Optiona
 
     Matches by gamePk when possible, else by team abbreviations.
     """
+    # Local imports so this endpoint doesn't depend on module import order.
+    from ..data.nhl_api_web import NHLWebClient
+    from ..data.nhl_api import NHLClient as NHLStatsClient
+
     date = date or _today_ymd()
     client = NHLWebClient()
     rows = client.scoreboard_day(date)

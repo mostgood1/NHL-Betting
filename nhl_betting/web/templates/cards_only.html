@@ -178,6 +178,7 @@
           <input id="datePicker" class="date-input" type="date" />
         </div>
         <div class="spacer"></div>
+        <a id="accuracyLink" class="btn" href="/api/live-lens-accuracy">Accuracy</a>
         <button type="button" id="themeToggle" class="btn" title="Toggle light/dark theme">Toggle Theme</button>
       </div>
       <div class="muted" id="status">Loading…</div>
@@ -198,6 +199,17 @@
     let currentDate = null;
     let livePollTimer = null;
     let livePollInFlight = false;
+
+    function setAccuracyHref(d) {
+      const base = '/api/live-lens-accuracy';
+      if (!d) {
+        $('accuracyLink').setAttribute('href', base);
+        return;
+      }
+      const u = new URL(base, window.location.origin);
+      u.searchParams.set('date', d);
+      $('accuracyLink').setAttribute('href', u.pathname + u.search);
+    }
 
     function pct(x) {
       if (x === null || x === undefined || isNaN(Number(x))) return '—';
@@ -2640,9 +2652,11 @@
         }
 
         dateInput.value = initialDate;
+        try { setAccuracyHref(initialDate); } catch (e) {}
         dateInput.onchange = async () => {
           const next = String(dateInput.value || '').trim();
           if (!next) return;
+          try { setAccuracyHref(next); } catch (e) {}
           setRequestedDateInUrl(next);
           try {
             await loadDate(next);

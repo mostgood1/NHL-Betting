@@ -261,6 +261,279 @@ async def api_cron_status(job_id: Optional[str] = Query(None), name: Optional[st
     except Exception as e:
         return JSONResponse({'ok': False, 'error': str(e)}, status_code=500)
 
+
+# ----------------------------------------------------------------------------------
+# Live Lens Accuracy (reads precomputed settled ledger files)
+#
+# This is intentionally served under /api/* so it's allowed in cards-only UI mode.
+# Data sources are produced by check_live_lens_betting_performance.py.
+# ----------------------------------------------------------------------------------
+def _live_lens_perf_dir() -> Path:
+    return Path(os.getenv("LIVE_LENS_PERF_DIR", "data/processed/live_lens/perf")).resolve()
+
+
+def _parse_ymd(s: Optional[str]) -> Optional[str]:
+    if not s or not isinstance(s, str):
+        return None
+    s = s.strip()
+    if not s:
+        return None
+    try:
+        datetime.strptime(s, "%Y-%m-%d")
+        return s
+    except Exception:
+        return None
+
+
+def _perf_files(perf_dir: Path) -> list[Path]:
+    try:
+        if not perf_dir.exists():
+            return []
+        files = [p for p in perf_dir.glob("live_lens_bets_*") if p.is_file() and p.suffix.lower() in {".jsonl", ".ndjson", ".csv"}]
+        files.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+        return files
+    except Exception:
+        return []
+
+
+def _read_ledger_df(paths: list[Path], start_date: Optional[str], end_date: Optional[str]) -> pd.DataFrame:
+    rows: list[pd.DataFrame] = []
+    for p in (paths or []):
+        try:
+            suf = p.suffix.lower()
+            if suf in {".jsonl", ".ndjson"}:
+                df = pd.read_json(p, lines=True)
+            else:
+                df = pd.read_csv(p)
+            if df is None or df.empty:
+                continue
+            if "date" in df.columns:
+                if start_date:
+                    df = df[df["date"].astype(str) >= str(start_date)]
+                if end_date:
+                    df = df[df["date"].astype(str) <= str(end_date)]
+            rows.append(df)
+        except Exception:
+            continue
+    if not rows:
+        return pd.DataFrame()
+    try:
+        out = pd.concat(rows, axis=0, ignore_index=True)
+    except Exception:
+        out = rows[0]
+    return out
+
+
+def _summarize_ledger(df: pd.DataFrame, group_col: Optional[str] = None) -> list[dict[str, Any]]:
+    if df is None or df.empty:
+        return []
+    if "result" not in df.columns:
+        return []
+
+    d0 = df.copy()
+    d0["result"] = d0["result"].astype(str).str.upper()
+    d0 = d0[d0["result"].isin(["WIN", "LOSE", "PUSH"])].copy()
+    if d0.empty:
+        return []
+
+    if "profit_units" in d0.columns:
+        d0["profit_units"] = pd.to_numeric(d0["profit_units"], errors="coerce")
+    else:
+        d0["profit_units"] = float("nan")
+
+    if group_col and group_col in d0.columns:
+        g = d0.groupby(group_col, dropna=False)
+        out = []
+        for k, grp in g:
+            n = int(len(grp))
+            w = int((grp["result"] == "WIN").sum())
+            l = int((grp["result"] == "LOSE").sum())
+            p = int((grp["result"] == "PUSH").sum())
+            units = float(grp["profit_units"].sum(skipna=True)) if n else 0.0
+            roi = (units / float(n)) if n else 0.0
+            denom = float(w + l)
+            win_rate = (float(w) / denom) if denom > 0 else None
+            out.append({
+                "key": None if (pd.isna(k)) else k,
+                "bets": n,
+                "wins": w,
+                "losses": l,
+                "pushes": p,
+                "units": units,
+                "roi": roi,
+                "win_rate": win_rate,
+            })
+        try:
+            out.sort(key=lambda r: (-(r.get("bets") or 0), str(r.get("key") or "")))
+        except Exception:
+            pass
+        return out
+
+    n = int(len(d0))
+    w = int((d0["result"] == "WIN").sum())
+    l = int((d0["result"] == "LOSE").sum())
+    p = int((d0["result"] == "PUSH").sum())
+    units = float(d0["profit_units"].sum(skipna=True)) if n else 0.0
+    roi = (units / float(n)) if n else 0.0
+    denom = float(w + l)
+    win_rate = (float(w) / denom) if denom > 0 else None
+    return [{
+        "key": "ALL",
+        "bets": n,
+        "wins": w,
+        "losses": l,
+        "pushes": p,
+        "units": units,
+        "roi": roi,
+        "win_rate": win_rate,
+    }]
+
+
+def _coerce_driver_tags(v: Any) -> list[str]:
+    if v is None:
+        return []
+    if isinstance(v, list):
+        out: list[str] = []
+        for x in v:
+            try:
+                s = str(x).strip()
+            except Exception:
+                continue
+            if s:
+                out.append(s)
+        return out
+    # Sometimes CSVs stringify lists; best-effort parse.
+    try:
+        s = str(v).strip()
+    except Exception:
+        return []
+    if not s:
+        return []
+    try:
+        if s.startswith("[") and s.endswith("]"):
+            obj = json.loads(s)
+            if isinstance(obj, list):
+                return _coerce_driver_tags(obj)
+    except Exception:
+        pass
+    # Fallback: treat as a single tag.
+    return [s]
+
+
+def _summarize_driver_tags(df: pd.DataFrame, top_n: int = 20) -> list[dict[str, Any]]:
+    if df is None or df.empty:
+        return []
+    if "driver_tags" not in df.columns:
+        return []
+    d0 = df.copy()
+    try:
+        d0["driver_tags"] = d0["driver_tags"].apply(_coerce_driver_tags)
+    except Exception:
+        return []
+    try:
+        d0 = d0.explode("driver_tags")
+    except Exception:
+        return []
+    d0 = d0.rename(columns={"driver_tags": "driver_tag"})
+    try:
+        d0["driver_tag"] = d0["driver_tag"].fillna("(none)")
+    except Exception:
+        pass
+    out = _summarize_ledger(d0, group_col="driver_tag")
+    try:
+        out.sort(key=lambda r: (-(r.get("bets") or 0), -(r.get("roi") or 0.0)))
+    except Exception:
+        pass
+    if top_n and top_n > 0:
+        out = out[: int(top_n)]
+    return out
+
+
+@app.get("/api/live-lens-accuracy/data")
+async def api_live_lens_accuracy_data(
+    date: Optional[str] = Query(None, description="YYYY-MM-DD (ET)"),
+    start: Optional[str] = Query(None, description="YYYY-MM-DD (inclusive)"),
+    end: Optional[str] = Query(None, description="YYYY-MM-DD (inclusive)"),
+    limit_files: int = Query(50, description="Max perf files to scan"),
+):
+    try:
+        date0 = _parse_ymd(date)
+        start0 = _parse_ymd(start)
+        end0 = _parse_ymd(end)
+        if date0:
+            start0 = date0
+            end0 = date0
+
+        perf_dir = _live_lens_perf_dir()
+        files = _perf_files(perf_dir)
+        if limit_files and limit_files > 0:
+            files = files[: int(limit_files)]
+
+        # Default: most recent date we have data for, best-effort.
+        if not start0 and not end0:
+            try:
+                # Try to infer from the most recent file's content.
+                if files:
+                    df_tmp = _read_ledger_df([files[0]], None, None)
+                    if df_tmp is not None and (not df_tmp.empty) and "date" in df_tmp.columns:
+                        dmax = str(df_tmp["date"].dropna().astype(str).max())
+                        if _parse_ymd(dmax):
+                            start0 = dmax
+                            end0 = dmax
+            except Exception:
+                pass
+
+        cache_key = ("live_lens_accuracy", start0, end0, int(limit_files or 0), str(perf_dir))
+        cached = _cache_get(cache_key)
+        if cached is not None:
+            return JSONResponse(cached)
+
+        df = _read_ledger_df(files, start0, end0)
+
+        summary_all = _summarize_ledger(df)
+        by_market = _summarize_ledger(df, group_col="market")
+        by_elapsed = _summarize_ledger(df, group_col="elapsed_bucket")
+        by_edge = _summarize_ledger(df, group_col="edge_bucket")
+        by_driver_tag = _summarize_driver_tags(df, top_n=20)
+
+        out = {
+            "ok": True,
+            "date": date0,
+            "start": start0,
+            "end": end0,
+            "perf_dir": str(perf_dir),
+            "files_scanned": [str(p) for p in files],
+            "summary": (summary_all[0] if summary_all else None),
+            "by_market": by_market,
+            "by_elapsed_bucket": by_elapsed,
+            "by_edge_bucket": by_edge,
+            "by_driver_tag": by_driver_tag,
+        }
+        _cache_put(cache_key, out)
+        return JSONResponse(out)
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/live-lens-accuracy", response_class=HTMLResponse)
+async def api_live_lens_accuracy_page(
+    date: Optional[str] = Query(None, description="YYYY-MM-DD (ET)"),
+    start: Optional[str] = Query(None, description="YYYY-MM-DD (inclusive)"),
+    end: Optional[str] = Query(None, description="YYYY-MM-DD (inclusive)"),
+):
+    # Render a lightweight page that fetches /api/live-lens-accuracy/data.
+    try:
+        tmpl = env.get_template("live_lens_accuracy.html")
+        html = tmpl.render(
+            date=_parse_ymd(date) or "",
+            start=_parse_ymd(start) or "",
+            end=_parse_ymd(end) or "",
+            commit=(_git_commit_hash() or "")[:12],
+        )
+        return HTMLResponse(html)
+    except Exception as e:
+        return HTMLResponse(f"<pre>template_error: {e}</pre>", status_code=500)
+
 def _is_public_host_env() -> bool:
     """Heuristic to detect if we're on a public host (Render/production) vs local/test.
 
@@ -2784,9 +3057,56 @@ async def v1_live_lens_combined(
                         # Gate: avoid betting too early unless edge is very strong.
                         abs_edge = abs(float(edge))
                         action = "WATCH"
-                        if em >= 10.0 and abs_edge >= 0.04:
-                            action = "BET"
-                        if em >= 6.0 and abs_edge >= 0.06:
+
+                        # Baseline required edge vs game time (regulation minutes).
+                        required_edge = 1e9
+                        if em is not None:
+                            if float(em) >= 10.0:
+                                required_edge = 0.04
+                            elif float(em) >= 6.0:
+                                required_edge = 0.06
+
+                        # Late-game totals have historically been noisy; tighten gates.
+                        try:
+                            if em is not None and float(em) >= 20.0:
+                                required_edge = max(float(required_edge), 0.06)
+                                driver_tags.append("gate:late_em>=20_edge>=0.06")
+                            if em is not None and float(em) >= 35.0:
+                                required_edge = max(float(required_edge), 0.07)
+                                driver_tags.append("gate:late_em>=35_edge>=0.07")
+                        except Exception:
+                            pass
+
+                        # Avoid totals bets in common "trap" contexts unless edge is strong.
+                        try:
+                            if side == "OVER" and pace_mult is not None and float(pace_mult) <= 0.92:
+                                required_edge = max(float(required_edge), 0.07)
+                                driver_tags.append("gate:slow_pace_over_edge>=0.07")
+                            if side == "UNDER" and pace_mult is not None and float(pace_mult) >= 1.08:
+                                required_edge = max(float(required_edge), 0.07)
+                                driver_tags.append("gate:fast_pace_under_edge>=0.07")
+                        except Exception:
+                            pass
+                        try:
+                            if goalie_mult is not None and float(goalie_mult) >= 1.05:
+                                required_edge = max(float(required_edge), 0.07)
+                                driver_tags.append("gate:goalie_weak_edge>=0.07")
+                        except Exception:
+                            pass
+                        try:
+                            if (
+                                em is not None
+                                and float(em) >= 25.0
+                                and home_goals is not None
+                                and away_goals is not None
+                                and int(away_goals) > int(home_goals)
+                            ):
+                                required_edge = max(float(required_edge), 0.07)
+                                driver_tags.append("gate:away_leading_edge>=0.07")
+                        except Exception:
+                            pass
+
+                        if abs_edge >= float(required_edge):
                             action = "BET"
 
                         try:
@@ -2800,10 +3120,8 @@ async def v1_live_lens_combined(
                             pass
                         try:
                             if action == "BET":
-                                if em >= 6.0 and abs_edge >= 0.06:
-                                    driver_tags.append("gate:em>=6_edge>=0.06")
-                                elif em >= 10.0 and abs_edge >= 0.04:
-                                    driver_tags.append("gate:em>=10_edge>=0.04")
+                                if em is not None:
+                                    driver_tags.append(f"gate:req_edge>={float(required_edge):.02f}")
                         except Exception:
                             pass
 

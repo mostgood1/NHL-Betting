@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NHL Betting – Live Lens Accuracy</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  <style>
+    header .header-inner { flex-wrap: wrap; }
+    .topbar { display:flex; flex-wrap:wrap; align-items:center; gap:10px; width:100%; }
+    .spacer { flex:1; }
+    .muted { color:#9fb0ff; font-size:12px; }
+
+    .controls { display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; }
+    .controls label { color:#9fb0ff; font-size:12px; font-weight:800; letter-spacing:0.3px; text-transform:uppercase; display:block; margin-bottom:4px; }
+    .controls .field { display:grid; gap:4px; }
+    .controls input { background:#0f1530; border:1px solid #25316a; color:#cfe0ff; padding:7px 10px; border-radius:10px; font-weight:700; font-size:12px; }
+
+    .grid-4 { display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; }
+    .tile { background:#0f1530; border:1px solid #25316a; border-radius:10px; padding:10px; display:grid; gap:6px; }
+    .tile .k { color:#9fb0ff; font-size:11px; font-weight:800; letter-spacing:0.3px; text-transform:uppercase; }
+    .tile .v { font-variant-numeric: tabular-nums; font-size:14px; color:#e8eaf6; font-weight:900; }
+
+    table { width:100%; border-collapse: collapse; }
+    th, td { border:1px solid #25316a; padding:6px 8px; font-size:12px; font-variant-numeric: tabular-nums; }
+    th { color:#cfe0ff; background:#0b1020; text-align:left; }
+
+    .section-title { color:#9fb0ff; font-size:11px; font-weight:800; letter-spacing:0.3px; text-transform:uppercase; }
+
+    .m0 { margin:0; }
+    .mt10 { margin-top:10px; }
+    .p-main { padding:18px 16px; }
+    .mb16 { margin-bottom:16px; }
+    .xscroll { overflow-x:auto; }
+
+    @media (max-width: 900px) {
+      .grid-4 { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 520px) {
+      .grid-4 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container header-inner">
+      <div class="topbar">
+        <h1 class="m0">Live Lens Accuracy</h1>
+        <a class="btn" href="/">Back to Cards</a>
+        <div class="spacer"></div>
+        <div class="muted">commit {{ commit }}</div>
+      </div>
+      <div class="controls mt10">
+        <div class="field">
+          <label for="date">Date</label>
+          <input id="date" type="date" value="{{ date }}" />
+        </div>
+        <div class="field">
+          <label for="start">Start</label>
+          <input id="start" type="date" value="{{ start }}" />
+        </div>
+        <div class="field">
+          <label for="end">End</label>
+          <input id="end" type="date" value="{{ end }}" />
+        </div>
+        <button id="run" class="btn" type="button">Load</button>
+        <div class="muted" id="status">Loading…</div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="container p-main">
+      <div class="grid-4 mb16" id="summaryTiles"></div>
+
+      <div class="card mb16">
+        <div class="section-title">By Market</div>
+        <div class="xscroll">
+          <table id="byMarket"></table>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">By Elapsed Bucket</div>
+        <div class="xscroll">
+          <table id="byElapsed"></table>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+
+    function fmt(x, nd=3) {
+      if (x === null || x === undefined || Number.isNaN(Number(x))) return '—';
+      return Number(x).toFixed(nd);
+    }
+
+    function pct(x, nd=1) {
+      if (x === null || x === undefined || Number.isNaN(Number(x))) return '—';
+      return (100 * Number(x)).toFixed(nd) + '%';
+    }
+
+    function setStatus(s) { $('status').textContent = s || ''; }
+
+    function renderTiles(sum) {
+      const el = $('summaryTiles');
+      el.innerHTML = '';
+      if (!sum) return;
+
+      const tiles = [
+        { k: 'Bets', v: String(sum.bets ?? '—') },
+        { k: 'Units', v: fmt(sum.units, 3) },
+        { k: 'ROI', v: pct(sum.roi, 1) },
+        { k: 'Win Rate', v: (sum.win_rate === null || sum.win_rate === undefined) ? '—' : pct(sum.win_rate, 1) },
+      ];
+
+      for (const t of tiles) {
+        const d = document.createElement('div');
+        d.className = 'tile';
+        d.innerHTML = `<div class="k">${t.k}</div><div class="v">${t.v}</div>`;
+        el.appendChild(d);
+      }
+    }
+
+    function renderTable(tableEl, rows, keyLabel) {
+      tableEl.innerHTML = '';
+      const head = document.createElement('tr');
+      for (const h of [keyLabel, 'bets', 'wins', 'losses', 'pushes', 'units', 'roi', 'win_rate']) {
+        const th = document.createElement('th');
+        th.textContent = h;
+        head.appendChild(th);
+      }
+      tableEl.appendChild(head);
+
+      for (const r of (rows || [])) {
+        const tr = document.createElement('tr');
+        const cols = [
+          (r.key === null || r.key === undefined) ? '(none)' : String(r.key),
+          String(r.bets ?? ''),
+          String(r.wins ?? ''),
+          String(r.losses ?? ''),
+          String(r.pushes ?? ''),
+          fmt(r.units, 3),
+          pct(r.roi, 1),
+          (r.win_rate === null || r.win_rate === undefined) ? '—' : pct(r.win_rate, 1),
+        ];
+        for (const c of cols) {
+          const td = document.createElement('td');
+          td.textContent = c;
+          tr.appendChild(td);
+        }
+        tableEl.appendChild(tr);
+      }
+    }
+
+    async function load() {
+      const date = $('date').value || '';
+      const start = $('start').value || '';
+      const end = $('end').value || '';
+
+      const params = new URLSearchParams();
+      if (date) params.set('date', date);
+      if (start) params.set('start', start);
+      if (end) params.set('end', end);
+
+      setStatus('Loading…');
+      try {
+        const r = await fetch('/api/live-lens-accuracy/data?' + params.toString(), { headers: { 'accept': 'application/json' } });
+        const obj = await r.json();
+        if (!obj.ok) {
+          setStatus('Error: ' + (obj.error || 'unknown'));
+          return;
+        }
+        renderTiles(obj.summary);
+        renderTable($('byMarket'), obj.by_market, 'market');
+        renderTable($('byElapsed'), obj.by_elapsed_bucket, 'elapsed_bucket');
+        const range = obj.start && obj.end ? `${obj.start}..${obj.end}` : '(latest)';
+        setStatus(`OK – ${range}`);
+      } catch (e) {
+        setStatus('Error: ' + String(e));
+      }
+    }
+
+    $('run').addEventListener('click', load);
+    load();
+  </script>
+</body>
+</html>

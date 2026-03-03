@@ -16,8 +16,6 @@ from io import StringIO
 import numpy as np
 import pandas as pd
 
-from ..utils.io import MODEL_DIR, PROC_DIR, RAW_DIR
-
 from fastapi import FastAPI, Header, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -28,6 +26,18 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 WEB_DIR = Path(__file__).resolve().parent
 STATIC_DIR = WEB_DIR / "static"
 TEMPLATES_DIR = WEB_DIR / "templates"
+
+# Data paths (best-effort; do not crash on read-only filesystems)
+ROOT_DIR = Path(__file__).resolve().parents[2]
+DATA_DIR = ROOT_DIR / "data"
+RAW_DIR = DATA_DIR / "raw"
+PROC_DIR = DATA_DIR / "processed"
+MODEL_DIR = DATA_DIR / "models"
+for _p in (DATA_DIR, RAW_DIR, PROC_DIR, MODEL_DIR):
+    try:
+        _p.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        pass
 
 
 # Jinja templates

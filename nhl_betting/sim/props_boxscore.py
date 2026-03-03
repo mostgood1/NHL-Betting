@@ -54,6 +54,9 @@ def aggregate_events_to_boxscores_fast(
     # Track team-level shots/goals per period for saves attribution
     team_pd_counts: Dict[tuple[str, int], list] = {}
 
+    # Track unattributed shots (shot events with player_id=None)
+    unattrib_shots: Dict[tuple[str, int], int] = {}
+
     def _team_pd(team: str, period: int) -> list:
         k = (team, int(period))
         v = team_pd_counts.get(k)
@@ -78,6 +81,8 @@ def aggregate_events_to_boxscores_fast(
             _team_pd(team, period)[0] += 1
             if pid is not None:
                 _get(team, int(pid), period)[0] += 1
+            else:
+                unattrib_shots[(team, period)] = int(unattrib_shots.get((team, period), 0)) + 1
         elif kind == "goal":
             _team_pd(team, period)[1] += 1
             if pid is not None:
@@ -102,6 +107,61 @@ def aggregate_events_to_boxscores_fast(
                     dur = 0.0
                 if dur and dur > 0.0:
                     _get(team, int(pid), period)[6] += float(dur)
+
+    # Reconcile unattributed shots so sum(player SOG) == team shots.
+    # This prevents a goalie-vs-skater mismatch when any shot events lack player attribution.
+    if unattrib_shots:
+        for (team_name, period), missing in list(unattrib_shots.items()):
+            try:
+                missing_i = int(missing)
+            except Exception:
+                continue
+            if missing_i <= 0:
+                continue
+            try:
+                team_state = gs.home if team_name == gs.home.name else gs.away
+            except Exception:
+                continue
+
+            skaters = []  # (pid, weight)
+            for p in (team_state.players or {}).values():
+                try:
+                    if str(getattr(p, "position", "")).strip().upper() == "G":
+                        continue
+                    pid_i = int(getattr(p, "player_id"))
+                except Exception:
+                    continue
+                try:
+                    w = float(getattr(p, "toi_proj", 0.0) or 0.0)
+                except Exception:
+                    w = 0.0
+                skaters.append((pid_i, max(0.0, w)))
+
+            if not skaters:
+                continue
+
+            weights = [w for _, w in skaters]
+            wsum = float(sum(weights))
+            if wsum <= 0.0:
+                weights = [1.0 for _ in skaters]
+                wsum = float(len(skaters))
+
+            raw = [missing_i * (w / wsum) for w in weights]
+            base = [int(x) for x in raw]
+            rem = missing_i - int(sum(base))
+            if rem > 0:
+                fracs = sorted(
+                    [(i, raw[i] - base[i]) for i in range(len(raw))],
+                    key=lambda t: t[1],
+                    reverse=True,
+                )
+                for k in range(rem):
+                    base[fracs[k % len(fracs)][0]] += 1
+
+            for (pid_i, _), add in zip(skaters, base):
+                if int(add) <= 0:
+                    continue
+                _get(team_name, int(pid_i), int(period))[0] += int(add)
 
     def _starter_goalie(team_name: str) -> Optional[int]:
         # Prefer provided starter map when available

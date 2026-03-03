@@ -8481,28 +8481,117 @@ def props_simulate_boxscores(
             pass
         # Calibrate team rates from projections-derived weights to improve stat accuracy
         try:
-            def _exp_totals(rows: list[dict]) -> tuple[float, float, float]:
-                sog = 0.0; gls = 0.0; blk = 0.0
-                import math as _math
+            import math as _math
+
+            def _exp_totals_from_projections(rows: list[dict]) -> tuple[float, float, float, float]:
+                """Return (sog, gls, blk, toi_covered_min) based on props_projections_all_{date}.csv weights."""
+                sog = 0.0; gls = 0.0; blk = 0.0; toi_cov = 0.0
                 for rr in rows or []:
                     nm = str(rr.get('full_name') or rr.get('player') or '').strip()
                     w = _weights_by_name.get(nm)
                     if not w:
                         continue
-                    if w.get('shot_weight') is not None and not _math.isnan(w['shot_weight']):
-                        sog += float(w['shot_weight'])
-                    if w.get('goal_weight') is not None and not _math.isnan(w['goal_weight']):
-                        gls += float(w['goal_weight'])
-                    if w.get('block_weight') is not None and not _math.isnan(w['block_weight']):
-                        blk += float(w['block_weight'])
-                return sog, gls, blk
-            sog_h, gls_h, blk_h = _exp_totals(dressed_home)
-            sog_a, gls_a, blk_a = _exp_totals(dressed_away)
+                    try:
+                        toi_cov += float(rr.get('proj_toi') or 0.0)
+                    except Exception:
+                        pass
+                    try:
+                        sw = w.get('shot_weight')
+                        if sw is not None and not _math.isnan(float(sw)):
+                            sog += float(sw)
+                    except Exception:
+                        pass
+                    try:
+                        gw = w.get('goal_weight')
+                        if gw is not None and not _math.isnan(float(gw)):
+                            gls += float(gw)
+                    except Exception:
+                        pass
+                    try:
+                        bw = w.get('block_weight')
+                        if bw is not None and not _math.isnan(float(bw)):
+                            blk += float(bw)
+                    except Exception:
+                        pass
+                return sog, gls, blk, toi_cov
+
+            def _exp_sog_from_stats(rows: list[dict], team_abbr: str) -> float:
+                """Best-effort expected team SOG from per-minute shot rates and projected TOI."""
+                total = 0.0
+                for rr in rows or []:
+                    try:
+                        pos = _norm_pos(rr.get('position'))
+                    except Exception:
+                        pos = 'F'
+                    if pos == 'G':
+                        continue
+                    try:
+                        pid = int(rr.get('player_id'))
+                    except Exception:
+                        pid = None
+                    try:
+                        toi = float(rr.get('proj_toi') or 0.0)
+                    except Exception:
+                        toi = 0.0
+                    if toi <= 0:
+                        continue
+
+                    sr = None
+                    try:
+                        if team_abbr and pid is not None:
+                            sr = shot_rate_by_team_pid_stats.get((str(team_abbr).upper(), int(pid)))
+                    except Exception:
+                        sr = None
+                    if sr is None:
+                        try:
+                            sr = shot_rate_by_pid_stats.get(int(pid)) if pid is not None else None
+                        except Exception:
+                            sr = None
+
+                    if sr is None:
+                        # Heuristic fallback: shots/min by position.
+                        sr = 0.105 if pos == 'F' else (0.060 if pos == 'D' else 0.090)
+                    try:
+                        total += float(sr) * float(toi)
+                    except Exception:
+                        continue
+                return float(total)
+
+            def _toi_sum_skaters(rows: list[dict]) -> float:
+                s = 0.0
+                for rr in rows or []:
+                    try:
+                        if _norm_pos(rr.get('position')) == 'G':
+                            continue
+                    except Exception:
+                        pass
+                    try:
+                        s += float(rr.get('proj_toi') or 0.0)
+                    except Exception:
+                        continue
+                return float(s)
+
+            h_ab = _abbr_for_team_name(home) or ""
+            a_ab = _abbr_for_team_name(away) or ""
+
+            sog_h, gls_h, blk_h, cov_toi_h = _exp_totals_from_projections(dressed_home)
+            sog_a, gls_a, blk_a, cov_toi_a = _exp_totals_from_projections(dressed_away)
+            toi_h = _toi_sum_skaters(dressed_home)
+            toi_a = _toi_sum_skaters(dressed_away)
+
+            # Use projections-derived team totals only when they cover most of the dressed skater TOI.
+            # Otherwise, it can collapse to the floor (15) and create unrealistically low-SOG games.
+            cov_frac_h = (cov_toi_h / max(1e-6, toi_h)) if toi_h > 0 else 0.0
+            cov_frac_a = (cov_toi_a / max(1e-6, toi_a)) if toi_a > 0 else 0.0
+
+            exp_sog_h = sog_h if (sog_h > 0 and cov_frac_h >= 0.70) else _exp_sog_from_stats(dressed_home, h_ab)
+            exp_sog_a = sog_a if (sog_a > 0 and cov_frac_a >= 0.70) else _exp_sog_from_stats(dressed_away, a_ab)
+
             # Expected per-60 ~ per-game in regulation; clamp to sane team-level ranges
-            if sog_h > 0:
-                rates.home.shots_per_60 = float(max(15.0, min(45.0, sog_h)))
-            if sog_a > 0:
-                rates.away.shots_per_60 = float(max(15.0, min(45.0, sog_a)))
+            if exp_sog_h > 0:
+                rates.home.shots_per_60 = float(max(15.0, min(45.0, exp_sog_h)))
+            if exp_sog_a > 0:
+                rates.away.shots_per_60 = float(max(15.0, min(45.0, exp_sog_a)))
             if gls_h > 0:
                 rates.home.goals_per_60 = float(max(1.0, min(6.5, gls_h)))
             if gls_a > 0:

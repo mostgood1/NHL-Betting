@@ -175,6 +175,8 @@
     table.boxscore td { text-align:center; }
     table.boxscore td.player { text-align:left; }
     table.boxscore th.sortable { cursor:pointer; -webkit-user-select:none; user-select:none; }
+    table.boxscore tfoot td { font-weight:700; }
+    table.boxscore tfoot td.player { font-weight:700; }
 
     @media (max-width: 900px) {
       .grid-3 { grid-template-columns: 1fr; }
@@ -1625,6 +1627,35 @@
           const seenIds = new Set();
           const seenKeys = new Set();
 
+          const n0 = (x) => {
+            const v = Number(x);
+            return (isFinite(v) ? v : 0);
+          };
+          const n0i = (x) => {
+            const v = parseInt(String(x ?? ''), 10);
+            return (isFinite(v) ? v : 0);
+          };
+          const toiToSec = (s) => {
+            try {
+              const t = String(s || '').trim();
+              if (!t || t === '—') return 0;
+              const m = t.split(':');
+              if (m.length !== 2) return 0;
+              const mm = parseInt(m[0], 10);
+              const ss = parseInt(m[1], 10);
+              if (!isFinite(mm) || !isFinite(ss)) return 0;
+              return 60 * mm + ss;
+            } catch (e) {
+              return 0;
+            }
+          };
+          const fmtToi = (sec) => {
+            const s = Math.max(0, Math.round(Number(sec) || 0));
+            const mm = Math.floor(s / 60);
+            const ss = s % 60;
+            return `${mm}:${String(ss).padStart(2,'0')}`;
+          };
+
           // Prefer ordering by live points then shots
           live.sort((a,b) => (Number(b.p)||0)-(Number(a.p)||0) || (Number((b && (b.s ?? b.sog ?? b.shots)) )||0)-(Number((a && (a.s ?? a.sog ?? a.shots)) )||0));
           for (const r of live) {
@@ -1693,6 +1724,51 @@
             `;
           }).join('');
 
+          // Totals row (sanity check: player totals should roughly match team/game totals)
+          try {
+            let lg = 0, la = 0, lp0 = 0, ls = 0, lblk = 0, ltoiSec = 0;
+            let sg = 0, sa = 0, sp0 = 0, ss = 0, sblk = 0, stoiSec = 0;
+            for (const x of rows) {
+              const lpR = x.live || {};
+              const spR = x.sim || {};
+              const lshots = (lpR && (lpR.s ?? lpR.sog ?? lpR.shots ?? lpR.shots_on_goal));
+              lg += n0i(lpR.g);
+              la += n0i(lpR.a);
+              lp0 += n0i(lpR.p);
+              ls += n0i(lshots);
+              lblk += n0i(lpR.blk);
+              ltoiSec += toiToSec(lpR.toi);
+
+              sg += n0(spR.goals);
+              sa += n0(spR.assists);
+              sp0 += n0(spR.points);
+              ss += n0(spR.shots);
+              sblk += n0(spR.blocks);
+              stoiSec += n0(spR.toi_sec);
+            }
+
+            var totalsRow = `
+              <tr>
+                <td class="player">TEAM TOTAL</td>
+                <td>—</td>
+                <td>${lg}</td>
+                <td>${la}</td>
+                <td>${lp0}</td>
+                <td>${ls}</td>
+                <td>${lblk}</td>
+                <td>${fmtToi(ltoiSec)}</td>
+                <td>${fmt(sg,2)}</td>
+                <td>${fmt(sa,2)}</td>
+                <td>${fmt(sp0,2)}</td>
+                <td>${fmt(ss,2)}</td>
+                <td>${fmt(sblk,2)}</td>
+                <td>${fmtToi(stoiSec)}</td>
+              </tr>
+            `;
+          } catch (e) {
+            var totalsRow = '';
+          }
+
           return `
             <div class="section-title">${title}</div>
             <table class="boxscore">
@@ -1718,6 +1794,7 @@
                 <th class="sortable" data-sort-type="toi">TOI</th>
               </tr></thead>
               <tbody>${body || ''}</tbody>
+              <tfoot>${totalsRow || ''}</tfoot>
             </table>
           `;
         };
@@ -1726,6 +1803,20 @@
           const live = Array.isArray(liveArr) ? liveArr.slice(0,2) : [];
           const rows = [];
           const seenIds = new Set();
+          const n0i = (x) => {
+            const v = parseInt(String(x ?? ''), 10);
+            return (isFinite(v) ? v : 0);
+          };
+          const n0 = (x) => {
+            const v = Number(x);
+            return (isFinite(v) ? v : 0);
+          };
+          const fmtToi = (sec) => {
+            const s = Math.max(0, Math.round(Number(sec) || 0));
+            const mm = Math.floor(s / 60);
+            const ss = s % 60;
+            return `${mm}:${String(ss).padStart(2,'0')}`;
+          };
           for (const r of live) {
             const pid = getPlayerId(r);
             const k = nameKey(r && r.name);
@@ -1780,6 +1871,33 @@
             `;
           }).join('');
 
+          // Totals row (sanity check)
+          try {
+            let lsv = 0, lsa = 0;
+            let ssv = 0, stoiSec = 0;
+            for (const x of rows) {
+              const lg = x.live || {};
+              const sg = x.sim || {};
+              lsv += n0i(lg.saves);
+              lsa += n0i(lg.shots_against);
+              ssv += n0(sg.saves);
+              stoiSec += n0(sg.toi_sec);
+            }
+            const lsvpct = (lsa > 0) ? ((100 * (lsv / lsa)).toFixed(1) + '%') : '—';
+            var totalsRow = `
+              <tr>
+                <td class="player">TEAM TOTAL</td>
+                <td>${lsv}</td>
+                <td>${lsa || '—'}</td>
+                <td>${lsvpct}</td>
+                <td>${fmt(ssv,2)}</td>
+                <td>${fmtToi(stoiSec)}</td>
+              </tr>
+            `;
+          } catch (e) {
+            var totalsRow = '';
+          }
+
           return `
             <div class="section-title">${title}</div>
             <table class="boxscore">
@@ -1797,6 +1915,7 @@
                 <th class="sortable" data-sort-type="toi">TOI</th>
               </tr></thead>
               <tbody>${body || ''}</tbody>
+              <tfoot>${totalsRow || ''}</tfoot>
             </table>
           `;
         };

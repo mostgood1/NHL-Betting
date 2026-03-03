@@ -20,6 +20,11 @@ from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Res
 from fastapi.staticfiles import StaticFiles
 
 
+# Paths
+WEB_DIR = Path(__file__).resolve().parent
+STATIC_DIR = WEB_DIR / "static"
+
+
 # FastAPI application instance (must be defined before any @app.* decorators)
 app = FastAPI()
 

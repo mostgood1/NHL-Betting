@@ -225,6 +225,8 @@
     // Hard cap by default: only show props with -125 <= price <= +125.
     const PROPS_AMERICAN_PRICE_MIN = -125;
     const PROPS_AMERICAN_PRICE_MAX = 125;
+    // Small EV floor to avoid thin/noisy picks dominating the list.
+    const PROPS_EV_MIN = 0.02;
 
     function setAccuracyHref(d) {
       const base = '/api/live-lens-accuracy';
@@ -633,6 +635,11 @@
       const raw = (propsRows || []).map(normalizePropRec)
         .filter(r => r && r.player && r.market && r.side && (isFinite(r.edgeScore) || isFinite(r.ev)))
         .filter(r => {
+          // If EV exists, require a small minimum; otherwise keep row (older artifacts).
+          const ev = Number(r.ev);
+          return !isFinite(ev) || ev >= PROPS_EV_MIN;
+        })
+        .filter(r => {
           // Hard display cap: only show bettable price ranges.
           const p = Number(r.priceNum);
           return isFinite(p) && p >= PROPS_AMERICAN_PRICE_MIN && p <= PROPS_AMERICAN_PRICE_MAX;
@@ -653,7 +660,8 @@
         if (r.edgeScore === cur.edgeScore && isFinite(r.ev) && (!isFinite(cur.ev) || r.ev > cur.ev)) { best.set(key, r); }
       }
       const rows = Array.from(best.values());
-      rows.sort((a,b) => ((isFinite(b.edgeScore) ? b.edgeScore : -1e9) - (isFinite(a.edgeScore) ? a.edgeScore : -1e9)) || ((b.ev||0) - (a.ev||0)));
+      // Prefer ranking by EV (bettability), then by edge score.
+      rows.sort((a,b) => ((isFinite(b.ev) ? b.ev : -1e9) - (isFinite(a.ev) ? a.ev : -1e9)) || ((isFinite(b.edgeScore) ? b.edgeScore : -1e9) - (isFinite(a.edgeScore) ? a.edgeScore : -1e9)));
       const top = rows.slice(0, 4);
       if (!top.length) {
         return `<div class="market"><div class="k">${title}</div><div class="v muted">No props edges available.</div></div>`;
@@ -2698,12 +2706,23 @@
         const k = keyForGame(p);
         const aAb = predTeamAbbr(p, 'away');
         const hAb = predTeamAbbr(p, 'home');
+        // Filter props to the actual opponent to avoid cross-game bleed.
+        const propsAwayAll = (aAb && propsByTeam.get(aAb)) ? propsByTeam.get(aAb) : [];
+        const propsHomeAll = (hAb && propsByTeam.get(hAb)) ? propsByTeam.get(hAb) : [];
+        const propsAway = (aAb && hAb) ? propsAwayAll.filter(r => {
+          const opp = toUpper(r && r.opp);
+          return !opp || opp === hAb;
+        }) : propsAwayAll;
+        const propsHome = (aAb && hAb) ? propsHomeAll.filter(r => {
+          const opp = toUpper(r && r.opp);
+          return !opp || opp === aAb;
+        }) : propsHomeAll;
         frag.appendChild(renderCard(
           p,
           byGame.get(k) || [],
           simByGame.get(k) || [],
-          (aAb && propsByTeam.get(aAb)) ? propsByTeam.get(aAb) : [],
-          (hAb && propsByTeam.get(hAb)) ? propsByTeam.get(hAb) : [],
+          propsAway,
+          propsHome,
         ));
       }
       $('cards').appendChild(frag);

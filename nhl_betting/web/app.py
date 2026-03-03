@@ -746,6 +746,46 @@ try:
 except Exception:
     _LIVE_ODDS_TTL_SECONDS = 30
 
+# Lightweight in-memory cache for combined live-lens payloads.
+# Keyed by (date, regions, best, include_non_live, inplay, include_pbp).
+_LIVE_LENS_CACHE: dict = {}
+try:
+    _LIVE_LENS_TTL_INPLAY_SECONDS = int(os.getenv("LIVE_LENS_TTL_INPLAY_SECONDS", "6"))
+except Exception:
+    _LIVE_LENS_TTL_INPLAY_SECONDS = 6
+try:
+    _LIVE_LENS_TTL_NONLIVE_SECONDS = int(os.getenv("LIVE_LENS_TTL_NONLIVE_SECONDS", "60"))
+except Exception:
+    _LIVE_LENS_TTL_NONLIVE_SECONDS = 60
+
+
+def _live_lens_cache_get(key: str, ttl_seconds: int):
+    try:
+        ent = _LIVE_LENS_CACHE.get(key)
+        if not ent:
+            return None
+        ttl = int(ttl_seconds or 0)
+        if ttl <= 0:
+            return None
+        if (time.time() - float(ent.get("ts", 0.0))) > float(ttl):
+            _LIVE_LENS_CACHE.pop(key, None)
+            return None
+        return ent.get("value")
+    except Exception:
+        return None
+
+
+def _live_lens_cache_put(key: str, value: object):
+    try:
+        _LIVE_LENS_CACHE[key] = {"ts": time.time(), "value": value}
+        # Small best-effort pruning to keep memory bounded.
+        if len(_LIVE_LENS_CACHE) > 256:
+            items = sorted(_LIVE_LENS_CACHE.items(), key=lambda kv: float((kv[1] or {}).get("ts", 0.0)))
+            for k, _ in items[:64]:
+                _LIVE_LENS_CACHE.pop(k, None)
+    except Exception:
+        pass
+
 
 def _live_odds_cache_get(key: str):
     try:
@@ -1900,6 +1940,17 @@ async def v1_live_lens_combined(
         d = str(date or "").strip()
         if not _V1_DATE_RE.fullmatch(d):
             return JSONResponse({"ok": False, "error": "invalid_date", "date": date}, status_code=400)
+
+        # Small in-memory cache so UI polling doesn't recompute full payload each time.
+        # TTL differs for in-play vs non-live slates.
+        try:
+            ttl = int(_LIVE_LENS_TTL_INPLAY_SECONDS if bool(inplay) else _LIVE_LENS_TTL_NONLIVE_SECONDS)
+        except Exception:
+            ttl = 6 if bool(inplay) else 60
+        cache_key = f"{d}|{str(regions or 'us')}|{1 if bool(best) else 0}|{1 if bool(include_non_live) else 0}|{1 if bool(inplay) else 0}|{1 if bool(include_pbp) else 0}"
+        cached = _live_lens_cache_get(cache_key, ttl)
+        if isinstance(cached, dict) and cached.get("ok"):
+            return JSONResponse(cached)
 
         asof = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
         try:
@@ -4810,6 +4861,13 @@ async def v1_live_lens_combined(
             "games": out_games,
         }
         payload = _strict_json_sanitize(payload)
+
+        # Cache the full payload for a short TTL (in-play) or longer TTL (non-live).
+        try:
+            if int(ttl or 0) > 0:
+                _live_lens_cache_put(cache_key, payload)
+        except Exception:
+            pass
 
         # Optional: persist a compact snapshot on disk (Render disk-friendly).
         # This is best-effort and should never fail the endpoint.

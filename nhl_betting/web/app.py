@@ -18,11 +18,20 @@ import numpy as np
 from fastapi import FastAPI, Header, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
+from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 
 # Paths
 WEB_DIR = Path(__file__).resolve().parent
 STATIC_DIR = WEB_DIR / "static"
+TEMPLATES_DIR = WEB_DIR / "templates"
+
+
+# Jinja templates
+env = Environment(
+    loader=FileSystemLoader(str(TEMPLATES_DIR)),
+    autoescape=select_autoescape(["html", "xml"]),
+)
 
 
 # FastAPI application instance (must be defined before any @app.* decorators)

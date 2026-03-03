@@ -221,6 +221,11 @@
     let livePollTimer = null;
     let livePollInFlight = false;
 
+    // Pregame props display cap (American odds). Keeps the UI focused on bettable ranges.
+    // Hard cap by default: only show props with -125 <= price <= +125.
+    const PROPS_AMERICAN_PRICE_MIN = -125;
+    const PROPS_AMERICAN_PRICE_MAX = 125;
+
     function setAccuracyHref(d) {
       const base = '/api/live-lens-accuracy';
       if (!d) {
@@ -594,6 +599,7 @@
         const side = toUpper(rec && rec.side);
         const price = (rec && rec.price !== undefined && rec.price !== null) ? rec.price
           : (side === 'OVER' ? (rec && rec.over_price) : (rec && rec.under_price));
+        const priceNum = (price !== null && price !== undefined && String(price).trim() !== '') ? Number(price) : NaN;
         const prob = (rec && rec.prob !== undefined && rec.prob !== null) ? Number(rec.prob)
           : ((rec && rec.p_over !== undefined && rec.p_over !== null) ? Number(rec.p_over) : NaN);
         return {
@@ -604,6 +610,7 @@
           side,
           line: (rec && rec.line !== undefined) ? rec.line : null,
           price,
+          priceNum,
           ev: Number((rec && rec.ev !== undefined) ? rec.ev : NaN),
           edgeScore: Number((rec && rec.edge_score !== undefined) ? rec.edge_score : NaN),
           edgeReasons: String((rec && (rec.edge_drivers || rec.edge_reasons || rec.drivers || rec.reason)) ? (rec.edge_drivers || rec.edge_reasons || rec.drivers || rec.reason) : '').trim(),
@@ -611,7 +618,7 @@
           book: String((rec && rec.book) ? rec.book : '').trim(),
         };
       } catch (e) {
-        return { team:'', opp:'', player:'', market:'', side:'', line:null, price:null, ev:NaN, edgeScore:NaN, edgeReasons:'', prob:NaN, book:'' };
+        return { team:'', opp:'', player:'', market:'', side:'', line:null, price:null, priceNum:NaN, ev:NaN, edgeScore:NaN, edgeReasons:'', prob:NaN, book:'' };
       }
     }
 
@@ -624,7 +631,12 @@
 
       // Normalize; prefer edge score, but fallback to EV for older bundles.
       const raw = (propsRows || []).map(normalizePropRec)
-        .filter(r => r && r.player && r.market && r.side && (isFinite(r.edgeScore) || isFinite(r.ev)));
+        .filter(r => r && r.player && r.market && r.side && (isFinite(r.edgeScore) || isFinite(r.ev)))
+        .filter(r => {
+          // Hard display cap: only show bettable price ranges.
+          const p = Number(r.priceNum);
+          return isFinite(p) && p >= PROPS_AMERICAN_PRICE_MIN && p <= PROPS_AMERICAN_PRICE_MAX;
+        });
 
       // Dedupe: show each prop once by best available price.
       const best = new Map();

@@ -2373,6 +2373,15 @@ async def v1_live_lens_combined(
             played_by_day = {}
 
         out_games: list[dict] = []
+        # Keep a small per-game previous-state cache so we can emit "why now" triggers
+        # (goal, PP start/end, pulled goalie, etc.) as driver tags.
+        try:
+            prev_map = getattr(app.state, "live_lens_prev_state", None)
+            if not isinstance(prev_map, dict):
+                prev_map = {}
+                setattr(app.state, "live_lens_prev_state", prev_map)
+        except Exception:
+            prev_map = {}
         for g in live_obj.get("games") or []:
             if not isinstance(g, dict):
                 continue
@@ -3069,6 +3078,105 @@ async def v1_live_lens_combined(
             # - Player shots / goalie saves: no live prop lines here, so we emit
             #   actionable "target" guidance (line + max price) from live pace.
             # ------------------------------------------------------------------
+            # "Why now" trigger tags (best-effort): score change, PP start/end, empty net, 5v3.
+            trigger_tags: list[str] = []
+            try:
+                # Current score state
+                if away_goals is not None and home_goals is not None:
+                    if int(away_goals) == int(home_goals):
+                        trigger_tags.append("score:tied")
+                    elif int(home_goals) > int(away_goals):
+                        trigger_tags.append("score:home_leading")
+                    else:
+                        trigger_tags.append("score:away_leading")
+
+                # Current manpower / PP / empty net state (from PBP)
+                mp = pbp_ctx.get("manpower")
+                if mp:
+                    trigger_tags.append(f"manpower:{str(mp)}")
+                    if str(mp) in {"5v3", "3v5"}:
+                        trigger_tags.append("manpower:5v3")
+                pp_team_now = pbp_ctx.get("pp_team")
+                if pp_team_now == "home":
+                    trigger_tags.append("manpower:pp_home")
+                elif pp_team_now == "away":
+                    trigger_tags.append("manpower:pp_away")
+                if pbp_ctx.get("home_empty_net"):
+                    trigger_tags.append("empty_net:home")
+                if pbp_ctx.get("away_empty_net"):
+                    trigger_tags.append("empty_net:away")
+
+                # Compare with previous cached state to detect transitions.
+                state_key = f"{d}|{key}"
+                prev = prev_map.get(state_key) if isinstance(prev_map, dict) else None
+                if isinstance(prev, dict):
+                    try:
+                        pa = prev.get("away_goals")
+                        ph = prev.get("home_goals")
+                        if pa is not None and ph is not None and away_goals is not None and home_goals is not None:
+                            if int(away_goals) > int(pa):
+                                trigger_tags.append("goal_away")
+                            if int(home_goals) > int(ph):
+                                trigger_tags.append("goal_home")
+                    except Exception:
+                        pass
+
+                    try:
+                        pp_prev = prev.get("pp_team")
+                        if pp_prev != pp_team_now:
+                            if pp_prev in {"home", "away"}:
+                                trigger_tags.append(f"pp_end_{pp_prev}")
+                            if pp_team_now in {"home", "away"}:
+                                trigger_tags.append(f"pp_start_{pp_team_now}")
+                    except Exception:
+                        pass
+
+                    try:
+                        if bool(prev.get("home_empty_net")) is False and bool(pbp_ctx.get("home_empty_net")) is True:
+                            trigger_tags.append("pulled_goalie_home")
+                        if bool(prev.get("away_empty_net")) is False and bool(pbp_ctx.get("away_empty_net")) is True:
+                            trigger_tags.append("pulled_goalie_away")
+                    except Exception:
+                        pass
+
+                # Update previous state
+                try:
+                    if isinstance(prev_map, dict):
+                        prev_map[state_key] = {
+                            "ts": float(time.time()),
+                            "away_goals": away_goals,
+                            "home_goals": home_goals,
+                            "pp_team": pp_team_now,
+                            "manpower": pbp_ctx.get("manpower"),
+                            "home_empty_net": bool(pbp_ctx.get("home_empty_net")),
+                            "away_empty_net": bool(pbp_ctx.get("away_empty_net")),
+                        }
+                        # Prune oldest entries occasionally
+                        if len(prev_map) > 512:
+                            items = sorted(prev_map.items(), key=lambda kv: float((kv[1] or {}).get("ts", 0.0)))
+                            for k0, _ in items[:128]:
+                                prev_map.pop(k0, None)
+                except Exception:
+                    pass
+
+                # Deduplicate tags while preserving order
+                try:
+                    seen = set()
+                    dedup = []
+                    for t in trigger_tags:
+                        s = str(t or "").strip()
+                        if not s:
+                            continue
+                        if s in seen:
+                            continue
+                        seen.add(s)
+                        dedup.append(s)
+                    trigger_tags = dedup
+                except Exception:
+                    pass
+            except Exception:
+                trigger_tags = []
+
             signals: list[dict] = []
 
             # 1) Game total signal
@@ -4845,6 +4953,42 @@ async def v1_live_lens_combined(
 
                 signals.sort(key=_sig_rank)
                 signals = signals[:20]
+            except Exception:
+                pass
+
+            # If the game is LIVE and we have trigger tags but no other signals,
+            # emit a single compact context signal so the UI can show "why now" tags.
+            try:
+                if (not signals) and trigger_tags and _is_live_state(g.get("gameState")):
+                    signals = [
+                        _signal(
+                            "WATCH",
+                            scope="game",
+                            market="LIVE_CONTEXT",
+                            label="Live context",
+                            driver_tags=trigger_tags,
+                        )
+                    ]
+            except Exception:
+                pass
+
+            # Attach compact "why now" trigger tags to every signal for this game.
+            # The cards-only UI already renders sig.driver_tags as pills (and filters out market/edge/etc).
+            try:
+                if trigger_tags:
+                    for s in signals:
+                        if not isinstance(s, dict):
+                            continue
+                        dt = s.get("driver_tags")
+                        if not isinstance(dt, list):
+                            dt = []
+                        # Merge while preserving existing tags first.
+                        seen = set(str(x) for x in dt if str(x or "").strip())
+                        for t in trigger_tags:
+                            if str(t) not in seen:
+                                dt.append(t)
+                                seen.add(str(t))
+                        s["driver_tags"] = dt
             except Exception:
                 pass
 

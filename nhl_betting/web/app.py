@@ -16,6 +16,8 @@ from io import StringIO
 import numpy as np
 import pandas as pd
 
+from ..utils.io import MODEL_DIR, PROC_DIR, RAW_DIR
+
 from fastapi import FastAPI, Header, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles

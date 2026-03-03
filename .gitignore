@@ -82,6 +82,11 @@ data/props/**
 !data/processed/props_recommendations_history.csv
 !data/processed/player_props_vs_actuals_*.csv
 
+## Derived recommendation variants are not required by the Render web app; keep them out of git
+data/processed/props_recommendations_combined_*.csv
+data/processed/props_recommendations_nolines_*.csv
+data/processed/props_recommendations_sim_*.csv
+
 ## Reconciliation + bundle artifacts
 ## Keep these ignored by default to avoid accidentally staging a huge backlog.
 ## The daily update script force-adds the specific dates/logs/bundles needed for public deploy parity.

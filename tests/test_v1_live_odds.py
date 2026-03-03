@@ -55,6 +55,10 @@ def test_v1_odds_smoke(monkeypatch):
 
     r = client.get("/v1/odds/2099-01-01")
     assert r.status_code == 200
+    etag = r.headers.get("etag")
+    assert isinstance(etag, str) and len(etag) > 0
+    assert "cache-control" in {k.lower() for k in r.headers.keys()}
+    assert "Accept-Encoding" in str(r.headers.get("vary") or "")
     obj = r.json()
     assert obj.get("ok") is True
     assert obj.get("date") == "2099-01-01"
@@ -69,3 +73,7 @@ def test_v1_odds_smoke(monkeypatch):
     assert g0["away"] == "Montreal Canadiens"
     assert g0["ml"]["home"] == -140
     assert g0["total"]["line"] == 6.5
+
+    # ETag / 304 support: a matching If-None-Match should avoid re-sending the body.
+    r2 = client.get("/v1/odds/2099-01-01", headers={"If-None-Match": etag})
+    assert r2.status_code == 304

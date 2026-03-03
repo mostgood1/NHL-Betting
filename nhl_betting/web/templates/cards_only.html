@@ -17,9 +17,11 @@
 
     /* NBA-style compact scoreboard strip + card tags */
     .scoreboard-strip {
-      display:flex;
+      display:grid;
       gap:8px;
-      overflow-x:auto;
+      grid-template-columns: repeat(var(--sb-cols, 1), minmax(0, 1fr));
+      grid-template-rows: repeat(var(--sb-rows, 1), auto);
+      overflow-x:hidden;
       padding:10px 0;
       margin: 8px 0 12px;
       border-top: 1px solid #25316a;
@@ -31,9 +33,7 @@
     }
     .scoreboard-strip:empty { display:none; }
     .scoreboard-strip .s-item {
-      flex: 0 0 auto;
-      min-width: 210px;
-      max-width: none;
+      min-width: 0;
       background:#0f1530;
       border:1px solid #25316a;
       border-radius:12px;
@@ -977,6 +977,37 @@
       return null;
     }
 
+    function _setScoreboardStripLayout(strip, nItems) {
+      if (!strip) return;
+      const n = Math.max(0, Number(nItems || 0));
+      if (!n) {
+        try { strip.style.removeProperty('--sb-cols'); } catch (e) {}
+        try { strip.style.removeProperty('--sb-rows'); } catch (e) {}
+        return;
+      }
+
+      // Keep these in sync with the CSS above.
+      const gapPx = 8;
+      const baselineMinCardPx = 210;
+
+      let rows = 1;
+      let cols = n;
+      try {
+        const w = Number(strip.clientWidth || strip.getBoundingClientRect().width || 0);
+        const maxColsOneRow = Math.max(1, Math.floor((w + gapPx) / (baselineMinCardPx + gapPx)));
+        if (n > maxColsOneRow) {
+          rows = 2;
+          cols = Math.ceil(n / 2);
+        }
+      } catch (e) {
+        rows = 2;
+        cols = Math.ceil(n / 2);
+      }
+
+      try { strip.style.setProperty('--sb-cols', String(Math.max(1, cols))); } catch (e) {}
+      try { strip.style.setProperty('--sb-rows', String(Math.max(1, rows))); } catch (e) {}
+    }
+
     function buildScoreboardStrip(preds) {
       const strip = $('scoreboardStrip');
       if (!strip) return;
@@ -1050,7 +1081,22 @@
         frag.appendChild(aEl);
       }
       strip.appendChild(frag);
+      try { _setScoreboardStripLayout(strip, (preds || []).length); } catch (e) {}
     }
+
+    (function() {
+      let raf = 0;
+      window.addEventListener('resize', () => {
+        try { if (raf) cancelAnimationFrame(raf); } catch (e) {}
+        raf = requestAnimationFrame(() => {
+          raf = 0;
+          const strip = $('scoreboardStrip');
+          if (!strip) return;
+          const n = strip.querySelectorAll('.s-item').length;
+          _setScoreboardStripLayout(strip, n);
+        });
+      });
+    })();
 
     function _pickSignalForTag(signals) {
       if (!Array.isArray(signals) || !signals.length) return null;

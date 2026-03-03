@@ -22,6 +22,111 @@ class BinaryCalibration:
         return np.clip(out, 1e-6, 1 - 1e-6)
 
 
+@dataclass
+class IsotonicCalibration:
+    """Monotone calibration via isotonic regression (piecewise-linear).
+
+    Stored as breakpoints (x, y) where x is raw probability and y is calibrated.
+    """
+
+    x: np.ndarray
+    y: np.ndarray
+
+    def apply(self, p: np.ndarray) -> np.ndarray:
+        p = np.clip(np.asarray(p, dtype=float), 1e-6, 1 - 1e-6)
+        try:
+            if self.x is None or self.y is None:
+                return p
+            if len(self.x) < 2 or len(self.y) < 2:
+                return p
+            x = np.asarray(self.x, dtype=float)
+            y = np.asarray(self.y, dtype=float)
+            # Ensure sorted by x
+            o = np.argsort(x)
+            x = x[o]
+            y = y[o]
+            out = np.interp(p, x, y, left=float(y[0]), right=float(y[-1]))
+            return np.clip(out, 1e-6, 1 - 1e-6)
+        except Exception:
+            return p
+
+
+def fit_isotonic(prob: Iterable[float], y: Iterable[int]) -> IsotonicCalibration:
+    """Fit isotonic regression using PAVA on grouped unique probabilities."""
+    p = np.asarray(list(prob), dtype=float)
+    y_arr = np.asarray(list(y), dtype=float)
+    m = (~np.isnan(p)) & (~np.isnan(y_arr))
+    p = p[m]
+    y_arr = y_arr[m]
+    if p.size < 2:
+        return IsotonicCalibration(x=np.asarray([1e-6, 1 - 1e-6], dtype=float), y=np.asarray([0.5, 0.5], dtype=float))
+
+    # Sort by p
+    o = np.argsort(p)
+    p = p[o]
+    y_arr = y_arr[o]
+
+    # Group by identical p to reduce noise and improve stability.
+    uniq_p: list[float] = []
+    w: list[float] = []
+    y_mean: list[float] = []
+    i = 0
+    n = int(p.size)
+    while i < n:
+        j = i + 1
+        while j < n and float(p[j]) == float(p[i]):
+            j += 1
+        cnt = float(j - i)
+        uniq_p.append(float(p[i]))
+        w.append(cnt)
+        y_mean.append(float(np.mean(y_arr[i:j])))
+        i = j
+
+    x = np.asarray(uniq_p, dtype=float)
+    w_arr = np.asarray(w, dtype=float)
+    yb = np.asarray(y_mean, dtype=float)
+
+    # PAVA for non-decreasing yb with weights.
+    # Maintain blocks with (sum_w, sum_wy) so mean = sum_wy/sum_w.
+    sum_w = list(w_arr.tolist())
+    sum_wy = list((w_arr * yb).tolist())
+    x_end = list(x.tolist())
+    k = 0
+    while k < len(sum_w) - 1:
+        mean_k = sum_wy[k] / max(1e-12, sum_w[k])
+        mean_n = sum_wy[k + 1] / max(1e-12, sum_w[k + 1])
+        if mean_k <= mean_n + 1e-12:
+            k += 1
+            continue
+        # Merge blocks k and k+1
+        sum_w[k] = float(sum_w[k] + sum_w[k + 1])
+        sum_wy[k] = float(sum_wy[k] + sum_wy[k + 1])
+        x_end[k] = float(x_end[k + 1])
+        del sum_w[k + 1]
+        del sum_wy[k + 1]
+        del x_end[k + 1]
+        if k > 0:
+            k -= 1
+
+    x_fit = np.asarray(x_end, dtype=float)
+    y_fit = np.asarray([sum_wy[i] / max(1e-12, sum_w[i]) for i in range(len(sum_w))], dtype=float)
+
+    # Ensure endpoints for stable interpolation.
+    x_fit = np.clip(x_fit, 1e-6, 1 - 1e-6)
+    y_fit = np.clip(y_fit, 1e-6, 1 - 1e-6)
+    if x_fit.size < 2:
+        x_fit = np.asarray([1e-6, 1 - 1e-6], dtype=float)
+        y_fit = np.asarray([float(y_fit[0]) if y_fit.size else 0.5, float(y_fit[0]) if y_fit.size else 0.5], dtype=float)
+    if float(x_fit[0]) > 1e-6:
+        x_fit = np.insert(x_fit, 0, 1e-6)
+        y_fit = np.insert(y_fit, 0, float(y_fit[0]))
+    if float(x_fit[-1]) < 1 - 1e-6:
+        x_fit = np.append(x_fit, 1 - 1e-6)
+        y_fit = np.append(y_fit, float(y_fit[-1]))
+
+    return IsotonicCalibration(x=x_fit, y=y_fit)
+
+
 def _logloss(p: np.ndarray, y: np.ndarray) -> float:
     p = np.clip(p, 1e-12, 1 - 1e-12)
     y = np.asarray(y, dtype=float)

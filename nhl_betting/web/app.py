@@ -4,6 +4,7 @@ import os, time, json
 import re
 import math
 from datetime import datetime, timezone, timedelta
+from email.utils import format_datetime
 from zoneinfo import ZoneInfo
 from pathlib import Path
 from typing import Optional, Dict, Any
@@ -13,338 +14,686 @@ import asyncio
 from io import StringIO
 
 import numpy as np
-import pandas as pd
-import requests
 
-from ..data.odds_api import OddsAPIClient
-from ..utils.io import PROC_DIR, RAW_DIR, MODEL_DIR
-from .teams import get_team_assets
-
-from fastapi import FastAPI, Request, Query, Header
-from starlette.exceptions import HTTPException as StarletteHTTPException
-from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse
+from fastapi import FastAPI, Header, Query, Request
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
-from jinja2 import Environment, FileSystemLoader, select_autoescape
-# App and templating setup
-BASE_DIR = Path(__file__).resolve().parent
-TEMPLATE_DIR = BASE_DIR / "templates"
-STATIC_DIR = BASE_DIR / "static"
 
-env = Environment(
-    loader=FileSystemLoader(str(TEMPLATE_DIR)),
-    autoescape=select_autoescape(["html", "xml"]),
-)
 
-# ----------------------------------------------------------------------------------
-# In-memory cache for /props (all players) to mitigate repeated large DataFrame ->
-# JSON + template render overhead on resource-constrained deploys.
-# Keyed by ("props_all_html", date, TEAM, MARKET, SORT, TOP). TTL configurable.
-# ----------------------------------------------------------------------------------
-_CACHE: dict = {}
-try:
-    _CACHE_TTL = int(os.getenv("CACHED_PROPS_TTL_SECONDS", "180"))  # default 3 minutes
-except Exception:
-    _CACHE_TTL = 180
-START_TIME = time.time()
-
-def _cache_get(key):
-    if _CACHE_TTL <= 0:
-        return None
-    ent = _CACHE.get(key)
-    if not ent:
-        return None
-    if (time.time() - ent.get("ts", 0)) > _CACHE_TTL:
-        _CACHE.pop(key, None)
-        return None
-    return ent.get("value")
-
-def _cache_put(key, value):
-    if _CACHE_TTL <= 0:
-        return
-    _CACHE[key] = {"value": value, "ts": time.time()}
-
-def _compute_allowed() -> bool:
-    """Return True if server-side compute fallback is allowed.
-
-    We explicitly disable on public hosts and when PROPS_NO_COMPUTE=1.
-    """
-    try:
-        if os.getenv('PROPS_NO_COMPUTE', '0') == '1':
-            return False
-    except Exception:
-        pass
-    # Never compute on public deploys unless explicitly overridden
-    return not _is_public_host_env()
-
+# FastAPI application instance (must be defined before any @app.* decorators)
 app = FastAPI()
 
 
-@app.exception_handler(StarletteHTTPException)
-async def _http_exc_handler(request: Request, exc: StarletteHTTPException):
+def _parse_ymd(s: Optional[str]) -> Optional[str]:
+    """Parse and normalize a YYYY-MM-DD string.
+
+    Returns normalized YYYY-MM-DD or None if invalid/empty.
+    """
+    if s is None:
+        return None
     try:
-        return JSONResponse(
-            {
-                "ok": False,
-                "error": "http_exception",
-                "status_code": int(getattr(exc, "status_code", 500) or 500),
-                "detail": getattr(exc, "detail", None),
-                "path": str(getattr(request.url, "path", "")),
-                "commit": (_git_commit_hash() or "")[:12],
-            },
-            status_code=int(getattr(exc, "status_code", 500) or 500),
-        )
+        t = str(s).strip()
     except Exception:
-        return JSONResponse({"ok": False, "error": "http_exception"}, status_code=500)
-
-
-@app.exception_handler(Exception)
-async def _unhandled_exc_handler(request: Request, exc: Exception):
-    # Last-resort guardrail: ensure callers get a JSON body rather than a blank 500.
-    # Do not include stack traces in the response (Render logs will still show them).
+        return None
+    if not t:
+        return None
     try:
-        try:
-            import traceback
+        dt = datetime.strptime(t, "%Y-%m-%d")
+        return dt.strftime("%Y-%m-%d")
+    except Exception:
+        return None
 
-            print("UNHANDLED_EXCEPTION", getattr(request.url, "path", ""))
-            traceback.print_exc()
+async def _v1_live_payload(date_ymd: str) -> dict:
+    """Build payload object (as returned by /v1/live/{date}) without HTTP headers."""
+    d = str(date_ymd or "").strip()
+    if not _V1_DATE_RE.fullmatch(d):
+        return {"ok": False, "error": "invalid_date", "date": date_ymd}
+
+    # Import locally so the endpoint doesn't depend on module import order
+    # (and stays best-effort on constrained deploys).
+    from ..data.nhl_api_web import NHLWebClient
+
+    def _norm(s: object) -> str:
+        try:
+            return " ".join(str(s or "").strip().split()).lower()
+        except Exception:
+            return str(s or "").lower()
+
+    def _maybe_float(x: object) -> Optional[float]:
+        try:
+            if x is None:
+                return None
+            if isinstance(x, str):
+                s = x.strip()
+                if s.endswith("%"):
+                    s = s[:-1]
+                if s == "":
+                    return None
+                return float(s)
+            return float(x)
+        except Exception:
+            return None
+
+    def _maybe_int(x: object) -> Optional[int]:
+        try:
+            if x is None:
+                return None
+            if isinstance(x, bool):
+                return int(x)
+            if isinstance(x, (int, np.integer)):
+                return int(x)
+            fx = _maybe_float(x)
+            return int(fx) if fx is not None else None
+        except Exception:
+            return None
+
+    def _pick(dct: object, *keys: str) -> object:
+        if not isinstance(dct, dict):
+            return None
+        for k in keys:
+            if k in dct:
+                return dct.get(k)
+        return None
+
+    def _extract_team_totals(team_obj: object) -> dict:
+        if not isinstance(team_obj, dict):
+            return {}
+        stats_obj = (
+            _pick(team_obj, "teamStats", "teamGameStats", "statistics", "stats", "teamStatsSummary")
+            or {}
+        )
+        if not isinstance(stats_obj, dict):
+            stats_obj = {}
+
+        # Try to pull SOG / shots in a robust way.
+        sog = _maybe_int(_pick(stats_obj, "sog", "shotsOnGoal", "shots_on_goal", "shotsOnGoalFor"))
+        shots = _maybe_int(_pick(stats_obj, "shots", "shotAttempts", "shotsFor"))
+        goals = _maybe_int(_pick(team_obj, "score", "goals"))
+
+        # Faceoff win pct often exists as a percent number.
+        fo = _maybe_float(_pick(stats_obj, "faceoffWinningPctg", "faceoffWinPct", "faceoffWinPctg", "faceoffPct"))
+
+        # Powerplay as a string like "1/3" or a pct like 25.0.
+        pp_conv = _pick(stats_obj, "powerPlayConversion", "powerPlayConversionPct", "powerPlay", "powerPlayPct")
+        if isinstance(pp_conv, (int, float, str)):
+            pp = pp_conv
+        else:
+            pp = None
+
+        out = {
+            "goals": goals,
+            "sog": sog,
+            "shots": shots,
+            "faceoff_win_pct": fo,
+            "pp": pp,
+        }
+        # Remove None values to keep payload clean.
+        return {k: v for k, v in out.items() if v is not None}
+
+    def _extract_goalie_summary(box: dict, side: str) -> list[dict]:
+        try:
+            pbg = box.get("playerByGameStats") or {}
+            team_key = "homeTeam" if side == "home" else "awayTeam"
+            t = pbg.get(team_key) or {}
+            goalies = t.get("goalies") or []
+            out = []
+            for g in goalies if isinstance(goalies, list) else []:
+                if not isinstance(g, dict):
+                    continue
+                pid = _maybe_int(_pick(g, "playerId", "player_id", "id"))
+                nm = None
+                try:
+                    name_obj = g.get("name")
+                    if isinstance(name_obj, dict):
+                        nm = name_obj.get("default") or name_obj.get("full")
+                    elif isinstance(name_obj, str):
+                        nm = name_obj
+                except Exception:
+                    nm = None
+                saves = _maybe_int(_pick(g, "saves"))
+                sa = _maybe_int(_pick(g, "shotsAgainst", "shots_against", "shots"))
+                sv = _maybe_float(_pick(g, "savePctg", "svPct", "savePercentage"))
+                row = {"player_id": pid, "name": nm, "saves": saves, "shots_against": sa, "sv_pct": sv}
+                row = {k: v for k, v in row.items() if v is not None and v != ""}
+                if row:
+                    out.append(row)
+            return out
+        except Exception:
+            return []
+
+    def _extract_skaters_summary(box: dict, side: str) -> list[dict]:
+        """Best-effort extraction of skater boxscore stats from NHL Web boxscore."""
+        try:
+            pbg = box.get("playerByGameStats") or {}
+            team_key = "homeTeam" if side == "home" else "awayTeam"
+            t = pbg.get(team_key) or {}
+            if not isinstance(t, dict):
+                return []
+            # NHL web payload can be either:
+            #  - `skaters`: combined list
+            #  - split lists: `forwards` + `defense` (observed)
+            # Use a union (not first-match) so defensemen aren't dropped.
+            skaters: list[dict] = []
+            raw = t.get("skaters")
+            if isinstance(raw, list) and raw:
+                skaters.extend([x for x in raw if isinstance(x, dict)])
+            for key in ("forwards", "defense", "defence", "defensemen", "defencemen"):
+                arr = t.get(key)
+                if isinstance(arr, list) and arr:
+                    skaters.extend([x for x in arr if isinstance(x, dict)])
+
+            if not skaters:
+                return []
+
+            # De-dupe while preserving order.
+            seen_ids: set[int] = set()
+            seen_names: set[str] = set()
+            uniq: list[dict] = []
+            for s in skaters:
+                pid = _maybe_int(_pick(s, "playerId", "player_id", "id"))
+                if pid is not None:
+                    if pid in seen_ids:
+                        continue
+                    seen_ids.add(pid)
+                    uniq.append(s)
+                    continue
+                nm = None
+                try:
+                    name_obj = s.get("name")
+                    if isinstance(name_obj, dict):
+                        nm = name_obj.get("default") or name_obj.get("full")
+                    elif isinstance(name_obj, str):
+                        nm = name_obj
+                except Exception:
+                    nm = None
+                nk = str(nm or "").strip().lower()
+                if nk and nk in seen_names:
+                    continue
+                if nk:
+                    seen_names.add(nk)
+                uniq.append(s)
+
+            skaters = uniq
+            out: list[dict] = []
+            for s in skaters:
+                if not isinstance(s, dict):
+                    continue
+                pid = _maybe_int(_pick(s, "playerId", "player_id", "id"))
+                nm = None
+                try:
+                    name_obj = s.get("name")
+                    if isinstance(name_obj, dict):
+                        nm = name_obj.get("default") or name_obj.get("full")
+                    elif isinstance(name_obj, str):
+                        nm = name_obj
+                except Exception:
+                    nm = None
+                toi = None
+                try:
+                    toi = _pick(s, "toi", "timeOnIce", "time_on_ice")
+                    if isinstance(toi, dict):
+                        toi = toi.get("default") or toi.get("displayValue")
+                    if toi is not None:
+                        toi = str(toi)
+                except Exception:
+                    toi = None
+
+                row = {
+                    "player_id": pid,
+                    "name": nm,
+                    "pos": _pick(s, "position", "pos"),
+                    "g": _maybe_int(_pick(s, "goals", "g")),
+                    "a": _maybe_int(_pick(s, "assists", "a")),
+                    "p": _maybe_int(_pick(s, "points", "p")),
+                    # NHL Web may use different keys; include SOG variants.
+                    "s": _maybe_int(_pick(s, "shots", "s", "sog", "shotsOnGoal", "shots_on_goal")),
+                    "blk": _maybe_int(_pick(s, "blockedShots", "blocked", "blocks", "blk")),
+                    "hits": _maybe_int(_pick(s, "hits")),
+                    "toi": toi,
+                }
+                # strip None/empty
+                row = {k: v for k, v in row.items() if v is not None and v != ""}
+                if row:
+                    out.append(row)
+            return out
+        except Exception:
+            return []
+
+    def _extract_periods(box: dict) -> list[dict]:
+        periods = box.get("periods") or box.get("periodSummary") or []
+        if not isinstance(periods, list):
+            return []
+        out = []
+        for p in periods:
+            if not isinstance(p, dict):
+                continue
+            pd = p.get("periodDescriptor") or {}
+            per = None
+            if isinstance(pd, dict):
+                per = pd.get("number") or pd.get("period")
+            if per is None:
+                per = p.get("period") or p.get("currentPeriod")
+            home_p = p.get("home") or p.get("homeTeam") or {}
+            away_p = p.get("away") or p.get("awayTeam") or {}
+            if not isinstance(home_p, dict):
+                home_p = {}
+            if not isinstance(away_p, dict):
+                away_p = {}
+
+            row = {
+                "period": _maybe_int(per) or per,
+                "home": {
+                    "goals": _maybe_int(_pick(home_p, "goals", "score")),
+                    "sog": _maybe_int(_pick(home_p, "sog", "shotsOnGoal", "shots_on_goal")),
+                    "shots": _maybe_int(_pick(home_p, "shots", "shotAttempts")),
+                },
+                "away": {
+                    "goals": _maybe_int(_pick(away_p, "goals", "score")),
+                    "sog": _maybe_int(_pick(away_p, "sog", "shotsOnGoal", "shots_on_goal")),
+                    "shots": _maybe_int(_pick(away_p, "shots", "shotAttempts")),
+                },
+            }
+            # strip None fields
+            for side in ("home", "away"):
+                row[side] = {k: v for k, v in (row.get(side) or {}).items() if v is not None}
+            if row.get("home") or row.get("away"):
+                out.append(row)
+        return out
+
+    def _has_any_period_goals(per_list: object) -> bool:
+        try:
+            if not isinstance(per_list, list):
+                return False
+            for p in per_list:
+                if not isinstance(p, dict):
+                    continue
+                a = p.get("away") if isinstance(p.get("away"), dict) else {}
+                h = p.get("home") if isinstance(p.get("home"), dict) else {}
+                if (a.get("goals") is not None) or (h.get("goals") is not None):
+                    return True
+        except Exception:
+            return False
+        return False
+
+    web = NHLWebClient()
+
+    async def _extract_periods_landing_fallback(game_pk: int) -> list[dict]:
+        """Fallback per-period goals from NHL Web /landing payload.
+
+        The landing payload includes `summary.scoring`: a list of per-period buckets
+        each with a `goals` list containing `isHome` flags.
+        """
+        try:
+            landing = await asyncio.to_thread(web._get, f"/gamecenter/{int(game_pk)}/landing", None, 1)
+            summary = landing.get("summary") if isinstance(landing, dict) else None
+            scoring = (summary or {}).get("scoring") if isinstance(summary, dict) else None
+            if not isinstance(scoring, list):
+                return []
+
+            out: list[dict] = []
+            for bucket in scoring:
+                if not isinstance(bucket, dict):
+                    continue
+                pd = bucket.get("periodDescriptor") or {}
+                per = None
+                if isinstance(pd, dict):
+                    per = pd.get("number") or pd.get("period")
+                if per is None:
+                    per = bucket.get("period")
+
+                goals = bucket.get("goals")
+                home_g = 0
+                away_g = 0
+                if isinstance(goals, list):
+                    for goal in goals:
+                        if not isinstance(goal, dict):
+                            continue
+                        ih = goal.get("isHome")
+                        if ih is True:
+                            home_g += 1
+                        elif ih is False:
+                            away_g += 1
+
+                row = {
+                    "period": _maybe_int(per) or per,
+                    "home": {"goals": home_g},
+                    "away": {"goals": away_g},
+                }
+                out.append(row)
+            return out
+        except Exception:
+            return []
+
+    # scoreboard_day is lightweight and usually includes gamePk/state/period/clock
+    games = await asyncio.to_thread(web.scoreboard_day, d)
+    out_games: list[dict] = []
+
+    for g in games or []:
+        try:
+            game_pk = g.get("gamePk")
+            if game_pk is None:
+                continue
+            game_pk_i = int(game_pk)
+        except Exception:
+            continue
+
+        home = str(g.get("home") or "")
+        away = str(g.get("away") or "")
+        game_state = g.get("gameState")
+
+        # Best-effort detailed stats from boxscore; safe to fail without breaking endpoint.
+        box = None
+        try:
+            box = await asyncio.to_thread(web.boxscore, game_pk_i)
+        except Exception:
+            box = None
+
+        home_obj = box.get("homeTeam") if isinstance(box, dict) else None
+        away_obj = box.get("awayTeam") if isinstance(box, dict) else None
+
+        lens = {
+            "totals": {
+                "home": _extract_team_totals(home_obj),
+                "away": _extract_team_totals(away_obj),
+            },
+            "periods": _extract_periods(box) if isinstance(box, dict) else [],
+            "players": {
+                "home": _extract_skaters_summary(box, "home") if isinstance(box, dict) else [],
+                "away": _extract_skaters_summary(box, "away") if isinstance(box, dict) else [],
+            },
+            "goalies": {
+                "home": _extract_goalie_summary(box, "home") if isinstance(box, dict) else [],
+                "away": _extract_goalie_summary(box, "away") if isinstance(box, dict) else [],
+            },
+            "xg": None,
+        }
+
+        # Backfill per-period goals for live games when NHL Web boxscore doesn't provide it.
+        try:
+            st = str(game_state or "").upper()
+            is_live_like = ("LIVE" in st) or ("IN_PROGRESS" in st) or ("CRIT" in st)
+            if is_live_like:
+                per_list = lens.get("periods") if isinstance(lens, dict) else None
+                if (not per_list) or (not _has_any_period_goals(per_list)):
+                    per_web = await _extract_periods_landing_fallback(game_pk_i)
+                    if per_web:
+                        lens["periods"] = per_web
         except Exception:
             pass
-        return JSONResponse(
-            {
-                "ok": False,
-                "error": "unhandled_exception",
-                "detail": str(exc),
-                "path": str(getattr(request.url, "path", "")),
-                "commit": (_git_commit_hash() or "")[:12],
+
+        # Remove empty blocks
+        if not lens["totals"]["home"] and not lens["totals"]["away"]:
+            lens.pop("totals", None)
+        if not lens.get("periods"):
+            lens.pop("periods", None)
+        if not (lens.get("players", {}).get("home") or lens.get("players", {}).get("away")):
+            lens.pop("players", None)
+        if not (lens.get("goalies", {}).get("home") or lens.get("goalies", {}).get("away")):
+            lens.pop("goalies", None)
+
+        out_games.append({
+            "date": d,
+            "gamePk": game_pk_i,
+            "home": home,
+            "away": away,
+            "key": f"{_norm(away)} @ {_norm(home)}",
+            "gameState": game_state,
+            "period": g.get("period"),
+            "clock": g.get("clock"),
+            "score": {
+                "home": g.get("home_goals"),
+                "away": g.get("away_goals"),
             },
-            status_code=500,
-        )
-    except Exception:
-        return JSONResponse({"ok": False, "error": "unhandled_exception"}, status_code=500)
+            "lens": lens,
+        })
+
+    asof = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+    payload = {"ok": True, "date": d, "asof_utc": asof, "games": out_games}
+    return _strict_json_sanitize(payload)
 
 
-@app.get("/diag/healthz")
-def diag_healthz():
-    """Ultra-minimal readiness probe with a little file-system context."""
+@app.get("/v1/live/{date}")
+async def v1_live(request: Request, date: str):
+    """Live lens (read-only) for a slate date.
+
+    This endpoint is intended for the cards-only UI to overlay live game state
+    and simple period/totals stats without mutating any artifacts.
+
+    Data source: NHL Web API via NHLWebClient.
+    """
     try:
-        return {
-            "ok": True,
-            "commit": (_git_commit_hash() or "")[:12],
-            "cwd": os.getcwd(),
-            "template_dir": str(TEMPLATE_DIR),
-            "templates_exist": bool(TEMPLATE_DIR.exists()),
-            "cards_only_exists": bool((TEMPLATE_DIR / "cards_only.html").exists()),
-        }
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+        d = str(date or "").strip()
+        if not _V1_DATE_RE.fullmatch(d):
+            return JSONResponse({"ok": False, "error": "invalid_date", "date": date}, status_code=400)
 
-# ----------------------------------------------------------------------------------
-# Cards-only UI mode: treat all other HTML pages as removed.
-# Keeps JSON APIs (/api/*) and stable bundles API (/v1/*).
-# ----------------------------------------------------------------------------------
-_UI_CARDS_ONLY = str(os.getenv("UI_CARDS_ONLY", "1")).strip().lower() in {"1", "true", "yes"}
+        cache_key = f"v1_live::{d}"
+        try:
+            ttl = int(os.getenv("V1_LIVE_TTL_SECONDS", str(int(_LIVE_LENS_TTL_INPLAY_SECONDS or 6))))
+        except Exception:
+            ttl = int(_LIVE_LENS_TTL_INPLAY_SECONDS or 6)
 
-
-@app.middleware("http")
-async def _cards_only_ui_mw(request: Request, call_next):
-    if not _UI_CARDS_ONLY:
-        return await call_next(request)
-
-    path = request.url.path or "/"
-
-    # Allow the single page + assets + APIs + docs
-    if path == "/":
-        return await call_next(request)
-    if path.startswith("/diag/"):
-        return await call_next(request)
-    if path.startswith("/static/") or path.startswith("/v1/") or path.startswith("/api/"):
-        return await call_next(request)
-    if path in {"/openapi.json", "/docs", "/redoc"}:
-        return await call_next(request)
-
-    # Block any other HTML-facing routes.
-    accept = (request.headers.get("accept") or "").lower()
-    if "text/html" in accept:
-        return PlainTextResponse("cards-only UI: this page has been removed", status_code=404)
-
-    return await call_next(request)
-# ----------------------------------------------------------------------------------
-# Lightweight cron job status tracker (in-memory, best-effort)
-_CRON_JOBS: Dict[str, Dict[str, Any]] = {}
-_CRON_LOCK = threading.Lock()
-_CRON_MAX = 100
-
-def _cron_now_iso() -> str:
-    try:
-        return datetime.utcnow().isoformat()
-    except Exception:
-        return ""
-
-def _cron_set(job_id: str, patch: Dict[str, Any]):
-    try:
-        with _CRON_LOCK:
-            rec = _CRON_JOBS.get(job_id, {})
-            rec.update(patch)
-            rec['updated_at'] = _cron_now_iso()
-            _CRON_JOBS[job_id] = rec
-    except Exception:
-        pass
-
-def _cron_add(name: str, params: Dict[str, Any]) -> str:
-    jid = str(uuid.uuid4())[:12]
-    try:
-        with _CRON_LOCK:
-            _CRON_JOBS[jid] = {
-                'id': jid,
-                'name': name,
-                'params': params or {},
-                'state': 'queued',
-                'created_at': _cron_now_iso(),
-                'updated_at': _cron_now_iso(),
-                'error': None,
-                'result': None,
-            }
-            # trim if over max
-            if len(_CRON_JOBS) > _CRON_MAX:
-                # drop oldest by created_at
+        try:
+            cached = _live_lens_cache_get(cache_key, ttl)
+            if isinstance(cached, dict) and cached.get("ok") is True:
                 try:
-                    items = sorted(_CRON_JOBS.items(), key=lambda kv: kv[1].get('created_at',''))
-                    for k,_ in items[: max(0, len(_CRON_JOBS) - _CRON_MAX) ]:
-                        _CRON_JOBS.pop(k, None)
+                    import hashlib
+
+                    etag_basis = f"{cache_key}|{cached.get('asof_utc') or ''}".encode("utf-8")
+                    etag = hashlib.md5(etag_basis).hexdigest()  # nosec B324 (non-cryptographic, fine for cache)
+                except Exception:
+                    etag = None
+
+                try:
+                    cc = str(
+                        os.getenv(
+                            "V1_LIVE_CACHE_CONTROL",
+                            f"public, max-age={max(1, min(10, int(ttl or 0)))}, must-revalidate",
+                        )
+                    )
+                except Exception:
+                    cc = "public, max-age=3, must-revalidate"
+
+                headers = {"Cache-Control": str(cc), "Vary": "Accept-Encoding"}
+                if etag:
+                    headers["ETag"] = f'"{etag}"'
+                    inm = (request.headers.get("if-none-match") or request.headers.get("If-None-Match") or "").strip()
+                    if inm and inm.strip('"') == etag:
+                        return Response(status_code=304, headers=headers)
+                return JSONResponse(cached, headers=headers)
+        except Exception:
+            pass
+
+        payload = await _v1_live_payload(d)
+        if not isinstance(payload, dict):
+            return JSONResponse({"ok": False, "error": "invalid_live_payload"}, status_code=500)
+        if not payload.get("ok") and payload.get("error") == "invalid_date":
+            return JSONResponse(payload, status_code=400)
+
+        try:
+            if int(ttl or 0) > 0 and payload.get("ok") is True:
+                _live_lens_cache_put(cache_key, payload)
+        except Exception:
+            pass
+
+        try:
+            import hashlib
+
+            etag_basis = f"{cache_key}|{payload.get('asof_utc') or ''}".encode("utf-8")
+            etag = hashlib.md5(etag_basis).hexdigest()  # nosec B324 (non-cryptographic, fine for cache)
+            try:
+                cc = str(
+                    os.getenv(
+                        "V1_LIVE_CACHE_CONTROL",
+                        f"public, max-age={max(1, min(10, int(ttl or 0)))}, must-revalidate",
+                    )
+                )
+            except Exception:
+                cc = "public, max-age=3, must-revalidate"
+            headers = {"ETag": f'"{etag}"', "Cache-Control": str(cc), "Vary": "Accept-Encoding"}
+            inm = (request.headers.get("if-none-match") or request.headers.get("If-None-Match") or "").strip()
+            if inm and inm.strip('"') == etag:
+                return Response(status_code=304, headers=headers)
+        except Exception:
+            headers = None
+
+        return JSONResponse(payload, headers=headers)
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+# Generic small in-memory cache for expensive endpoints (e.g., live-lens accuracy summaries)
+_CACHE: dict = {}
+_CACHE_LOCK = threading.Lock()
+
+
+def _cache_get(key: object, ttl_seconds: Optional[int] = None) -> object:
+    try:
+        with _CACHE_LOCK:
+            ent = _CACHE.get(key)
+        if not isinstance(ent, dict):
+            return None
+        ts = float(ent.get("ts") or 0.0)
+        if ttl_seconds is not None and ttl_seconds > 0:
+            if (time.time() - ts) > float(ttl_seconds):
+                try:
+                    with _CACHE_LOCK:
+                        _CACHE.pop(key, None)
                 except Exception:
                     pass
+                return None
+        return ent.get("value")
+    except Exception:
+        return None
+
+
+def _cache_put(key: object, value: object) -> None:
+    try:
+        with _CACHE_LOCK:
+            _CACHE[key] = {"ts": time.time(), "value": value}
+            if len(_CACHE) > 256:
+                # Drop oldest entries, best-effort.
+                items = sorted(_CACHE.items(), key=lambda kv: float((kv[1] or {}).get("ts", 0.0)))
+                for k, _ in items[: max(0, len(items) - 256)]:
+                    _CACHE.pop(k, None)
+    except Exception:
+        return None
+
+
+def _live_lens_perf_dir() -> Path:
+    try:
+        p = os.getenv("LIVE_LENS_PERF_DIR")
+        if p:
+            return Path(str(p)).expanduser().resolve()
     except Exception:
         pass
-    return jid
-
-def _queue_cron(name: str, params: Dict[str, Any], target_fn):
-    jid = _cron_add(name, params)
-    def _runner():
-        _cron_set(jid, {'state': 'running'})
-        try:
-            res = target_fn()
-            # compact result if large
-            compact = res
-            try:
-                if isinstance(res, dict):
-                    compact = {k: res[k] for k in list(res.keys())[:20]}
-            except Exception:
-                compact = res
-            _cron_set(jid, {'state': 'done', 'result': compact})
-        except Exception as e:
-            _cron_set(jid, {'state': 'error', 'error': str(e)})
-    try:
-        threading.Thread(target=_runner, daemon=True).start()
-    except Exception as e:
-        _cron_set(jid, {'state': 'error', 'error': f"thread_start_failed: {e}"})
-    return jid
-
-@app.get("/api/cron/status")
-async def api_cron_status(job_id: Optional[str] = Query(None), name: Optional[str] = Query(None), limit: int = Query(50)):
-    try:
-        with _CRON_LOCK:
-            vals = list(_CRON_JOBS.values())
-        if job_id:
-            for rec in vals:
-                if rec.get('id') == job_id:
-                    return JSONResponse({'ok': True, 'job': rec})
-            return JSONResponse({'ok': False, 'error': 'not_found', 'job_id': job_id}, status_code=404)
-        if name:
-            vals = [r for r in vals if str(r.get('name') or '') == str(name)]
-        try:
-            vals.sort(key=lambda r: r.get('updated_at',''), reverse=True)
-        except Exception:
-            pass
-        if limit and limit > 0:
-            vals = vals[: int(limit)]
-        return JSONResponse({'ok': True, 'jobs': vals, 'count': len(vals)})
-    except Exception as e:
-        return JSONResponse({'ok': False, 'error': str(e)}, status_code=500)
-
-
-# ----------------------------------------------------------------------------------
-# Live Lens Accuracy (reads precomputed settled ledger files)
-#
-# This is intentionally served under /api/* so it's allowed in cards-only UI mode.
-# Data sources are produced by check_live_lens_betting_performance.py.
-# ----------------------------------------------------------------------------------
-def _live_lens_perf_dir() -> Path:
-    return Path(os.getenv("LIVE_LENS_PERF_DIR", "data/processed/live_lens/perf")).resolve()
-
-
-def _parse_ymd(s: Optional[str]) -> Optional[str]:
-    if not s or not isinstance(s, str):
-        return None
-    s = s.strip()
-    if not s:
-        return None
-    try:
-        datetime.strptime(s, "%Y-%m-%d")
-        return s
-    except Exception:
-        return None
+    return Path("data") / "processed" / "live_lens" / "perf"
 
 
 def _perf_files(perf_dir: Path) -> list[Path]:
     try:
+        if perf_dir is None:
+            return []
         if not perf_dir.exists():
             return []
-        files = [p for p in perf_dir.glob("live_lens_bets_*") if p.is_file() and p.suffix.lower() in {".jsonl", ".ndjson", ".csv"}]
-        files.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+        files = [p for p in perf_dir.glob("*.jsonl") if p.is_file()]
+        # Most-recent-first: lexicographic filename works for YYYY-MM-DD.
+        files.sort(key=lambda p: str(p.name), reverse=True)
         return files
     except Exception:
         return []
 
 
-def _read_ledger_df(paths: list[Path], start_date: Optional[str], end_date: Optional[str]) -> pd.DataFrame:
-    rows: list[pd.DataFrame] = []
-    for p in (paths or []):
-        try:
-            suf = p.suffix.lower()
-            if suf in {".jsonl", ".ndjson"}:
-                df = pd.read_json(p, lines=True)
-            else:
-                df = pd.read_csv(p)
-            if df is None or df.empty:
-                continue
-            if "date" in df.columns:
-                if start_date:
-                    df = df[df["date"].astype(str) >= str(start_date)]
-                if end_date:
-                    df = df[df["date"].astype(str) <= str(end_date)]
-            rows.append(df)
-        except Exception:
-            continue
-    if not rows:
-        return pd.DataFrame()
+def _read_ledger_df(files: list[Path], start_ymd: Optional[str], end_ymd: Optional[str]):
+    """Read settled ledger JSONL files into a DataFrame with optional date filtering."""
     try:
-        out = pd.concat(rows, axis=0, ignore_index=True)
+        import pandas as pd
+
+        rows: list[dict[str, Any]] = []
+        for p in files or []:
+            try:
+                with Path(p).open("r", encoding="utf-8") as f:
+                    for line in f:
+                        s = (line or "").strip()
+                        if not s:
+                            continue
+                        try:
+                            obj = json.loads(s)
+                        except Exception:
+                            continue
+                        if isinstance(obj, dict):
+                            rows.append(obj)
+            except Exception:
+                continue
+
+        if not rows:
+            return pd.DataFrame()
+
+        df = pd.DataFrame.from_records(rows)
+
+        # Normalize key fields
+        try:
+            if "date" in df.columns:
+                df["date"] = df["date"].astype(str)
+        except Exception:
+            pass
+        try:
+            if "result" in df.columns:
+                df["result"] = df["result"].astype(str).str.upper()
+        except Exception:
+            pass
+        try:
+            if "profit_units" in df.columns:
+                df["profit_units"] = pd.to_numeric(df["profit_units"], errors="coerce")
+        except Exception:
+            pass
+
+        # Date filtering (YYYY-MM-DD strings are lexicographically sortable)
+        if (start_ymd or end_ymd) and ("date" in df.columns):
+            try:
+                if start_ymd:
+                    df = df[df["date"] >= str(start_ymd)]
+                if end_ymd:
+                    df = df[df["date"] <= str(end_ymd)]
+            except Exception:
+                pass
+
+        return df
     except Exception:
-        out = rows[0]
-    return out
+        try:
+            import pandas as pd
+
+            return pd.DataFrame()
+        except Exception:
+            return None
 
 
-def _summarize_ledger(df: pd.DataFrame, group_col: Optional[str] = None) -> list[dict[str, Any]]:
-    if df is None or df.empty:
-        return []
-    if "result" not in df.columns:
-        return []
+def _summarize_ledger(df, group_col: Optional[str] = None) -> list[dict[str, Any]]:
+    """Summarize settled bet ledger rows into counts/units/ROI.
 
-    d0 = df.copy()
-    d0["result"] = d0["result"].astype(str).str.upper()
-    d0 = d0[d0["result"].isin(["WIN", "LOSE", "PUSH"])].copy()
-    if d0.empty:
-        return []
+    Expected columns (best-effort): result, profit_units, and optionally group_col.
+    """
+    try:
+        import pandas as pd
 
-    if "profit_units" in d0.columns:
-        d0["profit_units"] = pd.to_numeric(d0["profit_units"], errors="coerce")
-    else:
-        d0["profit_units"] = float("nan")
+        if df is None or getattr(df, "empty", True):
+            return []
 
-    if group_col and group_col in d0.columns:
-        g = d0.groupby(group_col, dropna=False)
-        out = []
-        for k, grp in g:
+        d0 = df.copy()
+        if "result" not in d0.columns:
+            d0["result"] = None
+        if "profit_units" not in d0.columns:
+            d0["profit_units"] = 0.0
+
+        try:
+            d0["result"] = d0["result"].astype(str).str.upper()
+        except Exception:
+            pass
+        try:
+            d0["profit_units"] = pd.to_numeric(d0["profit_units"], errors="coerce")
+        except Exception:
+            pass
+
+        def _summ(grp) -> dict[str, Any]:
             n = int(len(grp))
             w = int((grp["result"] == "WIN").sum())
             l = int((grp["result"] == "LOSE").sum())
@@ -353,8 +702,7 @@ def _summarize_ledger(df: pd.DataFrame, group_col: Optional[str] = None) -> list
             roi = (units / float(n)) if n else 0.0
             denom = float(w + l)
             win_rate = (float(w) / denom) if denom > 0 else None
-            out.append({
-                "key": None if (pd.isna(k)) else k,
+            return {
                 "bets": n,
                 "wins": w,
                 "losses": l,
@@ -362,31 +710,25 @@ def _summarize_ledger(df: pd.DataFrame, group_col: Optional[str] = None) -> list
                 "units": units,
                 "roi": roi,
                 "win_rate": win_rate,
-            })
-        try:
-            out.sort(key=lambda r: (-(r.get("bets") or 0), str(r.get("key") or "")))
-        except Exception:
-            pass
-        return out
+            }
 
-    n = int(len(d0))
-    w = int((d0["result"] == "WIN").sum())
-    l = int((d0["result"] == "LOSE").sum())
-    p = int((d0["result"] == "PUSH").sum())
-    units = float(d0["profit_units"].sum(skipna=True)) if n else 0.0
-    roi = (units / float(n)) if n else 0.0
-    denom = float(w + l)
-    win_rate = (float(w) / denom) if denom > 0 else None
-    return [{
-        "key": "ALL",
-        "bets": n,
-        "wins": w,
-        "losses": l,
-        "pushes": p,
-        "units": units,
-        "roi": roi,
-        "win_rate": win_rate,
-    }]
+        if group_col and (group_col in d0.columns):
+            out: list[dict[str, Any]] = []
+            for k, grp in d0.groupby(group_col, dropna=False):
+                row = _summ(grp)
+                row["key"] = None if pd.isna(k) else k
+                out.append(row)
+            try:
+                out.sort(key=lambda r: (-(r.get("bets") or 0), str(r.get("key") or "")))
+            except Exception:
+                pass
+            return out
+
+        row = _summ(d0)
+        row["key"] = "ALL"
+        return [row]
+    except Exception:
+        return []
 
 
 def _coerce_driver_tags(v: Any) -> list[str]:
@@ -912,7 +1254,7 @@ def _strict_json_sanitize(obj: Any) -> Any:
 def _load_bundle_predictions_map(date_ymd: str) -> dict:
     """Best-effort: load bundle prediction rows keyed by normalized away@home."""
     try:
-        from ..publish.daily_bundles import bundle_path, build_daily_bundle
+        from ..publish.daily_bundles import bundle_path, build_daily_bundle, select_daily_bundle_files
 
         p = bundle_path(date_ymd, PROC_DIR)
         obj = None
@@ -961,6 +1303,8 @@ def _v1_odds_payload(date_ymd: str, regions: str = "us", best: bool = True, inpl
     asof = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
     try:
+        # Import locally so the endpoint doesn't depend on module import order.
+        from ..data.odds_api import OddsAPIClient
         client = OddsAPIClient()
     except Exception as e:
         obj = {"ok": True, "date": d, "asof_utc": asof, "games": [], "note": str(e)}
@@ -1194,16 +1538,25 @@ def _v1_odds_payload(date_ymd: str, regions: str = "us", best: bool = True, inpl
 
 
 @app.get("/v1/manifest")
-async def v1_manifest():
+async def v1_manifest(request: Request):
     try:
         from ..publish.daily_bundles import manifest_path, build_manifest
 
         p = manifest_path(PROC_DIR)
         if p.exists():
+            # If-None-Match fast-path for persisted manifest.
+            try:
+                cc = str(os.getenv("V1_MANIFEST_CACHE_CONTROL", "public, max-age=300, must-revalidate"))
+                hdrs = _file_cache_headers(p, cc)
+                inm = (request.headers.get("if-none-match") or request.headers.get("If-None-Match") or "").strip()
+                if inm and hdrs.get("ETag") and inm == str(hdrs.get("ETag")):
+                    return Response(status_code=304, headers=hdrs)
+            except Exception:
+                hdrs = None
             try:
                 obj = json.loads(p.read_text(encoding="utf-8"))
                 if isinstance(obj, dict):
-                    return JSONResponse({"ok": True, **obj})
+                    return JSONResponse({"ok": True, **obj}, headers=(hdrs or None))
             except Exception:
                 pass
         obj = build_manifest(PROC_DIR)
@@ -1215,7 +1568,7 @@ async def v1_manifest():
 
 
 @app.get("/v1/dates")
-async def v1_dates():
+async def v1_dates(request: Request):
     # IMPORTANT: this endpoint must never 500 because the cards-only UI depends on it.
     note = None
     dates: list[str] = []
@@ -1229,6 +1582,15 @@ async def v1_dates():
         # This avoids scanning large processed directories on every request.
         p = manifest_path(PROC_DIR)
         if p.exists():
+            # If-None-Match fast-path based on persisted manifest file.
+            try:
+                cc = str(os.getenv("V1_DATES_CACHE_CONTROL", "public, max-age=60, must-revalidate"))
+                hdrs = _file_cache_headers(p, cc)
+                inm = (request.headers.get("if-none-match") or request.headers.get("If-None-Match") or "").strip()
+                if inm and hdrs.get("ETag") and inm == str(hdrs.get("ETag")):
+                    return Response(status_code=304, headers=hdrs)
+            except Exception:
+                hdrs = None
             try:
                 obj = json.loads(p.read_text(encoding="utf-8"))
                 if isinstance(obj, dict):
@@ -1272,15 +1634,24 @@ async def v1_dates():
     payload: dict[str, Any] = {"ok": True, "dates": dates, "latest": latest, "trio": trio}
     if note:
         payload["note"] = note
-    return JSONResponse(payload)
+    try:
+        return JSONResponse(payload, headers=(hdrs or None))
+    except Exception:
+        return JSONResponse(payload)
 
 
 @app.get("/v1/bundle/{date}")
-async def v1_bundle(date: str):
+async def v1_bundle(date: str, request: Request):
     try:
         d = str(date or "").strip()
         if not _V1_DATE_RE.fullmatch(d):
             return JSONResponse({"ok": False, "error": "invalid_date", "date": date}, status_code=400)
+
+        cache_key = f"v1_live::{d}"
+        try:
+            ttl = int(os.getenv("V1_LIVE_TTL_SECONDS", str(int(_LIVE_LENS_TTL_INPLAY_SECONDS or 6))))
+        except Exception:
+            ttl = int(_LIVE_LENS_TTL_INPLAY_SECONDS or 6)
 
         def _enrich_predictions_team_assets(obj: dict) -> dict:
             """Best-effort: attach `home_logo`/`away_logo` to prediction rows.
@@ -1356,15 +1727,37 @@ async def v1_bundle(date: str):
                 # (NHLWebClient includes retry/backoff/sleep which can slow /v1/bundle.)
                 timeout = float(os.getenv("BUNDLE_SCHEDULE_TIMEOUT_SEC", "3"))
                 sched: dict[str, dict] = {}
+
+                # Cache schedule-by-date in-memory to avoid repeated web calls on hot pages.
+                try:
+                    ttl = float(os.getenv("BUNDLE_SCHEDULE_CACHE_TTL_SEC", "21600"))  # 6 hours
+                except Exception:
+                    ttl = 21600.0
+                try:
+                    cache = getattr(app.state, "bundle_schedule_cache", None)
+                    if not isinstance(cache, dict):
+                        cache = {}
+                        setattr(app.state, "bundle_schedule_cache", cache)
+                    now_ts = float(time.time())
+                    ent = cache.get(str(date_ymd))
+                    if isinstance(ent, dict):
+                        ts = ent.get("ts")
+                        val = ent.get("sched")
+                        if ts is not None and val is not None and (ttl is None or (now_ts - float(ts)) <= float(ttl)):
+                            sched = val if isinstance(val, dict) else {}
+                except Exception:
+                    pass
+
                 try:
                     import requests
 
-                    url = f"https://api-web.nhle.com/v1/schedule/{str(date_ymd)}"
-                    r = requests.get(url, timeout=timeout)
-                    if r.status_code == 200:
-                        data = r.json() or {}
-                    else:
-                        data = {}
+                    if not sched:
+                        url = f"https://api-web.nhle.com/v1/schedule/{str(date_ymd)}"
+                        r = requests.get(url, timeout=timeout)
+                        if r.status_code == 200:
+                            data = r.json() or {}
+                        else:
+                            data = {}
                 except Exception:
                     data = {}
 
@@ -1380,35 +1773,44 @@ async def v1_bundle(date: str):
                         return ""
 
                 try:
-                    for wk in data.get("gameWeek", []) or []:
-                        if wk.get("date") != str(date_ymd):
-                            continue
-                        for g in wk.get("games", []) or []:
-                            try:
-                                home = _team_name(g.get("homeTeam", {}) or {})
-                                away = _team_name(g.get("awayTeam", {}) or {})
-                                k = _norm_game_key(away, home)
-                                if not k:
-                                    continue
-                                venue = None
-                                try:
-                                    v = g.get("venue")
-                                    if isinstance(v, dict):
-                                        venue = v.get("default") or v.get("name")
-                                    elif isinstance(v, str):
-                                        venue = v
-                                except Exception:
-                                    venue = None
-                                sched[k] = {
-                                    "scheduled_start_utc": g.get("startTimeUTC") or None,
-                                    "venue": venue,
-                                    "game_state": g.get("gameState"),
-                                    "gamePk": g.get("id"),
-                                }
-                            except Exception:
+                    if not sched and isinstance(data, dict):
+                        for wk in data.get("gameWeek", []) or []:
+                            if wk.get("date") != str(date_ymd):
                                 continue
+                            for g in wk.get("games", []) or []:
+                                try:
+                                    home = _team_name(g.get("homeTeam", {}) or {})
+                                    away = _team_name(g.get("awayTeam", {}) or {})
+                                    k = _norm_game_key(away, home)
+                                    if not k:
+                                        continue
+                                    venue = None
+                                    try:
+                                        v = g.get("venue")
+                                        if isinstance(v, dict):
+                                            venue = v.get("default") or v.get("name")
+                                        elif isinstance(v, str):
+                                            venue = v
+                                    except Exception:
+                                        venue = None
+                                    sched[k] = {
+                                        "scheduled_start_utc": g.get("startTimeUTC") or None,
+                                        "venue": venue,
+                                        "game_state": g.get("gameState"),
+                                        "gamePk": g.get("id"),
+                                    }
+                                except Exception:
+                                    continue
                 except Exception:
                     sched = {}
+
+                try:
+                    if sched:
+                        cache = getattr(app.state, "bundle_schedule_cache", None)
+                        if isinstance(cache, dict):
+                            cache[str(date_ymd)] = {"ts": float(time.time()), "sched": sched}
+                except Exception:
+                    pass
 
                 for r in rows:
                     if not isinstance(r, dict):
@@ -1438,6 +1840,21 @@ async def v1_bundle(date: str):
 
         p = bundle_path(d, PROC_DIR)
         if p.exists():
+            # If-None-Match fast-path for persisted bundle.
+            # Note: this is intentionally based on the persisted artifact. If the bundle is stale
+            # relative to upstream sources, this may extend staleness for clients that reuse ETags.
+            # Disable by setting V1_BUNDLE_ETAG_FASTPATH=0.
+            try:
+                if str(os.getenv("V1_BUNDLE_ETAG_FASTPATH", "1") or "1").strip().lower() not in {"0", "false", "no"}:
+                    cc = str(os.getenv("V1_BUNDLE_CACHE_CONTROL", "public, max-age=30, must-revalidate"))
+                    hdrs = _file_cache_headers(p, cc)
+                    inm = (request.headers.get("if-none-match") or request.headers.get("If-None-Match") or "").strip()
+                    if inm and hdrs.get("ETag") and inm == str(hdrs.get("ETag")):
+                        return Response(status_code=304, headers=hdrs)
+                else:
+                    hdrs = None
+            except Exception:
+                hdrs = None
             try:
                 obj = json.loads(p.read_text(encoding="utf-8"))
                 if not isinstance(obj, dict):
@@ -1445,27 +1862,25 @@ async def v1_bundle(date: str):
                 # Guard against stale persisted bundles (common in read-only deploys):
                 # if the persisted bundle points at older source files than we'd pick today,
                 # rebuild in-memory so the UI sees sim-backed markets (TOTAL/PL) when available.
-                try:
-                    fresh = build_daily_bundle(d, PROC_DIR)
-                except Exception:
-                    fresh = None
-
-                if isinstance(fresh, dict) and isinstance(obj, dict):
+                # Optimization: compute the desired `files` mapping without loading CSVs.
+                if isinstance(obj, dict):
                     try:
-                        if (obj.get("files") or {}) != (fresh.get("files") or {}):
-                            obj = fresh
+                        desired_files = select_daily_bundle_files(d, PROC_DIR)
+                    except Exception:
+                        desired_files = None
+                    try:
+                        cur_files = obj.get("files") if isinstance(obj.get("files"), dict) else None
+                        if isinstance(desired_files, dict) and isinstance(cur_files, dict) and cur_files != desired_files:
+                            obj = build_daily_bundle(d, PROC_DIR)
                     except Exception:
                         pass
-                elif isinstance(fresh, dict) and obj is None:
-                    obj = fresh
-
                 if not isinstance(obj, dict):
                     obj = build_daily_bundle(d, PROC_DIR)
 
                 obj = _enrich_predictions_team_assets(obj)
                 obj = _enrich_predictions_schedule(obj, d)
                 obj = _strict_json_sanitize(obj)
-                return JSONResponse({"ok": True, **obj})
+                return JSONResponse({"ok": True, **obj}, headers=(hdrs or None))
             except Exception:
                 # Fall back to rebuilding in-memory
                 pass
@@ -1479,425 +1894,8 @@ async def v1_bundle(date: str):
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
 
 
-@app.get("/v1/live/{date}")
-async def v1_live(date: str):
-    """Live lens (read-only) for a slate date.
-
-    This endpoint is intended for the cards-only UI to overlay live game state
-    and simple period/totals stats without mutating any artifacts.
-
-    Data source: NHL Web API via NHLWebClient.
-    """
-    try:
-        d = str(date or "").strip()
-        if not _V1_DATE_RE.fullmatch(d):
-            return JSONResponse({"ok": False, "error": "invalid_date", "date": date}, status_code=400)
-
-        # Import locally so the endpoint doesn't depend on module import order
-        # (and stays best-effort on constrained deploys).
-        from ..data.nhl_api_web import NHLWebClient
-
-        def _norm(s: object) -> str:
-            try:
-                return " ".join(str(s or "").strip().split()).lower()
-            except Exception:
-                return str(s or "").lower()
-
-        def _maybe_float(x: object) -> Optional[float]:
-            try:
-                if x is None:
-                    return None
-                if isinstance(x, str):
-                    s = x.strip()
-                    if s.endswith("%"):
-                        s = s[:-1]
-                    if s == "":
-                        return None
-                    return float(s)
-                return float(x)
-            except Exception:
-                return None
-
-        def _maybe_int(x: object) -> Optional[int]:
-            try:
-                if x is None:
-                    return None
-                if isinstance(x, bool):
-                    return int(x)
-                if isinstance(x, (int, np.integer)):
-                    return int(x)
-                fx = _maybe_float(x)
-                return int(fx) if fx is not None else None
-            except Exception:
-                return None
-
-        def _pick(dct: object, *keys: str) -> object:
-            if not isinstance(dct, dict):
-                return None
-            for k in keys:
-                if k in dct:
-                    return dct.get(k)
-            return None
-
-        def _extract_team_totals(team_obj: object) -> dict:
-            if not isinstance(team_obj, dict):
-                return {}
-            stats_obj = (
-                _pick(team_obj, "teamStats", "teamGameStats", "statistics", "stats", "teamStatsSummary")
-                or {}
-            )
-            if not isinstance(stats_obj, dict):
-                stats_obj = {}
-
-            # Try to pull SOG / shots in a robust way.
-            sog = _maybe_int(_pick(stats_obj, "sog", "shotsOnGoal", "shots_on_goal", "shotsOnGoalFor"))
-            shots = _maybe_int(_pick(stats_obj, "shots", "shotAttempts", "shotsFor"))
-            goals = _maybe_int(_pick(team_obj, "score", "goals"))
-
-            # Faceoff win pct often exists as a percent number.
-            fo = _maybe_float(_pick(stats_obj, "faceoffWinningPctg", "faceoffWinPct", "faceoffWinPctg", "faceoffPct"))
-
-            # Powerplay as a string like "1/3" or a pct like 25.0.
-            pp_conv = _pick(stats_obj, "powerPlayConversion", "powerPlayConversionPct", "powerPlay", "powerPlayPct")
-            if isinstance(pp_conv, (int, float, str)):
-                pp = pp_conv
-            else:
-                pp = None
-
-            out = {
-                "goals": goals,
-                "sog": sog,
-                "shots": shots,
-                "faceoff_win_pct": fo,
-                "pp": pp,
-            }
-            # Remove None values to keep payload clean.
-            return {k: v for k, v in out.items() if v is not None}
-
-        def _extract_goalie_summary(box: dict, side: str) -> list[dict]:
-            try:
-                pbg = box.get("playerByGameStats") or {}
-                team_key = "homeTeam" if side == "home" else "awayTeam"
-                t = pbg.get(team_key) or {}
-                goalies = t.get("goalies") or []
-                out = []
-                for g in goalies if isinstance(goalies, list) else []:
-                    if not isinstance(g, dict):
-                        continue
-                    pid = _maybe_int(_pick(g, "playerId", "player_id", "id"))
-                    nm = None
-                    try:
-                        name_obj = g.get("name")
-                        if isinstance(name_obj, dict):
-                            nm = name_obj.get("default") or name_obj.get("full")
-                        elif isinstance(name_obj, str):
-                            nm = name_obj
-                    except Exception:
-                        nm = None
-                    saves = _maybe_int(_pick(g, "saves"))
-                    sa = _maybe_int(_pick(g, "shotsAgainst", "shots_against", "shots"))
-                    sv = _maybe_float(_pick(g, "savePctg", "svPct", "savePercentage"))
-                    row = {"player_id": pid, "name": nm, "saves": saves, "shots_against": sa, "sv_pct": sv}
-                    row = {k: v for k, v in row.items() if v is not None and v != ""}
-                    if row:
-                        out.append(row)
-                return out
-            except Exception:
-                return []
-
-        def _extract_skaters_summary(box: dict, side: str) -> list[dict]:
-            """Best-effort extraction of skater boxscore stats from NHL Web boxscore."""
-            try:
-                pbg = box.get("playerByGameStats") or {}
-                team_key = "homeTeam" if side == "home" else "awayTeam"
-                t = pbg.get(team_key) or {}
-                if not isinstance(t, dict):
-                    return []
-                # NHL web payload can be either:
-                #  - `skaters`: combined list
-                #  - split lists: `forwards` + `defense` (observed)
-                # Use a union (not first-match) so defensemen aren't dropped.
-                skaters: list[dict] = []
-                raw = t.get("skaters")
-                if isinstance(raw, list) and raw:
-                    skaters.extend([x for x in raw if isinstance(x, dict)])
-                for key in ("forwards", "defense", "defence", "defensemen", "defencemen"):
-                    arr = t.get(key)
-                    if isinstance(arr, list) and arr:
-                        skaters.extend([x for x in arr if isinstance(x, dict)])
-
-                if not skaters:
-                    return []
-
-                # De-dupe while preserving order.
-                seen_ids: set[int] = set()
-                seen_names: set[str] = set()
-                uniq: list[dict] = []
-                for s in skaters:
-                    pid = _maybe_int(_pick(s, "playerId", "player_id", "id"))
-                    if pid is not None:
-                        if pid in seen_ids:
-                            continue
-                        seen_ids.add(pid)
-                        uniq.append(s)
-                        continue
-                    nm = None
-                    try:
-                        name_obj = s.get("name")
-                        if isinstance(name_obj, dict):
-                            nm = name_obj.get("default") or name_obj.get("full")
-                        elif isinstance(name_obj, str):
-                            nm = name_obj
-                    except Exception:
-                        nm = None
-                    nk = str(nm or "").strip().lower()
-                    if nk and nk in seen_names:
-                        continue
-                    if nk:
-                        seen_names.add(nk)
-                    uniq.append(s)
-
-                skaters = uniq
-                out: list[dict] = []
-                for s in skaters:
-                    if not isinstance(s, dict):
-                        continue
-                    pid = _maybe_int(_pick(s, "playerId", "player_id", "id"))
-                    nm = None
-                    try:
-                        name_obj = s.get("name")
-                        if isinstance(name_obj, dict):
-                            nm = name_obj.get("default") or name_obj.get("full")
-                        elif isinstance(name_obj, str):
-                            nm = name_obj
-                    except Exception:
-                        nm = None
-                    toi = None
-                    try:
-                        toi = _pick(s, "toi", "timeOnIce", "time_on_ice")
-                        if isinstance(toi, dict):
-                            toi = toi.get("default") or toi.get("displayValue")
-                        if toi is not None:
-                            toi = str(toi)
-                    except Exception:
-                        toi = None
-
-                    row = {
-                        "player_id": pid,
-                        "name": nm,
-                        "pos": _pick(s, "position", "pos"),
-                        "g": _maybe_int(_pick(s, "goals", "g")),
-                        "a": _maybe_int(_pick(s, "assists", "a")),
-                        "p": _maybe_int(_pick(s, "points", "p")),
-                        # NHL Web may use different keys; include SOG variants.
-                        "s": _maybe_int(_pick(s, "shots", "s", "sog", "shotsOnGoal", "shots_on_goal")),
-                        "blk": _maybe_int(_pick(s, "blockedShots", "blocked", "blocks", "blk")),
-                        "hits": _maybe_int(_pick(s, "hits")),
-                        "toi": toi,
-                    }
-                    # strip None/empty
-                    row = {k: v for k, v in row.items() if v is not None and v != ""}
-                    if row:
-                        out.append(row)
-                return out
-            except Exception:
-                return []
-
-        def _extract_periods(box: dict) -> list[dict]:
-            periods = box.get("periods") or box.get("periodSummary") or []
-            if not isinstance(periods, list):
-                return []
-            out = []
-            for p in periods:
-                if not isinstance(p, dict):
-                    continue
-                pd = p.get("periodDescriptor") or {}
-                per = None
-                if isinstance(pd, dict):
-                    per = pd.get("number") or pd.get("period")
-                if per is None:
-                    per = p.get("period") or p.get("currentPeriod")
-                home_p = p.get("home") or p.get("homeTeam") or {}
-                away_p = p.get("away") or p.get("awayTeam") or {}
-                if not isinstance(home_p, dict):
-                    home_p = {}
-                if not isinstance(away_p, dict):
-                    away_p = {}
-
-                row = {
-                    "period": _maybe_int(per) or per,
-                    "home": {
-                        "goals": _maybe_int(_pick(home_p, "goals", "score")),
-                        "sog": _maybe_int(_pick(home_p, "sog", "shotsOnGoal", "shots_on_goal")),
-                        "shots": _maybe_int(_pick(home_p, "shots", "shotAttempts")),
-                    },
-                    "away": {
-                        "goals": _maybe_int(_pick(away_p, "goals", "score")),
-                        "sog": _maybe_int(_pick(away_p, "sog", "shotsOnGoal", "shots_on_goal")),
-                        "shots": _maybe_int(_pick(away_p, "shots", "shotAttempts")),
-                    },
-                }
-                # strip None fields
-                for side in ("home", "away"):
-                    row[side] = {k: v for k, v in (row.get(side) or {}).items() if v is not None}
-                if row.get("home") or row.get("away"):
-                    out.append(row)
-            return out
-
-        def _has_any_period_goals(per_list: object) -> bool:
-            try:
-                if not isinstance(per_list, list):
-                    return False
-                for p in per_list:
-                    if not isinstance(p, dict):
-                        continue
-                    a = p.get("away") if isinstance(p.get("away"), dict) else {}
-                    h = p.get("home") if isinstance(p.get("home"), dict) else {}
-                    if (a.get("goals") is not None) or (h.get("goals") is not None):
-                        return True
-            except Exception:
-                return False
-            return False
-
-        web = NHLWebClient()
-
-        async def _extract_periods_landing_fallback(game_pk: int) -> list[dict]:
-            """Fallback per-period goals from NHL Web /landing payload.
-
-            The landing payload includes `summary.scoring`: a list of per-period buckets
-            each with a `goals` list containing `isHome` flags.
-            """
-            try:
-                landing = await asyncio.to_thread(web._get, f"/gamecenter/{int(game_pk)}/landing", None, 1)
-                summary = landing.get("summary") if isinstance(landing, dict) else None
-                scoring = (summary or {}).get("scoring") if isinstance(summary, dict) else None
-                if not isinstance(scoring, list):
-                    return []
-
-                out: list[dict] = []
-                for bucket in scoring:
-                    if not isinstance(bucket, dict):
-                        continue
-                    pd = bucket.get("periodDescriptor") or {}
-                    per = None
-                    if isinstance(pd, dict):
-                        per = pd.get("number") or pd.get("period")
-                    if per is None:
-                        per = bucket.get("period")
-
-                    goals = bucket.get("goals")
-                    home_g = 0
-                    away_g = 0
-                    if isinstance(goals, list):
-                        for goal in goals:
-                            if not isinstance(goal, dict):
-                                continue
-                            ih = goal.get("isHome")
-                            if ih is True:
-                                home_g += 1
-                            elif ih is False:
-                                away_g += 1
-
-                    row = {
-                        "period": _maybe_int(per) or per,
-                        "home": {"goals": home_g},
-                        "away": {"goals": away_g},
-                    }
-                    out.append(row)
-                return out
-            except Exception:
-                return []
-
-        # scoreboard_day is lightweight and usually includes gamePk/state/period/clock
-        games = await asyncio.to_thread(web.scoreboard_day, d)
-        out_games: list[dict] = []
-
-        for g in games or []:
-            try:
-                game_pk = g.get("gamePk")
-                if game_pk is None:
-                    continue
-                game_pk_i = int(game_pk)
-            except Exception:
-                continue
-
-            home = str(g.get("home") or "")
-            away = str(g.get("away") or "")
-            game_state = g.get("gameState")
-
-            # Best-effort detailed stats from boxscore; safe to fail without breaking endpoint.
-            box = None
-            try:
-                box = await asyncio.to_thread(web.boxscore, game_pk_i)
-            except Exception:
-                box = None
-
-            home_obj = box.get("homeTeam") if isinstance(box, dict) else None
-            away_obj = box.get("awayTeam") if isinstance(box, dict) else None
-
-            lens = {
-                "totals": {
-                    "home": _extract_team_totals(home_obj),
-                    "away": _extract_team_totals(away_obj),
-                },
-                "periods": _extract_periods(box) if isinstance(box, dict) else [],
-                "players": {
-                    "home": _extract_skaters_summary(box, "home") if isinstance(box, dict) else [],
-                    "away": _extract_skaters_summary(box, "away") if isinstance(box, dict) else [],
-                },
-                "goalies": {
-                    "home": _extract_goalie_summary(box, "home") if isinstance(box, dict) else [],
-                    "away": _extract_goalie_summary(box, "away") if isinstance(box, dict) else [],
-                },
-                "xg": None,
-            }
-
-            # Backfill per-period goals for live games when NHL Web boxscore doesn't provide it.
-            try:
-                st = str(game_state or "").upper()
-                is_live_like = ("LIVE" in st) or ("IN_PROGRESS" in st) or ("CRIT" in st)
-                if is_live_like:
-                    per_list = lens.get("periods") if isinstance(lens, dict) else None
-                    if (not per_list) or (not _has_any_period_goals(per_list)):
-                        per_web = await _extract_periods_landing_fallback(game_pk_i)
-                        if per_web:
-                            lens["periods"] = per_web
-            except Exception:
-                pass
-
-            # Remove empty blocks
-            if not lens["totals"]["home"] and not lens["totals"]["away"]:
-                lens.pop("totals", None)
-            if not lens.get("periods"):
-                lens.pop("periods", None)
-            if not (lens.get("players", {}).get("home") or lens.get("players", {}).get("away")):
-                lens.pop("players", None)
-            if not (lens.get("goalies", {}).get("home") or lens.get("goalies", {}).get("away")):
-                lens.pop("goalies", None)
-
-            out_games.append({
-                "date": d,
-                "gamePk": game_pk_i,
-                "home": home,
-                "away": away,
-                "key": f"{_norm(away)} @ {_norm(home)}",
-                "gameState": game_state,
-                "period": g.get("period"),
-                "clock": g.get("clock"),
-                "score": {
-                    "home": g.get("home_goals"),
-                    "away": g.get("away_goals"),
-                },
-                "lens": lens,
-            })
-
-        return JSONResponse({"ok": True, "date": d, "games": out_games})
-    except Exception as e:
-        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
-
-
 @app.get("/v1/odds/{date}")
-async def v1_odds(date: str, regions: str = "us", best: bool = True, inplay: bool = False):
+async def v1_odds(request: Request, date: str, regions: str = "us", best: bool = True, inplay: bool = False):
     """Current game odds snapshot for a slate date (read-only).
 
     Source: OddsAPI (the-odds-api.com). Requires ODDS_API_KEY.
@@ -1912,16 +1910,79 @@ async def v1_odds(date: str, regions: str = "us", best: bool = True, inplay: boo
         if not _V1_DATE_RE.fullmatch(d):
             return JSONResponse({"ok": False, "error": "invalid_date", "date": date}, status_code=400)
 
+        # ETag / 304 support for lightweight polling.
+        # Use the cached snapshot's as-of timestamp as the ETag basis.
+        try:
+            cache_key = f"v1_odds::{d}::{str(regions or 'us').lower()}::{int(bool(best))}::{int(bool(inplay))}"
+            cached = _live_odds_cache_get(cache_key)
+            if isinstance(cached, dict) and cached.get("ok") is True:
+                try:
+                    if bool(inplay):
+                        cc = str(os.getenv("V1_ODDS_CACHE_CONTROL_INPLAY", "public, max-age=5, must-revalidate"))
+                    else:
+                        cc = str(
+                            os.getenv(
+                                "V1_ODDS_CACHE_CONTROL_NONLIVE",
+                                f"public, max-age={max(1, int(_LIVE_ODDS_TTL_SECONDS))}, must-revalidate",
+                            )
+                        )
+                except Exception:
+                    cc = "public, max-age=5, must-revalidate"
+
+                try:
+                    import hashlib
+
+                    etag_basis = f"{cache_key}|{cached.get('asof_utc') or ''}".encode("utf-8")
+                    etag = hashlib.md5(etag_basis).hexdigest()  # nosec B324 (non-cryptographic, fine for cache)
+                except Exception:
+                    etag = None
+
+                headers = {"Cache-Control": str(cc), "Vary": "Accept-Encoding"}
+                if etag:
+                    headers["ETag"] = f'"{etag}"'
+                    inm = (request.headers.get("if-none-match") or request.headers.get("If-None-Match") or "").strip()
+                    if inm and inm.strip('"') == etag:
+                        return Response(status_code=304, headers=headers)
+                return JSONResponse(cached, headers=headers)
+        except Exception:
+            pass
+
         obj = await asyncio.to_thread(_v1_odds_payload, d, str(regions or "us"), bool(best), bool(inplay))
         if not obj.get("ok") and obj.get("error") == "invalid_date":
             return JSONResponse(obj, status_code=400)
-        return JSONResponse(obj)
+
+        # Attach ETag headers on 200 responses as well.
+        try:
+            cache_key = f"v1_odds::{d}::{str(regions or 'us').lower()}::{int(bool(best))}::{int(bool(inplay))}"
+            try:
+                if bool(inplay):
+                    cc = str(os.getenv("V1_ODDS_CACHE_CONTROL_INPLAY", "public, max-age=5, must-revalidate"))
+                else:
+                    cc = str(
+                        os.getenv(
+                            "V1_ODDS_CACHE_CONTROL_NONLIVE",
+                            f"public, max-age={max(1, int(_LIVE_ODDS_TTL_SECONDS))}, must-revalidate",
+                        )
+                    )
+            except Exception:
+                cc = "public, max-age=5, must-revalidate"
+
+            import hashlib
+
+            etag_basis = f"{cache_key}|{obj.get('asof_utc') or ''}".encode("utf-8")
+            etag = hashlib.md5(etag_basis).hexdigest()  # nosec B324 (non-cryptographic, fine for cache)
+            headers = {"ETag": f'"{etag}"', "Cache-Control": str(cc), "Vary": "Accept-Encoding"}
+        except Exception:
+            headers = None
+
+        return JSONResponse(obj, headers=headers)
     except Exception as e:
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
 
 
 @app.get("/v1/live-lens/{date}")
 async def v1_live_lens_combined(
+    request: Request,
     date: str,
     regions: str = "us",
     best: bool = True,
@@ -1950,7 +2011,29 @@ async def v1_live_lens_combined(
         cache_key = f"{d}|{str(regions or 'us')}|{1 if bool(best) else 0}|{1 if bool(include_non_live) else 0}|{1 if bool(inplay) else 0}|{1 if bool(include_pbp) else 0}"
         cached = _live_lens_cache_get(cache_key, ttl)
         if isinstance(cached, dict) and cached.get("ok"):
-            return JSONResponse(cached)
+            try:
+                import hashlib
+
+                etag_basis = f"v1_live_lens::{cache_key}|{cached.get('asof_utc') or ''}".encode("utf-8")
+                etag = hashlib.md5(etag_basis).hexdigest()  # nosec B324 (non-cryptographic, fine for cache)
+            except Exception:
+                etag = None
+
+            try:
+                if bool(inplay):
+                    cc = str(os.getenv("V1_LIVE_LENS_CACHE_CONTROL_INPLAY", "public, max-age=3, must-revalidate"))
+                else:
+                    cc = str(os.getenv("V1_LIVE_LENS_CACHE_CONTROL_NONLIVE", "public, max-age=30, must-revalidate"))
+            except Exception:
+                cc = "public, max-age=3, must-revalidate"
+
+            headers = {"Cache-Control": str(cc), "Vary": "Accept-Encoding"}
+            if etag:
+                headers["ETag"] = f'"{etag}"'
+                inm = (request.headers.get("if-none-match") or request.headers.get("If-None-Match") or "").strip()
+                if inm and inm.strip('"') == etag:
+                    return Response(status_code=304, headers=headers)
+            return JSONResponse(cached, headers=headers)
 
         asof = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
         try:
@@ -2139,7 +2222,7 @@ async def v1_live_lens_combined(
             except Exception:
                 return [1.0]
 
-        def _win_cover_probs(gd: int, mu_home: float, mu_away: float) -> dict:
+        def _win_cover_probs(gd: int, mu_home: float, mu_away: float, ot_p_home: float = 0.5) -> dict:
             """Compute in-regulation win and +1.5/-1.5 cover probs from independent Poisson remaining goals.
 
             Returns keys:
@@ -2177,9 +2260,16 @@ async def v1_live_lens_combined(
                             p_home_m15 += p_
                         if d <= 1:
                             p_away_p15 += p_
-                # allocate ties 50/50 to approximate OT
-                p_home_win = float(max(0.0, min(1.0, p_home_win + 0.5 * p_tie)))
-                p_away_win = float(max(0.0, min(1.0, p_away_win + 0.5 * p_tie)))
+                # allocate ties to approximate OT/SO
+                try:
+                    ot_p_home = float(ot_p_home)
+                    if not math.isfinite(ot_p_home):
+                        ot_p_home = 0.5
+                except Exception:
+                    ot_p_home = 0.5
+                ot_p_home = float(max(0.35, min(0.65, ot_p_home)))
+                p_home_win = float(max(0.0, min(1.0, p_home_win + float(ot_p_home) * p_tie)))
+                p_away_win = float(max(0.0, min(1.0, p_away_win + (1.0 - float(ot_p_home)) * p_tie)))
                 return {
                     "p_home_win": p_home_win,
                     "p_away_win": p_away_win,
@@ -2207,10 +2297,9 @@ async def v1_live_lens_combined(
                 out[str(k)] = v
             return out
 
-        # Pull live lens via existing endpoint logic (single source of truth).
-        live_resp = await v1_live(d)
+        # Pull live state via helper (single source of truth; avoids calling route fn directly).
         try:
-            live_obj = json.loads(getattr(live_resp, "body", b"{}").decode("utf-8"))
+            live_obj = await _v1_live_payload(d)
         except Exception:
             live_obj = None
         if not isinstance(live_obj, dict) or not live_obj.get("ok"):
@@ -2838,6 +2927,18 @@ async def v1_live_lens_combined(
                     pp_bonus_home = 0.18
                 elif pbp_ctx.get("pp_team") == "away":
                     pp_bonus_away = 0.18
+
+                # Scale PP bonus by estimated PP seconds remaining (if available).
+                try:
+                    pp_rem = pbp_ctx.get("pp_sec_remaining_est")
+                    if pp_rem is not None:
+                        frac = float(max(0.0, min(1.0, float(pp_rem) / 120.0)))
+                        if pbp_ctx.get("pp_team") == "home":
+                            pp_bonus_home = float(pp_bonus_home) * float(frac)
+                        elif pbp_ctx.get("pp_team") == "away":
+                            pp_bonus_away = float(pp_bonus_away) * float(frac)
+                except Exception:
+                    pass
 
                 rm_ = float(remaining_min) if remaining_min is not None else 0.0
                 en_factor = max(0.0, min(1.0, rm_ / 3.0))
@@ -3795,18 +3896,26 @@ async def v1_live_lens_combined(
                     # In-play odds
                     ml_home_price = None
                     ml_away_price = None
+                    ml_home_book = None
+                    ml_away_book = None
                     pl_home_m15 = None
                     pl_away_p15 = None
+                    pl_home_m15_book = None
+                    pl_away_p15_book = None
                     try:
                         if isinstance(og, dict):
                             ml = og.get("ml") or {}
                             if isinstance(ml, dict):
                                 ml_home_price = ml.get("home")
                                 ml_away_price = ml.get("away")
+                                ml_home_book = ml.get("home_book")
+                                ml_away_book = ml.get("away_book")
                             pl = og.get("puckline") or {}
                             if isinstance(pl, dict):
                                 pl_home_m15 = pl.get("home_-1.5")
                                 pl_away_p15 = pl.get("away_+1.5")
+                                pl_home_m15_book = pl.get("home_-1.5_book")
+                                pl_away_p15_book = pl.get("away_+1.5_book")
                     except Exception:
                         pass
 
@@ -3897,7 +4006,7 @@ async def v1_live_lens_combined(
                                 # add mild PP bonus
                                 mu_home_rem += float(pp_bonus_home) * (float(rm) / 60.0) + float(en_bonus_home)
                                 mu_away_rem += float(pp_bonus_away) * (float(rm) / 60.0) + float(en_bonus_away)
-                                pr = _win_cover_probs(int(gd), float(mu_home_rem), float(mu_away_rem))
+                                pr = _win_cover_probs(int(gd), float(mu_home_rem), float(mu_away_rem), ot_p_home=float(p0_home))
                                 if pr.get("p_home_win") is not None:
                                     p_home_live = float(pr.get("p_home_win"))
                                     p_away_live = float(pr.get("p_away_win"))
@@ -3909,9 +4018,79 @@ async def v1_live_lens_combined(
                         except Exception:
                             pass
 
+                        # Expose raw (pre-calibration) win probability and source for logging/calibration.
+                        try:
+                            out["guidance"]["p_home_win_raw"] = float(p_home_live)
+                            out["guidance"]["p_away_win_raw"] = float(p_away_live)
+                            out["guidance"]["p_win_prob_source"] = str(ml_prob_source)
+                        except Exception:
+                            pass
+
+                        # Apply learned calibration (temperature + bias) to in-play win prob.
+                        try:
+                            p_home_live = float(_apply_live_lens_winprob_calibration(float(p_home_live), rm, ml_prob_source))
+                            p_home_live = float(max(0.01, min(0.99, p_home_live)))
+                            p_away_live = float(max(0.01, min(0.99, 1.0 - float(p_home_live))))
+                            # Expose for UI/debug (stable keys, optional).
+                            out["guidance"]["p_home_win"] = float(p_home_live)
+                            out["guidance"]["p_away_win"] = float(p_away_live)
+                            out["guidance"]["p_win_calibrated"] = True
+                        except Exception:
+                            try:
+                                out["guidance"]["p_win_calibrated"] = False
+                            except Exception:
+                                pass
+
                         # ML signal: always emit WATCH when model is decisive;
                         # upgrade to BET only when we have odds to compute edge.
                         try:
+                            # Odds-quality gates: allow WATCH always, but BET only when
+                            # odds are fresh, have a book, and are not extreme.
+                            try:
+                                odds_bet_max_age_sec = _to_float(os.getenv("LIVE_LENS_BET_ODDS_MAX_AGE_SEC", "45"))
+                            except Exception:
+                                odds_bet_max_age_sec = 45.0
+                            try:
+                                odds_extreme_abs_price = _to_float(os.getenv("LIVE_LENS_BET_ODDS_EXTREME_ABS_PRICE", "450"))
+                            except Exception:
+                                odds_extreme_abs_price = 450.0
+                            try:
+                                require_book_for_bet = str(os.getenv("LIVE_LENS_BET_REQUIRE_BOOK", "1") or "1").strip().lower() in {"1", "true", "yes"}
+                            except Exception:
+                                require_book_for_bet = True
+
+                            def _odds_ok_for_bet(price0, book0, implied0) -> tuple[bool, list[str]]:
+                                tags0: list[str] = []
+                                ok0 = True
+                                if price0 is None:
+                                    ok0 = False
+                                    tags0.append("odds:missing_price")
+                                if require_book_for_bet and (book0 is None or str(book0).strip() == ""):
+                                    ok0 = False
+                                    tags0.append("odds:missing_book")
+                                try:
+                                    if odds_age_sec is None:
+                                        ok0 = False
+                                        tags0.append("odds:age_unknown")
+                                    elif odds_bet_max_age_sec is not None and float(odds_age_sec) > float(odds_bet_max_age_sec):
+                                        ok0 = False
+                                        tags0.append("odds:stale")
+                                except Exception:
+                                    pass
+                                try:
+                                    if price0 is not None and odds_extreme_abs_price is not None and abs(float(price0)) >= float(odds_extreme_abs_price):
+                                        ok0 = False
+                                        tags0.append("odds:extreme_price")
+                                except Exception:
+                                    pass
+                                try:
+                                    if implied0 is not None and (float(implied0) <= 0.08 or float(implied0) >= 0.92):
+                                        ok0 = False
+                                        tags0.append("odds:extreme_implied")
+                                except Exception:
+                                    pass
+                                return ok0, tags0
+
                             ml_watch_side = None
                             ml_watch_p = None
                             if float(p_home_live) >= 0.62:
@@ -3942,6 +4121,7 @@ async def v1_live_lens_combined(
                                 fair = _prob_to_american(float(ml_watch_p))
                                 max_price = _prob_to_american(max(0.01, min(0.99, float(ml_watch_p) - 0.03)))
                                 price = ml_home_price if ml_watch_side == "HOME" else ml_away_price
+                                book = ml_home_book if ml_watch_side == "HOME" else ml_away_book
                                 implied = implied_home if ml_watch_side == "HOME" else implied_away
                                 edge = (float(ml_watch_p) - float(implied)) if implied is not None else None
                                 action = "WATCH"
@@ -3950,6 +4130,12 @@ async def v1_live_lens_combined(
                                         action = "BET"
                                     if float(em) >= 4.0 and float(edge) >= 0.06:
                                         action = "BET"
+
+                                if action == "BET":
+                                    ok_bet, odds_tags = _odds_ok_for_bet(price, book, implied)
+                                    if not ok_bet:
+                                        action = "WATCH"
+                                        driver_tags.extend(odds_tags)
                                 try:
                                     if edge is not None:
                                         if float(edge) >= 0.06:
@@ -3989,6 +4175,7 @@ async def v1_live_lens_combined(
                                         "ad": int(ad) if ad is not None else None,
                                         "xd": float(xd) if xd is not None else None,
                                         "odds_age_sec": float(odds_age_sec) if odds_age_sec is not None else None,
+                                        "book": str(book) if book is not None else None,
                                         "pp_team": pbp_ctx.get("pp_team"),
                                     },
                                 ))
@@ -4047,6 +4234,7 @@ async def v1_live_lens_combined(
                                 if pl_watch_side and pl_watch_p is not None:
                                     driver_tags = ["market:PUCKLINE"]
                                     price = pl_away_p15 if pl_watch_side == "AWAY_+1.5" else pl_home_m15
+                                    book = pl_away_p15_book if pl_watch_side == "AWAY_+1.5" else pl_home_m15_book
                                     implied = implied_pl_away if pl_watch_side == "AWAY_+1.5" else implied_pl_home
                                     edge = (float(pl_watch_p) - float(implied)) if implied is not None else None
                                     action = "WATCH"
@@ -4055,6 +4243,12 @@ async def v1_live_lens_combined(
                                             action = "BET"
                                         if float(em) >= 4.0 and float(edge) >= 0.065:
                                             action = "BET"
+
+                                    if action == "BET":
+                                        ok_bet, odds_tags = _odds_ok_for_bet(price, book, implied)
+                                        if not ok_bet:
+                                            action = "WATCH"
+                                            driver_tags.extend(odds_tags)
                                     try:
                                         if edge is not None:
                                             if float(edge) >= 0.065:
@@ -4094,6 +4288,7 @@ async def v1_live_lens_combined(
                                             "pace_mult": float(pace_mult) if pace_mult is not None else None,
                                             "goalie_mult": float(goalie_mult) if goalie_mult is not None else None,
                                             "odds_age_sec": float(odds_age_sec) if odds_age_sec is not None else None,
+                                            "book": str(book) if book is not None else None,
                                             "pp_team": pbp_ctx.get("pp_team"),
                                         },
                                     ))
@@ -4152,6 +4347,26 @@ async def v1_live_lens_combined(
                                     action = "BET"
                                 if float(em) >= 12.0 and float(edge) >= 0.04:
                                     action = "BET"
+
+                                if action == "BET":
+                                    try:
+                                        book = None
+                                        if str(side) == "HOME":
+                                            book = reg3.get("home_book")
+                                        elif str(side) == "AWAY":
+                                            book = reg3.get("away_book")
+                                        else:
+                                            book = reg3.get("draw_book")
+                                    except Exception:
+                                        book = None
+                                    try:
+                                        implied0 = _american_to_implied_prob(price_i)
+                                    except Exception:
+                                        implied0 = None
+                                    ok_bet, odds_tags = _odds_ok_for_bet(price_i, book, implied0)
+                                    if not ok_bet:
+                                        action = "WATCH"
+                                        driver_tags.extend(odds_tags)
                                 try:
                                     if float(edge) >= 0.05:
                                         driver_tags.append("edge:>=0.05")
@@ -4182,6 +4397,7 @@ async def v1_live_lens_combined(
                                         "pace_mult": float(pace_mult) if pace_mult is not None else None,
                                         "goalie_mult": float(goalie_mult) if goalie_mult is not None else None,
                                         "odds_age_sec": float(odds_age_sec) if odds_age_sec is not None else None,
+                                        "book": str(book) if 'book' in locals() and book is not None else None,
                                         "pp_team": pbp_ctx.get("pp_team"),
                                     },
                                 ))
@@ -5097,20 +5313,151 @@ async def v1_live_lens_combined(
                     # If throttling fails, still write (best-effort).
                     do_write = bool(has_any_signal) or bool(force_snap)
 
-                if not do_write:
-                    raise RuntimeError("skip_live_lens_snapshot")
+                if do_write:
+                    out_jsonl = snap_dir / f"live_lens_signals_{d}.jsonl"
+                    with open(out_jsonl, "a", encoding="utf-8") as fh:
+                        fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
 
-                out_jsonl = snap_dir / f"live_lens_signals_{d}.jsonl"
-                with open(out_jsonl, "a", encoding="utf-8") as fh:
-                    fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
+                    # Overwrite a "latest" pointer for quick manual inspection.
+                    latest_fp = snap_dir / f"live_lens_signals_{d}_latest.json"
+                    latest_fp.write_text(json.dumps(rec, ensure_ascii=False, indent=2), encoding="utf-8")
 
-                # Overwrite a "latest" pointer for quick manual inspection.
-                latest_fp = snap_dir / f"live_lens_signals_{d}_latest.json"
-                latest_fp.write_text(json.dumps(rec, ensure_ascii=False, indent=2), encoding="utf-8")
+                # ------------------------------------------------------------------
+                # State snapshots (cadenced): compact per-game rows even when no signals.
+                # These feed calibration + monitoring.
+                # Default: enabled on local runs; public hosts must opt-in.
+                # ------------------------------------------------------------------
+                try:
+                    enable_state = True
+                    if _is_public_host_env():
+                        enable_state = str(os.getenv("LIVE_LENS_STATE_SNAPSHOT_PUBLIC", "0") or "0").strip().lower() in {"1", "true", "yes"}
+                    else:
+                        enable_state = str(os.getenv("LIVE_LENS_STATE_SNAPSHOT", "1") or "1").strip().lower() in {"1", "true", "yes"}
+                except Exception:
+                    enable_state = (not _is_public_host_env())
+
+                if enable_state:
+                    try:
+                        state_min_sec = float(os.getenv("LIVE_LENS_STATE_SNAPSHOT_MIN_SECONDS", "90") or "90")
+                    except Exception:
+                        state_min_sec = 90.0
+
+                    now_ts = datetime.now(timezone.utc).timestamp()
+                    m2 = getattr(app.state, "live_lens_last_state_snapshot_by_gamepk", None)
+                    if not isinstance(m2, dict):
+                        m2 = {}
+                        setattr(app.state, "live_lens_last_state_snapshot_by_gamepk", m2)
+
+                    out_rows: list[dict] = []
+                    for gg in (payload.get("games") or []):
+                        if not isinstance(gg, dict):
+                            continue
+                        gpk = gg.get("gamePk")
+                        if gpk is None:
+                            continue
+                        try:
+                            last_ts = float(m2.get(str(gpk)) or 0.0)
+                            if (now_ts - last_ts) < float(state_min_sec):
+                                continue
+                        except Exception:
+                            pass
+                        try:
+                            m2[str(gpk)] = float(now_ts)
+                        except Exception:
+                            pass
+
+                        try:
+                            guidance = gg.get("guidance") if isinstance(gg.get("guidance"), dict) else {}
+                            odds_g = gg.get("odds") if isinstance(gg.get("odds"), dict) else {}
+                            ml = odds_g.get("ml") if isinstance(odds_g.get("ml"), dict) else {}
+                            pl = odds_g.get("puckline") if isinstance(odds_g.get("puckline"), dict) else {}
+                            tot = odds_g.get("total") if isinstance(odds_g.get("total"), dict) else {}
+                            row = {
+                                "date": payload.get("date"),
+                                "asof_utc": payload.get("asof_utc"),
+                                "odds_asof_utc": payload.get("odds_asof_utc"),
+                                "regions": payload.get("regions"),
+                                "best": payload.get("best"),
+                                "gamePk": gpk,
+                                "key": gg.get("key"),
+                                "away": gg.get("away"),
+                                "home": gg.get("home"),
+                                "gameState": gg.get("gameState"),
+                                "period": gg.get("period"),
+                                "clock": gg.get("clock"),
+                                "score": gg.get("score"),
+                                "guidance": {
+                                    "elapsed_min": guidance.get("elapsed_min"),
+                                    "remaining_min": guidance.get("remaining_min"),
+                                    "total_goals": guidance.get("total_goals"),
+                                    "sog_total": guidance.get("sog_total"),
+                                    "p_home_win": guidance.get("p_home_win"),
+                                    "p_away_win": guidance.get("p_away_win"),
+                                    "p_home_win_raw": guidance.get("p_home_win_raw"),
+                                    "p_win_calibrated": guidance.get("p_win_calibrated"),
+                                    "p_win_prob_source": guidance.get("p_win_prob_source"),
+                                    "p_tie_reg": guidance.get("p_tie_reg"),
+                                    "pp_team": guidance.get("pp_team"),
+                                    "pp_sec_remaining_est": guidance.get("pp_sec_remaining_est"),
+                                    "home_empty_net": guidance.get("home_empty_net"),
+                                    "away_empty_net": guidance.get("away_empty_net"),
+                                },
+                                "odds": {
+                                    "ml": {
+                                        "home": ml.get("home"),
+                                        "away": ml.get("away"),
+                                        "home_book": ml.get("home_book"),
+                                        "away_book": ml.get("away_book"),
+                                    },
+                                    "puckline": {
+                                        "home_-1.5": pl.get("home_-1.5"),
+                                        "away_+1.5": pl.get("away_+1.5"),
+                                        "home_-1.5_book": pl.get("home_-1.5_book"),
+                                        "away_+1.5_book": pl.get("away_+1.5_book"),
+                                    },
+                                    "total": {
+                                        "line": tot.get("line"),
+                                        "over": tot.get("over"),
+                                        "under": tot.get("under"),
+                                        "over_book": tot.get("over_book"),
+                                        "under_book": tot.get("under_book"),
+                                    },
+                                },
+                            }
+                            out_rows.append(row)
+                        except Exception:
+                            continue
+
+                    if out_rows:
+                        out_state_jsonl = snap_dir / f"live_lens_states_{d}.jsonl"
+                        with open(out_state_jsonl, "a", encoding="utf-8") as fh2:
+                            for r0 in out_rows:
+                                fh2.write(json.dumps(r0, ensure_ascii=False) + "\n")
+                        latest_state_fp = snap_dir / f"live_lens_states_{d}_latest.json"
+                        latest_state_fp.write_text(json.dumps({
+                            "date": payload.get("date"),
+                            "asof_utc": payload.get("asof_utc"),
+                            "n": len(out_rows),
+                            "rows": out_rows,
+                        }, ensure_ascii=False, indent=2), encoding="utf-8")
         except Exception:
             pass
 
-        return JSONResponse(payload)
+        # Attach ETag headers for polling (cached fast-path handles 304).
+        try:
+            import hashlib
+
+            if bool(inplay):
+                cc = str(os.getenv("V1_LIVE_LENS_CACHE_CONTROL_INPLAY", "public, max-age=3, must-revalidate"))
+            else:
+                cc = str(os.getenv("V1_LIVE_LENS_CACHE_CONTROL_NONLIVE", "public, max-age=30, must-revalidate"))
+            etag_basis = f"v1_live_lens::{cache_key}|{payload.get('asof_utc') or ''}".encode("utf-8")
+            etag = hashlib.md5(etag_basis).hexdigest()  # nosec B324 (non-cryptographic, fine for cache)
+            headers = {"ETag": f'"{etag}"', "Cache-Control": str(cc), "Vary": "Accept-Encoding"}
+        except Exception:
+            headers = None
+
+        return JSONResponse(payload, headers=headers)
     except Exception as e:
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
 

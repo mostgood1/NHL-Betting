@@ -258,6 +258,33 @@ def discover_dates(proc_dir: Path = PROC_DIR) -> list[str]:
     return sorted(dates)
 
 
+def select_daily_bundle_files(date: str, proc_dir: Path = PROC_DIR) -> dict[str, Optional[str]]:
+    """Return the `bundle['files']` mapping without loading any CSVs.
+
+    Intended for request-time staleness checks (fast and side-effect free).
+    """
+    d = _validate_ymd(date)
+    predictions_p = _pick_existing(proc_dir / f"predictions_sim_{d}.csv", proc_dir / f"predictions_{d}.csv")
+    edges_p = _pick_existing(proc_dir / f"edges_sim_{d}.csv", proc_dir / f"edges_{d}.csv")
+    game_recs_p = _pick_existing(proc_dir / f"recommendations_sim_{d}.csv", proc_dir / f"recommendations_{d}.csv")
+    props_recs_p = _pick_existing(
+        proc_dir / f"props_recommendations_{d}.csv",
+        proc_dir / f"props_recommendations_combined_{d}.csv",
+        proc_dir / f"props_recommendations_sim_{d}.csv",
+    )
+    rec_game_p = proc_dir / f"reconciliation_{d}.json"
+    rec_props_p = proc_dir / f"reconciliation_props_{d}.json"
+
+    return {
+        "predictions": f"data/processed/{predictions_p.name}" if predictions_p and predictions_p.exists() else None,
+        "edges": f"data/processed/{edges_p.name}" if edges_p and edges_p.exists() else None,
+        "game_recommendations": f"data/processed/{game_recs_p.name}" if game_recs_p and game_recs_p.exists() else None,
+        "props_recommendations": f"data/processed/{props_recs_p.name}" if props_recs_p and props_recs_p.exists() else None,
+        "reconciliation_games": f"data/processed/{rec_game_p.name}" if rec_game_p.exists() else None,
+        "reconciliation_props": f"data/processed/{rec_props_p.name}" if rec_props_p.exists() else None,
+    }
+
+
 def build_daily_bundle(date: str, proc_dir: Path = PROC_DIR) -> dict[str, Any]:
     """Compile a stable JSON bundle for a single date from existing artifacts.
 
@@ -277,7 +304,6 @@ def build_daily_bundle(date: str, proc_dir: Path = PROC_DIR) -> dict[str, Any]:
     )
     rec_game_p = proc_dir / f"reconciliation_{d}.json"
     rec_props_p = proc_dir / f"reconciliation_props_{d}.json"
-
     predictions_df = _safe_read_csv(predictions_p) if predictions_p else pd.DataFrame()
     edges_df = _safe_read_csv(edges_p) if edges_p else pd.DataFrame()
     game_recs_df = _safe_read_csv(game_recs_p) if game_recs_p else pd.DataFrame()

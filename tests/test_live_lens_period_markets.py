@@ -10,39 +10,38 @@ def test_live_lens_emits_period_total_and_ml(monkeypatch: pytest.MonkeyPatch):
     date = "2099-01-01"
     game_key = "mtl @ bos"
 
-    async def fake_v1_live(d: str):
+    async def fake_live_payload(d: str):
         assert d == date
-        return JSONResponse(
-            {
-                "ok": True,
-                "date": date,
-                "games": [
-                    {
-                        "date": date,
-                        "gamePk": 1,
-                        "home": "BOS",
-                        "away": "MTL",
-                        "key": game_key,
-                        "gameState": "LIVE",
-                        "period": 2,
-                        "clock": "10:00",
-                        "score": {"home": 1, "away": 1},
-                        "lens": {
-                            "totals": {"home": {"sog": 10}, "away": {"sog": 12}},
-                            "periods": [
-                                {"period": 1, "home": {"goals": 1, "sog": 5}, "away": {"goals": 1, "sog": 6}},
-                                {"period": 2, "home": {"goals": 0, "sog": 5}, "away": {"goals": 0, "sog": 6}},
-                            ],
-                            "players": {"home": [], "away": []},
-                            "goalies": {
-                                "home": [{"name": "Test Goalie", "saves": 11, "shots_against": 12, "sv_pct": 0.917}],
-                                "away": [{"name": "Away Goalie", "saves": 9, "shots_against": 10, "sv_pct": 0.9}],
-                            },
+        return {
+            "ok": True,
+            "date": date,
+            "asof_utc": "2099-01-01T00:00:00Z",
+            "games": [
+                {
+                    "date": date,
+                    "gamePk": 1,
+                    "home": "BOS",
+                    "away": "MTL",
+                    "key": game_key,
+                    "gameState": "LIVE",
+                    "period": 2,
+                    "clock": "10:00",
+                    "score": {"home": 1, "away": 1},
+                    "lens": {
+                        "totals": {"home": {"sog": 10}, "away": {"sog": 12}},
+                        "periods": [
+                            {"period": 1, "home": {"goals": 1, "sog": 5}, "away": {"goals": 1, "sog": 6}},
+                            {"period": 2, "home": {"goals": 0, "sog": 5}, "away": {"goals": 0, "sog": 6}},
+                        ],
+                        "players": {"home": [], "away": []},
+                        "goalies": {
+                            "home": [{"name": "Test Goalie", "saves": 11, "shots_against": 12, "sv_pct": 0.917}],
+                            "away": [{"name": "Away Goalie", "saves": 9, "shots_against": 10, "sv_pct": 0.9}],
                         },
-                    }
-                ],
-            }
-        )
+                    },
+                }
+            ],
+        }
 
     def fake_v1_odds_payload(*_args, **_kwargs):
         # Provide in-play period lines (P2) + core markets.
@@ -99,15 +98,31 @@ def test_live_lens_emits_period_total_and_ml(monkeypatch: pytest.MonkeyPatch):
             }
         }
 
-    monkeypatch.setattr(web_app, "v1_live", fake_v1_live, raising=True)
+    monkeypatch.setattr(web_app, "_v1_live_payload", fake_live_payload, raising=True)
     monkeypatch.setattr(web_app, "_v1_odds_payload", fake_v1_odds_payload, raising=True)
     monkeypatch.setattr(web_app, "_v1_props_odds_payload", fake_v1_props_odds_payload, raising=True)
     monkeypatch.setattr(web_app, "_read_all_players_projections", fake_read_all_players_projections, raising=True)
     monkeypatch.setattr(web_app, "_load_bundle_predictions_map", fake_bundle_predictions_map, raising=True)
 
+    # Clear module-level cache so we can validate ETag/304 behavior deterministically.
+    try:
+        web_app._LIVE_LENS_CACHE.clear()
+    except Exception:
+        pass
+
     client = TestClient(web_app.app)
     resp = client.get(f"/v1/live-lens/{date}?regions=us&best=1&include_non_live=1&inplay=1")
     assert resp.status_code == 200
+    etag = resp.headers.get("etag")
+    assert isinstance(etag, str) and len(etag) > 0
+    assert "cache-control" in {k.lower() for k in resp.headers.keys()}
+    assert "Accept-Encoding" in str(resp.headers.get("vary") or "")
+
+    resp2 = client.get(
+        f"/v1/live-lens/{date}?regions=us&best=1&include_non_live=1&inplay=1",
+        headers={"If-None-Match": etag},
+    )
+    assert resp2.status_code == 304
     js = resp.json()
     assert js.get("ok") is True
     assert js.get("games")
@@ -135,39 +150,38 @@ def test_live_lens_emits_period_signals_when_clock_null_with_pbp_fallback(monkey
     date = "2099-01-02"
     game_key = "mtl @ bos"
 
-    async def fake_v1_live(d: str):
+    async def fake_live_payload(d: str):
         assert d == date
-        return JSONResponse(
-            {
-                "ok": True,
-                "date": date,
-                "games": [
-                    {
-                        "date": date,
-                        "gamePk": 1,
-                        "home": "BOS",
-                        "away": "MTL",
-                        "key": game_key,
-                        "gameState": "LIVE",
-                        "period": 2,
-                        "clock": None,
-                        "score": {"home": 1, "away": 1},
-                        "lens": {
-                            "totals": {"home": {"sog": 10}, "away": {"sog": 12}},
-                            "periods": [
-                                {"period": 1, "home": {"goals": 1, "sog": 5}, "away": {"goals": 1, "sog": 6}},
-                                {"period": 2, "home": {"goals": 0, "sog": 5}, "away": {"goals": 0, "sog": 6}},
-                            ],
-                            "players": {"home": [], "away": []},
-                            "goalies": {
-                                "home": [{"name": "Test Goalie", "saves": 11, "shots_against": 12, "sv_pct": 0.917}],
-                                "away": [{"name": "Away Goalie", "saves": 9, "shots_against": 10, "sv_pct": 0.9}],
-                            },
+        return {
+            "ok": True,
+            "date": date,
+            "asof_utc": "2099-01-02T00:00:00Z",
+            "games": [
+                {
+                    "date": date,
+                    "gamePk": 1,
+                    "home": "BOS",
+                    "away": "MTL",
+                    "key": game_key,
+                    "gameState": "LIVE",
+                    "period": 2,
+                    "clock": None,
+                    "score": {"home": 1, "away": 1},
+                    "lens": {
+                        "totals": {"home": {"sog": 10}, "away": {"sog": 12}},
+                        "periods": [
+                            {"period": 1, "home": {"goals": 1, "sog": 5}, "away": {"goals": 1, "sog": 6}},
+                            {"period": 2, "home": {"goals": 0, "sog": 5}, "away": {"goals": 0, "sog": 6}},
+                        ],
+                        "players": {"home": [], "away": []},
+                        "goalies": {
+                            "home": [{"name": "Test Goalie", "saves": 11, "shots_against": 12, "sv_pct": 0.917}],
+                            "away": [{"name": "Away Goalie", "saves": 9, "shots_against": 10, "sv_pct": 0.9}],
                         },
-                    }
-                ],
-            }
-        )
+                    },
+                }
+            ],
+        }
 
     def fake_v1_odds_payload(*_args, **_kwargs):
         return {
@@ -222,7 +236,7 @@ def test_live_lens_emits_period_signals_when_clock_null_with_pbp_fallback(monkey
         }
 
     monkeypatch.setattr(nhl_api_web.NHLWebClient, "_get", fake_pbp_get, raising=True)
-    monkeypatch.setattr(web_app, "v1_live", fake_v1_live, raising=True)
+    monkeypatch.setattr(web_app, "_v1_live_payload", fake_live_payload, raising=True)
     monkeypatch.setattr(web_app, "_v1_odds_payload", fake_v1_odds_payload, raising=True)
     monkeypatch.setattr(web_app, "_v1_props_odds_payload", fake_v1_props_odds_payload, raising=True)
     monkeypatch.setattr(web_app, "_read_all_players_projections", fake_read_all_players_projections, raising=True)

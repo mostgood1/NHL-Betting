@@ -83,8 +83,23 @@ def test_v1_live_lens_smoke(monkeypatch):
     monkeypatch.setattr(NHLWebClient, "scoreboard_day", _scoreboard_day, raising=True)
     monkeypatch.setattr(NHLWebClient, "boxscore", _boxscore, raising=True)
 
+    # Clear module-level cache so we can validate ETag/304 behavior deterministically.
+    import nhl_betting.web.app as web_app
+    try:
+        web_app._LIVE_LENS_CACHE.clear()
+    except Exception:
+        pass
+
     r = client.get("/v1/live/2099-01-01")
     assert r.status_code == 200
+    etag = r.headers.get("etag")
+    assert isinstance(etag, str) and len(etag) > 0
+    assert "cache-control" in {k.lower() for k in r.headers.keys()}
+    assert "Accept-Encoding" in str(r.headers.get("vary") or "")
+
+    r2 = client.get("/v1/live/2099-01-01", headers={"If-None-Match": etag})
+    assert r2.status_code == 304
+
     obj = r.json()
     assert obj.get("ok") is True
     assert obj.get("date") == "2099-01-01"

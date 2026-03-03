@@ -710,6 +710,56 @@ try {
   Write-Warning "[daily_update] game-monitor-anomalies failed: $($_.Exception.Message)"
 }
 
+# Fit/update Live Lens in-play win-prob calibration (non-fatal)
+try {
+  # Backfill final outcomes into Live Lens state snapshots (best-effort)
+  try {
+    $llEnd = $AnchorNow.ToString('yyyy-MM-dd')
+    $llLabelStart = $AnchorNow.AddDays(-14).ToString('yyyy-MM-dd')
+    Write-Host "[daily_update] Backfilling Live Lens state outcomes ($llLabelStart..$llEnd) …" -ForegroundColor DarkCyan
+    python scripts/backfill_live_lens_states_outcomes.py --start $llLabelStart --end $llEnd
+  } catch {
+    Write-Warning "[daily_update] Live Lens outcome backfill failed: $($_.Exception.Message)"
+  }
+
+  Write-Host "[daily_update] Fitting Live Lens win-prob calibration …" -ForegroundColor DarkCyan
+  $llFitStart = $AnchorNow.AddDays(-30).ToString('yyyy-MM-dd')
+  $llFitEnd = $AnchorNow.ToString('yyyy-MM-dd')
+  python scripts/fit_live_lens_winprob_calibration.py --start $llFitStart --end $llFitEnd
+  Assert-AnyPath -Label "live_lens_winprob_calibration" -Paths @(_PathInProcessed "live_lens_winprob_calibration.json") -NonEmpty -Strict:$StrictOutputs
+
+  # Win-prob monitor + drift alert (non-fatal)
+  try {
+    Write-Host "[daily_update] Reporting Live Lens win-prob monitor/drift …" -ForegroundColor DarkCyan
+    python scripts/report_live_lens_winprob_monitor.py --start $llFitStart --end $llFitEnd
+    Assert-AnyPath -Label "live_lens_winprob_monitor" -Paths @(
+      (Join-Path $ProcessedDir 'live_lens\live_lens_winprob_monitor.json'),
+      (Join-Path $ProcessedDir 'live_lens/live_lens_winprob_monitor.json')
+    ) -NonEmpty -Strict:$StrictOutputs
+    Assert-AnyPath -Label "live_lens_winprob_drift" -Paths @(
+      (Join-Path $ProcessedDir 'live_lens\live_lens_winprob_drift_alert.json'),
+      (Join-Path $ProcessedDir 'live_lens/live_lens_winprob_drift_alert.json')
+    ) -NonEmpty -Strict:$StrictOutputs
+
+    try {
+      $driftPath = Join-Path $ProcessedDir 'live_lens\live_lens_winprob_drift_alert.json'
+      if (-not (Test-Path $driftPath)) { $driftPath = Join-Path $ProcessedDir 'live_lens/live_lens_winprob_drift_alert.json' }
+      if (Test-Path $driftPath) {
+        $drift = Get-Content $driftPath | ConvertFrom-Json
+        if ($drift -and $drift.alert -eq $true) {
+          Write-Warning "[daily_update] Live Lens win-prob drift alert: $($drift.reasons -join ', ')"
+        }
+      }
+    } catch {
+      Write-Warning "[daily_update] Failed to parse Live Lens drift alert JSON: $($_.Exception.Message)"
+    }
+  } catch {
+    Write-Warning "[daily_update] Live Lens win-prob monitor/drift failed: $($_.Exception.Message)"
+  }
+} catch {
+  Write-Warning "[daily_update] Live Lens win-prob calibration fit failed: $($_.Exception.Message)"
+}
+
 # Optional: precompute props projections and generate props recommendations
 # Note: Web projections now compute strength-aware p_over using scaled lambda (proj_lambda_eff)
 if ($PropsRecs) {

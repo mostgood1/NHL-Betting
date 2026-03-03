@@ -1,0 +1,11 @@
+date,home,away,market,ev
+2026-03-05T00:00:00Z,New Jersey Devils,Toronto Maple Leafs,ev_away_ml,0.4153
+2026-03-05T03:00:00Z,Seattle Kraken,St. Louis Blues,ev_away_ml,0.3579
+2026-03-05T03:00:00Z,Vancouver Canucks,Carolina Hurricanes,ev_away_ml,0.1408
+2026-03-05T03:00:00Z,Anaheim Ducks,New York Islanders,ev_away_ml,0.0819
+2026-03-05T00:00:00Z,Detroit Red Wings,Vegas Golden Knights,ev_home_ml,-0.0412
+2026-03-05T00:00:00Z,Detroit Red Wings,Vegas Golden Knights,ev_away_ml,-0.0497
+2026-03-05T03:00:00Z,Anaheim Ducks,New York Islanders,ev_home_ml,-0.1728
+2026-03-05T03:00:00Z,Seattle Kraken,St. Louis Blues,ev_home_ml,-0.322
+2026-03-05T03:00:00Z,Vancouver Canucks,Carolina Hurricanes,ev_home_ml,-0.4398
+2026-03-05T00:00:00Z,New Jersey Devils,Toronto Maple Leafs,ev_home_ml,-0.5002

@@ -1,0 +1,123 @@
+{
+  "summary": {
+    "date": "2026-03-02",
+    "picks": 9,
+    "decided": 9,
+    "wins": 5,
+    "losses": 4,
+    "pushes": 0,
+    "staked": 900.0,
+    "pnl": 147.42071197411002,
+    "roi": 0.16380079108234447
+  },
+  "rows": [
+    {
+      "date": "2026-03-02T19:00:00Z",
+      "home": "Nashville Predators",
+      "away": "Detroit Red Wings",
+      "market": "totals",
+      "bet": "over",
+      "ev": 0.1699,
+      "price": -120.0,
+      "result": "win",
+      "stake": 100.0,
+      "payout": 83.33333333333334
+    },
+    {
+      "date": "2026-03-03T00:00:00Z",
+      "home": "New York Rangers",
+      "away": "Columbus Blue Jackets",
+      "market": "moneyline",
+      "bet": "home_ml",
+      "ev": 0.564,
+      "price": 105,
+      "result": "loss",
+      "stake": 100.0,
+      "payout": -100.0
+    },
+    {
+      "date": "2026-03-03T00:00:00Z",
+      "home": "New York Rangers",
+      "away": "Columbus Blue Jackets",
+      "market": "totals",
+      "bet": "over",
+      "ev": 0.0471,
+      "price": 109.0,
+      "result": "win",
+      "stake": 100.0,
+      "payout": 108.99999999999999
+    },
+    {
+      "date": "2026-03-03T00:30:00Z",
+      "home": "Toronto Maple Leafs",
+      "away": "Philadelphia Flyers",
+      "market": "moneyline",
+      "bet": "home_ml",
+      "ev": 0.0453,
+      "price": -130,
+      "result": "loss",
+      "stake": 100.0,
+      "payout": -100.0
+    },
+    {
+      "date": "2026-03-03T00:30:00Z",
+      "home": "Toronto Maple Leafs",
+      "away": "Philadelphia Flyers",
+      "market": "puckline",
+      "bet": "home_pl_-1.5",
+      "ev": 0.0936,
+      "price": 188.0,
+      "result": "loss",
+      "stake": 100.0,
+      "payout": -100.0
+    },
+    {
+      "date": "2026-03-03T03:00:00Z",
+      "home": "Vancouver Canucks",
+      "away": "Dallas Stars",
+      "market": "totals",
+      "bet": "over",
+      "ev": 0.0537,
+      "price": 100.0,
+      "result": "win",
+      "stake": 100.0,
+      "payout": 100.0
+    },
+    {
+      "date": "2026-03-03T03:00:00Z",
+      "home": "Seattle Kraken",
+      "away": "Carolina Hurricanes",
+      "market": "moneyline",
+      "bet": "home_ml",
+      "ev": 0.2747,
+      "price": 158,
+      "result": "win",
+      "stake": 100.0,
+      "payout": 158.0
+    },
+    {
+      "date": "2026-03-03T03:30:00Z",
+      "home": "Los Angeles Kings",
+      "away": "Colorado Avalanche",
+      "market": "moneyline",
+      "bet": "home_ml",
+      "ev": 0.7423,
+      "price": 160,
+      "result": "loss",
+      "stake": 100.0,
+      "payout": -100.0
+    },
+    {
+      "date": "2026-03-03T03:30:00Z",
+      "home": "Los Angeles Kings",
+      "away": "Colorado Avalanche",
+      "market": "totals",
+      "bet": "over",
+      "ev": 0.1012,
+      "price": -103.0,
+      "result": "win",
+      "stake": 100.0,
+      "payout": 97.0873786407767
+    }
+  ]
+}

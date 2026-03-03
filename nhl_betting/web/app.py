@@ -1687,6 +1687,10 @@ async def v1_bundle(date: str, request: Request):
             display team logos without additional roundtrips.
             """
             try:
+                from .teams import get_team_assets
+            except Exception:
+                get_team_assets = None
+            try:
                 rows = (
                     (obj.get("data") or {})
                     .get("games", {})
@@ -1694,6 +1698,8 @@ async def v1_bundle(date: str, request: Request):
                     .get("rows", [])
                 )
                 if not isinstance(rows, list) or not rows:
+                    return obj
+                if get_team_assets is None:
                     return obj
                 for r in rows:
                     if not isinstance(r, dict):

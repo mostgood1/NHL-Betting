@@ -1181,14 +1181,35 @@ async def v1_dates():
     dates: list[str] = []
     latest = None
     try:
-        from ..publish.daily_bundles import build_manifest
+        import asyncio
 
-        man = build_manifest(PROC_DIR)
-        if isinstance(man, dict):
-            dates = man.get("dates") or []
-            latest = man.get("latest")
-        else:
-            note = "manifest_not_dict"
+        from ..publish.daily_bundles import build_manifest, manifest_path
+
+        # Fast path: use precomputed manifest.json when available.
+        # This avoids scanning large processed directories on every request.
+        p = manifest_path(PROC_DIR)
+        if p.exists():
+            try:
+                obj = json.loads(p.read_text(encoding="utf-8"))
+                if isinstance(obj, dict):
+                    dates = obj.get("dates") or []
+                    latest = obj.get("latest")
+                else:
+                    note = "manifest_not_dict"
+            except Exception as e:
+                note = f"manifest_read_error: {e}"
+
+        # Slow fallback: build manifest with a short timeout so this endpoint can't hang.
+        if not dates and not latest:
+            try:
+                man = await asyncio.wait_for(asyncio.to_thread(build_manifest, PROC_DIR), timeout=2.0)
+                if isinstance(man, dict):
+                    dates = man.get("dates") or []
+                    latest = man.get("latest")
+                else:
+                    note = "manifest_not_dict"
+            except TimeoutError:
+                note = "manifest_timeout"
     except Exception as e:
         note = f"manifest_error: {e}"
 

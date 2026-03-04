@@ -1,1 +1,1 @@
-web: uvicorn nhl_betting.web.app:app --host 0.0.0.0 --port $PORT
+web: uvicorn nhl_betting.web.asgi:app --host 0.0.0.0 --port $PORT

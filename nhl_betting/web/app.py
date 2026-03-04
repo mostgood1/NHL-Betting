@@ -2476,6 +2476,53 @@ async def v1_live_lens_combined(
                 "note": "live_unavailable",
             })
 
+        # Fast-path: if we're polling in-play and there are no LIVE/FINAL-like games,
+        # avoid calling OddsAPI (keeps Render stable during pregame hours).
+        try:
+            if bool(inplay):
+                any_live_or_final = False
+                for gg in (live_obj.get("games") or []):
+                    if not isinstance(gg, dict):
+                        continue
+                    st_game = gg.get("gameState")
+                    if _is_live_state(st_game) or _is_final_like(st_game):
+                        any_live_or_final = True
+                        break
+                if not any_live_or_final:
+                    payload = {
+                        "ok": True,
+                        "date": d,
+                        "asof_utc": asof,
+                        "regions": str(regions or "us"),
+                        "best": bool(best),
+                        "odds_asof_utc": None,
+                        "games": [],
+                    }
+                    payload = _strict_json_sanitize(payload)
+                    try:
+                        if int(ttl or 0) > 0:
+                            _live_lens_cache_put(cache_key, payload)
+                    except Exception:
+                        pass
+
+                    # Attach ETag headers for polling (cached fast-path handles 304).
+                    try:
+                        import hashlib
+
+                        if bool(inplay):
+                            cc = str(os.getenv("V1_LIVE_LENS_CACHE_CONTROL_INPLAY", "public, max-age=3, must-revalidate"))
+                        else:
+                            cc = str(os.getenv("V1_LIVE_LENS_CACHE_CONTROL_NONLIVE", "public, max-age=30, must-revalidate"))
+                        etag_basis = f"v1_live_lens::{cache_key}|{payload.get('asof_utc') or ''}".encode("utf-8")
+                        etag = hashlib.md5(etag_basis).hexdigest()  # nosec B324 (non-cryptographic, fine for cache)
+                        headers = {"ETag": f'"{etag}"', "Cache-Control": str(cc), "Vary": "Accept-Encoding"}
+                    except Exception:
+                        headers = None
+
+                    return JSONResponse(payload, headers=headers)
+        except Exception:
+            pass
+
         # Odds payload (cached; best-effort)
         try:
             odds_obj = await asyncio.wait_for(
@@ -2542,6 +2589,19 @@ async def v1_live_lens_combined(
                 k = str(k or "").strip().lower()
                 if k:
                     props_odds_map[k] = pg
+
+        # Props odds staleness (seconds) for diagnostics + gating.
+        props_odds_age_sec = None
+        try:
+            props_asof = (props_odds_obj or {}).get("asof_utc") if isinstance(props_odds_obj, dict) else None
+            if props_asof and asof:
+                dt0 = datetime.fromisoformat(str(asof).replace("Z", "+00:00"))
+                dt1 = datetime.fromisoformat(str(props_asof).replace("Z", "+00:00"))
+                props_odds_age_sec = float((dt0 - dt1).total_seconds())
+                if not math.isfinite(float(props_odds_age_sec)):
+                    props_odds_age_sec = None
+        except Exception:
+            props_odds_age_sec = None
 
         # Pregame per-player lambdas for props (best-effort)
         proj_df = None
@@ -2811,13 +2871,17 @@ async def v1_live_lens_combined(
             live_total_line = None
             total_over_price = None
             total_under_price = None
+            total_over_book = None
+            total_under_book = None
             try:
                 if isinstance(og, dict):
-                    tot = og.get("total") or {}
+                    tot = og.get("total") or og.get("totals") or {}
                     if isinstance(tot, dict):
                         live_total_line = tot.get("line")
                         total_over_price = tot.get("over")
                         total_under_price = tot.get("under")
+                        total_over_book = tot.get("over_book")
+                        total_under_book = tot.get("under_book")
             except Exception:
                 live_total_line = None
 
@@ -3489,6 +3553,57 @@ async def v1_live_lens_combined(
 
             signals: list[dict] = []
 
+            # Odds-quality gates: allow WATCH always, but BET only when odds are fresh,
+            # have a book (optional), and are not extreme.
+            try:
+                odds_bet_max_age_sec = _to_float(os.getenv("LIVE_LENS_BET_ODDS_MAX_AGE_SEC", "45"))
+            except Exception:
+                odds_bet_max_age_sec = 45.0
+            if odds_bet_max_age_sec is None:
+                odds_bet_max_age_sec = 45.0
+            try:
+                odds_extreme_abs_price = _to_float(os.getenv("LIVE_LENS_BET_ODDS_EXTREME_ABS_PRICE", "450"))
+            except Exception:
+                odds_extreme_abs_price = 450.0
+            if odds_extreme_abs_price is None:
+                odds_extreme_abs_price = 450.0
+            try:
+                require_book_for_bet = str(os.getenv("LIVE_LENS_BET_REQUIRE_BOOK", "1") or "1").strip().lower() in {"1", "true", "yes"}
+            except Exception:
+                require_book_for_bet = True
+
+            def _odds_ok_for_bet(price0, book0, implied0, age_sec0) -> tuple[bool, list[str]]:
+                tags0: list[str] = []
+                ok0 = True
+                if price0 is None:
+                    ok0 = False
+                    tags0.append("odds:missing_price")
+                if require_book_for_bet and (book0 is None or str(book0).strip() == ""):
+                    ok0 = False
+                    tags0.append("odds:missing_book")
+                try:
+                    if age_sec0 is None:
+                        ok0 = False
+                        tags0.append("odds:age_unknown")
+                    elif odds_bet_max_age_sec is not None and float(age_sec0) > float(odds_bet_max_age_sec):
+                        ok0 = False
+                        tags0.append("odds:stale")
+                except Exception:
+                    pass
+                try:
+                    if price0 is not None and odds_extreme_abs_price is not None and abs(float(price0)) >= float(odds_extreme_abs_price):
+                        ok0 = False
+                        tags0.append("odds:extreme_price")
+                except Exception:
+                    pass
+                try:
+                    if implied0 is not None and (float(implied0) <= 0.08 or float(implied0) >= 0.92):
+                        ok0 = False
+                        tags0.append("odds:extreme_implied")
+                except Exception:
+                    pass
+                return ok0, tags0
+
             # 1) Game total signal
             try:
                 em = _to_float(elapsed_min)
@@ -3623,6 +3738,18 @@ async def v1_live_lens_combined(
                         except Exception:
                             pass
 
+                        # Odds-quality gate: downgrade BET -> WATCH if odds are stale/missing.
+                        try:
+                            if action == "BET":
+                                implied0 = implied_over if side == "OVER" else implied_under
+                                book0 = total_over_book if side == "OVER" else total_under_book
+                                ok_bet, odds_tags = _odds_ok_for_bet(price, book0, implied0, odds_age_sec)
+                                if not ok_bet:
+                                    action = "WATCH"
+                                    driver_tags.extend(odds_tags)
+                        except Exception:
+                            pass
+
                         p_target = max(0.01, min(0.99, float(p_model) - 0.03))
                         fair = _prob_to_american(float(p_model))
                         max_price = _prob_to_american(float(p_target))
@@ -3716,8 +3843,12 @@ async def v1_live_lens_combined(
                     per_total_line = None
                     per_over_price = None
                     per_under_price = None
+                    per_over_book = None
+                    per_under_book = None
                     per_ml_home_price = None
                     per_ml_away_price = None
+                    per_ml_home_book = None
+                    per_ml_away_book = None
                     try:
                         if isinstance(og, dict):
                             pt = (og.get("period_totals") or {}).get(per_key) or {}
@@ -3725,12 +3856,16 @@ async def v1_live_lens_combined(
                                 per_total_line = pt.get("line")
                                 per_over_price = pt.get("over")
                                 per_under_price = pt.get("under")
+                                per_over_book = pt.get("over_book")
+                                per_under_book = pt.get("under_book")
                             pl = (og.get("period_lines") or {}).get(per_key) or {}
                             if isinstance(pl, dict):
                                 ml = pl.get("ml") or {}
                                 if isinstance(ml, dict):
                                     per_ml_home_price = ml.get("home")
                                     per_ml_away_price = ml.get("away")
+                                    per_ml_home_book = ml.get("home_book")
+                                    per_ml_away_book = ml.get("away_book")
                     except Exception:
                         pass
 
@@ -3891,6 +4026,17 @@ async def v1_live_lens_combined(
                                     if float(per_goals) >= float(line_f):
                                         action = "WATCH"
                                         driver_tags.append("total_already_reached")
+                                except Exception:
+                                    pass
+
+                                # Odds-quality gate: downgrade BET -> WATCH if odds are stale/missing.
+                                try:
+                                    if action == "BET":
+                                        book0 = per_over_book if str(lean_side) == "OVER" else per_under_book
+                                        ok_bet, odds_tags = _odds_ok_for_bet(price, book0, implied, odds_age_sec)
+                                        if not ok_bet:
+                                            action = "WATCH"
+                                            driver_tags.extend(odds_tags)
                                 except Exception:
                                     pass
 
@@ -4057,6 +4203,17 @@ async def v1_live_lens_combined(
                                             driver_tags.append("empty_net:home")
                                         if pbp_ctx.get("away_empty_net"):
                                             driver_tags.append("empty_net:away")
+                                    except Exception:
+                                        pass
+
+                                    # Odds-quality gate: downgrade BET -> WATCH if odds are stale/missing.
+                                    try:
+                                        if action == "BET":
+                                            book0 = per_ml_home_book if pick_home else per_ml_away_book
+                                            ok_bet, odds_tags = _odds_ok_for_bet(price, book0, implied, odds_age_sec)
+                                            if not ok_bet:
+                                                action = "WATCH"
+                                                driver_tags.extend(odds_tags)
                                     except Exception:
                                         pass
 
@@ -4253,53 +4410,6 @@ async def v1_live_lens_combined(
                         # ML signal: always emit WATCH when model is decisive;
                         # upgrade to BET only when we have odds to compute edge.
                         try:
-                            # Odds-quality gates: allow WATCH always, but BET only when
-                            # odds are fresh, have a book, and are not extreme.
-                            try:
-                                odds_bet_max_age_sec = _to_float(os.getenv("LIVE_LENS_BET_ODDS_MAX_AGE_SEC", "45"))
-                            except Exception:
-                                odds_bet_max_age_sec = 45.0
-                            try:
-                                odds_extreme_abs_price = _to_float(os.getenv("LIVE_LENS_BET_ODDS_EXTREME_ABS_PRICE", "450"))
-                            except Exception:
-                                odds_extreme_abs_price = 450.0
-                            try:
-                                require_book_for_bet = str(os.getenv("LIVE_LENS_BET_REQUIRE_BOOK", "1") or "1").strip().lower() in {"1", "true", "yes"}
-                            except Exception:
-                                require_book_for_bet = True
-
-                            def _odds_ok_for_bet(price0, book0, implied0) -> tuple[bool, list[str]]:
-                                tags0: list[str] = []
-                                ok0 = True
-                                if price0 is None:
-                                    ok0 = False
-                                    tags0.append("odds:missing_price")
-                                if require_book_for_bet and (book0 is None or str(book0).strip() == ""):
-                                    ok0 = False
-                                    tags0.append("odds:missing_book")
-                                try:
-                                    if odds_age_sec is None:
-                                        ok0 = False
-                                        tags0.append("odds:age_unknown")
-                                    elif odds_bet_max_age_sec is not None and float(odds_age_sec) > float(odds_bet_max_age_sec):
-                                        ok0 = False
-                                        tags0.append("odds:stale")
-                                except Exception:
-                                    pass
-                                try:
-                                    if price0 is not None and odds_extreme_abs_price is not None and abs(float(price0)) >= float(odds_extreme_abs_price):
-                                        ok0 = False
-                                        tags0.append("odds:extreme_price")
-                                except Exception:
-                                    pass
-                                try:
-                                    if implied0 is not None and (float(implied0) <= 0.08 or float(implied0) >= 0.92):
-                                        ok0 = False
-                                        tags0.append("odds:extreme_implied")
-                                except Exception:
-                                    pass
-                                return ok0, tags0
-
                             ml_watch_side = None
                             ml_watch_p = None
                             if float(p_home_live) >= 0.62:
@@ -4341,7 +4451,7 @@ async def v1_live_lens_combined(
                                         action = "BET"
 
                                 if action == "BET":
-                                    ok_bet, odds_tags = _odds_ok_for_bet(price, book, implied)
+                                    ok_bet, odds_tags = _odds_ok_for_bet(price, book, implied, odds_age_sec)
                                     if not ok_bet:
                                         action = "WATCH"
                                         driver_tags.extend(odds_tags)
@@ -4454,7 +4564,7 @@ async def v1_live_lens_combined(
                                             action = "BET"
 
                                     if action == "BET":
-                                        ok_bet, odds_tags = _odds_ok_for_bet(price, book, implied)
+                                        ok_bet, odds_tags = _odds_ok_for_bet(price, book, implied, odds_age_sec)
                                         if not ok_bet:
                                             action = "WATCH"
                                             driver_tags.extend(odds_tags)
@@ -4572,7 +4682,7 @@ async def v1_live_lens_combined(
                                         implied0 = _american_to_implied_prob(price_i)
                                     except Exception:
                                         implied0 = None
-                                    ok_bet, odds_tags = _odds_ok_for_bet(price_i, book, implied0)
+                                    ok_bet, odds_tags = _odds_ok_for_bet(price_i, book, implied0, odds_age_sec)
                                     if not ok_bet:
                                         action = "WATCH"
                                         driver_tags.extend(odds_tags)
@@ -4848,6 +4958,20 @@ async def v1_live_lens_combined(
                                 side, edge, price_i, p_model = cand[0]
                                 if float(edge) >= 0.03:
                                     action = _sig_action_for_period(int(pn), float(edge))
+                                    driver_tags = _period_driver_tags(int(pn), float(edge))
+                                    if action == "BET":
+                                        try:
+                                            implied0 = imp_h if str(side) == "HOME" else imp_a
+                                        except Exception:
+                                            implied0 = None
+                                        try:
+                                            book0 = ml.get("home_book") if str(side) == "HOME" else ml.get("away_book")
+                                        except Exception:
+                                            book0 = None
+                                        ok_bet, odds_tags = _odds_ok_for_bet(price_i, book0, implied0, odds_age_sec)
+                                        if not ok_bet:
+                                            action = "WATCH"
+                                            driver_tags.extend(odds_tags)
                                     fair = _prob_to_american(float(p_model))
                                     max_price = _prob_to_american(max(0.01, min(0.99, float(p_model) - 0.03)))
                                     signals.append(_signal(
@@ -4864,7 +4988,7 @@ async def v1_live_lens_combined(
                                         target_max_price_american=max_price,
                                         elapsed_min=float(em),
                                         note="dnb_conditional_on_non_tie",
-                                        driver_tags=_period_driver_tags(int(pn), float(edge)),
+                                        driver_tags=driver_tags,
                                     ))
                     except Exception:
                         pass

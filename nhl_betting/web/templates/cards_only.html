@@ -2787,24 +2787,40 @@
       clearEmpty();
       $('cards').innerHTML = '';
 
-      const [b, sim, simSummary] = await Promise.all([
-        fetchJson(`/v1/bundle/${encodeURIComponent(date)}`),
-        (async () => {
-          try {
-            return await fetchJson(`/api/sim/boxscores?date=${encodeURIComponent(date)}`);
-          } catch (e) {
-            return null;
-          }
-        })(),
-        (async () => {
-          try {
-            return await fetchJson(`/api/sim/summary?date=${encodeURIComponent(date)}`);
-          } catch (e) {
-            return null;
-          }
-        })(),
-      ]);
-      if (!b.ok) throw new Error(b.error || 'bundle_error');
+      let b = null;
+      let sim = null;
+      let simSummary = null;
+      try {
+        [b, sim, simSummary] = await Promise.all([
+          fetchJson(`/v1/bundle/${encodeURIComponent(date)}`),
+          (async () => {
+            try {
+              return await fetchJson(`/api/sim/boxscores?date=${encodeURIComponent(date)}`);
+            } catch (e) {
+              return null;
+            }
+          })(),
+          (async () => {
+            try {
+              return await fetchJson(`/api/sim/summary?date=${encodeURIComponent(date)}`);
+            } catch (e) {
+              return null;
+            }
+          })(),
+        ]);
+      } catch (e) {
+        try { console.error('[cards] loadDate failed', e); } catch (e2) {}
+        const msg = (e && e.message) ? e.message : String(e);
+        setStatus(`Error loading ${date}`);
+        setEmpty(msg);
+        return;
+      }
+      if (!b || !b.ok) {
+        const msg = (b && (b.error || b.message)) ? (b.error || b.message) : 'bundle_error';
+        setStatus(`Error loading ${date}`);
+        setEmpty(msg);
+        return;
+      }
 
       const preds = (((b.data||{}).games||{}).predictions||{}).rows || [];
       const recs = (((b.data||{}).games||{}).recommendations||{}).rows || [];

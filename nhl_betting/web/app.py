@@ -22,6 +22,13 @@ from fastapi.staticfiles import StaticFiles
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 
+# Expose OddsAPIClient at module scope for monkeypatching in tests.
+try:
+    from ..data.odds_api import OddsAPIClient  # type: ignore
+except Exception:
+    OddsAPIClient = None  # type: ignore
+
+
 # Paths
 WEB_DIR = Path(__file__).resolve().parent
 STATIC_DIR = WEB_DIR / "static"
@@ -342,7 +349,16 @@ async def _v1_live_payload(date_ymd: str) -> dict:
             return False
         return False
 
-    web = NHLWebClient()
+    try:
+        web_timeout = float(os.getenv("V1_LIVE_NHLE_TIMEOUT_SEC", os.getenv("LIVE_LENS_NHLE_TIMEOUT_SEC", "6")))
+    except Exception:
+        web_timeout = 6.0
+    try:
+        web_rate = float(os.getenv("V1_LIVE_NHLE_RATE_LIMIT_PER_SEC", os.getenv("LIVE_LENS_NHLE_RATE_LIMIT_PER_SEC", "50")))
+    except Exception:
+        web_rate = 50.0
+
+    web = NHLWebClient(rate_limit_per_sec=web_rate, timeout=web_timeout)
 
     async def _extract_periods_landing_fallback(game_pk: int) -> list[dict]:
         """Fallback per-period goals from NHL Web /landing payload.
@@ -408,12 +424,32 @@ async def _v1_live_payload(date_ymd: str) -> dict:
         away = str(g.get("away") or "")
         game_state = g.get("gameState")
 
-        # Best-effort detailed stats from boxscore; safe to fail without breaking endpoint.
+        try:
+            st_up = str(game_state or "").upper()
+        except Exception:
+            st_up = ""
+
+        # Best-effort detailed stats from boxscore; only fetch for LIVE/FINAL-like games.
         box = None
         try:
-            box = await asyncio.to_thread(web.boxscore, game_pk_i)
+            is_live_like = (
+                ("LIVE" in st_up)
+                or ("IN_PROGRESS" in st_up)
+                or ("IN PROGRESS" in st_up)
+                or ("IN-PROGRESS" in st_up)
+                or ("CRIT" in st_up)
+                or (st_up == "OT")
+            )
+            is_final_like = (st_up == "OFF") or ("FINAL" in st_up) or ("POST" in st_up) or ("END" in st_up)
+            fetch_box = bool(is_live_like or is_final_like)
         except Exception:
-            box = None
+            fetch_box = False
+
+        if fetch_box:
+            try:
+                box = await asyncio.to_thread(web.boxscore, game_pk_i)
+            except Exception:
+                box = None
 
         home_obj = box.get("homeTeam") if isinstance(box, dict) else None
         away_obj = box.get("awayTeam") if isinstance(box, dict) else None
@@ -437,8 +473,14 @@ async def _v1_live_payload(date_ymd: str) -> dict:
 
         # Backfill per-period goals for live games when NHL Web boxscore doesn't provide it.
         try:
-            st = str(game_state or "").upper()
-            is_live_like = ("LIVE" in st) or ("IN_PROGRESS" in st) or ("CRIT" in st)
+            is_live_like = (
+                ("LIVE" in st_up)
+                or ("IN_PROGRESS" in st_up)
+                or ("IN PROGRESS" in st_up)
+                or ("IN-PROGRESS" in st_up)
+                or ("CRIT" in st_up)
+                or (st_up == "OT")
+            )
             if is_live_like:
                 per_list = lens.get("periods") if isinstance(lens, dict) else None
                 if (not per_list) or (not _has_any_period_goals(per_list)):
@@ -1316,7 +1358,16 @@ def _load_bundle_predictions_map(date_ymd: str) -> dict:
         return {}
 
 
-def _v1_odds_payload(date_ymd: str, regions: str = "us", best: bool = True, inplay: bool = False) -> dict:
+def _v1_odds_payload(
+    date_ymd: str,
+    regions: str = "us",
+    best: bool = True,
+    inplay: bool = False,
+    *,
+    http_timeout_sec: Optional[float] = None,
+    max_seconds: Optional[float] = None,
+    max_events: Optional[int] = None,
+) -> dict:
     """Build odds payload object (as returned by /v1/odds/{date}) with caching."""
     d = str(date_ymd or "").strip()
     if not _V1_DATE_RE.fullmatch(d):
@@ -1330,9 +1381,41 @@ def _v1_odds_payload(date_ymd: str, regions: str = "us", best: bool = True, inpl
     asof = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
     try:
-        # Import locally so the endpoint doesn't depend on module import order.
-        from ..data.odds_api import OddsAPIClient
-        client = OddsAPIClient()
+        timeout = None
+        try:
+            if http_timeout_sec is not None:
+                timeout = float(http_timeout_sec)
+        except Exception:
+            timeout = None
+        if timeout is None:
+            timeout = 40.0
+        try:
+            timeout = float(max(1.0, min(60.0, timeout)))
+        except Exception:
+            timeout = 40.0
+
+        try:
+            rl = float(os.getenv("V1_ODDS_RATE_LIMIT_PER_SEC", "10" if bool(inplay) else "3"))
+        except Exception:
+            rl = 10.0 if bool(inplay) else 3.0
+
+        ClientCls = OddsAPIClient
+        if ClientCls is None:
+            from ..data.odds_api import OddsAPIClient as ClientCls
+
+        # Some tests monkeypatch OddsAPIClient.__init__ to accept no args.
+        try:
+            client = ClientCls(rate_limit_per_sec=rl, timeout=timeout)
+        except TypeError:
+            client = ClientCls()
+            try:
+                client.sleep = 1.0 / float(rl)
+            except Exception:
+                pass
+            try:
+                client.timeout = float(timeout)
+            except Exception:
+                pass
     except Exception as e:
         obj = {"ok": True, "date": d, "asof_utc": asof, "games": [], "note": str(e)}
         _live_odds_cache_put(cache_key, obj)
@@ -1354,30 +1437,48 @@ def _v1_odds_payload(date_ymd: str, regions: str = "us", best: bool = True, inpl
     )
     markets = extended_markets if bool(inplay) else core_markets
 
-    df = client.flat_snapshot(
-        d,
-        regions=str(regions or "us"),
-        markets=markets,
-        snapshot_iso=None,
-        odds_format="american",
-        bookmaker=None,
-        best=bool(best),
-        inplay=bool(inplay),
-    )
-
-    # Robust fallback: if extended markets yielded nothing, retry with core markets.
-    try:
-        if bool(inplay) and (df is None or df.empty):
-            df = client.flat_snapshot(
+    def _flat_snapshot_safe(markets_str: str):
+        kwargs = {}
+        if max_seconds is not None:
+            kwargs["max_seconds"] = max_seconds
+        if max_events is not None:
+            kwargs["max_events"] = max_events
+        try:
+            return client.flat_snapshot(
                 d,
                 regions=str(regions or "us"),
-                markets=core_markets,
+                markets=markets_str,
+                snapshot_iso=None,
+                odds_format="american",
+                bookmaker=None,
+                best=bool(best),
+                inplay=bool(inplay),
+                **kwargs,
+            )
+        except TypeError:
+            # Back-compat for monkeypatched flat_snapshot signatures.
+            return client.flat_snapshot(
+                d,
+                regions=str(regions or "us"),
+                markets=markets_str,
                 snapshot_iso=None,
                 odds_format="american",
                 bookmaker=None,
                 best=bool(best),
                 inplay=bool(inplay),
             )
+
+    try:
+        df = _flat_snapshot_safe(markets)
+    except Exception as e:
+        obj = {"ok": True, "date": d, "asof_utc": asof, "games": [], "note": str(e)}
+        _live_odds_cache_put(cache_key, obj)
+        return obj
+
+    # Robust fallback: if extended markets yielded nothing, retry with core markets.
+    try:
+        if bool(inplay) and (df is None or df.empty):
+            df = _flat_snapshot_safe(core_markets)
     except Exception:
         pass
 
@@ -2074,6 +2175,18 @@ async def v1_live_lens_combined(
         except Exception:
             odds_timeout_sec = 6.0
 
+        # Bound OddsAPI work so timeouts don't leave long-running background threads.
+        try:
+            odds_http_timeout_sec = max(1.0, min(5.0, float(odds_timeout_sec) - 1.0))
+        except Exception:
+            odds_http_timeout_sec = 4.0
+        try:
+            odds_max_seconds = max(0.5, float(odds_timeout_sec) - 0.25)
+        except Exception:
+            odds_max_seconds = None
+        odds_max_events = 8 if bool(inplay) else None
+        props_max_events = 4 if bool(inplay) else None
+
         def _is_live_state(s: object) -> bool:
             try:
                 x = str(s or "").upper()
@@ -2083,7 +2196,16 @@ async def v1_live_lens_combined(
                     or ("IN PROGRESS" in x)
                     or ("IN-PROGRESS" in x)
                     or ("CRIT" in x)
+                    or (x == "OT")
                 )
+            except Exception:
+                return False
+
+        def _is_final_like(s: object) -> bool:
+            try:
+                x = str(s or "").upper().strip()
+                # NHL Web schedule commonly uses OFF for completed games.
+                return (x == "OFF") or ("FINAL" in x) or ("POST" in x) or ("END" in x)
             except Exception:
                 return False
 
@@ -2351,7 +2473,16 @@ async def v1_live_lens_combined(
         # Odds payload (cached; best-effort)
         try:
             odds_obj = await asyncio.wait_for(
-                asyncio.to_thread(_v1_odds_payload, d, str(regions or "us"), bool(best), bool(inplay)),
+                asyncio.to_thread(
+                    _v1_odds_payload,
+                    d,
+                    str(regions or "us"),
+                    bool(best),
+                    bool(inplay),
+                    http_timeout_sec=odds_http_timeout_sec,
+                    max_seconds=odds_max_seconds,
+                    max_events=odds_max_events,
+                ),
                 timeout=odds_timeout_sec,
             )
         except Exception:
@@ -2382,7 +2513,16 @@ async def v1_live_lens_combined(
         # Player props odds (OddsAPI; cached, best-effort)
         try:
             props_odds_obj = await asyncio.wait_for(
-                asyncio.to_thread(_v1_props_odds_payload, d, str(regions or "us"), bool(best), bool(inplay)),
+                asyncio.to_thread(
+                    _v1_props_odds_payload,
+                    d,
+                    str(regions or "us"),
+                    bool(best),
+                    bool(inplay),
+                    http_timeout_sec=odds_http_timeout_sec,
+                    max_seconds=odds_max_seconds,
+                    max_events=props_max_events,
+                ),
                 timeout=odds_timeout_sec,
             )
         except Exception:
@@ -2507,8 +2647,14 @@ async def v1_live_lens_combined(
         for g in live_obj.get("games") or []:
             if not isinstance(g, dict):
                 continue
-            if (not include_non_live) and (not _is_live_state(g.get("gameState"))):
-                continue
+            st_game = g.get("gameState")
+            if bool(inplay):
+                # Live polling: keep payload small/fast; scoreboard already covers scheduled games.
+                if (not _is_live_state(st_game)) and (not _is_final_like(st_game)):
+                    continue
+            else:
+                if (not include_non_live) and (not _is_live_state(st_game)):
+                    continue
 
             key = str(g.get("key") or _norm_game_key(g.get("away"), g.get("home")) or "").strip().lower()
             og = odds_map.get(key)
@@ -2688,11 +2834,21 @@ async def v1_live_lens_combined(
             pbp_error: Optional[str] = None
             try:
                 st = str(g.get("gameState") or "").upper()
-                want_pbp = bool(include_pbp) or _is_live_state(st)
+                want_pbp = bool(include_pbp)
+                pbp_time_only = False
+                try:
+                    # Regression support: if NHL clock is null, infer elapsed time from PBP
+                    # even when include_pbp=0. Keep this narrowly scoped to LIVE games.
+                    if (not want_pbp) and _is_live_state(st) and g.get("gamePk") and clock_sec is None and period_i is not None and 1 <= int(period_i) <= 3:
+                        want_pbp = True
+                        pbp_time_only = True
+                except Exception:
+                    pbp_time_only = False
+
                 if want_pbp and g.get("gamePk"):
                     # Import locally so the endpoint doesn't depend on module import order.
                     from ..data.nhl_api_web import NHLWebClient
-                    pbp_web = NHLWebClient(timeout=float(os.getenv("LIVE_LENS_PBP_TIMEOUT_SEC", "4")))
+                    pbp_web = NHLWebClient(rate_limit_per_sec=50.0, timeout=float(os.getenv("LIVE_LENS_PBP_TIMEOUT_SEC", "4")))
                     pbp = await asyncio.to_thread(pbp_web._get, f"/gamecenter/{int(g.get('gamePk'))}/play-by-play", None, 1)
                     plays = pbp.get("plays") if isinstance(pbp, dict) else None
                     hteam = pbp.get("homeTeam") if isinstance(pbp, dict) else None
@@ -2735,6 +2891,10 @@ async def v1_live_lens_combined(
                             remaining_min = max(0.0, 60.0 - float(elapsed_min))
                     except Exception:
                         pass
+
+                    # If we only needed PBP for time inference, skip expensive context scans.
+                    if pbp_time_only:
+                        plays = None
 
                     # latest situation code
                     latest = None
@@ -2930,6 +3090,16 @@ async def v1_live_lens_combined(
                 except Exception:
                     pbp_error = "pbp_fetch_failed"
                 pbp_ctx = {}
+
+            # If elapsed_min was backfilled from PBP after the initial pace calc, recompute pace metrics.
+            try:
+                if elapsed_min is not None and elapsed_min > 0:
+                    if goal_pace_60 is None and total_goals is not None:
+                        goal_pace_60 = 60.0 * (float(total_goals) / float(elapsed_min))
+                    if sog_pace_60 is None and sog_total is not None:
+                        sog_pace_60 = 60.0 * (float(sog_total) / float(elapsed_min))
+            except Exception:
+                pass
             if sog_pace_60 is not None:
                 try:
                     pace_mult = float(sog_pace_60) / 65.0
@@ -6365,7 +6535,16 @@ def _compute_props_projections(date: str, market: Optional[str] = None) -> pd.Da
     return df
 
 
-def _v1_props_odds_payload(date_ymd: str, regions: str = "us", best: bool = True, inplay: bool = True) -> dict:
+def _v1_props_odds_payload(
+    date_ymd: str,
+    regions: str = "us",
+    best: bool = True,
+    inplay: bool = True,
+    *,
+    http_timeout_sec: Optional[float] = None,
+    max_seconds: Optional[float] = None,
+    max_events: Optional[int] = None,
+) -> dict:
     """Build a lightweight player-props odds payload (OddsAPI) with caching.
 
     Intended usage: live overlay for the cards-only UI (Live Lens).
@@ -6449,8 +6628,35 @@ def _v1_props_odds_payload(date_ymd: str, regions: str = "us", best: bool = True
             return None, None
 
     games_out: list[dict] = []
+
+    deadline_ts = None
     try:
-        client = OddsAPIClient(rate_limit_per_sec=10.0)
+        if max_seconds is not None and float(max_seconds) > 0:
+            deadline_ts = time.time() + float(max_seconds)
+    except Exception:
+        deadline_ts = None
+    try:
+        max_events_i = int(max_events) if max_events is not None else None
+        if max_events_i is not None and max_events_i <= 0:
+            max_events_i = None
+    except Exception:
+        max_events_i = None
+
+    try:
+        timeout = None
+        try:
+            if http_timeout_sec is not None:
+                timeout = float(http_timeout_sec)
+        except Exception:
+            timeout = None
+        if timeout is None:
+            timeout = 40.0
+        try:
+            timeout = float(max(1.0, min(60.0, timeout)))
+        except Exception:
+            timeout = 40.0
+
+        client = OddsAPIClient(rate_limit_per_sec=10.0, timeout=timeout)
     except Exception as e:
         obj = {"ok": True, "date": d, "asof_utc": asof, "games": [], "note": str(e)}
         _live_odds_cache_put(cache_key, obj)
@@ -6461,6 +6667,8 @@ def _v1_props_odds_payload(date_ymd: str, regions: str = "us", best: bool = True
 
     for sk in sport_keys:
         try:
+            if deadline_ts is not None and time.time() > float(deadline_ts):
+                break
             # For player props we always use per-event current odds.
             evs, _ = client.list_events(sk, commence_from_iso=start_iso, commence_to_iso=end_iso)
             if not isinstance(evs, list) or not evs:
@@ -6469,7 +6677,11 @@ def _v1_props_odds_payload(date_ymd: str, regions: str = "us", best: bool = True
             # per-game accumulator: (key, market, player, line) -> best over/under
             per_game: dict[str, dict] = {}
 
-            for ev in evs:
+            for i, ev in enumerate(evs):
+                if max_events_i is not None and i >= int(max_events_i):
+                    break
+                if deadline_ts is not None and time.time() > float(deadline_ts):
+                    break
                 try:
                     eid = str((ev or {}).get("id") or "").strip()
                     if not eid:

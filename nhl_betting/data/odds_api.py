@@ -37,7 +37,12 @@ BOOKMAKER_PRIORITY = [
 
 
 class OddsAPIClient:
-    def __init__(self, api_key: Optional[str] = None, rate_limit_per_sec: float = 3.0):
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        rate_limit_per_sec: float = 3.0,
+        timeout: float = 40.0,
+    ):
         def _load_env_file_fallback(path: Path) -> dict[str, str]:
             out: dict[str, str] = {}
             try:
@@ -75,11 +80,15 @@ class OddsAPIClient:
         if not self.api_key:
             raise RuntimeError("Set ODDS_API_KEY env var or pass api_key to OddsAPIClient.")
         self.sleep = 1.0 / rate_limit_per_sec
+        try:
+            self.timeout = float(timeout)
+        except Exception:
+            self.timeout = 40.0
 
     def _get(self, path: str, params: Dict) -> Tuple[Dict, Dict[str, str]]:
         time.sleep(self.sleep)
         url = f"{ODDS_API_BASE}{path}"
-        r = requests.get(url, params=params, timeout=40)
+        r = requests.get(url, params=params, timeout=self.timeout)
         hdrs = {k.lower(): v for k, v in r.headers.items()}
         try:
             r.raise_for_status()
@@ -212,6 +221,8 @@ class OddsAPIClient:
         bookmaker: Optional[str] = None,
         best: bool = False,
         inplay: bool = False,
+        max_seconds: Optional[float] = None,
+        max_events: Optional[int] = None,
     ) -> pd.DataFrame:
         """
         Convenience: fetch odds (historical if snapshot_iso provided, else current),
@@ -233,6 +244,16 @@ class OddsAPIClient:
                 return None, None
 
         sport_keys = ["icehockey_nhl", "icehockey_nhl_preseason"]
+        try:
+            deadline_ts = (time.time() + float(max_seconds)) if (max_seconds is not None and float(max_seconds) > 0) else None
+        except Exception:
+            deadline_ts = None
+        try:
+            max_events_i = int(max_events) if max_events is not None else None
+            if max_events_i is not None and max_events_i <= 0:
+                max_events_i = None
+        except Exception:
+            max_events_i = None
         df = pd.DataFrame([])
         # Historical snapshot path
         if snapshot_iso:
@@ -258,13 +279,19 @@ class OddsAPIClient:
                 start_iso, end_iso = _utc_window_for_et_date(iso_date)
                 for sk in sport_keys:
                     try:
+                        if deadline_ts is not None and time.time() > float(deadline_ts):
+                            break
                         events, _ = self.list_events(sk, commence_from_iso=start_iso, commence_to_iso=end_iso)
                         if not events:
                             continue
                         event_rows: List[Dict] = []
                         # If best-of-all is requested, omit bookmakers to allow best aggregation across books.
                         bookmakers_param = None if best else bookmaker
-                        for ev in events:
+                        for i, ev in enumerate(events):
+                            if max_events_i is not None and i >= int(max_events_i):
+                                break
+                            if deadline_ts is not None and time.time() > float(deadline_ts):
+                                break
                             try:
                                 eid = str((ev or {}).get("id") or "").strip()
                                 if not eid:
@@ -303,8 +330,10 @@ class OddsAPIClient:
             }
             for sk in sport_keys:
                 try:
+                    if deadline_ts is not None and time.time() > float(deadline_ts):
+                        break
                     url = f"{base}/sports/{sk}/odds"
-                    r = _rq.get(url, params=params, timeout=40)
+                    r = _rq.get(url, params=params, timeout=self.timeout)
                     if r.ok:
                         tmp = normalize_snapshot_to_rows(r.json(), bookmaker=bookmaker, best_of_all=best)
                         if tmp is not None and not tmp.empty:

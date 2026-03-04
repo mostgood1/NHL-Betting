@@ -19,6 +19,57 @@ _HEAVY_LOADING = False
 _SCOREBOARD_CACHE: dict[str, dict] = {}
 _LIVE_LENS_CACHE: dict[str, dict] = {}
 
+# Heavy live-lens proxy circuit-breaker (avoid hammering heavy route if it's failing)
+_HEAVY_LIVE_LENS_FAILS = 0
+_HEAVY_LIVE_LENS_COOLDOWN_UNTIL = 0.0
+
+
+async def _try_heavy_http(
+    scope,
+    receive,
+    send,
+    *,
+    timeout_sec: float,
+) -> bool:
+    """Attempt to serve this request via the heavy FastAPI app.
+
+    Captures the heavy app's ASGI messages; only replays them if the response
+    is a successful (2xx) HTTP response. Returns True if heavy was used.
+    """
+    if _HEAVY_APP is None:
+        return False
+
+    captured: list[dict] = []
+
+    async def _send_cap(message: dict):
+        captured.append(message)
+
+    try:
+        await asyncio.wait_for(_HEAVY_APP(scope, receive, _send_cap), timeout=float(timeout_sec))
+    except Exception:
+        return False
+
+    start = None
+    for m in captured:
+        if m.get("type") == "http.response.start":
+            start = m
+            break
+    if not isinstance(start, dict):
+        return False
+    try:
+        status = int(start.get("status") or 0)
+    except Exception:
+        status = 0
+    if status < 200 or status >= 300:
+        return False
+
+    try:
+        for m in captured:
+            await send(m)
+        return True
+    except Exception:
+        return False
+
 
 def _is_ymd(s: str) -> bool:
     try:
@@ -343,6 +394,30 @@ class WrapperASGI:
                 q = parse_qs(raw_qs.decode("utf-8"), keep_blank_values=False)
                 inplay = bool(int((q.get("inplay", ["1"])[0] or "1")))
                 include_non_live = bool(int((q.get("include_non_live", ["0"])[0] or "0")))
+
+                # If the heavy app is ready, try the full endpoint first.
+                # Fall back to lite on timeout/errors to avoid proxy-level 502s.
+                global _HEAVY_LIVE_LENS_FAILS, _HEAVY_LIVE_LENS_COOLDOWN_UNTIL
+                now = time.time()
+                if _HEAVY_APP is not None:
+                    if now >= float(_HEAVY_LIVE_LENS_COOLDOWN_UNTIL or 0.0):
+                        heavy_timeout = 8.0 if inplay else 15.0
+                        used = await _try_heavy_http(scope, receive, send, timeout_sec=heavy_timeout)
+                        if used:
+                            _HEAVY_LIVE_LENS_FAILS = 0
+                            _HEAVY_LIVE_LENS_COOLDOWN_UNTIL = 0.0
+                            return
+                        # Backoff on failure
+                        _HEAVY_LIVE_LENS_FAILS = int(_HEAVY_LIVE_LENS_FAILS or 0) + 1
+                        cooldown = min(120.0, 5.0 * (2.0 ** min(int(_HEAVY_LIVE_LENS_FAILS), 4)))
+                        _HEAVY_LIVE_LENS_COOLDOWN_UNTIL = now + float(cooldown)
+                else:
+                    # Kick off heavy load in background (non-blocking)
+                    try:
+                        ensure_heavy_loaded(background=True)
+                    except Exception:
+                        pass
+
                 payload = await _get_live_lens(date, inplay=inplay, include_non_live=include_non_live)
                 body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
                 return await self._send_json(send, 200, body)

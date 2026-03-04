@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 import threading
+import time
 from typing import Optional
 from urllib.parse import parse_qs
 
@@ -11,6 +13,221 @@ import json
 _HEAVY_APP = None  # type: Optional[object]
 _HEAVY_LOCK = threading.Lock()
 _HEAVY_LOADING = False
+
+
+# Lightweight live endpoints caching (avoid heavy app imports)
+_SCOREBOARD_CACHE: dict[str, dict] = {}
+_LIVE_LENS_CACHE: dict[str, dict] = {}
+
+
+def _is_ymd(s: str) -> bool:
+    try:
+        if not s or len(s) != 10:
+            return False
+        y, m, d = s.split("-")
+        return len(y) == 4 and len(m) == 2 and len(d) == 2 and y.isdigit() and m.isdigit() and d.isdigit()
+    except Exception:
+        return False
+
+
+def _today_ymd_utc() -> str:
+    from datetime import datetime
+    return datetime.utcnow().strftime("%Y-%m-%d")
+
+
+def _is_live_state(st: str) -> bool:
+    s = (st or "").strip().upper()
+    return any(k in s for k in ("LIVE", "IN_PROGRESS", "IN PROGRESS", "CRIT", "OT")) and not s.startswith("FINAL")
+
+
+def _period_disp(game_state: str, period: object, clock: Optional[str]) -> str:
+    st = (game_state or "").strip().upper()
+    if st.startswith("FINAL") or st in {"OFF", "FINAL", "FINAL_OT", "FINAL_SO"}:
+        return "Final"
+    if st and not _is_live_state(st):
+        return ""
+    try:
+        p = int(period) if period is not None and str(period).strip() != "" else None
+    except Exception:
+        p = None
+    if p is None:
+        return ""
+    if p == 1:
+        return "1st"
+    if p == 2:
+        return "2nd"
+    if p == 3:
+        return "3rd"
+    if p >= 4:
+        return "OT"
+    return ""
+
+
+def _normalize_scoreboard_rows(date: str, rows: list[dict]) -> list[dict]:
+    # Keep response flexible for the frontend normalizer.
+    from .teams import get_team_assets
+
+    out: list[dict] = []
+    for r in rows or []:
+        try:
+            away = str(r.get("away") or "").strip()
+            home = str(r.get("home") or "").strip()
+            away_assets = get_team_assets(away)
+            home_assets = get_team_assets(home)
+            away_abbr = (away_assets.get("abbr") or "").upper()
+            home_abbr = (home_assets.get("abbr") or "").upper()
+
+            away_score = r.get("awayScore")
+            if away_score is None:
+                away_score = r.get("away_goals")
+            home_score = r.get("homeScore")
+            if home_score is None:
+                home_score = r.get("home_goals")
+            try:
+                away_score = int(away_score) if away_score is not None else None
+            except Exception:
+                away_score = None
+            try:
+                home_score = int(home_score) if home_score is not None else None
+            except Exception:
+                home_score = None
+
+            game_state = r.get("gameState") or r.get("game_state") or r.get("state") or ""
+            period = r.get("period")
+            clock = r.get("clock")
+            per_disp = r.get("period_disp") or _period_disp(str(game_state), period, str(clock) if clock else None)
+
+            game_pk = r.get("gamePk")
+            if game_pk is None:
+                game_pk = r.get("game_pk")
+            try:
+                game_pk_int = int(game_pk) if game_pk is not None and str(game_pk).strip() != "" else None
+            except Exception:
+                game_pk_int = None
+
+            out.append({
+                "gamePk": game_pk_int,
+                "gameDate": r.get("gameDate") or (date + "T00:00:00Z"),
+                "away": away,
+                "home": home,
+                "away_abbr": away_abbr,
+                "home_abbr": home_abbr,
+                "awayScore": away_score,
+                "homeScore": home_score,
+                "away_score": away_score,
+                "home_score": home_score,
+                "away_goals": away_score,
+                "home_goals": home_score,
+                "score": {"away": away_score, "home": home_score},
+                "gameState": str(game_state),
+                "period": period,
+                "period_disp": per_disp,
+                "clock": clock,
+            })
+        except Exception:
+            continue
+    return out
+
+
+def _scoreboard_fetch_sync(date: str) -> list[dict]:
+    from ..data.nhl_api_web import NHLWebClient
+
+    # Tight timeout to avoid proxy-level 502s under load
+    client = NHLWebClient(rate_limit_per_sec=50.0, timeout=6.0)
+    rows = client.scoreboard_day(date)
+    # Best-effort: for live games, fetch precise linescore clock if missing
+    for r in rows:
+        try:
+            st = str(r.get("gameState") or "")
+            if not _is_live_state(st):
+                continue
+            if not r.get("gamePk"):
+                continue
+            if r.get("clock") and r.get("period") is not None:
+                continue
+            ls = client.linescore(int(r.get("gamePk")))
+            if ls:
+                if ls.get("clock"):
+                    r["clock"] = ls.get("clock")
+                if ls.get("period") is not None:
+                    r["period"] = ls.get("period")
+        except Exception:
+            continue
+    return _normalize_scoreboard_rows(date, rows)
+
+
+async def _get_scoreboard(date: str, *, ttl_sec: float = 6.0, stale_sec: float = 120.0) -> list[dict]:
+    # Cache key includes date only; UI already cache-busts with _=timestamp.
+    now = time.time()
+    entry = _SCOREBOARD_CACHE.get(date)
+    if entry:
+        age = now - float(entry.get("ts", 0.0))
+        if age <= ttl_sec:
+            return entry.get("data") or []
+    try:
+        data = await asyncio.to_thread(_scoreboard_fetch_sync, date)
+        _SCOREBOARD_CACHE[date] = {"ts": now, "data": data}
+        return data
+    except Exception:
+        # Serve stale cache on failure if available
+        if entry:
+            age = now - float(entry.get("ts", 0.0))
+            if age <= stale_sec:
+                return entry.get("data") or []
+        return []
+
+
+async def _get_live_lens(date: str, *, inplay: bool, include_non_live: bool) -> dict:
+    # Minimal live-lens: derived from scoreboard only.
+    cache_key = f"{date}|inplay={1 if inplay else 0}|incl={1 if include_non_live else 0}"
+    now = time.time()
+    ttl_sec = 6.0 if inplay else 30.0
+    stale_sec = 120.0
+    entry = _LIVE_LENS_CACHE.get(cache_key)
+    if entry:
+        age = now - float(entry.get("ts", 0.0))
+        if age <= ttl_sec:
+            return entry.get("data") or {"ok": True, "date": date, "games": []}
+    try:
+        sb = await _get_scoreboard(date, ttl_sec=ttl_sec, stale_sec=stale_sec)
+        games = []
+        for r in sb:
+            st = str(r.get("gameState") or "")
+            if (not include_non_live) and (not _is_live_state(st)):
+                continue
+            away = r.get("away")
+            home = r.get("home")
+            away_abbr = r.get("away_abbr") or ""
+            home_abbr = r.get("home_abbr") or ""
+            key = None
+            if away_abbr and home_abbr:
+                key = f"{away_abbr} @ {home_abbr}"
+            else:
+                key = f"{away} @ {home}"
+            games.append({
+                "ok": True,
+                "key": key,
+                "gamePk": r.get("gamePk"),
+                "away": away,
+                "home": home,
+                "away_abbr": away_abbr,
+                "home_abbr": home_abbr,
+                "gameState": st,
+                "period": r.get("period"),
+                "period_disp": r.get("period_disp"),
+                "clock": r.get("clock"),
+                "score": r.get("score"),
+                "total_goals": None,
+            })
+        payload = {"ok": True, "date": date, "games": games, "source": "asgi-lite"}
+        _LIVE_LENS_CACHE[cache_key] = {"ts": now, "data": payload}
+        return payload
+    except Exception:
+        if entry:
+            age = now - float(entry.get("ts", 0.0))
+            if age <= stale_sec:
+                return entry.get("data") or {"ok": True, "date": date, "games": []}
+        return {"ok": True, "date": date, "games": [], "source": "asgi-lite"}
 
 
 def _load_heavy_sync():
@@ -97,6 +314,40 @@ class WrapperASGI:
             return await self._send_json(send, 200, body)
         if path == "/" and method == "HEAD":
             return await self._send_empty(send, 204)
+
+        # Ultra-light live scoreboard (no heavy app required)
+        if path == "/api/scoreboard":
+            try:
+                raw_qs = scope.get("query_string") or b""
+                q = parse_qs(raw_qs.decode("utf-8"), keep_blank_values=False)
+                date = (q.get("date", [""])[0] or "").strip() or None
+                if not date:
+                    date = _today_ymd_utc()
+                if not _is_ymd(date):
+                    date = _today_ymd_utc()
+                rows = await _get_scoreboard(date)
+                body = json.dumps(rows, ensure_ascii=False).encode("utf-8")
+                return await self._send_json(send, 200, body)
+            except Exception:
+                return await self._send_json(send, 200, b"[]")
+
+        # Ultra-light live-lens (minimal, derived from scoreboard)
+        if path.startswith("/v1/live-lens/") or path.startswith("/v1/live/"):
+            try:
+                # /v1/live-lens/{date}
+                parts = [p for p in path.split("/") if p]
+                date = parts[-1] if parts else ""
+                if not _is_ymd(date):
+                    date = _today_ymd_utc()
+                raw_qs = scope.get("query_string") or b""
+                q = parse_qs(raw_qs.decode("utf-8"), keep_blank_values=False)
+                inplay = bool(int((q.get("inplay", ["1"])[0] or "1")))
+                include_non_live = bool(int((q.get("include_non_live", ["0"])[0] or "0")))
+                payload = await _get_live_lens(date, inplay=inplay, include_non_live=include_non_live)
+                body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+                return await self._send_json(send, 200, body)
+            except Exception:
+                return await self._send_json(send, 200, b"{\"ok\":true,\"date\":\"\",\"games\":[]}")
 
         # Ultra-light CSV-backed JSON for props projections (no heavy app required)
         if path == "/api/props/all.json":

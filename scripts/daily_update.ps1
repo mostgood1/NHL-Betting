@@ -717,7 +717,15 @@ try {
     $llEnd = $AnchorNow.ToString('yyyy-MM-dd')
     $llLabelStart = $AnchorNow.AddDays(-14).ToString('yyyy-MM-dd')
     Write-Host "[daily_update] Backfilling Live Lens state outcomes ($llLabelStart..$llEnd) …" -ForegroundColor DarkCyan
-    python scripts/backfill_live_lens_states_outcomes.py --start $llLabelStart --end $llEnd
+    $oldPythonPath = $env:PYTHONPATH
+    try {
+      $env:PYTHONPATH = $RepoRoot
+      Push-Location $RepoRoot
+      & $PyExe scripts/backfill_live_lens_states_outcomes.py --start $llLabelStart --end $llEnd
+    } finally {
+      Pop-Location
+      $env:PYTHONPATH = $oldPythonPath
+    }
   } catch {
     Write-Warning "[daily_update] Live Lens outcome backfill failed: $($_.Exception.Message)"
   }
@@ -725,13 +733,29 @@ try {
   Write-Host "[daily_update] Fitting Live Lens win-prob calibration …" -ForegroundColor DarkCyan
   $llFitStart = $AnchorNow.AddDays(-30).ToString('yyyy-MM-dd')
   $llFitEnd = $AnchorNow.ToString('yyyy-MM-dd')
-  python scripts/fit_live_lens_winprob_calibration.py --start $llFitStart --end $llFitEnd
+  $oldPythonPath = $env:PYTHONPATH
+  try {
+    $env:PYTHONPATH = $RepoRoot
+    Push-Location $RepoRoot
+    & $PyExe scripts/fit_live_lens_winprob_calibration.py --start $llFitStart --end $llFitEnd
+  } finally {
+    Pop-Location
+    $env:PYTHONPATH = $oldPythonPath
+  }
   Assert-AnyPath -Label "live_lens_winprob_calibration" -Paths @(_PathInProcessed "live_lens_winprob_calibration.json") -NonEmpty -Strict:$StrictOutputs
 
   # Win-prob monitor + drift alert (non-fatal)
   try {
     Write-Host "[daily_update] Reporting Live Lens win-prob monitor/drift …" -ForegroundColor DarkCyan
-    python scripts/report_live_lens_winprob_monitor.py --start $llFitStart --end $llFitEnd
+    $oldPythonPath = $env:PYTHONPATH
+    try {
+      $env:PYTHONPATH = $RepoRoot
+      Push-Location $RepoRoot
+      & $PyExe scripts/report_live_lens_winprob_monitor.py --start $llFitStart --end $llFitEnd
+    } finally {
+      Pop-Location
+      $env:PYTHONPATH = $oldPythonPath
+    }
     Assert-AnyPath -Label "live_lens_winprob_monitor" -Paths @(
       (Join-Path $ProcessedDir 'live_lens\live_lens_winprob_monitor.json'),
       (Join-Path $ProcessedDir 'live_lens/live_lens_winprob_monitor.json')

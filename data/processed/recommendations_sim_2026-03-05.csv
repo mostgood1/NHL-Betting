@@ -1,0 +1,5 @@
+market,side,price,ev,prob,conf,home,away,totals_line
+ML,Philadelphia Flyers,-117.0,0.060579772079772054,0.5718333333333333,0.0718333333333333,Philadelphia Flyers,Utah Mammoth,
+ML,Nashville Predators,-104.0,0.0935576923076924,0.5575,0.057499999999999996,Nashville Predators,Boston Bruins,6.0
+ML,Florida Panthers,-104.0,0.03912500000000019,0.52975,0.029750000000000054,Columbus Blue Jackets,Florida Panthers,6.0
+ML,New York Rangers,104.0,0.04532999999999998,0.5124166666666666,0.012416666666666631,New York Rangers,Toronto Maple Leafs,6.0

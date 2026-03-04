@@ -614,6 +614,12 @@ async def v1_live(request: Request, date: str):
 _CACHE: dict = {}
 _CACHE_LOCK = threading.Lock()
 
+# Back-compat constant: some diagnostic endpoints expose this TTL.
+try:
+    _CACHE_TTL = int(os.getenv("CACHED_PROPS_TTL_SECONDS", "300"))
+except Exception:
+    _CACHE_TTL = 300
+
 
 def _cache_get(key: object, ttl_seconds: Optional[int] = None) -> object:
     try:

@@ -120,6 +120,11 @@ data/processed/props_boxscores_sim_samples_*
 !data/processed/roster_*.csv
 !data/processed/roster_master.csv
 
+## Allow committing Live Lens performance ledgers used by /api/live-lens-accuracy
+!data/processed/live_lens/
+!data/processed/live_lens/perf/
+!data/processed/live_lens/perf/live_lens_bets_*.jsonl
+
 # OS files
 Thumbs.db
 .DS_Store

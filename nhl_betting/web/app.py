@@ -670,7 +670,16 @@ def _perf_files(perf_dir: Path) -> list[Path]:
             return []
         if not perf_dir.exists():
             return []
-        files = [p for p in perf_dir.glob("*.jsonl") if p.is_file()]
+        # Prefer a single canonical "all" ledger if present to avoid double-counting
+        # when per-day ledgers also exist.
+        try:
+            p_all = perf_dir / "live_lens_bets_all.jsonl"
+            if p_all.exists() and p_all.is_file() and p_all.stat().st_size > 0:
+                return [p_all]
+        except Exception:
+            pass
+
+        files = [p for p in perf_dir.glob("live_lens_bets_*.jsonl") if p.is_file() and p.stat().st_size > 0]
         # Most-recent-first: lexicographic filename works for YYYY-MM-DD.
         files.sort(key=lambda p: str(p.name), reverse=True)
         return files
@@ -901,17 +910,49 @@ async def api_live_lens_accuracy_data(
                 pass
 
         cache_key = ("live_lens_accuracy", start0, end0, int(limit_files or 0), str(perf_dir))
-        cached = _cache_get(cache_key)
+        cached = _cache_get(cache_key, ttl_seconds=_CACHE_TTL)
         if cached is not None:
             return JSONResponse(cached)
 
         df = _read_ledger_df(files, start0, end0)
 
-        summary_all = _summarize_ledger(df)
-        by_market = _summarize_ledger(df, group_col="market")
-        by_elapsed = _summarize_ledger(df, group_col="elapsed_bucket")
-        by_edge = _summarize_ledger(df, group_col="edge_bucket")
-        by_driver_tag = _summarize_driver_tags(df, top_n=20)
+        # Only summarize settled bets; ledgers may contain rows without outcomes yet.
+        df_settled = df
+        try:
+            if df_settled is not None and (not getattr(df_settled, "empty", True)) and ("result" in df_settled.columns):
+                df_settled = df_settled[df_settled["result"].isin(["WIN", "LOSE", "PUSH"])].copy()
+        except Exception:
+            df_settled = df
+
+        summary_all = _summarize_ledger(df_settled)
+        by_market = _summarize_ledger(df_settled, group_col="market")
+        by_elapsed = _summarize_ledger(df_settled, group_col="elapsed_bucket")
+        by_edge = _summarize_ledger(df_settled, group_col="edge_bucket")
+        by_driver_tag = _summarize_driver_tags(df_settled, top_n=20)
+
+        try:
+            n_rows_total = int(len(df)) if df is not None else 0
+        except Exception:
+            n_rows_total = 0
+        try:
+            n_rows_settled = int(len(df_settled)) if df_settled is not None else 0
+        except Exception:
+            n_rows_settled = 0
+
+        summary_row = (
+            summary_all[0]
+            if summary_all
+            else {
+                "key": "ALL",
+                "bets": 0,
+                "wins": 0,
+                "losses": 0,
+                "pushes": 0,
+                "units": 0.0,
+                "roi": 0.0,
+                "win_rate": None,
+            }
+        )
 
         out = {
             "ok": True,
@@ -920,7 +961,9 @@ async def api_live_lens_accuracy_data(
             "end": end0,
             "perf_dir": str(perf_dir),
             "files_scanned": [str(p) for p in files],
-            "summary": (summary_all[0] if summary_all else None),
+            "rows": n_rows_settled,
+            "rows_total": n_rows_total,
+            "summary": summary_row,
             "by_market": by_market,
             "by_elapsed_bucket": by_elapsed,
             "by_edge_bucket": by_edge,

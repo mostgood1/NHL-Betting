@@ -22,7 +22,7 @@ import pandas as pd
 import typer
 from rich import print
 
-from .utils.io import RAW_DIR, PROC_DIR, MODEL_DIR, save_df, load_df
+from .utils.io import DATA_DIR, RAW_DIR, PROC_DIR, MODEL_DIR, save_df, load_df
 from .utils.dates import parse_date, ymd, today_utc
 from .data.nhl_api import NHLClient
 from .data.nhl_api_web import NHLWebClient
@@ -10802,7 +10802,7 @@ def game_recommendations_sim(
         except Exception:
             pass
     # Load team odds (The Odds API team-level) for prices
-    team_odds_dir = _Path('data') / 'odds' / 'team' / f'date={date}'
+    team_odds_dir = DATA_DIR / 'odds' / 'team' / f'date={date}'
     team_odds = pd.read_csv(team_odds_dir / 'oddsapi.csv') if (team_odds_dir / 'oddsapi.csv').exists() else pd.DataFrame()
 
     # Prefer deriving the totals line from the archived team odds for this date.

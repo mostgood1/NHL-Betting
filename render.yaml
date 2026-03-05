@@ -6,6 +6,11 @@ services:
     autoDeploy: true
     branch: master
     numInstances: 1
+    # Persistent disk for live artifacts (Live Lens snapshots, props lines, perf ledgers)
+    disk:
+      name: app-data
+      mountPath: /opt/data
+      sizeGB: 10
     # Health is served by the lightweight ASGI wrapper and is very fast.
     healthCheckPath: /health
     buildCommand: pip install --no-cache-dir -r requirements.txt
@@ -61,8 +66,15 @@ services:
       - key: WEB_ON_DEPLOY_REFRESH_EDGES
         value: "1"
 
-      # Optional: write compact live-lens JSONL snapshots to this directory
-      # (recommended to point at a mounted Render Disk path)
+      # Disk-backed persistence for Live Lens + props artifacts
+      - key: NHL_DATA_DIR
+        value: "/opt/data/data"
       - key: LIVE_LENS_DIR
-        sync: false
+        value: "/opt/data/data/processed/live_lens"
+      - key: LIVE_LENS_PERF_DIR
+        value: "/opt/data/data/processed/live_lens/perf"
+      - key: LIVE_LENS_STATE_SNAPSHOT_PUBLIC
+        value: "1"
+      - key: PROPS_DIR
+        value: "/opt/data/data/props"
 

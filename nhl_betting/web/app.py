@@ -16,8 +16,8 @@ from io import StringIO
 import numpy as np
 import pandas as pd
 
-from fastapi import FastAPI, Header, Query, Request
-from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
+from fastapi import BackgroundTasks, FastAPI, Header, Query, Request
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response, FileResponse
 from fastapi.staticfiles import StaticFiles
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
@@ -36,7 +36,14 @@ TEMPLATES_DIR = WEB_DIR / "templates"
 
 # Data paths (best-effort; do not crash on read-only filesystems)
 ROOT_DIR = Path(__file__).resolve().parents[2]
-DATA_DIR = ROOT_DIR / "data"
+_DATA_DIR_ENV = (os.getenv("NHL_DATA_DIR") or os.getenv("DATA_DIR") or "").strip()
+if _DATA_DIR_ENV:
+    try:
+        DATA_DIR = Path(str(_DATA_DIR_ENV)).expanduser()
+    except Exception:
+        DATA_DIR = Path(str(_DATA_DIR_ENV))
+else:
+    DATA_DIR = ROOT_DIR / "data"
 RAW_DIR = DATA_DIR / "raw"
 PROC_DIR = DATA_DIR / "processed"
 MODEL_DIR = DATA_DIR / "models"
@@ -45,6 +52,32 @@ for _p in (DATA_DIR, RAW_DIR, PROC_DIR, MODEL_DIR):
         _p.mkdir(parents=True, exist_ok=True)
     except Exception:
         pass
+
+
+def _props_dir() -> Path:
+    """Return root directory for props artifacts (lines, backfills, etc).
+
+    Uses env vars (in order): NHL_PROPS_DIR, PROPS_DIR; falls back to data/props.
+    Best-effort creates the directory (should never crash on read-only filesystems).
+    """
+    try:
+        p = (os.getenv("NHL_PROPS_DIR") or os.getenv("PROPS_DIR") or "").strip()
+        out = Path(str(p)).expanduser() if p else (DATA_DIR / "props")
+        try:
+            out.mkdir(parents=True, exist_ok=True)
+        except Exception:
+            pass
+        return out.resolve() if hasattr(out, "resolve") else out
+    except Exception:
+        try:
+            return DATA_DIR / "props"
+        except Exception:
+            return Path("data") / "props"
+
+
+def _props_lines_dir(date_ymd: str) -> Path:
+    """Return canonical props lines directory for a given slate date."""
+    return _props_dir() / "player_props_lines" / f"date={date_ymd}"
 
 
 # Jinja templates
@@ -661,7 +694,7 @@ def _live_lens_perf_dir() -> Path:
             return Path(str(p)).expanduser().resolve()
     except Exception:
         pass
-    return Path("data") / "processed" / "live_lens" / "perf"
+    return PROC_DIR / "live_lens" / "perf"
 
 
 def _perf_files(perf_dir: Path) -> list[Path]:
@@ -6392,7 +6425,7 @@ def _compute_props_projections(date: str, market: Optional[str] = None) -> pd.Da
     Sorted by ev_over desc then p_over desc.
     """
     try:
-        base = PROC_DIR.parent / "props" / f"player_props_lines/date={date}"
+        base = _props_lines_dir(date)
         parts = []
         # Prefer parquet, but fall back to CSV if parquet is unavailable
         for name in ("oddsapi.parquet", "bovada.parquet"):
@@ -7374,7 +7407,7 @@ def _artifact_info_for_date(d: str) -> dict:
         info["props_projections"] = {"exists": proj.exists(), "rows": _rows_csv(proj), "mtime": _file_mtime_iso(proj)}
         info["props_projections_all"] = {"exists": proj_all.exists(), "rows": _rows_csv(proj_all), "mtime": _file_mtime_iso(proj_all)}
         # Canonical lines parquet by book
-        lines_base = PROC_DIR.parent / "props" / f"player_props_lines/date={d}"
+        lines_base = _props_lines_dir(d)
         books = {
             # Prefer parquet when present, but treat CSV as valid canonical input too.
             "oddsapi": [lines_base / "oddsapi.parquet", lines_base / "oddsapi.csv"],
@@ -10417,7 +10450,7 @@ async def api_props_health(date: Optional[str] = Query(None)):
     d = date or _today_ymd()
     proj_path = PROC_DIR / f"props_projections_{d}.csv"
     rec_path = PROC_DIR / f"props_recommendations_{d}.csv"
-    lines_dir = PROC_DIR.parent / "props" / f"player_props_lines/date={d}"
+    lines_dir = _props_lines_dir(d)
     out = {
         "date": d,
         "projections_csv": {"exists": proj_path.exists(), "rows": None},
@@ -10669,7 +10702,7 @@ async def api_player_props(
     """Return canonical player props lines for a date from data/props/player_props_lines/date=YYYY-MM-DD/*.parquet."""
     date = date or _today_ymd()
     try:
-        base = PROC_DIR.parent / "props" / f"player_props_lines/date={date}"
+        base = _props_lines_dir(date)
         parts = []
         # Prefer parquet (smaller/faster), but fall back to tracked CSV artifacts on Render.
         for name in ("oddsapi.parquet", "bovada.parquet"):
@@ -10749,7 +10782,7 @@ async def api_props_recommendations(
                 from ..data.nhl_api_web import NHLWebClient as _Web
                 from ..web.teams import get_team_assets as _assets
                 # Load canonical lines
-                base = PROC_DIR.parent / "props" / f"player_props_lines/date={date}"
+                base = _props_lines_dir(date)
                 parts = []
                 for name in ("oddsapi.parquet", "bovada.parquet"):
                     p = base / name
@@ -11058,7 +11091,7 @@ async def api_player_props_reconciliation(
     try:
         from ..utils.io import RAW_DIR
         # Load canonical lines
-        base = PROC_DIR.parent / "props" / f"player_props_lines/date={date}"
+        base = _props_lines_dir(date)
         parts = []
         for name in ("oddsapi.parquet", "bovada.parquet"):
             p = base / name
@@ -11135,7 +11168,7 @@ async def api_cron_props_collect(
     d = _normalize_date_param(date)
     def _collect_lines_for_date(_d: str) -> Dict[str, Any]:
         from ..data import player_props as props_data
-        base = PROC_DIR.parent / "props" / f"player_props_lines/date={_d}"
+        base = _props_lines_dir(_d)
         base.mkdir(parents=True, exist_ok=True)
         out: Dict[str, Any] = {"date": _d, "written": [], "errors": []}
         # Per-source timeout (seconds) to prevent indefinite hangs
@@ -11146,7 +11179,7 @@ async def api_cron_props_collect(
         from concurrent.futures import ThreadPoolExecutor, TimeoutError as _FutTimeout
         for which, src in (("oddsapi", "oddsapi"), ("bovada", "bovada")):
             try:
-                cfg = props_data.PropsCollectionConfig(output_root=str(PROC_DIR.parent / "props"), book=which, source=src)
+                cfg = props_data.PropsCollectionConfig(output_root=str(_props_dir()), book=which, source=src)
                 try:
                     roster_df = _props_data._build_roster_enrichment()
                 except Exception:
@@ -11341,7 +11374,7 @@ async def api_cron_props_recommendations(
             except Exception:
                 step_timeout = 90
             from concurrent.futures import ThreadPoolExecutor, TimeoutError as _FutTimeout
-            base_local = PROC_DIR.parent / "props" / f"player_props_lines/date={_d}"
+            base_local = _props_lines_dir(_d)
             need_collect_local = not (((base_local / "oddsapi.parquet").exists()) or ((base_local / "bovada.parquet").exists()))
             if need_collect_local:
                 try:
@@ -11350,7 +11383,7 @@ async def api_cron_props_recommendations(
                     base_local.mkdir(parents=True, exist_ok=True)
                     for which, src in (("oddsapi", "oddsapi"), ("bovada", "bovada")):
                         try:
-                            cfg = props_data.PropsCollectionConfig(output_root=str(PROC_DIR.parent / "props"), book=which, source=src)
+                            cfg = props_data.PropsCollectionConfig(output_root=str(_props_dir()), book=which, source=src)
                             try:
                                 roster_df_local = _props_data._build_roster_enrichment()
                             except Exception:
@@ -11390,7 +11423,7 @@ async def api_cron_props_recommendations(
         from ..data.collect import collect_player_game_stats
         # Load lines
         parts = []
-        base = PROC_DIR.parent / "props" / f"player_props_lines/date={_d}"
+        base = _props_lines_dir(_d)
         for name in ("oddsapi.parquet", "bovada.parquet"):
             p = base / name
             if p.exists():
@@ -11596,10 +11629,10 @@ async def health_props(date: Optional[str] = Query(None, description="Slate date
         "projections_all_synthetic_like": (lambda: (lambda _df: (_looks_like_synthetic_props(_df) if _df is not None and not _df.empty else False))(_read_csv_fallback(proj_path)))(),
         # Lines presence for the date
         "lines_present": (lambda: (
-            (PROC_DIR.parent/"props"/f"player_props_lines/date={d}").exists()
+            _props_lines_dir(d).exists()
             and (
-                (PROC_DIR.parent/"props"/f"player_props_lines/date={d}/oddsapi.parquet").exists()
-                or (PROC_DIR.parent/"props"/f"player_props_lines/date={d}/oddsapi.csv").exists()
+                (_props_lines_dir(d) / "oddsapi.parquet").exists()
+                or (_props_lines_dir(d) / "oddsapi.csv").exists()
             )
         ))(),
         "lines_books": (lambda: [
@@ -11607,15 +11640,15 @@ async def health_props(date: Optional[str] = Query(None, description="Slate date
                 (
                     "oddsapi",
                     [
-                        PROC_DIR.parent/"props"/f"player_props_lines/date={d}/oddsapi.parquet",
-                        PROC_DIR.parent/"props"/f"player_props_lines/date={d}/oddsapi.csv",
+                        _props_lines_dir(d) / "oddsapi.parquet",
+                        _props_lines_dir(d) / "oddsapi.csv",
                     ],
                 ),
                 (
                     "bovada",
                     [
-                        PROC_DIR.parent/"props"/f"player_props_lines/date={d}/bovada.parquet",
-                        PROC_DIR.parent/"props"/f"player_props_lines/date={d}/bovada.csv",
+                        _props_lines_dir(d) / "bovada.parquet",
+                        _props_lines_dir(d) / "bovada.csv",
                     ],
                 ),
             )
@@ -12549,7 +12582,7 @@ def _refresh_props_recommendations(date: str, min_ev: float = 0.0, top: int = 20
     from ..core.props_edge_signals import attach_prop_edge_signals
     d = _normalize_date_param(date)
     # Load canonical lines (ONLY OddsAPI), prefer local; GH fallback allowed in cron
-    base = PROC_DIR.parent / "props" / f"player_props_lines/date={d}"
+    base = _props_lines_dir(d)
     parts = []
     local_line_files = []
     for fname in ("oddsapi.parquet", "bovada.parquet"):
@@ -13175,7 +13208,7 @@ def debug_props_photos(date: str = Query(default='today'), include_stats_sample:
     from ..utils.io import RAW_DIR as _RAW
     if date == 'today':
         date = _today_ymd()
-    base = PROC_DIR.parent / 'props' / f'player_props_lines/date={date}'
+    base = _props_lines_dir(date)
     dfs = []
     for name in ('oddsapi.parquet','oddsapi.csv'):
         p = base / name
@@ -13327,13 +13360,13 @@ async def api_cron_props_full(
         def _run_full():
             # Collect lines for configured sources; ensure output dir exists
             from ..data import player_props as props_data
-            base = PROC_DIR.parent / "props" / f"player_props_lines/date={d_local}"
+            base = _props_lines_dir(d_local)
             base.mkdir(parents=True, exist_ok=True)
             step_timeout = 90
             from concurrent.futures import ThreadPoolExecutor, TimeoutError as _FutTimeout
             for which, src in (("oddsapi", "oddsapi"),):
                 try:
-                    cfg = props_data.PropsCollectionConfig(output_root=str(PROC_DIR.parent / "props"), book=which, source=src)
+                    cfg = props_data.PropsCollectionConfig(output_root=str(_props_dir()), book=which, source=src)
                     try:
                         roster_df = _props_data._build_roster_enrichment()
                     except Exception:
@@ -13705,7 +13738,7 @@ async def api_props_lines_json(
     player: Optional[str] = Query(None),
 ):
     d = _normalize_date_param(date)
-    base = PROC_DIR.parent / 'props' / f'player_props_lines/date={d}'
+    base = _props_lines_dir(d)
     parts = []
     for fname in ('oddsapi.parquet', 'oddsapi.csv'):
         p = base / fname
@@ -13838,7 +13871,7 @@ async def api_props_projections_history_json(
         min_levels: int = Query(2),
     ):
         d = _normalize_date_param(date)
-        base = PROC_DIR.parent / 'props' / f'player_props_lines/date={d}'
+        base = _props_lines_dir(d)
         parts = []
         for fname in ('oddsapi.parquet',):
             p = base / fname
@@ -14089,6 +14122,202 @@ def api_cron_config():
         "cron_token_configured": cron_ok,
         "github_token_configured": gh_ok,
     })
+
+
+@app.get("/api/cron/export-artifacts")
+async def api_cron_export_artifacts(
+    background_tasks: BackgroundTasks,
+    token: Optional[str] = Query(None, description="Bearer token; must match REFRESH_CRON_TOKEN env var"),
+    start: Optional[str] = Query(None, description="Start date YYYY-MM-DD (inclusive); if provided without end, single date"),
+    end: Optional[str] = Query(None, description="End date YYYY-MM-DD (inclusive)"),
+    back: int = Query(1, description="Days back from today (ET) if start not provided"),
+    ahead: int = Query(0, description="Days ahead from today (ET) if start not provided"),
+    include_live_lens: bool = Query(True, description="Include Live Lens snapshot files (signals/states)"),
+    include_perf: bool = Query(True, description="Include Live Lens perf ledgers"),
+    include_props: bool = Query(True, description="Include canonical props lines"),
+    include_odds: bool = Query(True, description="Include OddsAPI game/team lines (data/odds)"),
+    include_processed: bool = Query(False, description="Include processed CSVs (predictions/recs/edges)"),
+    authorization: Optional[str] = Header(None, description="Authorization: Bearer <token> header (alternative to token query param)"),
+):
+    """Export disk-backed artifacts as a zip file for local reconciliation.
+
+    This is intended for trusted automation (e.g., local daily_update) and is protected
+    by REFRESH_CRON_TOKEN. It only includes files under the configured data roots.
+    """
+    secret = os.getenv("REFRESH_CRON_TOKEN", "")
+    supplied = (token or "").strip()
+    if (not supplied) and authorization:
+        try:
+            auth = str(authorization)
+            if auth.lower().startswith("bearer "):
+                supplied = auth.split(" ", 1)[1].strip()
+        except Exception:
+            supplied = supplied
+    if not (secret and supplied and _const_time_eq(supplied, secret)):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+
+    # Build date list
+    dates: list[str] = []
+    try:
+        if start:
+            sd = datetime.strptime(str(start), "%Y-%m-%d").date()
+            if end:
+                ed = datetime.strptime(str(end), "%Y-%m-%d").date()
+            else:
+                ed = sd
+            if ed < sd:
+                sd, ed = ed, sd
+            cur = sd
+            while cur <= ed:
+                dates.append(cur.strftime("%Y-%m-%d"))
+                cur += timedelta(days=1)
+        else:
+            base = datetime.strptime(_today_ymd(), "%Y-%m-%d").date()
+            for i in range(max(0, int(back or 0)), -1, -1):
+                if i == 0:
+                    dates.append(base.strftime("%Y-%m-%d"))
+                else:
+                    dates.append((base - timedelta(days=i)).strftime("%Y-%m-%d"))
+            for j in range(1, max(0, int(ahead or 0)) + 1):
+                dates.append((base + timedelta(days=j)).strftime("%Y-%m-%d"))
+        seen = set(); ordered = []
+        for d in dates:
+            if d not in seen:
+                seen.add(d); ordered.append(d)
+        dates = ordered
+    except Exception as e:
+        return JSONResponse({"error": f"date_range_parse_failed: {e}"}, status_code=400)
+
+    # Resolve roots
+    try:
+        snap_dir_s = (os.getenv("NHL_LIVE_LENS_DIR") or os.getenv("LIVE_LENS_DIR") or "").strip()
+    except Exception:
+        snap_dir_s = ""
+    if not snap_dir_s:
+        try:
+            snap_dir_s = str((PROC_DIR / "live_lens").resolve())
+        except Exception:
+            snap_dir_s = str(PROC_DIR / "live_lens")
+    snap_dir = Path(str(snap_dir_s))
+    perf_dir = _live_lens_perf_dir()
+    props_root = _props_dir()
+
+    # Collect files
+    files: list[Path] = []
+    seen_files: set[str] = set()
+
+    def _add_file(p: Path) -> None:
+        try:
+            if p is None:
+                return
+            if (not p.exists()) or (not p.is_file()):
+                return
+            k = str(p)
+            if k in seen_files:
+                return
+            seen_files.add(k)
+            files.append(p)
+        except Exception:
+            return
+
+    def _add_dir(dir_path: Path) -> None:
+        try:
+            if dir_path is None or (not dir_path.exists()) or (not dir_path.is_dir()):
+                return
+            for p in sorted([pp for pp in dir_path.rglob("*") if pp.is_file()]):
+                _add_file(p)
+        except Exception:
+            return
+
+    if include_live_lens:
+        for d in dates:
+            for fname in (
+                f"live_lens_signals_{d}.jsonl",
+                f"live_lens_signals_{d}_latest.json",
+                f"live_lens_states_{d}.jsonl",
+                f"live_lens_states_{d}_latest.json",
+                f"live_lens_states_labeled_{d}.jsonl",
+                f"live_lens_states_labeled_{d}_latest.json",
+            ):
+                _add_file(snap_dir / fname)
+
+    if include_perf:
+        try:
+            if perf_dir and perf_dir.exists() and perf_dir.is_dir():
+                for p in sorted([pp for pp in perf_dir.glob("live_lens_bets_*.jsonl") if pp.is_file()]):
+                    _add_file(p)
+                _add_file(perf_dir / "live_lens_bets_all.jsonl")
+        except Exception:
+            pass
+
+    if include_props:
+        for d in dates:
+            try:
+                _add_dir(_props_lines_dir(d))
+            except Exception:
+                pass
+
+    if include_odds:
+        for d in dates:
+            try:
+                _add_dir(DATA_DIR / "odds" / "games" / f"date={d}")
+                _add_dir(DATA_DIR / "odds" / "team" / f"date={d}")
+            except Exception:
+                pass
+
+    if include_processed:
+        for d in dates:
+            for fname in (
+                f"predictions_{d}.csv",
+                f"recommendations_{d}.csv",
+                f"edges_{d}.csv",
+            ):
+                _add_file(PROC_DIR / fname)
+
+    if not files:
+        return JSONResponse({"ok": True, "dates": dates, "files": 0, "warning": "no_files_matched"})
+
+    # Build zip file
+    try:
+        import tempfile as _tempfile
+        import zipfile as _zipfile
+
+        def _arcname(p: Path) -> str:
+            try:
+                rel = p.resolve().relative_to(DATA_DIR.resolve())
+                return str((Path("data") / rel).as_posix())
+            except Exception:
+                pass
+            for root, arc_root in (
+                (snap_dir, Path("data/processed/live_lens")),
+                (perf_dir, Path("data/processed/live_lens/perf")),
+                (props_root, Path("data/props")),
+            ):
+                try:
+                    rel = p.resolve().relative_to(Path(root).resolve())
+                    return str((arc_root / rel).as_posix())
+                except Exception:
+                    continue
+            # Last resort: keep filename under a safe bucket.
+            return str((Path("data/_export_misc") / p.name).as_posix())
+
+        tmp_dir = Path(_tempfile.gettempdir())
+        zip_path = tmp_dir / f"nhl_artifacts_{uuid.uuid4().hex}.zip"
+        with _zipfile.ZipFile(str(zip_path), "w", compression=_zipfile.ZIP_DEFLATED) as zf:
+            for p in files:
+                try:
+                    zf.write(str(p), arcname=_arcname(p))
+                except Exception:
+                    continue
+        try:
+            if background_tasks is not None:
+                background_tasks.add_task(lambda fp=str(zip_path): os.path.exists(fp) and os.remove(fp))
+        except Exception:
+            pass
+        fname = f"nhl_artifacts_{dates[0] if dates else 'range'}_{dates[-1] if dates else 'range'}.zip"
+        return FileResponse(path=str(zip_path), media_type="application/zip", filename=fname)
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
 
 
 # === Props stats calibration (stats-only) ===

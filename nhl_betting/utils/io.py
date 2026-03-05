@@ -9,13 +9,23 @@ from typing import Any
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[2]
-DATA_DIR = ROOT / "data"
+_DATA_DIR_ENV = (os.getenv("NHL_DATA_DIR") or os.getenv("DATA_DIR") or "").strip()
+if _DATA_DIR_ENV:
+    try:
+        DATA_DIR = Path(str(_DATA_DIR_ENV)).expanduser()
+    except Exception:
+        DATA_DIR = Path(str(_DATA_DIR_ENV))
+else:
+    DATA_DIR = ROOT / "data"
 RAW_DIR = DATA_DIR / "raw"
 PROC_DIR = DATA_DIR / "processed"
 MODEL_DIR = DATA_DIR / "models"
 
 for p in [DATA_DIR, RAW_DIR, PROC_DIR, MODEL_DIR]:
-    p.mkdir(parents=True, exist_ok=True)
+    try:
+        p.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        pass
 
 
 def read_json(path: Path) -> Any:

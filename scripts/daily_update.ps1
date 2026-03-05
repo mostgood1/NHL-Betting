@@ -69,7 +69,15 @@ Param (
   [double]$PropsUsageNoisySigma = 0.18,
   [string]$PropsStarterSource = "auto",
   [double]$PropsSavesCal = 0.85,
-  [int]$PropsSeed = 42
+  [int]$PropsSeed = 42,
+
+  # Optional: sync disk-backed artifacts from Render down to local before reconciliation.
+  # This keeps local analysis/accuracy in lockstep with production-collected Live Lens + lines.
+  [switch]$NoRenderSync,
+  [string]$RenderBaseUrl = "",
+  [string]$RenderToken = "",
+  [int]$RenderSyncDaysBack = 14,
+  [int]$RenderSyncDaysAhead = 0
 )
 $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -133,6 +141,31 @@ function Has-NonEmptyCsv {
   } catch {
     return $false
   }
+}
+
+function Sync-RenderArtifacts {
+  param(
+    [Parameter(Mandatory=$true)][string]$BaseUrl,
+    [Parameter(Mandatory=$true)][string]$Token,
+    [Parameter(Mandatory=$true)][string]$StartDate,
+    [Parameter(Mandatory=$true)][string]$EndDate,
+    [Parameter(Mandatory=$true)][string]$RepoRoot
+  )
+  try {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+  } catch { }
+
+  $base = ($BaseUrl.TrimEnd('/'))
+  $Headers = @{ Authorization = "Bearer $Token" }
+  $url = "$base/api/cron/export-artifacts?start=$StartDate&end=$EndDate&include_live_lens=true&include_perf=true&include_props=true&include_odds=true&include_processed=false"
+  $tmpZip = Join-Path $env:TEMP ("nhl_artifacts_{0}.zip" -f (Get-Date -Format "yyyyMMdd_HHmmss"))
+
+  Write-Host "[daily_update] Syncing Render artifacts ($StartDate..$EndDate) …" -ForegroundColor Yellow
+  Invoke-WebRequest -Uri $url -Method GET -Headers $Headers -OutFile $tmpZip | Out-Null
+
+  Write-Host "[daily_update] Extracting artifacts into repo …" -ForegroundColor Yellow
+  Expand-Archive -LiteralPath $tmpZip -DestinationPath $RepoRoot -Force
+  Remove-Item -LiteralPath $tmpZip -Force -ErrorAction SilentlyContinue
 }
 
 # Ensure QNN env (optional). Dot-source if available so QNN EP is found in this session.
@@ -219,6 +252,33 @@ if ($InstallDeps) {
 }
 # Use venv Python for timed subprocesses
 $PyExe = Join-Path $RepoRoot '.venv/Scripts/python.exe'
+
+# Optional: pull production disk artifacts down to local for reconciliation.
+try {
+  if (-not $NoRenderSync) {
+    $baseUrl = $RenderBaseUrl
+    if (-not $baseUrl -or $baseUrl.Trim() -eq "") { $baseUrl = $env:NHL_RENDER_BASE_URL }
+    if (-not $baseUrl -or $baseUrl.Trim() -eq "") { $baseUrl = $env:RENDER_BASE_URL }
+    if (-not $baseUrl -or $baseUrl.Trim() -eq "") { $baseUrl = "https://nhl-betting.onrender.com" }
+
+    $tok = $RenderToken
+    if (-not $tok -or $tok.Trim() -eq "") { $tok = $env:NHL_RENDER_CRON_TOKEN }
+    if (-not $tok -or $tok.Trim() -eq "") { $tok = $env:RENDER_CRON_TOKEN }
+    if (-not $tok -or $tok.Trim() -eq "") { $tok = $env:REFRESH_CRON_TOKEN }
+
+    if ($tok -and $tok.Trim() -ne "") {
+      $syncStart = $AnchorNow.AddDays(-1 * [int]$RenderSyncDaysBack).ToString('yyyy-MM-dd')
+      $syncEnd = $AnchorNow.AddDays([int]$RenderSyncDaysAhead).ToString('yyyy-MM-dd')
+      Sync-RenderArtifacts -BaseUrl $baseUrl -Token $tok -StartDate $syncStart -EndDate $syncEnd -RepoRoot $RepoRoot
+    } else {
+      Write-Host "[daily_update] Render sync skipped (missing token). Set NHL_RENDER_CRON_TOKEN or REFRESH_CRON_TOKEN." -ForegroundColor DarkGreen
+    }
+  } else {
+    Write-Host "[daily_update] Render sync skipped (-NoRenderSync)" -ForegroundColor DarkGreen
+  }
+} catch {
+  Write-Warning "[daily_update] Render sync failed (continuing): $($_.Exception.Message)"
+}
 # Optional: lightweight PBP backfill via NHL Web API for recent days (true period splits)
 if ($PBPBackfill) {
   try {
@@ -728,6 +788,27 @@ try {
     }
   } catch {
     Write-Warning "[daily_update] Live Lens outcome backfill failed: $($_.Exception.Message)"
+  }
+
+  # Build/refresh settled Live Lens bet ledger from saved signals (best-effort)
+  try {
+    $signalsDir = Join-Path $ProcessedDir 'live_lens'
+    $perfDir = Join-Path $signalsDir 'perf'
+    if (-not (Test-Path $perfDir)) { New-Item -ItemType Directory -Force -Path $perfDir | Out-Null }
+    $outLedger = Join-Path $perfDir 'live_lens_bets_all.jsonl'
+    Write-Host "[daily_update] Building Live Lens settled ledger from snapshots …" -ForegroundColor DarkCyan
+    $oldPythonPath = $env:PYTHONPATH
+    try {
+      $env:PYTHONPATH = $RepoRoot
+      Push-Location $RepoRoot
+      & $PyExe .\check_live_lens_betting_performance.py --all --signals-dir $signalsDir --dedupe first --allow-web-fetch --out $outLedger
+    } finally {
+      Pop-Location
+      $env:PYTHONPATH = $oldPythonPath
+    }
+    Assert-AnyPath -Label "live_lens_bets_all" -Paths @($outLedger) -NonEmpty -Strict:$StrictOutputs
+  } catch {
+    Write-Warning "[daily_update] Live Lens ledger build failed: $($_.Exception.Message)"
   }
 
   Write-Host "[daily_update] Fitting Live Lens win-prob calibration …" -ForegroundColor DarkCyan

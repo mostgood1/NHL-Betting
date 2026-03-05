@@ -1,0 +1,15 @@
+date,home,away,market,ev
+2026-03-07T03:00:00Z,San Jose Sharks,St. Louis Blues,ev_away_ml,0.4382
+2026-03-07T01:00:00Z,Dallas Stars,Colorado Avalanche,ev_home_ml,0.3185
+2026-03-07T01:30:00Z,Chicago Blackhawks,Vancouver Canucks,ev_away_ml,0.3112
+2026-03-07T02:00:00Z,Anaheim Ducks,Montréal Canadiens,ev_away_ml,0.1738
+2026-03-07T03:00:00Z,Vegas Golden Knights,Minnesota Wild,ev_home_ml,0.072
+2026-03-07T02:00:00Z,Edmonton Oilers,Carolina Hurricanes,ev_home_ml,0.0258
+2026-03-07T00:00:00Z,Detroit Red Wings,Florida Panthers,ev_away_ml,0.0046
+2026-03-07T00:00:00Z,Detroit Red Wings,Florida Panthers,ev_home_ml,-0.0843
+2026-03-07T02:00:00Z,Edmonton Oilers,Carolina Hurricanes,ev_away_ml,-0.1167
+2026-03-07T03:00:00Z,Vegas Golden Knights,Minnesota Wild,ev_away_ml,-0.1709
+2026-03-07T02:00:00Z,Anaheim Ducks,Montréal Canadiens,ev_home_ml,-0.2734
+2026-03-07T01:30:00Z,Chicago Blackhawks,Vancouver Canucks,ev_home_ml,-0.3009
+2026-03-07T01:00:00Z,Dallas Stars,Colorado Avalanche,ev_away_ml,-0.3964
+2026-03-07T03:00:00Z,San Jose Sharks,St. Louis Blues,ev_home_ml,-0.4327

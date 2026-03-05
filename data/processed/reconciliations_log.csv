@@ -2044,7 +2044,7 @@ date,home,away,market,bet,ev,price,result,stake,payout
 2026-03-04T00:00:00Z,Buffalo Sabres,Vegas Golden Knights,puckline,away_pl_+1.5,0.0902,-205.0,win,100.0,48.78048780487805
 2026-03-04T00:00:00Z,New Jersey Devils,Florida Panthers,moneyline,away_ml,0.3314,-115.0,loss,100.0,-100.0
 2026-03-04T00:00:00Z,New Jersey Devils,Florida Panthers,totals,over,0.0798,-120.0,win,100.0,83.33333333333334
-2026-03-04T00:00:00Z,Washington Capitals,Utah Mammoth,moneyline,away_ml,0.0322,105.0,win,100.0,104.99999999999999
+2026-03-04T00:00:00Z,Washington Capitals,Utah Mammoth,moneyline,away_ml,0.0322,105.0,win,100.0,105.0
 2026-03-04T00:00:00Z,Washington Capitals,Utah Mammoth,totals,under,0.1183,102.0,win,100.0,102.0
 2026-03-04T00:00:00Z,Washington Capitals,Utah Mammoth,puckline,away_pl_+1.5,0.0316,-240.0,win,100.0,41.66666666666667
 2026-03-04T00:00:00Z,Columbus Blue Jackets,Nashville Predators,moneyline,away_ml,0.0314,120.0,loss,100.0,-100.0
@@ -2053,13 +2053,24 @@ date,home,away,market,bet,ev,price,result,stake,payout
 2026-03-04T01:00:00Z,Winnipeg Jets,Chicago Blackhawks,totals,under,0.0318,100.0,win,100.0,100.0
 2026-03-04T01:00:00Z,Winnipeg Jets,Chicago Blackhawks,puckline,home_pl_-1.5,0.1275,177.0,loss,100.0,-100.0
 2026-03-04T02:00:00Z,Calgary Flames,Dallas Stars,moneyline,home_ml,0.0077,115.0,loss,100.0,-100.0
-2026-03-04T02:00:00Z,Calgary Flames,Dallas Stars,totals,over,0.0224,-101.0,win,100.0,99.00990099009901
+2026-03-04T02:00:00Z,Calgary Flames,Dallas Stars,totals,over,0.0224,-101.0,win,100.0,99.009900990099
 2026-03-04T02:00:00Z,Edmonton Oilers,Ottawa Senators,moneyline,away_ml,0.0178,100.0,loss,100.0,-100.0
 2026-03-04T02:00:00Z,Edmonton Oilers,Ottawa Senators,totals,under,0.38,140.0,loss,100.0,-100.0
 2026-03-04T02:00:00Z,Edmonton Oilers,Ottawa Senators,puckline,home_pl_-1.5,0.0063,205.0,loss,100.0,-100.0
 2026-03-04T02:30:00Z,Minnesota Wild,Tampa Bay Lightning,moneyline,away_ml,0.0444,-128.0,loss,100.0,-100.0
 2026-03-04T02:30:00Z,Minnesota Wild,Tampa Bay Lightning,totals,under,0.0986,100.0,win,100.0,100.0
 2026-03-04T03:00:00Z,Anaheim Ducks,Colorado Avalanche,moneyline,away_ml,0.0931,-145.0,win,100.0,68.96551724137932
-2026-03-04T03:00:00Z,Anaheim Ducks,Colorado Avalanche,totals,under,0.2365,118.0,win,100.0,117.99999999999997
+2026-03-04T03:00:00Z,Anaheim Ducks,Colorado Avalanche,totals,under,0.2365,118.0,win,100.0,117.99999999999996
 2026-03-04T03:00:00Z,San Jose Sharks,Montréal Canadiens,moneyline,away_ml,0.347,-130.0,loss,100.0,-100.0
 2026-03-04T03:00:00Z,San Jose Sharks,Montréal Canadiens,totals,under,0.304,110.0,loss,100.0,-100.0
+2026-03-05T00:00:00Z,Detroit Red Wings,Vegas Golden Knights,moneyline,home_ml,0.1783,-134.0,loss,100.0,-100.0
+2026-03-05T00:00:00Z,Detroit Red Wings,Vegas Golden Knights,totals,over,0.1941,-103.0,win,100.0,97.0873786407767
+2026-03-05T00:00:00Z,Detroit Red Wings,Vegas Golden Knights,puckline,home_pl_-1.5,0.1841,195.0,loss,100.0,-100.0
+2026-03-05T00:00:00Z,New Jersey Devils,Toronto Maple Leafs,moneyline,away_ml,0.0621,110.0,loss,100.0,-100.0
+2026-03-05T00:00:00Z,New Jersey Devils,Toronto Maple Leafs,totals,over,0.2489,108.0,win,100.0,108.0
+2026-03-05T00:00:00Z,New Jersey Devils,Toronto Maple Leafs,puckline,away_pl_+1.5,0.1204,-235.0,win,100.0,42.553191489361694
+2026-03-05T03:00:00Z,Vancouver Canucks,Carolina Hurricanes,moneyline,home_ml,0.2858,285.0,loss,100.0,-100.0
+2026-03-05T03:00:00Z,Vancouver Canucks,Carolina Hurricanes,totals,under,0.1328,100.0,loss,100.0,-100.0
+2026-03-05T03:00:00Z,Anaheim Ducks,New York Islanders,totals,under,0.0265,105.0,win,100.0,104.99999999999999
+2026-03-05T03:00:00Z,Seattle Kraken,St. Louis Blues,moneyline,home_ml,0.0291,-144.0,loss,100.0,-100.0
+2026-03-05T03:00:00Z,Seattle Kraken,St. Louis Blues,totals,under,0.1039,100.0,win,100.0,100.0

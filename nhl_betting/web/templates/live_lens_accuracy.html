@@ -74,7 +74,14 @@
       <div class="grid-4 mb16" id="summaryTiles"></div>
 
       <div class="card mb16">
-        <div class="section-title">By Market</div>
+        <div class="section-title">Per Day</div>
+        <div class="xscroll">
+          <table id="byDate"></table>
+        </div>
+      </div>
+
+      <div class="card mb16">
+        <div class="section-title">By Bet Type (Market)</div>
         <div class="xscroll">
           <table id="byMarket"></table>
         </div>
@@ -84,6 +91,21 @@
         <div class="section-title">By Elapsed Bucket</div>
         <div class="xscroll">
           <table id="byElapsed"></table>
+        </div>
+      </div>
+
+      <div class="card mt10">
+        <div class="section-title">Driver Tags (All)</div>
+        <div class="muted mt10" id="tagCoverage"></div>
+        <div class="xscroll">
+          <table id="byDriverTag"></table>
+        </div>
+      </div>
+
+      <div class="card mt10">
+        <div class="section-title">Tag Types</div>
+        <div class="xscroll">
+          <table id="byTagType"></table>
         </div>
       </div>
     </div>
@@ -104,7 +126,7 @@
 
     function setStatus(s) { $('status').textContent = s || ''; }
 
-    function renderTiles(sum) {
+    function renderTiles(sum, tagCov) {
       const el = $('summaryTiles');
       el.innerHTML = '';
       if (!sum) return;
@@ -115,6 +137,19 @@
         { k: 'ROI', v: pct(sum.roi, 1) },
         { k: 'Win Rate', v: (sum.win_rate === null || sum.win_rate === undefined) ? '—' : pct(sum.win_rate, 1) },
       ];
+
+      try {
+        if (tagCov) {
+          const n = Number(tagCov.bets_settled ?? 0);
+          const miss = Number(tagCov.bets_missing_tags ?? 0);
+          const distinct = Number(tagCov.distinct_tags ?? 0);
+          const tagged = Math.max(0, n - miss);
+          tiles.push({ k: 'Tagged Bets', v: `${tagged}/${n}` });
+          tiles.push({ k: 'Distinct Tags', v: String(distinct) });
+        }
+      } catch (e) {
+        // ignore
+      }
 
       for (const t of tiles) {
         const d = document.createElement('div');
@@ -173,9 +208,29 @@
           setStatus('Error: ' + (obj.error || 'unknown'));
           return;
         }
-        renderTiles(obj.summary);
+        renderTiles(obj.summary, obj.tag_coverage);
+        renderTable($('byDate'), obj.by_date, 'date');
         renderTable($('byMarket'), obj.by_market, 'market');
         renderTable($('byElapsed'), obj.by_elapsed_bucket, 'elapsed_bucket');
+        renderTable($('byDriverTag'), obj.by_driver_tag_all || obj.by_driver_tag, 'driver_tag');
+        renderTable($('byTagType'), obj.by_tag_type, 'tag_type');
+
+        try {
+          const tc = obj.tag_coverage;
+          if (tc) {
+            const n = Number(tc.bets_settled ?? 0);
+            const miss = Number(tc.bets_missing_tags ?? 0);
+            const distinct = Number(tc.distinct_tags ?? 0);
+            const rate = tc.missing_rate;
+            $('tagCoverage').textContent = `tagged: ${Math.max(0, n - miss)}/${n} • missing: ${miss}` +
+              (rate === null || rate === undefined ? '' : ` (${pct(rate, 1)})`) +
+              ` • distinct: ${distinct}`;
+          } else {
+            $('tagCoverage').textContent = '';
+          }
+        } catch (e) {
+          $('tagCoverage').textContent = '';
+        }
         const range = obj.start && obj.end ? `${obj.start}..${obj.end}` : '(latest)';
         setStatus(`OK – ${range}`);
       } catch (e) {

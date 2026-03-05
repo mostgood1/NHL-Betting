@@ -856,6 +856,11 @@ def _summarize_driver_tags(df: pd.DataFrame, top_n: int = 20) -> list[dict[str, 
         d0["driver_tags"] = d0["driver_tags"].apply(_coerce_driver_tags)
     except Exception:
         return []
+    # Ensure rows with no tags still show up as '(none)'.
+    try:
+        d0["driver_tags"] = d0["driver_tags"].apply(lambda xs: xs if xs else ["(none)"])
+    except Exception:
+        pass
     try:
         d0 = d0.explode("driver_tags")
     except Exception:
@@ -866,6 +871,69 @@ def _summarize_driver_tags(df: pd.DataFrame, top_n: int = 20) -> list[dict[str, 
     except Exception:
         pass
     out = _summarize_ledger(d0, group_col="driver_tag")
+    try:
+        out.sort(key=lambda r: (-(r.get("bets") or 0), -(r.get("roi") or 0.0)))
+    except Exception:
+        pass
+    if top_n and top_n > 0:
+        out = out[: int(top_n)]
+    return out
+
+
+def _summarize_tag_types(df: pd.DataFrame, top_n: int = 20) -> list[dict[str, Any]]:
+    """Summarize performance by tag *type* (prefix before ':').
+
+    Counts a bet once per tag type (not once per tag occurrence).
+    """
+    if df is None or df.empty:
+        return []
+    if "driver_tags" not in df.columns:
+        return []
+
+    d0 = df.copy()
+    try:
+        d0["driver_tags"] = d0["driver_tags"].apply(_coerce_driver_tags)
+    except Exception:
+        return []
+
+    def _types(xs: list[str]) -> list[str]:
+        try:
+            tags = [str(t).strip() for t in (xs or []) if str(t).strip()]
+        except Exception:
+            tags = []
+        if not tags:
+            return ["(none)"]
+        out: list[str] = []
+        seen: set[str] = set()
+        for t in tags:
+            if t == "(none)":
+                tt = "(none)"
+            else:
+                if ":" in t:
+                    tt = t.split(":", 1)[0].strip()
+                else:
+                    tt = t.strip()
+                if not tt:
+                    tt = "(none)"
+            if tt not in seen:
+                seen.add(tt)
+                out.append(tt)
+        return out if out else ["(none)"]
+
+    try:
+        d0["tag_type"] = d0["driver_tags"].apply(_types)
+    except Exception:
+        return []
+    try:
+        d0 = d0.explode("tag_type")
+    except Exception:
+        return []
+    try:
+        d0["tag_type"] = d0["tag_type"].fillna("(none)")
+    except Exception:
+        pass
+
+    out = _summarize_ledger(d0, group_col="tag_type")
     try:
         out.sort(key=lambda r: (-(r.get("bets") or 0), -(r.get("roi") or 0.0)))
     except Exception:
@@ -925,10 +993,58 @@ async def api_live_lens_accuracy_data(
             df_settled = df
 
         summary_all = _summarize_ledger(df_settled)
+        by_date = _summarize_ledger(df_settled, group_col="date")
         by_market = _summarize_ledger(df_settled, group_col="market")
         by_elapsed = _summarize_ledger(df_settled, group_col="elapsed_bucket")
         by_edge = _summarize_ledger(df_settled, group_col="edge_bucket")
         by_driver_tag = _summarize_driver_tags(df_settled, top_n=20)
+        by_driver_tag_all = _summarize_driver_tags(df_settled, top_n=0)
+        by_tag_type = _summarize_tag_types(df_settled, top_n=0)
+
+        try:
+            by_date.sort(key=lambda r: str(r.get("key") or ""), reverse=True)
+        except Exception:
+            pass
+
+        tag_coverage: dict[str, Any] = {
+            "bets_settled": 0,
+            "bets_with_tags": 0,
+            "bets_missing_tags": 0,
+            "missing_rate": None,
+            "distinct_tags": 0,
+        }
+        try:
+            tag_coverage["bets_settled"] = int(len(df_settled)) if df_settled is not None else 0
+        except Exception:
+            tag_coverage["bets_settled"] = 0
+        try:
+            n_set = int(tag_coverage.get("bets_settled") or 0)
+            n_with = 0
+            n_missing = 0
+            distinct: set[str] = set()
+            if df_settled is not None and (not getattr(df_settled, "empty", True)) and ("driver_tags" in df_settled.columns):
+                for v in df_settled["driver_tags"].tolist():
+                    tags = _coerce_driver_tags(v)
+                    if tags:
+                        n_with += 1
+                        for t in tags:
+                            try:
+                                s = str(t).strip()
+                            except Exception:
+                                continue
+                            if s:
+                                distinct.add(s)
+                    else:
+                        n_missing += 1
+            else:
+                n_missing = n_set
+
+            tag_coverage["bets_with_tags"] = int(n_with)
+            tag_coverage["bets_missing_tags"] = int(n_missing)
+            tag_coverage["distinct_tags"] = int(len(distinct))
+            tag_coverage["missing_rate"] = (float(n_missing) / float(n_set)) if n_set > 0 else None
+        except Exception:
+            pass
 
         try:
             n_rows_total = int(len(df)) if df is not None else 0
@@ -964,10 +1080,14 @@ async def api_live_lens_accuracy_data(
             "rows": n_rows_settled,
             "rows_total": n_rows_total,
             "summary": summary_row,
+            "by_date": by_date,
             "by_market": by_market,
             "by_elapsed_bucket": by_elapsed,
             "by_edge_bucket": by_edge,
             "by_driver_tag": by_driver_tag,
+            "by_driver_tag_all": by_driver_tag_all,
+            "by_tag_type": by_tag_type,
+            "tag_coverage": tag_coverage,
         }
         _cache_put(cache_key, out)
         return JSONResponse(out)
@@ -993,6 +1113,15 @@ async def api_live_lens_accuracy_page(
         return HTMLResponse(html)
     except Exception as e:
         return HTMLResponse(f"<pre>template_error: {e}</pre>", status_code=500)
+
+
+@app.get("/live_lens_accuracy", response_class=HTMLResponse, include_in_schema=False)
+async def live_lens_accuracy_page(
+    date: Optional[str] = Query(None, description="YYYY-MM-DD (ET)"),
+    start: Optional[str] = Query(None, description="YYYY-MM-DD (inclusive)"),
+    end: Optional[str] = Query(None, description="YYYY-MM-DD (inclusive)"),
+):
+    return await api_live_lens_accuracy_page(date=date, start=start, end=end)
 
 def _is_public_host_env() -> bool:
     """Heuristic to detect if we're on a public host (Render/production) vs local/test.
@@ -3611,6 +3740,17 @@ async def v1_live_lens_combined(
             if odds_extreme_abs_price is None:
                 odds_extreme_abs_price = 450.0
             try:
+                odds_max_favorite_abs_price = _to_float(os.getenv("LIVE_LENS_BET_ODDS_MAX_FAVORITE_ABS_PRICE", "220"))
+            except Exception:
+                odds_max_favorite_abs_price = 220.0
+            if odds_max_favorite_abs_price is None:
+                odds_max_favorite_abs_price = 220.0
+            try:
+                if float(odds_max_favorite_abs_price) <= 0:
+                    odds_max_favorite_abs_price = None
+            except Exception:
+                pass
+            try:
                 require_book_for_bet = str(os.getenv("LIVE_LENS_BET_REQUIRE_BOOK", "1") or "1").strip().lower() in {"1", "true", "yes"}
             except Exception:
                 require_book_for_bet = True
@@ -3637,6 +3777,17 @@ async def v1_live_lens_combined(
                     if price0 is not None and odds_extreme_abs_price is not None and abs(float(price0)) >= float(odds_extreme_abs_price):
                         ok0 = False
                         tags0.append("odds:extreme_price")
+                except Exception:
+                    pass
+                try:
+                    if (
+                        price0 is not None
+                        and odds_max_favorite_abs_price is not None
+                        and float(price0) < 0
+                        and abs(float(price0)) > float(odds_max_favorite_abs_price)
+                    ):
+                        ok0 = False
+                        tags0.append("odds:too_juiced_fav")
                 except Exception:
                     pass
                 try:
@@ -3716,12 +3867,24 @@ async def v1_live_lens_combined(
 
                         # Late-game totals have historically been noisy; tighten gates.
                         try:
+                            late_em20_req_edge = _to_float(os.getenv("LIVE_LENS_TOTAL_LATE_EM20_REQUIRED_EDGE", "0.08"))
+                        except Exception:
+                            late_em20_req_edge = 0.08
+                        if late_em20_req_edge is None:
+                            late_em20_req_edge = 0.08
+                        try:
+                            late_em35_req_edge = _to_float(os.getenv("LIVE_LENS_TOTAL_LATE_EM35_REQUIRED_EDGE", "0.10"))
+                        except Exception:
+                            late_em35_req_edge = 0.10
+                        if late_em35_req_edge is None:
+                            late_em35_req_edge = 0.10
+                        try:
                             if em is not None and float(em) >= 20.0:
-                                required_edge = max(float(required_edge), 0.06)
-                                driver_tags.append("gate:late_em>=20_edge>=0.06")
+                                required_edge = max(float(required_edge), float(late_em20_req_edge))
+                                driver_tags.append(f"gate:late_em>=20_edge>={float(late_em20_req_edge):.02f}")
                             if em is not None and float(em) >= 35.0:
-                                required_edge = max(float(required_edge), 0.07)
-                                driver_tags.append("gate:late_em>=35_edge>=0.07")
+                                required_edge = max(float(required_edge), float(late_em35_req_edge))
+                                driver_tags.append(f"gate:late_em>=35_edge>={float(late_em35_req_edge):.02f}")
                         except Exception:
                             pass
 

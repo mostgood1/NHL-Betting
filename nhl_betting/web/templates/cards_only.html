@@ -201,7 +201,7 @@
           <input id="datePicker" class="date-input" type="date" />
         </div>
         <div class="spacer"></div>
-        <a id="accuracyLink" class="btn" href="/api/live-lens-accuracy">Accuracy</a>
+        <a id="accuracyLink" class="btn" href="/live_lens_accuracy">Live Lens Accuracy</a>
         <button type="button" id="themeToggle" class="btn" title="Toggle light/dark theme">Toggle Theme</button>
       </div>
       <div class="muted" id="status">Loading…</div>
@@ -231,7 +231,7 @@
     const PROPS_EV_MIN = 0.02;
 
     function setAccuracyHref(d) {
-      const base = '/api/live-lens-accuracy';
+      const base = '/live_lens_accuracy';
       if (!d) {
         $('accuracyLink').setAttribute('href', base);
         return;

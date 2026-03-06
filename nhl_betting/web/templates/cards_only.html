@@ -283,9 +283,13 @@
     const $ = (id) => document.getElementById(id);
 
     const LIVE_POLL_MS = 30000;
+    const PROPS_POLL_MS = 60000;
     let currentDate = null;
     let livePollTimer = null;
     let livePollInFlight = false;
+    let propsPollTimer = null;
+    let propsPollInFlight = false;
+    let lastPropsStripSignature = '';
 
     const LS_COMPACT_KEY = 'nhl:compactMode';
     const DEFAULT_PAGE_TITLE = 'NHL Betting – Cards';
@@ -1289,6 +1293,27 @@
         } catch (e) {}
       }
       strip.appendChild(frag);
+    }
+
+    function propsStripSignature(payload) {
+      try {
+        return JSON.stringify((payload && Array.isArray(payload.cards)) ? payload.cards : []);
+      } catch (e) {
+        return '';
+      }
+    }
+
+    async function maybeRefreshPropsStrip(date) {
+      try {
+        const payload = await fetchJson(`/v1/props-cards/${encodeURIComponent(date)}?top=12`, { timeoutMs: 12000 });
+        const sig = propsStripSignature(payload);
+        if (!sig || sig === lastPropsStripSignature) return payload;
+        renderPropsCardsStrip(payload);
+        lastPropsStripSignature = sig;
+        return payload;
+      } catch (e) {
+        return null;
+      }
     }
 
     function _findCardByGameKey(gameKey) {
@@ -3033,6 +3058,10 @@
         clearInterval(livePollTimer);
         livePollTimer = null;
       }
+      if (propsPollTimer) {
+        clearInterval(propsPollTimer);
+        propsPollTimer = null;
+      }
     }
 
     function startLivePolling(date, preds, opts=null) {
@@ -3051,6 +3080,23 @@
           livePollInFlight = false;
         }
       }, LIVE_POLL_MS);
+    }
+
+    function startPropsStripPolling(date) {
+      if (propsPollTimer) {
+        clearInterval(propsPollTimer);
+        propsPollTimer = null;
+      }
+      propsPollTimer = setInterval(async () => {
+        if (date !== currentDate) return;
+        if (propsPollInFlight) return;
+        propsPollInFlight = true;
+        try {
+          await maybeRefreshPropsStrip(date);
+        } finally {
+          propsPollInFlight = false;
+        }
+      }, PROPS_POLL_MS);
     }
 
     async function fetchJson(url, opts=null) {
@@ -3094,6 +3140,17 @@
       }
     }
 
+    function addDaysYmd(ymd, days) {
+      try {
+        const parts = String(ymd || '').split('-').map(x => Number(x));
+        if (parts.length !== 3 || parts.some(x => !Number.isFinite(x))) return '';
+        const d = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2] + Number(days || 0)));
+        return d.toISOString().slice(0, 10);
+      } catch (e) {
+        return '';
+      }
+    }
+
     function setStatus(msg) {
       $('status').textContent = msg;
     }
@@ -3111,6 +3168,7 @@
     async function loadDate(date) {
       stopLivePolling();
       currentDate = date;
+      lastPropsStripSignature = '';
       setStatus(`Loading ${date}…`);
       clearEmpty();
       $('cards').innerHTML = '';
@@ -3255,7 +3313,12 @@
       $('cards').appendChild(frag);
 
       // Top-of-page props cards strip (best-effort).
-      try { renderPropsCardsStrip(propsCards); } catch (e) {}
+      try {
+        renderPropsCardsStrip(propsCards);
+        lastPropsStripSignature = propsStripSignature(propsCards);
+      } catch (e) {
+        lastPropsStripSignature = '';
+      }
 
       // Odds movement deltas (best-effort).
       try { applyOddsMovementToCards(oddsMove); } catch (e) {}
@@ -3269,11 +3332,14 @@
       try { userTz = (Intl.DateTimeFormat().resolvedOptions() || {}).timeZone || null; } catch (e) { userTz = null; }
       const todayLocal = todayYmdInTZ(userTz || 'UTC');
       const todayEt = todayYmdInTZ('America/New_York');
+      const tomorrowEt = addDaysYmd(todayEt, 1);
       const isToday = (String(date) === String(todayLocal)) || (String(date) === String(todayEt));
+      const isTomorrowEt = (String(date) === String(tomorrowEt));
       const inplay = isToday ? 1 : 0;
       const includeNonLive = 1;
       await maybeLoadLiveLens(date, preds, { inplay, includeNonLive });
       if (isToday) startLivePolling(date, preds, { inplay, includeNonLive });
+      if (isToday || isTomorrowEt) startPropsStripPolling(date);
 
       const note = b.note ? ` (${b.note})` : '';
       const liveCount = predsSorted.filter(p => isLiveState(p.game_state)).length;

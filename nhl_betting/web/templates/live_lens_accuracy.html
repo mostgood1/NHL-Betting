@@ -232,7 +232,8 @@
           $('tagCoverage').textContent = '';
         }
         const range = obj.start && obj.end ? `${obj.start}..${obj.end}` : '(latest)';
-        setStatus(`OK – ${range}`);
+        const note = obj.note ? ` · ${obj.note}` : '';
+        setStatus(`OK – ${range}${note}`);
       } catch (e) {
         setStatus('Error: ' + String(e));
       }

@@ -290,6 +290,68 @@ def _seed_repo_props_artifacts_to_active_dirs(dates: Optional[list[str]] = None)
     return stats
 
 
+def _seed_repo_accuracy_artifacts_to_proc_dir(dates: Optional[list[str]] = None) -> dict[str, int]:
+    """Best-effort: seed tracked accuracy artifacts into the active `PROC_DIR`.
+
+    Mirrors the Render repo-checkout -> persistent-disk seeding used for bundles and
+    props artifacts so analytics endpoints can read from the active disk-backed data
+    directory even right after a deploy.
+    """
+    stats = {"checked": 0, "copied": 0}
+    try:
+        repo_proc_dir = _repo_proc_dir()
+        if _same_path_loose(repo_proc_dir, PROC_DIR):
+            return stats
+
+        tasks: list[tuple[Path, Path]] = []
+
+        for name in ("reconciliations_log.csv", "props_reconciliations_log.csv"):
+            tasks.append((repo_proc_dir / name, PROC_DIR / name))
+
+        src_perf_dir = repo_proc_dir / "live_lens" / "perf"
+        dst_perf_dir = PROC_DIR / "live_lens" / "perf"
+        if src_perf_dir.exists():
+            p_all = src_perf_dir / "live_lens_bets_all.jsonl"
+            tasks.append((p_all, dst_perf_dir / p_all.name))
+
+            seen: set[str] = set()
+            for d in dates or []:
+                ds = str(d or "").strip()
+                if not ds or ds in seen:
+                    continue
+                seen.add(ds)
+
+                for src in sorted(src_perf_dir.glob(f"live_lens_bets_{ds}*.jsonl")):
+                    try:
+                        if src.is_file():
+                            tasks.append((src, dst_perf_dir / src.name))
+                    except Exception:
+                        continue
+
+                for name in (
+                    f"accuracy_{ds}.json",
+                    f"reconciliation_{ds}.json",
+                    f"reconciliation_props_{ds}.json",
+                ):
+                    tasks.append((repo_proc_dir / name, PROC_DIR / name))
+
+        seen_pairs: set[tuple[str, str]] = set()
+        for src, dst in tasks:
+            try:
+                key = (str(src), str(dst))
+            except Exception:
+                key = (repr(src), repr(dst))
+            if key in seen_pairs:
+                continue
+            seen_pairs.add(key)
+            stats["checked"] += 1
+            if _copy_file_if_newer(src, dst):
+                stats["copied"] += 1
+    except Exception:
+        return stats
+    return stats
+
+
 def _atomic_write_json(path: Path, obj: Any) -> None:
     _atomic_write_text(path, json.dumps(obj, ensure_ascii=False, indent=2, sort_keys=True))
 
@@ -1220,6 +1282,7 @@ def _summarize_ledger(df, group_col: Optional[str] = None) -> list[dict[str, Any
 
         try:
             d0["result"] = d0["result"].astype(str).str.upper()
+            d0["result"] = d0["result"].replace({"LOSS": "LOSE", "WON": "WIN"})
         except Exception:
             pass
         try:
@@ -1393,6 +1456,192 @@ def _summarize_tag_types(df: pd.DataFrame, top_n: int = 20) -> list[dict[str, An
     return out
 
 
+def _settled_only_df(df: pd.DataFrame):
+    if df is None or getattr(df, "empty", True):
+        return df
+    d0 = df
+    try:
+        if "result" in d0.columns:
+            res = d0["result"].astype(str).str.upper().replace({"LOSS": "LOSE", "WON": "WIN"})
+            d0 = d0.copy()
+            d0["result"] = res
+            d0 = d0[res.isin(["WIN", "LOSE", "PUSH"])].copy()
+    except Exception:
+        return df
+    return d0
+
+
+def _latest_ledger_date(files: list[Path]) -> Optional[str]:
+    try:
+        if not files:
+            return None
+        df = _settled_only_df(_read_ledger_df([files[0]], None, None))
+        if df is None or getattr(df, "empty", True) or "date" not in df.columns:
+            return None
+        vals = [str(v).strip() for v in df["date"].dropna().astype(str).tolist()]
+        vals = [v for v in vals if _parse_ymd(v)]
+        return max(vals) if vals else None
+    except Exception:
+        return None
+
+
+def _coerce_slate_date_series(values, assume_utc: bool = False):
+    try:
+        raw = values.astype(str).str.strip()
+    except Exception:
+        try:
+            raw = pd.Series(values, dtype=str).astype(str).str.strip()
+        except Exception:
+            return pd.Series(dtype=str)
+
+    try:
+        if assume_utc:
+            dt = pd.to_datetime(values, errors="coerce", utc=True)
+            out = dt.dt.tz_convert("America/New_York").dt.strftime("%Y-%m-%d")
+        else:
+            dt = pd.to_datetime(values, errors="coerce")
+            out = dt.dt.strftime("%Y-%m-%d")
+    except Exception:
+        out = pd.Series(index=getattr(raw, "index", None), dtype="object")
+
+    try:
+        fallback = raw.str.extract(r"^(\d{4}-\d{2}-\d{2})", expand=False)
+        out = out.where(out.notna(), fallback)
+    except Exception:
+        pass
+    return out
+
+
+def _read_pregame_accuracy_log_df(kind: str):
+    name = "reconciliations_log.csv" if str(kind).lower() == "games" else "props_reconciliations_log.csv"
+    path = PROC_DIR / name
+    df = _read_csv_fallback(path)
+    if df is None or df.empty:
+        return pd.DataFrame()
+
+    d0 = df.copy()
+    try:
+        if "result" in d0.columns:
+            d0["result"] = d0["result"].astype(str).str.upper()
+    except Exception:
+        pass
+    for col in ("stake", "payout", "ev", "price", "odds"):
+        try:
+            if col in d0.columns:
+                d0[col] = pd.to_numeric(d0[col], errors="coerce")
+        except Exception:
+            pass
+
+    try:
+        if "date" in d0.columns:
+            d0["slate_date"] = _coerce_slate_date_series(d0["date"], assume_utc=(str(kind).lower() == "games"))
+    except Exception:
+        pass
+
+    try:
+        profit_units = None
+        if "profit_units" in d0.columns:
+            profit_units = pd.to_numeric(d0["profit_units"], errors="coerce")
+        if profit_units is None or profit_units.isna().all():
+            stake = pd.to_numeric(d0["stake"], errors="coerce") if "stake" in d0.columns else None
+            payout = pd.to_numeric(d0["payout"], errors="coerce") if "payout" in d0.columns else None
+            if stake is not None and payout is not None:
+                profit_units = np.where(stake.notna() & payout.notna() & (stake != 0), payout / stake, np.nan)
+        if profit_units is not None:
+            d0["profit_units"] = pd.to_numeric(profit_units, errors="coerce")
+    except Exception:
+        pass
+    return d0
+
+
+def _filter_slate_date_df(df: pd.DataFrame, start_ymd: Optional[str], end_ymd: Optional[str]):
+    if df is None or getattr(df, "empty", True):
+        return df
+    if not start_ymd and not end_ymd:
+        return df
+    d0 = df
+    try:
+        if "slate_date" in d0.columns:
+            if start_ymd:
+                d0 = d0[d0["slate_date"] >= str(start_ymd)]
+            if end_ymd:
+                d0 = d0[d0["slate_date"] <= str(end_ymd)]
+    except Exception:
+        return df
+    return d0
+
+
+def _latest_slate_date_from_df(df: pd.DataFrame) -> Optional[str]:
+    try:
+        d0 = _settled_only_df(df)
+        if d0 is None or getattr(d0, "empty", True) or "slate_date" not in d0.columns:
+            return None
+        vals = [str(v).strip() for v in d0["slate_date"].dropna().astype(str).tolist()]
+        vals = [v for v in vals if _parse_ymd(v)]
+        return max(vals) if vals else None
+    except Exception:
+        return None
+
+
+def _accuracy_summary_row_default() -> dict[str, Any]:
+    return {
+        "key": "ALL",
+        "bets": 0,
+        "wins": 0,
+        "losses": 0,
+        "pushes": 0,
+        "units": 0.0,
+        "roi": 0.0,
+        "win_rate": None,
+        "avg_ev": None,
+    }
+
+
+def _build_accuracy_section(df: pd.DataFrame, market_col: str = "market") -> dict[str, Any]:
+    d0 = df.copy() if df is not None else pd.DataFrame()
+    settled = _settled_only_df(d0)
+
+    try:
+        rows_total = int(len(d0)) if d0 is not None else 0
+    except Exception:
+        rows_total = 0
+    try:
+        rows = int(len(settled)) if settled is not None else 0
+    except Exception:
+        rows = 0
+
+    summary_all = _summarize_ledger(settled)
+    summary_row = summary_all[0] if summary_all else _accuracy_summary_row_default()
+
+    avg_ev = None
+    try:
+        if settled is not None and (not getattr(settled, "empty", True)) and ("ev" in settled.columns):
+            ev_ser = pd.to_numeric(settled["ev"], errors="coerce").dropna()
+            if not ev_ser.empty:
+                avg_ev = float(ev_ser.mean())
+    except Exception:
+        avg_ev = None
+    summary_row = dict(summary_row)
+    summary_row["avg_ev"] = avg_ev
+
+    by_date = _summarize_ledger(settled, group_col="slate_date")
+    try:
+        by_date.sort(key=lambda r: str(r.get("key") or ""), reverse=True)
+    except Exception:
+        pass
+
+    by_market = _summarize_ledger(settled, group_col=market_col)
+    return {
+        "rows": rows,
+        "rows_total": rows_total,
+        "unsettled_rows": max(0, rows_total - rows),
+        "summary": summary_row,
+        "by_date": by_date,
+        "by_market": by_market,
+        "latest_available_date": _latest_slate_date_from_df(d0),
+    }
+
+
 @app.get("/api/live-lens-accuracy/data")
 async def api_live_lens_accuracy_data(
     date: Optional[str] = Query(None, description="YYYY-MM-DD (ET)"),
@@ -1404,43 +1653,62 @@ async def api_live_lens_accuracy_data(
         date0 = _parse_ymd(date)
         start0 = _parse_ymd(start)
         end0 = _parse_ymd(end)
+        requested_start = start0
+        requested_end = end0
         if date0:
-            start0 = date0
-            end0 = date0
+            requested_start = date0
+            requested_end = date0
+
+        seed_dates = [d for d in (date0, requested_start, requested_end) if d]
+        try:
+            seed_stats = _seed_repo_accuracy_artifacts_to_proc_dir(seed_dates)
+        except Exception:
+            seed_stats = {"checked": 0, "copied": 0}
 
         perf_dir = _live_lens_perf_dir()
         files = _perf_files(perf_dir)
         if limit_files and limit_files > 0:
             files = files[: int(limit_files)]
 
-        # Default: most recent date we have data for, best-effort.
-        if not start0 and not end0:
-            try:
-                # Try to infer from the most recent file's content.
-                if files:
-                    df_tmp = _read_ledger_df([files[0]], None, None)
-                    if df_tmp is not None and (not df_tmp.empty) and "date" in df_tmp.columns:
-                        dmax = str(df_tmp["date"].dropna().astype(str).max())
-                        if _parse_ymd(dmax):
-                            start0 = dmax
-                            end0 = dmax
-            except Exception:
-                pass
+        latest_available_date = _latest_ledger_date(files)
 
-        cache_key = ("live_lens_accuracy", start0, end0, int(limit_files or 0), str(perf_dir))
+        # Default: most recent date we have data for, best-effort.
+        start0 = requested_start
+        end0 = requested_end
+        if not start0 and not end0 and latest_available_date:
+            start0 = latest_available_date
+            end0 = latest_available_date
+
+        fallback_applied = False
+        note = None
+
+        df = _read_ledger_df(files, start0, end0)
+        df_settled = _settled_only_df(df)
+        try:
+            n_rows_settled = int(len(df_settled)) if df_settled is not None else 0
+        except Exception:
+            n_rows_settled = 0
+        if date0 and n_rows_settled == 0 and latest_available_date and latest_available_date != date0:
+            start0 = latest_available_date
+            end0 = latest_available_date
+            fallback_applied = True
+            note = f"No settled rows for {date0}; showing latest settled date {latest_available_date}."
+            df = _read_ledger_df(files, start0, end0)
+            df_settled = _settled_only_df(df)
+
+        cache_key = (
+            "live_lens_accuracy",
+            date0,
+            requested_start,
+            requested_end,
+            start0,
+            end0,
+            int(limit_files or 0),
+            str(perf_dir),
+        )
         cached = _cache_get(cache_key, ttl_seconds=_CACHE_TTL)
         if cached is not None:
             return JSONResponse(cached)
-
-        df = _read_ledger_df(files, start0, end0)
-
-        # Only summarize settled bets; ledgers may contain rows without outcomes yet.
-        df_settled = df
-        try:
-            if df_settled is not None and (not getattr(df_settled, "empty", True)) and ("result" in df_settled.columns):
-                df_settled = df_settled[df_settled["result"].isin(["WIN", "LOSE", "PUSH"])].copy()
-        except Exception:
-            df_settled = df
 
         summary_all = _summarize_ledger(df_settled)
         by_date = _summarize_ledger(df_settled, group_col="date")
@@ -1523,9 +1791,17 @@ async def api_live_lens_accuracy_data(
         out = {
             "ok": True,
             "date": date0,
+            "requested_date": date0,
+            "requested_start": requested_start,
+            "requested_end": requested_end,
+            "effective_date": start0 if (start0 and start0 == end0) else None,
             "start": start0,
             "end": end0,
+            "latest_available_date": latest_available_date,
+            "fallback_applied": fallback_applied,
+            "note": note,
             "perf_dir": str(perf_dir),
+            "seeded_from_repo": seed_stats,
             "files_scanned": [str(p) for p in files],
             "rows": n_rows_settled,
             "rows_total": n_rows_total,
@@ -1538,6 +1814,128 @@ async def api_live_lens_accuracy_data(
             "by_driver_tag_all": by_driver_tag_all,
             "by_tag_type": by_tag_type,
             "tag_coverage": tag_coverage,
+        }
+        _cache_put(cache_key, out)
+        return JSONResponse(out)
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/pregame-accuracy/data")
+async def api_pregame_accuracy_data(
+    date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD (ET)"),
+    start: Optional[str] = Query(None, description="YYYY-MM-DD (inclusive)"),
+    end: Optional[str] = Query(None, description="YYYY-MM-DD (inclusive)"),
+):
+    try:
+        date0 = _parse_ymd(date)
+        start0 = _parse_ymd(start)
+        end0 = _parse_ymd(end)
+        requested_start = start0
+        requested_end = end0
+        if date0:
+            requested_start = date0
+            requested_end = date0
+
+        seed_dates = [d for d in (date0, requested_start, requested_end) if d]
+        try:
+            seed_stats = _seed_repo_accuracy_artifacts_to_proc_dir(seed_dates)
+        except Exception:
+            seed_stats = {"checked": 0, "copied": 0}
+
+        games_all = _read_pregame_accuracy_log_df("games")
+        props_all = _read_pregame_accuracy_log_df("props")
+
+        latest_games = _latest_slate_date_from_df(games_all)
+        latest_props = _latest_slate_date_from_df(props_all)
+        latest_candidates = [d for d in (latest_games, latest_props) if d]
+        latest_available_date = max(latest_candidates) if latest_candidates else None
+
+        start0 = requested_start
+        end0 = requested_end
+        if not start0 and not end0 and latest_available_date:
+            start0 = latest_available_date
+            end0 = latest_available_date
+
+        games_df = _filter_slate_date_df(games_all, start0, end0)
+        props_df = _filter_slate_date_df(props_all, start0, end0)
+
+        fallback_applied = False
+        note = None
+        games_section = _build_accuracy_section(games_df, market_col="market")
+        props_section = _build_accuracy_section(props_df, market_col="market")
+        if date0 and int(games_section.get("rows") or 0) == 0 and int(props_section.get("rows") or 0) == 0 and latest_available_date and latest_available_date != date0:
+            start0 = latest_available_date
+            end0 = latest_available_date
+            fallback_applied = True
+            note = f"No settled pregame rows for {date0}; showing latest settled date {latest_available_date}."
+            games_df = _filter_slate_date_df(games_all, start0, end0)
+            props_df = _filter_slate_date_df(props_all, start0, end0)
+            games_section = _build_accuracy_section(games_df, market_col="market")
+            props_section = _build_accuracy_section(props_df, market_col="market")
+
+        cache_key = (
+            "pregame_accuracy",
+            date0,
+            requested_start,
+            requested_end,
+            start0,
+            end0,
+            str(PROC_DIR),
+        )
+        cached = _cache_get(cache_key, ttl_seconds=_CACHE_TTL)
+        if cached is not None:
+            return JSONResponse(cached)
+
+        combined_parts: list[pd.DataFrame] = []
+        try:
+            if games_df is not None and not getattr(games_df, "empty", True):
+                g0 = _settled_only_df(games_df).copy()
+                if not getattr(g0, "empty", True):
+                    g0["kind"] = "games"
+                    combined_parts.append(g0)
+        except Exception:
+            pass
+        try:
+            if props_df is not None and not getattr(props_df, "empty", True):
+                p0 = _settled_only_df(props_df).copy()
+                if not getattr(p0, "empty", True):
+                    p0["kind"] = "props"
+                    combined_parts.append(p0)
+        except Exception:
+            pass
+
+        combined_df = pd.concat(combined_parts, ignore_index=True) if combined_parts else pd.DataFrame()
+        combined_summary_all = _summarize_ledger(combined_df)
+        combined_summary = combined_summary_all[0] if combined_summary_all else _accuracy_summary_row_default()
+        combined = {
+            "rows": int(len(combined_df)) if not combined_df.empty else 0,
+            "rows_total": int(games_section.get("rows_total") or 0) + int(props_section.get("rows_total") or 0),
+            "summary": combined_summary,
+            "by_date": _summarize_ledger(combined_df, group_col="slate_date"),
+            "by_kind": _summarize_ledger(combined_df, group_col="kind"),
+        }
+        try:
+            combined["by_date"].sort(key=lambda r: str(r.get("key") or ""), reverse=True)
+        except Exception:
+            pass
+
+        out = {
+            "ok": True,
+            "date": date0,
+            "requested_date": date0,
+            "requested_start": requested_start,
+            "requested_end": requested_end,
+            "effective_date": start0 if (start0 and start0 == end0) else None,
+            "start": start0,
+            "end": end0,
+            "latest_available_date": latest_available_date,
+            "fallback_applied": fallback_applied,
+            "note": note,
+            "seeded_from_repo": seed_stats,
+            "games": games_section,
+            "props": props_section,
+            "combined": combined,
         }
         _cache_put(cache_key, out)
         return JSONResponse(out)
@@ -1783,6 +2181,15 @@ async def lifespan(app_: FastAPI):
                 pass
     except Exception:
         pass
+    try:
+        accuracy_seed_stats = _seed_repo_accuracy_artifacts_to_proc_dir(seed_dates)
+        if int(accuracy_seed_stats.get("copied") or 0) > 0:
+            try:
+                print(json.dumps({"event": "accuracy_artifacts_seeded_from_repo", "checked": int(accuracy_seed_stats.get("checked") or 0), "copied": int(accuracy_seed_stats.get("copied") or 0), "dates": seed_dates}))
+            except Exception:
+                pass
+    except Exception:
+        pass
     # Model bootstrap scheduling (merged from old second startup handler)
     try:
         from ..utils.io import MODEL_DIR
@@ -1886,6 +2293,13 @@ async def lifespan(app_: FastAPI):
                                     await asyncio.wait_for(work, timeout=float(per_date_timeout))
                                 else:
                                     await work
+                                try:
+                                    _refresh_props_recommendations(dd, min_ev=0.0, top=200)
+                                except Exception as e:
+                                    try:
+                                        print(json.dumps({"event": "props_recommendations_refresh_error", "date": dd, "error": str(e)}))
+                                    except Exception:
+                                        pass
                             except asyncio.CancelledError:
                                 raise
                             except Exception as e:
@@ -12756,20 +13170,32 @@ async def api_props_health(date: Optional[str] = Query(None)):
     """
     d = date or _today_ymd()
     try:
-        _seed_repo_props_artifacts_to_active_dirs([d])
+        props_seed_stats = _seed_repo_props_artifacts_to_active_dirs([d])
     except Exception:
-        pass
+        props_seed_stats = {"checked": 0, "copied": 0}
     proj_path = PROC_DIR / f"props_projections_{d}.csv"
     rec_path = PROC_DIR / f"props_recommendations_{d}.csv"
     lines_dir = _props_lines_dir(d)
+    try:
+        sched_mins = int(str(os.getenv("ODDS_SNAPSHOT_SCHED_MINUTES", "0") or "0").strip())
+    except Exception:
+        sched_mins = 0
     out = {
         "date": d,
-        "projections_csv": {"exists": proj_path.exists(), "rows": None},
-        "recommendations_csv": {"exists": rec_path.exists(), "rows": None},
+        "seeded_from_repo": props_seed_stats,
+        "auto_refresh": {
+            "snapshot_schedule_minutes": sched_mins,
+            "recommendations_refresh_on_snapshot": bool(sched_mins > 0),
+        },
+        "projections_csv": {"exists": proj_path.exists(), "rows": None, "mtime": _file_mtime_iso(proj_path)},
+        "recommendations_csv": {"exists": rec_path.exists(), "rows": None, "mtime": _file_mtime_iso(rec_path)},
         "lines": {
             "path": str(lines_dir),
             "exists": lines_dir.exists(),
             "files": [],
+            "file_count": 0,
+            "latest_mtime": None,
+            "files_detail": [],
         },
     }
     try:
@@ -12787,9 +13213,26 @@ async def api_props_health(date: Optional[str] = Query(None)):
     try:
         if lines_dir.exists():
             files = []
-            for p in sorted(lines_dir.glob("*.parquet")):
+            details = []
+            for p in sorted(lines_dir.glob("*")):
+                try:
+                    if not p.is_file():
+                        continue
+                except Exception:
+                    continue
+                if str(p.suffix or "").lower() not in {".parquet", ".csv", ".json"}:
+                    continue
                 files.append(p.name)
+                details.append({
+                    "name": p.name,
+                    "size_bytes": int(p.stat().st_size),
+                    "mtime": _file_mtime_iso(p),
+                })
             out["lines"]["files"] = files
+            out["lines"]["file_count"] = int(len(files))
+            out["lines"]["files_detail"] = details
+            mtimes = [str(x.get("mtime") or "") for x in details if x.get("mtime")]
+            out["lines"]["latest_mtime"] = max(mtimes) if mtimes else None
     except Exception:
         pass
     return JSONResponse(out)

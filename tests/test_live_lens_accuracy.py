@@ -116,3 +116,121 @@ def test_live_lens_accuracy_page_alias_renders(monkeypatch: pytest.MonkeyPatch, 
     r = client.get("/live_lens_accuracy?date=2099-01-01")
     assert r.status_code == 200
     assert "Live Lens Accuracy" in r.text
+
+
+def test_live_lens_accuracy_seeds_repo_and_falls_back_to_latest_settled_date(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+):
+    active_proc = tmp_path / "active" / "processed"
+    active_perf = active_proc / "live_lens" / "perf"
+    active_perf.mkdir(parents=True, exist_ok=True)
+
+    repo_proc = tmp_path / "repo" / "processed"
+    repo_perf = repo_proc / "live_lens" / "perf"
+    repo_perf.mkdir(parents=True, exist_ok=True)
+
+    recs = [
+        {
+            "date": "2099-01-01",
+            "market": "TOTAL",
+            "result": "WIN",
+            "profit_units": 0.9,
+        },
+        {
+            "date": "2099-01-03",
+            "market": "ML",
+            "result": "LOSE",
+            "profit_units": -1.0,
+        },
+    ]
+    with (repo_perf / "live_lens_bets_all.jsonl").open("w", encoding="utf-8") as f:
+        for r in recs:
+            f.write(json.dumps(r) + "\n")
+
+    monkeypatch.setattr(web_app, "PROC_DIR", active_proc)
+    monkeypatch.setattr(web_app, "_repo_proc_dir", lambda: repo_proc)
+    monkeypatch.setattr(web_app, "_seed_repo_bundle_artifacts_to_proc_dir", lambda *args, **kwargs: {"checked": 0, "copied": 0})
+    monkeypatch.setattr(web_app, "_seed_repo_props_artifacts_to_active_dirs", lambda *args, **kwargs: {"checked": 0, "copied": 0})
+    monkeypatch.setenv("LIVE_LENS_PERF_DIR", str(active_perf))
+
+    try:
+        web_app._CACHE.clear()
+    except Exception:
+        pass
+
+    with TestClient(web_app.app) as client:
+        r = client.get("/api/live-lens-accuracy/data?date=2099-01-10")
+
+    assert r.status_code == 200
+    obj = r.json()
+    assert obj.get("ok") is True
+    assert obj.get("requested_date") == "2099-01-10"
+    assert obj.get("start") == "2099-01-03"
+    assert obj.get("end") == "2099-01-03"
+    assert obj.get("latest_available_date") == "2099-01-03"
+    assert obj.get("fallback_applied") is True
+    assert obj.get("rows") == 1
+    assert (active_perf / "live_lens_bets_all.jsonl").exists()
+
+
+def test_pregame_accuracy_data_reads_logs_and_normalizes_game_dates(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+):
+    active_proc = tmp_path / "active" / "processed"
+    active_proc.mkdir(parents=True, exist_ok=True)
+    repo_proc = tmp_path / "repo" / "processed"
+    repo_proc.mkdir(parents=True, exist_ok=True)
+
+    (repo_proc / "reconciliations_log.csv").write_text(
+        "date,home,away,market,bet,ev,price,result,stake,payout\n"
+        "2099-01-01T23:30:00Z,Home A,Away A,moneyline,home_ml,0.11,-110,win,100,90.9091\n"
+        "2099-01-02T00:30:00Z,Home B,Away B,totals,under,0.07,-105,loss,100,-100\n",
+        encoding="utf-8",
+    )
+    (repo_proc / "props_reconciliations_log.csv").write_text(
+        "date,market,player,line,side,odds,ev,actual,result,stake,payout\n"
+        "2099-01-01,SOG,Player One,2.5,Over,-110,0.14,3,win,100,90.9091\n"
+        "2099-01-01,GOALS,Player Two,0.5,Under,120,0.05,1,loss,100,-100\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(web_app, "PROC_DIR", active_proc)
+    monkeypatch.setattr(web_app, "_repo_proc_dir", lambda: repo_proc)
+    monkeypatch.setattr(web_app, "_seed_repo_bundle_artifacts_to_proc_dir", lambda *args, **kwargs: {"checked": 0, "copied": 0})
+    monkeypatch.setattr(web_app, "_seed_repo_props_artifacts_to_active_dirs", lambda *args, **kwargs: {"checked": 0, "copied": 0})
+
+    try:
+        web_app._CACHE.clear()
+    except Exception:
+        pass
+
+    with TestClient(web_app.app) as client:
+        r = client.get("/api/pregame-accuracy/data?date=2099-01-01")
+
+    assert r.status_code == 200
+    obj = r.json()
+    assert obj.get("ok") is True
+    assert obj.get("start") == "2099-01-01"
+    assert obj.get("end") == "2099-01-01"
+    assert obj.get("fallback_applied") is False
+
+    games = obj.get("games") or {}
+    props = obj.get("props") or {}
+    combined = obj.get("combined") or {}
+
+    assert games.get("rows") == 2
+    assert props.get("rows") == 2
+    assert (combined.get("summary") or {}).get("bets") == 4
+
+    by_game_date = {str(row.get("key")): row for row in (games.get("by_date") or [])}
+    assert by_game_date["2099-01-01"]["bets"] == 2
+
+    by_game_market = {str(row.get("key")): row for row in (games.get("by_market") or [])}
+    assert by_game_market["moneyline"]["bets"] == 1
+    assert by_game_market["totals"]["bets"] == 1
+
+    by_props_market = {str(row.get("key")): row for row in (props.get("by_market") or [])}
+    assert by_props_market["SOG"]["bets"] == 1
+    assert by_props_market["GOALS"]["bets"] == 1

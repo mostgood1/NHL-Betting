@@ -15446,6 +15446,16 @@ def _refresh_props_recommendations(date: str, min_ev: float = 0.0, top: int = 20
             pass
         return out
 
+    def _usable_lines_df(df: Optional[pd.DataFrame]) -> bool:
+        if df is None or df.empty:
+            return False
+        cols = set(df.columns)
+        if "market" not in cols or "line" not in cols:
+            return False
+        if not ({"player_name", "player"} & cols):
+            return False
+        return True
+
     # Load canonical lines (ONLY OddsAPI), prefer local; GH fallback allowed in cron
     base = _props_lines_dir(d)
     parts = []
@@ -15456,27 +15466,31 @@ def _refresh_props_recommendations(date: str, min_ev: float = 0.0, top: int = 20
         if p_parquet.exists():
             local_line_files.append(p_parquet)
             try:
-                parts.append(pd.read_parquet(p_parquet, engine="pyarrow"))
-                continue
+                pq = pd.read_parquet(p_parquet, engine="pyarrow")
+                if _usable_lines_df(pq):
+                    parts.append(pq)
+                    continue
             except Exception:
                 pass
         if p_csv.exists():
             local_line_files.append(p_csv)
             try:
-                parts.append(pd.read_csv(p_csv))
-                continue
+                csv_df = pd.read_csv(p_csv)
+                if _usable_lines_df(csv_df):
+                    parts.append(csv_df)
+                    continue
             except Exception:
                 pass
         try:
             ghp = _github_raw_read_parquet(f"data/props/player_props_lines/date={d}/{stem}.parquet")
-            if ghp is not None and not ghp.empty:
+            if _usable_lines_df(ghp):
                 parts.append(ghp)
                 continue
         except Exception:
             pass
         try:
             ghc = _github_raw_read_csv(f"data/props/player_props_lines/date={d}/{stem}.csv")
-            if ghc is not None and not ghc.empty:
+            if _usable_lines_df(ghc):
                 parts.append(ghc)
         except Exception:
             pass

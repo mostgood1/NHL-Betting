@@ -124,6 +124,23 @@ def _atomic_write_text(path: Path, text: str) -> None:
             pass
 
 
+def _atomic_write_bytes(path: Path, data: bytes) -> None:
+    """Atomic binary write (temp + replace) to avoid partial files."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    dirpath = str(path.parent)
+    with tempfile.NamedTemporaryFile(mode="wb", delete=False, dir=dirpath, suffix=".tmp") as tmp:
+        tmp_path = Path(tmp.name)
+        tmp.write(data)
+    try:
+        os.replace(str(tmp_path), str(path))
+    finally:
+        try:
+            if tmp_path.exists():
+                tmp_path.unlink()
+        except Exception:
+            pass
+
+
 def _same_path_loose(a: Path, b: Path) -> bool:
     try:
         return a.resolve() == b.resolve()
@@ -138,7 +155,11 @@ def _repo_proc_dir() -> Path:
     return ROOT_DIR / "data" / "processed"
 
 
-def _copy_text_file_if_newer(src: Path, dst: Path) -> bool:
+def _repo_props_dir() -> Path:
+    return ROOT_DIR / "data" / "props"
+
+
+def _copy_file_if_newer(src: Path, dst: Path) -> bool:
     try:
         if not src.exists():
             return False
@@ -158,8 +179,8 @@ def _copy_text_file_if_newer(src: Path, dst: Path) -> bool:
                         return False
                 except Exception:
                     pass
-        text = src.read_text(encoding="utf-8")
-        _atomic_write_text(dst, text)
+        data = src.read_bytes()
+        _atomic_write_bytes(dst, data)
         try:
             sst = src.stat()
             os.utime(dst, ns=(sst.st_atime_ns, sst.st_mtime_ns))
@@ -210,7 +231,59 @@ def _seed_repo_bundle_artifacts_to_proc_dir(dates: Optional[list[str]] = None, i
 
         for src, dst in tasks:
             stats["checked"] += 1
-            if _copy_text_file_if_newer(src, dst):
+            if _copy_file_if_newer(src, dst):
+                stats["copied"] += 1
+    except Exception:
+        return stats
+    return stats
+
+
+def _seed_repo_props_artifacts_to_active_dirs(dates: Optional[list[str]] = None) -> dict[str, int]:
+    """Best-effort: seed tracked repo props artifacts into active disk-backed dirs.
+
+    Copies tracked per-date processed props CSVs plus canonical props line files from
+    the deployed repo checkout into the active `PROC_DIR` / props directory when those
+    point at a persistent disk (as on Render).
+    """
+    stats = {"checked": 0, "copied": 0}
+    try:
+        repo_proc_dir = _repo_proc_dir()
+        repo_props_dir = _repo_props_dir()
+        active_props_dir = _props_dir()
+
+        seen: set[str] = set()
+        tasks: list[tuple[Path, Path]] = []
+        for d in dates or []:
+            ds = str(d or "").strip()
+            if not ds or ds in seen:
+                continue
+            seen.add(ds)
+
+            if not _same_path_loose(repo_proc_dir, PROC_DIR):
+                for name in (
+                    f"props_recommendations_{ds}.csv",
+                    f"props_projections_{ds}.csv",
+                    f"props_projections_all_{ds}.csv",
+                ):
+                    tasks.append((repo_proc_dir / name, PROC_DIR / name))
+
+            if not _same_path_loose(repo_props_dir, active_props_dir):
+                src_lines_dir = repo_props_dir / "player_props_lines" / f"date={ds}"
+                dst_lines_dir = active_props_dir / "player_props_lines" / f"date={ds}"
+                if src_lines_dir.exists():
+                    for src in sorted(src_lines_dir.glob("*")):
+                        try:
+                            if not src.is_file():
+                                continue
+                        except Exception:
+                            continue
+                        if str(src.suffix or "").lower() not in {".csv", ".parquet", ".json"}:
+                            continue
+                        tasks.append((src, dst_lines_dir / src.name))
+
+        for src, dst in tasks:
+            stats["checked"] += 1
+            if _copy_file_if_newer(src, dst):
                 stats["copied"] += 1
     except Exception:
         return stats
@@ -1642,6 +1715,26 @@ async def lifespan(app_: FastAPI):
                 pass
     except Exception:
         pass
+    try:
+        d0 = _today_ymd()
+        seed_dates = [d0]
+        try:
+            dt0 = datetime.strptime(d0, "%Y-%m-%d")
+            seed_dates = [
+                (dt0 + timedelta(days=-1)).strftime("%Y-%m-%d"),
+                d0,
+                (dt0 + timedelta(days=1)).strftime("%Y-%m-%d"),
+            ]
+        except Exception:
+            pass
+        props_seed_stats = _seed_repo_props_artifacts_to_active_dirs(seed_dates)
+        if int(props_seed_stats.get("copied") or 0) > 0:
+            try:
+                print(json.dumps({"event": "props_seeded_from_repo", "checked": int(props_seed_stats.get("checked") or 0), "copied": int(props_seed_stats.get("copied") or 0), "dates": seed_dates}))
+            except Exception:
+                pass
+    except Exception:
+        pass
     # Model bootstrap scheduling (merged from old second startup handler)
     try:
         from ..utils.io import MODEL_DIR
@@ -2323,6 +2416,44 @@ def _load_bundle_predictions_map(date_ymd: str) -> dict:
         return out
     except Exception:
         return {}
+
+
+def _load_bundle_props_recommendations_df(date_ymd: str) -> pd.DataFrame:
+    """Best-effort: load props recommendations rows from the persisted daily bundle."""
+    try:
+        from ..publish.daily_bundles import bundle_path
+
+        try:
+            _seed_repo_bundle_artifacts_to_proc_dir(dates=[date_ymd], include_manifest=False)
+        except Exception:
+            pass
+
+        obj = None
+        p = bundle_path(date_ymd, PROC_DIR)
+        if p.exists():
+            try:
+                obj = json.loads(p.read_text(encoding="utf-8"))
+            except Exception:
+                obj = None
+        if obj is None:
+            try:
+                repo_p = bundle_path(date_ymd, _repo_proc_dir())
+                if repo_p.exists():
+                    obj = json.loads(repo_p.read_text(encoding="utf-8"))
+            except Exception:
+                obj = None
+
+        rows = (
+            (obj or {}).get("data", {})
+            .get("props", {})
+            .get("recommendations", {})
+            .get("rows", [])
+        )
+        if not isinstance(rows, list) or not rows:
+            return pd.DataFrame()
+        return pd.DataFrame(rows)
+    except Exception:
+        return pd.DataFrame()
 
 
 def _v1_odds_payload(
@@ -3334,6 +3465,11 @@ async def v1_props_cards(
             n_top = 12
         n_top = max(0, min(100, n_top))
 
+        try:
+            _seed_repo_props_artifacts_to_active_dirs([d])
+        except Exception:
+            pass
+
         # Load props recommendations for date (local first, GH raw fallback).
         df = None
         try:
@@ -3345,6 +3481,11 @@ async def v1_props_cards(
         if df is None or (isinstance(df, pd.DataFrame) and df.empty):
             try:
                 df = _github_raw_read_csv(f"data/processed/props_recommendations_{d}.csv")
+            except Exception:
+                df = df
+        if df is None or (isinstance(df, pd.DataFrame) and df.empty):
+            try:
+                df = _load_bundle_props_recommendations_df(d)
             except Exception:
                 df = df
 
@@ -12533,6 +12674,10 @@ async def api_props_health(date: Optional[str] = Query(None)):
     Reports existence and row counts for projections/recommendations CSVs and presence of raw props lines parquet files.
     """
     d = date or _today_ymd()
+    try:
+        _seed_repo_props_artifacts_to_active_dirs([d])
+    except Exception:
+        pass
     proj_path = PROC_DIR / f"props_projections_{d}.csv"
     rec_path = PROC_DIR / f"props_recommendations_{d}.csv"
     lines_dir = _props_lines_dir(d)
@@ -12787,6 +12932,10 @@ async def api_player_props(
     """Return canonical player props lines for a date from data/props/player_props_lines/date=YYYY-MM-DD/*.parquet."""
     date = date or _today_ymd()
     try:
+        try:
+            _seed_repo_props_artifacts_to_active_dirs([date])
+        except Exception:
+            pass
         base = _props_lines_dir(date)
         parts = []
         # Prefer parquet (smaller/faster), but fall back to tracked CSV artifacts on Render.
@@ -12846,6 +12995,10 @@ async def api_props_recommendations(
     """Serve props recommendations for a given date. If cached CSV exists, read; else compute on the fly via CLI logic."""
     try:
         date = date or _today_ymd()
+        try:
+            _seed_repo_props_artifacts_to_active_dirs([date])
+        except Exception:
+            pass
         # Respect read-only mode: if cache missing, do not compute on-demand
         read_only_ui = _read_only(date)
         rec_path = PROC_DIR / f"props_recommendations_{date}.csv"

@@ -9,12 +9,28 @@ from nhl_betting.web import app as app_mod
 
 
 def _write_csv(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
 
 
 def _write_json(path: Path, obj: object) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(obj), encoding="utf-8")
+
+
+def _set_render_like_paths(tmp_path: Path, monkeypatch):
+    repo_root = tmp_path / "repo"
+    data_dir = tmp_path / "disk" / "data"
+    proc_dir = data_dir / "processed"
+
+    monkeypatch.setattr(app_mod, "ROOT_DIR", repo_root)
+    monkeypatch.setattr(app_mod, "DATA_DIR", data_dir)
+    monkeypatch.setattr(app_mod, "RAW_DIR", data_dir / "raw")
+    monkeypatch.setattr(app_mod, "PROC_DIR", proc_dir)
+    monkeypatch.setattr(app_mod, "MODEL_DIR", data_dir / "models")
+    monkeypatch.delenv("NHL_PROPS_DIR", raising=False)
+    monkeypatch.delenv("PROPS_DIR", raising=False)
+    return repo_root, data_dir, proc_dir
 
 
 def test_v1_bundle_enriches_team_logos(tmp_path: Path, monkeypatch):
@@ -148,3 +164,84 @@ def test_v1_dates_seeds_repo_manifest_to_active_proc_dir(tmp_path: Path, monkeyp
     assert payload.get("latest") == "2026-03-06"
     assert payload.get("dates") == ["2026-03-05", "2026-03-06"]
     assert (proc_dir / "bundles" / "manifest.json").exists()
+
+
+def test_v1_props_cards_seed_repo_recommendations_to_active_proc_dir(tmp_path: Path, monkeypatch):
+    repo_root, data_dir, proc_dir = _set_render_like_paths(tmp_path, monkeypatch)
+
+    _write_csv(
+        repo_root / "data" / "processed" / "props_recommendations_2026-03-06.csv",
+        "player,team,opp,market,side,book,line,price,ev\n"
+        "Nathan MacKinnon,COL,DAL,SOG,Over,draftkings,3.5,-110,0.08\n",
+    )
+    monkeypatch.setattr(app_mod, "_github_raw_read_csv", lambda *_a, **_k: None, raising=True)
+
+    client = TestClient(app_mod.app)
+    r = client.get("/v1/props-cards/2026-03-06?top=12")
+    assert r.status_code == 200
+
+    payload = r.json()
+    assert payload.get("ok") is True
+    assert payload.get("note") is None
+    assert len(payload.get("cards") or []) == 1
+    assert payload["cards"][0].get("player") == "Nathan MacKinnon"
+    assert (proc_dir / "props_recommendations_2026-03-06.csv").exists()
+
+
+def test_v1_props_cards_fallback_to_bundle_recommendations(tmp_path: Path, monkeypatch):
+    repo_root, _data_dir, _proc_dir = _set_render_like_paths(tmp_path, monkeypatch)
+
+    bundle_obj = {
+        "data": {
+            "props": {
+                "recommendations": {
+                    "rows": [
+                        {
+                            "player": "Connor McDavid",
+                            "team": "EDM",
+                            "opp": "CGY",
+                            "market": "POINTS",
+                            "side": "Over",
+                            "book": "draftkings",
+                            "line": 1.5,
+                            "price": 105,
+                            "ev": 0.06,
+                        }
+                    ]
+                }
+            }
+        }
+    }
+    _write_json(repo_root / "data" / "processed" / "bundles" / "date=2026-03-06" / "bundle.json", bundle_obj)
+    monkeypatch.setattr(app_mod, "_github_raw_read_csv", lambda *_a, **_k: None, raising=True)
+
+    client = TestClient(app_mod.app)
+    r = client.get("/v1/props-cards/2026-03-06?top=12")
+    assert r.status_code == 200
+
+    payload = r.json()
+    assert payload.get("ok") is True
+    assert payload.get("note") is None
+    assert len(payload.get("cards") or []) == 1
+    assert payload["cards"][0].get("player") == "Connor McDavid"
+
+
+def test_api_player_props_seeds_repo_line_files_to_active_props_dir(tmp_path: Path, monkeypatch):
+    repo_root, data_dir, _proc_dir = _set_render_like_paths(tmp_path, monkeypatch)
+
+    _write_csv(
+        repo_root / "data" / "props" / "player_props_lines" / "date=2026-03-06" / "oddsapi.csv",
+        "date,player_name,player_id,team,market,line,over_price,under_price,book,is_current\n"
+        "2026-03-06,Nathan MacKinnon,8477492,COL,SOG,3.5,-110,-110,draftkings,True\n",
+    )
+
+    client = TestClient(app_mod.app)
+    r = client.get("/api/player-props?date=2026-03-06")
+    assert r.status_code == 200
+
+    payload = r.json()
+    assert payload.get("date") == "2026-03-06"
+    data = payload.get("data") or []
+    assert len(data) == 1
+    assert data[0].get("player") == "Nathan MacKinnon"
+    assert (data_dir / "props" / "player_props_lines" / "date=2026-03-06" / "oddsapi.csv").exists()

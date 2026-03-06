@@ -230,6 +230,33 @@ def test_v1_props_cards_refreshes_stale_recommendations_from_lines(tmp_path: Pat
     assert payload["cards"][0].get("player") == "New Player"
 
 
+def test_refresh_props_recommendations_reads_csv_lines_fallback(tmp_path: Path, monkeypatch):
+    _repo_root, data_dir, proc_dir = _set_render_like_paths(tmp_path, monkeypatch)
+
+    _write_csv(
+        data_dir / "props" / "player_props_lines" / "date=2026-03-06" / "oddsapi.csv",
+        "date,player_name,team,market,line,over_price,under_price,book\n"
+        "2026-03-06,CSV Player,COL,SOG,1.5,100,-200,draftkings\n",
+    )
+    _write_csv(
+        proc_dir / "props_projections_all_2026-03-06.csv",
+        "player,market,proj_lambda\n"
+        "CSV Player,SOG,4.2\n",
+    )
+
+    monkeypatch.setattr(app_mod, "_gh_upsert_file_if_better_or_same", lambda *_a, **_k: {"ok": True}, raising=True)
+
+    res = app_mod._refresh_props_recommendations("2026-03-06", min_ev=0.0, top=50)
+
+    assert res.get("ok") is True
+    assert int(res.get("rows") or 0) >= 1
+
+    out_path = proc_dir / "props_recommendations_2026-03-06.csv"
+    assert out_path.exists()
+    text = out_path.read_text(encoding="utf-8")
+    assert "CSV Player" in text
+
+
 def test_v1_props_cards_include_team_logo_and_headshot(tmp_path: Path, monkeypatch):
     repo_root, _data_dir, proc_dir = _set_render_like_paths(tmp_path, monkeypatch)
 

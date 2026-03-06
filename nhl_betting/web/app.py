@@ -16,6 +16,13 @@ from io import StringIO
 import numpy as np
 import pandas as pd
 
+try:
+    from ..utils.io import save_df  # type: ignore
+except Exception:
+    def save_df(df: pd.DataFrame, path: Path) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        df.to_csv(path, index=False)
+
 from fastapi import BackgroundTasks, FastAPI, Header, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response, FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -15421,21 +15428,36 @@ def _refresh_props_recommendations(date: str, min_ev: float = 0.0, top: int = 20
     base = _props_lines_dir(d)
     parts = []
     local_line_files = []
-    for fname in ("oddsapi.parquet", "bovada.parquet"):
-        p = base / fname
-        if p.exists():
-            local_line_files.append(p)
+    for stem in ("oddsapi", "bovada"):
+        p_parquet = base / f"{stem}.parquet"
+        p_csv = base / f"{stem}.csv"
+        if p_parquet.exists():
+            local_line_files.append(p_parquet)
             try:
-                parts.append(pd.read_parquet(p, engine="pyarrow"))
+                parts.append(pd.read_parquet(p_parquet, engine="pyarrow"))
+                continue
             except Exception:
                 pass
-        else:
+        if p_csv.exists():
+            local_line_files.append(p_csv)
             try:
-                ghp = _github_raw_read_parquet(f"data/props/player_props_lines/date={d}/{fname}")
-                if ghp is not None and not ghp.empty:
-                    parts.append(ghp)
+                parts.append(pd.read_csv(p_csv))
+                continue
             except Exception:
                 pass
+        try:
+            ghp = _github_raw_read_parquet(f"data/props/player_props_lines/date={d}/{stem}.parquet")
+            if ghp is not None and not ghp.empty:
+                parts.append(ghp)
+                continue
+        except Exception:
+            pass
+        try:
+            ghc = _github_raw_read_csv(f"data/props/player_props_lines/date={d}/{stem}.csv")
+            if ghc is not None and not ghc.empty:
+                parts.append(ghc)
+        except Exception:
+            pass
     if not parts:
         return {"ok": False, "date": d, "reason": "no_lines"}
     lines = pd.concat(parts, ignore_index=True)

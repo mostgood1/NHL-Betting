@@ -13,6 +13,8 @@ import json
 _HEAVY_APP = None  # type: Optional[object]
 _HEAVY_LOCK = threading.Lock()
 _HEAVY_LOADING = False
+_HEAVY_LIFESPAN_CM = None  # type: Optional[object]
+_HEAVY_LIFESPAN_ENTERED = False
 
 
 # Lightweight live endpoints caching (avoid heavy app imports)
@@ -318,6 +320,50 @@ def ensure_heavy_loaded(background: bool = True) -> bool:
                 _HEAVY_LOADING = False
 
 
+async def _enter_heavy_lifespan() -> bool:
+    global _HEAVY_LIFESPAN_CM, _HEAVY_LIFESPAN_ENTERED
+    if _HEAVY_LIFESPAN_ENTERED:
+        return True
+    ensure_heavy_loaded(background=False)
+    if _HEAVY_APP is None:
+        return False
+    try:
+        router = getattr(_HEAVY_APP, "router", None)
+        cm_factory = getattr(router, "lifespan_context", None)
+        if callable(cm_factory):
+            _HEAVY_LIFESPAN_CM = cm_factory(_HEAVY_APP)
+            await _HEAVY_LIFESPAN_CM.__aenter__()
+        _HEAVY_LIFESPAN_ENTERED = True
+        try:
+            print("[asgi] heavy lifespan entered")
+        except Exception:
+            pass
+        return True
+    except Exception:
+        _HEAVY_LIFESPAN_CM = None
+        _HEAVY_LIFESPAN_ENTERED = False
+        raise
+
+
+async def _exit_heavy_lifespan() -> None:
+    global _HEAVY_LIFESPAN_CM, _HEAVY_LIFESPAN_ENTERED
+    cm = _HEAVY_LIFESPAN_CM
+    entered = _HEAVY_LIFESPAN_ENTERED
+    _HEAVY_LIFESPAN_CM = None
+    _HEAVY_LIFESPAN_ENTERED = False
+    if not entered:
+        return
+    try:
+        if cm is not None:
+            await cm.__aexit__(None, None, None)
+        try:
+            print("[asgi] heavy lifespan exited")
+        except Exception:
+            pass
+    except Exception:
+        pass
+
+
 class WrapperASGI:
     async def __call__(self, scope, receive, send):
         scope_type = scope.get("type")
@@ -330,11 +376,19 @@ class WrapperASGI:
                         mtype = message.get("type")
                         if mtype == "lifespan.startup":
                             try:
-                                ensure_heavy_loaded(background=True)
-                            except Exception:
-                                pass
+                                ok = await _enter_heavy_lifespan()
+                                if not ok:
+                                    await send({"type": "lifespan.startup.failed", "message": "heavy app failed to load"})
+                                    return
+                            except Exception as e:
+                                await send({"type": "lifespan.startup.failed", "message": str(e)})
+                                return
                             await send({"type": "lifespan.startup.complete"})
                         elif mtype == "lifespan.shutdown":
+                            try:
+                                await _exit_heavy_lifespan()
+                            except Exception:
+                                pass
                             await send({"type": "lifespan.shutdown.complete"})
                             return
                 except Exception:

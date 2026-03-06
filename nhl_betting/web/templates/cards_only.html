@@ -205,6 +205,7 @@
     .compact-card .lens-card-tag { font-size: 10px; padding: 2px 7px; }
     .compact-card .scoreboard-strip { padding: 8px 0; margin: 6px 0 10px; gap: 6px; }
     .compact-card .scoreboard-strip .s-item { padding: 6px 8px; border-radius: 10px; }
+    .compact-card .game-card .props-game-tile { display:none; }
 
     .card.live-edge-ok { border-color:#1e7a45; box-shadow: 0 0 0 1px rgba(30,122,69,0.5), 0 2px 8px rgba(0,0,0,0.28); }
     .card.live-edge-warn { border-color:#3a4aa6; box-shadow: 0 0 0 1px rgba(58,74,166,0.55), 0 2px 8px rgba(0,0,0,0.28); }
@@ -618,6 +619,55 @@
           <tbody>${body || ''}</tbody>
         </table>
       `;
+    }
+
+    function renderSimBoxscoresOnly(pred, simRows) {
+      const rows = Array.isArray(simRows) ? simRows : [];
+      if (!rows.length) {
+        return `<div class="k">Projected box scores</div><div class="v muted">No sim boxscores available yet.</div>`;
+      }
+
+      const awayLabel = predTeamAbbr(pred, 'away') || String((pred && pred.away) || 'Away').trim() || 'Away';
+      const homeLabel = predTeamAbbr(pred, 'home') || String((pred && pred.home) || 'Home').trim() || 'Home';
+      const awayKey = String((pred && pred.away) || awayLabel).trim() || awayLabel;
+      const homeKey = String((pred && pred.home) || homeLabel).trim() || homeLabel;
+
+      const teamTotal = (teamKey, col) => {
+        const p0 = sumSim(rows, teamKey, 0, col);
+        if (p0 !== null && p0 !== undefined) return p0;
+        let total = 0;
+        let any = false;
+        for (const per of [1, 2, 3, 4]) {
+          const v = sumSim(rows, teamKey, per, col);
+          if (v !== null && v !== undefined) {
+            total += Number(v);
+            any = true;
+          }
+        }
+        return any ? total : null;
+      };
+
+      const awayLine = {
+        p1: sumSim(rows, awayKey, 1, 'goals'),
+        p2: sumSim(rows, awayKey, 2, 'goals'),
+        p3: sumSim(rows, awayKey, 3, 'goals'),
+        total: teamTotal(awayKey, 'goals'),
+      };
+      const homeLine = {
+        p1: sumSim(rows, homeKey, 1, 'goals'),
+        p2: sumSim(rows, homeKey, 2, 'goals'),
+        p3: sumSim(rows, homeKey, 3, 'goals'),
+        total: teamTotal(homeKey, 'goals'),
+      };
+
+      const out = [];
+      out.push(`<div class="k">Projected box scores</div>`);
+      out.push(renderLinescoreHtml('Sim line score', awayLabel, homeLabel, awayLine, homeLine, true));
+      out.push(renderSimSkatersTableHtml(`Skaters (${awayLabel})`, rows, awayKey));
+      out.push(renderSimSkatersTableHtml(`Skaters (${homeLabel})`, rows, homeKey));
+      out.push(renderSimGoaliesTableHtml(`Goalies (${awayLabel})`, rows, awayKey));
+      out.push(renderSimGoaliesTableHtml(`Goalies (${homeLabel})`, rows, homeKey));
+      return out.join('');
     }
 
     function evClass(ev) {
@@ -1038,7 +1088,7 @@
           }).join('') : `<span class="muted">No recommendations available for this game.</span>`}
         </div>
 
-        <div class="tile">
+        <div class="tile props-game-tile">
           <div class="markets-row">
             ${renderPropsEdgesHtml(`Props edges (${pred.away_abbr || 'Away'})`, propsAway)}
             ${renderPropsEdgesHtml(`Props edges (${pred.home_abbr || 'Home'})`, propsHome)}
@@ -1061,9 +1111,9 @@
         const merged = el.querySelector('.merged-body');
         if (merged) {
           if (Array.isArray(simForGame) && simForGame.length) {
-            merged.innerHTML = renderMergedSimLive({ away: pred.away, home: pred.home, lens: { players: { away: [], home: [] }, goalies: { away: [], home: [] } } }, simForGame);
+            merged.innerHTML = renderSimBoxscoresOnly(pred, simForGame);
           } else {
-            merged.innerHTML = `<div class="k">Sim vs Live</div><div class="v muted">No sim boxscores available yet.</div>`;
+            merged.innerHTML = `<div class="k">Projected box scores</div><div class="v muted">No sim boxscores available yet.</div>`;
           }
         }
       } catch (e) {}
@@ -2928,7 +2978,10 @@
                 gameState: g ? g.gameState : null,
                 lens: (g && g.lens) ? g.lens : { players: { away: [], home: [] }, goalies: { away: [], home: [] } },
               };
-              mergedEl.innerHTML = renderMergedSimLive(gMerge, simRows);
+              const mergedHtml = renderMergedSimLive(gMerge, simRows);
+              mergedEl.innerHTML = (mergedHtml && String(mergedHtml).trim())
+                ? mergedHtml
+                : renderSimBoxscoresOnly(pred || { away: awayNm, home: homeNm }, simRows);
             }
           } catch (e) {}
 

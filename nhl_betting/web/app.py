@@ -2528,7 +2528,39 @@ async def v1_bundle(date: str, request: Request):
                 return obj
             return obj
 
-        from ..publish.daily_bundles import bundle_path, build_daily_bundle
+        from ..publish.daily_bundles import bundle_path, build_daily_bundle, select_daily_bundle_files
+
+        def _bundle_predictions_count(obj0: object) -> int:
+            try:
+                if not isinstance(obj0, dict):
+                    return 0
+                cnt = (((obj0.get("data") or {}).get("games") or {}).get("predictions") or {}).get("count")
+                if cnt is None:
+                    return 0
+                return int(cnt)
+            except Exception:
+                return 0
+
+        def _build_bundle_with_repo_fallback() -> dict:
+            """Build the daily bundle, falling back to repo data/processed if needed.
+
+            On Render we often set NHL_DATA_DIR to the persistent disk. That disk may not
+            contain git-tracked processed artifacts (predictions/edges/recs) for the day,
+            which can make Cards show "No games". This fallback keeps the UI functional
+            by reading from the deployed repo's data/processed when disk artifacts are missing.
+            """
+            obj0 = build_daily_bundle(d, PROC_DIR)
+            if _bundle_predictions_count(obj0) > 0:
+                return obj0
+            try:
+                repo_proc_dir = (ROOT_DIR / "data" / "processed")
+                if repo_proc_dir is not None and str(repo_proc_dir.resolve()) != str(PROC_DIR.resolve()):
+                    obj1 = build_daily_bundle(d, repo_proc_dir)
+                    if _bundle_predictions_count(obj1) > 0:
+                        return obj1
+            except Exception:
+                pass
+            return obj0
 
         p = bundle_path(d, PROC_DIR)
         if p.exists():
@@ -2563,11 +2595,11 @@ async def v1_bundle(date: str, request: Request):
                     try:
                         cur_files = obj.get("files") if isinstance(obj.get("files"), dict) else None
                         if isinstance(desired_files, dict) and isinstance(cur_files, dict) and cur_files != desired_files:
-                            obj = build_daily_bundle(d, PROC_DIR)
+                            obj = _build_bundle_with_repo_fallback()
                     except Exception:
                         pass
                 if not isinstance(obj, dict):
-                    obj = build_daily_bundle(d, PROC_DIR)
+                    obj = _build_bundle_with_repo_fallback()
 
                 obj = _enrich_predictions_team_assets(obj)
                 obj = _enrich_predictions_schedule(obj, d)
@@ -2577,7 +2609,7 @@ async def v1_bundle(date: str, request: Request):
                 # Fall back to rebuilding in-memory
                 pass
 
-        obj = build_daily_bundle(d, PROC_DIR)
+        obj = _build_bundle_with_repo_fallback()
         obj = _enrich_predictions_team_assets(obj)
         obj = _enrich_predictions_schedule(obj, d)
         obj = _strict_json_sanitize(obj)

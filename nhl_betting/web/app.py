@@ -408,6 +408,65 @@ def _read_props_lines_latest(date_ymd: str, source: str = "oddsapi") -> pd.DataF
     return pd.DataFrame()
 
 
+def _props_source_files(date_ymd: str) -> list[Path]:
+    base = _props_lines_dir(date_ymd)
+    out: list[Path] = []
+    for name in ("oddsapi.parquet", "oddsapi.csv", "bovada.parquet", "bovada.csv"):
+        try:
+            p = base / name
+            if p.exists() and p.is_file():
+                out.append(p)
+        except Exception:
+            continue
+    return out
+
+
+def _props_recommendations_staleness(date_ymd: str) -> dict[str, Any]:
+    d = str(date_ymd or "").strip()
+    rec_path = PROC_DIR / f"props_recommendations_{d}.csv"
+    line_files = _props_source_files(d)
+
+    rec_mtime = None
+    latest_line_mtime = None
+    try:
+        if rec_path.exists():
+            rec_mtime = float(rec_path.stat().st_mtime)
+    except Exception:
+        rec_mtime = None
+    try:
+        mts = [float(p.stat().st_mtime) for p in line_files]
+        latest_line_mtime = max(mts) if mts else None
+    except Exception:
+        latest_line_mtime = None
+
+    stale = bool(line_files) and (rec_mtime is None or (latest_line_mtime is not None and latest_line_mtime > rec_mtime + 1e-9))
+    return {
+        "date": d,
+        "recommendations_path": str(rec_path),
+        "recommendations_exists": bool(rec_path.exists()),
+        "recommendations_mtime": _file_mtime_iso(rec_path),
+        "latest_lines_mtime": max((_file_mtime_iso(p) or "") for p in line_files) if line_files else None,
+        "line_files": [p.name for p in line_files],
+        "stale": bool(stale),
+    }
+
+
+def _maybe_refresh_props_recommendations_if_stale(date_ymd: str, min_ev: float = 0.0, top: int = 200) -> dict[str, Any]:
+    info = _props_recommendations_staleness(date_ymd)
+    out = dict(info)
+    if not bool(info.get("stale")):
+        out["status"] = "fresh"
+        return out
+    try:
+        res = _refresh_props_recommendations(str(date_ymd or "").strip(), min_ev=min_ev, top=top)
+        out["status"] = "refreshed"
+        out["refresh"] = res
+    except Exception as e:
+        out["status"] = "error"
+        out["error"] = str(e)
+    return out
+
+
 def _props_row_key(team: Optional[str], player_id: object, player_name: Optional[str], market: Optional[str], book: Optional[str]) -> Optional[str]:
     """Stable key for a prop line snapshot row."""
     try:
@@ -3929,6 +3988,10 @@ async def v1_props_cards(
 
         try:
             _seed_repo_props_artifacts_to_active_dirs([d])
+        except Exception:
+            pass
+        try:
+            _maybe_refresh_props_recommendations_if_stale(d, min_ev=0.0, top=max(int(n_top or 0), 200))
         except Exception:
             pass
 
@@ -13211,6 +13274,12 @@ async def api_props_health(date: Optional[str] = Query(None)):
     except Exception:
         pass
     try:
+        stale_info = _props_recommendations_staleness(d)
+        out["recommendations_csv"]["stale_vs_lines"] = bool(stale_info.get("stale"))
+        out["recommendations_csv"]["lines_latest_mtime"] = stale_info.get("latest_lines_mtime")
+    except Exception:
+        pass
+    try:
         if lines_dir.exists():
             files = []
             details = []
@@ -13523,8 +13592,13 @@ async def api_props_recommendations(
             _seed_repo_props_artifacts_to_active_dirs([date])
         except Exception:
             pass
-        # Respect read-only mode: if cache missing, do not compute on-demand
         read_only_ui = _read_only(date)
+        try:
+            if not read_only_ui:
+                _maybe_refresh_props_recommendations_if_stale(date, min_ev=float(min_ev or 0.0), top=max(int(top or 0), 200))
+        except Exception:
+            pass
+        # Respect read-only mode: if cache missing, do not compute on-demand
         rec_path = PROC_DIR / f"props_recommendations_{date}.csv"
         df = None
         if rec_path.exists():

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -186,6 +187,47 @@ def test_v1_props_cards_seed_repo_recommendations_to_active_proc_dir(tmp_path: P
     assert len(payload.get("cards") or []) == 1
     assert payload["cards"][0].get("player") == "Nathan MacKinnon"
     assert (proc_dir / "props_recommendations_2026-03-06.csv").exists()
+
+
+def test_v1_props_cards_refreshes_stale_recommendations_from_lines(tmp_path: Path, monkeypatch):
+    _repo_root, data_dir, proc_dir = _set_render_like_paths(tmp_path, monkeypatch)
+
+    rec_path = proc_dir / "props_recommendations_2026-03-06.csv"
+    _write_csv(
+        rec_path,
+        "player,team,opp,market,side,book,line,price,ev\n"
+        "Old Player,COL,DAL,SOG,Over,draftkings,3.5,-110,0.08\n",
+    )
+
+    lines_path = data_dir / "props" / "player_props_lines" / "date=2026-03-06" / "oddsapi.csv"
+    _write_csv(
+        lines_path,
+        "date,player_name,player_id,team,market,line,over_price,under_price,book,is_current\n"
+        "2026-03-06,New Player,1,COL,SOG,3.5,-110,-110,draftkings,True\n",
+    )
+
+    os.utime(rec_path, (1000, 1000))
+    os.utime(lines_path, (2000, 2000))
+
+    def _fake_refresh(date: str, min_ev: float = 0.0, top: int = 200):
+        _write_csv(
+            rec_path,
+            "player,team,opp,market,side,book,line,price,ev\n"
+            "New Player,COL,DAL,SOG,Over,draftkings,3.5,-105,0.12\n",
+        )
+        return {"ok": True, "date": date, "rows": 1}
+
+    monkeypatch.setattr(app_mod, "_refresh_props_recommendations", _fake_refresh, raising=True)
+    monkeypatch.setattr(app_mod, "_github_raw_read_csv", lambda *_a, **_k: None, raising=True)
+
+    client = TestClient(app_mod.app)
+    r = client.get("/v1/props-cards/2026-03-06?top=12")
+    assert r.status_code == 200
+
+    payload = r.json()
+    assert payload.get("ok") is True
+    assert len(payload.get("cards") or []) == 1
+    assert payload["cards"][0].get("player") == "New Player"
 
 
 def test_v1_props_cards_include_team_logo_and_headshot(tmp_path: Path, monkeypatch):

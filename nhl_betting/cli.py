@@ -6374,20 +6374,25 @@ def props_fast(
     else:
         timings['projections_skipped'] = True
     # Recommendations
+    rec_kwargs = {
+        "date": date,
+        "min_ev": min_ev,
+        "top": top,
+        "market": market,
+        "min_ev_per_market": "",
+        "min_prob": 0.0,
+        "min_prob_per_market": "",
+        "max_plus_odds": 0.0,
+    }
     try:
         t4 = time.monotonic()
-        props_recommendations.callback(date=date, min_ev=min_ev, top=top, market=market)
+        props_recommendations(**rec_kwargs)
         timings['recommendations_sec'] = round(time.monotonic() - t4, 3)
     except BaseException as e:
-        try:
-            t4b = time.monotonic()
-            props_recommendations(date=date, min_ev=min_ev, top=top, market=market)
-            timings['recommendations_sec'] = round(time.monotonic() - t4b, 3)
-        except BaseException as e2:
-            import traceback
-            print('[fast] recommendations failed:', e2)
-            traceback.print_exc()
-            timings['recommendations_error'] = str(e2)
+        import traceback
+        print('[fast] recommendations failed:', e)
+        traceback.print_exc()
+        timings['recommendations_error'] = str(e)
     timings['total_sec'] = round(time.monotonic() - t0, 3)
     try:
         out = PROC_DIR / f"props_timing_{date}.json"

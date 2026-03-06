@@ -257,6 +257,41 @@ def test_refresh_props_recommendations_reads_csv_lines_fallback(tmp_path: Path, 
     assert "CSV Player" in text
 
 
+def test_refresh_props_recommendations_falls_back_to_existing_recs_when_proj_all_empty(tmp_path: Path, monkeypatch):
+    _repo_root, data_dir, proc_dir = _set_render_like_paths(tmp_path, monkeypatch)
+
+    rec_path = proc_dir / "props_recommendations_2026-03-06.csv"
+    _write_csv(
+        data_dir / "props" / "player_props_lines" / "date=2026-03-06" / "oddsapi.csv",
+        "date,player_name,team,market,line,over_price,under_price,book\n"
+        "2026-03-06,Fallback Player,COL,SOG,1.5,100,-200,draftkings\n",
+    )
+    _write_csv(
+        proc_dir / "props_projections_all_2026-03-06.csv",
+        "player,team,market,proj_lambda\n",
+    )
+    _write_csv(
+        rec_path,
+        "player,team,market,proj_lambda,proj\n"
+        "Fallback Player,COL,SOG,4.2,4.2\n",
+    )
+
+    os.utime(rec_path, (1000, 1000))
+    os.utime(data_dir / "props" / "player_props_lines" / "date=2026-03-06" / "oddsapi.csv", (2000, 2000))
+
+    monkeypatch.setattr(app_mod, "_gh_upsert_file_if_better_or_same", lambda *_a, **_k: {"ok": True}, raising=True)
+
+    res = app_mod._refresh_props_recommendations("2026-03-06", min_ev=0.0, top=50)
+
+    assert res.get("ok") is True
+    assert res.get("projection_source") == "recommendations_local"
+
+    out_path = proc_dir / "props_recommendations_2026-03-06.csv"
+    assert out_path.exists()
+    text = out_path.read_text(encoding="utf-8")
+    assert "Fallback Player" in text
+
+
 def test_v1_props_cards_include_team_logo_and_headshot(tmp_path: Path, monkeypatch):
     repo_root, _data_dir, proc_dir = _set_render_like_paths(tmp_path, monkeypatch)
 

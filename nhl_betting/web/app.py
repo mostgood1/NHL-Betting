@@ -15418,12 +15418,34 @@ def _refresh_props_recommendations(date: str, min_ev: float = 0.0, top: int = 20
 
     - Reads data/props/player_props_lines/date=YYYY-MM-DD/oddsapi.parquet (local first; GH raw fallback)
     - Reads data/processed/props_projections_all_{date}.csv (local first; GH raw fallback)
+    - Falls back to existing props recommendations / projections caches for `proj_lambda` when
+      the all-player projections artifact is empty or missing.
     - Computes EV vectorized (no history scans), writes CSV, upserts to GitHub
     """
     import numpy as _np
     from scipy.stats import poisson as _poisson
     from ..core.props_edge_signals import attach_prop_edge_signals
     d = _normalize_date_param(date)
+
+    def _coerce_proj_source(df: Optional[pd.DataFrame]) -> pd.DataFrame:
+        if df is None:
+            return pd.DataFrame()
+        try:
+            out = df.copy()
+        except Exception:
+            return pd.DataFrame()
+        try:
+            if "player" not in out.columns and "player_name" in out.columns:
+                out["player"] = out["player_name"]
+        except Exception:
+            pass
+        try:
+            if "proj_lambda" not in out.columns and "proj" in out.columns:
+                out["proj_lambda"] = pd.to_numeric(out.get("proj"), errors="coerce")
+        except Exception:
+            pass
+        return out
+
     # Load canonical lines (ONLY OddsAPI), prefer local; GH fallback allowed in cron
     base = _props_lines_dir(d)
     parts = []
@@ -15477,16 +15499,52 @@ def _refresh_props_recommendations(date: str, min_ev: float = 0.0, top: int = 20
                 return {"ok": True, "date": d, "rows": rows, "skipped": True, "reason": "unchanged-lines"}
     except Exception:
         pass
-    # Load projections_all
+    # Load lambda source. Prefer all-player projections, but fall back to other caches that already
+    # carry stable `proj_lambda` values so intraday line moves can still refresh recommendations.
     proj = None
+    proj_source = None
+    proj_candidates: list[tuple[str, pd.DataFrame | None]] = []
     try:
         local = PROC_DIR / f"props_projections_all_{d}.csv"
-        if local.exists():
-            proj = _read_csv_fallback(local)
-        if (proj is None or proj.empty):
-            proj = _github_raw_read_csv(f"data/processed/props_projections_all_{d}.csv")
+        proj_candidates.append(("projections_all_local", _read_csv_fallback(local) if local.exists() else None))
     except Exception:
-        proj = proj
+        proj_candidates.append(("projections_all_local", None))
+    try:
+        proj_candidates.append(("projections_all_github", _github_raw_read_csv(f"data/processed/props_projections_all_{d}.csv")))
+    except Exception:
+        proj_candidates.append(("projections_all_github", None))
+    try:
+        local = PROC_DIR / f"props_projections_{d}.csv"
+        proj_candidates.append(("projections_local", _read_csv_fallback(local) if local.exists() else None))
+    except Exception:
+        proj_candidates.append(("projections_local", None))
+    try:
+        proj_candidates.append(("projections_github", _github_raw_read_csv(f"data/processed/props_projections_{d}.csv")))
+    except Exception:
+        proj_candidates.append(("projections_github", None))
+    try:
+        local = PROC_DIR / f"props_recommendations_{d}.csv"
+        proj_candidates.append(("recommendations_local", _read_csv_fallback(local) if local.exists() else None))
+    except Exception:
+        proj_candidates.append(("recommendations_local", None))
+    try:
+        proj_candidates.append(("recommendations_github", _github_raw_read_csv(f"data/processed/props_recommendations_{d}.csv")))
+    except Exception:
+        proj_candidates.append(("recommendations_github", None))
+
+    for source_name, candidate in proj_candidates:
+        try:
+            cand = _coerce_proj_source(candidate)
+        except Exception:
+            cand = pd.DataFrame()
+        if cand is None or cand.empty:
+            continue
+        if not {"player", "market", "proj_lambda"}.issubset(set(cand.columns)):
+            continue
+        proj = cand
+        proj_source = source_name
+        break
+
     if proj is None or proj.empty or not {"player","market","proj_lambda"}.issubset(set(proj.columns)):
         return {"ok": False, "date": d, "reason": "no_proj_all"}
     # Lambda map
@@ -15496,12 +15554,23 @@ def _refresh_props_recommendations(date: str, min_ev: float = 0.0, top: int = 20
         except Exception:
             return str(x)
     lam_map = {}
+    lam_map_team = {}
     tmp = proj.dropna(subset=["player","market","proj_lambda"]).copy()
     tmp["player_norm"] = tmp["player"].astype(str).map(_norm_name).str.lower()
     tmp["market_u"] = tmp["market"].astype(str).str.upper()
+    if "team" in tmp.columns:
+        tmp["team_u"] = tmp["team"].astype(str).str.upper().str.strip()
+    else:
+        tmp["team_u"] = ""
     for _, rr in tmp.iterrows():
         try:
-            lam_map[(rr.get("player_norm"), rr.get("market_u"))] = float(rr.get("proj_lambda"))
+            lam = float(rr.get("proj_lambda"))
+            player_norm = rr.get("player_norm")
+            market_u = rr.get("market_u")
+            team_u = str(rr.get("team_u") or "").strip().upper()
+            if team_u:
+                lam_map_team[(player_norm, market_u, team_u)] = lam
+            lam_map[(player_norm, market_u)] = lam
         except Exception:
             continue
     # Prepare working frame
@@ -15510,11 +15579,29 @@ def _refresh_props_recommendations(date: str, min_ev: float = 0.0, top: int = 20
     work["market"] = work.get("market").astype(str).str.upper()
     work["player_display"] = work.apply(lambda r: (r.get("player_name") or r.get("player") or ""), axis=1).astype(str).map(_norm_name)
     work["player_norm"] = work["player_display"].str.lower()
+    if "team" in work.columns:
+        work["team_u"] = work["team"].astype(str).str.upper().str.strip()
+    else:
+        work["team_u"] = ""
     work["line_num"] = pd.to_numeric(work.get("line"), errors="coerce")
     work = work.loc[work["line_num"].notna()].copy()
     # Merge lambdas
-    ldf = pd.DataFrame([{"player_norm": k[0], "market": k[1], "proj_lambda": v} for k, v in lam_map.items()])
-    merged = work.merge(ldf, on=["player_norm","market"], how="left")
+    merged = work.copy()
+    if lam_map_team:
+        ldf_team = pd.DataFrame([
+            {"player_norm": k[0], "market": k[1], "team_u": k[2], "proj_lambda": v}
+            for k, v in lam_map_team.items()
+        ])
+        merged = merged.merge(ldf_team, on=["player_norm", "market", "team_u"], how="left")
+    else:
+        merged["proj_lambda"] = _np.nan
+    if lam_map:
+        ldf = pd.DataFrame([{"player_norm": k[0], "market": k[1], "proj_lambda_base": v} for k, v in lam_map.items()])
+        merged = merged.merge(ldf, on=["player_norm", "market"], how="left")
+        merged["proj_lambda"] = pd.to_numeric(merged.get("proj_lambda"), errors="coerce").fillna(
+            pd.to_numeric(merged.get("proj_lambda_base"), errors="coerce")
+        )
+        merged = merged.drop(columns=["proj_lambda_base"], errors="ignore")
     vec_mask = merged["proj_lambda"].notna()
     p_over_vec = pd.Series(_np.nan, index=merged.index)
     for mkt in ["SOG","SAVES","GOALS","ASSISTS","POINTS","BLOCKS"]:
@@ -15785,7 +15872,7 @@ def _refresh_props_recommendations(date: str, min_ev: float = 0.0, top: int = 20
         _gh_upsert_file_if_better_or_same(path, f"web: update props_recommendations for {d}")
     except Exception:
         pass
-    return {"ok": True, "date": d, "rows": int(len(out))}
+    return {"ok": True, "date": d, "rows": int(len(out)), "projection_source": proj_source}
 
 
 @app.post("/api/cron/props-recs-refresh")

@@ -13233,7 +13233,10 @@ async def api_scoreboard(date: Optional[str] = Query(None), debug_cache: Optiona
     return JSONResponse(rows)
 
 @app.get("/api/props/health")
-async def api_props_health(date: Optional[str] = Query(None)):
+async def api_props_health(
+    date: Optional[str] = Query(None),
+    attempt_refresh: int = Query(0, description="If 1, try the stale-refresh path and include its result"),
+):
     """Diagnostics for props data availability for a given date.
 
     Reports existence and row counts for projections/recommendations CSVs and presence of raw props lines parquet files.
@@ -13286,6 +13289,14 @@ async def api_props_health(date: Optional[str] = Query(None)):
         out["recommendations_csv"]["lines_latest_mtime"] = stale_info.get("latest_lines_mtime")
     except Exception:
         pass
+    if int(attempt_refresh or 0) == 1:
+        try:
+            out["refresh_probe"] = _maybe_refresh_props_recommendations_if_stale(d, min_ev=0.0, top=200)
+            stale_info_after = _props_recommendations_staleness(d)
+            out["recommendations_csv"]["stale_vs_lines_after_probe"] = bool(stale_info_after.get("stale"))
+            out["recommendations_csv"]["mtime_after_probe"] = stale_info_after.get("recommendations_mtime")
+        except Exception as e:
+            out["refresh_probe"] = {"status": "error", "error": str(e)}
     try:
         if lines_dir.exists():
             files = []

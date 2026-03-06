@@ -259,6 +259,7 @@ def test_refresh_props_recommendations_reads_csv_lines_fallback(tmp_path: Path, 
 
 def test_refresh_props_recommendations_falls_back_to_existing_recs_when_proj_all_empty(tmp_path: Path, monkeypatch):
     _repo_root, data_dir, proc_dir = _set_render_like_paths(tmp_path, monkeypatch)
+    from nhl_betting.core import props_edge_signals as edge_mod
 
     rec_path = proc_dir / "props_recommendations_2026-03-06.csv"
     _write_csv(
@@ -280,6 +281,7 @@ def test_refresh_props_recommendations_falls_back_to_existing_recs_when_proj_all
     os.utime(data_dir / "props" / "player_props_lines" / "date=2026-03-06" / "oddsapi.csv", (2000, 2000))
 
     monkeypatch.setattr(app_mod, "_gh_upsert_file_if_better_or_same", lambda *_a, **_k: {"ok": True}, raising=True)
+    monkeypatch.setattr(edge_mod, "attach_prop_edge_signals", lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("should not run")), raising=True)
 
     res = app_mod._refresh_props_recommendations("2026-03-06", min_ev=0.0, top=50)
 

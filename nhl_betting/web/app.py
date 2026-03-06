@@ -15630,35 +15630,144 @@ def _refresh_props_recommendations(date: str, min_ev: float = 0.0, top: int = 20
         cons_books = cons_books.rename("cons_books").reset_index()
     except Exception:
         cons_books = pd.DataFrame(columns=["team", "player_display", "market", "line_num", "cons_books"])
+    out = merged.copy()
+    out["p_over"] = p_over_s
+    out["dec_over"] = dec_over
+    out["dec_under"] = dec_under
 
-    base = merged.assign(
-        player=lambda df: df["player_display"],
-        market=lambda df: df["market"],
-        line=lambda df: df["line_num"],
-        p_over=p_over_s,
-        team=lambda df: df.get("team"),
-    )[["team", "player", "market", "line", "proj_lambda", "p_over"]].copy()
-    try:
-        if cons_books is not None and not cons_books.empty:
+    if str(proj_source or "").startswith("recommendations_"):
+        base = merged.assign(
+            player=lambda df: df["player_display"],
+            market=lambda df: df["market"],
+            line=lambda df: df["line_num"],
+            p_over=p_over_s,
+            team=lambda df: df.get("team"),
+        )[["team", "player", "market", "line", "proj_lambda", "p_over"]].copy()
+        try:
+            if cons_books is not None and not cons_books.empty:
+                base = base.merge(
+                    cons_books,
+                    left_on=["team", "player", "market", "line"],
+                    right_on=["team", "player_display", "market", "line_num"],
+                    how="left",
+                )
+                base = base.drop(columns=["player_display", "line_num"], errors="ignore")
+        except Exception:
+            pass
+        try:
+            base = base.groupby(["team", "player", "market", "line"], as_index=False).first()
+        except Exception:
+            base = base.drop_duplicates(subset=["team", "player", "market", "line"], keep="first")
+
+        try:
+            base["p_over"] = pd.to_numeric(base.get("p_over"), errors="coerce").fillna(0.0)
+            base["proj_lambda"] = pd.to_numeric(base.get("proj_lambda"), errors="coerce")
+            line_vals = pd.to_numeric(base.get("line"), errors="coerce")
+            floor_vals = _np.floor(line_vals.astype(float).values + 1e-9).astype(int)
+            line_frac = _np.abs(line_vals.astype(float).values - floor_vals)
+            p_push = _np.where(
+                line_frac <= 1e-9,
+                _poisson.pmf(floor_vals, mu=base["proj_lambda"].astype(float).values),
+                0.0,
+            )
+            base["p_push"] = pd.to_numeric(pd.Series(p_push, index=base.index), errors="coerce").fillna(0.0)
+            base["p_under"] = (1.0 - base["p_over"] - base["p_push"]).clip(lower=0.0, upper=1.0)
+        except Exception:
+            base["p_push"] = 0.0
+            base["p_under"] = (1.0 - pd.to_numeric(base.get("p_over"), errors="coerce").fillna(0.0)).clip(lower=0.0, upper=1.0)
+
+        try:
+            best_prices = merged.groupby(["team", "player_display", "market", "line_num"], as_index=False).agg(
+                dec_over_best=("dec_over", "max"),
+                dec_under_best=("dec_under", "max"),
+            )
             base = base.merge(
-                cons_books,
+                best_prices,
                 left_on=["team", "player", "market", "line"],
                 right_on=["team", "player_display", "market", "line_num"],
                 how="left",
             )
             base = base.drop(columns=["player_display", "line_num"], errors="ignore")
-    except Exception:
-        pass
-    try:
-        base = base.groupby(["team", "player", "market", "line"], as_index=False).first()
-    except Exception:
-        base = base.drop_duplicates(subset=["team", "player", "market", "line"], keep="first")
-    base = attach_prop_edge_signals(date=d, props=base)
+        except Exception:
+            base["dec_over_best"] = _np.nan
+            base["dec_under_best"] = _np.nan
 
-    out = merged.copy()
-    out["p_over"] = p_over_s
-    out["dec_over"] = dec_over
-    out["dec_under"] = dec_under
+        ev_over_best = pd.to_numeric(base.get("p_over"), errors="coerce") * (pd.to_numeric(base.get("dec_over_best"), errors="coerce") - 1.0) - (
+            1.0 - pd.to_numeric(base.get("p_over"), errors="coerce") - pd.to_numeric(base.get("p_push"), errors="coerce").fillna(0.0)
+        )
+        ev_under_best = pd.to_numeric(base.get("p_under"), errors="coerce") * (pd.to_numeric(base.get("dec_under_best"), errors="coerce") - 1.0) - (
+            1.0 - pd.to_numeric(base.get("p_under"), errors="coerce") - pd.to_numeric(base.get("p_push"), errors="coerce").fillna(0.0)
+        )
+        base["side_suggested"] = _np.where(
+            pd.to_numeric(ev_over_best, errors="coerce").fillna(-_np.inf) >= pd.to_numeric(ev_under_best, errors="coerce").fillna(-_np.inf),
+            "Over",
+            "Under",
+        )
+        base["chosen_prob"] = _np.where(
+            base["side_suggested"] == "Over",
+            pd.to_numeric(base.get("p_over"), errors="coerce"),
+            pd.to_numeric(base.get("p_under"), errors="coerce"),
+        )
+
+        try:
+            meta = _coerce_proj_source(proj)
+            meta["player_norm"] = meta["player"].astype(str).map(_norm_name).str.lower()
+            meta["market_u"] = meta["market"].astype(str).str.upper()
+            meta["team_u"] = meta["team"].astype(str).str.upper().str.strip() if "team" in meta.columns else ""
+            keep_cols = [c for c in ["player_norm", "market_u", "team_u", "opp", "edge_score", "edge_reasons", "edge_drivers"] if c in meta.columns]
+            if keep_cols:
+                meta = meta[keep_cols].drop_duplicates(subset=[c for c in ["player_norm", "market_u", "team_u"] if c in keep_cols], keep="first")
+                base["player_norm"] = base["player"].astype(str).map(_norm_name).str.lower()
+                base["market_u"] = base["market"].astype(str).str.upper()
+                base["team_u"] = base["team"].astype(str).str.upper().str.strip() if "team" in base.columns else ""
+                base = base.merge(meta, on=[c for c in ["player_norm", "market_u", "team_u"] if c in meta.columns], how="left")
+        except Exception:
+            pass
+
+        fallback_edge = pd.concat([
+            pd.to_numeric(ev_over_best, errors="coerce"),
+            pd.to_numeric(ev_under_best, errors="coerce"),
+        ], axis=1).max(axis=1)
+        if "edge_score" not in base.columns:
+            base["edge_score"] = fallback_edge
+        else:
+            base["edge_score"] = pd.to_numeric(base.get("edge_score"), errors="coerce").fillna(fallback_edge)
+        if "edge_drivers" not in base.columns:
+            base["edge_drivers"] = ""
+        else:
+            base["edge_drivers"] = base["edge_drivers"].fillna("").astype(str)
+        if "edge_reasons" not in base.columns:
+            base["edge_reasons"] = base["edge_drivers"]
+        else:
+            base["edge_reasons"] = base["edge_reasons"].fillna(base.get("edge_drivers")).fillna("").astype(str)
+        if "opp" not in base.columns:
+            base["opp"] = None
+        base = base.drop(columns=["player_norm", "market_u", "team_u", "dec_over_best", "dec_under_best"], errors="ignore")
+    else:
+        base = merged.assign(
+            player=lambda df: df["player_display"],
+            market=lambda df: df["market"],
+            line=lambda df: df["line_num"],
+            p_over=p_over_s,
+            team=lambda df: df.get("team"),
+        )[["team", "player", "market", "line", "proj_lambda", "p_over"]].copy()
+        try:
+            if cons_books is not None and not cons_books.empty:
+                base = base.merge(
+                    cons_books,
+                    left_on=["team", "player", "market", "line"],
+                    right_on=["team", "player_display", "market", "line_num"],
+                    how="left",
+                )
+                base = base.drop(columns=["player_display", "line_num"], errors="ignore")
+        except Exception:
+            pass
+        try:
+            base = base.groupby(["team", "player", "market", "line"], as_index=False).first()
+        except Exception:
+            base = base.drop_duplicates(subset=["team", "player", "market", "line"], keep="first")
+        base = attach_prop_edge_signals(date=d, props=base)
+
     out = out.merge(
         base[[c for c in ["team", "player", "market", "line", "opp", "side_suggested", "chosen_prob", "p_push", "p_under", "edge_score", "edge_reasons", "edge_drivers"] if c in base.columns]],
         left_on=["team", "player_display", "market", "line_num"],

@@ -94,11 +94,14 @@
       gap:6px;
     }
     .props-strip .p-item:hover { border-color:#3a4aa6; }
-    .props-strip .p-head { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .props-strip .p-head { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
     .props-strip .p-who { display:flex; align-items:center; gap:10px; min-width:0; }
-    .props-strip .p-img { width:36px; height:36px; border-radius:999px; border:1px solid #25316a; background:#0b1020; object-fit:cover; }
+    .props-strip .p-img { width:40px; height:40px; flex:0 0 40px; border-radius:999px; border:1px solid #25316a; background:#0b1020; object-fit:cover; }
+    .props-strip .p-img.is-fallback { border-radius:10px; object-fit:contain; padding:5px; }
     .props-strip .p-name { font-weight:900; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .props-strip .p-sub { color:#9fb0ff; font-size:11px; font-weight:800; letter-spacing:0.2px; text-transform:uppercase; }
+    .props-strip .p-subline { display:flex; align-items:center; gap:6px; min-width:0; flex-wrap:wrap; }
+    .props-strip .p-team-logo { width:14px; height:14px; object-fit:contain; flex:0 0 14px; }
     .props-strip .p-line { font-size:12px; font-weight:800; letter-spacing:0.2px; }
     .props-strip .p-move { color:#9fb0ff; font-size:11px; font-weight:800; letter-spacing:0.2px; }
     .lens-card-tag {
@@ -1139,16 +1142,30 @@
     function _renderMove(obj, kind='price') {
       if (!obj) return '';
       const isLine = (String(kind || '').toLowerCase() === 'line');
+      const hasFiniteVal = (v) => {
+        if (v === null || v === undefined) return false;
+        const s = String(v).trim();
+        if (!s.length) return false;
+        const n = Number(v);
+        return isFinite(n);
+      };
       const cur = obj.cur;
       const dOpen = obj.d_open;
       const dPrev = obj.d_prev;
-      const hasCur = (cur !== null && cur !== undefined && isFinite(Number(cur)));
-      const hasD = isFinite(Number(dOpen)) || isFinite(Number(dPrev));
-      if (!hasCur && !hasD) return '';
+      const hasCur = hasFiniteVal(cur);
+      const hasDOpen = hasFiniteVal(dOpen);
+      const hasDPrev = hasFiniteVal(dPrev);
+      const hasD = hasDOpen || hasDPrev;
+      if (!hasD) return '';
       const curTxt = isLine ? fmt(cur, 1) : fmtAmerican(cur);
       const doTxt = isLine ? fmtSigned(dOpen, 1) : fmtSigned(dOpen, 0);
       const dpTxt = isLine ? fmtSigned(dPrev, 1) : fmtSigned(dPrev, 0);
-      return `${curTxt} (o ${doTxt}, p ${dpTxt})`;
+      const deltaParts = [];
+      if (hasDOpen) deltaParts.push(`o ${doTxt}`);
+      if (hasDPrev) deltaParts.push(`p ${dpTxt}`);
+      if (!deltaParts.length) return '';
+      if (!hasCur) return deltaParts.join(' · ');
+      return `${curTxt} (${deltaParts.join(', ')})`;
     }
 
     function applyOddsMovementToCards(payload) {
@@ -1236,20 +1253,29 @@
           const evTxt = (c && isFinite(Number(c.ev))) ? ('EV ' + (100 * Number(c.ev)).toFixed(1) + '%') : 'EV —';
 
           const headshot = String(c && c.headshot_url || '').trim();
+          const teamLogo = String(c && c.team_logo || '').trim();
           const drivers = String(c && c.drivers || '').trim();
 
           const mvLine = (c && c.movement && c.movement.line) ? _renderMove(c.movement.line, 'line') : '';
           const mvPrice = (c && c.movement && c.movement.price) ? _renderMove(c.movement.price, 'price') : '';
+          const whoImg = headshot
+            ? `<img class="p-img" src="${escHtml(headshot)}" alt="${escHtml(player)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none';" />`
+            : (teamLogo
+              ? `<img class="p-img is-fallback" src="${escHtml(teamLogo)}" alt="${escHtml(team || player)}" loading="lazy" />`
+              : `<div class="p-img" style="display:none;"></div>`);
+          const subPrefix = teamLogo
+            ? `<img class="p-team-logo" src="${escHtml(teamLogo)}" alt="${escHtml(team)}" loading="lazy" />`
+            : '';
 
           const item = document.createElement('div');
           item.className = 'p-item';
           item.innerHTML = `
             <div class="p-head">
               <div class="p-who">
-                ${headshot ? `<img class="p-img" src="${escHtml(headshot)}" alt="${escHtml(player)}" onerror="this.style.display='none';" />` : `<div class="p-img" style="display:none;"></div>`}
+                ${whoImg}
                 <div style="min-width:0;">
                   <div class="p-name">${escHtml(player)}</div>
-                  <div class="p-sub">${escHtml(team)}${opp ? ` vs ${escHtml(opp)}` : ''}${book ? ` · ${escHtml(book)}` : ''}</div>
+                  <div class="p-sub p-subline">${subPrefix}<span>${escHtml(team)}${opp ? ` vs ${escHtml(opp)}` : ''}${book ? ` · ${escHtml(book)}` : ''}</span></div>
                 </div>
               </div>
               <span class="pill">${escHtml(evTxt)}</span>

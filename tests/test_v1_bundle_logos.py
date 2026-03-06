@@ -188,6 +188,35 @@ def test_v1_props_cards_seed_repo_recommendations_to_active_proc_dir(tmp_path: P
     assert (proc_dir / "props_recommendations_2026-03-06.csv").exists()
 
 
+def test_v1_props_cards_include_team_logo_and_headshot(tmp_path: Path, monkeypatch):
+    repo_root, _data_dir, proc_dir = _set_render_like_paths(tmp_path, monkeypatch)
+
+    _write_csv(
+        repo_root / "data" / "processed" / "props_recommendations_2026-03-06.csv",
+        "player,team,opp,market,side,book,line,price,ev\n"
+        "Cutter Gauthier,ANA,MTL,SOG,Under,betmgm,3.5,100,0.654\n",
+    )
+    _write_csv(
+        proc_dir / "roster_master.csv",
+        "player_id,full_name,team_abbr,image_url\n"
+        "8483445,Cutter Gauthier,ANA,https://assets.nhle.com/mugs/nhl/20252026/ANA/8483445.png\n",
+    )
+    monkeypatch.setattr(app_mod, "_github_raw_read_csv", lambda *_a, **_k: None, raising=True)
+
+    client = TestClient(app_mod.app)
+    r = client.get("/v1/props-cards/2026-03-06?top=12")
+    assert r.status_code == 200
+
+    payload = r.json()
+    assert payload.get("ok") is True
+    cards = payload.get("cards") or []
+    assert len(cards) == 1
+    assert cards[0].get("player") == "Cutter Gauthier"
+    assert cards[0].get("headshot_url") == "https://assets.nhle.com/mugs/nhl/20252026/ANA/8483445.png"
+    assert isinstance(cards[0].get("team_logo"), str)
+    assert "assets.nhle.com/logos/nhl/svg/ANA" in cards[0]["team_logo"]
+
+
 def test_v1_props_cards_fallback_to_bundle_recommendations(tmp_path: Path, monkeypatch):
     repo_root, _data_dir, _proc_dir = _set_render_like_paths(tmp_path, monkeypatch)
 

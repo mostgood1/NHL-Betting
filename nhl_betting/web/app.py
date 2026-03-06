@@ -1625,6 +1625,54 @@ def _nhl_season_code(d_ymd: Optional[str]) -> str:
         y = datetime.utcnow().year
         return f"{y}{y+1}"
 
+
+def _normalize_player_id_value(player_id: object) -> Optional[str]:
+    try:
+        if player_id is None:
+            return None
+        s = str(player_id).strip()
+        if not s:
+            return None
+        return str(int(float(s)))
+    except Exception:
+        return None
+
+
+def _nhl_player_headshot_url(
+    player_id: object,
+    team_abbr: Optional[str] = None,
+    date_ymd: Optional[str] = None,
+    preferred_url: Optional[str] = None,
+) -> Optional[str]:
+    """Return the best public headshot URL for a player.
+
+    Prefer stable public NHL mugshot assets when a team abbreviation is known.
+    Fall back to the local proxy for local development, else direct NHL CMS.
+    """
+    pid = _normalize_player_id_value(player_id)
+    if not pid:
+        return None
+
+    try:
+        pref = str(preferred_url or "").strip()
+        if pref:
+            return pref
+    except Exception:
+        pass
+
+    try:
+        abbr = str(team_abbr or "").strip().upper()
+    except Exception:
+        abbr = ""
+
+    if abbr:
+        season = _nhl_season_code(date_ymd)
+        return f"https://assets.nhle.com/mugs/nhl/{season}/{abbr}/{pid}.png"
+
+    if _use_headshot_proxy():
+        return f"/img/headshot/{pid}.jpg"
+    return f"https://cms.nhl.bamgrid.com/images/headshots/current/168x168/{pid}.jpg"
+
 """
 Primary Player Props page.
 
@@ -3706,6 +3754,19 @@ async def v1_props_cards(
 
         roster_map = _get_roster_master_map()
 
+        def _team_logo_url(x: object) -> Optional[str]:
+            try:
+                from .teams import get_team_assets as _assets
+
+                assets = _assets(str(x or "")) or {}
+                for key in ("logo", "logo_light", "logo_dark"):
+                    v = assets.get(key)
+                    if isinstance(v, str) and v.strip():
+                        return v.strip()
+            except Exception:
+                pass
+            return None
+
         cards: list[dict] = []
         for _, rr in df.iterrows():
             try:
@@ -3749,6 +3810,7 @@ async def v1_props_cards(
 
                 # Player id for headshot
                 pid = None
+                roster_ent = None
                 for cand in (c_row, o_row, p_row):
                     try:
                         if isinstance(cand, dict) and cand.get("player_id") is not None:
@@ -3757,22 +3819,41 @@ async def v1_props_cards(
                                 break
                     except Exception:
                         continue
-                if not pid and roster_map:
+                if roster_map:
                     try:
                         ent = roster_map.get((team, player_norm))
-                        if isinstance(ent, dict) and ent.get("player_id"):
-                            pid = str(ent.get("player_id"))
+                        if isinstance(ent, dict):
+                            roster_ent = ent
+                            if not pid and ent.get("player_id"):
+                                pid = str(ent.get("player_id"))
                     except Exception:
                         pid = pid
-                headshot_url = f"/img/headshot/{pid}.jpg" if pid else None
+                preferred_headshot = None
+                try:
+                    if isinstance(roster_ent, dict):
+                        v = str(roster_ent.get("image_url") or "").strip()
+                        preferred_headshot = v or None
+                except Exception:
+                    preferred_headshot = None
+
+                team_logo = _team_logo_url(team)
+                opp_logo = _team_logo_url(opp)
+                headshot_url = _nhl_player_headshot_url(
+                    pid,
+                    team_abbr=team,
+                    date_ymd=d,
+                    preferred_url=preferred_headshot,
+                )
 
                 cards.append(
                     {
                         "player": player,
                         "player_id": pid,
                         "headshot_url": headshot_url,
+                        "team_logo": team_logo,
                         "team": team,
                         "opp": opp or None,
+                        "opp_logo": opp_logo,
                         "market": market,
                         "side": side or None,
                         "book": book or None,

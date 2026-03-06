@@ -67,6 +67,40 @@
     .scoreboard-strip .s-sig:empty { display:none; }
     .scoreboard-strip .s-sig.bet { color:#a7f3c6; }
     .scoreboard-strip .s-sig.watch { color:#e8eaf6; }
+
+    /* Top props strip (live player props cards) */
+    .props-strip-label { margin: 6px 0 0; }
+    .props-strip-label:empty { display:none; }
+    .props-strip {
+      display:flex;
+      gap:8px;
+      overflow-x:auto;
+      padding:10px 0;
+      margin: 8px 0 12px;
+      border-top: 1px solid #25316a;
+      border-bottom: 1px solid #25316a;
+      background: #0b1020;
+    }
+    .props-strip:empty { display:none; }
+    .props-strip .p-item {
+      flex: 0 0 280px;
+      min-width: 0;
+      background:#0f1530;
+      border:1px solid #25316a;
+      border-radius:12px;
+      padding:8px 10px;
+      color:#cfe0ff;
+      display:grid;
+      gap:6px;
+    }
+    .props-strip .p-item:hover { border-color:#3a4aa6; }
+    .props-strip .p-head { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .props-strip .p-who { display:flex; align-items:center; gap:10px; min-width:0; }
+    .props-strip .p-img { width:36px; height:36px; border-radius:999px; border:1px solid #25316a; background:#0b1020; object-fit:cover; }
+    .props-strip .p-name { font-weight:900; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .props-strip .p-sub { color:#9fb0ff; font-size:11px; font-weight:800; letter-spacing:0.2px; text-transform:uppercase; }
+    .props-strip .p-line { font-size:12px; font-weight:800; letter-spacing:0.2px; }
+    .props-strip .p-move { color:#9fb0ff; font-size:11px; font-weight:800; letter-spacing:0.2px; }
     .lens-card-tag {
       display:inline-flex;
       align-items:center;
@@ -114,6 +148,7 @@
     .pill { display:inline-flex; align-items:center; gap:6px; padding:3px 8px; border-radius:999px; background:#0f1530; border:1px solid #25316a; color:#c9d3ff; font-size:11px; font-weight:700; }
     .pill.active { background:#152055; border-color:#3a4aa6; color:#e8eaf6; }
     .pill:hover { border-color:#3a4aa6; }
+    .pill input[type="checkbox"] { margin:0; accent-color:#3a4aa6; }
     .view-toggle { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
     .live-clock:empty { display:none; }
     .live-score:empty { display:none; }
@@ -156,6 +191,23 @@
     .live-lens .v { font-variant-numeric: tabular-nums; font-size:12px; color:#e8eaf6; }
     .live-lens .rowline { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
     .live-lens .mono { font-variant-numeric: tabular-nums; }
+
+    header .btn:disabled, header button:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    /* NCAAB-like compact mode + live-edge highlighting */
+    .compact-card .cards { gap: 12px; padding: 14px 0; }
+    .compact-card .card { padding: 12px; gap: 10px; }
+    .compact-card .card-title .match { font-size: 14px; }
+    .compact-card .team-pts-big { font-size: 24px; }
+    .compact-card .tile { padding: 8px; }
+    .compact-card .live-lens, .compact-card .sim-block, .compact-card .merged-block { padding: 8px; }
+    .compact-card .bet { padding: 5px 9px; font-size: 11px; }
+    .compact-card .lens-card-tag { font-size: 10px; padding: 2px 7px; }
+    .compact-card .scoreboard-strip { padding: 8px 0; margin: 6px 0 10px; gap: 6px; }
+    .compact-card .scoreboard-strip .s-item { padding: 6px 8px; border-radius: 10px; }
+
+    .card.live-edge-ok { border-color:#1e7a45; box-shadow: 0 0 0 1px rgba(30,122,69,0.5), 0 2px 8px rgba(0,0,0,0.28); }
+    .card.live-edge-warn { border-color:#3a4aa6; box-shadow: 0 0 0 1px rgba(58,74,166,0.55), 0 2px 8px rgba(0,0,0,0.28); }
 
     /* Live lens box only appears when live data is available. */
     .live-guidance-body:empty { display:none; }
@@ -200,6 +252,12 @@
           <label for="datePicker">Date</label>
           <input id="datePicker" class="date-input" type="date" />
         </div>
+        <div class="view-toggle">
+          <label class="pill" title="Toggle compact spacing">
+            <input type="checkbox" id="compactModeChk" />
+            Compact
+          </label>
+        </div>
         <div class="spacer"></div>
         <a id="accuracyLink" class="btn" href="/live_lens_accuracy">Live Lens Accuracy</a>
         <button type="button" id="themeToggle" class="btn" title="Toggle light/dark theme">Toggle Theme</button>
@@ -210,6 +268,8 @@
   <main>
     <div class="container">
       <div id="scoreboardStrip" class="scoreboard-strip"></div>
+      <div id="propsStripLabel" class="muted props-strip-label"></div>
+      <div id="propsStrip" class="props-strip"></div>
       <div id="cards" class="cards"></div>
       <div id="empty" class="empty muted"></div>
     </div>
@@ -218,10 +278,47 @@
   <script>
     const $ = (id) => document.getElementById(id);
 
-    const LIVE_POLL_MS = 20000;
+    const LIVE_POLL_MS = 30000;
     let currentDate = null;
     let livePollTimer = null;
     let livePollInFlight = false;
+
+    const LS_COMPACT_KEY = 'nhl:compactMode';
+    const DEFAULT_PAGE_TITLE = 'NHL Betting – Cards';
+
+    function _lsGetBool(key, defaultVal=false) {
+      try {
+        const v = localStorage.getItem(key);
+        if (v === null || v === undefined) return defaultVal;
+        if (v === '1' || v === 'true') return true;
+        if (v === '0' || v === 'false') return false;
+        return defaultVal;
+      } catch (e) {
+        return defaultVal;
+      }
+    }
+
+    function _lsSetBool(key, val) {
+      try { localStorage.setItem(key, val ? '1' : '0'); } catch (e) {}
+    }
+
+    function _syncPillActiveForCheckbox(chk) {
+      try {
+        const pill = chk && chk.closest ? chk.closest('.pill') : null;
+        if (pill) pill.classList.toggle('active', !!chk.checked);
+      } catch (e) {}
+    }
+
+    function setCompactMode(on) {
+      try {
+        document.documentElement.classList.toggle('compact-card', !!on);
+      } catch (e) {}
+      // Compact mode affects sizing; recompute the scoreboard layout.
+      try {
+        const strip = $('scoreboardStrip');
+        if (strip) _setScoreboardStripLayout(strip, strip.querySelectorAll('.s-item').length);
+      } catch (e) {}
+    }
 
     // Pregame props display cap (American odds). Keeps the UI focused on bettable ranges.
     // Hard cap by default: only show props with -125 <= price <= +125.
@@ -849,7 +946,7 @@
         .filter(Boolean);
 
       const el = document.createElement('div');
-      el.className = 'card';
+      el.className = 'card game-card';
       el.dataset.gameKey = match;
       try {
         const pk = (pred && (pred.gamePk ?? pred.game_pk ?? pred.nhl_game_pk ?? pred.nhlGamePk ?? pred.game_id ?? pred.gameId));
@@ -905,15 +1002,18 @@
             <div class="market">
               <div class="k">Moneyline</div>
               <div class="v">Away ${pct(mlAway)} · Home ${pct(mlHome)}</div>
+              <div class="v muted" data-role="odds-move-ml"></div>
             </div>
             <div class="market">
               <div class="k">Total</div>
               <div class="v">Line <strong>${fmt(totalLine, 1)}</strong> · O ${pct(pOver)} / U ${pct(pUnder)}</div>
+              <div class="v muted" data-role="odds-move-total"></div>
               <div class="v">Model total: ${fmt(modelTotal, 2)}</div>
             </div>
             <div class="market">
               <div class="k">Puck line</div>
               <div class="v">Line <strong>${fmt(plLine, 1)}</strong> · H-1.5 ${pct(pHomePl)} / A+1.5 ${pct(pAwayPl)}</div>
+              <div class="v muted" data-role="odds-move-pl"></div>
               <div class="v">Model spread: ${fmt(modelSpread, 2)}</div>
             </div>
           </div>
@@ -969,6 +1069,150 @@
       } catch (e) {}
 
       return el;
+    }
+
+    function fmtAmerican(x) {
+      const n = Number(x);
+      if (!isFinite(n) || n === 0) return '—';
+      const v = Math.round(n);
+      return (v > 0) ? ('+' + String(v)) : String(v);
+    }
+
+    function fmtSigned(x, nd=0) {
+      const n = Number(x);
+      if (!isFinite(n)) return '—';
+      const v = Number(n);
+      const s = (v > 0) ? '+' : '';
+      return s + v.toFixed(nd);
+    }
+
+    function _renderMove(obj, kind='price') {
+      if (!obj) return '';
+      const isLine = (String(kind || '').toLowerCase() === 'line');
+      const cur = obj.cur;
+      const dOpen = obj.d_open;
+      const dPrev = obj.d_prev;
+      const hasCur = (cur !== null && cur !== undefined && isFinite(Number(cur)));
+      const hasD = isFinite(Number(dOpen)) || isFinite(Number(dPrev));
+      if (!hasCur && !hasD) return '';
+      const curTxt = isLine ? fmt(cur, 1) : fmtAmerican(cur);
+      const doTxt = isLine ? fmtSigned(dOpen, 1) : fmtSigned(dOpen, 0);
+      const dpTxt = isLine ? fmtSigned(dPrev, 1) : fmtSigned(dPrev, 0);
+      return `${curTxt} (o ${doTxt}, p ${dpTxt})`;
+    }
+
+    function applyOddsMovementToCards(payload) {
+      if (!payload || !payload.ok || !Array.isArray(payload.games)) return;
+      const byKey = new Map();
+      for (const g of (payload.games || [])) {
+        const k = normKey(g && g.key);
+        if (k) byKey.set(k, g);
+      }
+
+      for (const card of document.querySelectorAll('.card.game-card[data-game-key]')) {
+        const k = normKey(card.dataset.gameKey);
+        const g = byKey.get(k);
+        if (!g) continue;
+
+        try {
+          const mlEl = card.querySelector('[data-role="odds-move-ml"]');
+          if (mlEl) {
+            const a = (g.ml && g.ml.away) ? g.ml.away : null;
+            const h = (g.ml && g.ml.home) ? g.ml.home : null;
+            const parts = [];
+            const at = a ? _renderMove(a, 'price') : '';
+            const ht = h ? _renderMove(h, 'price') : '';
+            if (at) parts.push('A ' + at);
+            if (ht) parts.push('H ' + ht);
+            mlEl.textContent = parts.length ? ('Move: ' + parts.join(' · ')) : '';
+          }
+
+          const totEl = card.querySelector('[data-role="odds-move-total"]');
+          if (totEl) {
+            const line = (g.total && g.total.line) ? g.total.line : null;
+            const over = (g.total && g.total.over) ? g.total.over : null;
+            const under = (g.total && g.total.under) ? g.total.under : null;
+            const parts = [];
+            const lt = line ? _renderMove(line, 'line') : '';
+            const ot = over ? _renderMove(over, 'price') : '';
+            const ut = under ? _renderMove(under, 'price') : '';
+            if (lt) parts.push('Line ' + lt);
+            if (ot) parts.push('O ' + ot);
+            if (ut) parts.push('U ' + ut);
+            totEl.textContent = parts.length ? ('Move: ' + parts.join(' · ')) : '';
+          }
+
+          const plEl = card.querySelector('[data-role="odds-move-pl"]');
+          if (plEl) {
+            const a = (g.puckline && g.puckline['away_+1.5']) ? g.puckline['away_+1.5'] : null;
+            const h = (g.puckline && g.puckline['home_-1.5']) ? g.puckline['home_-1.5'] : null;
+            const parts = [];
+            const at = a ? _renderMove(a, 'price') : '';
+            const ht = h ? _renderMove(h, 'price') : '';
+            if (at) parts.push('A+1.5 ' + at);
+            if (ht) parts.push('H-1.5 ' + ht);
+            plEl.textContent = parts.length ? ('Move: ' + parts.join(' · ')) : '';
+          }
+        } catch (e) {}
+      }
+    }
+
+    function renderPropsCardsStrip(payload) {
+      const strip = $('propsStrip');
+      const label = $('propsStripLabel');
+      if (!strip) return;
+
+      strip.innerHTML = '';
+      if (label) label.textContent = '';
+
+      if (!payload || !payload.ok || !Array.isArray(payload.cards) || !payload.cards.length) return;
+      if (label) label.textContent = 'Top props';
+
+      const frag = document.createDocumentFragment();
+      for (const c of (payload.cards || [])) {
+        try {
+          const player = String(c && c.player || '').trim();
+          if (!player) continue;
+          const team = toUpper(c && c.team);
+          const opp = toUpper(c && c.opp);
+          const market = toUpper(c && c.market);
+          const side = String(c && c.side || '').trim();
+          const book = String(c && c.book || '').trim();
+
+          const ln = (c && c.line !== undefined && c.line !== null && isFinite(Number(c.line))) ? fmt(c.line, 1)
+            : ((c && c.line !== undefined && c.line !== null && String(c.line).trim() !== '') ? String(c.line).trim() : '—');
+          const pr = (c && c.price !== undefined && c.price !== null && isFinite(Number(c.price))) ? fmtAmerican(c.price)
+            : ((c && c.price !== undefined && c.price !== null && String(c.price).trim() !== '') ? String(c.price).trim() : '—');
+          const evTxt = (c && isFinite(Number(c.ev))) ? ('EV ' + (100 * Number(c.ev)).toFixed(1) + '%') : 'EV —';
+
+          const headshot = String(c && c.headshot_url || '').trim();
+          const drivers = String(c && c.drivers || '').trim();
+
+          const mvLine = (c && c.movement && c.movement.line) ? _renderMove(c.movement.line, 'line') : '';
+          const mvPrice = (c && c.movement && c.movement.price) ? _renderMove(c.movement.price, 'price') : '';
+
+          const item = document.createElement('div');
+          item.className = 'p-item';
+          item.innerHTML = `
+            <div class="p-head">
+              <div class="p-who">
+                ${headshot ? `<img class="p-img" src="${escHtml(headshot)}" alt="${escHtml(player)}" onerror="this.style.display='none';" />` : `<div class="p-img" style="display:none;"></div>`}
+                <div style="min-width:0;">
+                  <div class="p-name">${escHtml(player)}</div>
+                  <div class="p-sub">${escHtml(team)}${opp ? ` vs ${escHtml(opp)}` : ''}${book ? ` · ${escHtml(book)}` : ''}</div>
+                </div>
+              </div>
+              <span class="pill">${escHtml(evTxt)}</span>
+            </div>
+            <div class="p-line">${escHtml(market)} ${escHtml(side)} ${escHtml(ln)} <span class="muted">@ ${escHtml(pr)}</span></div>
+            ${mvLine ? `<div class="p-move">Line ${escHtml(mvLine)}</div>` : ''}
+            ${mvPrice ? `<div class="p-move">Price ${escHtml(mvPrice)}</div>` : ''}
+            ${drivers ? `<div>${renderDriverPills(drivers, 2, false)}</div>` : ''}
+          `;
+          frag.appendChild(item);
+        } catch (e) {}
+      }
+      strip.appendChild(frag);
     }
 
     function _findCardByGameKey(gameKey) {
@@ -1121,7 +1365,7 @@
       return arr.filter(s => {
         try {
           const scope = String(s && s.scope || '').toLowerCase();
-          if (scope !== 'game') return false;
+          if (scope !== 'game' && scope !== 'prop') return false;
           return _isBetOrWatchSignal(s);
         } catch (e) {
           return false;
@@ -2551,28 +2795,38 @@
             g = mapByKey.get(k) || null;
           }
 
-          // Compact per-card lens tag (BET/WATCH) in the title.
-          try {
-            const tagEl = card.querySelector('[data-role="lens-card-tag"]');
-            if (tagEl) {
-              tagEl.classList.remove('bet', 'watch');
-              if (g && Array.isArray(g.signals) && g.signals.length) {
-                const gameSigs = _filterGameBetWatchSignals(g.signals);
-                const cls = _signalClass(gameSigs);
-                if (cls) tagEl.classList.add(cls);
-                const sig = _pickSignalForTag(gameSigs);
-                tagEl.textContent = _compactSignalText(sig);
-              } else {
-                tagEl.textContent = '';
-              }
-            }
-          } catch (e) {}
           if (!g) {
             // Best-effort fallback if future payloads ever key by abbreviations.
             const ak = String(card.dataset.awayAbbr || '').trim();
             const hk = String(card.dataset.homeAbbr || '').trim();
             if (ak && hk) g = mapByKey.get(normKey(`${ak} @ ${hk}`)) || null;
           }
+
+          // Compact per-card lens tag (BET/WATCH) in the title + NCAAB-like live-edge border.
+          try {
+            const tagEl = card.querySelector('[data-role="lens-card-tag"]');
+            card.classList.remove('live-edge-ok', 'live-edge-warn');
+            if (tagEl) {
+              tagEl.classList.remove('bet', 'watch');
+              tagEl.textContent = '';
+            }
+            if (g && Array.isArray(g.signals) && g.signals.length) {
+              const gameSigs = _filterGameBetWatchSignals(g.signals);
+              const cls = _signalClass(gameSigs);
+              if (tagEl) {
+                if (cls) tagEl.classList.add(cls);
+                const sig = _pickSignalForTag(gameSigs);
+                tagEl.textContent = _compactSignalText(sig);
+              }
+              try {
+                const st0 = String(g && g.gameState ? g.gameState : '').trim();
+                if (isLiveState(st0)) {
+                  if (cls === 'bet') card.classList.add('live-edge-ok');
+                  else if (cls === 'watch') card.classList.add('live-edge-warn');
+                }
+              } catch (e) {}
+            }
+          } catch (e) {}
 
           // FINAL score at top for historic slates.
           try {
@@ -2786,12 +3040,16 @@
       setStatus(`Loading ${date}…`);
       clearEmpty();
       $('cards').innerHTML = '';
+      try { $('propsStrip').innerHTML = ''; } catch (e) {}
+      try { $('propsStripLabel').textContent = ''; } catch (e) {}
 
       let b = null;
       let sim = null;
       let simSummary = null;
+      let oddsMove = null;
+      let propsCards = null;
       try {
-        [b, sim, simSummary] = await Promise.all([
+        [b, sim, simSummary, oddsMove, propsCards] = await Promise.all([
           fetchJson(`/v1/bundle/${encodeURIComponent(date)}`),
           (async () => {
             try {
@@ -2803,6 +3061,20 @@
           (async () => {
             try {
               return await fetchJson(`/api/sim/summary?date=${encodeURIComponent(date)}`);
+            } catch (e) {
+              return null;
+            }
+          })(),
+          (async () => {
+            try {
+              return await fetchJson(`/v1/odds-movement/${encodeURIComponent(date)}`);
+            } catch (e) {
+              return null;
+            }
+          })(),
+          (async () => {
+            try {
+              return await fetchJson(`/v1/props-cards/${encodeURIComponent(date)}?top=12`);
             } catch (e) {
               return null;
             }
@@ -2908,6 +3180,12 @@
       }
       $('cards').appendChild(frag);
 
+      // Top-of-page props cards strip (best-effort).
+      try { renderPropsCardsStrip(propsCards); } catch (e) {}
+
+      // Odds movement deltas (best-effort).
+      try { applyOddsMovementToCards(oddsMove); } catch (e) {}
+
       // Overlay live lens:
       // - For today: poll live-only (inplay=1)
       // - For past/future slates: fetch non-live too (include_non_live=1) so FINAL results show next to sim
@@ -2938,8 +3216,29 @@
 
       try {
         const titleEl = $('pageTitle');
-        if (titleEl) titleEl.textContent = 'NHL Betting – Cards';
-        document.title = 'NHL Betting – Cards';
+        if (titleEl) titleEl.textContent = DEFAULT_PAGE_TITLE;
+        document.title = DEFAULT_PAGE_TITLE;
+      } catch (e) {}
+
+      // Compact mode toggle persisted in localStorage.
+      try {
+        const compactChk = $('compactModeChk');
+
+        const compactSaved = _lsGetBool(LS_COMPACT_KEY, false);
+
+        if (compactChk) {
+          compactChk.checked = !!compactSaved;
+          _syncPillActiveForCheckbox(compactChk);
+          setCompactMode(!!compactSaved);
+          compactChk.addEventListener('change', () => {
+            const on = !!compactChk.checked;
+            _lsSetBool(LS_COMPACT_KEY, on);
+            _syncPillActiveForCheckbox(compactChk);
+            setCompactMode(on);
+          });
+        } else {
+          setCompactMode(!!compactSaved);
+        }
       } catch (e) {}
 
       try {

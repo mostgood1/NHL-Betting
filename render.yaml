@@ -66,6 +66,30 @@ services:
       - key: WEB_ON_DEPLOY_REFRESH_EDGES
         value: "1"
 
+      # Disk-backed odds snapshots (movement tracking)
+      - key: ODDS_SNAPSHOT_SCHED_MINUTES
+        value: "30"
+      - key: ODDS_SNAPSHOT_SCHED_DAYS_AHEAD
+        value: "1"
+      - key: ODDS_SNAPSHOT_SCHED_TIMEOUT_SEC
+        value: "180"
+      - key: ODDS_SNAPSHOT_SCHED_INITIAL_DELAY_SEC
+        value: "5"
+
+      # Use a stable bookmaker so movement deltas don't jitter due to book switching
+      - key: ODDS_SNAPSHOT_REGIONS
+        value: "us"
+      - key: ODDS_SNAPSHOT_BEST
+        value: "0"
+      - key: ODDS_SNAPSHOT_BOOKMAKER
+        value: "draftkings"
+
+      # Player props collection: restrict to a stable bookmaker for movement tracking
+      - key: PROPS_ODDSAPI_BOOKMAKERS
+        value: "draftkings"
+      - key: PROPS_ODDSAPI_REGIONS
+        value: "us"
+
       # Disk-backed persistence for Live Lens + props artifacts
       - key: NHL_DATA_DIR
         value: "/opt/data/data"

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import os, time, json
+import os, time, json, tempfile
 import re
 import math
 from datetime import datetime, timezone, timedelta
@@ -78,6 +78,257 @@ def _props_dir() -> Path:
 def _props_lines_dir(date_ymd: str) -> Path:
     """Return canonical props lines directory for a given slate date."""
     return _props_dir() / "player_props_lines" / f"date={date_ymd}"
+
+
+def _odds_snapshots_root() -> Path:
+    """Root directory for disk-backed odds/props snapshots used for movement tracking."""
+    try:
+        p = DATA_DIR / "odds_snapshots"
+        p.mkdir(parents=True, exist_ok=True)
+        return p
+    except Exception:
+        return Path("data") / "odds_snapshots"
+
+
+def _team_odds_snapshots_dir(date_ymd: str) -> Path:
+    return _odds_snapshots_root() / "team_odds" / f"date={date_ymd}"
+
+
+def _props_odds_snapshots_dir(date_ymd: str) -> Path:
+    return _odds_snapshots_root() / "player_props" / f"date={date_ymd}"
+
+
+def _safe_read_json(path: Path) -> Optional[dict]:
+    try:
+        if not path.exists():
+            return None
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+
+def _atomic_write_text(path: Path, text: str) -> None:
+    """Atomic write (temp + replace) to avoid partial snapshot files."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    dirpath = str(path.parent)
+    with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", delete=False, dir=dirpath, suffix=".tmp") as tmp:
+        tmp_path = Path(tmp.name)
+        tmp.write(text)
+    try:
+        os.replace(str(tmp_path), str(path))
+    finally:
+        try:
+            if tmp_path.exists():
+                tmp_path.unlink()
+        except Exception:
+            pass
+
+
+def _atomic_write_json(path: Path, obj: Any) -> None:
+    _atomic_write_text(path, json.dumps(obj, ensure_ascii=False, indent=2, sort_keys=True))
+
+
+def _update_open_prev_current(dir_path: Path, current_obj: dict) -> dict:
+    """Maintain open/prev/current snapshots under dir_path.
+
+    - open.json: first snapshot of the day (write-once)
+    - prev.json: previous current.json before this update
+    - current.json: latest snapshot
+    """
+    dir_path.mkdir(parents=True, exist_ok=True)
+    open_p = dir_path / "open.json"
+    prev_p = dir_path / "prev.json"
+    cur_p = dir_path / "current.json"
+
+    wrote = {"open": False, "prev": False, "current": False}
+    prev_obj = _safe_read_json(cur_p)
+    if isinstance(prev_obj, dict) and prev_obj:
+        try:
+            _atomic_write_json(prev_p, prev_obj)
+            wrote["prev"] = True
+        except Exception:
+            pass
+    if not open_p.exists():
+        try:
+            _atomic_write_json(open_p, current_obj)
+            wrote["open"] = True
+        except Exception:
+            pass
+    try:
+        _atomic_write_json(cur_p, current_obj)
+        wrote["current"] = True
+    except Exception:
+        pass
+    return wrote
+
+
+def _read_props_lines_latest(date_ymd: str, source: str = "oddsapi") -> pd.DataFrame:
+    """Read canonical props lines for date (Parquet preferred, CSV fallback)."""
+    base = _props_lines_dir(date_ymd)
+    p_pq = base / f"{source}.parquet"
+    p_csv = base / f"{source}.csv"
+    try:
+        if p_pq.exists():
+            return pd.read_parquet(p_pq)
+    except Exception:
+        pass
+    try:
+        if p_csv.exists():
+            return pd.read_csv(p_csv)
+    except Exception:
+        pass
+    return pd.DataFrame()
+
+
+def _props_row_key(team: Optional[str], player_id: object, player_name: Optional[str], market: Optional[str], book: Optional[str]) -> Optional[str]:
+    """Stable key for a prop line snapshot row."""
+    try:
+        tm = str(team or "").strip().upper()
+        mk = str(market or "").strip().upper()
+        bk = str(book or "").strip().lower()
+        pid = None
+        try:
+            if player_id is not None and not (isinstance(player_id, float) and pd.isna(player_id)):
+                pid = str(int(float(player_id)))
+        except Exception:
+            pid = None
+        if not tm or not mk or not bk:
+            return None
+        if pid:
+            return f"{tm}::id::{pid}::{mk}::{bk}"
+        nm = str(player_name or "").strip().lower()
+        if not nm:
+            return None
+        nm = re.sub(r"\s+", " ", nm)
+        return f"{tm}::name::{nm}::{mk}::{bk}"
+    except Exception:
+        return None
+
+
+def _build_props_snapshot_object(date_ymd: str, source: str = "oddsapi") -> dict:
+    """Build a snapshot object of current props lines for movement tracking."""
+    asof = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+    df = _read_props_lines_latest(date_ymd, source=source)
+    if df is None or df.empty:
+        return {"ok": True, "snapshot_kind": "player_props", "date": date_ymd, "asof_utc": asof, "rows": []}
+    try:
+        if "is_current" in df.columns:
+            df = df[df["is_current"].astype(bool)].copy()
+    except Exception:
+        pass
+    rows: list[dict] = []
+    want = ["date", "player_id", "player_name", "team", "market", "line", "over_price", "under_price", "book", "first_seen_at", "last_seen_at", "is_current"]
+    for _, r in df.iterrows():
+        try:
+            team = r.get("team")
+            market = r.get("market")
+            book = r.get("book")
+            pid = r.get("player_id")
+            pname = r.get("player_name")
+            k = _props_row_key(team, pid, pname, market, book)
+            if not k:
+                continue
+            out = {"k": k}
+            for c in want:
+                if c in df.columns:
+                    out[c] = r.get(c)
+            # Normalize player_id to string int when possible
+            try:
+                if out.get("player_id") is not None and not (isinstance(out.get("player_id"), float) and pd.isna(out.get("player_id"))):
+                    out["player_id"] = str(int(float(out.get("player_id"))))
+                else:
+                    out["player_id"] = None
+            except Exception:
+                pass
+            # Normalize team/market/book
+            try:
+                out["team"] = str(out.get("team") or "").strip().upper() or None
+            except Exception:
+                pass
+            try:
+                out["market"] = str(out.get("market") or "").strip().upper() or None
+            except Exception:
+                pass
+            try:
+                out["book"] = str(out.get("book") or "").strip().lower() or None
+            except Exception:
+                pass
+            rows.append(out)
+        except Exception:
+            continue
+    return {
+        "ok": True,
+        "snapshot_kind": "player_props",
+        "date": date_ymd,
+        "asof_utc": asof,
+        "source": str(source or "oddsapi"),
+        "rows": rows,
+    }
+
+
+def _refresh_disk_snapshots_for_date(
+    date_ymd: str,
+    *,
+    include_team_odds: bool = True,
+    include_player_props: bool = True,
+    regions: Optional[str] = None,
+    bookmaker: Optional[str] = None,
+) -> dict:
+    """Refresh disk-backed snapshots for one slate date (best-effort)."""
+    d = str(date_ymd or "").strip()
+    out: dict = {"ok": True, "date": d, "team_odds": None, "player_props": None, "errors": []}
+
+    if include_team_odds:
+        try:
+            reg = (regions if regions is not None else os.getenv("ODDS_SNAPSHOT_REGIONS", "us")).strip() or "us"
+        except Exception:
+            reg = "us"
+        try:
+            bk = bookmaker
+            if bk is None:
+                bk = (os.getenv("ODDS_SNAPSHOT_BOOKMAKER") or "").strip() or None
+        except Exception:
+            bk = bookmaker
+        try:
+            best_flag = str(os.getenv("ODDS_SNAPSHOT_BEST", "0")).strip().lower() in ("1", "true", "yes", "on")
+        except Exception:
+            best_flag = False
+
+        try:
+            obj = _v1_odds_payload(d, regions=reg, best=bool(best_flag), inplay=False, bookmaker=bk)
+            try:
+                obj["snapshot_kind"] = "team_odds"
+                obj["snapshot_cfg"] = {"regions": reg, "best": bool(best_flag), "inplay": False, "bookmaker": (bk or "auto")}
+            except Exception:
+                pass
+            wrote = _update_open_prev_current(_team_odds_snapshots_dir(d), obj)
+            out["team_odds"] = {
+                "asof_utc": obj.get("asof_utc"),
+                "games": int(len(obj.get("games") or [])) if isinstance(obj, dict) else 0,
+                "wrote": wrote,
+            }
+        except Exception as e:
+            out["errors"].append({"kind": "team_odds", "error": str(e)})
+
+    if include_player_props:
+        try:
+            from ..data import player_props as props_data
+
+            # Keep this on-disk dataset fresh (used elsewhere) but do NOT upsert to GitHub.
+            cfg = props_data.PropsCollectionConfig(output_root=str(_props_dir()), book="oddsapi", source="oddsapi")
+            _ = props_data.collect_and_write(d, roster_df=None, cfg=cfg)
+
+            obj = _build_props_snapshot_object(d, source="oddsapi")
+            wrote = _update_open_prev_current(_props_odds_snapshots_dir(d), obj)
+            out["player_props"] = {
+                "asof_utc": obj.get("asof_utc"),
+                "rows": int(len(obj.get("rows") or [])) if isinstance(obj, dict) else 0,
+                "wrote": wrote,
+            }
+        except Exception as e:
+            out["errors"].append({"kind": "player_props", "error": str(e)})
+
+    return out
 
 
 # Jinja templates
@@ -1334,8 +1585,102 @@ async def lifespan(app_: FastAPI):
             asyncio.create_task(_do_light_refresh())
     except Exception:
         pass
+
+    # Optional: disk-backed snapshots refresh loop for movement tracking (Render-friendly, single worker).
+    # Enabled by ODDS_SNAPSHOT_SCHED_MINUTES > 0.
+    _snap_task: Optional[asyncio.Task] = None
+    try:
+        try:
+            sched_mins = int(str(os.getenv("ODDS_SNAPSHOT_SCHED_MINUTES", "0") or "0").strip())
+        except Exception:
+            sched_mins = 0
+        if sched_mins and sched_mins > 0:
+            try:
+                days_ahead = int(str(os.getenv("ODDS_SNAPSHOT_SCHED_DAYS_AHEAD", "1") or "1").strip())
+            except Exception:
+                days_ahead = 1
+            days_ahead = max(0, min(7, days_ahead))
+            try:
+                per_date_timeout = float(str(os.getenv("ODDS_SNAPSHOT_SCHED_TIMEOUT_SEC", "180") or "180").strip())
+            except Exception:
+                per_date_timeout = 180.0
+            if not (per_date_timeout and per_date_timeout > 0):
+                per_date_timeout = 0.0
+            try:
+                initial_delay = float(str(os.getenv("ODDS_SNAPSHOT_SCHED_INITIAL_DELAY_SEC", "5") or "5").strip())
+            except Exception:
+                initial_delay = 5.0
+
+            async def _snapshots_loop():
+                try:
+                    if initial_delay and initial_delay > 0:
+                        await asyncio.sleep(float(initial_delay))
+                except Exception:
+                    pass
+                interval_s = max(60.0, float(sched_mins) * 60.0)
+                while True:
+                    try:
+                        d0 = _today_ymd()
+                        dates: list[str] = []
+                        try:
+                            base = datetime.strptime(d0, "%Y-%m-%d")
+                            for off in range(0, int(days_ahead) + 1):
+                                dates.append((base + timedelta(days=off)).strftime("%Y-%m-%d"))
+                        except Exception:
+                            dates = [d0]
+
+                        for dd in dates:
+                            try:
+                                work = asyncio.to_thread(
+                                    _refresh_disk_snapshots_for_date,
+                                    dd,
+                                    include_team_odds=True,
+                                    include_player_props=True,
+                                    regions=None,
+                                    bookmaker=None,
+                                )
+                                if per_date_timeout and per_date_timeout > 0:
+                                    await asyncio.wait_for(work, timeout=float(per_date_timeout))
+                                else:
+                                    await work
+                            except asyncio.CancelledError:
+                                raise
+                            except Exception as e:
+                                try:
+                                    print(json.dumps({"event": "snapshots_refresh_error", "date": dd, "error": str(e)}))
+                                except Exception:
+                                    pass
+                    except asyncio.CancelledError:
+                        break
+                    except Exception as e:
+                        try:
+                            print(json.dumps({"event": "snapshots_scheduler_error", "error": str(e)}))
+                        except Exception:
+                            pass
+                    try:
+                        await asyncio.sleep(interval_s)
+                    except asyncio.CancelledError:
+                        break
+
+            _snap_task = asyncio.create_task(_snapshots_loop())
+            try:
+                print(json.dumps({"event": "snapshots_scheduler_started", "minutes": sched_mins, "days_ahead": days_ahead}))
+            except Exception:
+                pass
+    except Exception:
+        _snap_task = None
     yield
-    # Shutdown phase (none currently)
+
+    # Shutdown phase
+    try:
+        if _snap_task is not None:
+            _snap_task.cancel()
+            try:
+                await _snap_task
+            except asyncio.CancelledError:
+                pass
+    except Exception:
+        pass
 
 # Apply lifespan to app (FastAPI allows providing lifespan in constructor, but we retrofit here)
 app.router.lifespan_context = lifespan
@@ -1574,6 +1919,7 @@ def _v1_odds_payload(
     regions: str = "us",
     best: bool = True,
     inplay: bool = False,
+    bookmaker: Optional[str] = None,
     *,
     http_timeout_sec: Optional[float] = None,
     max_seconds: Optional[float] = None,
@@ -1584,7 +1930,8 @@ def _v1_odds_payload(
     if not _V1_DATE_RE.fullmatch(d):
         return {"ok": False, "error": "invalid_date", "date": date_ymd}
 
-    cache_key = f"v1_odds::{d}::{str(regions or 'us').lower()}::{int(bool(best))}::{int(bool(inplay))}"
+    bk = str(bookmaker or "").strip().lower() or "auto"
+    cache_key = f"v1_odds::{d}::{str(regions or 'us').lower()}::{int(bool(best))}::{int(bool(inplay))}::{bk}"
     cached = _live_odds_cache_get(cache_key)
     if cached is not None:
         return cached
@@ -1661,7 +2008,7 @@ def _v1_odds_payload(
                 markets=markets_str,
                 snapshot_iso=None,
                 odds_format="american",
-                bookmaker=None,
+                bookmaker=bookmaker,
                 best=bool(best),
                 inplay=bool(inplay),
                 **kwargs,
@@ -1674,7 +2021,7 @@ def _v1_odds_payload(
                 markets=markets_str,
                 snapshot_iso=None,
                 odds_format="american",
-                bookmaker=None,
+                bookmaker=bookmaker,
                 best=bool(best),
                 inplay=bool(inplay),
             )
@@ -2258,7 +2605,9 @@ async def v1_odds(request: Request, date: str, regions: str = "us", best: bool =
         # ETag / 304 support for lightweight polling.
         # Use the cached snapshot's as-of timestamp as the ETag basis.
         try:
-            cache_key = f"v1_odds::{d}::{str(regions or 'us').lower()}::{int(bool(best))}::{int(bool(inplay))}"
+            # Keep cache key format in sync with _v1_odds_payload (includes bookmaker segment).
+            bk = "auto"
+            cache_key = f"v1_odds::{d}::{str(regions or 'us').lower()}::{int(bool(best))}::{int(bool(inplay))}::{bk}"
             cached = _live_odds_cache_get(cache_key)
             if isinstance(cached, dict) and cached.get("ok") is True:
                 try:
@@ -2298,7 +2647,8 @@ async def v1_odds(request: Request, date: str, regions: str = "us", best: bool =
 
         # Attach ETag headers on 200 responses as well.
         try:
-            cache_key = f"v1_odds::{d}::{str(regions or 'us').lower()}::{int(bool(best))}::{int(bool(inplay))}"
+            bk = "auto"
+            cache_key = f"v1_odds::{d}::{str(regions or 'us').lower()}::{int(bool(best))}::{int(bool(inplay))}::{bk}"
             try:
                 if bool(inplay):
                     cc = str(os.getenv("V1_ODDS_CACHE_CONTROL_INPLAY", "public, max-age=5, must-revalidate"))
@@ -2321,6 +2671,539 @@ async def v1_odds(request: Request, date: str, regions: str = "us", best: bool =
             headers = None
 
         return JSONResponse(obj, headers=headers)
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/v1/odds-movement/{date}")
+async def v1_odds_movement(date: str):
+    """Movement vs opening and vs last refresh for team/game lines.
+
+    Reads disk-backed snapshots under data/odds_snapshots/team_odds/date=YYYY-MM-DD:
+      - open.json: first snapshot of the day
+      - prev.json: previous refresh
+      - current.json: latest refresh
+    """
+    try:
+        d = str(date or "").strip()
+        if not _V1_DATE_RE.fullmatch(d):
+            return JSONResponse({"ok": False, "error": "invalid_date", "date": date}, status_code=400)
+
+        snap_dir = _team_odds_snapshots_dir(d)
+        open_obj = _safe_read_json(snap_dir / "open.json")
+        prev_obj = _safe_read_json(snap_dir / "prev.json")
+        cur_obj = _safe_read_json(snap_dir / "current.json")
+
+        def _games_map(obj: Optional[dict]) -> Dict[str, dict]:
+            out: Dict[str, dict] = {}
+            if not isinstance(obj, dict):
+                return out
+            gs = obj.get("games") or []
+            if not isinstance(gs, list):
+                return out
+            for g in gs:
+                if not isinstance(g, dict):
+                    continue
+                key = str(g.get("key") or _norm_game_key(g.get("away"), g.get("home")) or "").strip().lower()
+                if not key:
+                    continue
+                out[key] = g
+            return out
+
+        om = _games_map(open_obj)
+        pm = _games_map(prev_obj)
+        cm = _games_map(cur_obj)
+
+        def _num(v: object) -> Optional[float]:
+            try:
+                if v is None:
+                    return None
+                if isinstance(v, bool):
+                    return float(int(v))
+                if isinstance(v, (int, float, np.integer, np.floating)):
+                    fv = float(v)
+                else:
+                    s = str(v).strip()
+                    if not s:
+                        return None
+                    fv = float(s)
+                if not math.isfinite(fv):
+                    return None
+                return fv
+            except Exception:
+                return None
+
+        def _diff(open_v: object, prev_v: object, cur_v: object) -> dict:
+            o = _num(open_v)
+            p = _num(prev_v)
+            c = _num(cur_v)
+            out = {"open": open_v, "prev": prev_v, "cur": cur_v}
+            if (o is not None) and (c is not None):
+                out["d_open"] = c - o
+            else:
+                out["d_open"] = None
+            if (p is not None) and (c is not None):
+                out["d_prev"] = c - p
+            else:
+                out["d_prev"] = None
+            return out
+
+        if not cm:
+            return JSONResponse(
+                {
+                    "ok": True,
+                    "date": d,
+                    "open_asof_utc": (open_obj or {}).get("asof_utc") if isinstance(open_obj, dict) else None,
+                    "prev_asof_utc": (prev_obj or {}).get("asof_utc") if isinstance(prev_obj, dict) else None,
+                    "current_asof_utc": (cur_obj or {}).get("asof_utc") if isinstance(cur_obj, dict) else None,
+                    "games": [],
+                    "note": "missing_current_snapshot",
+                },
+                status_code=200,
+            )
+
+        games_out: list[dict] = []
+        for key, cg in cm.items():
+            og = om.get(key) or {}
+            pg = pm.get(key) or {}
+
+            o_ml = (og.get("ml") or {}) if isinstance(og.get("ml"), dict) else {}
+            p_ml = (pg.get("ml") or {}) if isinstance(pg.get("ml"), dict) else {}
+            c_ml = (cg.get("ml") or {}) if isinstance(cg.get("ml"), dict) else {}
+
+            o_tot = (og.get("total") or {}) if isinstance(og.get("total"), dict) else {}
+            p_tot = (pg.get("total") or {}) if isinstance(pg.get("total"), dict) else {}
+            c_tot = (cg.get("total") or {}) if isinstance(cg.get("total"), dict) else {}
+
+            o_pl = (og.get("puckline") or {}) if isinstance(og.get("puckline"), dict) else {}
+            p_pl = (pg.get("puckline") or {}) if isinstance(pg.get("puckline"), dict) else {}
+            c_pl = (cg.get("puckline") or {}) if isinstance(cg.get("puckline"), dict) else {}
+
+            games_out.append(
+                {
+                    "key": key,
+                    "away": cg.get("away"),
+                    "home": cg.get("home"),
+                    "ml": {
+                        "away": {
+                            **_diff(o_ml.get("away"), p_ml.get("away"), c_ml.get("away")),
+                            "open_book": o_ml.get("away_book"),
+                            "prev_book": p_ml.get("away_book"),
+                            "cur_book": c_ml.get("away_book"),
+                        },
+                        "home": {
+                            **_diff(o_ml.get("home"), p_ml.get("home"), c_ml.get("home")),
+                            "open_book": o_ml.get("home_book"),
+                            "prev_book": p_ml.get("home_book"),
+                            "cur_book": c_ml.get("home_book"),
+                        },
+                    },
+                    "total": {
+                        "line": {
+                            **_diff(o_tot.get("line"), p_tot.get("line"), c_tot.get("line")),
+                            "open_book": None,
+                            "prev_book": None,
+                            "cur_book": None,
+                        },
+                        "over": {
+                            **_diff(o_tot.get("over"), p_tot.get("over"), c_tot.get("over")),
+                            "open_book": o_tot.get("over_book"),
+                            "prev_book": p_tot.get("over_book"),
+                            "cur_book": c_tot.get("over_book"),
+                        },
+                        "under": {
+                            **_diff(o_tot.get("under"), p_tot.get("under"), c_tot.get("under")),
+                            "open_book": o_tot.get("under_book"),
+                            "prev_book": p_tot.get("under_book"),
+                            "cur_book": c_tot.get("under_book"),
+                        },
+                    },
+                    "puckline": {
+                        "away_+1.5": {
+                            **_diff(o_pl.get("away_+1.5"), p_pl.get("away_+1.5"), c_pl.get("away_+1.5")),
+                            "open_book": o_pl.get("away_+1.5_book"),
+                            "prev_book": p_pl.get("away_+1.5_book"),
+                            "cur_book": c_pl.get("away_+1.5_book"),
+                        },
+                        "home_-1.5": {
+                            **_diff(o_pl.get("home_-1.5"), p_pl.get("home_-1.5"), c_pl.get("home_-1.5")),
+                            "open_book": o_pl.get("home_-1.5_book"),
+                            "prev_book": p_pl.get("home_-1.5_book"),
+                            "cur_book": c_pl.get("home_-1.5_book"),
+                        },
+                    },
+                }
+            )
+
+        payload = {
+            "ok": True,
+            "date": d,
+            "open_asof_utc": (open_obj or {}).get("asof_utc") if isinstance(open_obj, dict) else None,
+            "prev_asof_utc": (prev_obj or {}).get("asof_utc") if isinstance(prev_obj, dict) else None,
+            "current_asof_utc": (cur_obj or {}).get("asof_utc") if isinstance(cur_obj, dict) else None,
+            "games": games_out,
+        }
+        try:
+            payload = _strict_json_sanitize(payload)
+        except Exception:
+            pass
+        return JSONResponse(payload)
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/v1/props-cards/{date}")
+async def v1_props_cards(
+    date: str,
+    top: int = Query(12, description="Number of player prop cards to return"),
+):
+    """Top player props cards with movement deltas.
+
+    Uses:
+      - props recommendations (data/processed/props_recommendations_{date}.csv)
+      - disk-backed props snapshots (data/odds_snapshots/player_props/date=YYYY-MM-DD)
+
+    Movement is computed vs opening (open.json) and vs last refresh (prev.json).
+    """
+    try:
+        d = str(date or "").strip()
+        if not _V1_DATE_RE.fullmatch(d):
+            return JSONResponse({"ok": False, "error": "invalid_date", "date": date}, status_code=400)
+
+        try:
+            n_top = int(top or 0)
+        except Exception:
+            n_top = 12
+        n_top = max(0, min(100, n_top))
+
+        # Load props recommendations for date (local first, GH raw fallback).
+        df = None
+        try:
+            p = PROC_DIR / f"props_recommendations_{d}.csv"
+            if p.exists():
+                df = _read_csv_fallback(p)
+        except Exception:
+            df = None
+        if df is None or (isinstance(df, pd.DataFrame) and df.empty):
+            try:
+                df = _github_raw_read_csv(f"data/processed/props_recommendations_{d}.csv")
+            except Exception:
+                df = df
+
+        if df is None or df.empty:
+            return JSONResponse({"ok": True, "date": d, "cards": [], "note": "no_props_recommendations"})
+
+        df = df.copy()
+
+        # Normalize key columns.
+        try:
+            if "ev" not in df.columns and "ev_over" in df.columns:
+                df["ev"] = pd.to_numeric(df["ev_over"], errors="coerce")
+        except Exception:
+            pass
+        try:
+            if "player" not in df.columns and "player_name" in df.columns:
+                df["player"] = df["player_name"]
+        except Exception:
+            pass
+        try:
+            if "price" not in df.columns:
+                # Prefer explicit price; otherwise derive from over/under + side.
+                if "side" in df.columns and ("over_price" in df.columns or "under_price" in df.columns):
+                    side_u = df["side"].astype(str).str.upper()
+                    df["price"] = np.where(side_u == "OVER", df.get("over_price"), df.get("under_price"))
+        except Exception:
+            pass
+        # Best-effort: filter to bettable ranges similar to the UI.
+        try:
+            df["ev"] = pd.to_numeric(df.get("ev"), errors="coerce")
+        except Exception:
+            pass
+        try:
+            df["price_num"] = pd.to_numeric(df.get("price"), errors="coerce")
+        except Exception:
+            df["price_num"] = np.nan
+
+        try:
+            df = df[df["ev"].notna()]
+        except Exception:
+            pass
+        try:
+            df = df[df["ev"].astype(float) >= 0.02]
+        except Exception:
+            pass
+        try:
+            df = df[df["price_num"].notna()]
+            df = df[(df["price_num"].astype(float) >= -125.0) & (df["price_num"].astype(float) <= 125.0)]
+        except Exception:
+            pass
+        try:
+            df = df.sort_values(["ev"], ascending=[False])
+        except Exception:
+            pass
+        if n_top and n_top > 0:
+            df = df.head(int(n_top))
+
+        # Load disk-backed snapshots.
+        snap_dir = _props_odds_snapshots_dir(d)
+        open_obj = _safe_read_json(snap_dir / "open.json")
+        prev_obj = _safe_read_json(snap_dir / "prev.json")
+        cur_obj = _safe_read_json(snap_dir / "current.json")
+
+        def _num(v: object) -> Optional[float]:
+            try:
+                if v is None:
+                    return None
+                if isinstance(v, bool):
+                    return float(int(v))
+                if isinstance(v, (int, float, np.integer, np.floating)):
+                    fv = float(v)
+                else:
+                    s = str(v).strip()
+                    if not s:
+                        return None
+                    fv = float(s)
+                if not math.isfinite(fv):
+                    return None
+                return fv
+            except Exception:
+                return None
+
+        def _diff(open_v: object, prev_v: object, cur_v: object) -> dict:
+            o = _num(open_v)
+            p = _num(prev_v)
+            c = _num(cur_v)
+            out = {"open": open_v, "prev": prev_v, "cur": cur_v}
+            out["d_open"] = (c - o) if (o is not None and c is not None) else None
+            out["d_prev"] = (c - p) if (p is not None and c is not None) else None
+            return out
+
+        def _norm_name(x: object) -> str:
+            try:
+                s = str(x or "").strip().lower()
+            except Exception:
+                s = ""
+            s = re.sub(r"\s+", " ", s)
+            return s
+
+        def _norm_team(x: object) -> str:
+            try:
+                return str(x or "").strip().upper()
+            except Exception:
+                return ""
+
+        def _norm_book(x: object) -> str:
+            try:
+                return str(x or "").strip().lower()
+            except Exception:
+                return ""
+
+        def _norm_market(x: object) -> str:
+            try:
+                return str(x or "").strip().upper()
+            except Exception:
+                return ""
+
+        def _rows_by_key(obj: Optional[dict]) -> Dict[tuple[str, str, str, str], list[dict]]:
+            out: Dict[tuple[str, str, str, str], list[dict]] = {}
+            if not isinstance(obj, dict):
+                return out
+            rows = obj.get("rows") or []
+            if not isinstance(rows, list):
+                return out
+            for r in rows:
+                if not isinstance(r, dict):
+                    continue
+                team = _norm_team(r.get("team"))
+                player = _norm_name(r.get("player_name") or r.get("player"))
+                market = _norm_market(r.get("market"))
+                book = _norm_book(r.get("book"))
+                if not (team and player and market and book):
+                    continue
+                k = (team, player, market, book)
+                out.setdefault(k, []).append(r)
+            return out
+
+        open_rows = _rows_by_key(open_obj)
+        prev_rows = _rows_by_key(prev_obj)
+        cur_rows = _rows_by_key(cur_obj)
+
+        def _score_primary(r: dict) -> tuple:
+            # Prefer rows with both sides priced and prices near -110 (main line).
+            op = _num(r.get("over_price"))
+            up = _num(r.get("under_price"))
+            has_over = op is not None
+            has_under = up is not None
+            miss_flag = 0 if (has_over and has_under) else (1 if (has_over or has_under) else 2)
+            dist = (abs(abs(op) - 110.0) if has_over else 1000.0) + (abs(abs(up) - 110.0) if has_under else 1000.0)
+            ln = _num(r.get("line"))
+            ln_pen = ln if ln is not None else 1e9
+            return (miss_flag, dist, ln_pen)
+
+        def _choose_row(rows: list[dict], target_line: Optional[float] = None) -> Optional[dict]:
+            if not rows:
+                return None
+            if target_line is not None and math.isfinite(float(target_line)):
+                try:
+                    for r in rows:
+                        ln = _num(r.get("line"))
+                        if ln is not None and abs(float(ln) - float(target_line)) <= 1e-6:
+                            return r
+                except Exception:
+                    pass
+            try:
+                return sorted(rows, key=_score_primary)[0]
+            except Exception:
+                return rows[0]
+
+        # Roster master headshot mapping (best-effort; cached by mtime).
+        def _get_roster_master_map() -> Dict[tuple[str, str], dict]:
+            try:
+                cache = getattr(app.state, "roster_master_cache", None)
+                if not isinstance(cache, dict):
+                    cache = {}
+                    setattr(app.state, "roster_master_cache", cache)
+
+                p1 = PROC_DIR / "roster_master.csv"
+                p2 = ROOT_DIR / "data" / "processed" / "roster_master.csv"
+                path = p1 if p1.exists() else (p2 if p2.exists() else None)
+                if path is None:
+                    return {}
+
+                mtime = None
+                try:
+                    mtime = float(path.stat().st_mtime)
+                except Exception:
+                    mtime = None
+
+                ent = cache.get("ent")
+                if isinstance(ent, dict) and ent.get("path") == str(path) and ent.get("mtime") == mtime and isinstance(ent.get("map"), dict):
+                    return ent.get("map")
+
+                rm = pd.read_csv(path)
+                out: Dict[tuple[str, str], dict] = {}
+                if rm is not None and not rm.empty:
+                    for _, rr in rm.iterrows():
+                        try:
+                            team_abbr = _norm_team(rr.get("team_abbr"))
+                            pid = rr.get("player_id")
+                            try:
+                                pid_s = str(int(float(pid)))
+                            except Exception:
+                                pid_s = str(pid).strip() if pid is not None else ""
+                            nm = _norm_name(rr.get("full_name") or rr.get("player"))
+                            if not (team_abbr and nm and pid_s):
+                                continue
+                            out[(team_abbr, nm)] = {
+                                "player_id": pid_s,
+                                "image_url": rr.get("image_url"),
+                            }
+                        except Exception:
+                            continue
+                cache["ent"] = {"path": str(path), "mtime": mtime, "map": out}
+                return out
+            except Exception:
+                return {}
+
+        roster_map = _get_roster_master_map()
+
+        cards: list[dict] = []
+        for _, rr in df.iterrows():
+            try:
+                team = _norm_team(rr.get("team"))
+                player = str(rr.get("player") or "").strip()
+                player_norm = _norm_name(player)
+                market = _norm_market(rr.get("market"))
+                side = str(rr.get("side") or "").strip().title()
+                book = _norm_book(rr.get("book"))
+                opp = _norm_team(rr.get("opp"))
+                ln_rec = _num(rr.get("line"))
+
+                if not (team and player_norm and market):
+                    continue
+
+                snap_key = (team, player_norm, market, book) if book else None
+
+                o_rows = open_rows.get(snap_key, []) if snap_key else []
+                p_rows = prev_rows.get(snap_key, []) if snap_key else []
+                c_rows = cur_rows.get(snap_key, []) if snap_key else []
+
+                o_row = _choose_row(o_rows, target_line=ln_rec)
+                p_row = _choose_row(p_rows, target_line=None)
+                c_row = _choose_row(c_rows, target_line=None)
+
+                # Use snapshot-selected current values (movement may differ from rec line if line moved).
+                cur_line = (c_row or {}).get("line")
+                prev_line = (p_row or {}).get("line")
+                open_line = (o_row or {}).get("line")
+
+                def _side_price(row: Optional[dict]) -> object:
+                    if not isinstance(row, dict):
+                        return None
+                    if str(side).strip().lower() == "under":
+                        return row.get("under_price")
+                    return row.get("over_price")
+
+                open_price = _side_price(o_row)
+                prev_price = _side_price(p_row)
+                cur_price = _side_price(c_row)
+
+                # Player id for headshot
+                pid = None
+                for cand in (c_row, o_row, p_row):
+                    try:
+                        if isinstance(cand, dict) and cand.get("player_id") is not None:
+                            pid = str(cand.get("player_id")).split(".", 1)[0].strip()
+                            if pid:
+                                break
+                    except Exception:
+                        continue
+                if not pid and roster_map:
+                    try:
+                        ent = roster_map.get((team, player_norm))
+                        if isinstance(ent, dict) and ent.get("player_id"):
+                            pid = str(ent.get("player_id"))
+                    except Exception:
+                        pid = pid
+                headshot_url = f"/img/headshot/{pid}.jpg" if pid else None
+
+                cards.append(
+                    {
+                        "player": player,
+                        "player_id": pid,
+                        "headshot_url": headshot_url,
+                        "team": team,
+                        "opp": opp or None,
+                        "market": market,
+                        "side": side or None,
+                        "book": book or None,
+                        "ev": _num(rr.get("ev")),
+                        "prob": _num(rr.get("chosen_prob")) or _num(rr.get("prob")) or _num(rr.get("p_over")),
+                        "line": _num(rr.get("line")),
+                        "price": _num(rr.get("price")),
+                        "drivers": str(rr.get("edge_drivers") or rr.get("edge_reasons") or "").strip() or None,
+                        "movement": {
+                            "line": _diff(open_line, prev_line, cur_line),
+                            "price": _diff(open_price, prev_price, cur_price),
+                        },
+                    }
+                )
+            except Exception:
+                continue
+
+        payload = {
+            "ok": True,
+            "date": d,
+            "open_asof_utc": (open_obj or {}).get("asof_utc") if isinstance(open_obj, dict) else None,
+            "prev_asof_utc": (prev_obj or {}).get("asof_utc") if isinstance(prev_obj, dict) else None,
+            "current_asof_utc": (cur_obj or {}).get("asof_utc") if isinstance(cur_obj, dict) else None,
+            "cards": cards,
+        }
+        try:
+            payload = _strict_json_sanitize(payload)
+        except Exception:
+            pass
+        return JSONResponse(payload)
     except Exception as e:
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
 
@@ -14122,6 +15005,97 @@ def api_cron_config():
         "cron_token_configured": cron_ok,
         "github_token_configured": gh_ok,
     })
+
+
+@app.post("/api/cron/snapshots-refresh")
+async def api_cron_snapshots_refresh(
+    token: Optional[str] = Query(None, description="Bearer token; must match REFRESH_CRON_TOKEN env var"),
+    date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD; defaults to ET today"),
+    ahead: int = Query(1, description="Also refresh N days ahead (default 1 refreshes tomorrow too)"),
+    include_team_odds: bool = Query(True, description="Refresh disk-backed team/game odds snapshots"),
+    include_player_props: bool = Query(True, description="Refresh disk-backed player props snapshots"),
+    regions: Optional[str] = Query(None, description="Override ODDS_SNAPSHOT_REGIONS"),
+    bookmaker: Optional[str] = Query(None, description="Override ODDS_SNAPSHOT_BOOKMAKER"),
+    authorization: Optional[str] = Header(
+        None,
+        description="Authorization: Bearer <token> header (optional alternative to token query param)",
+    ),
+    async_run: bool = Query(False, description="If true, queue work in background and return 202 immediately"),
+):
+    """Refresh disk-backed snapshots used for odds/props movement tracking.
+
+    Protected by REFRESH_CRON_TOKEN to avoid abuse.
+    """
+    secret = os.getenv("REFRESH_CRON_TOKEN", "")
+    supplied = (token or "").strip()
+    if (not supplied) and authorization:
+        try:
+            auth = str(authorization)
+            if auth.lower().startswith("bearer "):
+                supplied = auth.split(" ", 1)[1].strip()
+        except Exception:
+            supplied = supplied
+    if not (secret and supplied and _const_time_eq(supplied, secret)):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+
+    d0 = _normalize_date_param(date)
+    try:
+        n_ahead = int(ahead or 0)
+    except Exception:
+        n_ahead = 0
+    n_ahead = max(0, min(7, n_ahead))
+
+    dates: list[str] = []
+    try:
+        base = datetime.strptime(d0, "%Y-%m-%d")
+        for off in range(0, n_ahead + 1):
+            dates.append((base + timedelta(days=off)).strftime("%Y-%m-%d"))
+    except Exception:
+        dates = [d0]
+
+    def _do_refresh() -> Dict[str, Any]:
+        results: Dict[str, Any] = {}
+        for dd in dates:
+            try:
+                results[dd] = _refresh_disk_snapshots_for_date(
+                    dd,
+                    include_team_odds=bool(include_team_odds),
+                    include_player_props=bool(include_player_props),
+                    regions=regions,
+                    bookmaker=bookmaker,
+                )
+            except Exception as e:
+                results[dd] = {"ok": False, "date": dd, "error": str(e)}
+        return {"dates": dates, "results": results}
+
+    try:
+        if async_run:
+            job_id = _queue_cron(
+                "snapshots-refresh",
+                {
+                    "date": d0,
+                    "ahead": n_ahead,
+                    "include_team_odds": bool(include_team_odds),
+                    "include_player_props": bool(include_player_props),
+                },
+                _do_refresh,
+            )
+            return JSONResponse(
+                {
+                    "ok": True,
+                    "date": d0,
+                    "ahead": n_ahead,
+                    "queued": True,
+                    "mode": "async",
+                    "job_id": job_id,
+                },
+                status_code=202,
+            )
+
+        res = await asyncio.to_thread(_do_refresh)
+        return JSONResponse({"ok": True, "date": d0, "ahead": n_ahead, **res})
+    except Exception as e:
+        return JSONResponse({"ok": False, "date": d0, "error": str(e)}, status_code=500)
 
 
 @app.get("/api/cron/export-artifacts")

@@ -329,6 +329,10 @@ class WrapperASGI:
                         message = await receive()
                         mtype = message.get("type")
                         if mtype == "lifespan.startup":
+                            try:
+                                ensure_heavy_loaded(background=True)
+                            except Exception:
+                                pass
                             await send({"type": "lifespan.startup.complete"})
                         elif mtype == "lifespan.shutdown":
                             await send({"type": "lifespan.shutdown.complete"})

@@ -1754,6 +1754,310 @@ def _live_lens_cache_put(key: str, value: object):
         pass
 
 
+_LIVE_LENS_WINPROB_CALIBRATION_CACHE: dict[str, object] = {}
+_LIVE_LENS_DRIVER_TAG_PRIORS_CACHE: dict[str, object] = {}
+
+
+def _live_lens_winprob_calibration_path() -> Path:
+    try:
+        p = (os.getenv("LIVE_LENS_WINPROB_CALIBRATION_JSON") or "").strip()
+        if p:
+            return Path(str(p)).expanduser()
+    except Exception:
+        pass
+    return PROC_DIR / "live_lens_winprob_calibration.json"
+
+
+def _live_lens_rm_bucket(remaining_min: Optional[float]) -> str:
+    try:
+        if remaining_min is None:
+            return "unknown"
+        x = float(remaining_min)
+        if not math.isfinite(x):
+            return "unknown"
+        if x < 0.0:
+            x = 0.0
+        if x <= 5.0:
+            return "0-5"
+        if x <= 10.0:
+            return "5-10"
+        if x <= 20.0:
+            return "10-20"
+        if x <= 40.0:
+            return "20-40"
+        return "40-60"
+    except Exception:
+        return "unknown"
+
+
+def _apply_live_lens_temp_shift_spec(spec: dict, p: float) -> float:
+    try:
+        p = float(max(1e-6, min(1.0 - 1e-6, float(p))))
+        t = float(spec.get("t", 1.0))
+        b = float(spec.get("b", 0.0))
+        if not math.isfinite(t) or abs(t) < 1e-9:
+            t = 1.0
+        if not math.isfinite(b):
+            b = 0.0
+        z = math.log(p / (1.0 - p))
+        return float(max(1e-6, min(1.0 - 1e-6, 1.0 / (1.0 + math.exp(-((z + b) / t))))))
+    except Exception:
+        return float(max(1e-6, min(1.0 - 1e-6, float(p))))
+
+
+def _apply_live_lens_isotonic_spec(spec: dict, p: float) -> float:
+    try:
+        xs = spec.get("x") or []
+        ys = spec.get("y") or []
+        if (not isinstance(xs, list)) or (not isinstance(ys, list)) or (len(xs) != len(ys)) or len(xs) < 2:
+            return float(max(1e-6, min(1.0 - 1e-6, float(p))))
+        x = float(max(1e-6, min(1.0 - 1e-6, float(p))))
+        if x <= float(xs[0]):
+            return float(max(1e-6, min(1.0 - 1e-6, float(ys[0]))))
+        if x >= float(xs[-1]):
+            return float(max(1e-6, min(1.0 - 1e-6, float(ys[-1]))))
+        for i in range(1, len(xs)):
+            x0 = float(xs[i - 1])
+            x1 = float(xs[i])
+            if x <= x1:
+                y0 = float(ys[i - 1])
+                y1 = float(ys[i])
+                if abs(x1 - x0) < 1e-12:
+                    return float(max(1e-6, min(1.0 - 1e-6, y1)))
+                t = (x - x0) / (x1 - x0)
+                y = y0 + t * (y1 - y0)
+                return float(max(1e-6, min(1.0 - 1e-6, y)))
+        return float(max(1e-6, min(1.0 - 1e-6, float(ys[-1]))))
+    except Exception:
+        return float(max(1e-6, min(1.0 - 1e-6, float(p))))
+
+
+def _load_live_lens_winprob_calibration() -> dict:
+    default = {"default": {"kind": "temp_shift", "t": 1.0, "b": 0.0}, "segments": {}}
+    try:
+        path = _live_lens_winprob_calibration_path()
+        if (not path.exists()) or path.stat().st_size <= 0:
+            return default
+        try:
+            mtime = float(path.stat().st_mtime)
+        except Exception:
+            mtime = 0.0
+        cached_path = _LIVE_LENS_WINPROB_CALIBRATION_CACHE.get("path")
+        cached_mtime = _LIVE_LENS_WINPROB_CALIBRATION_CACHE.get("mtime")
+        cached_obj = _LIVE_LENS_WINPROB_CALIBRATION_CACHE.get("obj")
+        if str(cached_path or "") == str(path) and cached_mtime == mtime and isinstance(cached_obj, dict):
+            return cached_obj
+        obj = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(obj, dict):
+            obj = default
+        if not isinstance(obj.get("default"), dict):
+            obj["default"] = dict(default["default"])
+        if not isinstance(obj.get("segments"), dict):
+            obj["segments"] = {}
+        _LIVE_LENS_WINPROB_CALIBRATION_CACHE.update({
+            "path": str(path),
+            "mtime": mtime,
+            "obj": obj,
+        })
+        return obj
+    except Exception:
+        return default
+
+
+def _pick_live_lens_winprob_calibration_spec(obj: dict, remaining_min: Optional[float], prob_source: Optional[str]) -> dict:
+    try:
+        default = obj.get("default") if isinstance(obj, dict) else None
+        segments = obj.get("segments") if isinstance(obj, dict) else None
+        if not isinstance(default, dict):
+            default = {"kind": "temp_shift", "t": 1.0, "b": 0.0}
+        if not isinstance(segments, dict):
+            return default
+        src = str(prob_source or "unknown").strip().lower() or "unknown"
+        key = f"src={src}|rm={_live_lens_rm_bucket(remaining_min)}"
+        spec = segments.get(key)
+        if isinstance(spec, dict):
+            return spec
+        return default
+    except Exception:
+        return {"kind": "temp_shift", "t": 1.0, "b": 0.0}
+
+
+def _apply_live_lens_winprob_calibration(p: float, remaining_min: Optional[float], prob_source: Optional[str]) -> float:
+    try:
+        p = float(max(1e-6, min(1.0 - 1e-6, float(p))))
+        obj = _load_live_lens_winprob_calibration()
+        spec = _pick_live_lens_winprob_calibration_spec(obj, remaining_min, prob_source)
+        kind = str((spec or {}).get("kind") or "temp_shift").strip().lower()
+        if kind == "isotonic":
+            return _apply_live_lens_isotonic_spec(spec, p)
+        return _apply_live_lens_temp_shift_spec(spec, p)
+    except Exception:
+        return float(max(1e-6, min(1.0 - 1e-6, float(p))))
+
+
+def _live_lens_driver_tag_priors_path() -> Path:
+    try:
+        p = (os.getenv("LIVE_LENS_DRIVER_TAG_PRIORS_JSON") or os.getenv("LIVE_LENS_DRIVER_TAG_PRIORS_PATH") or "").strip()
+        if p:
+            return Path(str(p)).expanduser()
+    except Exception:
+        pass
+    p0 = PROC_DIR / "live_lens" / "live_lens_driver_tag_priors.json"
+    try:
+        if p0.exists():
+            return p0
+    except Exception:
+        pass
+    return PROC_DIR / "live_lens_driver_tag_priors.json"
+
+
+def _is_learnable_live_lens_driver_tag(tag: object) -> bool:
+    try:
+        s = str(tag or "").strip().lower()
+        if not s:
+            return False
+        if s.startswith(("market:", "edge:", "gate:", "prob_source:", "guard:", "odds:", "book:")):
+            return False
+        if s in {"total_already_reached", "(none)"}:
+            return False
+        if s in {"goals_ahead", "goals_behind", "goals_on_track", "pressure_high", "pressure_low"}:
+            return True
+        return s.startswith(("pace:", "goalie:", "manpower:", "empty_net:", "pressure:", "late:", "score:"))
+    except Exception:
+        return False
+
+
+def _normalize_live_lens_learnable_driver_tags(tags: Any) -> list[str]:
+    out: list[str] = []
+    seen: set[str] = set()
+    try:
+        arr = tags if isinstance(tags, list) else [tags]
+    except Exception:
+        arr = [tags]
+    for x in arr:
+        try:
+            s = str(x or "").strip()
+        except Exception:
+            continue
+        if not s:
+            continue
+        if not _is_learnable_live_lens_driver_tag(s):
+            continue
+        if s not in seen:
+            seen.add(s)
+            out.append(s)
+    return out
+
+
+def _load_live_lens_driver_tag_priors() -> dict:
+    default = {"defaults": {"max_total_edge_adjustment": 0.015}, "markets": {}}
+    try:
+        path = _live_lens_driver_tag_priors_path()
+        if (not path.exists()) or path.stat().st_size <= 0:
+            return default
+        try:
+            mtime = float(path.stat().st_mtime)
+        except Exception:
+            mtime = 0.0
+        cached_path = _LIVE_LENS_DRIVER_TAG_PRIORS_CACHE.get("path")
+        cached_mtime = _LIVE_LENS_DRIVER_TAG_PRIORS_CACHE.get("mtime")
+        cached_obj = _LIVE_LENS_DRIVER_TAG_PRIORS_CACHE.get("obj")
+        if str(cached_path or "") == str(path) and cached_mtime == mtime and isinstance(cached_obj, dict):
+            return cached_obj
+        obj = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(obj, dict):
+            obj = default
+        if not isinstance(obj.get("defaults"), dict):
+            obj["defaults"] = dict(default["defaults"])
+        if not isinstance(obj.get("markets"), dict):
+            obj["markets"] = {}
+        _LIVE_LENS_DRIVER_TAG_PRIORS_CACHE.update({
+            "path": str(path),
+            "mtime": mtime,
+            "obj": obj,
+        })
+        return obj
+    except Exception:
+        return default
+
+
+def _live_lens_driver_tag_market_candidates(market: Optional[str]) -> list[str]:
+    mk = str(market or "").strip().upper()
+    if not mk:
+        return ["__all__"]
+    if mk in {"TOTAL", "PERIOD_TOTAL"}:
+        return [mk, "TOTAL", "PERIOD_TOTAL", "__all__"]
+    if mk in {"ML", "PUCKLINE", "REG_3WAY", "PERIOD_ML", "PERIOD_SPREAD", "PERIOD_3WAY"}:
+        return [mk, "ML", "PUCKLINE", "REG_3WAY", "PERIOD_ML", "PERIOD_SPREAD", "PERIOD_3WAY", "__all__"]
+    return [mk, "__all__"]
+
+
+def _live_lens_driver_tag_edge_adjustment(market: Optional[str], driver_tags: Any) -> dict:
+    out = {"edge_delta": 0.0, "matched": []}
+    try:
+        tags = _normalize_live_lens_learnable_driver_tags(driver_tags)
+        if not tags:
+            return out
+        obj = _load_live_lens_driver_tag_priors()
+        markets = obj.get("markets") if isinstance(obj, dict) else None
+        if not isinstance(markets, dict) or not markets:
+            return out
+        matched: list[dict[str, Any]] = []
+        for tag in tags:
+            spec = None
+            scope = None
+            for mk in _live_lens_driver_tag_market_candidates(market):
+                grp = markets.get(str(mk)) if isinstance(markets, dict) else None
+                if isinstance(grp, dict) and isinstance(grp.get(tag), dict):
+                    spec = grp.get(tag)
+                    scope = str(mk)
+                    break
+            if not isinstance(spec, dict):
+                continue
+            try:
+                edge_delta = float(spec.get("edge_delta", 0.0) or 0.0)
+            except Exception:
+                edge_delta = 0.0
+            try:
+                reliability = float(spec.get("reliability", 0.0) or 0.0)
+            except Exception:
+                reliability = 0.0
+            try:
+                bets = int(spec.get("bets", 0) or 0)
+            except Exception:
+                bets = 0
+            if not math.isfinite(edge_delta) or abs(edge_delta) < 1e-6:
+                continue
+            if not math.isfinite(reliability):
+                reliability = 0.0
+            matched.append({
+                "tag": tag,
+                "scope": scope,
+                "edge_delta": float(edge_delta),
+                "reliability": float(max(0.0, min(1.0, reliability))),
+                "bets": int(max(0, bets)),
+            })
+        if not matched:
+            return out
+        matched.sort(key=lambda r: (abs(float(r.get("edge_delta") or 0.0)) * max(0.25, float(r.get("reliability") or 0.0)), int(r.get("bets") or 0)), reverse=True)
+        selected = matched[:3]
+        delta = 0.0
+        for r in selected:
+            delta += float(r.get("edge_delta") or 0.0) * (0.75 + 0.25 * float(r.get("reliability") or 0.0))
+        try:
+            cap = float((((obj or {}).get("defaults") or {}).get("max_total_edge_adjustment", 0.015)) or 0.015)
+        except Exception:
+            cap = 0.015
+        if not math.isfinite(cap) or cap <= 0.0:
+            cap = 0.015
+        delta = float(max(-cap, min(cap, delta)))
+        out["edge_delta"] = delta
+        out["matched"] = selected
+        return out
+    except Exception:
+        return out
+
+
 def _live_odds_cache_get(key: str):
     try:
         ent = _LIVE_ODDS_CACHE.get(key)
@@ -3567,6 +3871,388 @@ async def v1_live_lens_combined(
                     "p_away_p15": None,
                 }
 
+        def _clip(x: object, lo: float, hi: float) -> float:
+            try:
+                return float(max(float(lo), min(float(hi), float(x))))
+            except Exception:
+                return float(lo)
+
+        def _two_way_no_vig_probs(pa: object, pb: object) -> tuple[Optional[float], Optional[float]]:
+            try:
+                p_a = _to_float(pa)
+                p_b = _to_float(pb)
+                if p_a is None and p_b is None:
+                    return None, None
+                if p_a is not None and p_b is not None:
+                    den = float(p_a) + float(p_b)
+                    if den > 1e-9:
+                        return (
+                            float(max(1e-6, min(1.0 - 1e-6, float(p_a) / den))),
+                            float(max(1e-6, min(1.0 - 1e-6, float(p_b) / den))),
+                        )
+                if p_a is not None:
+                    p_a = float(max(1e-6, min(1.0 - 1e-6, float(p_a))))
+                    return p_a, float(1.0 - p_a)
+                if p_b is not None:
+                    p_b = float(max(1e-6, min(1.0 - 1e-6, float(p_b))))
+                    return float(1.0 - p_b), p_b
+            except Exception:
+                pass
+            return None, None
+
+        def _poisson_total_probs(line_f: float, goals_so_far: int, mu_rem: float) -> tuple[Optional[float], Optional[float], Optional[float]]:
+            try:
+                line_f = float(line_f)
+                goals_so_far = int(goals_so_far)
+                mu_rem = float(max(0.0, mu_rem))
+                is_int_line = abs(float(line_f) - round(float(line_f))) < 1e-9
+                if is_int_line:
+                    line_i = int(round(float(line_f)))
+                    over_min_total = line_i + 1
+                    under_max_total = line_i - 1
+                    push_total = line_i
+                else:
+                    over_min_total = int((float(line_f) // 1) + 1)
+                    under_max_total = int(float(line_f) // 1)
+                    push_total = None
+                need_over = int(over_min_total) - int(goals_so_far)
+                need_under = int(under_max_total) - int(goals_so_far)
+                p_over = 1.0 if need_over <= 0 else _poisson_sf(int(need_over), float(mu_rem))
+                p_under = 0.0 if need_under < 0 else _poisson_cdf(int(need_under), float(mu_rem))
+                p_push = None
+                if push_total is not None:
+                    k_push = int(push_total) - int(goals_so_far)
+                    if k_push < 0:
+                        p_push = 0.0
+                    else:
+                        p_push = max(0.0, _poisson_cdf(k_push, float(mu_rem)) - _poisson_cdf(k_push - 1, float(mu_rem)))
+                return (
+                    float(max(0.0, min(1.0, p_over))) if p_over is not None else None,
+                    float(max(0.0, min(1.0, p_under))) if p_under is not None else None,
+                    float(max(0.0, min(1.0, p_push))) if p_push is not None else None,
+                )
+            except Exception:
+                return None, None, None
+
+        def _solve_poisson_total_mu(line_f: float, goals_so_far: int, p_over_target: float) -> Optional[float]:
+            try:
+                tgt = float(max(0.02, min(0.98, float(p_over_target))))
+                lo = 0.0
+                hi = max(0.75, float(max(0.0, float(line_f) - float(goals_so_far))) + 4.0)
+                for _ in range(12):
+                    p_hi, _, _ = _poisson_total_probs(float(line_f), int(goals_so_far), float(hi))
+                    if p_hi is not None and float(p_hi) >= float(tgt):
+                        break
+                    hi *= 1.6
+                    if hi >= 14.0:
+                        hi = 14.0
+                        break
+                for _ in range(36):
+                    mid = 0.5 * (float(lo) + float(hi))
+                    p_mid, _, _ = _poisson_total_probs(float(line_f), int(goals_so_far), float(mid))
+                    if p_mid is None:
+                        return None
+                    if float(p_mid) < float(tgt):
+                        lo = float(mid)
+                    else:
+                        hi = float(mid)
+                return float(max(0.0, 0.5 * (float(lo) + float(hi))))
+            except Exception:
+                return None
+
+        def _market_blend_weight(
+            elapsed_min0: Optional[float],
+            horizon_min: float,
+            odds_age_sec0: Optional[float],
+            *,
+            base: float = 0.18,
+            slope: float = 0.30,
+            lo: float = 0.10,
+            hi: float = 0.60,
+            late_boost: float = 0.0,
+        ) -> float:
+            try:
+                hm = max(1e-6, float(horizon_min))
+                em0 = _to_float(elapsed_min0) or 0.0
+                frac = _clip(float(em0) / hm, 0.0, 1.0)
+                w = float(base) + float(slope) * float(frac) + float(late_boost)
+                age = _to_float(odds_age_sec0)
+                if age is not None:
+                    if float(age) > 180.0:
+                        w *= 0.25
+                    elif float(age) > 90.0:
+                        w *= 0.50
+                    elif float(age) > 45.0:
+                        w *= 0.75
+                return _clip(w, float(lo), float(hi))
+            except Exception:
+                return float(base)
+
+        def _build_hockey_live_projection(
+            *,
+            model_total0: object,
+            model_spread0: object,
+            elapsed_min0: object,
+            remaining_min0: object,
+            home_goals0: object,
+            away_goals0: object,
+            home_sog0: object,
+            away_sog0: object,
+            live_total_line0: object = None,
+            implied_over0: object = None,
+            implied_under0: object = None,
+            period_i0: object = None,
+            time_horizon_min: float = 60.0,
+            pace_mult0: object = 1.0,
+            goalie_mult0: object = 1.0,
+            pbp_ctx0: Optional[dict] = None,
+            pp_bonus_home0: object = 0.0,
+            pp_bonus_away0: object = 0.0,
+            en_bonus_home0: object = 0.0,
+            en_bonus_away0: object = 0.0,
+            odds_age_sec0: object = None,
+        ) -> dict:
+            out = {
+                "mu_total_full_model": None,
+                "mu_total_model_rem": None,
+                "mu_total_market_rem": None,
+                "mu_total_rem": None,
+                "mu_home_rem": None,
+                "mu_away_rem": None,
+                "home_attack_share": None,
+                "away_attack_share": None,
+                "market_blend_weight": 0.0,
+                "late_state_mode": "normal",
+                "driver_tags": [],
+            }
+            try:
+                mt = _to_float(model_total0)
+                ms = _to_float(model_spread0)
+                em0 = _to_float(elapsed_min0)
+                rm0 = _to_float(remaining_min0)
+                hg0 = _to_int(home_goals0)
+                ag0 = _to_int(away_goals0)
+                hs0 = _to_float(home_sog0)
+                as0 = _to_float(away_sog0)
+                if mt is None or em0 is None or rm0 is None or hg0 is None or ag0 is None:
+                    return out
+                if ms is None:
+                    ms = 0.0
+                hm = max(1e-6, float(time_horizon_min))
+                pace0 = _clip(_to_float(pace_mult0) or 1.0, 0.75, 1.30)
+                goalie0 = _clip(_to_float(goalie_mult0) or 1.0, 0.85, 1.15)
+                pb0 = pbp_ctx0 or {}
+                home_empty_net = bool(pb0.get("home_empty_net"))
+                away_empty_net = bool(pb0.get("away_empty_net"))
+                pp_team0 = str(pb0.get("pp_team") or "").strip().lower()
+                mu_home_full0 = max(0.0, (float(mt) + float(ms)) / 2.0)
+                mu_away_full0 = max(0.0, (float(mt) - float(ms)) / 2.0)
+                mu_total_full0 = max(1e-6, float(mu_home_full0) + float(mu_away_full0))
+                prior_home_share = float(mu_home_full0) / float(mu_total_full0)
+
+                def _share(a0: object, b0: object, default0: float) -> tuple[float, bool]:
+                    try:
+                        av = _to_float(a0)
+                        bv = _to_float(b0)
+                        if av is None or bv is None:
+                            return float(default0), False
+                        den = float(av) + float(bv)
+                        if den <= 1e-9:
+                            return float(default0), False
+                        return _clip(float(av) / den, 0.05, 0.95), True
+                    except Exception:
+                        return float(default0), False
+
+                shot_share, shot_ok = _share(hs0, as0, prior_home_share)
+                att_share, att_ok = _share(pb0.get("home_att"), pb0.get("away_att"), prior_home_share)
+                hx = pb0.get("home_xg_proxy_l10") if pb0.get("home_xg_proxy_l10") is not None else pb0.get("home_xg_proxy")
+                ax = pb0.get("away_xg_proxy_l10") if pb0.get("away_xg_proxy_l10") is not None else pb0.get("away_xg_proxy")
+                xg_share, xg_ok = _share(hx, ax, prior_home_share)
+                goal_share, goal_ok = _share(hg0, ag0, prior_home_share)
+
+                fo_share = float(prior_home_share)
+                fo_ok = False
+                try:
+                    hf = _to_float(pb0.get("home_fo_pct_l10"))
+                    af = _to_float(pb0.get("away_fo_pct_l10"))
+                    if hf is None or af is None:
+                        hf = _to_float(pb0.get("home_fo_pct"))
+                        af = _to_float(pb0.get("away_fo_pct"))
+                    if hf is not None and af is not None:
+                        fo_share = _clip(0.5 + (float(hf) - float(af)) / 200.0, 0.10, 0.90)
+                        fo_ok = True
+                except Exception:
+                    fo_ok = False
+
+                feat_vals: list[tuple[float, float]] = []
+                if att_ok:
+                    feat_vals.append((0.30, float(att_share)))
+                if xg_ok:
+                    feat_vals.append((0.30, float(xg_share)))
+                if shot_ok:
+                    feat_vals.append((0.20, float(shot_share)))
+                if goal_ok:
+                    feat_vals.append((0.10, float(goal_share)))
+                if fo_ok:
+                    feat_vals.append((0.10, float(fo_share)))
+                if feat_vals:
+                    den = sum(w for w, _ in feat_vals)
+                    live_home_share = sum(w * v for w, v in feat_vals) / max(1e-9, den)
+                else:
+                    live_home_share = float(prior_home_share)
+
+                live_w = _clip(0.18 + 0.54 * _clip(float(em0) / hm, 0.0, 1.0), 0.18, 0.78)
+                home_share = (1.0 - float(live_w)) * float(prior_home_share) + float(live_w) * float(live_home_share)
+
+                gd0 = int(hg0) - int(ag0)
+                late_state_mode = "normal"
+                late_total_mult = 1.0
+                score_state_push = 0.0
+                market_late_boost = 0.0
+                try:
+                    if period_i0 is not None and int(period_i0) == 3:
+                        if abs(int(gd0)) == 1 and float(rm0) <= 12.0:
+                            frac = _clip((12.0 - float(rm0)) / 12.0, 0.0, 1.0)
+                            late_state_mode = "one_goal_late"
+                            late_total_mult += 0.05 + 0.08 * float(frac)
+                            score_state_push = 0.02 + 0.07 * float(frac)
+                            market_late_boost += 0.05 + 0.04 * float(frac)
+                        elif abs(int(gd0)) >= 2 and float(rm0) <= 8.0:
+                            frac = _clip((8.0 - float(rm0)) / 8.0, 0.0, 1.0)
+                            late_state_mode = "multi_goal_late"
+                            late_total_mult += 0.03 + 0.06 * float(frac)
+                            score_state_push = 0.03 + 0.05 * float(frac)
+                            market_late_boost += 0.03 + 0.04 * float(frac)
+                        elif int(gd0) == 0 and float(rm0) <= 5.0:
+                            frac = _clip((5.0 - float(rm0)) / 5.0, 0.0, 1.0)
+                            late_state_mode = "tied_late"
+                            late_total_mult -= 0.02 * float(frac)
+                except Exception:
+                    pass
+
+                if int(gd0) > 0:
+                    home_share -= float(score_state_push)
+                elif int(gd0) < 0:
+                    home_share += float(score_state_push)
+
+                if pp_team0 == "home":
+                    home_share += 0.035
+                elif pp_team0 == "away":
+                    home_share -= 0.035
+
+                if home_empty_net or away_empty_net:
+                    en_frac = 1.0 - _clip(float(rm0) / 3.0, 0.0, 1.0)
+                    late_total_mult += 0.10 + 0.12 * float(en_frac)
+                    market_late_boost += 0.08 + 0.04 * float(en_frac)
+                    if late_state_mode == "one_goal_late":
+                        late_state_mode = "one_goal_late_empty_net"
+                    elif late_state_mode == "normal":
+                        late_state_mode = "empty_net"
+                if home_empty_net:
+                    home_share -= 0.09
+                if away_empty_net:
+                    home_share += 0.09
+
+                home_share = _clip(home_share, 0.12, 0.88)
+                away_share = float(1.0 - float(home_share))
+
+                bonus_home0 = max(0.0, (_to_float(pp_bonus_home0) or 0.0) * (float(rm0) / hm) + (_to_float(en_bonus_home0) or 0.0))
+                bonus_away0 = max(0.0, (_to_float(pp_bonus_away0) or 0.0) * (float(rm0) / hm) + (_to_float(en_bonus_away0) or 0.0))
+                mu_total_full_model = max(0.0, float(mt) * float(pace0) * float(goalie0) * float(max(0.85, late_total_mult)))
+                mu_total_model_rem = max(0.0, float(mu_total_full_model) * (float(rm0) / hm) + float(bonus_home0) + float(bonus_away0))
+
+                mu_total_market_rem = None
+                try:
+                    if live_total_line0 is not None:
+                        q_over, q_under = _two_way_no_vig_probs(implied_over0, implied_under0)
+                        target_over = q_over
+                        if target_over is None and q_under is not None:
+                            target_over = float(1.0 - float(q_under))
+                        if target_over is not None:
+                            mu_total_market_rem = _solve_poisson_total_mu(float(live_total_line0), int(hg0) + int(ag0), float(target_over))
+                        if mu_total_market_rem is None:
+                            line_gap = max(0.0, float(live_total_line0) - float(int(hg0) + int(ag0)))
+                            mu_total_market_rem = float(line_gap)
+                            if abs(float(live_total_line0) - round(float(live_total_line0))) >= 1e-9:
+                                mu_total_market_rem += 0.15
+                except Exception:
+                    mu_total_market_rem = None
+
+                market_w = 0.0
+                mu_total_rem = float(mu_total_model_rem)
+                if mu_total_market_rem is not None:
+                    market_w = _market_blend_weight(
+                        float(em0),
+                        hm,
+                        _to_float(odds_age_sec0),
+                        base=0.18,
+                        slope=0.28,
+                        lo=0.10,
+                        hi=0.62,
+                        late_boost=float(market_late_boost),
+                    )
+                    mu_total_rem = (1.0 - float(market_w)) * float(mu_total_model_rem) + float(market_w) * float(mu_total_market_rem)
+
+                mu_split_base = max(0.0, float(mu_total_rem) - float(bonus_home0) - float(bonus_away0))
+                mu_home_rem = float(mu_split_base) * float(home_share) + float(bonus_home0)
+                mu_away_rem = float(mu_split_base) * float(away_share) + float(bonus_away0)
+                tot_chk = float(mu_home_rem) + float(mu_away_rem)
+                if tot_chk > 1e-9:
+                    scl = float(mu_total_rem) / float(tot_chk)
+                    mu_home_rem *= float(scl)
+                    mu_away_rem *= float(scl)
+
+                driver_tags: list[str] = []
+                if float(pace0) >= 1.08:
+                    driver_tags.append("pace:up")
+                elif float(pace0) <= 0.92:
+                    driver_tags.append("pace:down")
+                if float(goalie0) >= 1.03:
+                    driver_tags.append("goalie:weak")
+                elif float(goalie0) <= 0.97:
+                    driver_tags.append("goalie:strong")
+                if pp_team0 == "home":
+                    driver_tags.append("manpower:pp_home")
+                elif pp_team0 == "away":
+                    driver_tags.append("manpower:pp_away")
+                if home_empty_net:
+                    driver_tags.append("empty_net:home")
+                if away_empty_net:
+                    driver_tags.append("empty_net:away")
+                if str(late_state_mode) == "one_goal_late":
+                    driver_tags.append("late:one_goal")
+                elif str(late_state_mode) == "one_goal_late_empty_net":
+                    driver_tags.extend(["late:one_goal", "late:empty_net"])
+                elif str(late_state_mode) == "multi_goal_late":
+                    driver_tags.append("late:multi_goal")
+                elif str(late_state_mode) == "tied_late":
+                    driver_tags.append("late:tied")
+                if float(home_share) >= 0.56:
+                    driver_tags.append("pressure:home")
+                elif float(home_share) <= 0.44:
+                    driver_tags.append("pressure:away")
+                else:
+                    driver_tags.append("pressure:even")
+                if mu_total_market_rem is not None and float(market_w) > 0.0:
+                    driver_tags.append("market:total_blend")
+
+                out.update({
+                    "mu_total_full_model": float(mu_total_full_model),
+                    "mu_total_model_rem": float(mu_total_model_rem),
+                    "mu_total_market_rem": float(mu_total_market_rem) if mu_total_market_rem is not None else None,
+                    "mu_total_rem": float(max(0.0, mu_total_rem)),
+                    "mu_home_rem": float(max(0.0, mu_home_rem)),
+                    "mu_away_rem": float(max(0.0, mu_away_rem)),
+                    "home_attack_share": float(home_share),
+                    "away_attack_share": float(away_share),
+                    "market_blend_weight": float(max(0.0, market_w)),
+                    "late_state_mode": str(late_state_mode),
+                    "driver_tags": driver_tags,
+                })
+            except Exception:
+                return out
+            return out
+
         def _signal(action: str, scope: str, market: str, label: str, **kwargs) -> dict:
             out = {
                 "action": str(action or "WATCH").upper(),
@@ -4108,17 +4794,20 @@ async def v1_live_lens_combined(
                         try:
                             # PP team: side with more skaters
                             pp_team = None
-                            if int(sit.get("away_skaters") or 0) > int(sit.get("home_skaters") or 0):
-                                pp_team = "away"
-                            elif int(sit.get("home_skaters") or 0) > int(sit.get("away_skaters") or 0):
-                                pp_team = "home"
+                            away_goalie_on = bool(int(sit.get("away_goalie")) > 0) if sit.get("away_goalie") is not None else True
+                            home_goalie_on = bool(int(sit.get("home_goalie")) > 0) if sit.get("home_goalie") is not None else True
+                            if away_goalie_on and home_goalie_on:
+                                if int(sit.get("away_skaters") or 0) > int(sit.get("home_skaters") or 0):
+                                    pp_team = "away"
+                                elif int(sit.get("home_skaters") or 0) > int(sit.get("away_skaters") or 0):
+                                    pp_team = "home"
                             if pp_team:
                                 pbp_ctx["pp_team"] = pp_team
                         except Exception:
                             pass
                         try:
-                            pbp_ctx["away_empty_net"] = bool(int(sit.get("away_goalie") or 1) == 0)
-                            pbp_ctx["home_empty_net"] = bool(int(sit.get("home_goalie") or 1) == 0)
+                            pbp_ctx["away_empty_net"] = bool(int(sit.get("away_goalie")) == 0) if sit.get("away_goalie") is not None else False
+                            pbp_ctx["home_empty_net"] = bool(int(sit.get("home_goalie")) == 0) if sit.get("home_goalie") is not None else False
                         except Exception:
                             pass
 
@@ -4368,36 +5057,65 @@ async def v1_live_lens_combined(
             except Exception:
                 pass
 
+            live_projection = None
+            mu_home_rem_live = None
+            mu_away_rem_live = None
+            mu_remaining_model = None
+            mu_remaining_market = None
+            market_blend_weight = 0.0
+            home_attack_share = None
+            away_attack_share = None
+            late_state_mode = None
+            projection_driver_tags: list[str] = []
+            try:
+                if model_total is not None and total_goals is not None and remaining_min is not None and home_goals is not None and away_goals is not None:
+                    live_projection = _build_hockey_live_projection(
+                        model_total0=model_total,
+                        model_spread0=model_spread,
+                        elapsed_min0=elapsed_min,
+                        remaining_min0=remaining_min,
+                        home_goals0=home_goals,
+                        away_goals0=away_goals,
+                        home_sog0=home_sog,
+                        away_sog0=away_sog,
+                        live_total_line0=live_total_line,
+                        implied_over0=implied_over,
+                        implied_under0=implied_under,
+                        period_i0=period_i,
+                        time_horizon_min=60.0,
+                        pace_mult0=pace_mult,
+                        goalie_mult0=goalie_mult,
+                        pbp_ctx0=pbp_ctx,
+                        pp_bonus_home0=pp_bonus_home,
+                        pp_bonus_away0=pp_bonus_away,
+                        en_bonus_home0=en_bonus_home,
+                        en_bonus_away0=en_bonus_away,
+                        odds_age_sec0=odds_age_sec,
+                    )
+                    if isinstance(live_projection, dict):
+                        mu_remaining = _to_float(live_projection.get("mu_total_rem"))
+                        mu_remaining_model = _to_float(live_projection.get("mu_total_model_rem"))
+                        mu_remaining_market = _to_float(live_projection.get("mu_total_market_rem"))
+                        mu_home_rem_live = _to_float(live_projection.get("mu_home_rem"))
+                        mu_away_rem_live = _to_float(live_projection.get("mu_away_rem"))
+                        market_blend_weight = _to_float(live_projection.get("market_blend_weight")) or 0.0
+                        home_attack_share = _to_float(live_projection.get("home_attack_share"))
+                        away_attack_share = _to_float(live_projection.get("away_attack_share"))
+                        late_state_mode = str(live_projection.get("late_state_mode") or "").strip() or None
+                        projection_driver_tags = [str(x) for x in (live_projection.get("driver_tags") or []) if str(x or "").strip()]
+            except Exception:
+                live_projection = None
+
             try:
                 if model_total is not None and total_goals is not None and remaining_min is not None and live_total_line is not None:
-                    mt = float(model_total)
-                    rm = float(remaining_min)
-                    mu_remaining = max(0.0, mt * (rm / 60.0) * float(pace_mult) * float(goalie_mult))
-                    # Conservative PP/EN bump (PP adds to advantaged team; EN adds to opponent scoring).
-                    mu_remaining = float(mu_remaining) + float(pp_bonus_home + pp_bonus_away) * (rm / 60.0) + float(en_bonus_home + en_bonus_away)
+                    if mu_remaining is None:
+                        mt = float(model_total)
+                        rm = float(remaining_min)
+                        mu_remaining = max(0.0, mt * (rm / 60.0) * float(pace_mult) * float(goalie_mult))
+                        mu_remaining = float(mu_remaining) + float(pp_bonus_home + pp_bonus_away) * (rm / 60.0) + float(en_bonus_home + en_bonus_away)
 
                     line_f = float(live_total_line)
-                    is_int_line = abs(line_f - round(line_f)) < 1e-9
-                    if is_int_line:
-                        line_i = int(round(line_f))
-                        over_min_total = line_i + 1
-                        under_max_total = line_i - 1
-                        push_total = line_i
-                    else:
-                        over_min_total = int((line_f // 1) + 1)
-                        under_max_total = int(line_f // 1)
-                        push_total = None
-
-                    need_over = int(over_min_total) - int(total_goals)
-                    need_under = int(under_max_total) - int(total_goals)
-                    p_over = 1.0 if need_over <= 0 else _poisson_sf(int(need_over), float(mu_remaining))
-                    p_under = 0.0 if need_under < 0 else _poisson_cdf(int(need_under), float(mu_remaining))
-                    if push_total is not None:
-                        k_push = int(push_total) - int(total_goals)
-                        if k_push < 0:
-                            p_push = 0.0
-                        else:
-                            p_push = max(0.0, _poisson_cdf(k_push, float(mu_remaining)) - _poisson_cdf(k_push - 1, float(mu_remaining)))
+                    p_over, p_under, p_push = _poisson_total_probs(float(line_f), int(total_goals), float(mu_remaining))
 
                     if p_over is not None and implied_over is not None:
                         edge_over = float(p_over) - float(implied_over)
@@ -4428,6 +5146,20 @@ async def v1_live_lens_combined(
                         notes.append(f"Model O {p_over:.0%} vs implied {implied_over:.0%}")
                     if p_under is not None and implied_under is not None:
                         notes.append(f"Model U {p_under:.0%} vs implied {implied_under:.0%}")
+                    if mu_remaining_market is not None and float(mu_remaining_market) >= 0.0:
+                        notes.append(f"Market implies ~{float(mu_remaining_market):.2f} goals left")
+                    if mu_remaining_model is not None and mu_remaining_market is not None and market_blend_weight > 0.0:
+                        notes.append(
+                            f"Blend {float(1.0 - market_blend_weight):.0%} model / {float(market_blend_weight):.0%} market"
+                        )
+                    if late_state_mode == "one_goal_late":
+                        notes.append("Late 1-goal game")
+                    elif late_state_mode == "one_goal_late_empty_net":
+                        notes.append("Late 1-goal game with empty net")
+                    elif late_state_mode == "multi_goal_late":
+                        notes.append("Late multi-goal chase state")
+                    elif late_state_mode == "tied_late":
+                        notes.append("Late tie game state")
             except Exception:
                 pass
 
@@ -4528,9 +5260,20 @@ async def v1_live_lens_combined(
                 "sog_total": sog_total,
                 "goal_pace_60": goal_pace_60,
                 "sog_pace_60": sog_pace_60,
+                "pace_mult": pace_mult,
+                "goalie_mult": goalie_mult,
                 "live_total_line": live_total_line,
                 "lean_total": lean_total,
                 "mu_remaining": mu_remaining,
+                "mu_remaining_model": mu_remaining_model,
+                "mu_remaining_market": mu_remaining_market,
+                "market_blend_weight": market_blend_weight,
+                "mu_home_rem": mu_home_rem_live,
+                "mu_away_rem": mu_away_rem_live,
+                "home_attack_share": home_attack_share,
+                "away_attack_share": away_attack_share,
+                "late_state_mode": late_state_mode,
+                "projection_driver_tags": projection_driver_tags,
                 "p_over": p_over,
                 "p_under": p_under,
                 "p_push": p_push,
@@ -4804,6 +5547,7 @@ async def v1_live_lens_combined(
                         # Gate: avoid betting too early unless edge is very strong.
                         abs_edge = abs(float(edge))
                         action = "WATCH"
+                        prior_adj = {"edge_delta": 0.0, "matched": []}
 
                         # Baseline required edge vs game time (regulation minutes).
                         required_edge = 1e9
@@ -4865,6 +5609,21 @@ async def v1_live_lens_combined(
                         except Exception:
                             pass
 
+                        try:
+                            for t in projection_driver_tags:
+                                if t not in driver_tags:
+                                    driver_tags.append(t)
+                        except Exception:
+                            pass
+
+                        try:
+                            prior_adj = _live_lens_driver_tag_edge_adjustment("TOTAL", driver_tags)
+                            edge_delta = _to_float((prior_adj or {}).get("edge_delta"))
+                            if edge_delta is not None:
+                                required_edge = max(0.02, float(required_edge) + float(edge_delta))
+                        except Exception:
+                            prior_adj = {"edge_delta": 0.0, "matched": []}
+
                         if abs_edge >= float(required_edge):
                             action = "BET"
 
@@ -4878,9 +5637,8 @@ async def v1_live_lens_combined(
                         except Exception:
                             pass
                         try:
-                            if action == "BET":
-                                if em is not None:
-                                    driver_tags.append(f"gate:req_edge>={float(required_edge):.02f}")
+                            if action == "BET" and em is not None:
+                                driver_tags.append(f"gate:req_edge>={float(required_edge):.02f}")
                         except Exception:
                             pass
 
@@ -4925,6 +5683,16 @@ async def v1_live_lens_combined(
                                 "total_goals": int(total_goals) if total_goals is not None else None,
                                 "sog_total": int(sog_total) if sog_total is not None else None,
                                 "mu_remaining": float(mu_remaining) if mu_remaining is not None else None,
+                                "mu_remaining_model": float(mu_remaining_model) if mu_remaining_model is not None else None,
+                                "mu_remaining_market": float(mu_remaining_market) if mu_remaining_market is not None else None,
+                                "market_blend_weight": float(market_blend_weight) if market_blend_weight is not None else None,
+                                "mu_home_rem": float(mu_home_rem_live) if mu_home_rem_live is not None else None,
+                                "mu_away_rem": float(mu_away_rem_live) if mu_away_rem_live is not None else None,
+                                "home_attack_share": float(home_attack_share) if home_attack_share is not None else None,
+                                "away_attack_share": float(away_attack_share) if away_attack_share is not None else None,
+                                "late_state_mode": late_state_mode,
+                                "tag_prior_edge_delta": float(_to_float((prior_adj or {}).get("edge_delta")) or 0.0),
+                                "tag_prior_matches": [m.get("tag") for m in ((prior_adj or {}).get("matched") or []) if isinstance(m, dict) and m.get("tag")],
                                 "pace_mult": float(pace_mult) if pace_mult is not None else None,
                                 "goalie_mult": float(goalie_mult) if goalie_mult is not None else None,
                                 "odds_age_sec": float(odds_age_sec) if odds_age_sec is not None else None,
@@ -4969,6 +5737,8 @@ async def v1_live_lens_combined(
                     per_goals = None
                     per_home_goals = None
                     per_away_goals = None
+                    per_home_sog = None
+                    per_away_sog = None
                     try:
                         per_list = lens.get("periods") if isinstance(lens, dict) else None
                         if isinstance(per_list, list):
@@ -4985,10 +5755,14 @@ async def v1_live_lens_combined(
                                 a = p.get("away") if isinstance(p.get("away"), dict) else {}
                                 hg = _to_int(h.get("goals"))
                                 ag = _to_int(a.get("goals"))
+                                hs = _to_int(h.get("sog"))
+                                a_s = _to_int(a.get("sog"))
                                 if hg is not None and ag is not None:
                                     per_home_goals = int(hg)
                                     per_away_goals = int(ag)
                                     per_goals = int(hg) + int(ag)
+                                    per_home_sog = int(hs) if hs is not None else None
+                                    per_away_sog = int(a_s) if a_s is not None else None
                                     break
                     except Exception:
                         per_goals = None
@@ -5023,6 +5797,36 @@ async def v1_live_lens_combined(
                     except Exception:
                         pass
 
+                    period_proj = None
+                    try:
+                        if per_goals is not None and per_home_goals is not None and per_away_goals is not None and model_total is not None:
+                            per_line0 = _to_float(per_total_line)
+                            period_proj = _build_hockey_live_projection(
+                                model_total0=float(model_total) / 3.0,
+                                model_spread0=(float(model_spread) / 3.0) if model_spread is not None else 0.0,
+                                elapsed_min0=per_elapsed_min,
+                                remaining_min0=per_rem_min,
+                                home_goals0=per_home_goals,
+                                away_goals0=per_away_goals,
+                                home_sog0=per_home_sog,
+                                away_sog0=per_away_sog,
+                                live_total_line0=per_line0,
+                                implied_over0=_american_to_implied_prob(per_over_price),
+                                implied_under0=_american_to_implied_prob(per_under_price),
+                                period_i0=per_i,
+                                time_horizon_min=20.0,
+                                pace_mult0=pace_mult,
+                                goalie_mult0=goalie_mult,
+                                pbp_ctx0=pbp_ctx,
+                                pp_bonus_home0=pp_bonus_home,
+                                pp_bonus_away0=pp_bonus_away,
+                                en_bonus_home0=en_bonus_home if int(per_i) == 3 else 0.0,
+                                en_bonus_away0=en_bonus_away if int(per_i) == 3 else 0.0,
+                                odds_age_sec0=odds_age_sec,
+                            )
+                    except Exception:
+                        period_proj = None
+
                     # Period total (Over/Under)
                     try:
                         line_f = _to_float(per_total_line)
@@ -5039,44 +5843,22 @@ async def v1_live_lens_combined(
                             # then scale remaining by time left and conservative live multipliers.
                             mt = float(model_total)
                             mu_per_full = max(0.0, (mt / 3.0) * float(pace_mult) * float(goalie_mult))
-                            mu_per_rem = max(0.0, mu_per_full * (float(per_rem_min) / 20.0))
-
-                            # Small PP / empty-net bumps (period-local; EN only relevant in P3).
-                            mu_per_rem = float(mu_per_rem) + float(pp_bonus_home + pp_bonus_away) * (float(per_rem_min) / 60.0)
-                            try:
-                                if per_i == 3:
-                                    en_factor = max(0.0, min(1.0, float(per_rem_min) / 3.0))
-                                    if pbp_ctx.get("away_empty_net"):
-                                        mu_per_rem = float(mu_per_rem) + 0.55 * float(en_factor)
-                                    if pbp_ctx.get("home_empty_net"):
-                                        mu_per_rem = float(mu_per_rem) + 0.55 * float(en_factor)
-                            except Exception:
-                                pass
+                            mu_per_rem = _to_float((period_proj or {}).get("mu_total_rem"))
+                            if mu_per_rem is None:
+                                mu_per_rem = max(0.0, mu_per_full * (float(per_rem_min) / 20.0))
+                                mu_per_rem = float(mu_per_rem) + float(pp_bonus_home + pp_bonus_away) * (float(per_rem_min) / 60.0)
+                                try:
+                                    if per_i == 3:
+                                        en_factor = max(0.0, min(1.0, float(per_rem_min) / 3.0))
+                                        if pbp_ctx.get("away_empty_net"):
+                                            mu_per_rem = float(mu_per_rem) + 0.55 * float(en_factor)
+                                        if pbp_ctx.get("home_empty_net"):
+                                            mu_per_rem = float(mu_per_rem) + 0.55 * float(en_factor)
+                                except Exception:
+                                    pass
 
                             # Convert total line to required goals remaining in the period.
-                            is_int_line = abs(float(line_f) - round(float(line_f))) < 1e-9
-                            if is_int_line:
-                                line_i = int(round(float(line_f)))
-                                over_min_total = line_i + 1
-                                under_max_total = line_i - 1
-                                push_total = line_i
-                            else:
-                                over_min_total = int((float(line_f) // 1) + 1)
-                                under_max_total = int(float(line_f) // 1)
-                                push_total = None
-
-                            need_over = int(over_min_total) - int(per_goals)
-                            need_under = int(under_max_total) - int(per_goals)
-                            p_over_p = 1.0 if need_over <= 0 else _poisson_sf(int(need_over), float(mu_per_rem))
-                            p_under_p = 0.0 if need_under < 0 else _poisson_cdf(int(need_under), float(mu_per_rem))
-                            if push_total is not None:
-                                k_push = int(push_total) - int(per_goals)
-                                if k_push < 0:
-                                    p_push_p = 0.0
-                                else:
-                                    p_push_p = max(0.0, _poisson_cdf(k_push, float(mu_per_rem)) - _poisson_cdf(k_push - 1, float(mu_per_rem)))
-                            else:
-                                p_push_p = None
+                            p_over_p, p_under_p, p_push_p = _poisson_total_probs(float(line_f), int(per_goals), float(mu_per_rem))
 
                             edge_over_p = (float(p_over_p) - float(implied_over_p)) if (implied_over_p is not None) else None
                             edge_under_p = (float(p_under_p) - float(implied_under_p)) if (implied_under_p is not None) else None
@@ -5116,22 +5898,45 @@ async def v1_live_lens_combined(
                             if lean_side and edge is not None and p_model is not None:
                                 abs_edge = abs(float(edge))
                                 action = "WATCH"
+                                required_edge = None
                                 # Scale the game-total gates down for a 20-minute period.
-                                if per_elapsed_min >= 4.0 and abs_edge >= 0.04:
-                                    action = "BET"
-                                if per_elapsed_min >= 2.5 and abs_edge >= 0.06:
-                                    action = "BET"
+                                if per_elapsed_min >= 4.0:
+                                    required_edge = 0.04
+                                elif per_elapsed_min >= 2.5:
+                                    required_edge = 0.06
 
                                 # Human drivers (compact UI)
                                 driver_tags: list[str] = [f"P{per_i}", "period_total"]
                                 try:
+                                    for t in (period_proj or {}).get("driver_tags") or []:
+                                        ts = str(t or "").strip()
+                                        if ts and ts not in driver_tags:
+                                            driver_tags.append(ts)
+                                except Exception:
+                                    pass
+                                try:
                                     # Sim-vs-act drift for the *period* (analogous to NBA Live Lens driver)
-                                    mu_sofar = mu_per_full * (float(per_elapsed_min) / 20.0)
+                                    mu_sofar = float((_to_float((period_proj or {}).get("mu_total_full_model")) or mu_per_full)) * (float(per_elapsed_min) / 20.0)
                                     drift = float(per_goals) - float(mu_sofar)
                                     if drift >= 0.7:
                                         driver_tags.append("goals_ahead")
                                     elif drift <= -0.7:
                                         driver_tags.append("goals_behind")
+                                    prior_adj = {"edge_delta": 0.0, "matched": []}
+                                    try:
+                                        prior_adj = _live_lens_driver_tag_edge_adjustment("PERIOD_TOTAL", driver_tags)
+                                        edge_delta = _to_float((prior_adj or {}).get("edge_delta"))
+                                        if required_edge is not None and edge_delta is not None:
+                                            required_edge = max(0.02, float(required_edge) + float(edge_delta))
+                                    except Exception:
+                                        prior_adj = {"edge_delta": 0.0, "matched": []}
+                                    if required_edge is not None and abs_edge >= float(required_edge):
+                                        action = "BET"
+                                    try:
+                                        if action == "BET" and required_edge is not None:
+                                            driver_tags.append(f"gate:req_edge>={float(required_edge):.03f}")
+                                    except Exception:
+                                        pass
                                     else:
                                         driver_tags.append("goals_on_track")
                                 except Exception:
@@ -5224,6 +6029,8 @@ async def v1_live_lens_combined(
                                         "p_push": float(p_push_p) if p_push_p is not None else None,
                                         "pace_mult": float(pace_mult) if pace_mult is not None else None,
                                         "goalie_mult": float(goalie_mult) if goalie_mult is not None else None,
+                                        "tag_prior_edge_delta": float(_to_float((prior_adj or {}).get("edge_delta")) or 0.0),
+                                        "tag_prior_matches": [m.get("tag") for m in ((prior_adj or {}).get("matched") or []) if isinstance(m, dict) and m.get("tag")],
                                         "pp_team": pbp_ctx.get("pp_team"),
                                     },
                                 ))
@@ -5250,28 +6057,27 @@ async def v1_live_lens_combined(
                             mu_away_full = max(0.0, (mt - ms) / 2.0)
                             mu_home_per_full = max(0.0, (mu_home_full / 3.0) * float(pace_mult) * float(goalie_mult))
                             mu_away_per_full = max(0.0, (mu_away_full / 3.0) * float(pace_mult) * float(goalie_mult))
-                            mu_home_rem = max(0.0, mu_home_per_full * (float(per_rem_min) / 20.0))
-                            mu_away_rem = max(0.0, mu_away_per_full * (float(per_rem_min) / 20.0))
-
-                            # PP bump to advantaged side (period-local)
-                            try:
-                                if pbp_ctx.get("pp_team") == "home":
-                                    mu_home_rem += float(pp_bonus_home) * (float(per_rem_min) / 60.0)
-                                elif pbp_ctx.get("pp_team") == "away":
-                                    mu_away_rem += float(pp_bonus_away) * (float(per_rem_min) / 60.0)
-                            except Exception:
-                                pass
-
-                            # EN bump (P3 only; period-local)
-                            try:
-                                if per_i == 3:
-                                    en_factor = max(0.0, min(1.0, float(per_rem_min) / 3.0))
-                                    if pbp_ctx.get("away_empty_net"):
-                                        mu_home_rem += 0.55 * float(en_factor)
-                                    if pbp_ctx.get("home_empty_net"):
-                                        mu_away_rem += 0.55 * float(en_factor)
-                            except Exception:
-                                pass
+                            mu_home_rem = _to_float((period_proj or {}).get("mu_home_rem"))
+                            mu_away_rem = _to_float((period_proj or {}).get("mu_away_rem"))
+                            if mu_home_rem is None or mu_away_rem is None:
+                                mu_home_rem = max(0.0, mu_home_per_full * (float(per_rem_min) / 20.0))
+                                mu_away_rem = max(0.0, mu_away_per_full * (float(per_rem_min) / 20.0))
+                                try:
+                                    if pbp_ctx.get("pp_team") == "home":
+                                        mu_home_rem += float(pp_bonus_home) * (float(per_rem_min) / 60.0)
+                                    elif pbp_ctx.get("pp_team") == "away":
+                                        mu_away_rem += float(pp_bonus_away) * (float(per_rem_min) / 60.0)
+                                except Exception:
+                                    pass
+                                try:
+                                    if per_i == 3:
+                                        en_factor = max(0.0, min(1.0, float(per_rem_min) / 3.0))
+                                        if pbp_ctx.get("away_empty_net"):
+                                            mu_home_rem += 0.55 * float(en_factor)
+                                        if pbp_ctx.get("home_empty_net"):
+                                            mu_away_rem += 0.55 * float(en_factor)
+                                except Exception:
+                                    pass
 
                             gd_per = int(per_home_goals) - int(per_away_goals)
 
@@ -5330,12 +6136,20 @@ async def v1_live_lens_combined(
                                 if abs(float(edge)) >= 0.03:
                                     abs_edge = abs(float(edge))
                                     action = "WATCH"
-                                    if per_elapsed_min >= 4.0 and abs_edge >= 0.045:
-                                        action = "BET"
-                                    if per_elapsed_min >= 2.5 and abs_edge >= 0.06:
-                                        action = "BET"
+                                    required_edge = None
+                                    if per_elapsed_min >= 4.0:
+                                        required_edge = 0.045
+                                    elif per_elapsed_min >= 2.5:
+                                        required_edge = 0.06
 
                                     driver_tags: list[str] = [f"P{per_i}", "period_ml"]
+                                    try:
+                                        for t in (period_proj or {}).get("driver_tags") or []:
+                                            ts = str(t or "").strip()
+                                            if ts and ts not in driver_tags:
+                                                driver_tags.append(ts)
+                                    except Exception:
+                                        pass
                                     try:
                                         if gd_per > 0:
                                             driver_tags.append("score:home_leading")
@@ -5357,6 +6171,21 @@ async def v1_live_lens_combined(
                                             driver_tags.append("empty_net:home")
                                         if pbp_ctx.get("away_empty_net"):
                                             driver_tags.append("empty_net:away")
+                                    except Exception:
+                                        pass
+                                    prior_adj = {"edge_delta": 0.0, "matched": []}
+                                    try:
+                                        prior_adj = _live_lens_driver_tag_edge_adjustment("PERIOD_ML", driver_tags)
+                                        edge_delta = _to_float((prior_adj or {}).get("edge_delta"))
+                                        if required_edge is not None and edge_delta is not None:
+                                            required_edge = max(0.02, float(required_edge) + float(edge_delta))
+                                    except Exception:
+                                        prior_adj = {"edge_delta": 0.0, "matched": []}
+                                    if required_edge is not None and abs_edge >= float(required_edge):
+                                        action = "BET"
+                                    try:
+                                        if action == "BET" and required_edge is not None:
+                                            driver_tags.append(f"gate:req_edge>={float(required_edge):.03f}")
                                     except Exception:
                                         pass
 
@@ -5400,6 +6229,8 @@ async def v1_live_lens_combined(
                                             "mu_away_rem": float(mu_away_rem),
                                             "pace_mult": float(pace_mult) if pace_mult is not None else None,
                                             "goalie_mult": float(goalie_mult) if goalie_mult is not None else None,
+                                            "tag_prior_edge_delta": float(_to_float((prior_adj or {}).get("edge_delta")) or 0.0),
+                                            "tag_prior_matches": [m.get("tag") for m in ((prior_adj or {}).get("matched") or []) if isinstance(m, dict) and m.get("tag")],
                                             "pp_team": pbp_ctx.get("pp_team"),
                                         },
                                     ))
@@ -5517,15 +6348,17 @@ async def v1_live_lens_combined(
                         # Optional: if we can compute Poisson win probs from model_total/spread, prefer that.
                         try:
                             if model_total is not None and model_spread is not None and gd is not None and rm is not None:
-                                mt = float(model_total)
-                                ms = float(model_spread)
-                                mu_home_full = max(0.0, (mt + ms) / 2.0)
-                                mu_away_full = max(0.0, (mt - ms) / 2.0)
-                                mu_home_rem = mu_home_full * (float(rm) / 60.0) * float(pace_mult) * float(goalie_mult)
-                                mu_away_rem = mu_away_full * (float(rm) / 60.0) * float(pace_mult) * float(goalie_mult)
-                                # add mild PP bonus
-                                mu_home_rem += float(pp_bonus_home) * (float(rm) / 60.0) + float(en_bonus_home)
-                                mu_away_rem += float(pp_bonus_away) * (float(rm) / 60.0) + float(en_bonus_away)
+                                mu_home_rem = mu_home_rem_live
+                                mu_away_rem = mu_away_rem_live
+                                if mu_home_rem is None or mu_away_rem is None:
+                                    mt = float(model_total)
+                                    ms = float(model_spread)
+                                    mu_home_full = max(0.0, (mt + ms) / 2.0)
+                                    mu_away_full = max(0.0, (mt - ms) / 2.0)
+                                    mu_home_rem = mu_home_full * (float(rm) / 60.0) * float(pace_mult) * float(goalie_mult)
+                                    mu_away_rem = mu_away_full * (float(rm) / 60.0) * float(pace_mult) * float(goalie_mult)
+                                    mu_home_rem += float(pp_bonus_home) * (float(rm) / 60.0) + float(en_bonus_home)
+                                    mu_away_rem += float(pp_bonus_away) * (float(rm) / 60.0) + float(en_bonus_away)
                                 pr = _win_cover_probs(int(gd), float(mu_home_rem), float(mu_away_rem), ot_p_home=float(p0_home))
                                 if pr.get("p_home_win") is not None:
                                     p_home_live = float(pr.get("p_home_win"))
@@ -5535,6 +6368,34 @@ async def v1_live_lens_combined(
                                     out["guidance"]["p_home_win"] = p_home_live
                                     out["guidance"]["p_away_win"] = p_away_live
                                     out["guidance"]["p_tie_reg"] = pr.get("p_tie")
+                        except Exception:
+                            pass
+
+                        p_home_live_model = float(p_home_live)
+                        p_away_live_model = float(p_away_live)
+                        try:
+                            q_home_ml, q_away_ml = _two_way_no_vig_probs(implied_home, implied_away)
+                            if q_home_ml is not None:
+                                ml_market_w = _market_blend_weight(
+                                    float(em),
+                                    60.0,
+                                    _to_float(odds_age_sec),
+                                    base=0.14,
+                                    slope=0.24,
+                                    lo=0.08,
+                                    hi=0.52,
+                                    late_boost=(0.06 if late_state_mode in {"one_goal_late", "one_goal_late_empty_net", "multi_goal_late"} else 0.0),
+                                )
+                                p_home_live = (1.0 - float(ml_market_w)) * float(p_home_live) + float(ml_market_w) * float(q_home_ml)
+                                p_home_live = float(max(0.01, min(0.99, p_home_live)))
+                                p_away_live = float(max(0.01, min(0.99, 1.0 - float(p_home_live))))
+                                if "+market" not in str(ml_prob_source):
+                                    ml_prob_source = f"{ml_prob_source}+market"
+                                out["guidance"]["p_home_win_model"] = float(p_home_live_model)
+                                out["guidance"]["p_away_win_model"] = float(p_away_live_model)
+                                out["guidance"]["p_home_win_market"] = float(q_home_ml)
+                                out["guidance"]["p_away_win_market"] = float(q_away_ml) if q_away_ml is not None else None
+                                out["guidance"]["p_win_market_blend_weight"] = float(ml_market_w)
                         except Exception:
                             pass
 
@@ -5575,6 +6436,12 @@ async def v1_live_lens_combined(
                             if ml_watch_side and ml_watch_p is not None:
                                 driver_tags = ["market:ML", f"prob_source:{ml_prob_source}"]
                                 try:
+                                    for t in projection_driver_tags:
+                                        if t not in driver_tags:
+                                            driver_tags.append(t)
+                                except Exception:
+                                    pass
+                                try:
                                     if gd is not None:
                                         if int(gd) > 0:
                                             driver_tags.append("score:home_leading")
@@ -5598,11 +6465,26 @@ async def v1_live_lens_combined(
                                 implied = implied_home if ml_watch_side == "HOME" else implied_away
                                 edge = (float(ml_watch_p) - float(implied)) if implied is not None else None
                                 action = "WATCH"
-                                if edge is not None and float(edge) >= 0.03:
-                                    if float(em) >= 8.0 and float(edge) >= 0.045:
-                                        action = "BET"
-                                    if float(em) >= 4.0 and float(edge) >= 0.06:
-                                        action = "BET"
+                                prior_adj = {"edge_delta": 0.0, "matched": []}
+                                required_edge = None
+                                try:
+                                    if float(em) >= 8.0:
+                                        required_edge = 0.045
+                                    elif float(em) >= 4.0:
+                                        required_edge = 0.06
+                                except Exception:
+                                    required_edge = None
+
+                                try:
+                                    prior_adj = _live_lens_driver_tag_edge_adjustment("ML", driver_tags)
+                                    edge_delta = _to_float((prior_adj or {}).get("edge_delta"))
+                                    if required_edge is not None and edge_delta is not None:
+                                        required_edge = max(0.02, float(required_edge) + float(edge_delta))
+                                except Exception:
+                                    prior_adj = {"edge_delta": 0.0, "matched": []}
+
+                                if edge is not None and float(edge) >= 0.03 and required_edge is not None and float(edge) >= float(required_edge):
+                                    action = "BET"
 
                                 if action == "BET":
                                     ok_bet, odds_tags = _odds_ok_for_bet(price, book, implied, odds_age_sec)
@@ -5620,11 +6502,8 @@ async def v1_live_lens_combined(
                                 except Exception:
                                     pass
                                 try:
-                                    if action == "BET":
-                                        if float(em) >= 4.0 and edge is not None and float(edge) >= 0.06:
-                                            driver_tags.append("gate:em>=4_edge>=0.06")
-                                        elif float(em) >= 8.0 and edge is not None and float(edge) >= 0.045:
-                                            driver_tags.append("gate:em>=8_edge>=0.045")
+                                    if action == "BET" and required_edge is not None:
+                                        driver_tags.append(f"gate:req_edge>={float(required_edge):.03f}")
                                 except Exception:
                                     pass
                                 signals.append(_signal(
@@ -5649,6 +6528,8 @@ async def v1_live_lens_combined(
                                         "xd": float(xd) if xd is not None else None,
                                         "odds_age_sec": float(odds_age_sec) if odds_age_sec is not None else None,
                                         "book": str(book) if book is not None else None,
+                                        "tag_prior_edge_delta": float(_to_float((prior_adj or {}).get("edge_delta")) or 0.0),
+                                        "tag_prior_matches": [m.get("tag") for m in ((prior_adj or {}).get("matched") or []) if isinstance(m, dict) and m.get("tag")],
                                         "pp_team": pbp_ctx.get("pp_team"),
                                     },
                                 ))
@@ -5658,17 +6539,17 @@ async def v1_live_lens_combined(
                         # Puck line cover probability via normal approx on goal differential
                         try:
                             if model_total is not None and model_spread is not None and gd is not None and rm is not None:
-                                mt = float(model_total)
-                                ms = float(model_spread)
-                                # Convert total/spread to team means
-                                mu_home_full = max(0.0, (mt + ms) / 2.0)
-                                mu_away_full = max(0.0, (mt - ms) / 2.0)
-                                mu_home_rem = mu_home_full * (float(rm) / 60.0) * float(pace_mult) * float(goalie_mult)
-                                mu_away_rem = mu_away_full * (float(rm) / 60.0) * float(pace_mult) * float(goalie_mult)
-
-                                # add mild PP bonus
-                                mu_home_rem += float(pp_bonus_home) * (float(rm) / 60.0) + float(en_bonus_home)
-                                mu_away_rem += float(pp_bonus_away) * (float(rm) / 60.0) + float(en_bonus_away)
+                                mu_home_rem = mu_home_rem_live
+                                mu_away_rem = mu_away_rem_live
+                                if mu_home_rem is None or mu_away_rem is None:
+                                    mt = float(model_total)
+                                    ms = float(model_spread)
+                                    mu_home_full = max(0.0, (mt + ms) / 2.0)
+                                    mu_away_full = max(0.0, (mt - ms) / 2.0)
+                                    mu_home_rem = mu_home_full * (float(rm) / 60.0) * float(pace_mult) * float(goalie_mult)
+                                    mu_away_rem = mu_away_full * (float(rm) / 60.0) * float(pace_mult) * float(goalie_mult)
+                                    mu_home_rem += float(pp_bonus_home) * (float(rm) / 60.0) + float(en_bonus_home)
+                                    mu_away_rem += float(pp_bonus_away) * (float(rm) / 60.0) + float(en_bonus_away)
 
                                 # Prefer exact discrete cover probs when available
                                 try:
@@ -5706,16 +6587,37 @@ async def v1_live_lens_combined(
 
                                 if pl_watch_side and pl_watch_p is not None:
                                     driver_tags = ["market:PUCKLINE"]
+                                    try:
+                                        for t in projection_driver_tags:
+                                            if t not in driver_tags:
+                                                driver_tags.append(t)
+                                    except Exception:
+                                        pass
                                     price = pl_away_p15 if pl_watch_side == "AWAY_+1.5" else pl_home_m15
                                     book = pl_away_p15_book if pl_watch_side == "AWAY_+1.5" else pl_home_m15_book
                                     implied = implied_pl_away if pl_watch_side == "AWAY_+1.5" else implied_pl_home
                                     edge = (float(pl_watch_p) - float(implied)) if implied is not None else None
                                     action = "WATCH"
-                                    if edge is not None and float(edge) >= 0.03:
-                                        if float(em) >= 8.0 and float(edge) >= 0.05:
-                                            action = "BET"
-                                        if float(em) >= 4.0 and float(edge) >= 0.065:
-                                            action = "BET"
+                                    prior_adj = {"edge_delta": 0.0, "matched": []}
+                                    required_edge = None
+                                    try:
+                                        if float(em) >= 8.0:
+                                            required_edge = 0.05
+                                        elif float(em) >= 4.0:
+                                            required_edge = 0.065
+                                    except Exception:
+                                        required_edge = None
+
+                                    try:
+                                        prior_adj = _live_lens_driver_tag_edge_adjustment("PUCKLINE", driver_tags)
+                                        edge_delta = _to_float((prior_adj or {}).get("edge_delta"))
+                                        if required_edge is not None and edge_delta is not None:
+                                            required_edge = max(0.02, float(required_edge) + float(edge_delta))
+                                    except Exception:
+                                        prior_adj = {"edge_delta": 0.0, "matched": []}
+
+                                    if edge is not None and float(edge) >= 0.03 and required_edge is not None and float(edge) >= float(required_edge):
+                                        action = "BET"
 
                                     if action == "BET":
                                         ok_bet, odds_tags = _odds_ok_for_bet(price, book, implied, odds_age_sec)
@@ -5733,11 +6635,8 @@ async def v1_live_lens_combined(
                                     except Exception:
                                         pass
                                     try:
-                                        if action == "BET":
-                                            if float(em) >= 4.0 and edge is not None and float(edge) >= 0.065:
-                                                driver_tags.append("gate:em>=4_edge>=0.065")
-                                            elif float(em) >= 8.0 and edge is not None and float(edge) >= 0.05:
-                                                driver_tags.append("gate:em>=8_edge>=0.05")
+                                        if action == "BET" and required_edge is not None:
+                                            driver_tags.append(f"gate:req_edge>={float(required_edge):.03f}")
                                     except Exception:
                                         pass
                                     fair = _prob_to_american(float(pl_watch_p))
@@ -5760,6 +6659,8 @@ async def v1_live_lens_combined(
                                             "gd": int(gd) if gd is not None else None,
                                             "pace_mult": float(pace_mult) if pace_mult is not None else None,
                                             "goalie_mult": float(goalie_mult) if goalie_mult is not None else None,
+                                            "tag_prior_edge_delta": float(_to_float((prior_adj or {}).get("edge_delta")) or 0.0),
+                                            "tag_prior_matches": [m.get("tag") for m in ((prior_adj or {}).get("matched") or []) if isinstance(m, dict) and m.get("tag")],
                                             "odds_age_sec": float(odds_age_sec) if odds_age_sec is not None else None,
                                             "book": str(book) if book is not None else None,
                                             "pp_team": pbp_ctx.get("pp_team"),
@@ -5783,14 +6684,17 @@ async def v1_live_lens_combined(
                         reg3 = None
                     if isinstance(reg3, dict) and model_total is not None and model_spread is not None and home_goals is not None and away_goals is not None:
                         gd = int(home_goals) - int(away_goals)
-                        mt = float(model_total)
-                        ms = float(model_spread)
-                        mu_home_full = max(0.0, (mt + ms) / 2.0)
-                        mu_away_full = max(0.0, (mt - ms) / 2.0)
-                        mu_home_rem = mu_home_full * (float(rm) / 60.0) * float(pace_mult) * float(goalie_mult)
-                        mu_away_rem = mu_away_full * (float(rm) / 60.0) * float(pace_mult) * float(goalie_mult)
-                        mu_home_rem += float(pp_bonus_home) * (float(rm) / 60.0) + float(en_bonus_home)
-                        mu_away_rem += float(pp_bonus_away) * (float(rm) / 60.0) + float(en_bonus_away)
+                        mu_home_rem = mu_home_rem_live
+                        mu_away_rem = mu_away_rem_live
+                        if mu_home_rem is None or mu_away_rem is None:
+                            mt = float(model_total)
+                            ms = float(model_spread)
+                            mu_home_full = max(0.0, (mt + ms) / 2.0)
+                            mu_away_full = max(0.0, (mt - ms) / 2.0)
+                            mu_home_rem = mu_home_full * (float(rm) / 60.0) * float(pace_mult) * float(goalie_mult)
+                            mu_away_rem = mu_away_full * (float(rm) / 60.0) * float(pace_mult) * float(goalie_mult)
+                            mu_home_rem += float(pp_bonus_home) * (float(rm) / 60.0) + float(en_bonus_home)
+                            mu_away_rem += float(pp_bonus_away) * (float(rm) / 60.0) + float(en_bonus_away)
 
                         pr = _win_cover_probs(int(gd), float(mu_home_rem), float(mu_away_rem))
                         p_home = _safe_prob(pr.get("p_home_win"))
@@ -5815,10 +6719,32 @@ async def v1_live_lens_combined(
                             side, edge, price_i, p_model = cand[0]
                             if edge is not None and float(edge) >= 0.03:
                                 driver_tags = ["market:REG_3WAY"]
+                                try:
+                                    for t in projection_driver_tags:
+                                        if t not in driver_tags:
+                                            driver_tags.append(t)
+                                except Exception:
+                                    pass
                                 action = "WATCH"
-                                if float(em) >= 6.0 and float(edge) >= 0.05:
-                                    action = "BET"
-                                if float(em) >= 12.0 and float(edge) >= 0.04:
+                                prior_adj = {"edge_delta": 0.0, "matched": []}
+                                required_edge = None
+                                try:
+                                    if float(em) >= 12.0:
+                                        required_edge = 0.04
+                                    elif float(em) >= 6.0:
+                                        required_edge = 0.05
+                                except Exception:
+                                    required_edge = None
+
+                                try:
+                                    prior_adj = _live_lens_driver_tag_edge_adjustment("REG_3WAY", driver_tags)
+                                    edge_delta = _to_float((prior_adj or {}).get("edge_delta"))
+                                    if required_edge is not None and edge_delta is not None:
+                                        required_edge = max(0.02, float(required_edge) + float(edge_delta))
+                                except Exception:
+                                    prior_adj = {"edge_delta": 0.0, "matched": []}
+
+                                if required_edge is not None and float(edge) >= float(required_edge):
                                     action = "BET"
 
                                 if action == "BET":
@@ -5849,6 +6775,11 @@ async def v1_live_lens_combined(
                                         driver_tags.append("edge:>=0.03")
                                 except Exception:
                                     pass
+                                try:
+                                    if action == "BET" and required_edge is not None:
+                                        driver_tags.append(f"gate:req_edge>={float(required_edge):.03f}")
+                                except Exception:
+                                    pass
                                 fair = _prob_to_american(float(p_model))
                                 max_price = _prob_to_american(max(0.01, min(0.99, float(p_model) - 0.03)))
                                 signals.append(_signal(
@@ -5869,6 +6800,8 @@ async def v1_live_lens_combined(
                                         "gd": int(gd) if gd is not None else None,
                                         "pace_mult": float(pace_mult) if pace_mult is not None else None,
                                         "goalie_mult": float(goalie_mult) if goalie_mult is not None else None,
+                                        "tag_prior_edge_delta": float(_to_float((prior_adj or {}).get("edge_delta")) or 0.0),
+                                        "tag_prior_matches": [m.get("tag") for m in ((prior_adj or {}).get("matched") or []) if isinstance(m, dict) and m.get("tag")],
                                         "odds_age_sec": float(odds_age_sec) if odds_age_sec is not None else None,
                                         "book": str(book) if 'book' in locals() and book is not None else None,
                                         "pp_team": pbp_ctx.get("pp_team"),
@@ -5955,17 +6888,31 @@ async def v1_live_lens_combined(
                     rem = float(_period_time_remaining_min(int(pn)))
                     return float(max(0.0, 20.0 - rem))
 
-                def _sig_action_for_period(pn: int, edge: float) -> str:
-                    # Conservative: only BET for current period with time-on-ice.
-                    if cur_period is not None and int(pn) == int(cur_period):
-                        ep = _period_elapsed_min(int(pn))
-                        if ep >= 6.0 and abs(float(edge)) >= 0.04:
-                            return "BET"
-                        if ep >= 3.0 and abs(float(edge)) >= 0.06:
-                            return "BET"
-                    return "WATCH"
+                def _period_signal_gate(pn: int, edge: float, market: Optional[str] = None, driver_tags: Optional[list[str]] = None) -> dict:
+                    out = {"action": "WATCH", "required_edge": None, "prior_adj": {"edge_delta": 0.0, "matched": []}}
+                    try:
+                        if cur_period is not None and int(pn) == int(cur_period):
+                            ep = _period_elapsed_min(int(pn))
+                            if ep >= 6.0:
+                                out["required_edge"] = 0.04
+                            elif ep >= 3.0:
+                                out["required_edge"] = 0.06
+                        prior_adj = _live_lens_driver_tag_edge_adjustment(market, driver_tags or [])
+                        out["prior_adj"] = prior_adj if isinstance(prior_adj, dict) else {"edge_delta": 0.0, "matched": []}
+                        edge_delta = _to_float((out["prior_adj"] or {}).get("edge_delta"))
+                        if out.get("required_edge") is not None and edge_delta is not None:
+                            out["required_edge"] = max(0.02, float(out["required_edge"]) + float(edge_delta))
+                        req = out.get("required_edge")
+                        if req is not None and abs(float(edge)) >= float(req):
+                            out["action"] = "BET"
+                        return out
+                    except Exception:
+                        return out
 
-                def _period_driver_tags(pn: int, edge: float) -> list[str]:
+                def _sig_action_for_period(pn: int, edge: float) -> str:
+                    return str((_period_signal_gate(int(pn), float(edge)) or {}).get("action") or "WATCH")
+
+                def _period_driver_tags(pn: int, edge: float, gd: Optional[int] = None, action: Optional[str] = None, required_edge: Optional[float] = None) -> list[str]:
                     tags = [f"market:PERIOD", f"period:{int(pn)}"]
                     try:
                         ae = abs(float(edge))
@@ -5978,12 +6925,74 @@ async def v1_live_lens_combined(
                     except Exception:
                         pass
                     try:
-                        if cur_period is not None and int(pn) == int(cur_period):
-                            ep = _period_elapsed_min(int(pn))
-                            if ep >= 3.0 and abs(float(edge)) >= 0.06:
-                                tags.append("gate:p_elapsed>=3_edge>=0.06")
-                            elif ep >= 6.0 and abs(float(edge)) >= 0.04:
-                                tags.append("gate:p_elapsed>=6_edge>=0.04")
+                        if action == "BET" and required_edge is not None:
+                            tags.append(f"gate:req_edge>={float(required_edge):.03f}")
+                    except Exception:
+                        pass
+                    try:
+                        if pace_mult is not None:
+                            if float(pace_mult) >= 1.08:
+                                tags.append("pace:up")
+                            elif float(pace_mult) <= 0.92:
+                                tags.append("pace:down")
+                    except Exception:
+                        pass
+                    try:
+                        if goalie_mult is not None:
+                            if float(goalie_mult) >= 1.03:
+                                tags.append("goalie:weak")
+                            elif float(goalie_mult) <= 0.97:
+                                tags.append("goalie:strong")
+                    except Exception:
+                        pass
+                    try:
+                        if pbp_ctx.get("pp_team") == "home":
+                            tags.append("manpower:pp_home")
+                        elif pbp_ctx.get("pp_team") == "away":
+                            tags.append("manpower:pp_away")
+                    except Exception:
+                        pass
+                    try:
+                        if pbp_ctx.get("home_empty_net"):
+                            tags.append("empty_net:home")
+                        if pbp_ctx.get("away_empty_net"):
+                            tags.append("empty_net:away")
+                    except Exception:
+                        pass
+                    try:
+                        ha5 = _to_int(pbp_ctx.get("home_att_l5"))
+                        aa5 = _to_int(pbp_ctx.get("away_att_l5"))
+                        if ha5 is not None and aa5 is not None:
+                            att5 = int(ha5) + int(aa5)
+                            if att5 >= 18:
+                                tags.append("pressure:high")
+                            elif att5 <= 8:
+                                tags.append("pressure:low")
+                    except Exception:
+                        pass
+                    try:
+                        if gd is not None:
+                            if int(gd) > 0:
+                                tags.append("score:home_leading")
+                            elif int(gd) < 0:
+                                tags.append("score:away_leading")
+                            else:
+                                tags.append("score:tied")
+                    except Exception:
+                        pass
+                    try:
+                        if gd is not None and cur_period is not None and int(pn) == int(cur_period):
+                            rem0 = _period_time_remaining_min(int(pn))
+                            if float(rem0) <= 5.0:
+                                if abs(int(gd)) == 1:
+                                    if pbp_ctx.get("home_empty_net") or pbp_ctx.get("away_empty_net"):
+                                        tags.append("late:one_goal_empty_net")
+                                    else:
+                                        tags.append("late:one_goal")
+                                elif abs(int(gd)) >= 2:
+                                    tags.append("late:multi_goal")
+                                else:
+                                    tags.append("late:tied")
                     except Exception:
                         pass
                     return tags
@@ -6070,7 +7079,9 @@ async def v1_live_lens_combined(
                                 cand.sort(key=lambda x: float(x[1]), reverse=True)
                                 side, edge, price_i, p_model = cand[0]
                                 if float(edge) >= 0.03:
-                                    action = _sig_action_for_period(int(pn), float(edge))
+                                    gate = _period_signal_gate(int(pn), float(edge), market="PERIOD_TOTAL", driver_tags=_period_driver_tags(int(pn), float(edge), gd=gd_p))
+                                    action = str((gate or {}).get("action") or "WATCH")
+                                    required_edge = _to_float((gate or {}).get("required_edge"))
                                     fair = _prob_to_american(float(p_model))
                                     max_price = _prob_to_american(max(0.01, min(0.99, float(p_model) - 0.03)))
                                     signals.append(_signal(
@@ -6088,7 +7099,7 @@ async def v1_live_lens_combined(
                                         target_max_price_american=max_price,
                                         elapsed_min=float(em),
                                         goals_in_period=int(goals_p),
-                                        driver_tags=_period_driver_tags(int(pn), float(edge)),
+                                        driver_tags=_period_driver_tags(int(pn), float(edge), gd=gd_p, action=action, required_edge=required_edge),
                                     ))
                     except Exception:
                         pass
@@ -6111,8 +7122,10 @@ async def v1_live_lens_combined(
                                 cand.sort(key=lambda x: float(x[1]), reverse=True)
                                 side, edge, price_i, p_model = cand[0]
                                 if float(edge) >= 0.03:
-                                    action = _sig_action_for_period(int(pn), float(edge))
-                                    driver_tags = _period_driver_tags(int(pn), float(edge))
+                                    gate = _period_signal_gate(int(pn), float(edge), market="PERIOD_ML", driver_tags=_period_driver_tags(int(pn), float(edge), gd=gd_p))
+                                    action = str((gate or {}).get("action") or "WATCH")
+                                    required_edge = _to_float((gate or {}).get("required_edge"))
+                                    driver_tags = _period_driver_tags(int(pn), float(edge), gd=gd_p, action=action, required_edge=required_edge)
                                     if action == "BET":
                                         try:
                                             implied0 = imp_h if str(side) == "HOME" else imp_a
@@ -6166,7 +7179,9 @@ async def v1_live_lens_combined(
                                 cand.sort(key=lambda x: float(x[1]), reverse=True)
                                 side, edge, price_i, p_model, pt = cand[0]
                                 if float(edge) >= 0.03 and pt is not None:
-                                    action = _sig_action_for_period(int(pn), float(edge))
+                                    gate = _period_signal_gate(int(pn), float(edge), market="PERIOD_SPREAD", driver_tags=_period_driver_tags(int(pn), float(edge), gd=gd_p))
+                                    action = str((gate or {}).get("action") or "WATCH")
+                                    required_edge = _to_float((gate or {}).get("required_edge"))
                                     fair = _prob_to_american(float(p_model))
                                     max_price = _prob_to_american(max(0.01, min(0.99, float(p_model) - 0.03)))
                                     signals.append(_signal(
@@ -6183,7 +7198,7 @@ async def v1_live_lens_combined(
                                         fair_price_american=fair,
                                         target_max_price_american=max_price,
                                         elapsed_min=float(em),
-                                        driver_tags=_period_driver_tags(int(pn), float(edge)),
+                                        driver_tags=_period_driver_tags(int(pn), float(edge), gd=gd_p, action=action, required_edge=required_edge),
                                     ))
                     except Exception:
                         pass
@@ -6208,7 +7223,9 @@ async def v1_live_lens_combined(
                                 cand.sort(key=lambda x: float(x[1]), reverse=True)
                                 side, edge, price_i, p_model = cand[0]
                                 if float(edge) >= 0.03:
-                                    action = _sig_action_for_period(int(pn), float(edge))
+                                    gate = _period_signal_gate(int(pn), float(edge), market="PERIOD_3WAY", driver_tags=_period_driver_tags(int(pn), float(edge), gd=gd_p))
+                                    action = str((gate or {}).get("action") or "WATCH")
+                                    required_edge = _to_float((gate or {}).get("required_edge"))
                                     fair = _prob_to_american(float(p_model))
                                     max_price = _prob_to_american(max(0.01, min(0.99, float(p_model) - 0.03)))
                                     signals.append(_signal(
@@ -6224,7 +7241,7 @@ async def v1_live_lens_combined(
                                         fair_price_american=fair,
                                         target_max_price_american=max_price,
                                         elapsed_min=float(em),
-                                        driver_tags=_period_driver_tags(int(pn), float(edge)),
+                                        driver_tags=_period_driver_tags(int(pn), float(edge), gd=gd_p, action=action, required_edge=required_edge),
                                     ))
                     except Exception:
                         pass
@@ -6878,12 +7895,27 @@ async def v1_live_lens_combined(
                                     "remaining_min": guidance.get("remaining_min"),
                                     "total_goals": guidance.get("total_goals"),
                                     "sog_total": guidance.get("sog_total"),
+                                    "mu_remaining": guidance.get("mu_remaining"),
+                                    "mu_remaining_model": guidance.get("mu_remaining_model"),
+                                    "mu_remaining_market": guidance.get("mu_remaining_market"),
+                                    "market_blend_weight": guidance.get("market_blend_weight"),
+                                    "mu_home_rem": guidance.get("mu_home_rem"),
+                                    "mu_away_rem": guidance.get("mu_away_rem"),
+                                    "home_attack_share": guidance.get("home_attack_share"),
+                                    "away_attack_share": guidance.get("away_attack_share"),
                                     "p_home_win": guidance.get("p_home_win"),
                                     "p_away_win": guidance.get("p_away_win"),
+                                    "p_home_win_model": guidance.get("p_home_win_model"),
+                                    "p_away_win_model": guidance.get("p_away_win_model"),
+                                    "p_home_win_market": guidance.get("p_home_win_market"),
+                                    "p_away_win_market": guidance.get("p_away_win_market"),
                                     "p_home_win_raw": guidance.get("p_home_win_raw"),
                                     "p_win_calibrated": guidance.get("p_win_calibrated"),
                                     "p_win_prob_source": guidance.get("p_win_prob_source"),
+                                    "p_win_market_blend_weight": guidance.get("p_win_market_blend_weight"),
                                     "p_tie_reg": guidance.get("p_tie_reg"),
+                                    "late_state_mode": guidance.get("late_state_mode"),
+                                    "projection_driver_tags": guidance.get("projection_driver_tags"),
                                     "pp_team": guidance.get("pp_team"),
                                     "pp_sec_remaining_est": guidance.get("pp_sec_remaining_est"),
                                     "home_empty_net": guidance.get("home_empty_net"),

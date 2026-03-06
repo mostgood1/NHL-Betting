@@ -71,6 +71,95 @@ def _parse_maybe_dict(x: Any) -> Optional[Dict[str, Any]]:
     return None
 
 
+def _read_json(path: Path) -> Optional[Dict[str, Any]]:
+    try:
+        if (not path.exists()) or path.stat().st_size <= 0:
+            return None
+        obj = json.loads(path.read_text(encoding="utf-8"))
+        return obj if isinstance(obj, dict) else None
+    except Exception:
+        return None
+
+
+def _guess_priors_path(ledger_path: Path) -> Path:
+    try:
+        if str(ledger_path.parent.name).strip().lower() == "perf":
+            return ledger_path.parent.parent / "live_lens_driver_tag_priors.json"
+    except Exception:
+        pass
+    return ledger_path.parent / "live_lens_driver_tag_priors.json"
+
+
+def _driver_tag_priors_table(obj: Dict[str, Any]) -> pd.DataFrame:
+    markets = obj.get("markets") if isinstance(obj, dict) else None
+    if not isinstance(markets, dict):
+        return pd.DataFrame()
+    rows = []
+    for scope, grp in markets.items():
+        if not isinstance(grp, dict):
+            continue
+        for tag, spec in grp.items():
+            if not isinstance(spec, dict):
+                continue
+            rows.append(
+                {
+                    "scope": str(scope),
+                    "driver_tag": str(tag),
+                    "edge_delta": _safe_float(spec.get("edge_delta")),
+                    "reliability": _safe_float(spec.get("reliability")),
+                    "bets": int(spec.get("bets") or 0),
+                    "roi": _safe_float(spec.get("roi")),
+                    "baseline_roi": _safe_float(spec.get("baseline_roi")),
+                    "roi_gap": _safe_float(spec.get("roi_gap")),
+                    "win_rate": _safe_float(spec.get("win_rate")),
+                }
+            )
+    if not rows:
+        return pd.DataFrame()
+    out = pd.DataFrame(rows)
+    out["abs_edge_delta"] = out["edge_delta"].abs()
+    out = out.sort_values(["abs_edge_delta", "bets", "scope", "driver_tag"], ascending=[False, False, True, True]).reset_index(drop=True)
+    return out
+
+
+def _driver_tag_prior_sections(priors_path: Path) -> list[str]:
+    obj = _read_json(priors_path)
+    if not isinstance(obj, dict):
+        return []
+
+    priors = _driver_tag_priors_table(obj)
+    if priors.empty:
+        return []
+
+    defaults = obj.get("defaults") if isinstance(obj, dict) else {}
+    try:
+        cap = _safe_float((defaults or {}).get("max_total_edge_adjustment"))
+    except Exception:
+        cap = None
+
+    lines: list[str] = []
+    lines.append("## Learned driver-tag priors\n")
+    lines.append(f"source: `{priors_path.as_posix()}`\n")
+    if cap is not None:
+        lines.append(f"max edge-adjustment cap: {float(cap):+.3f}\n")
+
+    loosen = priors[priors["edge_delta"].notna() & (priors["edge_delta"] < 0)].copy()
+    if not loosen.empty:
+        loosen = loosen.sort_values(["edge_delta", "bets"], ascending=[True, False]).reset_index(drop=True)
+        lines.append("### Tags that loosen gates\n")
+        lines.append(_to_md_table(loosen.drop(columns=["abs_edge_delta"], errors="ignore"), max_rows=20))
+        lines.append("")
+
+    tighten = priors[priors["edge_delta"].notna() & (priors["edge_delta"] > 0)].copy()
+    if not tighten.empty:
+        tighten = tighten.sort_values(["edge_delta", "bets"], ascending=[False, False]).reset_index(drop=True)
+        lines.append("### Tags that tighten gates\n")
+        lines.append(_to_md_table(tighten.drop(columns=["abs_edge_delta"], errors="ignore"), max_rows=20))
+        lines.append("")
+
+    return lines
+
+
 def _roi_table(df: pd.DataFrame, group_col: str, min_bets: int) -> pd.DataFrame:
     if df.empty or group_col not in df.columns:
         return pd.DataFrame()
@@ -151,9 +240,9 @@ def _to_md_table(df: pd.DataFrame, max_rows: int = 20) -> str:
         return "(no rows)"
     show = df.head(max_rows).copy()
     # Compact formatting
-    for c in ["roi", "units", "avg_edge", "win_rate"]:
+    for c in ["roi", "units", "avg_edge", "win_rate", "reliability", "baseline_roi", "roi_gap", "edge_delta"]:
         if c in show.columns:
-            show[c] = show[c].apply(lambda x: (f"{float(x):+.3f}" if c in {"units", "avg_edge"} else f"{float(x):+.3%}") if _safe_float(x) is not None else "")
+            show[c] = show[c].apply(lambda x: (f"{float(x):+.3f}" if c in {"units", "avg_edge", "roi_gap", "edge_delta"} else f"{float(x):+.3%}") if _safe_float(x) is not None else "")
 
     cols = list(show.columns)
     # Build markdown manually to avoid optional tabulate dependency.
@@ -178,6 +267,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--ledger", required=True, help="Path to settled ledger CSV/JSONL")
     ap.add_argument("--min-bets", type=int, default=10)
+    ap.add_argument("--priors-json", default="", help="Optional learned driver-tag priors JSON; defaults near the ledger")
     ap.add_argument("--out", default="", help="Optional markdown output path")
     args = ap.parse_args()
 
@@ -288,6 +378,9 @@ def main() -> int:
         lines.append("## ROI by mu_remaining bucket\n")
         lines.append(_to_md_table(by_mu, max_rows=10))
         lines.append("")
+
+    priors_path = Path(args.priors_json) if str(args.priors_json or "").strip() else _guess_priors_path(ledger_path)
+    lines.extend(_driver_tag_prior_sections(priors_path))
 
     md = "\n".join(lines).strip() + "\n"
     print(md)

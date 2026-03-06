@@ -811,6 +811,47 @@ try {
     Write-Warning "[daily_update] Live Lens ledger build failed: $($_.Exception.Message)"
   }
 
+  Write-Host "[daily_update] Fitting Live Lens driver-tag priors …" -ForegroundColor DarkCyan
+  $llPriorsStart = $AnchorNow.AddDays(-60).ToString('yyyy-MM-dd')
+  $llPriorsEnd = $AnchorNow.ToString('yyyy-MM-dd')
+  $oldPythonPath = $env:PYTHONPATH
+  try {
+    $env:PYTHONPATH = $RepoRoot
+    Push-Location $RepoRoot
+    & $PyExe scripts/fit_live_lens_driver_tag_priors.py --start $llPriorsStart --end $llPriorsEnd
+  } finally {
+    Pop-Location
+    $env:PYTHONPATH = $oldPythonPath
+  }
+  Assert-AnyPath -Label "live_lens_driver_tag_priors" -Paths @(
+    (Join-Path $ProcessedDir 'live_lens\live_lens_driver_tag_priors.json'),
+    (Join-Path $ProcessedDir 'live_lens/live_lens_driver_tag_priors.json'),
+    (_PathInProcessed 'live_lens_driver_tag_priors.json')
+  ) -NonEmpty -Strict:$StrictOutputs
+
+  # Generate tuning report with learned priors context (non-fatal)
+  try {
+    $llPerfDir = Join-Path (Join-Path $ProcessedDir 'live_lens') 'perf'
+    $llLedger = Join-Path $llPerfDir 'live_lens_bets_all.jsonl'
+    $llPriors = Join-Path (Join-Path $ProcessedDir 'live_lens') 'live_lens_driver_tag_priors.json'
+    $llTuningReport = Join-Path $llPerfDir 'live_lens_tuning_report.md'
+    if (Test-Path $llLedger) {
+      Write-Host "[daily_update] Building Live Lens tuning report …" -ForegroundColor DarkCyan
+      $oldPythonPath = $env:PYTHONPATH
+      try {
+        $env:PYTHONPATH = $RepoRoot
+        Push-Location $RepoRoot
+        & $PyExe scripts/live_lens_tuning_report.py --ledger $llLedger --priors-json $llPriors --out $llTuningReport
+      } finally {
+        Pop-Location
+        $env:PYTHONPATH = $oldPythonPath
+      }
+      Assert-AnyPath -Label "live_lens_tuning_report" -Paths @($llTuningReport) -NonEmpty -Strict:$StrictOutputs
+    }
+  } catch {
+    Write-Warning "[daily_update] Live Lens tuning report failed: $($_.Exception.Message)"
+  }
+
   Write-Host "[daily_update] Fitting Live Lens win-prob calibration …" -ForegroundColor DarkCyan
   $llFitStart = $AnchorNow.AddDays(-30).ToString('yyyy-MM-dd')
   $llFitEnd = $AnchorNow.ToString('yyyy-MM-dd')

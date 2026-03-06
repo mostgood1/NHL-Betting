@@ -7055,6 +7055,22 @@ def _load_sim_df(date: str, filenames: list[str]) -> pd.DataFrame:
                     return pd.read_csv(p)
                 except Exception:
                     pass
+        # If PROC_DIR is redirected to a writable disk (e.g. Render persistent disk),
+        # also check the repo checkout's tracked data/processed artifacts before falling
+        # back to GitHub raw. This keeps public web pages working even when the disk
+        # doesn't yet contain the day's committed sim outputs.
+        try:
+            repo_proc = ROOT_DIR / "data" / "processed"
+            if str(repo_proc.resolve()) != str(PROC_DIR.resolve()):
+                for fname in filenames:
+                    p2 = repo_proc / fname.format(date=date)
+                    if p2.exists():
+                        try:
+                            return pd.read_csv(p2)
+                        except Exception:
+                            pass
+        except Exception:
+            pass
         # Public host fallback to GitHub raw
         if _is_public_host_env():
             for fname in filenames:

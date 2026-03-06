@@ -1415,7 +1415,7 @@
       return arr.filter(s => {
         try {
           const scope = String(s && s.scope || '').toLowerCase();
-          if (scope !== 'game' && scope !== 'prop') return false;
+          if (scope !== 'game') return false;
           return _isBetOrWatchSignal(s);
         } catch (e) {
           return false;
@@ -1493,17 +1493,12 @@
       const arr = Array.isArray(signals) ? signals.slice() : [];
       function rank(s) {
         const a = String(s && s.action || '').toUpperCase();
-        const scope = String(s && s.scope || '').toLowerCase();
         // Desired compact ordering:
-        // 1) Game/period live BET signals
-        // 2) Live prop BET signals
-        // 3) Game/period WATCH signals
-        // 4) Live prop WATCH signals
+        // 1) Game BET signals
+        // 2) Game WATCH signals
         let group = 9;
-        if (a === 'BET' && scope === 'game') group = 0;
-        else if (a === 'BET' && scope === 'prop') group = 1;
-        else if (a === 'WATCH' && scope === 'game') group = 2;
-        else if (a === 'WATCH' && scope === 'prop') group = 3;
+        if (a === 'BET') group = 0;
+        else if (a === 'WATCH') group = 1;
         let edgeAbs = 0;
         try { const e = Number(s && s.edge); if (isFinite(e)) edgeAbs = Math.abs(e); } catch (e) {}
         let p = 0;

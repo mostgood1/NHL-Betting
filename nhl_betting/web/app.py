@@ -124,6 +124,99 @@ def _atomic_write_text(path: Path, text: str) -> None:
             pass
 
 
+def _same_path_loose(a: Path, b: Path) -> bool:
+    try:
+        return a.resolve() == b.resolve()
+    except Exception:
+        try:
+            return os.path.normcase(str(a)) == os.path.normcase(str(b))
+        except Exception:
+            return str(a) == str(b)
+
+
+def _repo_proc_dir() -> Path:
+    return ROOT_DIR / "data" / "processed"
+
+
+def _copy_text_file_if_newer(src: Path, dst: Path) -> bool:
+    try:
+        if not src.exists():
+            return False
+    except Exception:
+        return False
+
+    try:
+        if dst.exists():
+            try:
+                sst = src.stat()
+                dst_st = dst.stat()
+                if sst.st_size == dst_st.st_size and sst.st_mtime_ns <= dst_st.st_mtime_ns:
+                    return False
+            except Exception:
+                try:
+                    if src.read_bytes() == dst.read_bytes():
+                        return False
+                except Exception:
+                    pass
+        text = src.read_text(encoding="utf-8")
+        _atomic_write_text(dst, text)
+        try:
+            sst = src.stat()
+            os.utime(dst, ns=(sst.st_atime_ns, sst.st_mtime_ns))
+        except Exception:
+            pass
+        return True
+    except Exception:
+        return False
+
+
+def _seed_repo_bundle_artifacts_to_proc_dir(dates: Optional[list[str]] = None, include_manifest: bool = True) -> dict[str, int]:
+    """Best-effort: seed tracked repo bundle artifacts into the active PROC_DIR.
+
+    On Render, `PROC_DIR` usually points at the persistent disk while deploys update
+    the repo checkout under `ROOT_DIR`. Copying tracked bundle JSONs from the repo
+    into the persistent disk keeps `/v1/bundle`, `/v1/manifest`, and `/v1/dates`
+    on the fast persisted-file path instead of rebuilding in memory.
+    """
+    stats = {"checked": 0, "copied": 0}
+    try:
+        from ..publish.daily_bundles import bundle_path, manifest_path
+
+        repo_proc_dir = _repo_proc_dir()
+        if _same_path_loose(repo_proc_dir, PROC_DIR):
+            return stats
+
+        tasks: list[tuple[Path, Path]] = []
+        if include_manifest:
+            tasks.append((manifest_path(repo_proc_dir), manifest_path(PROC_DIR)))
+
+        if dates:
+            seen: set[str] = set()
+            for d in dates:
+                ds = str(d or "").strip()
+                if not ds or ds in seen:
+                    continue
+                seen.add(ds)
+                tasks.append((bundle_path(ds, repo_proc_dir), bundle_path(ds, PROC_DIR)))
+        else:
+            src_root = repo_proc_dir / "bundles"
+            if src_root.exists():
+                for src in sorted(src_root.glob("date=*/bundle.json")):
+                    try:
+                        rel = src.relative_to(repo_proc_dir)
+                    except Exception:
+                        continue
+                    tasks.append((src, PROC_DIR / rel))
+
+        for src, dst in tasks:
+            stats["checked"] += 1
+            if _copy_text_file_if_newer(src, dst):
+                stats["copied"] += 1
+    except Exception:
+        return stats
+    return stats
+
+
 def _atomic_write_json(path: Path, obj: Any) -> None:
     _atomic_write_text(path, json.dumps(obj, ensure_ascii=False, indent=2, sort_keys=True))
 
@@ -1540,6 +1633,15 @@ async def lifespan(app_: FastAPI):
         print(json.dumps({"event":"startup_diag","commit": (_git_commit_hash() or '')[:12], "route_count": len(app_.routes)}))
     except Exception:
         pass
+    try:
+        seed_stats = _seed_repo_bundle_artifacts_to_proc_dir()
+        if int(seed_stats.get("copied") or 0) > 0:
+            try:
+                print(json.dumps({"event": "bundle_seeded_from_repo", "checked": int(seed_stats.get("checked") or 0), "copied": int(seed_stats.get("copied") or 0)}))
+            except Exception:
+                pass
+    except Exception:
+        pass
     # Model bootstrap scheduling (merged from old second startup handler)
     try:
         from ..utils.io import MODEL_DIR
@@ -2185,6 +2287,11 @@ def _load_bundle_predictions_map(date_ymd: str) -> dict:
     try:
         from ..publish.daily_bundles import bundle_path, build_daily_bundle, select_daily_bundle_files
 
+        try:
+            _seed_repo_bundle_artifacts_to_proc_dir(dates=[date_ymd], include_manifest=False)
+        except Exception:
+            pass
+
         p = bundle_path(date_ymd, PROC_DIR)
         obj = None
         if p.exists():
@@ -2532,6 +2639,11 @@ async def v1_manifest(request: Request):
     try:
         from ..publish.daily_bundles import manifest_path, build_manifest
 
+        try:
+            _seed_repo_bundle_artifacts_to_proc_dir(include_manifest=True)
+        except Exception:
+            pass
+
         p = manifest_path(PROC_DIR)
         if p.exists():
             # If-None-Match fast-path for persisted manifest.
@@ -2567,6 +2679,11 @@ async def v1_dates(request: Request):
         import asyncio
 
         from ..publish.daily_bundles import build_manifest, manifest_path
+
+        try:
+            _seed_repo_bundle_artifacts_to_proc_dir(include_manifest=True)
+        except Exception:
+            pass
 
         # Fast path: use precomputed manifest.json when available.
         # This avoids scanning large processed directories on every request.
@@ -2833,6 +2950,11 @@ async def v1_bundle(date: str, request: Request):
             return obj
 
         from ..publish.daily_bundles import bundle_path, build_daily_bundle, select_daily_bundle_files
+
+        try:
+            _seed_repo_bundle_artifacts_to_proc_dir(dates=[d], include_manifest=False)
+        except Exception:
+            pass
 
         def _bundle_predictions_count(obj0: object) -> int:
             try:

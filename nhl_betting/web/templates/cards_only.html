@@ -1653,10 +1653,11 @@
           const per = (g && g.period !== undefined && g.period !== null) ? g.period : null;
           const perDisp = (g && (g.period_disp !== undefined && g.period_disp !== null)) ? String(g.period_disp).trim() : '';
           const clk = g && g.clock ? String(g.clock) : '';
+          const intermission = !!(g && g.intermission);
           const st = String(g && g.gameState ? g.gameState : '').trim();
           if (stEl) {
             if (isLiveState(st)) {
-              stEl.textContent = formatLiveClockText(st, per, clk, perDisp);
+              stEl.textContent = formatLiveClockText(st, per, clk, perDisp, intermission);
             } else {
               // Preserve scheduled start time from initial render if present.
               const existing = String(stEl.textContent || '').trim();
@@ -1671,7 +1672,7 @@
 
     function isLiveState(s) {
       const x = String(s || '').toUpperCase();
-      return x.includes('LIVE') || x.includes('IN_PROGRESS') || x.includes('IN PROGRESS') || x.includes('IN-PROGRESS') || x.includes('CRIT');
+      return x.includes('LIVE') || x.includes('IN_PROGRESS') || x.includes('IN PROGRESS') || x.includes('IN-PROGRESS') || x.includes('INTERMISSION') || x.includes('CRIT');
     }
 
     function isFinalLikeState(s) {
@@ -1696,9 +1697,29 @@
       }
     }
 
-    function formatLiveClockText(gameState, period, clock, periodDisp) {
-      const lbl = String(periodDisp || '').trim() || formatPeriodLabel(period, gameState);
+    function normalizePeriodDisplayLabel(periodDisp, period, gameState) {
+      const raw = String(periodDisp || '').trim();
+      if (!raw) return formatPeriodLabel(period, gameState);
+      const up = raw.toUpperCase();
+      if (up === 'P1') return '1st';
+      if (up === 'P2') return '2nd';
+      if (up === 'P3') return '3rd';
+      if (up === 'P4' || up === 'OT') return 'OT';
+      if (up === 'P5' || up === 'SO') return 'SO';
+      if (up === 'FINAL') return 'Final';
+      return raw;
+    }
+
+    function formatLiveClockText(gameState, period, clock, periodDisp, intermission) {
+      const lbl = normalizePeriodDisplayLabel(periodDisp, period, gameState);
       const clk = String(clock || '').trim();
+      const isIntermission = Boolean(intermission)
+        || /(?:^|\b)(INT|INTERMISSION)(?:\b|$)/i.test(String(periodDisp || '').trim())
+        || String(gameState || '').toUpperCase().includes('INTERMISSION');
+      if (isIntermission) {
+        if (!lbl || lbl === '—') return 'INT';
+        return /(?:^|\b)(INT|INTERMISSION)(?:\b|$)/i.test(lbl) ? lbl : `${lbl} INT`;
+      }
       if (!clk) return `${lbl}`.trim();
       return `${lbl} ${clk} left`.trim();
     }
@@ -1706,7 +1727,10 @@
     function renderLens(game) {
       const lens = (game && game.lens) ? game.lens : {};
       const score = (game && game.score) ? game.score : {};
+      const st = String((game && (game.gameState || game.game_state || game.state)) || '').trim();
       const per = game && game.period !== undefined ? game.period : null;
+      const perDisp = (game && (game.period_disp !== undefined && game.period_disp !== null)) ? String(game.period_disp).trim() : '';
+      const intermission = !!(game && game.intermission);
       const clock = game && game.clock ? String(game.clock) : '';
 
       const totals = (lens && lens.totals) ? lens.totals : null;
@@ -1715,7 +1739,8 @@
       const players = (lens && lens.players) ? lens.players : null;
 
       const lines = [];
-      const headline = `P${per || '—'} ${clock || ''} · Score ${score.away ?? '—'}-${score.home ?? '—'}`;
+      const liveText = formatLiveClockText(st, per, clock, perDisp, intermission);
+      const headline = `${liveText || `P${per || '—'} ${clock || ''}`.trim()} · Score ${score.away ?? '—'}-${score.home ?? '—'}`;
       lines.push(`<div class="v"><strong>${headline}</strong></div>`);
 
       // Live linescore (1P/2P/3P/Total)
@@ -2391,7 +2416,8 @@
             const per = (game && game.period !== undefined && game.period !== null) ? game.period : null;
             const perDisp = (game && (game.period_disp !== undefined && game.period_disp !== null)) ? String(game.period_disp).trim() : '';
             const clk = (game && game.clock) ? String(game.clock).trim() : '';
-            const t = formatLiveClockText(st, per, clk, perDisp);
+            const intermission = !!(game && game.intermission);
+            const t = formatLiveClockText(st, per, clk, perDisp, intermission);
             if (t && t !== '—') parts.push(t);
           }
         } catch (e) {
@@ -2485,7 +2511,10 @@
       const notes = Array.isArray(g.notes) ? g.notes.filter(x => String(x || '').trim()) : [];
       const lean = String(g.lean_total || 'neutral').toUpperCase();
 
+      const st = String((game && (game.gameState || game.game_state || game.state)) || '').trim();
       const per = (game && game.period !== undefined && game.period !== null) ? game.period : null;
+      const perDisp = (game && (game.period_disp !== undefined && game.period_disp !== null)) ? String(game.period_disp).trim() : '';
+      const intermission = !!(game && game.intermission);
       const clock = (game && game.clock) ? String(game.clock) : '';
       const score = (game && game.score) ? game.score : {};
       const awayScore = (score && score.away !== undefined && score.away !== null) ? score.away : '—';
@@ -2519,8 +2548,8 @@
       lines.push(`<div class="k">Live guidance</div>`);
       if (per !== null || clock || (awayScore !== '—' && homeScore !== '—')) {
         const headBits = [];
-        if (per !== null) headBits.push(`P${per}`);
-        if (clock) headBits.push(String(clock));
+        const liveText = formatLiveClockText(st, per, clock, perDisp, intermission);
+        if (liveText && liveText !== '—') headBits.push(liveText);
         headBits.push(`Score ${awayScore}-${homeScore}`);
         if (totalGoals !== null) headBits.push(`Total ${totalGoals}`);
         lines.push(`<div class="v"><strong>${headBits.join(' · ')}</strong></div>`);
@@ -2767,6 +2796,8 @@
             const clk = clkRaw ? String(clkRaw).trim() : '';
             const perDispRaw = r ? pick(r.period_disp, r.periodDisp) : undefined;
             const perDisp = perDispRaw ? String(perDispRaw).trim() : '';
+            const intermissionRaw = r ? pick(r.intermission, r.inIntermission) : undefined;
+            const intermission = !!intermissionRaw;
             const agRaw = r ? pick(r.awayScore, r.away_score, (r.score && r.score.away)) : undefined;
             const hgRaw = r ? pick(r.homeScore, r.home_score, (r.score && r.score.home)) : undefined;
             const ag = (agRaw !== undefined) ? agRaw : null;
@@ -2780,6 +2811,7 @@
               home_abbr: homeAbbr,
               period: per,
               period_disp: perDisp,
+              intermission,
               clock: clk,
               score: {
                 away: (ag !== null && ag !== undefined && ag !== '') ? Number(ag) : null,
@@ -2851,8 +2883,10 @@
                 // Prefer scoreboard for score/clock/period/state (more reliable on Render).
                 if (base.score && base.score.away !== null && base.score.home !== null) g.score = base.score;
                 if (base.clock) g.clock = base.clock;
+                else if (base.intermission) g.clock = '';
                 if (base.period !== null && base.period !== undefined) g.period = base.period;
                 if (base.period_disp) g.period_disp = base.period_disp;
+                if (base.intermission !== undefined && base.intermission !== null) g.intermission = !!base.intermission;
                 if (base.gameState) g.gameState = base.gameState;
               }
             } catch (e) {}
@@ -2951,10 +2985,11 @@
             const st = String(g && g.gameState ? g.gameState : '').trim();
             const per = (g && g.period !== undefined && g.period !== null) ? g.period : null;
             const perDisp = (g && (g.period_disp !== undefined && g.period_disp !== null)) ? String(g.period_disp).trim() : '';
+            const intermission = !!(g && g.intermission);
             const clk = (g && g.clock) ? String(g.clock).trim() : '';
             if (lc) {
               if (g && isLiveState(st) && (per !== null || perDisp || clk)) {
-                lc.textContent = formatLiveClockText(st, per, clk, perDisp);
+                lc.textContent = formatLiveClockText(st, per, clk, perDisp, intermission);
               } else {
                 lc.textContent = '';
               }

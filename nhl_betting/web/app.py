@@ -13062,6 +13062,34 @@ SCOREBOARD_STATS_MIN_REFRESH_SEC = 60  # user requested 60 second minimum
 # Internal cache store
 _SCOREBOARD_STATS_CACHE: dict[int, dict] = {}
 
+
+def _scoreboard_period_display(period: object, game_state: object, intermission: bool = False) -> Optional[str]:
+    try:
+        st = str(game_state or "").strip().upper()
+    except Exception:
+        st = ""
+    if st.startswith("FINAL") or st in {"OFF", "FINAL", "FINAL_OT", "FINAL_SO"}:
+        return "Final"
+    try:
+        p = int(period) if period is not None and str(period).strip() != "" else None
+    except Exception:
+        p = None
+    if p is None:
+        return "INT" if bool(intermission) else None
+    if p == 1:
+        base = "1st"
+    elif p == 2:
+        base = "2nd"
+    elif p == 3:
+        base = "3rd"
+    elif p >= 4:
+        base = "OT"
+    else:
+        base = f"P{p}"
+    if bool(intermission) and base:
+        return f"{base} INT"
+    return base
+
 @app.get("/api/scoreboard")
 async def api_scoreboard(date: Optional[str] = Query(None), debug_cache: Optional[int] = Query(0)):
     """Lightweight live scoreboard for a date: state, score, period/clock per game.
@@ -13090,7 +13118,16 @@ async def api_scoreboard(date: Optional[str] = Query(None), debug_cache: Optiona
         debug_mode = bool(int(debug_cache or 0))
         for r in rows:
             st = str(r.get("gameState") or "").upper()
-            if any(k in st for k in ["LIVE", "IN", "PROGRESS", "CRIT"]) and r.get("gamePk"):
+            is_live_like = (
+                ("LIVE" in st)
+                or ("IN_PROGRESS" in st)
+                or ("IN PROGRESS" in st)
+                or ("IN-PROGRESS" in st)
+                or ("INTERMISSION" in st)
+                or ("CRIT" in st)
+                or (st == "OT")
+            )
+            if is_live_like and r.get("gamePk"):
                 try:
                     ls = client.linescore(int(r.get("gamePk")))  # now may include fallback extraction
                     if ls:
@@ -13106,8 +13143,8 @@ async def api_scoreboard(date: Optional[str] = Query(None), debug_cache: Optiona
                     game_pk = int(r.get("gamePk"))
                     sig = (
                         st,
-                        r.get("homeScore"),
-                        r.get("awayScore"),
+                        r.get("homeScore") if r.get("homeScore") is not None else r.get("home_goals"),
+                        r.get("awayScore") if r.get("awayScore") is not None else r.get("away_goals"),
                         r.get("period"),
                     )
                     entry = _SCOREBOARD_STATS_CACHE.get(game_pk)
@@ -13130,12 +13167,12 @@ async def api_scoreboard(date: Optional[str] = Query(None), debug_cache: Optiona
                         in_inter = bool(inter.get("inIntermission"))
                         clock2 = ls2.get("currentPeriodTimeRemaining")
                         clock_val = None
-                        if isinstance(clock2, str) and clock2:
+                        if not in_inter and isinstance(clock2, str) and clock2:
                             if clock2.strip().upper() == "END":
                                 clock2 = "0:00"
                             clock_val = clock2
                         # currentPlay fallback
-                        if not clock_val:
+                        if (not in_inter) and (not clock_val):
                             curp = live.get("plays", {}).get("currentPlay", {}).get("about", {})
                             clock3 = curp.get("periodTimeRemaining")
                             if isinstance(clock3, str) and clock3:
@@ -13187,7 +13224,10 @@ async def api_scoreboard(date: Optional[str] = Query(None), debug_cache: Optiona
                         except Exception:
                             home_per = []; away_per = []
                         cached_stats = {}
-                        if clock_val:
+                        if in_inter:
+                            cached_stats["clock"] = None
+                            cached_stats["source_clock"] = "stats-intermission"
+                        elif clock_val:
                             cached_stats["clock"] = clock_val
                             cached_stats["source_clock"] = "stats"
                         if per2 is not None:
@@ -13222,21 +13262,10 @@ async def api_scoreboard(date: Optional[str] = Query(None), debug_cache: Optiona
             try:
                 per = r.get("period")
                 st2 = str(r.get("gameState") or "").upper()
-                period_disp = None
-                if st2.startswith("FINAL"):
-                    period_disp = "Final"
-                else:
-                    if per is not None:
-                        try:
-                            p_int = int(per)
-                        except Exception:
-                            p_int = None
-                        if p_int == 1: period_disp = "P1"
-                        elif p_int == 2: period_disp = "P2"
-                        elif p_int == 3: period_disp = "P3"
-                        elif p_int == 4: period_disp = "OT"
-                        elif p_int == 5: period_disp = "SO"
-                        else: period_disp = f"P{per}"
+                intermission = bool(r.get("intermission"))
+                if intermission:
+                    r["clock"] = None
+                period_disp = _scoreboard_period_display(per, st2, intermission=intermission)
                 r["period_disp"] = period_disp
                 # If stats intermission flag not set earlier, ensure boolean present
                 if "intermission" not in r:

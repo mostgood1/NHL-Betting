@@ -50,6 +50,9 @@ def test_v1_bundle_enriches_team_logos(tmp_path: Path, monkeypatch):
     assert r.status_code == 200
     payload = r.json()
     assert payload.get("ok") is True
+    assert payload.get("note") is None
+    assert (tmp_path / "bundles" / "date=2026-02-02" / "bundle.json").exists()
+    assert (tmp_path / "bundles" / "manifest.json").exists()
 
     rows = (
         (payload.get("data") or {})
@@ -71,6 +74,41 @@ def test_v1_bundle_enriches_team_logos(tmp_path: Path, monkeypatch):
     assert isinstance(row0.get("away_logo"), str)
     assert "assets.nhle.com/logos/nhl/svg" in row0["home_logo"]
     assert "assets.nhle.com/logos/nhl/svg" in row0["away_logo"]
+
+
+def test_v1_bundle_persists_repo_fallback_bundle_to_active_proc_dir(tmp_path: Path, monkeypatch):
+    repo_root, _data_dir, proc_dir = _set_render_like_paths(tmp_path, monkeypatch)
+
+    _write_csv(
+        repo_root / "data" / "processed" / "predictions_2026-02-02.csv",
+        "date,home,away,venue,game_state,p_home_ml,p_away_ml\n"
+        "2026-02-02,Boston Bruins,New York Rangers,TD Garden,PRE,0.55,0.45\n",
+    )
+
+    client = TestClient(app_mod.app)
+    r = client.get("/v1/bundle/2026-02-02")
+    assert r.status_code == 200
+
+    payload = r.json()
+    assert payload.get("ok") is True
+    assert payload.get("note") is None
+
+    bundle_file = proc_dir / "bundles" / "date=2026-02-02" / "bundle.json"
+    manifest_file = proc_dir / "bundles" / "manifest.json"
+    assert bundle_file.exists()
+    assert manifest_file.exists()
+
+    bundle_obj = json.loads(bundle_file.read_text(encoding="utf-8"))
+    rows = (
+        (bundle_obj.get("data") or {})
+        .get("games", {})
+        .get("predictions", {})
+        .get("rows", [])
+    )
+    assert isinstance(rows, list)
+    assert len(rows) == 1
+    assert rows[0].get("home") == "Boston Bruins"
+    assert rows[0].get("away") == "New York Rangers"
 
 
 def test_v1_bundle_seeds_repo_bundle_to_active_proc_dir(tmp_path: Path, monkeypatch):

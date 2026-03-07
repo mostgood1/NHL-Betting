@@ -3634,7 +3634,7 @@ async def v1_bundle(date: str, request: Request):
                 return obj
             return obj
 
-        from ..publish.daily_bundles import bundle_path, build_daily_bundle, select_daily_bundle_files
+        from ..publish.daily_bundles import bundle_path, build_daily_bundle, select_daily_bundle_files, build_manifest, manifest_path
 
         try:
             _seed_repo_bundle_artifacts_to_proc_dir(dates=[d], include_manifest=False)
@@ -3673,6 +3673,79 @@ async def v1_bundle(date: str, request: Request):
                 pass
             return obj0
 
+        def _bundle_has_material_content(obj0: object) -> bool:
+            try:
+                if not isinstance(obj0, dict):
+                    return False
+                files = obj0.get("files")
+                if isinstance(files, dict) and any(bool(v) for v in files.values()):
+                    return True
+                data = obj0.get("data")
+                if not isinstance(data, dict):
+                    return False
+                for section in data.values():
+                    if not isinstance(section, dict):
+                        continue
+                    for payload in section.values():
+                        if not isinstance(payload, dict):
+                            continue
+                        rows = payload.get("rows")
+                        if isinstance(rows, list) and rows:
+                            return True
+                        count = payload.get("count")
+                        try:
+                            if count is not None and int(count) > 0:
+                                return True
+                        except Exception:
+                            continue
+                return False
+            except Exception:
+                return False
+
+        def _persist_bundle_obj(obj0: object) -> bool:
+            try:
+                if not _bundle_has_material_content(obj0):
+                    return False
+                out = bundle_path(d, PROC_DIR)
+                _atomic_write_text(
+                    out,
+                    json.dumps(_strict_json_sanitize(obj0), ensure_ascii=False, indent=2, sort_keys=True),
+                )
+                man_path = manifest_path(PROC_DIR)
+                try:
+                    man_obj = build_manifest(PROC_DIR)
+                except Exception:
+                    man_obj = None
+                try:
+                    if not isinstance(man_obj, dict):
+                        man_obj = _safe_read_json(man_path)
+                    if not isinstance(man_obj, dict):
+                        man_obj = {"schema_version": 1, "dates": [], "bundles": {}}
+                    dates = []
+                    for x in (man_obj.get("dates") or []):
+                        xs = str(x or "").strip()
+                        if _V1_DATE_RE.fullmatch(xs):
+                            dates.append(xs)
+                    if d not in dates:
+                        dates.append(d)
+                    dates = sorted(set(dates))
+                    bundles = man_obj.get("bundles") if isinstance(man_obj.get("bundles"), dict) else {}
+                    bundles[str(d)] = {"exists": True, "path": f"data/processed/bundles/date={d}/bundle.json"}
+                    man_obj["schema_version"] = int(man_obj.get("schema_version") or 1)
+                    man_obj["generated_at_utc"] = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+                    man_obj["dates"] = dates
+                    man_obj["latest"] = dates[-1] if dates else d
+                    man_obj["bundles"] = bundles
+                    _atomic_write_text(
+                        man_path,
+                        json.dumps(_strict_json_sanitize(man_obj), ensure_ascii=False, indent=2, sort_keys=True),
+                    )
+                except Exception:
+                    pass
+                return True
+            except Exception:
+                return False
+
         p = bundle_path(d, PROC_DIR)
         if p.exists():
             # If-None-Match fast-path for persisted bundle.
@@ -3694,6 +3767,7 @@ async def v1_bundle(date: str, request: Request):
                 obj = json.loads(p.read_text(encoding="utf-8"))
                 if not isinstance(obj, dict):
                     obj = None
+                rebuilt_obj = False
                 # Guard against stale persisted bundles (common in read-only deploys):
                 # if the persisted bundle points at older source files than we'd pick today,
                 # rebuild in-memory so the UI sees sim-backed markets (TOTAL/PL) when available.
@@ -3707,10 +3781,21 @@ async def v1_bundle(date: str, request: Request):
                         cur_files = obj.get("files") if isinstance(obj.get("files"), dict) else None
                         if isinstance(desired_files, dict) and isinstance(cur_files, dict) and cur_files != desired_files:
                             obj = _build_bundle_with_repo_fallback()
+                            rebuilt_obj = True
                     except Exception:
                         pass
                 if not isinstance(obj, dict):
                     obj = _build_bundle_with_repo_fallback()
+                    rebuilt_obj = True
+
+                if rebuilt_obj:
+                    if _persist_bundle_obj(obj):
+                        try:
+                            hdrs = _file_cache_headers(p, cc)
+                        except Exception:
+                            hdrs = None
+                    else:
+                        hdrs = None
 
                 obj = _enrich_predictions_team_assets(obj)
                 obj = _enrich_predictions_schedule(obj, d)
@@ -3721,9 +3806,16 @@ async def v1_bundle(date: str, request: Request):
                 pass
 
         obj = _build_bundle_with_repo_fallback()
+        persisted = _persist_bundle_obj(obj)
         obj = _enrich_predictions_team_assets(obj)
         obj = _enrich_predictions_schedule(obj, d)
         obj = _strict_json_sanitize(obj)
+        if persisted:
+            try:
+                hdrs = _file_cache_headers(p, str(os.getenv("V1_BUNDLE_CACHE_CONTROL", "public, max-age=30, must-revalidate")))
+            except Exception:
+                hdrs = None
+            return JSONResponse({"ok": True, **obj}, headers=(hdrs or None))
         return JSONResponse({"ok": True, **obj, "note": "bundle_not_persisted"})
     except Exception as e:
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)

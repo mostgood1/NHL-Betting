@@ -356,6 +356,61 @@ def test_refresh_props_recommendations_uses_csv_when_parquet_is_empty(tmp_path: 
     assert "Parquet Fallback Player" in text
 
 
+def test_refresh_props_recommendations_keeps_csv_matches_when_parquet_rows_do_not_match(tmp_path: Path, monkeypatch):
+    _repo_root, data_dir, proc_dir = _set_render_like_paths(tmp_path, monkeypatch)
+    from nhl_betting.core import props_edge_signals as edge_mod
+    import pandas as pd
+
+    lines_dir = data_dir / "props" / "player_props_lines" / "date=2026-03-06"
+    lines_dir.mkdir(parents=True, exist_ok=True)
+    (lines_dir / "oddsapi.parquet").write_bytes(b"stub")
+    _write_csv(
+        lines_dir / "oddsapi.csv",
+        "date,player_name,team,market,line,over_price,under_price,book\n"
+        "2026-03-06,CSV Rescue Player,COL,SOG,1.5,100,-200,draftkings\n",
+    )
+    _write_csv(
+        proc_dir / "props_projections_all_2026-03-06.csv",
+        "player,team,market,proj_lambda\n",
+    )
+    _write_csv(
+        proc_dir / "props_recommendations_2026-03-06.csv",
+        "player,team,market,proj_lambda,proj\n"
+        "CSV Rescue Player,COL,SOG,4.2,4.2\n",
+    )
+    os.utime(proc_dir / "props_recommendations_2026-03-06.csv", (1000, 1000))
+    os.utime(lines_dir / "oddsapi.parquet", (2000, 2000))
+    os.utime(lines_dir / "oddsapi.csv", (2000, 2000))
+
+    orig_read_parquet = app_mod.pd.read_parquet
+
+    def _fake_read_parquet(path, *args, **kwargs):
+        if str(path).endswith("oddsapi.parquet"):
+            return pd.DataFrame([
+                {
+                    "date": "2026-03-06",
+                    "player_name": "Unmatched Player",
+                    "team": "COL",
+                    "market": "SOG",
+                    "line": 1.5,
+                    "over_price": 100,
+                    "under_price": -200,
+                    "book": "draftkings",
+                }
+            ])
+        return orig_read_parquet(path, *args, **kwargs)
+
+    monkeypatch.setattr(app_mod, "_gh_upsert_file_if_better_or_same", lambda *_a, **_k: {"ok": True}, raising=True)
+    monkeypatch.setattr(edge_mod, "attach_prop_edge_signals", lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("should not run")), raising=True)
+    monkeypatch.setattr(app_mod.pd, "read_parquet", _fake_read_parquet, raising=True)
+
+    res = app_mod._refresh_props_recommendations("2026-03-06", min_ev=0.0, top=50)
+
+    assert res.get("ok") is True
+    text = (proc_dir / "props_recommendations_2026-03-06.csv").read_text(encoding="utf-8")
+    assert "CSV Rescue Player" in text
+
+
 def test_refresh_props_recommendations_keeps_existing_cache_when_refresh_would_be_empty(tmp_path: Path, monkeypatch):
     _repo_root, data_dir, proc_dir = _set_render_like_paths(tmp_path, monkeypatch)
     from nhl_betting.core import props_edge_signals as edge_mod

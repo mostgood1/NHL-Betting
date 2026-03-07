@@ -15508,13 +15508,14 @@ def _refresh_props_recommendations(date: str, min_ev: float = 0.0, top: int = 20
     for stem in ("oddsapi", "bovada"):
         p_parquet = base / f"{stem}.parquet"
         p_csv = base / f"{stem}.csv"
+        local_usable = False
         if p_parquet.exists():
             local_line_files.append(p_parquet)
             try:
                 pq = pd.read_parquet(p_parquet, engine="pyarrow")
                 if _usable_lines_df(pq):
                     parts.append(pq)
-                    continue
+                    local_usable = True
             except Exception:
                 pass
         if p_csv.exists():
@@ -15523,9 +15524,11 @@ def _refresh_props_recommendations(date: str, min_ev: float = 0.0, top: int = 20
                 csv_df = pd.read_csv(p_csv)
                 if _usable_lines_df(csv_df):
                     parts.append(csv_df)
-                    continue
+                    local_usable = True
             except Exception:
                 pass
+        if local_usable:
+            continue
         try:
             ghp = _github_raw_read_parquet(f"data/props/player_props_lines/date={d}/{stem}.parquet")
             if _usable_lines_df(ghp):

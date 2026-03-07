@@ -13133,6 +13133,11 @@ async def api_scoreboard(date: Optional[str] = Query(None), debug_cache: Optiona
                     if ls:
                         if ls.get("period") is not None:
                             r["period"] = ls.get("period")
+                        if ls.get("intermission") is not None:
+                            r["intermission"] = bool(ls.get("intermission"))
+                            if bool(ls.get("intermission")):
+                                r["clock"] = None
+                                r["source_clock"] = f"web-{ls.get('source') or 'linescore'}-intermission"
                         if ls.get("clock"):
                             r["clock"] = ls.get("clock")
                             r["source_clock"] = f"web-{ls.get('source') or 'linescore'}"

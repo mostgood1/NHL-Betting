@@ -3,6 +3,7 @@ import json
 from contextlib import asynccontextmanager
 
 import nhl_betting.web.asgi as asgi_mod
+from nhl_betting.data.nhl_api_web import NHLWebClient
 
 
 def test_wrapper_enters_heavy_lifespan(monkeypatch):
@@ -107,3 +108,42 @@ def test_live_lens_prefers_heavy_and_skips_lite(monkeypatch):
     assert obj["source"] == "heavy"
     assert calls["heavy"] == 1
     assert calls["lite"] == 0
+
+
+def test_lite_scoreboard_marks_web_intermission(monkeypatch):
+    def _scoreboard_day(self, date: str):
+        assert date == "2099-01-03"
+        return [
+            {
+                "gamePk": 789,
+                "gameDate": f"{date}T00:00:00Z",
+                "away": "Florida Panthers",
+                "home": "Detroit Red Wings",
+                "away_goals": 1,
+                "home_goals": 1,
+                "gameState": "LIVE",
+                "period": 2,
+                "clock": "14:06",
+            }
+        ]
+
+    def _linescore(self, gamePk: int):
+        assert int(gamePk) == 789
+        return {"period": 2, "clock": None, "source": "boxscore", "intermission": True}
+
+    monkeypatch.setattr(NHLWebClient, "scoreboard_day", _scoreboard_day, raising=True)
+    monkeypatch.setattr(NHLWebClient, "linescore", _linescore, raising=True)
+    monkeypatch.setattr(asgi_mod, "_SCOREBOARD_CACHE", {}, raising=False)
+
+    status, body = asyncio.run(
+        _collect_http(asgi_mod.WrapperASGI(), "/api/scoreboard", b"date=2099-01-03")
+    )
+
+    assert status == 200
+    rows = json.loads(body.decode("utf-8"))
+    assert isinstance(rows, list) and len(rows) == 1
+    row = rows[0]
+    assert row["gamePk"] == 789
+    assert row["intermission"] is True
+    assert row["clock"] is None
+    assert row["period_disp"] == "2nd INT"

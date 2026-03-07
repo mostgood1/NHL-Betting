@@ -90,10 +90,10 @@ def _today_ymd_utc() -> str:
 
 def _is_live_state(st: str) -> bool:
     s = (st or "").strip().upper()
-    return any(k in s for k in ("LIVE", "IN_PROGRESS", "IN PROGRESS", "CRIT", "OT")) and not s.startswith("FINAL")
+    return any(k in s for k in ("LIVE", "IN_PROGRESS", "IN PROGRESS", "IN-PROGRESS", "INTERMISSION", "CRIT", "OT")) and not s.startswith("FINAL")
 
 
-def _period_disp(game_state: str, period: object, clock: Optional[str]) -> str:
+def _period_disp(game_state: str, period: object, intermission: bool = False) -> str:
     st = (game_state or "").strip().upper()
     if st.startswith("FINAL") or st in {"OFF", "FINAL", "FINAL_OT", "FINAL_SO"}:
         return "Final"
@@ -104,16 +104,20 @@ def _period_disp(game_state: str, period: object, clock: Optional[str]) -> str:
     except Exception:
         p = None
     if p is None:
-        return ""
+        return "INT" if bool(intermission) else ""
     if p == 1:
-        return "1st"
-    if p == 2:
-        return "2nd"
-    if p == 3:
-        return "3rd"
-    if p >= 4:
-        return "OT"
-    return ""
+        base = "1st"
+    elif p == 2:
+        base = "2nd"
+    elif p == 3:
+        base = "3rd"
+    elif p >= 4:
+        base = "OT"
+    else:
+        base = ""
+    if bool(intermission) and base:
+        return f"{base} INT"
+    return base
 
 
 def _normalize_scoreboard_rows(date: str, rows: list[dict]) -> list[dict]:
@@ -148,7 +152,10 @@ def _normalize_scoreboard_rows(date: str, rows: list[dict]) -> list[dict]:
             game_state = r.get("gameState") or r.get("game_state") or r.get("state") or ""
             period = r.get("period")
             clock = r.get("clock")
-            per_disp = r.get("period_disp") or _period_disp(str(game_state), period, str(clock) if clock else None)
+            intermission = bool(r.get("intermission"))
+            if intermission:
+                clock = None
+            per_disp = r.get("period_disp") or _period_disp(str(game_state), period, intermission=intermission)
 
             game_pk = r.get("gamePk")
             if game_pk is None:
@@ -175,6 +182,7 @@ def _normalize_scoreboard_rows(date: str, rows: list[dict]) -> list[dict]:
                 "gameState": str(game_state),
                 "period": period,
                 "period_disp": per_disp,
+                "intermission": intermission,
                 "clock": clock,
             })
         except Exception:
@@ -188,7 +196,7 @@ def _scoreboard_fetch_sync(date: str) -> list[dict]:
     # Tight timeout to avoid proxy-level 502s under load
     client = NHLWebClient(rate_limit_per_sec=50.0, timeout=6.0)
     rows = client.scoreboard_day(date)
-    # Best-effort: for live games, fetch precise linescore clock if missing
+    # Best-effort: for live games, fetch precise linescore/intermission state.
     for r in rows:
         try:
             st = str(r.get("gameState") or "")
@@ -196,10 +204,12 @@ def _scoreboard_fetch_sync(date: str) -> list[dict]:
                 continue
             if not r.get("gamePk"):
                 continue
-            if r.get("clock") and r.get("period") is not None:
-                continue
             ls = client.linescore(int(r.get("gamePk")))
             if ls:
+                if ls.get("intermission") is not None:
+                    r["intermission"] = bool(ls.get("intermission"))
+                    if bool(ls.get("intermission")):
+                        r["clock"] = None
                 if ls.get("clock"):
                     r["clock"] = ls.get("clock")
                 if ls.get("period") is not None:
@@ -268,6 +278,7 @@ async def _get_live_lens(date: str, *, inplay: bool, include_non_live: bool) -> 
                 "gameState": st,
                 "period": r.get("period"),
                 "period_disp": r.get("period_disp"),
+                "intermission": r.get("intermission"),
                 "clock": r.get("clock"),
                 "score": r.get("score"),
                 "total_goals": None,

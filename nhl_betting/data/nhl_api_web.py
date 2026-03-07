@@ -195,11 +195,12 @@ class NHLWebClient:
         """Fetch live linescore for a game: period and clock when available.
 
         Uses /gamecenter/{gamePk}/linescore endpoint of the NHL Web API.
-        Returns a dict like {"period": <int|str|None>, "clock": <str|None>}.
+        Returns a dict like {"period": <int|str|None>, "clock": <str|None>, "intermission": <bool>}.
         """
         period = None
         clock = None
         source = None
+        intermission = False
         # Primary endpoint
         try:
             data = self._get(f"/gamecenter/{int(gamePk)}/linescore")
@@ -210,6 +211,7 @@ class NHLWebClient:
             try:
                 cl = data.get("clock")
                 if isinstance(cl, dict):
+                    intermission = bool(cl.get("inIntermission"))
                     clock = cl.get("timeRemaining") or cl.get("displayValue") or cl.get("timeRemainingInPeriod")
                 elif isinstance(cl, str):
                     clock = cl
@@ -218,6 +220,8 @@ class NHLWebClient:
                     clock = pd.get("timeRemaining") or pd.get("displayValue")
             except Exception:
                 clock = None
+            if intermission:
+                clock = None
             if clock or period is not None:
                 source = "linescore"
         except Exception:
@@ -225,16 +229,18 @@ class NHLWebClient:
             pass
 
         def _extract_from(data_obj, src_name: str):
-            nonlocal period, clock, source
+            nonlocal period, clock, source, intermission
             try:
                 if period is None:
                     pd = data_obj.get("periodDescriptor") or {}
                     per = pd.get("number") or pd.get("period") or data_obj.get("currentPeriod") or data_obj.get("period")
                     if per is not None:
                         period = per
+                cl = data_obj.get("clock")
+                if isinstance(cl, dict) and cl.get("inIntermission") is not None:
+                    intermission = bool(cl.get("inIntermission"))
                 if not clock:
                     # Various nesting patterns for clock/time
-                    cl = data_obj.get("clock")
                     if isinstance(cl, dict):
                         cands = [cl.get("timeRemaining"), cl.get("timeRemainingInPeriod"), cl.get("displayValue")]
                         for c in cands:
@@ -248,12 +254,18 @@ class NHLWebClient:
                         plays = data_obj.get("plays") or []
                         if isinstance(plays, list) and plays:
                             last = plays[-1]
+                            if str(last.get("typeDescKey") or "").strip().lower() == "period-end":
+                                intermission = True
                             tr = last.get("timeRemaining") or last.get("timeInPeriod")
                             if isinstance(tr, str) and tr:
                                 clock = tr
                     except Exception:
                         pass
+                if intermission:
+                    clock = None
                 if clock and not source:
+                    source = src_name
+                elif intermission and not source:
                     source = src_name
             except Exception:
                 pass
@@ -281,4 +293,4 @@ class NHLWebClient:
             except Exception:
                 pass
 
-        return {"period": period, "clock": clock, "source": source}
+        return {"period": period, "clock": clock, "source": source, "intermission": bool(intermission)}

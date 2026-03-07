@@ -79,3 +79,45 @@ def test_api_scoreboard_intermission_hides_stale_clock(monkeypatch, game_state):
     assert row["clock"] is None
     assert row["period_disp"] == "1st INT"
     assert row["source_clock"] == "stats-intermission"
+
+
+def test_api_scoreboard_web_linescore_intermission_hides_stale_clock(monkeypatch):
+    def _scoreboard_day(self, date: str):
+        assert date == "2099-01-02"
+        return [
+            {
+                "gamePk": 456,
+                "gameDate": f"{date}T00:00:00Z",
+                "home": "Dallas Stars",
+                "away": "Colorado Avalanche",
+                "home_goals": 3,
+                "away_goals": 2,
+                "gameState": "LIVE",
+                "period": 1,
+                "clock": "14:48",
+            }
+        ]
+
+    def _linescore(self, gamePk: int):
+        assert int(gamePk) == 456
+        return {"period": 1, "clock": None, "source": "play-by-play", "intermission": True}
+
+    def _game_live_feed(self, gamePk: int):
+        raise RuntimeError("stats feed unavailable")
+
+    monkeypatch.setattr(NHLWebClient, "scoreboard_day", _scoreboard_day, raising=True)
+    monkeypatch.setattr(NHLWebClient, "linescore", _linescore, raising=True)
+    monkeypatch.setattr(NHLStatsClient, "game_live_feed", _game_live_feed, raising=True)
+    web_app._SCOREBOARD_STATS_CACHE.clear()
+
+    resp = client.get("/api/scoreboard?date=2099-01-02")
+    assert resp.status_code == 200
+    rows = resp.json()
+    assert isinstance(rows, list) and len(rows) == 1
+
+    row = rows[0]
+    assert row["gamePk"] == 456
+    assert row["intermission"] is True
+    assert row["clock"] is None
+    assert row["period_disp"] == "1st INT"
+    assert row["source_clock"] == "web-play-by-play-intermission"

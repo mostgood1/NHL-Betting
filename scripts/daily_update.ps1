@@ -77,7 +77,12 @@ Param (
   [string]$RenderBaseUrl = "",
   [string]$RenderToken = "",
   [int]$RenderSyncDaysBack = 14,
-  [int]$RenderSyncDaysAhead = 0
+  [int]$RenderSyncDaysAhead = 0,
+
+  # Git auto-push controls (enabled by default to keep generated artifacts published)
+  [switch]$NoGitPush,
+  [string]$GitRemote = "origin",
+  [string]$GitBranch = ""
 )
 $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -1085,4 +1090,86 @@ try {
 } catch {
   Write-Warning "[daily_update] Bundle publish failed: $($_.Exception.Message)"
   if ($StrictOutputs) { throw "[daily_update] Bundle publish failed under -StrictOutputs: $($_.Exception.Message)" }
+}
+
+$DailyUpdateExitCode = $LASTEXITCODE
+
+# Push generated artifacts to git by default (matches documented daily-update workflow).
+try {
+  if ($NoGitPush) {
+    Write-Host "[daily_update] Git push skipped (-NoGitPush)" -ForegroundColor DarkGreen
+  } else {
+    Push-Location $RepoRoot
+    try {
+      $isGit = git rev-parse --is-inside-work-tree 2>$null
+      if ($LASTEXITCODE -eq 0 -and "$isGit".Trim() -eq 'true') {
+        $gitPaths = @(
+          'data/models',
+          'data/processed',
+          'data/props/player_props_lines',
+          'data/raw/player_game_stats.csv'
+        )
+
+        $statusArgs = @('--no-pager', 'status', '--short', '--') + $gitPaths
+        $status = & git @statusArgs
+        if ($LASTEXITCODE -eq 0 -and $status) {
+          Write-Host "[daily_update] Git changes detected; staging generated artifacts …" -ForegroundColor Yellow
+          foreach ($p in $gitPaths) {
+            if (Test-Path (Join-Path $RepoRoot $p)) {
+              git add -A -- $p 2>$null | Out-Null
+            }
+          }
+
+          $cachedArgs = @('diff', '--cached', '--name-only', '--') + $gitPaths
+          $cached = & git @cachedArgs
+          if ($LASTEXITCODE -eq 0 -and $cached) {
+            $branch = $GitBranch
+            if (-not $branch -or $branch.Trim() -eq '') {
+              $branch = git rev-parse --abbrev-ref HEAD 2>$null
+            }
+            if (-not $branch -or $branch.Trim() -eq '') { $branch = 'master' }
+
+            $targetDates = @()
+            try {
+              $targetDates = @($dates | Where-Object { $_ -and $_.Trim() -ne '' })
+            } catch {
+              $targetDates = @()
+            }
+            if (-not $targetDates -or $targetDates.Count -eq 0) {
+              $targetDates = @($AnchorNow.ToString('yyyy-MM-dd'))
+            }
+            $stamp = Get-Date -Format 'yyyy-MM-dd HH:mm zzz'
+            $msg = "[auto] daily update: $($targetDates -join ', ') @ $stamp"
+
+            git commit -m $msg 2>$null | Out-Null
+            if ($LASTEXITCODE -eq 0) {
+              Write-Host "[daily_update] Git commit created. Pushing to $GitRemote/$branch …" -ForegroundColor Yellow
+              git push $GitRemote $branch | Out-Null
+              if ($LASTEXITCODE -eq 0) {
+                Write-Host "[daily_update] Git push complete." -ForegroundColor DarkGreen
+              } else {
+                Write-Warning "[daily_update] Git push failed (remote=$GitRemote branch=$branch exit=$LASTEXITCODE)"
+              }
+            } else {
+              Write-Host "[daily_update] No staged artifact changes to commit." -ForegroundColor DarkGreen
+            }
+          } else {
+            Write-Host "[daily_update] No staged artifact changes after git add." -ForegroundColor DarkGreen
+          }
+        } else {
+          Write-Host "[daily_update] No artifact changes detected for git push." -ForegroundColor DarkGreen
+        }
+      } else {
+        Write-Host "[daily_update] Not a git repository; skipping push." -ForegroundColor DarkGreen
+      }
+    } finally {
+      Pop-Location
+    }
+  }
+} catch {
+  Write-Warning "[daily_update] Git push skipped due to error: $($_.Exception.Message)"
+}
+
+if ($DailyUpdateExitCode -ne 0) {
+  exit $DailyUpdateExitCode
 }

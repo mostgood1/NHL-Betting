@@ -189,6 +189,23 @@ def test_v1_props_cards_seed_repo_recommendations_to_active_proc_dir(tmp_path: P
     assert (proc_dir / "props_recommendations_2026-03-06.csv").exists()
 
 
+def test_seed_repo_props_artifacts_restores_empty_recommendations_csv(tmp_path: Path, monkeypatch):
+    repo_root, _data_dir, proc_dir = _set_render_like_paths(tmp_path, monkeypatch)
+
+    _write_csv(
+        repo_root / "data" / "processed" / "props_recommendations_2026-03-06.csv",
+        "player,team,opp,market,side,book,line,price,ev\n"
+        "Nathan MacKinnon,COL,DAL,SOG,Over,draftkings,3.5,-110,0.08\n",
+    )
+    _write_csv(proc_dir / "props_recommendations_2026-03-06.csv", "player,team,opp,market,side,book,line,price,ev\n")
+
+    stats = app_mod._seed_repo_props_artifacts_to_active_dirs(["2026-03-06"])
+
+    assert int(stats.get("copied") or 0) >= 1
+    text = (proc_dir / "props_recommendations_2026-03-06.csv").read_text(encoding="utf-8")
+    assert "Nathan MacKinnon" in text
+
+
 def test_v1_props_cards_refreshes_stale_recommendations_from_lines(tmp_path: Path, monkeypatch):
     _repo_root, data_dir, proc_dir = _set_render_like_paths(tmp_path, monkeypatch)
 
@@ -337,6 +354,39 @@ def test_refresh_props_recommendations_uses_csv_when_parquet_is_empty(tmp_path: 
     assert res.get("projection_source") == "recommendations_local"
     text = (proc_dir / "props_recommendations_2026-03-06.csv").read_text(encoding="utf-8")
     assert "Parquet Fallback Player" in text
+
+
+def test_refresh_props_recommendations_keeps_existing_cache_when_refresh_would_be_empty(tmp_path: Path, monkeypatch):
+    _repo_root, data_dir, proc_dir = _set_render_like_paths(tmp_path, monkeypatch)
+    from nhl_betting.core import props_edge_signals as edge_mod
+
+    _write_csv(
+        data_dir / "props" / "player_props_lines" / "date=2026-03-06" / "oddsapi.csv",
+        "date,player_name,team,market,line,over_price,under_price,book\n"
+        "2026-03-06,Sticky Player,COL,HITS,1.5,100,-200,draftkings\n",
+    )
+    _write_csv(
+        proc_dir / "props_projections_all_2026-03-06.csv",
+        "player,team,market,proj_lambda\n",
+    )
+    rec_path = proc_dir / "props_recommendations_2026-03-06.csv"
+    _write_csv(
+        rec_path,
+        "player,team,market,proj_lambda,proj\n"
+        "Sticky Player,COL,HITS,1.0,1.0\n",
+    )
+    os.utime(rec_path, (1000, 1000))
+    os.utime(data_dir / "props" / "player_props_lines" / "date=2026-03-06" / "oddsapi.csv", (2000, 2000))
+
+    monkeypatch.setattr(app_mod, "_gh_upsert_file_if_better_or_same", lambda *_a, **_k: {"ok": True}, raising=True)
+    monkeypatch.setattr(edge_mod, "attach_prop_edge_signals", lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("should not run")), raising=True)
+
+    res = app_mod._refresh_props_recommendations("2026-03-06", min_ev=0.0, top=50)
+
+    assert res.get("ok") is True
+    assert res.get("reason") == "empty-refresh-output-kept-existing"
+    text = rec_path.read_text(encoding="utf-8")
+    assert "Sticky Player" in text
 
 
 def test_v1_props_cards_include_team_logo_and_headshot(tmp_path: Path, monkeypatch):

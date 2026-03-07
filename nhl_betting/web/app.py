@@ -198,6 +198,32 @@ def _copy_file_if_newer(src: Path, dst: Path) -> bool:
         return False
 
 
+def _copy_file_if_newer_or_csv_dst_empty(src: Path, dst: Path) -> bool:
+    if _copy_file_if_newer(src, dst):
+        return True
+    try:
+        if str(src.suffix or "").lower() != ".csv" or str(dst.suffix or "").lower() != ".csv":
+            return False
+        if not src.exists() or not dst.exists():
+            return False
+        src_df = _read_csv_fallback(src)
+        dst_df = _read_csv_fallback(dst)
+        src_rows = 0 if src_df is None or src_df.empty else int(len(src_df))
+        dst_rows = 0 if dst_df is None or dst_df.empty else int(len(dst_df))
+        if src_rows <= 0 or dst_rows > 0:
+            return False
+        data = src.read_bytes()
+        _atomic_write_bytes(dst, data)
+        try:
+            sst = src.stat()
+            os.utime(dst, ns=(sst.st_atime_ns, sst.st_mtime_ns))
+        except Exception:
+            pass
+        return True
+    except Exception:
+        return False
+
+
 def _seed_repo_bundle_artifacts_to_proc_dir(dates: Optional[list[str]] = None, include_manifest: bool = True) -> dict[str, int]:
     """Best-effort: seed tracked repo bundle artifacts into the active PROC_DIR.
 
@@ -238,7 +264,7 @@ def _seed_repo_bundle_artifacts_to_proc_dir(dates: Optional[list[str]] = None, i
 
         for src, dst in tasks:
             stats["checked"] += 1
-            if _copy_file_if_newer(src, dst):
+            if _copy_file_if_newer_or_csv_dst_empty(src, dst):
                 stats["copied"] += 1
     except Exception:
         return stats
@@ -15465,6 +15491,14 @@ def _refresh_props_recommendations(date: str, min_ev: float = 0.0, top: int = 20
             return False
         if not ({"player_name", "player"} & cols):
             return False
+        price_cols = [c for c in ("over_price", "under_price") if c in cols]
+        if not price_cols:
+            return False
+        try:
+            if all(pd.to_numeric(df.get(c), errors="coerce").isna().all() for c in price_cols):
+                return False
+        except Exception:
+            return False
         return True
 
     # Load canonical lines (ONLY OddsAPI), prefer local; GH fallback allowed in cron
@@ -16001,6 +16035,20 @@ def _refresh_props_recommendations(date: str, min_ev: float = 0.0, top: int = 20
         if "proj" in out.columns and "proj_lambda" not in out.columns:
             out["proj_lambda"] = out["proj"]
     path = PROC_DIR / f"props_recommendations_{d}.csv"
+    try:
+        prev_df = _read_csv_fallback(path) if path.exists() else pd.DataFrame()
+    except Exception:
+        prev_df = pd.DataFrame()
+    prev_rows = 0 if prev_df is None or prev_df.empty else int(len(prev_df))
+    if (out is None or out.empty) and prev_rows > 0:
+        return {
+            "ok": True,
+            "date": d,
+            "rows": prev_rows,
+            "projection_source": proj_source,
+            "skipped": True,
+            "reason": "empty-refresh-output-kept-existing",
+        }
     save_df(out, path)
     try:
         _gh_upsert_file_if_better_or_same(path, f"web: update props_recommendations for {d}")

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import math
 from dataclasses import dataclass
 from functools import lru_cache
@@ -8,7 +9,7 @@ from typing import Optional
 
 import pandas as pd
 
-from ..utils.io import PROC_DIR
+from ..utils.io import DATA_DIR, PROC_DIR
 
 
 def _clamp01(x: float | None) -> float | None:
@@ -37,6 +38,35 @@ def _num(x: object) -> float | None:
         return xf if math.isfinite(xf) else None
     except Exception:
         return None
+
+
+def _american_to_decimal(x: object) -> float | None:
+    price = _num(x)
+    if price is None or price == 0:
+        return None
+    try:
+        return 1.0 + (price / 100.0) if price > 0 else 1.0 + (100.0 / abs(price))
+    except Exception:
+        return None
+
+
+def _combine_support(parts: list[tuple[float, float | None]]) -> float | None:
+    score = 0.0
+    weight = 0.0
+    for part_weight, value in parts:
+        if value is None:
+            continue
+        try:
+            vv = float(value)
+        except Exception:
+            continue
+        if not math.isfinite(vv):
+            continue
+        score += float(part_weight) * vv
+        weight += float(part_weight)
+    if weight <= 0:
+        return None
+    return max(0.0, min(1.0, score / weight))
 
 
 def _support01(signed_value: float | None, scale: float) -> float | None:
@@ -83,6 +113,74 @@ def _safe_parse_slate_dt(pred: pd.DataFrame) -> pd.Series:
     if s is None:
         return pd.to_datetime(pd.Series([pd.NA] * len(pred)), errors="coerce")
     return pd.to_datetime(s.astype(str).str.slice(0, 10), errors="coerce")
+
+
+def _safe_read_json(path: Path) -> dict:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def _norm_game_key(away: object, home: object) -> str:
+    away_s = str(away or "").strip().lower()
+    home_s = str(home or "").strip().lower()
+    if not away_s or not home_s:
+        return ""
+    return f"{away_s}@{home_s}"
+
+
+def _games_map(obj: object) -> dict[str, dict]:
+    out: dict[str, dict] = {}
+    if not isinstance(obj, dict):
+        return out
+    games = obj.get("games") or []
+    if not isinstance(games, list):
+        return out
+    for game in games:
+        if not isinstance(game, dict):
+            continue
+        key = str(game.get("key") or _norm_game_key(game.get("away"), game.get("home")) or "").strip().lower()
+        if not key:
+            continue
+        out[key] = game
+    return out
+
+
+@lru_cache(maxsize=16)
+def _load_team_snapshot_games(date_ymd: str, data_root: str) -> tuple[dict[str, dict], dict[str, dict], dict[str, dict]]:
+    snap_dir = Path(data_root) / "odds_snapshots" / "team_odds" / f"date={date_ymd}"
+    open_obj = _safe_read_json(snap_dir / "open.json")
+    prev_obj = _safe_read_json(snap_dir / "prev.json")
+    cur_obj = _safe_read_json(snap_dir / "current.json")
+    return _games_map(open_obj), _games_map(prev_obj), _games_map(cur_obj)
+
+
+def _fmt_american(x: object) -> str:
+    price = _num(x)
+    if price is None:
+        return "-"
+    try:
+        return f"{int(round(price)):+d}"
+    except Exception:
+        return "-"
+
+
+def _driver_from_support(value: float | None, positive_tag: str, negative_tag: str, cutoff: float = 0.58) -> str | None:
+    if value is None:
+        return None
+    try:
+        vv = float(value)
+    except Exception:
+        return None
+    if not math.isfinite(vv):
+        return None
+    lo = 1.0 - float(cutoff)
+    if vv >= float(cutoff):
+        return positive_tag
+    if vv <= lo:
+        return negative_tag
+    return None
 
 
 @lru_cache(maxsize=4)
@@ -217,6 +315,147 @@ _EDGE_SPECS: dict[str, _EdgeSpec] = {
 }
 
 
+def _recommendation_signal_market(market: object, bet: object) -> str | None:
+    key = (str(market or "").strip().lower(), str(bet or "").strip().lower())
+    mapping = {
+        ("moneyline", "home_ml"): "ev_home_ml",
+        ("moneyline", "away_ml"): "ev_away_ml",
+        ("totals", "over"): "ev_over",
+        ("totals", "under"): "ev_under",
+        ("puckline", "home_pl_-1.5"): "ev_home_pl_-1.5",
+        ("puckline", "away_pl_+1.5"): "ev_away_pl_+1.5",
+        ("first10", "f10_yes"): "ev_f10_yes",
+        ("first10", "f10_no"): "ev_f10_no",
+        ("periods", "p1_over"): "ev_p1_over",
+        ("periods", "p1_under"): "ev_p1_under",
+        ("periods", "p2_over"): "ev_p2_over",
+        ("periods", "p2_under"): "ev_p2_under",
+        ("periods", "p3_over"): "ev_p3_over",
+        ("periods", "p3_under"): "ev_p3_under",
+    }
+    return mapping.get(key)
+
+
+def _movement_support_for_edge(
+    r: pd.Series,
+    open_games: dict[str, dict],
+    prev_games: dict[str, dict],
+    cur_games: dict[str, dict],
+) -> tuple[float | None, str, str]:
+    spec = _EDGE_SPECS.get(str(r.get("market") or ""))
+    if spec is None or spec.market_group not in {"moneyline", "totals", "puckline"}:
+        return None, "", ""
+
+    key = _norm_game_key(r.get("away"), r.get("home"))
+    if not key:
+        return None, "", ""
+
+    open_game = open_games.get(key) or {}
+    prev_game = prev_games.get(key) or {}
+    cur_game = cur_games.get(key) or {}
+    if not cur_game:
+        return None, "", ""
+
+    tags: list[str] = []
+    reasons: list[str] = []
+    support_parts: list[tuple[float, float | None]] = []
+
+    def _price_block(game: dict) -> dict:
+        block_name = "ml" if spec.market_group == "moneyline" else ("total" if spec.market_group == "totals" else "puckline")
+        block = game.get(block_name) or {}
+        return block if isinstance(block, dict) else {}
+
+    def _price_support(open_price: object, prev_price: object, cur_price: object) -> float | None:
+        cur_dec = _american_to_decimal(cur_price)
+        if cur_dec is None:
+            return None
+        parts: list[tuple[float, float | None]] = []
+
+        open_dec = _american_to_decimal(open_price)
+        if open_dec is not None:
+            delta_open = cur_dec - open_dec
+            parts.append((0.65, _support01(delta_open, scale=0.12)))
+            if abs(delta_open) >= 0.01:
+                tags.append("PRICE+" if delta_open > 0 else "PRICE-")
+                reasons.append(f"price {_fmt_american(open_price)}→{_fmt_american(cur_price)}")
+
+        prev_dec = _american_to_decimal(prev_price)
+        if prev_dec is not None:
+            delta_prev = cur_dec - prev_dec
+            parts.append((0.35, _support01(delta_prev, scale=0.08)))
+            if abs(delta_prev) >= 0.01:
+                reasons.append(f"tick {_fmt_american(prev_price)}→{_fmt_american(cur_price)}")
+
+        return _combine_support(parts)
+
+    if spec.market_group == "moneyline":
+        side_key = "home" if spec.bet == "home_ml" else "away"
+        open_price = _price_block(open_game).get(side_key)
+        prev_price = _price_block(prev_game).get(side_key)
+        cur_price = _price_block(cur_game).get(side_key)
+        support_parts.append((1.0, _price_support(open_price, prev_price, cur_price)))
+
+    elif spec.market_group == "puckline":
+        side_key = "home_-1.5" if spec.bet == "home_pl_-1.5" else "away_+1.5"
+        open_price = _price_block(open_game).get(side_key)
+        prev_price = _price_block(prev_game).get(side_key)
+        cur_price = _price_block(cur_game).get(side_key)
+        support_parts.append((1.0, _price_support(open_price, prev_price, cur_price)))
+
+    elif spec.market_group == "totals":
+        block_open = _price_block(open_game)
+        block_prev = _price_block(prev_game)
+        block_cur = _price_block(cur_game)
+        direction = -1.0 if spec.bet == "over" else 1.0
+        open_line = _num(block_open.get("line"))
+        prev_line = _num(block_prev.get("line"))
+        cur_line = _num(block_cur.get("line"))
+
+        line_parts: list[tuple[float, float | None]] = []
+        if open_line is not None and cur_line is not None:
+            favorable_open = direction * (cur_line - open_line)
+            line_parts.append((0.65, _support01(favorable_open, scale=0.5)))
+            if abs(cur_line - open_line) >= 0.01:
+                tags.append("MOVE+" if favorable_open > 0 else "MOVE-")
+                reasons.append(f"line {open_line:.1f}→{cur_line:.1f}")
+        if prev_line is not None and cur_line is not None:
+            favorable_prev = direction * (cur_line - prev_line)
+            line_parts.append((0.35, _support01(favorable_prev, scale=0.25)))
+            if abs(cur_line - prev_line) >= 0.01:
+                reasons.append(f"tick {prev_line:.1f}→{cur_line:.1f}")
+
+        side_key = "over" if spec.bet == "over" else "under"
+        open_price = block_open.get(side_key)
+        prev_price = block_prev.get(side_key)
+        cur_price = block_cur.get(side_key)
+        support_parts.append((0.60, _combine_support(line_parts)))
+        support_parts.append((0.40, _price_support(open_price, prev_price, cur_price)))
+
+    movement_support = _combine_support(support_parts)
+
+    if tags:
+        deduped: list[str] = []
+        seen: set[str] = set()
+        for tag in tags:
+            if tag in seen:
+                continue
+            deduped.append(tag)
+            seen.add(tag)
+        tags = deduped
+
+    if reasons:
+        deduped_reasons: list[str] = []
+        seen_reason: set[str] = set()
+        for reason in reasons:
+            if reason in seen_reason:
+                continue
+            deduped_reasons.append(reason)
+            seen_reason.add(reason)
+        reasons = deduped_reasons
+
+    return movement_support, " · ".join(tags), "; ".join(reasons)
+
+
 def attach_game_edge_signals(
     date: str,
     edges: pd.DataFrame,
@@ -349,15 +588,20 @@ def attach_game_edge_signals(
         axis=1,
     )
 
-    def _row_edge_score_and_reasons(r: pd.Series) -> tuple[float | None, str]:
+    try:
+        open_games, prev_games, cur_games = _load_team_snapshot_games(str(date), str(DATA_DIR.resolve()))
+    except Exception:
+        open_games, prev_games, cur_games = {}, {}, {}
+
+    def _row_edge_score_and_reasons(r: pd.Series) -> tuple[float | None, str, str]:
         m = str(r.get("market") or "")
         spec = _EDGE_SPECS.get(m)
         if spec is None:
-            return None, ""
+            return None, "", ""
 
         prob = _num(r.get(spec.prob_col))
         if prob is None:
-            return None, ""
+            return None, "", ""
 
         model_conf = _clamp01(abs(prob - 0.5) * 2.0)
 
@@ -368,6 +612,9 @@ def attach_game_edge_signals(
         b2b_delta = _num(r.get("b2b_delta"))
 
         reasons: list[str] = []
+        drivers: list[str] = []
+
+        movement_support, movement_tags, movement_reasons = _movement_support_for_edge(r, open_games, prev_games, cur_games)
 
         # By default, score mostly on model confidence, then layer matchup context.
         edge_score = None
@@ -383,10 +630,11 @@ def attach_game_edge_signals(
             rest_support = _support01(direction * rest_adv if rest_adv is not None else None, scale=2.0)
 
             parts = [
-                (0.50, model_conf),
-                (0.25, spread_support),
-                (0.15, form_support),
-                (0.10, rest_support),
+                (0.42, model_conf),
+                (0.22, spread_support),
+                (0.13, form_support),
+                (0.08, rest_support),
+                (0.15, movement_support),
             ]
             s = 0.0
             w = 0.0
@@ -396,6 +644,15 @@ def attach_game_edge_signals(
                 s += ww * float(vv)
                 w += ww
             edge_score = (s / w) if w > 0 else None
+
+            drivers.append("MODEL HOME" if is_home else "MODEL AWAY")
+            for tag in (
+                _driver_from_support(spread_support, "SPREAD+", "SPREAD-"),
+                _driver_from_support(form_support, "FORM+", "FORM-"),
+                _driver_from_support(rest_support, "REST+", "REST-"),
+            ):
+                if tag:
+                    drivers.append(tag)
 
             reasons.append(f"p={prob:.3f}")
             if spread is not None:
@@ -420,9 +677,10 @@ def attach_game_edge_signals(
             pace_support = _support01(direction * ((p1_sum or 0.0) - 2.0) if p1_sum is not None else None, scale=0.45)
 
             parts = [
-                (0.45, model_conf),
-                (0.40, line_support),
+                (0.38, model_conf),
+                (0.32, line_support),
                 (0.15, pace_support),
+                (0.15, movement_support),
             ]
             s = 0.0
             w = 0.0
@@ -432,6 +690,14 @@ def attach_game_edge_signals(
                 s += ww * float(vv)
                 w += ww
             edge_score = (s / w) if w > 0 else None
+
+            drivers.append("MODEL OVR" if is_over else "MODEL UND")
+            for tag in (
+                _driver_from_support(line_support, "LINE+", "LINE-"),
+                _driver_from_support(pace_support, "PACE+", "PACE-"),
+            ):
+                if tag:
+                    drivers.append(tag)
 
             tl = _num(r.get("total_line_used"))
             mt = _num(r.get("model_total"))
@@ -451,9 +717,10 @@ def attach_game_edge_signals(
             form_support = _support01(direction * form_delta if form_delta is not None else None, scale=1.5)
 
             parts = [
-                (0.55, model_conf),
-                (0.30, cover_support),
-                (0.15, form_support),
+                (0.45, model_conf),
+                (0.23, cover_support),
+                (0.17, form_support),
+                (0.15, movement_support),
             ]
             s = 0.0
             w = 0.0
@@ -463,6 +730,14 @@ def attach_game_edge_signals(
                 s += ww * float(vv)
                 w += ww
             edge_score = (s / w) if w > 0 else None
+
+            drivers.append("MODEL HOME" if is_home else "MODEL AWAY")
+            for tag in (
+                _driver_from_support(cover_support, "COVER+", "COVER-"),
+                _driver_from_support(form_support, "FORM+", "FORM-"),
+            ):
+                if tag:
+                    drivers.append(tag)
 
             reasons.append(f"p={prob:.3f}")
             if spread is not None:
@@ -493,11 +768,38 @@ def attach_game_edge_signals(
                 w += ww
             edge_score = (s / w) if w > 0 else None
 
+            if spec.market_group == "first10":
+                drivers.append("MODEL YES" if spec.bet == "f10_yes" else "MODEL NO")
+            elif spec.bet.endswith("_over"):
+                drivers.append("MODEL OVR")
+            elif spec.bet.endswith("_under"):
+                drivers.append("MODEL UND")
             reasons.append(f"p={prob:.3f}")
             if p1_sum is not None:
                 reasons.append(f"P1 pace {p1_sum:.2f}")
+            pace_tag = _driver_from_support(pace_support, "PACE+", "PACE-")
+            if pace_tag:
+                drivers.append(pace_tag)
 
-        return _clamp01(edge_score) if edge_score is not None else None, "; ".join([x for x in reasons if x])
+        if movement_tags:
+            drivers.extend([tag for tag in movement_tags.split(" · ") if tag])
+        if movement_reasons:
+            reasons.append(movement_reasons)
+
+        deduped_drivers: list[str] = []
+        seen_drivers: set[str] = set()
+        for driver in drivers:
+            driver_s = str(driver or "").strip()
+            if not driver_s or driver_s in seen_drivers:
+                continue
+            deduped_drivers.append(driver_s)
+            seen_drivers.add(driver_s)
+
+        return (
+            _clamp01(edge_score) if edge_score is not None else None,
+            "; ".join([x for x in reasons if x]),
+            " · ".join(deduped_drivers[:7]),
+        )
 
     merged["market_group"] = merged["market"].map(lambda m: (_EDGE_SPECS.get(str(m)) or _EdgeSpec("", "", "", "")).market_group)
     merged["bet"] = merged["market"].map(lambda m: (_EDGE_SPECS.get(str(m)) or _EdgeSpec("", "", "", "")).bet)
@@ -567,5 +869,100 @@ def attach_game_edge_signals(
     scores = merged.apply(_row_edge_score_and_reasons, axis=1, result_type="expand")
     merged["edge_score"] = scores[0]
     merged["edge_reasons"] = scores[1]
+    merged["edge_drivers"] = scores[2]
 
     return merged
+
+
+def attach_game_recommendation_signals(
+    date: str,
+    recommendations: pd.DataFrame,
+    *,
+    edges: Optional[pd.DataFrame] = None,
+    predictions: Optional[pd.DataFrame] = None,
+    proc_dir: Path = PROC_DIR,
+) -> pd.DataFrame:
+    if recommendations is None:
+        return recommendations
+
+    out = recommendations.copy()
+    for col in ("edge_score", "edge_reasons", "edge_drivers"):
+        if col in out.columns:
+            out = out.drop(columns=[col], errors="ignore")
+
+    if out.empty:
+        out["edge_score"] = pd.Series(dtype="float64")
+        out["edge_reasons"] = pd.Series(dtype="object")
+        out["edge_drivers"] = pd.Series(dtype="object")
+        return out
+
+    edge_df = edges.copy() if edges is not None else None
+    pred = predictions
+
+    if edge_df is None or edge_df.empty:
+        if pred is None:
+            p_sim = proc_dir / f"predictions_sim_{date}.csv"
+            p_legacy = proc_dir / f"predictions_{date}.csv"
+            p = p_sim if p_sim.exists() else p_legacy
+            if p.exists():
+                try:
+                    pred = pd.read_csv(p)
+                except Exception:
+                    pred = None
+        if pred is None or pred.empty:
+            out["edge_score"] = pd.NA
+            out["edge_reasons"] = ""
+            out["edge_drivers"] = ""
+            return out
+        ev_cols = [c for c in pred.columns if str(c).startswith("ev_")]
+        if ev_cols:
+            edge_df = pred.melt(id_vars=["date", "home", "away"], value_vars=ev_cols, var_name="market", value_name="ev").dropna()
+        else:
+            synth = out[[c for c in ["date", "home", "away", "market", "bet", "ev"] if c in out.columns]].copy()
+            if synth.empty:
+                out["edge_score"] = pd.NA
+                out["edge_reasons"] = ""
+                out["edge_drivers"] = ""
+                return out
+            synth["market"] = synth.apply(
+                lambda r: _recommendation_signal_market(r.get("market"), r.get("bet")),
+                axis=1,
+            )
+            synth = synth.dropna(subset=["market"])
+            edge_df = synth[[c for c in ["date", "home", "away", "market", "ev"] if c in synth.columns]].copy()
+
+    if edge_df is None or edge_df.empty:
+        out["edge_score"] = pd.NA
+        out["edge_reasons"] = ""
+        out["edge_drivers"] = ""
+        return out
+
+    if ("edge_score" not in edge_df.columns) or (("edge_reasons" not in edge_df.columns) and ("edge_drivers" not in edge_df.columns)):
+        edge_df = attach_game_edge_signals(date, edge_df, predictions=pred, proc_dir=proc_dir)
+
+    if "edge_drivers" not in edge_df.columns:
+        edge_df = edge_df.copy()
+        edge_df["edge_drivers"] = edge_df.get("edge_reasons", "")
+    if "edge_reasons" not in edge_df.columns:
+        edge_df = edge_df.copy()
+        edge_df["edge_reasons"] = edge_df.get("edge_drivers", "")
+
+    signal_cols = [c for c in ["home", "away", "market", "edge_score", "edge_reasons", "edge_drivers"] if c in edge_df.columns]
+    signal_df = edge_df[signal_cols].copy()
+    signal_df = signal_df.rename(columns={"market": "_signal_market"})
+    signal_df = signal_df.drop_duplicates(subset=["home", "away", "_signal_market"], keep="first")
+
+    out["_signal_market"] = out.apply(
+        lambda r: _recommendation_signal_market(r.get("market"), r.get("bet")),
+        axis=1,
+    )
+    out = out.merge(signal_df, on=["home", "away", "_signal_market"], how="left")
+    out = out.drop(columns=["_signal_market"], errors="ignore")
+
+    if "edge_score" not in out.columns:
+        out["edge_score"] = pd.NA
+    if "edge_reasons" not in out.columns:
+        out["edge_reasons"] = ""
+    if "edge_drivers" not in out.columns:
+        out["edge_drivers"] = out.get("edge_reasons", "")
+    return out

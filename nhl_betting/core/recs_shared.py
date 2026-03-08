@@ -543,15 +543,38 @@ def recompute_edges_and_recommendations(date_str: str, min_ev: float = 0.0) -> L
                             _add(r, "periods", f"p{n}_over", f"p{n}_over_prob", f"ev_p{n}_over", f"p{n}_over_odds")
                         else:
                             _add(r, "periods", f"p{n}_under", f"p{n}_under_prob", f"ev_p{n}_under", f"p{n}_under_odds")
+    recs_df = pd.DataFrame(recs)
+    if not recs_df.empty:
+        try:
+            from .game_edge_signals import attach_game_recommendation_signals
+
+            recs_df = attach_game_recommendation_signals(date_str, recs_df, predictions=df, edges=edges if ev_cols else None)
+        except Exception:
+            pass
+        try:
+            if "edge_score" in recs_df.columns:
+                recs_df["_edge_score"] = pd.to_numeric(recs_df.get("edge_score"), errors="coerce")
+                recs_df["_ev"] = pd.to_numeric(recs_df.get("ev"), errors="coerce")
+                recs_df = recs_df.sort_values(["_edge_score", "_ev"], ascending=[False, False])
+                recs_df = recs_df.drop(columns=["_edge_score", "_ev"], errors="ignore")
+            else:
+                recs_df = recs_df.sort_values("ev", ascending=False)
+        except Exception:
+            try:
+                recs_df = recs_df.sort_values("ev", ascending=False)
+            except Exception:
+                pass
+        recs = recs_df.to_dict(orient="records")
+
     # Persist recommendations (robust to empty list)
     outp = PROC_DIR / f"recommendations_{date_str}.csv"
     try:
         if recs:
-            df_recs = pd.DataFrame(recs).sort_values("ev", ascending=False)
+            df_recs = pd.DataFrame(recs)
         else:
             # Write empty file with stable schema so downstream readers don't break
             df_recs = pd.DataFrame(columns=[
-                "date","home","away","market","bet","prob","price","book","ev"
+                "date","home","away","market","bet","prob","price","book","ev","edge_score","edge_drivers","edge_reasons"
             ])
         df_recs.to_csv(outp, index=False)
     except Exception:

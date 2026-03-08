@@ -77,7 +77,13 @@ async def api_game_recs(
             except Exception:
                 pass
         try:
-            df = df.sort_values("ev", ascending=False)
+            if "edge_score" in df.columns:
+                df["_edge_score"] = pd.to_numeric(df.get("edge_score"), errors="coerce")
+                df["_ev"] = pd.to_numeric(df.get("ev"), errors="coerce")
+                df = df.sort_values(["_edge_score", "_ev"], ascending=[False, False])
+                df = df.drop(columns=["_edge_score", "_ev"], errors="ignore")
+            else:
+                df = df.sort_values("ev", ascending=False)
         except Exception:
             pass
         if top is not None and top > 0:

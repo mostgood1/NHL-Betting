@@ -2406,9 +2406,7 @@ async def lifespan(app_: FastAPI):
                 # Recompute only if odds changed
                 try:
                     if isinstance(summary, dict) and int(summary.get("updated_fields") or 0) > 0:
-                        if _recs_recompute_shared is not None:
-                            # Run shared recompute in a thread (I/O/CPU bound)
-                            await asyncio.to_thread(_recs_recompute_shared, d, 0.0)
+                        await _recompute_edges_and_recommendations(d)
                 except Exception:
                     pass
                 # Refresh props recommendations (function will skip if lines unchanged)
@@ -2477,6 +2475,23 @@ async def lifespan(app_: FastAPI):
                                     await asyncio.wait_for(work, timeout=float(per_date_timeout))
                                 else:
                                     await work
+                                try:
+                                    odds_summary = await asyncio.to_thread(
+                                        _inject_oddsapi_odds_into_predictions,
+                                        dd,
+                                        True,
+                                        True,
+                                    )
+                                except Exception as e:
+                                    odds_summary = {"status": "error", "error": str(e)}
+                                try:
+                                    if isinstance(odds_summary, dict) and int(odds_summary.get("updated_fields") or 0) > 0:
+                                        await _recompute_edges_and_recommendations(dd)
+                                except Exception as e:
+                                    try:
+                                        print(json.dumps({"event": "team_recommendations_refresh_error", "date": dd, "error": str(e)}))
+                                    except Exception:
+                                        pass
                                 try:
                                     _refresh_props_recommendations(dd, min_ev=0.0, top=200)
                                 except Exception as e:
@@ -18078,12 +18093,37 @@ async def api_recommendations(
                 add_rec(r, "periods", f"p{pn}_over", f"p{pn}_over_prob", f"ev_p{pn}_over", None, f"p{pn}_over_odds", None)
                 add_rec(r, "periods", f"p{pn}_under", f"p{pn}_under_prob", f"ev_p{pn}_under", None, f"p{pn}_under_odds", None)
 
-    # Sort by EV and take top N
-    recs_sorted = sorted(recs, key=lambda x: x["ev"], reverse=True)[: top if top and top > 0 else len(recs)]
+    recs_df = pd.DataFrame(recs)
+    if not recs_df.empty:
+        try:
+            from ..core.game_edge_signals import attach_game_recommendation_signals
+
+            recs_df = attach_game_recommendation_signals(date, recs_df, predictions=df)
+        except Exception:
+            pass
+        try:
+            if "edge_score" in recs_df.columns:
+                recs_df["_edge_score"] = pd.to_numeric(recs_df.get("edge_score"), errors="coerce")
+                recs_df["_ev"] = pd.to_numeric(recs_df.get("ev"), errors="coerce")
+                recs_df = recs_df.sort_values(["_edge_score", "_ev"], ascending=[False, False])
+                recs_df = recs_df.drop(columns=["_edge_score", "_ev"], errors="ignore")
+            else:
+                recs_df = recs_df.sort_values("ev", ascending=False)
+        except Exception:
+            try:
+                recs_df = recs_df.sort_values("ev", ascending=False)
+            except Exception:
+                pass
+        if top and top > 0:
+            recs_df = recs_df.head(int(top))
+        recs_sorted = recs_df.to_dict(orient="records")
+    else:
+        recs_sorted = []
+
     # Persist snapshot for historical tracking
     try:
         cols = [
-            "date","home","away","market","bet","price","model_prob","ev","edge","book","result"
+            "date","home","away","market","bet","price","model_prob","ev","edge","book","result","edge_score","edge_drivers","edge_reasons"
         ]
         import pandas as _pd
         _df_out = _pd.DataFrame([{k: r.get(k) for k in cols} for r in recs_sorted])

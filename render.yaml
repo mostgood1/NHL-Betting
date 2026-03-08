@@ -68,7 +68,7 @@ services:
 
       # Disk-backed odds snapshots (movement tracking)
       - key: ODDS_SNAPSHOT_SCHED_MINUTES
-        value: "30"
+        value: "15"
       - key: ODDS_SNAPSHOT_SCHED_DAYS_AHEAD
         value: "1"
       - key: ODDS_SNAPSHOT_SCHED_TIMEOUT_SEC

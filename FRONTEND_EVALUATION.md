@@ -125,7 +125,7 @@ services:
   - type: cron
     name: intraday-props-refresh
     runtime: python
-    schedule: "*/30 9-23 * * *"  # Every 30 min during game hours
+    schedule: "*/15 9-23 * * *"  # Every 15 min during game hours
     buildCommand: "pip install -r requirements.txt"
     startCommand: "python -m nhl_betting.cli props-fast --date $(date +%Y-%m-%d)"
 ```
@@ -145,7 +145,7 @@ services:
 ```
 
 **Implementation**:
-- Render cron job every 30 minutes: `props-fast --date today`
+- Render cron job every 15 minutes: `props-fast --date today`
 - Web app serves from updated CSV files
 - No model retraining needed (projections stay static)
 - Only odds/EV recalculated (fast: < 10 seconds)
@@ -186,7 +186,7 @@ C. **Database** (future):
 1. Daily cron at 6 AM ET runs `daily_update`
 2. Generates fresh predictions and props
 3. Commits to GitHub (or saves to persistent disk)
-4. Intraday cron every 30 min runs `props-fast`
+4. Intraday cron every 15 min runs `props-fast`
 5. Updates only odds/EV calculations
 6. Web app serves latest data
 
@@ -216,7 +216,7 @@ C. **Database** (future):
 #### Post-Deployment (Verification):
 11. [ ] Render URL matches local http://127.0.0.1:8000 exactly
 12. [ ] Daily cron runs successfully at 6 AM ET
-13. [ ] Intraday props-fast updates EV every 30 min
+13. [ ] Intraday props-fast updates EV every 15 min
 14. [ ] API responses < 500ms for all endpoints
 15. [ ] Historical data persists across deploys
 
@@ -231,7 +231,7 @@ C. **Database** (future):
 
 **Render Instance:**
 - ⏳ Identical output to local instance
-- ⏳ Intraday odds updates every 30 min
+- ⏳ Intraday odds updates every 15 min
 - ⏳ Props recommendations adjust dynamically
 - ⏳ No data loss across deploys
 - ⏳ < 2 second page load times

@@ -6,8 +6,8 @@
 
 ## Cron Jobs Summary
 
-### 1. **Hourly Props Recommendations Refresh** ⭐ MAIN UPDATER
-**Schedule:** Every hour at minute 0 (`0 * * * *`)
+### 1. **15-Minute Props Recommendations Refresh** ⭐ MAIN UPDATER
+**Schedule:** Every 15 minutes (`*/15 * * * *`)
 **Endpoint:** `/api/cron/light-refresh`
 **What it does:**
 - ✅ Fetches fresh odds from Bovada
@@ -59,7 +59,7 @@
 
 **Why This Works:**
 - **Fast:** No model inference, just math on precomputed projections
-- **Fresh:** Odds updated hourly as bookmakers adjust lines
+- **Fresh:** Odds updated every 15 minutes as bookmakers adjust lines
 - **Smart:** Skips games that already started
 - **Resilient:** Falls back to GitHub if local files missing
 
@@ -152,7 +152,7 @@ This prevents:
 
 ## What Gets Updated vs What Stays Static
 
-### Updated Every Hour ✅
+### Updated Every 15 Minutes ✅
 - **Odds for props** (Over/Under lines and prices)
 - **Odds for games** (Moneyline, totals, spreads)
 - **Expected value calculations** (based on fresh odds vs static projections)
@@ -162,7 +162,7 @@ This prevents:
 ### Stays Static (Until Next Morning) 📌
 - **NN model projections** (props_projections_all_{date}.csv)
   - Generated once in the morning by daily updater
-  - Not recomputed hourly (too expensive, unnecessary)
+  - Not recomputed every 15 minutes (too expensive, unnecessary)
   - Projections are for the entire game, don't change mid-day
 - **Team-level predictions** (predictions_{date}.csv model columns)
   - period1_home_proj, period1_away_proj, etc.
@@ -174,7 +174,7 @@ This prevents:
 ### Efficient & Fast ⚡
 - **Model inference is expensive** (requires PyTorch, NPU, 50+ ms per player)
 - **Odds updates are cheap** (just API calls and math)
-- **Hourly model runs would:**
+- **Re-running models every 15 minutes would:**
   - Slow down the site
   - Waste compute resources
   - Not improve projections (player abilities don't change during the day)
@@ -188,7 +188,7 @@ This prevents:
   - Injury news
   - Public perception
 
-**The sweet spot:** Update odds hourly, keep projections static → Fresh EV calculations without expensive recomputation!
+**The sweet spot:** Update odds every 15 minutes, keep projections static → Fresh EV calculations without expensive recomputation!
 
 ### Real-World Example
 
@@ -207,7 +207,7 @@ EV = 0.68 × (1.909 - 1) - 0.32 = 0.30 (30% edge!)
 
 **Afternoon (2 PM ET):**
 ```
-[Hourly Refresh Runs]
+[15-Minute Refresh Runs]
 → Same projection: SOG lambda = 4.2 (unchanged, from morning file)
 → Updated odds: Over 3.5 SOG at -130 (line moved!)
 
@@ -219,7 +219,7 @@ EV = 0.68 × (1.769 - 1) - 0.32 = 0.20 (20% edge, still good but worse)
 
 **Late (6 PM ET):**
 ```
-[Hourly Refresh Runs]
+[15-Minute Refresh Runs]
 → Same projection: SOG lambda = 4.2 (still unchanged)
 → Updated odds: Over 3.5 SOG at -150 (line moved more!)
 
@@ -236,10 +236,10 @@ EV = 0.68 × (1.667 - 1) - 0.32 = 0.13 (13% edge, marginal now)
 **File:** `render.yaml`
 
 ```yaml
-# Hourly props refresh
+# 15-minute props refresh
 - type: cron
-  name: props-recs-hourly
-  schedule: "0 * * * *"  # Top of every hour
+  name: props-recs-15min
+  schedule: "*/15 * * * *"  # Every 15 minutes
   runtime: image
   image:
     url: docker.io/curlimages/curl:8.11.0
@@ -275,7 +275,7 @@ curl https://nhl-betting.onrender.com/api/last-updated?date=2025-10-17
 
 ### Check Cron Job Logs (Render Dashboard)
 ```
-Navigate to: Render Dashboard → Crons → props-recs-hourly → Logs
+Navigate to: Render Dashboard → Crons → props-recs-15min → Logs
 Look for: "OK" responses with row counts
 ```
 
@@ -297,7 +297,7 @@ curl -H "Authorization: Bearer $TOKEN" \
 ## Limitations & Trade-offs
 
 ### ✅ Pros
-- **Fast:** Hourly updates without expensive recomputation
+- **Fast:** 15-minute updates without expensive recomputation
 - **Fresh odds:** Always showing latest bookmaker lines
 - **Accurate EV:** Comparing static projections to moving odds (correct approach)
 - **Efficient:** Low compute cost on Render
@@ -341,7 +341,7 @@ Action: Either bet now before it gets worse, or pass (market might know somethin
 
 **YES - The Render site performs periodic updates:**
 
-✅ **Hourly props recommendations refresh** (every hour at :00)
+✅ **15-minute props recommendations refresh** (every 15 minutes)
 ✅ **Fresh odds from Bovada** (always latest lines)
 ✅ **Regenerated EV calculations** (projections vs new odds)
 ✅ **Smart game filtering** (skips started games)
@@ -350,7 +350,7 @@ Action: Either bet now before it gets worse, or pass (market might know somethin
 
 **The workflow is:**
 1. **Morning:** Daily updater projects ALL player stats using NN models
-2. **Hourly:** Cron job fetches fresh odds and recalculates EV
+2. **Every 15 minutes:** Cron job fetches fresh odds and recalculates EV
 3. **Display:** UI shows latest edges with current bookmaker lines
 4. **Throughout day:** Odds update, projections stay constant, EV adjusts accordingly
 
@@ -360,4 +360,4 @@ This is the **optimal design** for a betting intelligence system:
 - Users always see fresh edges without site slowdown
 - Cost-efficient on Render free/starter plans
 
-🎯 **Your complete system is tracking odds movements in real-time and updating betting recommendations hourly!**
+🎯 **Your complete system is tracking odds movements in real-time and updating betting recommendations every 15 minutes!**

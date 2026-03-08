@@ -1,12 +1,21 @@
 from __future__ import annotations
 
 import asyncio
+import csv
 import threading
 import time
+import os
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Optional
 from urllib.parse import parse_qs
 
 import json
+
+try:
+    from zoneinfo import ZoneInfo
+except Exception:
+    ZoneInfo = None
 
 # Minimal ASGI wrapper. No FastAPI here to keep cold-start as small as possible.
 
@@ -84,8 +93,113 @@ def _is_ymd(s: str) -> bool:
 
 
 def _today_ymd_utc() -> str:
-    from datetime import datetime
     return datetime.utcnow().strftime("%Y-%m-%d")
+
+
+def _now_et() -> datetime:
+    try:
+        if ZoneInfo is not None:
+            return datetime.now(ZoneInfo("America/New_York"))
+    except Exception:
+        pass
+    try:
+        return datetime.now(timezone(timedelta(hours=-5)))
+    except Exception:
+        return datetime.now(timezone.utc)
+
+
+def _today_ymd_et() -> str:
+    try:
+        return _now_et().strftime("%Y-%m-%d")
+    except Exception:
+        return _today_ymd_utc()
+
+
+def _normalize_date_param(d: str | None) -> str:
+    raw = str(d or "").strip()
+    if not raw:
+        return _today_ymd_et()
+    s = raw.lower()
+    now_et = _now_et()
+    if s == "today":
+        return now_et.strftime("%Y-%m-%d")
+    if s == "yesterday":
+        return (now_et - timedelta(days=1)).strftime("%Y-%m-%d")
+    if s == "tomorrow":
+        return (now_et + timedelta(days=1)).strftime("%Y-%m-%d")
+    return raw
+
+
+def _repo_root() -> Path:
+    return Path(__file__).resolve().parents[2]
+
+
+def _repo_proc_dir() -> Path:
+    return _repo_root() / "data" / "processed"
+
+
+def _active_data_dir() -> Path:
+    raw = str(os.getenv("NHL_DATA_DIR") or os.getenv("DATA_DIR") or "").strip()
+    if raw:
+        try:
+            return Path(raw)
+        except Exception:
+            pass
+    return _repo_root() / "data"
+
+
+def _active_proc_dir() -> Path:
+    return _active_data_dir() / "processed"
+
+
+def _processed_csv_candidates(file_name: str) -> list[Path]:
+    active = _active_proc_dir() / file_name
+    repo = _repo_proc_dir() / file_name
+    if active == repo:
+        return [active]
+    return [active, repo]
+
+
+def _read_csv_rows(path: Path) -> list[dict]:
+    try:
+        if not path.exists() or not path.is_file():
+            return []
+    except Exception:
+        return []
+    encodings = ("utf-8", "utf-8-sig", "cp1252", "latin1", "utf-16", "utf-16le", "utf-16be")
+    for enc in encodings:
+        try:
+            with path.open("r", encoding=enc, newline="") as fh:
+                return list(csv.DictReader(fh))
+        except UnicodeDecodeError:
+            continue
+        except Exception:
+            return []
+    return []
+
+
+def _load_processed_csv_rows(file_name: str) -> list[dict]:
+    empty_rows: Optional[list[dict]] = None
+    newest_rows: Optional[list[dict]] = None
+    newest_mtime: float = float("-inf")
+    for path in _processed_csv_candidates(file_name):
+        rows = _read_csv_rows(path)
+        if rows:
+            try:
+                mtime = float(path.stat().st_mtime)
+            except Exception:
+                mtime = float("-inf")
+            if newest_rows is None or mtime >= newest_mtime:
+                newest_rows = rows
+                newest_mtime = mtime
+        try:
+            if empty_rows is None and path.exists() and path.is_file():
+                empty_rows = rows
+        except Exception:
+            continue
+    if newest_rows is not None:
+        return newest_rows
+    return empty_rows or []
 
 
 def _is_live_state(st: str) -> bool:
@@ -550,7 +664,7 @@ class WrapperASGI:
                 # Parse query params
                 raw_qs = scope.get("query_string") or b""
                 q = parse_qs(raw_qs.decode("utf-8"), keep_blank_values=False)
-                date = (q.get("date", [""])[0] or "").strip() or None
+                date = _normalize_date_param((q.get("date", [""])[0] or "").strip() or None)
                 team = (q.get("team", [""])[0] or "").strip()
                 market = (q.get("market", [""])[0] or "").strip()
                 try:
@@ -573,24 +687,7 @@ class WrapperASGI:
                         page_size = cap_ps
                 except Exception:
                     pass
-                # Default date fallback (UTC today)
-                if not date:
-                    from datetime import datetime
-                    date = datetime.utcnow().strftime("%Y-%m-%d")
-                # Local-file only: avoid outbound network during warmup to prevent 502s
-                import csv as _csv
-                import pathlib
-                rel = f"data/processed/props_projections_all_{date}.csv"
-                rows = []
-                try:
-                    # repo root = nhl_betting (parents[1])'s parent => parents[2]
-                    p = pathlib.Path(__file__).resolve().parents[2] / rel
-                    if p.exists():
-                        with p.open("r", encoding="utf-8") as fh:
-                            reader = _csv.DictReader(fh)
-                            rows = list(reader)
-                except Exception:
-                    rows = []
+                rows = _load_processed_csv_rows(f"props_projections_all_{date}.csv")
                 total_rows = len(rows)
                 # Filter
                 if team:
@@ -644,7 +741,7 @@ class WrapperASGI:
             try:
                 raw_qs = scope.get("query_string") or b""
                 q = parse_qs(raw_qs.decode("utf-8"), keep_blank_values=False)
-                date = (q.get("date", [""])[0] or "").strip() or None
+                date = _normalize_date_param((q.get("date", [""])[0] or "").strip() or None)
                 market = (q.get("market", [""])[0] or "").strip()
                 team = (q.get("team", [""])[0] or "").strip()
                 try:
@@ -672,22 +769,7 @@ class WrapperASGI:
                         page_size = cap_ps
                 except Exception:
                     pass
-                if not date:
-                    from datetime import datetime
-                    date = datetime.utcnow().strftime("%Y-%m-%d")
-
-                import csv as _csv
-                import pathlib
-                rel = f"data/processed/props_recommendations_{date}.csv"
-                rows = []
-                try:
-                    p = pathlib.Path(__file__).resolve().parents[2] / rel
-                    if p.exists():
-                        with p.open("r", encoding="utf-8") as fh:
-                            reader = _csv.DictReader(fh)
-                            rows = list(reader)
-                except Exception:
-                    rows = []
+                rows = _load_processed_csv_rows(f"props_recommendations_{date}.csv")
                 total_rows = len(rows)
                 # Normalize types and filter
                 def _flt(x, default=None):

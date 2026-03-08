@@ -1,6 +1,8 @@
 import asyncio
 import json
+import os
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 
 import nhl_betting.web.asgi as asgi_mod
 from nhl_betting.data.nhl_api_web import NHLWebClient
@@ -147,3 +149,81 @@ def test_lite_scoreboard_marks_web_intermission(monkeypatch):
     assert row["intermission"] is True
     assert row["clock"] is None
     assert row["period_disp"] == "2nd INT"
+
+
+def test_asgi_props_all_prefers_active_proc_dir_and_normalizes_today(monkeypatch, tmp_path):
+    active_proc = tmp_path / "active" / "processed"
+    repo_proc = tmp_path / "repo" / "data" / "processed"
+    active_proc.mkdir(parents=True)
+    repo_proc.mkdir(parents=True)
+
+    active_file = active_proc / "props_projections_all_2099-01-01.csv"
+    repo_file = repo_proc / "props_projections_all_2099-01-01.csv"
+    active_file.write_text("player,team,market\nActive Skater,BOS,SOG\n", encoding="utf-8")
+    repo_file.write_text("player,team,market\nRepo Skater,NYR,SOG\n", encoding="utf-8")
+    os.utime(repo_file, (100, 100))
+    os.utime(active_file, (200, 200))
+
+    monkeypatch.setattr(asgi_mod, "_now_et", lambda: datetime(2099, 1, 1, 12, 0, tzinfo=timezone.utc), raising=True)
+    monkeypatch.setattr(asgi_mod, "_active_proc_dir", lambda: active_proc, raising=True)
+    monkeypatch.setattr(asgi_mod, "_repo_proc_dir", lambda: repo_proc, raising=True)
+
+    status, body = asyncio.run(
+        _collect_http(asgi_mod.WrapperASGI(), "/api/props/all.json", b"date=today")
+    )
+
+    assert status == 200
+    payload = json.loads(body.decode("utf-8"))
+    assert payload["date"] == "2099-01-01"
+    assert payload["total_rows"] == 1
+    assert payload["data"][0]["player"] == "Active Skater"
+
+
+def test_asgi_props_recommendations_falls_back_from_empty_active_file(monkeypatch, tmp_path):
+    active_proc = tmp_path / "active" / "processed"
+    repo_proc = tmp_path / "repo" / "data" / "processed"
+    active_proc.mkdir(parents=True)
+    repo_proc.mkdir(parents=True)
+
+    active_file = active_proc / "props_recommendations_2099-01-02.csv"
+    repo_file = repo_proc / "props_recommendations_2099-01-02.csv"
+    active_file.write_text("player,team,market,ev\n", encoding="utf-8")
+    repo_file.write_text("player,team,market,ev\nRepo Prop,TBL,SOG,0.12\n", encoding="utf-8")
+
+    monkeypatch.setattr(asgi_mod, "_active_proc_dir", lambda: active_proc, raising=True)
+    monkeypatch.setattr(asgi_mod, "_repo_proc_dir", lambda: repo_proc, raising=True)
+
+    status, body = asyncio.run(
+        _collect_http(asgi_mod.WrapperASGI(), "/api/props/recommendations.json", b"date=2099-01-02")
+    )
+
+    assert status == 200
+    payload = json.loads(body.decode("utf-8"))
+    assert payload["total_rows"] == 1
+    assert payload["data"][0]["player"] == "Repo Prop"
+
+
+def test_asgi_props_recommendations_prefers_newer_repo_file_over_stale_active(monkeypatch, tmp_path):
+    active_proc = tmp_path / "active" / "processed"
+    repo_proc = tmp_path / "repo" / "data" / "processed"
+    active_proc.mkdir(parents=True)
+    repo_proc.mkdir(parents=True)
+
+    active_file = active_proc / "props_recommendations_2099-01-03.csv"
+    repo_file = repo_proc / "props_recommendations_2099-01-03.csv"
+    active_file.write_text("player,team,market,ev\nStale Active,SEA,SOG,0.05\n", encoding="utf-8")
+    repo_file.write_text("player,team,market,ev\nFresh Repo,TOR,SOG,0.18\n", encoding="utf-8")
+    os.utime(active_file, (100, 100))
+    os.utime(repo_file, (200, 200))
+
+    monkeypatch.setattr(asgi_mod, "_active_proc_dir", lambda: active_proc, raising=True)
+    monkeypatch.setattr(asgi_mod, "_repo_proc_dir", lambda: repo_proc, raising=True)
+
+    status, body = asyncio.run(
+        _collect_http(asgi_mod.WrapperASGI(), "/api/props/recommendations.json", b"date=2099-01-03")
+    )
+
+    assert status == 200
+    payload = json.loads(body.decode("utf-8"))
+    assert payload["total_rows"] == 1
+    assert payload["data"][0]["player"] == "Fresh Repo"

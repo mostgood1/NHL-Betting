@@ -57,6 +57,33 @@ def _vprint(verbose: bool, *args, **kwargs):
         print(*args, **kwargs)
 
 
+def _csv_has_data_rows(path) -> bool:
+    try:
+        p = Path(path)
+        if not p.exists() or p.stat().st_size == 0:
+            return False
+        df = pd.read_csv(p, nrows=1)
+        return df is not None and not df.empty
+    except pd.errors.EmptyDataError:
+        return False
+    except Exception:
+        return False
+
+
+def _props_line_files_exist(date: str) -> bool:
+    try:
+        import os as _os
+        root = Path(str(_os.getenv("PROPS_DIR") or props_data.PropsCollectionConfig().output_root))
+        line_dir = root / "player_props_lines" / f"date={date}"
+        for name in ("oddsapi.parquet", "oddsapi.csv", "bovada.parquet", "bovada.csv"):
+            p = line_dir / name
+            if p.exists() and p.is_file():
+                return True
+    except Exception:
+        return False
+    return False
+
+
 def _collect_special_markets_oddsapi(date: str, preferred_bookmaker: str = "draftkings", verbose: bool = False) -> None:
     """Fetch Goal in First 10 Minutes and Period Totals odds from OddsAPI and merge into predictions_{date}.csv.
 
@@ -1390,6 +1417,7 @@ def run(days_ahead: int = 2, years_back: int = 2, reconcile_yesterday: bool = Tr
                 targets.append((base + _td(days=1)).strftime('%Y-%m-%d'))
             # Track artifacts to explicitly stage for git (belt-and-suspenders)
             produced_artifacts: list[str] = []
+            skip_git_artifacts: list[str] = []
             for d in targets:
                 try:
                     _vprint(verbose, f"[run] Building props recommendations for {d}…")
@@ -1413,39 +1441,21 @@ def run(days_ahead: int = 2, years_back: int = 2, reconcile_yesterday: bool = Tr
                             pass
                     except Exception:
                         pass
-                    produced_artifacts.append(str(outp))
+                    if _csv_has_data_rows(outp) or _props_line_files_exist(d):
+                        produced_artifacts.append(str(outp))
+                    else:
+                        skip_git_artifacts.append(str(outp))
+                        _vprint(verbose, f"[run] {outp.name} has no data rows and no canonical lines; skipping git publish")
                 except Exception as e2:
                     _vprint(verbose, f"[run] props recommendations failed for {d}: {e2}")
-                    # Write an empty placeholder to allow reconciliation to proceed
                     try:
                         outp = PROC_DIR / f"props_recommendations_{d}.csv"
-                        if not outp.exists():
-                            pd.DataFrame(
-                                columns=[
-                                    "date",
-                                    "player",
-                                    "team",
-                                    "opp",
-                                    "market",
-                                    "line",
-                                    "proj_lambda",
-                                    "proj",
-                                    "p_over",
-                                    "over_price",
-                                    "under_price",
-                                    "book",
-                                    "side",
-                                    "price",
-                                    "ev",
-                                    "ev_over",
-                                    "chosen_prob",
-                                    "edge_score",
-                                    "edge_drivers",
-                                    "edge_reasons",
-                                ]
-                            ).to_csv(outp, index=False)
-                            _vprint(verbose, f"[run] wrote empty props_recommendations_{d}.csv placeholder")
-                        produced_artifacts.append(str(outp))
+                        if _csv_has_data_rows(outp):
+                            produced_artifacts.append(str(outp))
+                            _vprint(verbose, f"[run] keeping existing non-empty {outp.name}")
+                        else:
+                            skip_git_artifacts.append(str(outp))
+                            _vprint(verbose, f"[run] leaving {outp.name} absent/empty to avoid publishing a placeholder")
                     except Exception:
                         pass
             # Append into history CSV for web charts/tables
@@ -1456,6 +1466,7 @@ def run(days_ahead: int = 2, years_back: int = 2, reconcile_yesterday: bool = Tr
             # Persist list of artifacts on the instance for later git stage
             try:
                 globals()["_DAILY_UPDATE_PRODUCED_ARTIFACTS"] = produced_artifacts
+                globals()["_DAILY_UPDATE_SKIP_GIT_ARTIFACTS"] = skip_git_artifacts
             except Exception:
                 pass
         except Exception as e:
@@ -1560,6 +1571,12 @@ def run(days_ahead: int = 2, years_back: int = 2, reconcile_yesterday: bool = Tr
             else:
                 # Stage all tracked/untracked (respects .gitignore)
                 _run(["git", "add", "-A"]).stdout
+                try:
+                    skip_artifacts = globals().get("_DAILY_UPDATE_SKIP_GIT_ARTIFACTS", []) or []
+                    for p in skip_artifacts:
+                        _run(["git", "restore", "--staged", "--", p])
+                except Exception:
+                    skip_artifacts = []
                 # Explicitly stage key processed artifacts we rely on in web (safety against ignore edge cases)
                 try:
                     produced = globals().get("_DAILY_UPDATE_PRODUCED_ARTIFACTS", []) or []
@@ -1590,7 +1607,7 @@ def run(days_ahead: int = 2, years_back: int = 2, reconcile_yesterday: bool = Tr
 
                         # Props recs (pill drivers live here)
                         props_recs_file = root / "data" / "processed" / f"props_recommendations_{d}.csv"
-                        if props_recs_file.exists():
+                        if props_recs_file.exists() and str(props_recs_file) not in set(skip_artifacts):
                             _run(["git", "add", "-f", str(props_recs_file)])
 
                         # Daily bundles consumed by UI (stable artifact)

@@ -454,6 +454,63 @@ def _props_source_files(date_ymd: str) -> list[Path]:
     return out
 
 
+def _collect_props_lines_for_date(
+    date_ymd: str,
+    push_to_github: bool = True,
+    books: tuple[str, ...] = ("oddsapi", "bovada"),
+) -> Dict[str, Any]:
+    from concurrent.futures import ThreadPoolExecutor, TimeoutError as _FutTimeout
+
+    from ..data import player_props as props_data
+
+    d = str(date_ymd or "").strip()
+    base = _props_lines_dir(d)
+    base.mkdir(parents=True, exist_ok=True)
+    out: Dict[str, Any] = {"date": d, "written": [], "errors": []}
+    try:
+        step_timeout = int(os.getenv("PROPS_STEP_TIMEOUT_SEC", "90"))
+    except Exception:
+        step_timeout = 90
+    try:
+        roster_df = props_data._build_roster_enrichment()
+    except Exception:
+        roster_df = None
+    for which in books:
+        try:
+            cfg = props_data.PropsCollectionConfig(output_root=str(_props_dir()), book=which, source=which)
+
+            def _do_collect() -> Dict[str, Any]:
+                return props_data.collect_and_write(d, roster_df=roster_df, cfg=cfg)
+
+            try:
+                with ThreadPoolExecutor(max_workers=1) as ex:
+                    fut = ex.submit(_do_collect)
+                    res = fut.result(timeout=step_timeout)
+            except _FutTimeout:
+                out["errors"].append({"book": which, "error": f"timeout_after_{step_timeout}s"})
+                continue
+            path = res.get("output_path") if isinstance(res, dict) else None
+            if not path:
+                continue
+            out["written"].append(str(path))
+            if not push_to_github:
+                continue
+            try:
+                rel = str(Path(path)).replace("\\", "/")
+                try:
+                    parts = rel.split("/")
+                    if "data" in parts:
+                        rel = "/".join(parts[parts.index("data"):])
+                except Exception:
+                    pass
+                _gh_upsert_file_if_better_or_same(Path(path), f"web: update props lines {which} for {d}", rel_hint=rel)
+            except Exception:
+                pass
+        except Exception as e:
+            out["errors"].append({"book": which, "error": str(e)})
+    return out
+
+
 def _props_recommendations_staleness(date_ymd: str) -> dict[str, Any]:
     d = str(date_ymd or "").strip()
     rec_path = PROC_DIR / f"props_recommendations_{d}.csv"
@@ -493,6 +550,41 @@ def _maybe_refresh_props_recommendations_if_stale(date_ymd: str, min_ev: float =
     try:
         res = _refresh_props_recommendations(str(date_ymd or "").strip(), min_ev=min_ev, top=top)
         out["status"] = "refreshed"
+        out["refresh"] = res
+    except Exception as e:
+        out["status"] = "error"
+        out["error"] = str(e)
+    return out
+
+
+def _props_recommendations_missing_or_empty(date_ymd: str) -> bool:
+    d = str(date_ymd or "").strip()
+    rec_path = PROC_DIR / f"props_recommendations_{d}.csv"
+    if not rec_path.exists():
+        return True
+    try:
+        df = _read_csv_fallback(rec_path)
+        return df is None or df.empty
+    except Exception:
+        return True
+
+
+def _maybe_self_heal_props_recommendations(date_ymd: str, min_ev: float = 0.0, top: int = 200) -> dict[str, Any]:
+    d = str(date_ymd or "").strip()
+    info = _props_recommendations_staleness(d)
+    out = dict(info)
+    missing_local = _props_recommendations_missing_or_empty(d)
+    needs_refresh = bool(info.get("stale")) or bool(missing_local)
+    out["missing_local_recommendations"] = bool(missing_local)
+    if not needs_refresh:
+        out["status"] = "fresh"
+        return out
+    if _read_only(d):
+        out["status"] = "read-only-pending"
+        return out
+    try:
+        res = _refresh_props_recommendations(d, min_ev=min_ev, top=top)
+        out["status"] = "refreshed" if bool(info.get("stale")) else ("recovered-missing" if bool((res or {}).get("ok")) else "missing-after-refresh")
         out["refresh"] = res
     except Exception as e:
         out["status"] = "error"
@@ -4116,7 +4208,7 @@ async def v1_props_cards(
         except Exception:
             pass
         try:
-            _maybe_refresh_props_recommendations_if_stale(d, min_ev=0.0, top=max(int(n_top or 0), 200))
+            _maybe_self_heal_props_recommendations(d, min_ev=0.0, top=max(int(n_top or 0), 200))
         except Exception:
             pass
 
@@ -13443,7 +13535,7 @@ async def api_props_health(
         pass
     if int(attempt_refresh or 0) == 1:
         try:
-            out["refresh_probe"] = _maybe_refresh_props_recommendations_if_stale(d, min_ev=0.0, top=200)
+            out["refresh_probe"] = _maybe_self_heal_props_recommendations(d, min_ev=0.0, top=200)
             stale_info_after = _props_recommendations_staleness(d)
             out["recommendations_csv"]["stale_vs_lines_after_probe"] = bool(stale_info_after.get("stale"))
             out["recommendations_csv"]["mtime_after_probe"] = stale_info_after.get("recommendations_mtime")
@@ -13765,7 +13857,7 @@ async def api_props_recommendations(
         read_only_ui = _read_only(date)
         try:
             if not read_only_ui:
-                _maybe_refresh_props_recommendations_if_stale(date, min_ev=float(min_ev or 0.0), top=max(int(top or 0), 200))
+                _maybe_self_heal_props_recommendations(date, min_ev=float(min_ev or 0.0), top=max(int(top or 0), 200))
         except Exception:
             pass
         # Respect read-only mode: if cache missing, do not compute on-demand
@@ -14172,57 +14264,11 @@ async def api_cron_props_collect(
     if not (secret and supplied and _const_time_eq(supplied, secret)):
         return JSONResponse({"error": "unauthorized"}, status_code=401)
     d = _normalize_date_param(date)
-    def _collect_lines_for_date(_d: str) -> Dict[str, Any]:
-        from ..data import player_props as props_data
-        base = _props_lines_dir(_d)
-        base.mkdir(parents=True, exist_ok=True)
-        out: Dict[str, Any] = {"date": _d, "written": [], "errors": []}
-        # Per-source timeout (seconds) to prevent indefinite hangs
-        try:
-            step_timeout = int(os.getenv('PROPS_STEP_TIMEOUT_SEC', '90'))
-        except Exception:
-            step_timeout = 90
-        from concurrent.futures import ThreadPoolExecutor, TimeoutError as _FutTimeout
-        for which, src in (("oddsapi", "oddsapi"), ("bovada", "bovada")):
-            try:
-                cfg = props_data.PropsCollectionConfig(output_root=str(_props_dir()), book=which, source=src)
-                try:
-                    roster_df = _props_data._build_roster_enrichment()
-                except Exception:
-                    roster_df = None
-                # Run the collection in a tiny thread with timeout so it can't hang forever
-                def _do_collect():
-                    return props_data.collect_and_write(_d, roster_df=roster_df, cfg=cfg)
-                try:
-                    with ThreadPoolExecutor(max_workers=1) as ex:
-                        fut = ex.submit(_do_collect)
-                        res = fut.result(timeout=step_timeout)
-                except _FutTimeout:
-                    out["errors"].append({"book": which, "error": f"timeout_after_{step_timeout}s"})
-                    continue
-                path = res.get("output_path")
-                if path:
-                    out["written"].append(str(path))
-                    try:
-                        rel = str(Path(path)).replace("\\", "/")
-                        try:
-                            parts = rel.split("/")
-                            if "data" in parts:
-                                idx = parts.index("data")
-                                rel = "/".join(parts[idx:])
-                        except Exception:
-                            pass
-                        _gh_upsert_file_if_better_or_same(Path(path), f"web: update props lines {which} for {_d}", rel_hint=rel)
-                    except Exception:
-                        pass
-            except Exception as e:
-                out["errors"].append({"book": which, "error": str(e)})
-        return out
     try:
         if async_run:
-            job_id = _queue_cron('props-collect', {'date': d}, lambda: _collect_lines_for_date(d))
+            job_id = _queue_cron('props-collect', {'date': d}, lambda: _collect_props_lines_for_date(d, push_to_github=True))
             return JSONResponse({"ok": True, "date": d, "queued": True, "mode": "async", "job_id": job_id}, status_code=202)
-        out = _collect_lines_for_date(d)
+        out = _collect_props_lines_for_date(d, push_to_github=True)
         return JSONResponse({"ok": True, **out})
     except Exception as e:
         return JSONResponse({"ok": False, "error": str(e), "date": d}, status_code=500)
@@ -14374,53 +14420,10 @@ async def api_cron_props_recommendations(
     d = _normalize_date_param(date)
     def _compute_recommendations_for_date(_d: str) -> Dict[str, Any]:
         # Ensure lines exist; if not, collect
+        collect_result = None
         try:
-            try:
-                step_timeout = int(os.getenv('PROPS_STEP_TIMEOUT_SEC', '90'))
-            except Exception:
-                step_timeout = 90
-            from concurrent.futures import ThreadPoolExecutor, TimeoutError as _FutTimeout
-            base_local = _props_lines_dir(_d)
-            need_collect_local = not (((base_local / "oddsapi.parquet").exists()) or ((base_local / "bovada.parquet").exists()))
-            if need_collect_local:
-                try:
-                    # Call the internal helper used by props-collect
-                    from ..data import player_props as props_data
-                    base_local.mkdir(parents=True, exist_ok=True)
-                    for which, src in (("oddsapi", "oddsapi"), ("bovada", "bovada")):
-                        try:
-                            cfg = props_data.PropsCollectionConfig(output_root=str(_props_dir()), book=which, source=src)
-                            try:
-                                roster_df_local = _props_data._build_roster_enrichment()
-                            except Exception:
-                                roster_df_local = None
-                            # Timeout-guard the collection
-                            def _do_collect_local():
-                                return props_data.collect_and_write(_d, roster_df=roster_df_local, cfg=cfg)
-                            try:
-                                with ThreadPoolExecutor(max_workers=1) as ex:
-                                    fut = ex.submit(_do_collect_local)
-                                    res_local = fut.result(timeout=step_timeout)
-                            except _FutTimeout:
-                                res_local = {"output_path": None}
-                            path_local = res_local.get("output_path")
-                            if path_local:
-                                try:
-                                    rel_local = str(Path(path_local)).replace("\\", "/")
-                                    try:
-                                        parts_local = rel_local.split("/")
-                                        if "data" in parts_local:
-                                            idx_local = parts_local.index("data")
-                                            rel_local = "/".join(parts_local[idx_local:])
-                                    except Exception:
-                                        pass
-                                    _gh_upsert_file_if_better_or_same(Path(path_local), f"web: update props lines {which} for {_d}", rel_hint=rel_local)
-                                except Exception:
-                                    pass
-                        except Exception:
-                            pass
-                except Exception:
-                    pass
+            if not _props_source_files(_d):
+                collect_result = _collect_props_lines_for_date(_d, push_to_github=True)
         except Exception:
             pass
         # Compute recommendations using the same logic as api_props_recommendations (compute branch)
@@ -14438,7 +14441,10 @@ async def api_cron_props_recommendations(
                 except Exception:
                     pass
         if not parts:
-            return {"rows": 0, "message": "no-lines"}
+            out = {"rows": 0, "message": "no-lines"}
+            if collect_result is not None:
+                out["collect"] = collect_result
+            return out
         lines = pd.concat(parts, ignore_index=True)
         # Ensure stats exist for projection
         stats_path = RAW_DIR / "player_game_stats.csv"
@@ -15627,11 +15633,14 @@ def _refresh_props_recommendations(date: str, min_ev: float = 0.0, top: int = 20
             return False
         return True
 
-    # Load canonical lines (ONLY OddsAPI), prefer local; GH fallback allowed in cron
+    # Load canonical lines, preferring local files and falling back to GitHub when available.
     base = _props_lines_dir(d)
     parts = []
     local_line_files = []
-    for stem in ("oddsapi", "bovada"):
+
+    def _append_lines_for_stem(stem: str, allow_github: bool = True) -> None:
+        nonlocal parts, local_line_files
+
         p_parquet = base / f"{stem}.parquet"
         p_csv = base / f"{stem}.csv"
         local_usable = False
@@ -15653,13 +15662,13 @@ def _refresh_props_recommendations(date: str, min_ev: float = 0.0, top: int = 20
                     local_usable = True
             except Exception:
                 pass
-        if local_usable:
-            continue
+        if local_usable or not allow_github:
+            return
         try:
             ghp = _github_raw_read_parquet(f"data/props/player_props_lines/date={d}/{stem}.parquet")
             if _usable_lines_df(ghp):
                 parts.append(ghp)
-                continue
+                return
         except Exception:
             pass
         try:
@@ -15668,8 +15677,26 @@ def _refresh_props_recommendations(date: str, min_ev: float = 0.0, top: int = 20
                 parts.append(ghc)
         except Exception:
             pass
+
+    for stem in ("oddsapi", "bovada"):
+        _append_lines_for_stem(stem, allow_github=True)
+
+    collect_result = None
+    if not parts and not _read_only(d):
+        try:
+            collect_result = _collect_props_lines_for_date(d, push_to_github=True)
+        except Exception as e:
+            collect_result = {"date": d, "written": [], "errors": [{"book": "collect", "error": str(e)}]}
+        parts = []
+        local_line_files = []
+        for stem in ("oddsapi", "bovada"):
+            _append_lines_for_stem(stem, allow_github=False)
+
     if not parts:
-        return {"ok": False, "date": d, "reason": "no_lines"}
+        out = {"ok": False, "date": d, "reason": "no_lines"}
+        if collect_result is not None:
+            out["collect"] = collect_result
+        return out
     lines = pd.concat(parts, ignore_index=True)
     # Change detection: if local recommendations exist and line files are not newer, skip recompute
     try:
@@ -15955,6 +15982,72 @@ def _refresh_props_recommendations(date: str, min_ev: float = 0.0, top: int = 20
         except Exception:
             base = base.drop_duplicates(subset=["team", "player", "market", "line"], keep="first")
         base = attach_prop_edge_signals(date=d, props=base)
+        try:
+            base["p_over"] = pd.to_numeric(base.get("p_over"), errors="coerce").fillna(0.0)
+            base["proj_lambda"] = pd.to_numeric(base.get("proj_lambda"), errors="coerce")
+            line_vals = pd.to_numeric(base.get("line"), errors="coerce")
+            floor_vals = _np.floor(line_vals.astype(float).values + 1e-9).astype(int)
+            line_frac = _np.abs(line_vals.astype(float).values - floor_vals)
+            if "p_push" not in base.columns:
+                p_push = _np.where(
+                    line_frac <= 1e-9,
+                    _poisson.pmf(floor_vals, mu=base["proj_lambda"].astype(float).values),
+                    0.0,
+                )
+                base["p_push"] = pd.to_numeric(pd.Series(p_push, index=base.index), errors="coerce").fillna(0.0)
+            else:
+                base["p_push"] = pd.to_numeric(base.get("p_push"), errors="coerce").fillna(0.0)
+            if "p_under" not in base.columns:
+                base["p_under"] = (1.0 - base["p_over"] - base["p_push"]).clip(lower=0.0, upper=1.0)
+            else:
+                base["p_under"] = pd.to_numeric(base.get("p_under"), errors="coerce").fillna(
+                    (1.0 - base["p_over"] - base["p_push"]).clip(lower=0.0, upper=1.0)
+                )
+        except Exception:
+            base["p_push"] = pd.to_numeric(base.get("p_push"), errors="coerce").fillna(0.0)
+            base["p_under"] = pd.to_numeric(base.get("p_under"), errors="coerce").fillna(
+                (1.0 - pd.to_numeric(base.get("p_over"), errors="coerce").fillna(0.0)).clip(lower=0.0, upper=1.0)
+            )
+
+        fallback_side = _np.where(
+            pd.to_numeric(base.get("p_over"), errors="coerce").fillna(-_np.inf) >= pd.to_numeric(base.get("p_under"), errors="coerce").fillna(-_np.inf),
+            "Over",
+            "Under",
+        )
+        if "side_suggested" not in base.columns:
+            base["side_suggested"] = fallback_side
+        else:
+            side_s = base["side_suggested"].astype(str).replace({"": _np.nan, "nan": _np.nan, "None": _np.nan})
+            base["side_suggested"] = side_s.fillna(pd.Series(fallback_side, index=base.index))
+
+        fallback_prob = _np.where(
+            base["side_suggested"] == "Over",
+            pd.to_numeric(base.get("p_over"), errors="coerce"),
+            pd.to_numeric(base.get("p_under"), errors="coerce"),
+        )
+        if "chosen_prob" not in base.columns:
+            base["chosen_prob"] = pd.to_numeric(pd.Series(fallback_prob, index=base.index), errors="coerce")
+        else:
+            base["chosen_prob"] = pd.to_numeric(base.get("chosen_prob"), errors="coerce").fillna(
+                pd.to_numeric(pd.Series(fallback_prob, index=base.index), errors="coerce")
+            )
+
+        fallback_edge = pd.concat([
+            pd.to_numeric(base.get("p_over"), errors="coerce"),
+            pd.to_numeric(base.get("p_under"), errors="coerce"),
+        ], axis=1).max(axis=1)
+        if "edge_score" not in base.columns:
+            base["edge_score"] = fallback_edge
+        else:
+            base["edge_score"] = pd.to_numeric(base.get("edge_score"), errors="coerce").fillna(fallback_edge)
+        if "edge_reasons" not in base.columns:
+            base["edge_reasons"] = ""
+        else:
+            base["edge_reasons"] = base["edge_reasons"].fillna("").astype(str)
+        if "edge_drivers" not in base.columns:
+            base["edge_drivers"] = ""
+        else:
+            base["edge_drivers"] = base["edge_drivers"].fillna("").astype(str)
 
     out = out.merge(
         base[[c for c in ["team", "player", "market", "line", "opp", "side_suggested", "chosen_prob", "p_push", "p_under", "edge_score", "edge_reasons", "edge_drivers"] if c in base.columns]],
@@ -16119,6 +16212,10 @@ def _refresh_props_recommendations(date: str, min_ev: float = 0.0, top: int = 20
         out["edge_reasons"] = out.get("edge_drivers", "")
     except Exception:
         pass
+
+    for col, default in (("edge_score", np.nan), ("edge_reasons", ""), ("edge_drivers", "")):
+        if col not in out.columns:
+            out[col] = default
 
     out = out.assign(
         date=d,
@@ -16614,40 +16711,10 @@ async def api_cron_props_full(
     if async_run:
         d_local = d
         def _run_full():
-            # Collect lines for configured sources; ensure output dir exists
-            from ..data import player_props as props_data
-            base = _props_lines_dir(d_local)
-            base.mkdir(parents=True, exist_ok=True)
-            step_timeout = 90
-            from concurrent.futures import ThreadPoolExecutor, TimeoutError as _FutTimeout
-            for which, src in (("oddsapi", "oddsapi"),):
-                try:
-                    cfg = props_data.PropsCollectionConfig(output_root=str(_props_dir()), book=which, source=src)
-                    try:
-                        roster_df = _props_data._build_roster_enrichment()
-                    except Exception:
-                        roster_df = None
-                    # Timeout-guard
-                    def _do_collect_full():
-                        return props_data.collect_and_write(d_local, roster_df=roster_df, cfg=cfg)
-                    try:
-                        with ThreadPoolExecutor(max_workers=1) as ex:
-                            fut = ex.submit(_do_collect_full)
-                            res = fut.result(timeout=step_timeout)
-                    except _FutTimeout:
-                        res = {"output_path": None}
-                    path = res.get("output_path")
-                    if path:
-                        try:
-                            rel = str(Path(path)).replace("\\", "/")
-                            parts = rel.split("/")
-                            if "data" in parts:
-                                rel = "/".join(parts[parts.index("data"):])
-                            _gh_upsert_file_if_better_or_same(Path(path), f"web: update props lines {which} for {d_local}", rel_hint=rel)
-                        except Exception:
-                            pass
-                except Exception:
-                    pass
+            try:
+                _collect_props_lines_for_date(d_local, push_to_github=True, books=("oddsapi",))
+            except Exception:
+                pass
             # Projections
             dfp = _compute_props_projections(d_local, market=market)
             out_path = PROC_DIR / f"props_projections_{d_local}.csv"

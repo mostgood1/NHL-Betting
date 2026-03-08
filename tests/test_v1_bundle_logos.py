@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 
 from fastapi.testclient import TestClient
+import pandas as pd
 
 from nhl_betting.web import app as app_mod
 
@@ -283,6 +284,71 @@ def test_v1_props_cards_refreshes_stale_recommendations_from_lines(tmp_path: Pat
     assert payload.get("ok") is True
     assert len(payload.get("cards") or []) == 1
     assert payload["cards"][0].get("player") == "New Player"
+
+
+def test_v1_props_cards_self_heals_missing_local_recommendations(tmp_path: Path, monkeypatch):
+    _repo_root, _data_dir, proc_dir = _set_render_like_paths(tmp_path, monkeypatch)
+
+    rec_path = proc_dir / "props_recommendations_2026-03-06.csv"
+    calls: list[tuple[str, float, int]] = []
+
+    def _fake_refresh(date: str, min_ev: float = 0.0, top: int = 200):
+        calls.append((date, min_ev, top))
+        _write_csv(
+            rec_path,
+            "player,team,opp,market,side,book,line,price,ev\n"
+            "Recovered Player,COL,DAL,SOG,Over,draftkings,3.5,-105,0.12\n",
+        )
+        return {"ok": True, "date": date, "rows": 1}
+
+    monkeypatch.setattr(app_mod, "_refresh_props_recommendations", _fake_refresh, raising=True)
+    monkeypatch.setattr(app_mod, "_github_raw_read_csv", lambda *_a, **_k: None, raising=True)
+    monkeypatch.setattr(app_mod, "_read_only", lambda *_a, **_k: False, raising=True)
+
+    client = TestClient(app_mod.app)
+    r = client.get("/v1/props-cards/2026-03-06?top=12")
+    assert r.status_code == 200
+
+    payload = r.json()
+    assert payload.get("ok") is True
+    assert len(payload.get("cards") or []) == 1
+    assert payload["cards"][0].get("player") == "Recovered Player"
+    assert calls == [("2026-03-06", 0.0, 200)]
+
+
+def test_refresh_props_recommendations_collects_missing_lines_on_demand(tmp_path: Path, monkeypatch):
+    _repo_root, data_dir, proc_dir = _set_render_like_paths(tmp_path, monkeypatch)
+    from nhl_betting.core import props_edge_signals as edge_mod
+
+    _write_csv(
+        proc_dir / "props_projections_all_2026-03-06.csv",
+        "player,team,market,proj_lambda\n"
+        "Collected Player,COL,SOG,4.2\n",
+    )
+
+    calls: list[tuple[str, bool, tuple[str, ...]]] = []
+
+    def _fake_collect(date: str, push_to_github: bool = True, books: tuple[str, ...] = ("oddsapi", "bovada")):
+        calls.append((date, push_to_github, tuple(books)))
+        _write_csv(
+            data_dir / "props" / "player_props_lines" / "date=2026-03-06" / "oddsapi.csv",
+            "date,player_name,team,market,line,over_price,under_price,book\n"
+            "2026-03-06,Collected Player,COL,SOG,1.5,100,-200,draftkings\n",
+        )
+        return {"date": date, "written": ["oddsapi.csv"], "errors": []}
+
+    monkeypatch.setattr(app_mod, "_collect_props_lines_for_date", _fake_collect, raising=True)
+    monkeypatch.setattr(app_mod, "_github_raw_read_csv", lambda *_a, **_k: pd.DataFrame(), raising=True)
+    monkeypatch.setattr(app_mod, "_github_raw_read_parquet", lambda *_a, **_k: pd.DataFrame(), raising=True)
+    monkeypatch.setattr(app_mod, "_gh_upsert_file_if_better_or_same", lambda *_a, **_k: {"ok": True}, raising=True)
+    monkeypatch.setattr(edge_mod, "attach_prop_edge_signals", lambda **kwargs: kwargs["props"], raising=True)
+
+    res = app_mod._refresh_props_recommendations("2026-03-06", min_ev=0.0, top=50)
+
+    assert res.get("ok") is True
+    assert calls == [("2026-03-06", True, ("oddsapi", "bovada"))]
+    text = (proc_dir / "props_recommendations_2026-03-06.csv").read_text(encoding="utf-8")
+    assert "Collected Player" in text
 
 
 def test_refresh_props_recommendations_reads_csv_lines_fallback(tmp_path: Path, monkeypatch):

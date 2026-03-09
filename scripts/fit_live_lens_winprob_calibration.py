@@ -6,9 +6,12 @@ Primary data source: labeled state snapshots produced by Live Lens and outcome-b
 Fallback data source (smaller, edge-triggered only):
     data/processed/live_lens/perf/live_lens_bets_all.jsonl
 
-Fits calibration per segment:
+Fits calibration per segment using a hierarchical time key:
     - prob_source: 'poisson' vs 'logit'
-    - remaining_min bucket
+    - full-game 15-second bucket
+    - full-game 1-minute bucket
+    - REG vs OT phase
+    - legacy remaining_min bucket fallback
 
 Calibration types:
     - temp-shift (t,b) on log-odds
@@ -43,6 +46,7 @@ from nhl_betting.utils.calibration import (
     summarize_binary,
 )
 from nhl_betting.utils.io import PROC_DIR
+from nhl_betting.utils.live_lens_time import live_lens_calibration_segment_candidates
 
 
 def _to_float(x) -> Optional[float]:
@@ -78,26 +82,6 @@ def _daterange(start: str, end: str) -> list[str]:
         out.append(cur.isoformat())
         cur = cur + timedelta(days=1)
     return out
-
-
-def _rm_bucket(rm: Optional[float]) -> Optional[str]:
-    if rm is None:
-        return None
-    try:
-        x = float(rm)
-    except Exception:
-        return None
-    if x < 0:
-        x = 0.0
-    if x <= 5:
-        return "0-5"
-    if x <= 10:
-        return "5-10"
-    if x <= 20:
-        return "10-20"
-    if x <= 40:
-        return "20-40"
-    return "40-60"
 
 
 def _apply_spec(spec: dict, p: np.ndarray) -> np.ndarray:
@@ -185,6 +169,18 @@ def _extract_home_win_label(rec: dict) -> Optional[int]:
         return None
 
 
+def _score_key(rec: dict[str, Any]) -> str:
+    try:
+        score = rec.get("score")
+        if isinstance(score, dict):
+            home = score.get("home")
+            away = score.get("away")
+            return f"{home}-{away}"
+        return str(score or "")
+    except Exception:
+        return ""
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--snap-dir", default=str(PROC_DIR / "live_lens"), help="Snapshots directory (default: data/processed/live_lens)")
@@ -255,20 +251,28 @@ def main() -> int:
                 if p_home is None:
                     continue
 
+                elapsed_min = guidance.get("elapsed_min")
                 rm = _to_float(guidance.get("remaining_min"))
-                bucket = _rm_bucket(rm)
                 src = str(guidance.get("p_win_prob_source") or "unknown").strip().lower()
+                seg_candidates = live_lens_calibration_segment_candidates(
+                    src,
+                    elapsed_min=elapsed_min,
+                    period=rec.get("period"),
+                    clock=rec.get("clock"),
+                    remaining_min=rm,
+                )
+                primary_seg_key = seg_candidates[0] if seg_candidates else f"src={src or 'unknown'}"
 
                 if dedupe:
-                    key = (gpk, rec.get("period"), rec.get("score"), bucket, src)
+                    key = (gpk, rec.get("period"), _score_key(rec), primary_seg_key)
                     if key in seen:
                         continue
                     seen.add(key)
 
                 p_list.append(float(p_home))
                 y_list.append(int(y_home))
-                if bucket:
-                    _add(f"src={src}|rm={bucket}", float(p_home), int(y_home))
+                for seg_key in seg_candidates:
+                    _add(seg_key, float(p_home), int(y_home))
             except Exception:
                 continue
 
@@ -318,7 +322,7 @@ def main() -> int:
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     obj: Dict[str, Any] = {
-        "version": 2,
+        "version": 3,
         "moneyline": ml_tb,
         "totals": {"t": 1.0, "b": 0.0},
         "default": spec_default,
@@ -334,6 +338,13 @@ def main() -> int:
             "fallback_used": bool(fallback_used),
             "n": int(len(p_list)),
             "n_segments": int(len(seg_specs)),
+            "segment_scheme": [
+                "src|phase|t15",
+                "src|phase|t1",
+                "src|phase",
+                "src|rm",
+                "src",
+            ],
             "raw": raw_summary,
         },
     }

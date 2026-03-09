@@ -16,6 +16,8 @@ from io import StringIO
 import numpy as np
 import pandas as pd
 
+from ..utils.live_lens_time import pick_live_lens_calibration_spec
+
 try:
     from ..utils.io import save_df  # type: ignore
 except Exception:
@@ -2794,28 +2796,6 @@ def _live_lens_winprob_calibration_path() -> Path:
     return PROC_DIR / "live_lens_winprob_calibration.json"
 
 
-def _live_lens_rm_bucket(remaining_min: Optional[float]) -> str:
-    try:
-        if remaining_min is None:
-            return "unknown"
-        x = float(remaining_min)
-        if not math.isfinite(x):
-            return "unknown"
-        if x < 0.0:
-            x = 0.0
-        if x <= 5.0:
-            return "0-5"
-        if x <= 10.0:
-            return "5-10"
-        if x <= 20.0:
-            return "10-20"
-        if x <= 40.0:
-            return "20-40"
-        return "40-60"
-    except Exception:
-        return "unknown"
-
-
 def _apply_live_lens_temp_shift_spec(spec: dict, p: float) -> float:
     try:
         p = float(max(1e-6, min(1.0 - 1e-6, float(p))))
@@ -2890,29 +2870,54 @@ def _load_live_lens_winprob_calibration() -> dict:
         return default
 
 
-def _pick_live_lens_winprob_calibration_spec(obj: dict, remaining_min: Optional[float], prob_source: Optional[str]) -> dict:
+def _pick_live_lens_winprob_calibration_spec(
+    obj: dict,
+    remaining_min: Optional[float],
+    prob_source: Optional[str],
+    *,
+    elapsed_min: Optional[float] = None,
+    period: Any = None,
+    clock: Any = None,
+) -> dict:
     try:
-        default = obj.get("default") if isinstance(obj, dict) else None
-        segments = obj.get("segments") if isinstance(obj, dict) else None
-        if not isinstance(default, dict):
-            default = {"kind": "temp_shift", "t": 1.0, "b": 0.0}
-        if not isinstance(segments, dict):
-            return default
-        src = str(prob_source or "unknown").strip().lower() or "unknown"
-        key = f"src={src}|rm={_live_lens_rm_bucket(remaining_min)}"
-        spec = segments.get(key)
+        spec, _ = pick_live_lens_calibration_spec(
+            obj,
+            prob_source,
+            elapsed_min=elapsed_min,
+            period=period,
+            clock=clock,
+            remaining_min=remaining_min,
+        )
         if isinstance(spec, dict):
             return spec
-        return default
+        default = obj.get("default") if isinstance(obj, dict) else None
+        if isinstance(default, dict):
+            return default
+        return {"kind": "temp_shift", "t": 1.0, "b": 0.0}
     except Exception:
         return {"kind": "temp_shift", "t": 1.0, "b": 0.0}
 
 
-def _apply_live_lens_winprob_calibration(p: float, remaining_min: Optional[float], prob_source: Optional[str]) -> float:
+def _apply_live_lens_winprob_calibration(
+    p: float,
+    remaining_min: Optional[float],
+    prob_source: Optional[str],
+    *,
+    elapsed_min: Optional[float] = None,
+    period: Any = None,
+    clock: Any = None,
+) -> float:
     try:
         p = float(max(1e-6, min(1.0 - 1e-6, float(p))))
         obj = _load_live_lens_winprob_calibration()
-        spec = _pick_live_lens_winprob_calibration_spec(obj, remaining_min, prob_source)
+        spec = _pick_live_lens_winprob_calibration_spec(
+            obj,
+            remaining_min,
+            prob_source,
+            elapsed_min=elapsed_min,
+            period=period,
+            clock=clock,
+        )
         kind = str((spec or {}).get("kind") or "temp_shift").strip().lower()
         if kind == "isotonic":
             return _apply_live_lens_isotonic_spec(spec, p)
@@ -7806,7 +7811,16 @@ async def v1_live_lens_combined(
 
                         # Apply learned calibration (temperature + bias) to in-play win prob.
                         try:
-                            p_home_live = float(_apply_live_lens_winprob_calibration(float(p_home_live), rm, ml_prob_source))
+                            p_home_live = float(
+                                _apply_live_lens_winprob_calibration(
+                                    float(p_home_live),
+                                    rm,
+                                    ml_prob_source,
+                                    elapsed_min=em,
+                                    period=g.get("period"),
+                                    clock=g.get("clock"),
+                                )
+                            )
                             p_home_live = float(max(0.01, min(0.99, p_home_live)))
                             p_away_live = float(max(0.01, min(0.99, 1.0 - float(p_home_live))))
                             # Expose for UI/debug (stable keys, optional).

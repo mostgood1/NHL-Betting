@@ -32,6 +32,7 @@ if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
 from nhl_betting.utils.io import PROC_DIR
+from nhl_betting.utils.live_lens_time import pick_live_lens_calibration_spec
 
 
 def _to_float(x) -> Optional[float]:
@@ -62,26 +63,6 @@ def _sigmoid(z: float) -> float:
 def _logit(p: float) -> float:
     p = _clamp_prob(p)
     return float(math.log(p / (1.0 - p)))
-
-
-def _rm_bucket(rm: Optional[float]) -> str:
-    if rm is None:
-        return "unknown"
-    try:
-        x = float(rm)
-    except Exception:
-        return "unknown"
-    if x < 0:
-        x = 0.0
-    if x <= 5:
-        return "0-5"
-    if x <= 10:
-        return "5-10"
-    if x <= 20:
-        return "10-20"
-    if x <= 40:
-        return "20-40"
-    return "40-60"
 
 
 def _iter_jsonl(path: Path) -> Iterable[dict]:
@@ -163,24 +144,6 @@ def _apply_cal_spec(spec: dict, p: float) -> float:
     if kind == "isotonic":
         return _apply_isotonic(spec, p)
     return _apply_temp_shift(spec, p)
-
-
-def _pick_spec(obj: dict, remaining_min: Optional[float], prob_source: Optional[str]) -> dict:
-    default = obj.get("default") if isinstance(obj, dict) else None
-    segments = obj.get("segments") if isinstance(obj, dict) else None
-    if not isinstance(default, dict):
-        default = {"kind": "temp_shift", "t": 1.0, "b": 0.0}
-
-    if not isinstance(segments, dict):
-        return default
-
-    src = str(prob_source or "unknown").strip().lower() or "unknown"
-    rm_key = _rm_bucket(remaining_min)
-    seg_key = f"src={src}|rm={rm_key}"
-    spec = segments.get(seg_key)
-    if isinstance(spec, dict):
-        return spec
-    return default
 
 
 def _logloss(y: int, p: float) -> float:
@@ -299,11 +262,17 @@ def main() -> int:
                 continue
             p_raw = _clamp_prob(p_raw)
 
+            elapsed_min = guidance.get("elapsed_min")
             rm = _to_float(guidance.get("remaining_min"))
             src = str(guidance.get("p_win_prob_source") or "unknown").strip().lower() or "unknown"
-            seg_key = f"src={src}|rm={_rm_bucket(rm)}"
-
-            spec = _pick_spec(cal_obj, rm, src)
+            spec, seg_key = pick_live_lens_calibration_spec(
+                cal_obj,
+                src,
+                elapsed_min=elapsed_min,
+                period=rec.get("period"),
+                clock=rec.get("clock"),
+                remaining_min=rm,
+            )
             p_cal = _clamp_prob(_apply_cal_spec(spec, p_raw))
 
             overall_raw.add(y_i, p_raw)

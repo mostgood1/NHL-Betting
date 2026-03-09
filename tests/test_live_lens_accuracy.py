@@ -116,6 +116,11 @@ def test_live_lens_accuracy_page_alias_renders(monkeypatch: pytest.MonkeyPatch, 
     r = client.get("/live_lens_accuracy?date=2099-01-01")
     assert r.status_code == 200
     assert "Live Lens Accuracy" in r.text
+    assert "Selected Day Summary" in r.text
+    assert "Daily Recap (All Settled Days)" in r.text
+    assert "Elapsed bucket" in r.text
+    assert "Driver tags" in r.text
+    assert "Tag types" in r.text
 
 
 def test_live_lens_accuracy_seeds_repo_and_falls_back_to_latest_settled_date(
@@ -171,7 +176,76 @@ def test_live_lens_accuracy_seeds_repo_and_falls_back_to_latest_settled_date(
     assert obj.get("latest_available_date") == "2099-01-03"
     assert obj.get("fallback_applied") is True
     assert obj.get("rows") == 1
+    all_days = obj.get("all_days") or {}
+    assert (all_days.get("summary") or {}).get("bets") == 2
+    by_date = {str(row.get("key")): row for row in (all_days.get("by_date") or [])}
+    assert by_date["2099-01-03"]["bets"] == 1
+    assert by_date["2099-01-01"]["bets"] == 1
     assert (active_perf / "live_lens_bets_all.jsonl").exists()
+
+
+def test_live_lens_accuracy_all_days_breakdowns_stay_cumulative_when_date_is_filtered(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+):
+    perf_dir = tmp_path / "perf"
+    perf_dir.mkdir(parents=True, exist_ok=True)
+
+    recs = [
+        {
+            "date": "2099-01-01",
+            "market": "TOTAL",
+            "elapsed_bucket": "0-4",
+            "driver_tags": ["pace:up", "market:TOTAL"],
+            "result": "WIN",
+            "profit_units": 0.9,
+        },
+        {
+            "date": "2099-01-03",
+            "market": "ML",
+            "elapsed_bucket": ">=20",
+            "driver_tags": ["goalie:weak"],
+            "result": "LOSE",
+            "profit_units": -1.0,
+        },
+    ]
+
+    p = perf_dir / "live_lens_bets_all.jsonl"
+    with p.open("w", encoding="utf-8") as f:
+        for rec in recs:
+            f.write(json.dumps(rec) + "\n")
+
+    monkeypatch.setenv("LIVE_LENS_PERF_DIR", str(perf_dir))
+
+    try:
+        web_app._CACHE.clear()
+    except Exception:
+        pass
+
+    client = TestClient(web_app.app)
+    r = client.get("/api/live-lens-accuracy/data?date=2099-01-03")
+    assert r.status_code == 200
+
+    obj = r.json()
+    assert obj.get("ok") is True
+    assert (obj.get("summary") or {}).get("bets") == 1
+
+    all_days = obj.get("all_days") or {}
+    assert (all_days.get("summary") or {}).get("bets") == 2
+    assert all_days.get("start") == "2099-01-01"
+    assert all_days.get("end") == "2099-01-03"
+
+    by_date = {str(row.get("key")): row for row in (all_days.get("by_date") or [])}
+    assert by_date["2099-01-01"]["bets"] == 1
+    assert by_date["2099-01-03"]["bets"] == 1
+
+    by_tag_type = {str(row.get("key")): row for row in (all_days.get("by_tag_type") or [])}
+    assert by_tag_type["pace"]["bets"] == 1
+    assert by_tag_type["goalie"]["bets"] == 1
+
+    tag_coverage = all_days.get("tag_coverage") or {}
+    assert tag_coverage.get("bets_settled") == 2
+    assert tag_coverage.get("bets_missing_tags") == 0
 
 
 def test_pregame_accuracy_data_reads_logs_and_normalizes_game_dates(

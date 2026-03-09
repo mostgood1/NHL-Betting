@@ -20,6 +20,8 @@
     .tile { background:#0f1530; border:1px solid #25316a; border-radius:10px; padding:10px; display:grid; gap:6px; }
     .tile .k { color:#9fb0ff; font-size:11px; font-weight:800; letter-spacing:0.3px; text-transform:uppercase; }
     .tile .v { font-variant-numeric: tabular-nums; font-size:14px; color:#e8eaf6; font-weight:900; }
+    .explain { color:#cfe0ff; font-size:13px; line-height:1.5; }
+    .explain strong { color:#ffffff; }
 
     table { width:100%; border-collapse: collapse; }
     th, td { border:1px solid #25316a; padding:6px 8px; font-size:12px; font-variant-numeric: tabular-nums; }
@@ -71,31 +73,47 @@
 
   <main>
     <div class="container p-main">
-      <div class="grid-4 mb16" id="summaryTiles"></div>
+      <div class="card mb16">
+        <div class="section-title">Selected Day Summary</div>
+        <div class="muted mt10" id="selectionScope"></div>
+        <div class="grid-4 mt10" id="summaryTiles"></div>
+      </div>
 
       <div class="card mb16">
-        <div class="section-title">Per Day</div>
+        <div class="section-title">How To Read This</div>
+        <p class="explain mt10 m0"><strong>Elapsed bucket</strong> tells you how many minutes had been played when the bet fired. For example, <strong>0-4</strong> means the opening four minutes, while <strong>>=20</strong> means the bet triggered later in the game.</p>
+        <p class="explain mt10 m0"><strong>Driver tags</strong> are the machine-readable reasons the signal liked a bet at that moment. Examples: <strong>pace:up</strong> means the game is running faster than expected, <strong>goalie:weak</strong> means the save environment looks softer than baseline, and <strong>manpower:pp_home</strong> means the home team is on a power play.</p>
+        <p class="explain mt10 m0"><strong>Tag types</strong> are the families before the colon. So <strong>pace</strong> groups pace-related tags, <strong>goalie</strong> groups goalie-strength tags, and <strong>gate</strong> groups rule or threshold tags that let a bet through.</p>
+        <div class="section-title mt10">Tag Type Guide</div>
+        <div class="xscroll mt10">
+          <table id="tagTypeGuide"></table>
+        </div>
+      </div>
+
+      <div class="card mb16">
+        <div class="section-title">Daily Recap (All Settled Days)</div>
+        <div class="muted mt10" id="historyScope"></div>
         <div class="xscroll">
           <table id="byDate"></table>
         </div>
       </div>
 
       <div class="card mb16">
-        <div class="section-title">By Bet Type (Market)</div>
+        <div class="section-title">Cumulative By Bet Type (Market)</div>
         <div class="xscroll">
           <table id="byMarket"></table>
         </div>
       </div>
 
       <div class="card">
-        <div class="section-title">By Elapsed Bucket</div>
+        <div class="section-title">Cumulative By Elapsed Bucket</div>
         <div class="xscroll">
           <table id="byElapsed"></table>
         </div>
       </div>
 
       <div class="card mt10">
-        <div class="section-title">Driver Tags (All)</div>
+        <div class="section-title">Cumulative Driver Tags</div>
         <div class="muted mt10" id="tagCoverage"></div>
         <div class="xscroll">
           <table id="byDriverTag"></table>
@@ -103,7 +121,7 @@
       </div>
 
       <div class="card mt10">
-        <div class="section-title">Tag Types</div>
+        <div class="section-title">Cumulative Tag Types</div>
         <div class="xscroll">
           <table id="byTagType"></table>
         </div>
@@ -126,7 +144,85 @@
 
     function setStatus(s) { $('status').textContent = s || ''; }
 
-    function renderTiles(sum, tagCov) {
+    const TAG_TYPE_DESCRIPTIONS = {
+      'market': 'Which market family the bet belongs to, like moneyline, total, or period total.',
+      'pace': 'How fast or slow the game is playing relative to expectation.',
+      'goalie': 'Whether the goalie environment looks softer or stronger than normal.',
+      'manpower': 'Special-teams state, usually a power play for one side.',
+      'empty_net': 'One team has pulled its goalie, which changes scoring pressure.',
+      'late': 'Late-game score-state logic, such as tied or one-goal situations.',
+      'pressure': 'Which side has more urgency to attack based on the score and game state.',
+      'gate': 'Rule-based filters or minimum-edge checks that had to be satisfied.',
+      'edge': 'A coarse bucket for how large the model edge was when the bet fired.',
+      'score': 'Current score-state context, like home leading or tied.',
+      'guard': 'Safety checks that block obviously bad or stale situations.',
+      'period_total': 'Period-total-specific logic and context.',
+      'period_ml': 'Period moneyline-specific logic and context.',
+      'P1': 'First-period-specific context.',
+      'P2': 'Second-period-specific context.',
+      'P3': 'Third-period-specific context.',
+      '(none)': 'No driver tags were attached to the settled bet.'
+    };
+
+    function describeDriverTag(tag) {
+      const s = String(tag || '').trim();
+      if (!s || s === '(none)') return 'No driver tags were recorded for this bet.';
+      if (s === 'pace:up') return 'The game was playing faster than expected, which usually supports more scoring.';
+      if (s === 'pace:down') return 'The game was playing slower than expected, which usually supports fewer goals.';
+      if (s === 'goalie:weak') return 'The goalie environment looked weaker than baseline, which can help offense.';
+      if (s === 'goalie:strong') return 'The goalie environment looked stronger than baseline, which can suppress offense.';
+      if (s === 'manpower:pp_home') return 'The home team was on a power play when the signal fired.';
+      if (s === 'manpower:pp_away') return 'The away team was on a power play when the signal fired.';
+      if (s === 'empty_net:home') return 'The home team had pulled its goalie, increasing late-game volatility.';
+      if (s === 'empty_net:away') return 'The away team had pulled its goalie, increasing late-game volatility.';
+      if (s === 'late:one_goal') return 'Late-game state with only a one-goal margin.';
+      if (s === 'late:empty_net') return 'Late-game empty-net conditions were part of the signal.';
+      if (s === 'late:multi_goal') return 'Late-game state with a multi-goal margin.';
+      if (s === 'late:tied') return 'Late-game tied score state.';
+      if (s === 'pressure:home') return 'The home side had more reason to press for offense.';
+      if (s === 'pressure:away') return 'The away side had more reason to press for offense.';
+      if (s === 'pressure:even') return 'Neither side had a clear pressure advantage.';
+      if (s === 'market:TOTAL' || s === 'market:total_blend') return 'This signal came from the totals logic or a totals-specific blend.';
+      if (s.startsWith('gate:')) return 'A threshold or safety rule that the bet had to clear before being shown.';
+      if (s.startsWith('edge:')) return 'A bucket describing how large the model edge was.';
+      if (s.startsWith('score:')) return 'Current score-state context used by the live model.';
+      if (s === 'goals_ahead') return 'Goals were running ahead of the target pace for this market.';
+      if (s === 'goals_behind') return 'Goals were running behind the target pace for this market.';
+      if (s === 'goals_on_track') return 'Scoring was roughly on the pace implied by the market.';
+      if (s === 'pressure_high') return 'The game state suggested higher urgency and offensive push.';
+      if (s === 'pressure_low') return 'The game state suggested lower urgency and a calmer pace.';
+      if (s === 'total_already_reached' || s === 'guard:total_already_reached') return 'The posted total had effectively already been hit, so the signal was constrained by that state.';
+      if (/^P[123]$/.test(s)) return `This tag marks that the signal was tied to ${s.replace('P', 'period ')}.`;
+      if (s === 'period_total') return 'This signal came from period-total logic rather than full-game logic.';
+      if (s === 'period_ml') return 'This signal came from period moneyline logic rather than full-game logic.';
+      const tagType = s.includes(':') ? s.split(':', 1)[0] : s;
+      return TAG_TYPE_DESCRIPTIONS[tagType] || 'A model context tag used to explain why this live signal was triggered.';
+    }
+
+    function describeTagType(tagType) {
+      const s = String(tagType || '').trim() || '(none)';
+      return TAG_TYPE_DESCRIPTIONS[s] || 'A family of related driver tags.';
+    }
+
+    function formatElapsedBucket(bucket) {
+      const s = String(bucket ?? '').trim();
+      if (!s || s === '(none)' || s === '(missing)') return '(missing)';
+      if (s === '0-4') return '0-4 min (opening stretch)';
+      if (s === '4-8') return '4-8 min';
+      if (s === '8-12') return '8-12 min';
+      if (s === '12-20') return '12-20 min';
+      if (s === '>=20') return '20+ min (later game)';
+      return s;
+    }
+
+    function rangeText(start, end) {
+      if (start && end) return start === end ? start : `${start}..${end}`;
+      if (start) return `from ${start}`;
+      if (end) return `through ${end}`;
+      return 'all settled days';
+    }
+
+    function renderTiles(sum) {
       const el = $('summaryTiles');
       el.innerHTML = '';
       if (!sum) return;
@@ -138,19 +234,6 @@
         { k: 'Win Rate', v: (sum.win_rate === null || sum.win_rate === undefined) ? '—' : pct(sum.win_rate, 1) },
       ];
 
-      try {
-        if (tagCov) {
-          const n = Number(tagCov.bets_settled ?? 0);
-          const miss = Number(tagCov.bets_missing_tags ?? 0);
-          const distinct = Number(tagCov.distinct_tags ?? 0);
-          const tagged = Math.max(0, n - miss);
-          tiles.push({ k: 'Tagged Bets', v: `${tagged}/${n}` });
-          tiles.push({ k: 'Distinct Tags', v: String(distinct) });
-        }
-      } catch (e) {
-        // ignore
-      }
-
       for (const t of tiles) {
         const d = document.createElement('div');
         d.className = 'tile';
@@ -159,7 +242,7 @@
       }
     }
 
-    function renderTable(tableEl, rows, keyLabel) {
+    function renderTable(tableEl, rows, keyLabel, keyFormatter=null) {
       tableEl.innerHTML = '';
       const head = document.createElement('tr');
       for (const h of [keyLabel, 'bets', 'wins', 'losses', 'pushes', 'units', 'roi', 'win_rate']) {
@@ -171,8 +254,9 @@
 
       for (const r of (rows || [])) {
         const tr = document.createElement('tr');
+        const rawKey = (r.key === null || r.key === undefined) ? '(none)' : String(r.key);
         const cols = [
-          (r.key === null || r.key === undefined) ? '(none)' : String(r.key),
+          keyFormatter ? keyFormatter(rawKey, r) : rawKey,
           String(r.bets ?? ''),
           String(r.wins ?? ''),
           String(r.losses ?? ''),
@@ -188,6 +272,53 @@
         }
         tableEl.appendChild(tr);
       }
+    }
+
+    function renderGlossaryTable(tableEl, rows) {
+      tableEl.innerHTML = '';
+      const head = document.createElement('tr');
+      for (const h of ['tag_type', 'plain_english']) {
+        const th = document.createElement('th');
+        th.textContent = h;
+        head.appendChild(th);
+      }
+      tableEl.appendChild(head);
+
+      for (const row of (rows || [])) {
+        const tr = document.createElement('tr');
+        for (const val of [String(row.tag_type || '(none)'), String(row.description || '')]) {
+          const td = document.createElement('td');
+          td.textContent = val;
+          tr.appendChild(td);
+        }
+        tableEl.appendChild(tr);
+      }
+    }
+
+    function renderTagTypeGuide(allDays) {
+      const seen = new Set();
+      const rows = [];
+      for (const row of (allDays?.by_tag_type || [])) {
+        const tagType = String(row?.key ?? '').trim() || '(none)';
+        if (seen.has(tagType)) continue;
+        seen.add(tagType);
+        rows.push({ tag_type: tagType, description: describeTagType(tagType) });
+      }
+      if (!rows.length) {
+        rows.push({ tag_type: '(none)', description: describeTagType('(none)') });
+      }
+      renderGlossaryTable($('tagTypeGuide'), rows);
+    }
+
+    function renderScopeNotes(obj, allDays) {
+      const selectedRange = rangeText(obj.start, obj.end);
+      const requested = obj.requested_date ? `requested ${obj.requested_date}` : selectedRange;
+      const note = obj.note ? ` ${obj.note}` : '';
+      $('selectionScope').textContent = `Tiles summarize the selected settled slice: ${requested}.${note}`;
+
+      const historyRange = rangeText(allDays?.start, allDays?.end);
+      const historyRows = Number(allDays?.rows ?? 0);
+      $('historyScope').textContent = `This table is the daily recap across every settled day currently in the ledger: ${historyRange} (${historyRows} settled bets).`;
     }
 
     async function load() {
@@ -208,15 +339,18 @@
           setStatus('Error: ' + (obj.error || 'unknown'));
           return;
         }
-        renderTiles(obj.summary, obj.tag_coverage);
-        renderTable($('byDate'), obj.by_date, 'date');
-        renderTable($('byMarket'), obj.by_market, 'market');
-        renderTable($('byElapsed'), obj.by_elapsed_bucket, 'elapsed_bucket');
-        renderTable($('byDriverTag'), obj.by_driver_tag_all || obj.by_driver_tag, 'driver_tag');
-        renderTable($('byTagType'), obj.by_tag_type, 'tag_type');
+        const allDays = obj.all_days || {};
+        renderTiles(obj.summary);
+        renderScopeNotes(obj, allDays);
+        renderTable($('byDate'), allDays.by_date || obj.by_date, 'date');
+        renderTable($('byMarket'), allDays.by_market || obj.by_market, 'market');
+        renderTable($('byElapsed'), allDays.by_elapsed_bucket || obj.by_elapsed_bucket, 'elapsed_bucket', formatElapsedBucket);
+        renderTable($('byDriverTag'), allDays.by_driver_tag_all || obj.by_driver_tag_all || obj.by_driver_tag, 'driver_tag', (key) => `${key} — ${describeDriverTag(key)}`);
+        renderTable($('byTagType'), allDays.by_tag_type || obj.by_tag_type, 'tag_type', (key) => `${key} — ${describeTagType(key)}`);
+        renderTagTypeGuide(allDays);
 
         try {
-          const tc = obj.tag_coverage;
+          const tc = allDays.tag_coverage || obj.tag_coverage;
           if (tc) {
             const n = Number(tc.bets_settled ?? 0);
             const miss = Number(tc.bets_missing_tags ?? 0);
@@ -233,7 +367,8 @@
         }
         const range = obj.start && obj.end ? `${obj.start}..${obj.end}` : '(latest)';
         const note = obj.note ? ` · ${obj.note}` : '';
-        setStatus(`OK – ${range}${note}`);
+        const allRange = (allDays.start && allDays.end) ? ` · recap ${rangeText(allDays.start, allDays.end)}` : '';
+        setStatus(`OK – selected ${range}${allRange}${note}`);
       } catch (e) {
         setStatus('Error: ' + String(e));
       }

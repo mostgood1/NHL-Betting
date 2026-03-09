@@ -57,6 +57,8 @@ SUPPORTED_MARKETS = {
 }
 TOTAL_MARKETS = {"TOTAL", "PERIOD_TOTAL"}
 SIDE_MARKETS = {"ML", "PUCKLINE", "REG_3WAY", "PERIOD_ML", "PERIOD_SPREAD", "PERIOD_3WAY"}
+TOTAL_SIDES = {"OVER", "UNDER"}
+TEAM_SIDES = {"HOME", "AWAY", "DRAW"}
 
 
 def _safe_float(x: Any) -> Optional[float]:
@@ -181,12 +183,33 @@ def _normalize_market(x: Any) -> Optional[str]:
     return s
 
 
-def _scopes_for_market(market: str) -> list[str]:
+def _normalize_side(market: str, x: Any) -> Optional[str]:
+    try:
+        s = str(x or "").strip().upper()
+    except Exception:
+        return None
+    if not s:
+        return None
+    if market in TOTAL_MARKETS:
+        return s if s in TOTAL_SIDES else None
+    if market in SIDE_MARKETS:
+        return s if s in TEAM_SIDES else None
+    return None
+
+
+def _scopes_for_market(market: str, side: Optional[str] = None) -> list[str]:
     scopes = [str(market)]
+    side_s = _normalize_side(market, side)
+    if side_s:
+        scopes.append(f"{market}:{side_s}")
     if market in TOTAL_MARKETS and "TOTAL" not in scopes:
         scopes.append("TOTAL")
+        if side_s:
+            scopes.append(f"TOTAL:{side_s}")
     elif market in SIDE_MARKETS and "ML" not in scopes:
         scopes.append("ML")
+        if side_s:
+            scopes.append(f"ML:{side_s}")
     scopes.append("__all__")
     # stable dedupe
     out: list[str] = []
@@ -278,7 +301,8 @@ def build_driver_tag_priors(
         rec_date = _extract_date(rec)
         if not _in_date_range(rec_date, start, end):
             continue
-        scopes = _scopes_for_market(market)
+        side = _normalize_side(market, rec.get("side"))
+        scopes = _scopes_for_market(market, side)
         for scope in scopes:
             _update_stats(baseline_stats[scope], rec)
         tags = _normalize_learnable_tags(rec.get("driver_tags"))

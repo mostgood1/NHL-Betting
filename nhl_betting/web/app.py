@@ -1640,6 +1640,113 @@ def _summarize_tag_types(df: pd.DataFrame, top_n: int = 20) -> list[dict[str, An
     return out
 
 
+def _live_lens_tag_coverage(df: pd.DataFrame) -> dict[str, Any]:
+    tag_coverage: dict[str, Any] = {
+        "bets_settled": 0,
+        "bets_with_tags": 0,
+        "bets_missing_tags": 0,
+        "missing_rate": None,
+        "distinct_tags": 0,
+    }
+    try:
+        tag_coverage["bets_settled"] = int(len(df)) if df is not None else 0
+    except Exception:
+        tag_coverage["bets_settled"] = 0
+    try:
+        n_set = int(tag_coverage.get("bets_settled") or 0)
+        n_with = 0
+        n_missing = 0
+        distinct: set[str] = set()
+        if df is not None and (not getattr(df, "empty", True)) and ("driver_tags" in df.columns):
+            for v in df["driver_tags"].tolist():
+                tags = _coerce_driver_tags(v)
+                if tags:
+                    n_with += 1
+                    for t in tags:
+                        try:
+                            s = str(t).strip()
+                        except Exception:
+                            continue
+                        if s:
+                            distinct.add(s)
+                else:
+                    n_missing += 1
+        else:
+            n_missing = n_set
+
+        tag_coverage["bets_with_tags"] = int(n_with)
+        tag_coverage["bets_missing_tags"] = int(n_missing)
+        tag_coverage["distinct_tags"] = int(len(distinct))
+        tag_coverage["missing_rate"] = (float(n_missing) / float(n_set)) if n_set > 0 else None
+    except Exception:
+        pass
+    return tag_coverage
+
+
+def _live_lens_accuracy_breakdowns(df: pd.DataFrame) -> dict[str, Any]:
+    summary_all = _summarize_ledger(df)
+    by_date = _summarize_ledger(df, group_col="date")
+    by_market = _summarize_ledger(df, group_col="market")
+    by_elapsed = _summarize_ledger(df, group_col="elapsed_bucket")
+    by_edge = _summarize_ledger(df, group_col="edge_bucket")
+    by_driver_tag = _summarize_driver_tags(df, top_n=20)
+    by_driver_tag_all = _summarize_driver_tags(df, top_n=0)
+    by_tag_type = _summarize_tag_types(df, top_n=0)
+
+    try:
+        by_date.sort(key=lambda r: str(r.get("key") or ""), reverse=True)
+    except Exception:
+        pass
+
+    try:
+        rows = int(len(df)) if df is not None else 0
+    except Exception:
+        rows = 0
+
+    summary_row = (
+        summary_all[0]
+        if summary_all
+        else {
+            "key": "ALL",
+            "bets": 0,
+            "wins": 0,
+            "losses": 0,
+            "pushes": 0,
+            "units": 0.0,
+            "roi": 0.0,
+            "win_rate": None,
+        }
+    )
+
+    bounds_start = None
+    bounds_end = None
+    try:
+        if df is not None and (not getattr(df, "empty", True)) and ("date" in df.columns):
+            vals = [str(v).strip() for v in df["date"].dropna().astype(str).tolist()]
+            vals = [v for v in vals if _parse_ymd(v)]
+            if vals:
+                bounds_start = min(vals)
+                bounds_end = max(vals)
+    except Exception:
+        bounds_start = None
+        bounds_end = None
+
+    return {
+        "rows": rows,
+        "start": bounds_start,
+        "end": bounds_end,
+        "summary": summary_row,
+        "by_date": by_date,
+        "by_market": by_market,
+        "by_elapsed_bucket": by_elapsed,
+        "by_edge_bucket": by_edge,
+        "by_driver_tag": by_driver_tag,
+        "by_driver_tag_all": by_driver_tag_all,
+        "by_tag_type": by_tag_type,
+        "tag_coverage": _live_lens_tag_coverage(df),
+    }
+
+
 def _settled_only_df(df: pd.DataFrame):
     if df is None or getattr(df, "empty", True):
         return df
@@ -1894,59 +2001,10 @@ async def api_live_lens_accuracy_data(
         if cached is not None:
             return JSONResponse(cached)
 
-        summary_all = _summarize_ledger(df_settled)
-        by_date = _summarize_ledger(df_settled, group_col="date")
-        by_market = _summarize_ledger(df_settled, group_col="market")
-        by_elapsed = _summarize_ledger(df_settled, group_col="elapsed_bucket")
-        by_edge = _summarize_ledger(df_settled, group_col="edge_bucket")
-        by_driver_tag = _summarize_driver_tags(df_settled, top_n=20)
-        by_driver_tag_all = _summarize_driver_tags(df_settled, top_n=0)
-        by_tag_type = _summarize_tag_types(df_settled, top_n=0)
+        selected_breakdowns = _live_lens_accuracy_breakdowns(df_settled)
 
-        try:
-            by_date.sort(key=lambda r: str(r.get("key") or ""), reverse=True)
-        except Exception:
-            pass
-
-        tag_coverage: dict[str, Any] = {
-            "bets_settled": 0,
-            "bets_with_tags": 0,
-            "bets_missing_tags": 0,
-            "missing_rate": None,
-            "distinct_tags": 0,
-        }
-        try:
-            tag_coverage["bets_settled"] = int(len(df_settled)) if df_settled is not None else 0
-        except Exception:
-            tag_coverage["bets_settled"] = 0
-        try:
-            n_set = int(tag_coverage.get("bets_settled") or 0)
-            n_with = 0
-            n_missing = 0
-            distinct: set[str] = set()
-            if df_settled is not None and (not getattr(df_settled, "empty", True)) and ("driver_tags" in df_settled.columns):
-                for v in df_settled["driver_tags"].tolist():
-                    tags = _coerce_driver_tags(v)
-                    if tags:
-                        n_with += 1
-                        for t in tags:
-                            try:
-                                s = str(t).strip()
-                            except Exception:
-                                continue
-                            if s:
-                                distinct.add(s)
-                    else:
-                        n_missing += 1
-            else:
-                n_missing = n_set
-
-            tag_coverage["bets_with_tags"] = int(n_with)
-            tag_coverage["bets_missing_tags"] = int(n_missing)
-            tag_coverage["distinct_tags"] = int(len(distinct))
-            tag_coverage["missing_rate"] = (float(n_missing) / float(n_set)) if n_set > 0 else None
-        except Exception:
-            pass
+        all_days_df = _settled_only_df(_read_ledger_df(files, None, None))
+        all_days_breakdowns = _live_lens_accuracy_breakdowns(all_days_df)
 
         try:
             n_rows_total = int(len(df)) if df is not None else 0
@@ -1956,21 +2014,6 @@ async def api_live_lens_accuracy_data(
             n_rows_settled = int(len(df_settled)) if df_settled is not None else 0
         except Exception:
             n_rows_settled = 0
-
-        summary_row = (
-            summary_all[0]
-            if summary_all
-            else {
-                "key": "ALL",
-                "bets": 0,
-                "wins": 0,
-                "losses": 0,
-                "pushes": 0,
-                "units": 0.0,
-                "roi": 0.0,
-                "win_rate": None,
-            }
-        )
 
         out = {
             "ok": True,
@@ -1989,15 +2032,16 @@ async def api_live_lens_accuracy_data(
             "files_scanned": [str(p) for p in files],
             "rows": n_rows_settled,
             "rows_total": n_rows_total,
-            "summary": summary_row,
-            "by_date": by_date,
-            "by_market": by_market,
-            "by_elapsed_bucket": by_elapsed,
-            "by_edge_bucket": by_edge,
-            "by_driver_tag": by_driver_tag,
-            "by_driver_tag_all": by_driver_tag_all,
-            "by_tag_type": by_tag_type,
-            "tag_coverage": tag_coverage,
+            "summary": selected_breakdowns.get("summary"),
+            "by_date": selected_breakdowns.get("by_date"),
+            "by_market": selected_breakdowns.get("by_market"),
+            "by_elapsed_bucket": selected_breakdowns.get("by_elapsed_bucket"),
+            "by_edge_bucket": selected_breakdowns.get("by_edge_bucket"),
+            "by_driver_tag": selected_breakdowns.get("by_driver_tag"),
+            "by_driver_tag_all": selected_breakdowns.get("by_driver_tag_all"),
+            "by_tag_type": selected_breakdowns.get("by_tag_type"),
+            "tag_coverage": selected_breakdowns.get("tag_coverage"),
+            "all_days": all_days_breakdowns,
         }
         _cache_put(cache_key, out)
         return JSONResponse(out)
@@ -2837,18 +2881,39 @@ def _load_live_lens_driver_tag_priors() -> dict:
         return default
 
 
-def _live_lens_driver_tag_market_candidates(market: Optional[str]) -> list[str]:
+def _live_lens_driver_tag_market_candidates(market: Optional[str], side: Optional[str] = None) -> list[str]:
     mk = str(market or "").strip().upper()
+    sd = str(side or "").strip().upper()
     if not mk:
         return ["__all__"]
     if mk in {"TOTAL", "PERIOD_TOTAL"}:
-        return [mk, "TOTAL", "PERIOD_TOTAL", "__all__"]
+        out = []
+        if sd in {"OVER", "UNDER"}:
+            out.extend([f"{mk}:{sd}"])
+            if mk != "TOTAL":
+                out.extend([f"TOTAL:{sd}"])
+        out.extend([mk, "TOTAL", "PERIOD_TOTAL", "__all__"])
+        seen = []
+        for x in out:
+            if x not in seen:
+                seen.append(x)
+        return seen
     if mk in {"ML", "PUCKLINE", "REG_3WAY", "PERIOD_ML", "PERIOD_SPREAD", "PERIOD_3WAY"}:
-        return [mk, "ML", "PUCKLINE", "REG_3WAY", "PERIOD_ML", "PERIOD_SPREAD", "PERIOD_3WAY", "__all__"]
+        out = []
+        if sd in {"HOME", "AWAY", "DRAW"}:
+            out.extend([f"{mk}:{sd}"])
+            if mk != "ML":
+                out.extend([f"ML:{sd}"])
+        out.extend([mk, "ML", "PUCKLINE", "REG_3WAY", "PERIOD_ML", "PERIOD_SPREAD", "PERIOD_3WAY", "__all__"])
+        seen = []
+        for x in out:
+            if x not in seen:
+                seen.append(x)
+        return seen
     return [mk, "__all__"]
 
 
-def _live_lens_driver_tag_edge_adjustment(market: Optional[str], driver_tags: Any) -> dict:
+def _live_lens_driver_tag_edge_adjustment(market: Optional[str], driver_tags: Any, side: Optional[str] = None) -> dict:
     out = {"edge_delta": 0.0, "matched": []}
     try:
         tags = _normalize_live_lens_learnable_driver_tags(driver_tags)
@@ -2862,7 +2927,7 @@ def _live_lens_driver_tag_edge_adjustment(market: Optional[str], driver_tags: An
         for tag in tags:
             spec = None
             scope = None
-            for mk in _live_lens_driver_tag_market_candidates(market):
+            for mk in _live_lens_driver_tag_market_candidates(market, side=side):
                 grp = markets.get(str(mk)) if isinstance(markets, dict) else None
                 if isinstance(grp, dict) and isinstance(grp.get(tag), dict):
                     spec = grp.get(tag)
@@ -2909,6 +2974,66 @@ def _live_lens_driver_tag_edge_adjustment(market: Optional[str], driver_tags: An
         delta = float(max(-cap, min(cap, delta)))
         out["edge_delta"] = delta
         out["matched"] = selected
+        return out
+    except Exception:
+        return out
+
+
+def _live_lens_total_under_toxic_gate(elapsed_min: Optional[float], driver_tags: Any) -> dict:
+    out = {"min_required_edge": None, "matched": []}
+    try:
+        try:
+            em = float(elapsed_min) if elapsed_min is not None else None
+        except Exception:
+            em = None
+        if em is None or float(em) < 20.0:
+            return out
+
+        seen: set[str] = set()
+        try:
+            arr = driver_tags if isinstance(driver_tags, list) else [driver_tags]
+        except Exception:
+            arr = [driver_tags]
+        for x in arr:
+            try:
+                s = str(x or "").strip()
+            except Exception:
+                continue
+            if s:
+                seen.add(s)
+
+        toxic_order = [
+            "pressure:home",
+            "pace:down",
+            "goalie:weak",
+            "score:tied",
+            "score:home_leading",
+            "score:away_leading",
+        ]
+        matched = [tag for tag in toxic_order if tag in seen]
+        if not matched:
+            return out
+
+        try:
+            em20_req_edge = float(os.getenv("LIVE_LENS_TOTAL_UNDER_TOXIC_EM20_REQUIRED_EDGE", "0.10"))
+        except Exception:
+            em20_req_edge = 0.10
+        if em20_req_edge is None:
+            em20_req_edge = 0.10
+
+        try:
+            em35_req_edge = float(os.getenv("LIVE_LENS_TOTAL_UNDER_TOXIC_EM35_REQUIRED_EDGE", "0.12"))
+        except Exception:
+            em35_req_edge = 0.12
+        if em35_req_edge is None:
+            em35_req_edge = 0.12
+
+        min_required_edge = float(em20_req_edge)
+        if float(em) >= 35.0:
+            min_required_edge = max(float(min_required_edge), float(em35_req_edge))
+
+        out["min_required_edge"] = float(min_required_edge)
+        out["matched"] = matched
         return out
     except Exception:
         return out
@@ -6747,12 +6872,28 @@ async def v1_live_lens_combined(
                             pass
 
                         try:
-                            prior_adj = _live_lens_driver_tag_edge_adjustment("TOTAL", driver_tags)
+                            prior_adj = _live_lens_driver_tag_edge_adjustment("TOTAL", driver_tags, side=side)
                             edge_delta = _to_float((prior_adj or {}).get("edge_delta"))
                             if edge_delta is not None:
                                 required_edge = max(0.02, float(required_edge) + float(edge_delta))
                         except Exception:
                             prior_adj = {"edge_delta": 0.0, "matched": []}
+
+                        try:
+                            if side == "UNDER":
+                                under_toxic_gate = _live_lens_total_under_toxic_gate(em, driver_tags)
+                                toxic_edge = _to_float((under_toxic_gate or {}).get("min_required_edge"))
+                                toxic_tags = [str(t) for t in ((under_toxic_gate or {}).get("matched") or []) if str(t or "").strip()]
+                                if toxic_edge is not None and toxic_tags:
+                                    required_edge = max(float(required_edge), float(toxic_edge))
+                                    gate_bucket = "35" if em is not None and float(em) >= 35.0 else "20"
+                                    toxic_gate_tag = f"gate:under_toxic_em>={gate_bucket}_edge>={float(toxic_edge):.02f}"
+                                    if toxic_gate_tag not in driver_tags:
+                                        driver_tags.append(toxic_gate_tag)
+                                    if "gate:under_toxic_ctx" not in driver_tags:
+                                        driver_tags.append("gate:under_toxic_ctx")
+                        except Exception:
+                            pass
 
                         if abs_edge >= float(required_edge):
                             action = "BET"
@@ -7054,7 +7195,7 @@ async def v1_live_lens_combined(
                                         driver_tags.append("goals_behind")
                                     prior_adj = {"edge_delta": 0.0, "matched": []}
                                     try:
-                                        prior_adj = _live_lens_driver_tag_edge_adjustment("PERIOD_TOTAL", driver_tags)
+                                        prior_adj = _live_lens_driver_tag_edge_adjustment("PERIOD_TOTAL", driver_tags, side=side)
                                         edge_delta = _to_float((prior_adj or {}).get("edge_delta"))
                                         if required_edge is not None and edge_delta is not None:
                                             required_edge = max(0.02, float(required_edge) + float(edge_delta))
@@ -7305,7 +7446,7 @@ async def v1_live_lens_combined(
                                         pass
                                     prior_adj = {"edge_delta": 0.0, "matched": []}
                                     try:
-                                        prior_adj = _live_lens_driver_tag_edge_adjustment("PERIOD_ML", driver_tags)
+                                        prior_adj = _live_lens_driver_tag_edge_adjustment("PERIOD_ML", driver_tags, side=side)
                                         edge_delta = _to_float((prior_adj or {}).get("edge_delta"))
                                         if required_edge is not None and edge_delta is not None:
                                             required_edge = max(0.02, float(required_edge) + float(edge_delta))
@@ -7606,7 +7747,7 @@ async def v1_live_lens_combined(
                                     required_edge = None
 
                                 try:
-                                    prior_adj = _live_lens_driver_tag_edge_adjustment("ML", driver_tags)
+                                    prior_adj = _live_lens_driver_tag_edge_adjustment("ML", driver_tags, side=side)
                                     edge_delta = _to_float((prior_adj or {}).get("edge_delta"))
                                     if required_edge is not None and edge_delta is not None:
                                         required_edge = max(0.02, float(required_edge) + float(edge_delta))
@@ -7739,7 +7880,7 @@ async def v1_live_lens_combined(
                                         required_edge = None
 
                                     try:
-                                        prior_adj = _live_lens_driver_tag_edge_adjustment("PUCKLINE", driver_tags)
+                                        prior_adj = _live_lens_driver_tag_edge_adjustment("PUCKLINE", driver_tags, side=side)
                                         edge_delta = _to_float((prior_adj or {}).get("edge_delta"))
                                         if required_edge is not None and edge_delta is not None:
                                             required_edge = max(0.02, float(required_edge) + float(edge_delta))
@@ -7867,7 +8008,7 @@ async def v1_live_lens_combined(
                                     required_edge = None
 
                                 try:
-                                    prior_adj = _live_lens_driver_tag_edge_adjustment("REG_3WAY", driver_tags)
+                                    prior_adj = _live_lens_driver_tag_edge_adjustment("REG_3WAY", driver_tags, side=side)
                                     edge_delta = _to_float((prior_adj or {}).get("edge_delta"))
                                     if required_edge is not None and edge_delta is not None:
                                         required_edge = max(0.02, float(required_edge) + float(edge_delta))
@@ -8027,7 +8168,7 @@ async def v1_live_lens_combined(
                                 out["required_edge"] = 0.04
                             elif ep >= 3.0:
                                 out["required_edge"] = 0.06
-                        prior_adj = _live_lens_driver_tag_edge_adjustment(market, driver_tags or [])
+                        prior_adj = _live_lens_driver_tag_edge_adjustment(market, driver_tags or [], side=side)
                         out["prior_adj"] = prior_adj if isinstance(prior_adj, dict) else {"edge_delta": 0.0, "matched": []}
                         edge_delta = _to_float((out["prior_adj"] or {}).get("edge_delta"))
                         if out.get("required_edge") is not None and edge_delta is not None:

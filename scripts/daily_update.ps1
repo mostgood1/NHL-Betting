@@ -173,6 +173,48 @@ function Sync-RenderArtifacts {
   Remove-Item -LiteralPath $tmpZip -Force -ErrorAction SilentlyContinue
 }
 
+function Invoke-GitCommand {
+  param(
+    [Parameter(Mandatory=$true)][string[]]$Args,
+    [string]$FailureMessage = "git command failed"
+  )
+
+  $result = & git @Args 2>&1
+  $exitCode = $LASTEXITCODE
+  $output = @($result | ForEach-Object {
+    if ($_ -is [System.Management.Automation.ErrorRecord]) {
+      $_.ToString()
+    } else {
+      [string]$_
+    }
+  })
+
+  if ($exitCode -ne 0) {
+    $detail = ($output -join [Environment]::NewLine).Trim()
+    if (-not $detail) { $detail = "git exited with code $exitCode" }
+    throw "$FailureMessage`n$detail"
+  }
+
+  return $output
+}
+
+function Test-GitIdentityLooksConfigured {
+  param(
+    [string]$UserName,
+    [string]$UserEmail
+  )
+
+  if (-not $UserName -or -not $UserEmail) { return $false }
+
+  $trimmedName = $UserName.Trim()
+  $trimmedEmail = $UserEmail.Trim()
+  if (-not $trimmedName -or -not $trimmedEmail) { return $false }
+  if ($trimmedName -eq 'Your Name') { return $false }
+  if ($trimmedEmail -eq 'your.email@example.com') { return $false }
+
+  return $true
+}
+
 # Ensure QNN env (optional). Dot-source if available so QNN EP is found in this session.
 if (Test-Path $NpuScript) {
   . $NpuScript
@@ -1101,8 +1143,8 @@ try {
   } else {
     Push-Location $RepoRoot
     try {
-      $isGit = git rev-parse --is-inside-work-tree 2>$null
-      if ($LASTEXITCODE -eq 0 -and "$isGit".Trim() -eq 'true') {
+      $isGit = (Invoke-GitCommand -Args @('rev-parse', '--is-inside-work-tree') -FailureMessage '[daily_update] Failed to detect git repository' | Select-Object -First 1)
+      if ("$isGit".Trim() -eq 'true') {
         $gitPaths = @(
           'data/models',
           'data/processed',
@@ -1110,25 +1152,33 @@ try {
           'data/raw/player_game_stats.csv'
         )
 
+        $branch = $GitBranch
+        if (-not $branch -or $branch.Trim() -eq '') {
+          $branch = (Invoke-GitCommand -Args @('rev-parse', '--abbrev-ref', 'HEAD') -FailureMessage '[daily_update] Failed to resolve current branch' | Select-Object -First 1)
+        }
+        if (-not $branch -or $branch.Trim() -eq '') { $branch = 'master' }
+        $branch = $branch.Trim()
+
+        $userName = (& git config --get user.name 2>$null | Select-Object -First 1)
+        $userEmail = (& git config --get user.email 2>$null | Select-Object -First 1)
+        if (-not (Test-GitIdentityLooksConfigured -UserName $userName -UserEmail $userEmail)) {
+          Write-Warning '[daily_update] Git user.name/user.email are unset or placeholder values; auto-generated commits may use bad author metadata.'
+        }
+
         $statusArgs = @('--no-pager', 'status', '--short', '--') + $gitPaths
-        $status = & git @statusArgs
-        if ($LASTEXITCODE -eq 0 -and $status) {
+        $status = Invoke-GitCommand -Args $statusArgs -FailureMessage '[daily_update] Failed to inspect generated artifact status'
+        $commitFailed = $false
+        if ($status) {
           Write-Host "[daily_update] Git changes detected; staging generated artifacts …" -ForegroundColor Yellow
           foreach ($p in $gitPaths) {
             if (Test-Path (Join-Path $RepoRoot $p)) {
-              git add -A -- $p 2>$null | Out-Null
+              Invoke-GitCommand -Args @('add', '-A', '--', $p) -FailureMessage "[daily_update] Failed to stage generated artifacts under $p" | Out-Null
             }
           }
 
           $cachedArgs = @('diff', '--cached', '--name-only', '--') + $gitPaths
-          $cached = & git @cachedArgs
-          if ($LASTEXITCODE -eq 0 -and $cached) {
-            $branch = $GitBranch
-            if (-not $branch -or $branch.Trim() -eq '') {
-              $branch = git rev-parse --abbrev-ref HEAD 2>$null
-            }
-            if (-not $branch -or $branch.Trim() -eq '') { $branch = 'master' }
-
+          $cached = Invoke-GitCommand -Args $cachedArgs -FailureMessage '[daily_update] Failed to inspect staged generated artifacts'
+          if ($cached) {
             $targetDates = @()
             try {
               $targetDates = @($dates | Where-Object { $_ -and $_.Trim() -ne '' })
@@ -1141,23 +1191,29 @@ try {
             $stamp = Get-Date -Format 'yyyy-MM-dd HH:mm zzz'
             $msg = "[auto] daily update: $($targetDates -join ', ') @ $stamp"
 
-            git commit -m $msg 2>$null | Out-Null
-            if ($LASTEXITCODE -eq 0) {
-              Write-Host "[daily_update] Git commit created. Pushing to $GitRemote/$branch …" -ForegroundColor Yellow
-              git push $GitRemote $branch | Out-Null
-              if ($LASTEXITCODE -eq 0) {
-                Write-Host "[daily_update] Git push complete." -ForegroundColor DarkGreen
-              } else {
-                Write-Warning "[daily_update] Git push failed (remote=$GitRemote branch=$branch exit=$LASTEXITCODE)"
-              }
-            } else {
-              Write-Host "[daily_update] No staged artifact changes to commit." -ForegroundColor DarkGreen
+            try {
+              Invoke-GitCommand -Args @('commit', '--no-gpg-sign', '-m', $msg) -FailureMessage '[daily_update] Git commit failed for generated artifacts' | Out-Null
+              Write-Host "[daily_update] Git commit created." -ForegroundColor Yellow
+            } catch {
+              $commitFailed = $true
+              Write-Warning $_.Exception.Message
+              if ($StrictOutputs) { throw }
             }
           } else {
             Write-Host "[daily_update] No staged artifact changes after git add." -ForegroundColor DarkGreen
           }
         } else {
           Write-Host "[daily_update] No artifact changes detected for git push." -ForegroundColor DarkGreen
+        }
+
+        if (-not $commitFailed) {
+          Write-Host "[daily_update] Pushing to $GitRemote/$branch …" -ForegroundColor Yellow
+          $pushOutput = Invoke-GitCommand -Args @('push', $GitRemote, $branch) -FailureMessage "[daily_update] Git push failed (remote=$GitRemote branch=$branch)"
+          $pushSummary = ($pushOutput -join ' ').Trim()
+          if (-not $pushSummary) { $pushSummary = 'push completed' }
+          Write-Host "[daily_update] Git push complete: $pushSummary" -ForegroundColor DarkGreen
+        } else {
+          Write-Warning '[daily_update] Git push skipped because the artifact commit failed.'
         }
       } else {
         Write-Host "[daily_update] Not a git repository; skipping push." -ForegroundColor DarkGreen

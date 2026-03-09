@@ -1,6 +1,6 @@
 market,side,price,ev,prob,conf,home,away,totals_line
-ML,Ottawa Senators,-200.0,0.24487499999999995,0.8299166666666666,0.32991666666666664,Vancouver Canucks,Ottawa Senators,6.5
+ML,Ottawa Senators,-200.0,0.24949999999999994,0.833,0.33299999999999996,Vancouver Canucks,Ottawa Senators,6.5
 TOTAL,Under,-109.0,0.5933623853211011,0.7828333333333334,0.2828333333333334,Columbus Blue Jackets,Los Angeles Kings,6.0
-ML,Utah Mammoth,-141.0,0.24132092198581567,0.72625,0.22624999999999995,Chicago Blackhawks,Utah Mammoth,5.5
+ML,Utah Mammoth,-141.0,0.17523108747044924,0.6875833333333333,0.18758333333333332,Chicago Blackhawks,Utah Mammoth,5.5
 ML,Columbus Blue Jackets,-121.0,0.10439118457300273,0.6046666666666667,0.10466666666666669,Columbus Blue Jackets,Los Angeles Kings,6.0
-ML,New York Rangers,140.0,0.2991999999999999,0.5413333333333333,0.04133333333333333,Philadelphia Flyers,New York Rangers,5.5
+ML,New York Rangers,140.0,0.2962,0.5400833333333334,0.04008333333333336,Philadelphia Flyers,New York Rangers,5.5

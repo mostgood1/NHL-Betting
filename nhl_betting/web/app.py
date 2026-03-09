@@ -4384,6 +4384,47 @@ async def v1_props_cards(
         prev_rows = _rows_by_key(prev_obj)
         cur_rows = _rows_by_key(cur_obj)
 
+        def _load_lines_pid_maps() -> tuple[Dict[tuple[str, str, str], str], Dict[tuple[str, str], str], Dict[str, str]]:
+            pid_by_book: Dict[tuple[str, str, str], str] = {}
+            pid_by_market: Dict[tuple[str, str], str] = {}
+            name_pid_sets: Dict[str, set[str]] = {}
+            try:
+                parts: list[pd.DataFrame] = []
+                for source_name in ("oddsapi", "bovada"):
+                    try:
+                        part = _read_props_lines_latest(d, source=source_name)
+                    except Exception:
+                        part = pd.DataFrame()
+                    if part is not None and not part.empty:
+                        parts.append(part)
+                if not parts:
+                    return pid_by_book, pid_by_market, {}
+                lines_df = pd.concat(parts, ignore_index=True)
+                for _, line_row in lines_df.iterrows():
+                    pid_s = _normalize_player_id_value(line_row.get("player_id"))
+                    if not pid_s:
+                        continue
+                    player_s = _norm_name(line_row.get("player_name") or line_row.get("player"))
+                    if not player_s:
+                        continue
+                    market_s = _norm_market(line_row.get("market"))
+                    book_s = _norm_book(line_row.get("book"))
+                    name_pid_sets.setdefault(player_s, set()).add(pid_s)
+                    if market_s:
+                        pid_by_market.setdefault((player_s, market_s), pid_s)
+                        if book_s:
+                            pid_by_book.setdefault((player_s, market_s, book_s), pid_s)
+            except Exception:
+                return {}, {}, {}
+            pid_by_name = {
+                player_s: next(iter(pid_set))
+                for player_s, pid_set in name_pid_sets.items()
+                if len(pid_set) == 1
+            }
+            return pid_by_book, pid_by_market, pid_by_name
+
+        line_pid_by_book, line_pid_by_market, line_pid_by_name = _load_lines_pid_maps()
+
         def _score_primary(r: dict) -> tuple:
             # Prefer rows with both sides priced and prices near -110 (main line).
             op = _num(r.get("over_price"))
@@ -4462,6 +4503,23 @@ async def v1_props_cards(
                 return {}
 
         roster_map = _get_roster_master_map()
+        roster_name_map: Dict[str, dict] = {}
+        try:
+            roster_name_pids: Dict[str, set[str]] = {}
+            roster_name_first: Dict[str, dict] = {}
+            for (_team_key, player_key), ent in roster_map.items():
+                if not player_key or not isinstance(ent, dict):
+                    continue
+                pid_s = _normalize_player_id_value(ent.get("player_id")) or ""
+                roster_name_first.setdefault(player_key, ent)
+                if pid_s:
+                    roster_name_pids.setdefault(player_key, set()).add(pid_s)
+            for player_key, ent in roster_name_first.items():
+                pid_set = roster_name_pids.get(player_key, set())
+                if len(pid_set) <= 1:
+                    roster_name_map[player_key] = ent
+        except Exception:
+            roster_name_map = {}
 
         def _team_logo_url(x: object) -> Optional[str]:
             try:
@@ -4535,6 +4593,25 @@ async def v1_props_cards(
                             roster_ent = ent
                             if not pid and ent.get("player_id"):
                                 pid = str(ent.get("player_id"))
+                    except Exception:
+                        pid = pid
+                if not pid and roster_name_map:
+                    try:
+                        ent = roster_name_map.get(player_norm)
+                        if isinstance(ent, dict):
+                            roster_ent = roster_ent or ent
+                            if ent.get("player_id"):
+                                pid = str(ent.get("player_id"))
+                    except Exception:
+                        pid = pid
+                if not pid and player_norm and market:
+                    try:
+                        if book:
+                            pid = line_pid_by_book.get((player_norm, market, book))
+                        if not pid:
+                            pid = line_pid_by_market.get((player_norm, market))
+                        if not pid:
+                            pid = line_pid_by_name.get(player_norm)
                     except Exception:
                         pid = pid
                 preferred_headshot = None

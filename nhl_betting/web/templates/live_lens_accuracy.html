@@ -81,7 +81,7 @@
 
       <div class="card mb16">
         <div class="section-title">How To Read This</div>
-        <p class="explain mt10 m0"><strong>Elapsed bucket</strong> tells you how many minutes had been played when the bet fired. For example, <strong>0-4</strong> means the opening four minutes, while <strong>>=20</strong> means the bet triggered later in the game.</p>
+        <p class="explain mt10 m0"><strong>Elapsed bucket</strong> tells you when the bet fired on the full NHL game clock. This recap now groups bets into <strong>1-minute windows</strong> across all <strong>65 minutes</strong> of regulation plus overtime. For example, <strong>20:00-21:00</strong> means the signal fired during that one-minute stretch. The underlying ledger also keeps <strong>15-second bins</strong> for deeper tuning.</p>
         <p class="explain mt10 m0"><strong>Driver tags</strong> are the machine-readable reasons the signal liked a bet at that moment. Examples: <strong>pace:up</strong> means the game is running faster than expected, <strong>goalie:weak</strong> means the save environment looks softer than baseline, and <strong>manpower:pp_home</strong> means the home team is on a power play.</p>
         <p class="explain mt10 m0"><strong>Tag types</strong> are the families before the colon. So <strong>pace</strong> groups pace-related tags, <strong>goalie</strong> groups goalie-strength tags, and <strong>gate</strong> groups rule or threshold tags that let a bet through.</p>
         <div class="section-title mt10">Tag Type Guide</div>
@@ -207,6 +207,7 @@
     function formatElapsedBucket(bucket) {
       const s = String(bucket ?? '').trim();
       if (!s || s === '(none)' || s === '(missing)') return '(missing)';
+      if (/^\d{2}:\d{2}-\d{2}:\d{2}$/.test(s)) return s;
       if (s === '0-4') return '0-4 min (opening stretch)';
       if (s === '4-8') return '4-8 min';
       if (s === '8-12') return '8-12 min';

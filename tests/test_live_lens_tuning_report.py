@@ -1,6 +1,8 @@
 from pathlib import Path
 
-from scripts.live_lens_tuning_report import _driver_tag_prior_sections, _guess_priors_path
+import pandas as pd
+
+from scripts.live_lens_tuning_report import _driver_tag_prior_sections, _guess_priors_path, _prepare_elapsed_columns, _roi_table
 
 
 def test_guess_priors_path_from_perf_ledger():
@@ -55,3 +57,20 @@ def test_driver_tag_prior_sections_render_loosen_and_tighten(tmp_path):
     assert "pace:up" in md
     assert "goalie:weak" in md
     assert "-0.006" in md or "-0.600%" in md
+
+
+  def test_prepare_elapsed_columns_derives_precise_bins_and_sorts_chronologically():
+    df = pd.DataFrame(
+      [
+        {"elapsed_min": 20.25, "profit_units": 1.0, "result": "WIN", "edge": 0.08},
+        {"elapsed_min": 0.30, "profit_units": -1.0, "result": "LOSE", "edge": 0.05},
+      ]
+    )
+
+    out = _prepare_elapsed_columns(df)
+
+    assert list(out["elapsed_bucket"]) == ["20:00-21:00", "00:00-01:00"]
+    assert list(out["elapsed_bucket_15s"]) == ["20:15-20:30", "00:15-00:30"]
+
+    table = _roi_table(out, "elapsed_bucket", min_bets=1)
+    assert list(table["elapsed_bucket"]) == ["00:00-01:00", "20:00-21:00"]

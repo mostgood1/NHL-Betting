@@ -17,7 +17,7 @@ def test_live_lens_accuracy_data_reads_perf_dir(monkeypatch: pytest.MonkeyPatch,
             "date": "2099-01-01",
             "gamePk": 1,
             "market": "TOTAL",
-            "elapsed_bucket": "20-30",
+            "elapsed_min": 20.25,
             "edge_bucket": ">=0.06",
             "driver_tags": ["market:TOTAL", "pace:down"],
             "result": "WIN",
@@ -27,7 +27,7 @@ def test_live_lens_accuracy_data_reads_perf_dir(monkeypatch: pytest.MonkeyPatch,
             "date": "2099-01-01",
             "gamePk": 2,
             "market": "TOTAL",
-            "elapsed_bucket": "20-30",
+            "elapsed_min": 20.75,
             "edge_bucket": ">=0.06",
             "driver_tags": ["market:TOTAL"],
             "result": "LOSE",
@@ -37,7 +37,7 @@ def test_live_lens_accuracy_data_reads_perf_dir(monkeypatch: pytest.MonkeyPatch,
             "date": "2099-01-01",
             "gamePk": 3,
             "market": "PERIOD_TOTAL",
-            "elapsed_bucket": "10-20",
+            "elapsed_min": 10.4,
             "edge_bucket": "0.03-0.04",
             "driver_tags": [],
             "result": "PUSH",
@@ -87,6 +87,11 @@ def test_live_lens_accuracy_data_reads_perf_dir(monkeypatch: pytest.MonkeyPatch,
     eb = {str(x.get("key")): x for x in by_edge}
     assert ">=0.06" in eb
     assert eb[">=0.06"]["bets"] == 2
+
+    by_elapsed = obj.get("by_elapsed_bucket") or []
+    elapsed = {str(x.get("key")): x for x in by_elapsed}
+    assert elapsed["10:00-11:00"]["bets"] == 1
+    assert elapsed["20:00-21:00"]["bets"] == 2
 
     by_tag = obj.get("by_driver_tag") or []
     tg = {str(x.get("key")): x for x in by_tag}
@@ -195,7 +200,7 @@ def test_live_lens_accuracy_all_days_breakdowns_stay_cumulative_when_date_is_fil
         {
             "date": "2099-01-01",
             "market": "TOTAL",
-            "elapsed_bucket": "0-4",
+            "elapsed_min": 0.30,
             "driver_tags": ["pace:up", "market:TOTAL"],
             "result": "WIN",
             "profit_units": 0.9,
@@ -203,7 +208,7 @@ def test_live_lens_accuracy_all_days_breakdowns_stay_cumulative_when_date_is_fil
         {
             "date": "2099-01-03",
             "market": "ML",
-            "elapsed_bucket": ">=20",
+            "elapsed_min": 20.25,
             "driver_tags": ["goalie:weak"],
             "result": "LOSE",
             "profit_units": -1.0,
@@ -238,6 +243,9 @@ def test_live_lens_accuracy_all_days_breakdowns_stay_cumulative_when_date_is_fil
     by_date = {str(row.get("key")): row for row in (all_days.get("by_date") or [])}
     assert by_date["2099-01-01"]["bets"] == 1
     assert by_date["2099-01-03"]["bets"] == 1
+
+    elapsed_keys = [str(row.get("key")) for row in (all_days.get("by_elapsed_bucket") or [])]
+    assert elapsed_keys == ["00:00-01:00", "20:00-21:00"]
 
     by_tag_type = {str(row.get("key")): row for row in (all_days.get("by_tag_type") or [])}
     assert by_tag_type["pace"]["bets"] == 1

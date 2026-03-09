@@ -1447,6 +1447,126 @@ def _read_ledger_df(files: list[Path], start_ymd: Optional[str], end_ymd: Option
             return None
 
 
+_LIVE_LENS_MAX_ELAPSED_SECONDS = 65 * 60
+
+
+def _format_live_lens_elapsed_mmss(total_seconds: int) -> str:
+    total_seconds = max(0, int(total_seconds))
+    minutes = total_seconds // 60
+    seconds = total_seconds % 60
+    return f"{minutes:02d}:{seconds:02d}"
+
+
+def _live_lens_elapsed_seconds(elapsed_min: Any) -> Optional[float]:
+    try:
+        em = float(elapsed_min)
+    except Exception:
+        return None
+    if not math.isfinite(em):
+        return None
+    sec = max(0.0, float(em) * 60.0)
+    if sec >= float(_LIVE_LENS_MAX_ELAPSED_SECONDS):
+        sec = float(_LIVE_LENS_MAX_ELAPSED_SECONDS) - 1e-9
+    return sec
+
+
+def _live_lens_elapsed_bucket(elapsed_min: Any, *, bin_seconds: int = 60) -> str:
+    sec = _live_lens_elapsed_seconds(elapsed_min)
+    if sec is None:
+        return "(missing)"
+    bin_seconds = max(1, int(bin_seconds))
+    start = int(math.floor(sec / float(bin_seconds))) * bin_seconds
+    start = max(0, min(start, _LIVE_LENS_MAX_ELAPSED_SECONDS - bin_seconds))
+    end = min(_LIVE_LENS_MAX_ELAPSED_SECONDS, start + bin_seconds)
+    return f"{_format_live_lens_elapsed_mmss(start)}-{_format_live_lens_elapsed_mmss(end)}"
+
+
+def _live_lens_elapsed_bucket_coarse(elapsed_min: Any) -> str:
+    sec = _live_lens_elapsed_seconds(elapsed_min)
+    if sec is None:
+        return "(missing)"
+    em = float(sec) / 60.0
+    if em < 4.0:
+        return "0-4"
+    if em < 8.0:
+        return "4-8"
+    if em < 12.0:
+        return "8-12"
+    if em < 20.0:
+        return "12-20"
+    return ">=20"
+
+
+def _live_lens_elapsed_bucket_start_seconds(bucket: Any) -> Optional[int]:
+    try:
+        s = str(bucket or "").strip()
+    except Exception:
+        return None
+    if not s or s in {"(none)", "(missing)"}:
+        return None
+
+    m = re.match(r"^(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})$", s)
+    if m:
+        start_min = int(m.group(1))
+        start_sec = int(m.group(2))
+        return max(0, min(_LIVE_LENS_MAX_ELAPSED_SECONDS - 1, (start_min * 60) + start_sec))
+
+    m = re.match(r"^(\d+(?:\.\d+)?)\s*-\s*(\d+(?:\.\d+)?)$", s)
+    if m:
+        try:
+            return max(0, int(float(m.group(1)) * 60.0))
+        except Exception:
+            return None
+
+    m = re.match(r"^>=\s*(\d+(?:\.\d+)?)$", s)
+    if m:
+        try:
+            return max(0, int(float(m.group(1)) * 60.0))
+        except Exception:
+            return None
+
+    return None
+
+
+def _live_lens_elapsed_bucket_sort_key(bucket: Any) -> tuple[int, int, str]:
+    start = _live_lens_elapsed_bucket_start_seconds(bucket)
+    try:
+        s = str(bucket or "")
+    except Exception:
+        s = ""
+    if start is None:
+        return (1, 10**9, s)
+    return (0, int(start), s)
+
+
+def _live_lens_prepare_elapsed_columns(df: pd.DataFrame) -> pd.DataFrame:
+    if df is None or getattr(df, "empty", True):
+        return df
+
+    d0 = df.copy()
+    try:
+        legacy_bucket = d0["elapsed_bucket"] if "elapsed_bucket" in d0.columns else None
+        legacy_bucket_1m = d0["elapsed_bucket_1m"] if "elapsed_bucket_1m" in d0.columns else None
+        if "elapsed_min" in d0.columns:
+            d0["elapsed_min"] = pd.to_numeric(d0["elapsed_min"], errors="coerce")
+            d0["elapsed_bucket"] = d0["elapsed_min"].apply(_live_lens_elapsed_bucket)
+            if legacy_bucket_1m is not None:
+                d0["elapsed_bucket"] = d0["elapsed_bucket"].where(d0["elapsed_min"].notna(), legacy_bucket_1m)
+            elif legacy_bucket is not None:
+                d0["elapsed_bucket"] = d0["elapsed_bucket"].where(d0["elapsed_min"].notna(), legacy_bucket)
+            d0["elapsed_bucket_1m"] = d0["elapsed_bucket"]
+            d0["elapsed_bucket_15s"] = d0["elapsed_min"].apply(lambda x: _live_lens_elapsed_bucket(x, bin_seconds=15))
+            if "elapsed_bucket_coarse" not in d0.columns:
+                d0["elapsed_bucket_coarse"] = d0["elapsed_min"].apply(_live_lens_elapsed_bucket_coarse)
+                if legacy_bucket is not None:
+                    d0["elapsed_bucket_coarse"] = d0["elapsed_bucket_coarse"].where(d0["elapsed_min"].notna(), legacy_bucket)
+        elif "elapsed_bucket_1m" in d0.columns:
+            d0["elapsed_bucket"] = d0["elapsed_bucket_1m"]
+    except Exception:
+        return d0
+    return d0
+
+
 def _summarize_ledger(df, group_col: Optional[str] = None) -> list[dict[str, Any]]:
     """Summarize settled bet ledger rows into counts/units/ROI.
 
@@ -1684,14 +1804,15 @@ def _live_lens_tag_coverage(df: pd.DataFrame) -> dict[str, Any]:
 
 
 def _live_lens_accuracy_breakdowns(df: pd.DataFrame) -> dict[str, Any]:
-    summary_all = _summarize_ledger(df)
-    by_date = _summarize_ledger(df, group_col="date")
-    by_market = _summarize_ledger(df, group_col="market")
-    by_elapsed = _summarize_ledger(df, group_col="elapsed_bucket")
-    by_edge = _summarize_ledger(df, group_col="edge_bucket")
-    by_driver_tag = _summarize_driver_tags(df, top_n=20)
-    by_driver_tag_all = _summarize_driver_tags(df, top_n=0)
-    by_tag_type = _summarize_tag_types(df, top_n=0)
+    df0 = _live_lens_prepare_elapsed_columns(df)
+    summary_all = _summarize_ledger(df0)
+    by_date = _summarize_ledger(df0, group_col="date")
+    by_market = _summarize_ledger(df0, group_col="market")
+    by_elapsed = _summarize_ledger(df0, group_col="elapsed_bucket")
+    by_edge = _summarize_ledger(df0, group_col="edge_bucket")
+    by_driver_tag = _summarize_driver_tags(df0, top_n=20)
+    by_driver_tag_all = _summarize_driver_tags(df0, top_n=0)
+    by_tag_type = _summarize_tag_types(df0, top_n=0)
 
     try:
         by_date.sort(key=lambda r: str(r.get("key") or ""), reverse=True)
@@ -1699,7 +1820,12 @@ def _live_lens_accuracy_breakdowns(df: pd.DataFrame) -> dict[str, Any]:
         pass
 
     try:
-        rows = int(len(df)) if df is not None else 0
+        by_elapsed.sort(key=lambda r: _live_lens_elapsed_bucket_sort_key(r.get("key")))
+    except Exception:
+        pass
+
+    try:
+        rows = int(len(df0)) if df0 is not None else 0
     except Exception:
         rows = 0
 
@@ -1721,8 +1847,8 @@ def _live_lens_accuracy_breakdowns(df: pd.DataFrame) -> dict[str, Any]:
     bounds_start = None
     bounds_end = None
     try:
-        if df is not None and (not getattr(df, "empty", True)) and ("date" in df.columns):
-            vals = [str(v).strip() for v in df["date"].dropna().astype(str).tolist()]
+        if df0 is not None and (not getattr(df0, "empty", True)) and ("date" in df0.columns):
+            vals = [str(v).strip() for v in df0["date"].dropna().astype(str).tolist()]
             vals = [v for v in vals if _parse_ymd(v)]
             if vals:
                 bounds_start = min(vals)
@@ -1743,7 +1869,7 @@ def _live_lens_accuracy_breakdowns(df: pd.DataFrame) -> dict[str, Any]:
         "by_driver_tag": by_driver_tag,
         "by_driver_tag_all": by_driver_tag_all,
         "by_tag_type": by_tag_type,
-        "tag_coverage": _live_lens_tag_coverage(df),
+        "tag_coverage": _live_lens_tag_coverage(df0),
     }
 
 

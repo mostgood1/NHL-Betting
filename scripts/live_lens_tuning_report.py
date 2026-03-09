@@ -33,6 +33,88 @@ def _safe_float(x: Any) -> Optional[float]:
         return None
 
 
+_LIVE_LENS_MAX_ELAPSED_SECONDS = 65 * 60
+
+
+def _format_elapsed_mmss(total_seconds: int) -> str:
+    total_seconds = max(0, int(total_seconds))
+    minutes = total_seconds // 60
+    seconds = total_seconds % 60
+    return f"{minutes:02d}:{seconds:02d}"
+
+
+def _elapsed_seconds(elapsed_min: Any) -> Optional[float]:
+    em = _safe_float(elapsed_min)
+    if em is None:
+        return None
+    sec = max(0.0, float(em) * 60.0)
+    if sec >= float(_LIVE_LENS_MAX_ELAPSED_SECONDS):
+        sec = float(_LIVE_LENS_MAX_ELAPSED_SECONDS) - 1e-9
+    return sec
+
+
+def _elapsed_bucket(elapsed_min: Any, *, bin_seconds: int = 60) -> str:
+    sec = _elapsed_seconds(elapsed_min)
+    if sec is None:
+        return "(missing)"
+    bin_seconds = max(1, int(bin_seconds))
+    start = int(math.floor(sec / float(bin_seconds))) * bin_seconds
+    start = max(0, min(start, _LIVE_LENS_MAX_ELAPSED_SECONDS - bin_seconds))
+    end = min(_LIVE_LENS_MAX_ELAPSED_SECONDS, start + bin_seconds)
+    return f"{_format_elapsed_mmss(start)}-{_format_elapsed_mmss(end)}"
+
+
+def _elapsed_bucket_start_seconds(bucket: Any) -> Optional[int]:
+    try:
+        s = str(bucket or "").strip()
+    except Exception:
+        return None
+    if not s or s in {"(none)", "(missing)"}:
+        return None
+    if ":" in s and "-" in s:
+        try:
+            start, _ = s.split("-", 1)
+            mm, ss = start.split(":", 1)
+            return max(0, min(_LIVE_LENS_MAX_ELAPSED_SECONDS - 1, (int(mm) * 60) + int(ss)))
+        except Exception:
+            return None
+    if s.startswith(">="):
+        try:
+            return max(0, int(float(s[2:].strip()) * 60.0))
+        except Exception:
+            return None
+    if "-" in s:
+        try:
+            start, _ = s.split("-", 1)
+            return max(0, int(float(start.strip()) * 60.0))
+        except Exception:
+            return None
+    return None
+
+
+def _prepare_elapsed_columns(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return df
+    out = df.copy()
+    try:
+        legacy_bucket = out["elapsed_bucket"] if "elapsed_bucket" in out.columns else None
+        legacy_bucket_1m = out["elapsed_bucket_1m"] if "elapsed_bucket_1m" in out.columns else None
+        if "elapsed_min" in out.columns:
+            out["elapsed_min"] = pd.to_numeric(out["elapsed_min"], errors="coerce")
+            out["elapsed_bucket"] = out["elapsed_min"].apply(_elapsed_bucket)
+            if legacy_bucket_1m is not None:
+                out["elapsed_bucket"] = out["elapsed_bucket"].where(out["elapsed_min"].notna(), legacy_bucket_1m)
+            elif legacy_bucket is not None:
+                out["elapsed_bucket"] = out["elapsed_bucket"].where(out["elapsed_min"].notna(), legacy_bucket)
+            out["elapsed_bucket_1m"] = out["elapsed_bucket"]
+            out["elapsed_bucket_15s"] = out["elapsed_min"].apply(lambda x: _elapsed_bucket(x, bin_seconds=15))
+        elif "elapsed_bucket_1m" in out.columns:
+            out["elapsed_bucket"] = out["elapsed_bucket_1m"]
+    except Exception:
+        return out
+    return out
+
+
 def _read_ledger(path: Path) -> pd.DataFrame:
     suf = path.suffix.lower()
     if suf in {".jsonl", ".ndjson"}:
@@ -187,7 +269,12 @@ def _roi_table(df: pd.DataFrame, group_col: str, min_bets: int) -> pd.DataFrame:
     g["roi"] = g["units"] / g["bets"].replace(0, float("nan"))
     g["win_rate"] = g.apply(lambda r: (r["wins"] / (r["wins"] + r["losses"])) if (r["wins"] + r["losses"]) > 0 else float("nan"), axis=1)
     g = g[g["bets"] >= int(min_bets)].copy()
-    g = g.sort_values(["bets", "roi"], ascending=[False, False]).reset_index(drop=True)
+    if group_col in {"elapsed_bucket", "elapsed_bucket_1m", "elapsed_bucket_15s"}:
+        g["_elapsed_sort"] = g[group_col].apply(_elapsed_bucket_start_seconds)
+        g["_elapsed_sort"] = g["_elapsed_sort"].fillna(10**9)
+        g = g.sort_values(["_elapsed_sort", group_col], ascending=[True, True]).drop(columns=["_elapsed_sort"]).reset_index(drop=True)
+    else:
+        g = g.sort_values(["bets", "roi"], ascending=[False, False]).reset_index(drop=True)
     return g
 
 
@@ -276,6 +363,8 @@ def main() -> int:
     if df.empty:
         raise SystemExit("Ledger is empty")
 
+    df = _prepare_elapsed_columns(df)
+
     # Flatten and normalize
     df = _flatten_driver_meta(df)
     df_tags = _explode_driver_tags(df)
@@ -298,14 +387,14 @@ def main() -> int:
     lines.append("")
 
     # Common buckets from the ledger script
-    for col, header in (
-        ("edge_bucket", "## ROI by edge bucket"),
-        ("elapsed_bucket", "## ROI by elapsed bucket"),
+    for col, header, max_rows in (
+        ("edge_bucket", "## ROI by edge bucket", 20),
+        ("elapsed_bucket", "## ROI by elapsed minute bucket", 70),
     ):
         if col in df.columns:
             t = _roi_table(df, col, min_bets=int(args.min_bets))
             lines.append(f"{header}\n")
-            lines.append(_to_md_table(t, max_rows=20))
+            lines.append(_to_md_table(t, max_rows=max_rows))
             lines.append("")
 
     # Odds staleness if available

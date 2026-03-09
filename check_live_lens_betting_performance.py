@@ -828,7 +828,38 @@ def _bucket_edge(edge: Any) -> str:
     return ">=0.06"
 
 
-def _bucket_elapsed(elapsed_min: Any) -> str:
+_LIVE_LENS_MAX_ELAPSED_SECONDS = 65 * 60
+
+
+def _format_elapsed_mmss(total_seconds: int) -> str:
+    total_seconds = max(0, int(total_seconds))
+    minutes = total_seconds // 60
+    seconds = total_seconds % 60
+    return f"{minutes:02d}:{seconds:02d}"
+
+
+def _elapsed_seconds(elapsed_min: Any) -> Optional[float]:
+    em = _safe_float(elapsed_min)
+    if em is None:
+        return None
+    sec = max(0.0, float(em) * 60.0)
+    if sec >= float(_LIVE_LENS_MAX_ELAPSED_SECONDS):
+        sec = float(_LIVE_LENS_MAX_ELAPSED_SECONDS) - 1e-9
+    return sec
+
+
+def _bucket_elapsed(elapsed_min: Any, *, bin_seconds: int = 60) -> str:
+    sec = _elapsed_seconds(elapsed_min)
+    if sec is None:
+        return "(missing)"
+    bin_seconds = max(1, int(bin_seconds))
+    start = int(math.floor(sec / float(bin_seconds))) * bin_seconds
+    start = max(0, min(start, _LIVE_LENS_MAX_ELAPSED_SECONDS - bin_seconds))
+    end = min(_LIVE_LENS_MAX_ELAPSED_SECONDS, start + bin_seconds)
+    return f"{_format_elapsed_mmss(start)}-{_format_elapsed_mmss(end)}"
+
+
+def _bucket_elapsed_coarse(elapsed_min: Any) -> str:
     em = _safe_float(elapsed_min)
     if em is None:
         return "(missing)"
@@ -1047,6 +1078,9 @@ def main() -> int:
     # Add analysis buckets
     bets["edge_bucket"] = bets["edge"].apply(_bucket_edge)
     bets["elapsed_bucket"] = bets["elapsed_min"].apply(_bucket_elapsed)
+    bets["elapsed_bucket_1m"] = bets["elapsed_bucket"]
+    bets["elapsed_bucket_15s"] = bets["elapsed_min"].apply(lambda x: _bucket_elapsed(x, bin_seconds=15))
+    bets["elapsed_bucket_coarse"] = bets["elapsed_min"].apply(_bucket_elapsed_coarse)
     bets["odds_staleness_bucket"] = bets.apply(lambda r: _bucket_odds_staleness_min(r.get("asof_dt"), r.get("odds_asof_dt")), axis=1)
 
     # Dedupe repeated snapshots of same "bet".

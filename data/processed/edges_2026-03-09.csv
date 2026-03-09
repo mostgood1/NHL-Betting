@@ -1,27 +1,27 @@
 date,home,away,market,ev
 2026-03-10T01:00:00Z,Vancouver Canucks,Ottawa Senators,ev_under,0.4037
-2026-03-09T23:00:00Z,Washington Capitals,Calgary Flames,ev_away_ml,0.3291
-2026-03-09T23:00:00Z,Philadelphia Flyers,New York Rangers,ev_away_ml,0.1973
-2026-03-09T20:00:00Z,Columbus Blue Jackets,Los Angeles Kings,ev_away_ml,0.131
-2026-03-10T00:30:00Z,Chicago Blackhawks,Utah Mammoth,ev_under,0.1153
+2026-03-09T23:00:00Z,Washington Capitals,Calgary Flames,ev_away_ml,0.3267
+2026-03-09T23:00:00Z,Philadelphia Flyers,New York Rangers,ev_away_ml,0.1992
+2026-03-09T23:00:00Z,Philadelphia Flyers,New York Rangers,ev_over,0.135
+2026-03-09T20:00:00Z,Columbus Blue Jackets,Los Angeles Kings,ev_away_ml,0.1288
+2026-03-10T00:30:00Z,Chicago Blackhawks,Utah Mammoth,ev_under,0.1237
 2026-03-09T20:00:00Z,Columbus Blue Jackets,Los Angeles Kings,ev_home_pl_-1.5,0.1019
-2026-03-09T23:00:00Z,Philadelphia Flyers,New York Rangers,ev_over,0.0993
 2026-03-09T23:00:00Z,Philadelphia Flyers,New York Rangers,ev_away_pl_+1.5,0.0733
-2026-03-10T01:00:00Z,Vancouver Canucks,Ottawa Senators,ev_away_ml,0.0397
+2026-03-10T01:00:00Z,Vancouver Canucks,Ottawa Senators,ev_away_ml,0.0383
 2026-03-09T20:00:00Z,Columbus Blue Jackets,Los Angeles Kings,ev_over,0.0133
-2026-03-10T00:30:00Z,Chicago Blackhawks,Utah Mammoth,ev_away_ml,0.0126
+2026-03-10T00:30:00Z,Chicago Blackhawks,Utah Mammoth,ev_away_ml,0.0117
 2026-03-09T23:00:00Z,Washington Capitals,Calgary Flames,ev_under,0.0101
-2026-03-09T23:00:00Z,Washington Capitals,Calgary Flames,ev_home_pl_-1.5,-0.0366
-2026-03-09T23:00:00Z,Washington Capitals,Calgary Flames,ev_away_pl_+1.5,-0.0429
+2026-03-09T23:00:00Z,Washington Capitals,Calgary Flames,ev_away_pl_+1.5,-0.0264
+2026-03-09T23:00:00Z,Washington Capitals,Calgary Flames,ev_home_pl_-1.5,-0.0611
 2026-03-09T23:00:00Z,Washington Capitals,Calgary Flames,ev_over,-0.0818
 2026-03-09T20:00:00Z,Columbus Blue Jackets,Los Angeles Kings,ev_under,-0.0835
 2026-03-09T20:00:00Z,Columbus Blue Jackets,Los Angeles Kings,ev_away_pl_+1.5,-0.1154
-2026-03-10T00:30:00Z,Chicago Blackhawks,Utah Mammoth,ev_home_ml,-0.1376
-2026-03-10T00:30:00Z,Chicago Blackhawks,Utah Mammoth,ev_over,-0.1664
-2026-03-09T20:00:00Z,Columbus Blue Jackets,Los Angeles Kings,ev_home_ml,-0.1719
-2026-03-10T01:00:00Z,Vancouver Canucks,Ottawa Senators,ev_home_ml,-0.1957
-2026-03-09T23:00:00Z,Philadelphia Flyers,New York Rangers,ev_under,-0.1992
-2026-03-09T23:00:00Z,Philadelphia Flyers,New York Rangers,ev_home_ml,-0.22
-2026-03-09T23:00:00Z,Washington Capitals,Calgary Flames,ev_home_ml,-0.2566
+2026-03-10T00:30:00Z,Chicago Blackhawks,Utah Mammoth,ev_home_ml,-0.136
+2026-03-09T20:00:00Z,Columbus Blue Jackets,Los Angeles Kings,ev_home_ml,-0.1702
+2026-03-10T00:30:00Z,Chicago Blackhawks,Utah Mammoth,ev_over,-0.1733
+2026-03-10T01:00:00Z,Vancouver Canucks,Ottawa Senators,ev_home_ml,-0.1931
+2026-03-09T23:00:00Z,Philadelphia Flyers,New York Rangers,ev_home_ml,-0.2214
+2026-03-09T23:00:00Z,Philadelphia Flyers,New York Rangers,ev_under,-0.2289
+2026-03-09T23:00:00Z,Washington Capitals,Calgary Flames,ev_home_ml,-0.2552
 2026-03-09T23:00:00Z,Philadelphia Flyers,New York Rangers,ev_home_pl_-1.5,-0.2602
 2026-03-10T01:00:00Z,Vancouver Canucks,Ottawa Senators,ev_over,-0.5382

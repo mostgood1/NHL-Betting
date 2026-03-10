@@ -193,3 +193,23 @@ def test_live_lens_total_under_toxic_gate_uses_later_floor_at_35_minutes(monkeyp
     assert gate
     assert pytest.approx(float(gate.get("min_required_edge") or 0.0), abs=1e-6) == 0.12
     assert gate.get("matched") == ["goalie:weak", "score:tied"]
+
+
+def test_live_lens_total_under_early_gate_blocks_through_first_period(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("LIVE_LENS_TOTAL_UNDER_MIN_ELAPSED_MIN", "20")
+
+    gate = web_app._live_lens_total_under_early_gate(20.0)
+
+    assert gate
+    assert gate.get("blocked") is True
+    assert pytest.approx(float(gate.get("min_elapsed") or 0.0), abs=1e-6) == 20.0
+
+
+def test_live_lens_total_under_early_gate_allows_after_first_period(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("LIVE_LENS_TOTAL_UNDER_MIN_ELAPSED_MIN", "20")
+
+    gate = web_app._live_lens_total_under_early_gate(20.01)
+
+    assert gate
+    assert gate.get("blocked") is False
+    assert pytest.approx(float(gate.get("min_elapsed") or 0.0), abs=1e-6) == 20.0

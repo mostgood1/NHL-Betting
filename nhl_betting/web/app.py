@@ -3170,6 +3170,31 @@ def _live_lens_total_under_toxic_gate(elapsed_min: Optional[float], driver_tags:
         return out
 
 
+def _live_lens_total_under_early_gate(elapsed_min: Optional[float]) -> dict:
+    out = {"blocked": False, "min_elapsed": None}
+    try:
+        try:
+            min_elapsed = float(os.getenv("LIVE_LENS_TOTAL_UNDER_MIN_ELAPSED_MIN", "20.0"))
+        except Exception:
+            min_elapsed = 20.0
+        if min_elapsed is None or not math.isfinite(float(min_elapsed)) or float(min_elapsed) < 0.0:
+            return out
+
+        out["min_elapsed"] = float(min_elapsed)
+
+        try:
+            em = float(elapsed_min) if elapsed_min is not None else None
+        except Exception:
+            em = None
+        if em is None:
+            return out
+
+        out["blocked"] = float(em) <= float(min_elapsed)
+        return out
+    except Exception:
+        return out
+
+
 def _live_odds_cache_get(key: str):
     try:
         ent = _LIVE_ODDS_CACHE.get(key)
@@ -6934,6 +6959,7 @@ async def v1_live_lens_combined(
                         abs_edge = abs(float(edge))
                         action = "WATCH"
                         prior_adj = {"edge_delta": 0.0, "matched": []}
+                        under_early_blocked = False
 
                         # Baseline required edge vs game time (regulation minutes).
                         required_edge = 1e9
@@ -7012,6 +7038,16 @@ async def v1_live_lens_combined(
 
                         try:
                             if side == "UNDER":
+                                under_early_gate = _live_lens_total_under_early_gate(em)
+                                under_early_blocked = bool((under_early_gate or {}).get("blocked"))
+                                under_min_elapsed = _to_float((under_early_gate or {}).get("min_elapsed"))
+                                if under_early_blocked and under_min_elapsed is not None:
+                                    under_early_tag = f"gate:under_min_elapsed>{float(under_min_elapsed):.0f}"
+                                    if under_early_tag not in driver_tags:
+                                        driver_tags.append(under_early_tag)
+                                    if "gate:under_early_block" not in driver_tags:
+                                        driver_tags.append("gate:under_early_block")
+
                                 under_toxic_gate = _live_lens_total_under_toxic_gate(em, driver_tags)
                                 toxic_edge = _to_float((under_toxic_gate or {}).get("min_required_edge"))
                                 toxic_tags = [str(t) for t in ((under_toxic_gate or {}).get("matched") or []) if str(t or "").strip()]
@@ -7026,7 +7062,7 @@ async def v1_live_lens_combined(
                         except Exception:
                             pass
 
-                        if abs_edge >= float(required_edge):
+                        if (not under_early_blocked) and abs_edge >= float(required_edge):
                             action = "BET"
 
                         try:

@@ -80,21 +80,15 @@
       </div>
 
       <div class="card mb16">
-        <div class="section-title">How To Read This</div>
-        <p class="explain mt10 m0"><strong>Elapsed bucket</strong> tells you when the bet fired on the full NHL game clock. This recap now groups bets into <strong>1-minute windows</strong> across all <strong>65 minutes</strong> of regulation plus overtime. For example, <strong>20:00-21:00</strong> means the signal fired during that one-minute stretch. The underlying ledger also keeps <strong>15-second bins</strong> for deeper tuning.</p>
-        <p class="explain mt10 m0"><strong>Driver tags</strong> are the machine-readable reasons the signal liked a bet at that moment. Examples: <strong>pace:up</strong> means the game is running faster than expected, <strong>goalie:weak</strong> means the save environment looks softer than baseline, and <strong>manpower:pp_home</strong> means the home team is on a power play.</p>
-        <p class="explain mt10 m0"><strong>Tag types</strong> are the families before the colon. So <strong>pace</strong> groups pace-related tags, <strong>goalie</strong> groups goalie-strength tags, and <strong>gate</strong> groups rule or threshold tags that let a bet through.</p>
-        <div class="section-title mt10">Tag Type Guide</div>
-        <div class="xscroll mt10">
-          <table id="tagTypeGuide"></table>
-        </div>
-      </div>
-
-      <div class="card mb16">
         <div class="section-title">Daily Recap (All Settled Days)</div>
         <div class="muted mt10" id="historyScope"></div>
         <div class="xscroll">
           <table id="byDate"></table>
+        </div>
+        <div class="section-title mt10">Breakout By Bet Type</div>
+        <div class="muted mt10">Each settled day split by Total, Period Total, and ML so you can see what actually drove the day.</div>
+        <div class="xscroll">
+          <table id="byDateBetType"></table>
         </div>
       </div>
 
@@ -124,6 +118,17 @@
         <div class="section-title">Cumulative Tag Types</div>
         <div class="xscroll">
           <table id="byTagType"></table>
+        </div>
+      </div>
+
+      <div class="card mt10">
+        <div class="section-title">How To Read This</div>
+        <p class="explain mt10 m0"><strong>Elapsed bucket</strong> tells you when the bet fired on the full NHL game clock. This recap now groups bets into <strong>1-minute windows</strong> across all <strong>65 minutes</strong> of regulation plus overtime. For example, <strong>20:00-21:00</strong> means the signal fired during that one-minute stretch. The underlying ledger also keeps <strong>15-second bins</strong> for deeper tuning.</p>
+        <p class="explain mt10 m0"><strong>Driver tags</strong> are the machine-readable reasons the signal liked a bet at that moment. Examples: <strong>pace:up</strong> means the game is running faster than expected, <strong>goalie:weak</strong> means the save environment looks softer than baseline, and <strong>manpower:pp_home</strong> means the home team is on a power play.</p>
+        <p class="explain mt10 m0"><strong>Tag types</strong> are the families before the colon. So <strong>pace</strong> groups pace-related tags, <strong>goalie</strong> groups goalie-strength tags, and <strong>gate</strong> groups rule or threshold tags that let a bet through.</p>
+        <div class="section-title mt10">Tag Type Guide</div>
+        <div class="xscroll mt10">
+          <table id="tagTypeGuide"></table>
         </div>
       </div>
     </div>
@@ -162,6 +167,13 @@
       'P2': 'Second-period-specific context.',
       'P3': 'Third-period-specific context.',
       '(none)': 'No driver tags were attached to the settled bet.'
+    };
+
+    const BET_TYPE_LABELS = {
+      'TOTAL': 'Total',
+      'PERIOD_TOTAL': 'Period Total',
+      'ML': 'ML',
+      'PERIOD_ML': 'Period ML'
     };
 
     function describeDriverTag(tag) {
@@ -221,6 +233,12 @@
       if (start) return `from ${start}`;
       if (end) return `through ${end}`;
       return 'all settled days';
+    }
+
+    function formatBetType(value) {
+      const key = String(value ?? '').trim().toUpperCase();
+      if (!key || key === '(NONE)') return '(none)';
+      return BET_TYPE_LABELS[key] || key.replaceAll('_', ' ');
     }
 
     function renderTiles(sum) {
@@ -296,6 +314,38 @@
       }
     }
 
+    function renderDateBetTypeTable(tableEl, rows) {
+      tableEl.innerHTML = '';
+      const head = document.createElement('tr');
+      for (const h of ['date', 'bet_type', 'bets', 'wins', 'losses', 'pushes', 'units', 'roi', 'win_rate']) {
+        const th = document.createElement('th');
+        th.textContent = h;
+        head.appendChild(th);
+      }
+      tableEl.appendChild(head);
+
+      for (const r of (rows || [])) {
+        const tr = document.createElement('tr');
+        const cols = [
+          String(r.date ?? '(none)'),
+          formatBetType(r.market),
+          String(r.bets ?? ''),
+          String(r.wins ?? ''),
+          String(r.losses ?? ''),
+          String(r.pushes ?? ''),
+          fmt(r.units, 3),
+          pct(r.roi, 1),
+          (r.win_rate === null || r.win_rate === undefined) ? '—' : pct(r.win_rate, 1),
+        ];
+        for (const c of cols) {
+          const td = document.createElement('td');
+          td.textContent = c;
+          tr.appendChild(td);
+        }
+        tableEl.appendChild(tr);
+      }
+    }
+
     function renderTagTypeGuide(allDays) {
       const seen = new Set();
       const rows = [];
@@ -344,7 +394,8 @@
         renderTiles(obj.summary);
         renderScopeNotes(obj, allDays);
         renderTable($('byDate'), allDays.by_date || obj.by_date, 'date');
-        renderTable($('byMarket'), allDays.by_market || obj.by_market, 'market');
+        renderDateBetTypeTable($('byDateBetType'), allDays.by_date_market || obj.by_date_market || []);
+        renderTable($('byMarket'), allDays.by_market || obj.by_market, 'bet_type', formatBetType);
         renderTable($('byElapsed'), allDays.by_elapsed_bucket || obj.by_elapsed_bucket, 'elapsed_bucket', formatElapsedBucket);
         renderTable($('byDriverTag'), allDays.by_driver_tag_all || obj.by_driver_tag_all || obj.by_driver_tag, 'driver_tag', (key) => `${key} — ${describeDriverTag(key)}`);
         renderTable($('byTagType'), allDays.by_tag_type || obj.by_tag_type, 'tag_type', (key) => `${key} — ${describeTagType(key)}`);

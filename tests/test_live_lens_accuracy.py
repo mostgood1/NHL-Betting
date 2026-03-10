@@ -83,6 +83,13 @@ def test_live_lens_accuracy_data_reads_perf_dir(monkeypatch: pytest.MonkeyPatch,
     assert "2099-01-01" in dd
     assert dd["2099-01-01"]["bets"] == 3
 
+    by_date_market = obj.get("by_date_market") or []
+    dm = {(str(x.get("date")), str(x.get("market"))): x for x in by_date_market}
+    assert ("2099-01-01", "TOTAL") in dm
+    assert dm[("2099-01-01", "TOTAL")]["bets"] == 2
+    assert ("2099-01-01", "PERIOD_TOTAL") in dm
+    assert dm[("2099-01-01", "PERIOD_TOTAL")]["bets"] == 1
+
     by_edge = obj.get("by_edge_bucket") or []
     eb = {str(x.get("key")): x for x in by_edge}
     assert ">=0.06" in eb
@@ -123,6 +130,7 @@ def test_live_lens_accuracy_page_alias_renders(monkeypatch: pytest.MonkeyPatch, 
     assert "Live Lens Accuracy" in r.text
     assert "Selected Day Summary" in r.text
     assert "Daily Recap (All Settled Days)" in r.text
+    assert "Breakout By Bet Type" in r.text
     assert "Elapsed bucket" in r.text
     assert "Driver tags" in r.text
     assert "Tag types" in r.text
@@ -243,6 +251,10 @@ def test_live_lens_accuracy_all_days_breakdowns_stay_cumulative_when_date_is_fil
     by_date = {str(row.get("key")): row for row in (all_days.get("by_date") or [])}
     assert by_date["2099-01-01"]["bets"] == 1
     assert by_date["2099-01-03"]["bets"] == 1
+
+    by_date_market = {(str(row.get("date")), str(row.get("market"))): row for row in (all_days.get("by_date_market") or [])}
+    assert by_date_market[("2099-01-03", "ML")]["bets"] == 1
+    assert by_date_market[("2099-01-01", "TOTAL")]["bets"] == 1
 
     elapsed_keys = [str(row.get("key")) for row in (all_days.get("by_elapsed_bucket") or [])]
     assert elapsed_keys == ["00:00-01:00", "20:00-21:00"]

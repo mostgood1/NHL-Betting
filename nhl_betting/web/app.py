@@ -1634,6 +1634,71 @@ def _summarize_ledger(df, group_col: Optional[str] = None) -> list[dict[str, Any
         return []
 
 
+def _summarize_ledger_multi(df, group_cols: list[str]) -> list[dict[str, Any]]:
+    """Summarize settled bet ledger rows across multiple grouping columns."""
+    try:
+        import pandas as pd
+
+        if df is None or getattr(df, "empty", True):
+            return []
+
+        cols = [str(col).strip() for col in (group_cols or []) if str(col).strip()]
+        if not cols:
+            return []
+
+        d0 = df.copy()
+        if any(col not in d0.columns for col in cols):
+            return []
+        if "result" not in d0.columns:
+            d0["result"] = None
+        if "profit_units" not in d0.columns:
+            d0["profit_units"] = 0.0
+
+        try:
+            d0["result"] = d0["result"].astype(str).str.upper()
+            d0["result"] = d0["result"].replace({"LOSS": "LOSE", "WON": "WIN"})
+        except Exception:
+            pass
+        try:
+            d0["profit_units"] = pd.to_numeric(d0["profit_units"], errors="coerce")
+        except Exception:
+            pass
+
+        def _summ(grp) -> dict[str, Any]:
+            n = int(len(grp))
+            w = int((grp["result"] == "WIN").sum())
+            l = int((grp["result"] == "LOSE").sum())
+            p = int((grp["result"] == "PUSH").sum())
+            units = float(grp["profit_units"].sum(skipna=True)) if n else 0.0
+            roi = (units / float(n)) if n else 0.0
+            denom = float(w + l)
+            win_rate = (float(w) / denom) if denom > 0 else None
+            return {
+                "bets": n,
+                "wins": w,
+                "losses": l,
+                "pushes": p,
+                "units": units,
+                "roi": roi,
+                "win_rate": win_rate,
+            }
+
+        out: list[dict[str, Any]] = []
+        for raw_keys, grp in d0.groupby(cols, dropna=False):
+            keys = raw_keys if isinstance(raw_keys, tuple) else (raw_keys,)
+            row = _summ(grp)
+            key_parts: list[str] = []
+            for col, value in zip(cols, keys):
+                cleaned = None if pd.isna(value) else value
+                row[col] = cleaned
+                key_parts.append("" if cleaned is None else str(cleaned))
+            row["key"] = "|".join(key_parts)
+            out.append(row)
+        return out
+    except Exception:
+        return []
+
+
 def _coerce_driver_tags(v: Any) -> list[str]:
     if v is None:
         return []
@@ -1805,10 +1870,25 @@ def _live_lens_tag_coverage(df: pd.DataFrame) -> dict[str, Any]:
     return tag_coverage
 
 
+def _live_lens_market_sort_key(value: Any) -> tuple[int, str]:
+    try:
+        market = str(value or "").strip().upper()
+    except Exception:
+        market = ""
+    order = {
+        "TOTAL": 0,
+        "PERIOD_TOTAL": 1,
+        "ML": 2,
+        "PERIOD_ML": 3,
+    }
+    return (int(order.get(market, 99)), market)
+
+
 def _live_lens_accuracy_breakdowns(df: pd.DataFrame) -> dict[str, Any]:
     df0 = _live_lens_prepare_elapsed_columns(df)
     summary_all = _summarize_ledger(df0)
     by_date = _summarize_ledger(df0, group_col="date")
+    by_date_market = _summarize_ledger_multi(df0, group_cols=["date", "market"])
     by_market = _summarize_ledger(df0, group_col="market")
     by_elapsed = _summarize_ledger(df0, group_col="elapsed_bucket")
     by_edge = _summarize_ledger(df0, group_col="edge_bucket")
@@ -1818,6 +1898,12 @@ def _live_lens_accuracy_breakdowns(df: pd.DataFrame) -> dict[str, Any]:
 
     try:
         by_date.sort(key=lambda r: str(r.get("key") or ""), reverse=True)
+    except Exception:
+        pass
+
+    try:
+        by_date_market.sort(key=lambda r: _live_lens_market_sort_key(r.get("market")))
+        by_date_market.sort(key=lambda r: str(r.get("date") or ""), reverse=True)
     except Exception:
         pass
 
@@ -1865,6 +1951,7 @@ def _live_lens_accuracy_breakdowns(df: pd.DataFrame) -> dict[str, Any]:
         "end": bounds_end,
         "summary": summary_row,
         "by_date": by_date,
+        "by_date_market": by_date_market,
         "by_market": by_market,
         "by_elapsed_bucket": by_elapsed,
         "by_edge_bucket": by_edge,
@@ -2162,6 +2249,7 @@ async def api_live_lens_accuracy_data(
             "rows_total": n_rows_total,
             "summary": selected_breakdowns.get("summary"),
             "by_date": selected_breakdowns.get("by_date"),
+            "by_date_market": selected_breakdowns.get("by_date_market"),
             "by_market": selected_breakdowns.get("by_market"),
             "by_elapsed_bucket": selected_breakdowns.get("by_elapsed_bucket"),
             "by_edge_bucket": selected_breakdowns.get("by_edge_bucket"),

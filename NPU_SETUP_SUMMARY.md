@@ -158,7 +158,7 @@ Compare NPU vs CPU inference speed to quantify speedup.
 ### 4. Integrate into Daily Pipeline
 Once models are trained, the daily pipeline will automatically use NPU for props projections:
 ```powershell
-.\daily_update.ps1 -DaysAhead 2
+.\scripts\daily_update.ps1 -DaysAhead 2
 ```
 
 Or use manually:

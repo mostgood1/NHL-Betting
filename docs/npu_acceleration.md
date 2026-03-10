@@ -156,9 +156,9 @@ Update your daily automation to use NPU models:
 
 ### Option 1: Environment Variable (Recommended)
 ```powershell
-# In daily_update.ps1 or your scheduled task
+# In scripts/daily_update.ps1 or your scheduled task
 $env:USE_NPU = "1"
-.\daily_update.ps1 -DaysAhead 2
+.\scripts\daily_update.ps1 -DaysAhead 2
 ```
 
 ### Option 2: Modify daily_update.py

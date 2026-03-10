@@ -32,7 +32,7 @@
 - Memory: VTCM (Vector Tightly Coupled Memory) optimized
 
 #### 3. **Daily Update Pipeline Automated**
-- ✅ `daily_update.ps1` configured with `PROPS_PRECOMPUTE_ALL=1`
+- ✅ `scripts/daily_update.ps1` configured with `PROPS_PRECOMPUTE_ALL=1`
 - ✅ Runs `props_project_all` with NPU models by default
 - ✅ Generates all CSV files automatically
 - ✅ Auto-commits to GitHub
@@ -215,7 +215,7 @@ props_recommendations_history.csv    - Rolling history
 - `nhl_betting/cli.py` - props_project_all (NN integration)
 - `nhl_betting/scripts/train_nn_props.py` - Training scripts
 - `nhl_betting/web/app.py` - FastAPI application (77 routes)
-- `daily_update.ps1` - Automated daily workflow
+- `scripts/daily_update.ps1` - Automated daily workflow
 - `FRONTEND_EVALUATION.md` - Deployment guide
 
 ### 📈 Performance Metrics

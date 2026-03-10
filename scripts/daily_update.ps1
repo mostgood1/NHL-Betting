@@ -9,6 +9,12 @@ Param (
   [int]$PropsBoxscoreTimeoutSec = 3600,
   [int]$GameSimTimeoutSec = 600,
   [switch]$StrictOutputs,
+  # Legacy compatibility switches retained so older tasks/helpers can call the canonical script.
+  [switch]$Quiet,
+  [switch]$BootstrapModels,
+  [double]$TrendsDecay = 0.98,
+  [switch]$ResetTrends,
+  [switch]$SkipProps,
   [switch]$NoReconcile,
   [switch]$Postgame,
   [string]$PostgameDate = "yesterday",
@@ -55,13 +61,24 @@ Param (
   [switch]$PropsBackfillRange,
   [int]$PropsBackfillDays = 30,
   # Props backtests (projections)
+  [Alias('RunBacktests')]
   [switch]$RunPropsBacktests,
+  [Alias('BacktestDays')]
   [int]$PropsBacktestDays = 30,
+  [Alias('BacktestMinEvPerMarket')]
   [string]$PropsBacktestMinEvPerMarket = "",
   # Props backtests (sim-backed)
+  [Alias('RunSimBacktests')]
   [switch]$RunSimPropsBacktests,
+  [Alias('SimBacktestDays')]
   [int]$SimPropsBacktestDays = 13,
+  [Alias('SimBacktestMinEvPerMarket')]
   [string]$SimPropsBacktestMinEvPerMarket = "",
+
+  [switch]$SkipPropsProjections,
+  [switch]$SkipPropsCalibration,
+  [switch]$SkipGameCalibration,
+  [switch]$RecomputeRecs,
 
   # Play-level props boxscore sim tuning (impacts web-facing props lambdas)
   [string]$PropsToiMode = "auto",
@@ -229,6 +246,12 @@ if (-not $PSBoundParameters.ContainsKey('PropsRecs')) { $PropsRecs = $true }
 if (-not $PSBoundParameters.ContainsKey('PropsUseSim')) { $PropsUseSim = $true }
 if (-not $PSBoundParameters.ContainsKey('PropsMinProbPerMarket') -or [string]::IsNullOrWhiteSpace($PropsMinProbPerMarket)) {
   $PropsMinProbPerMarket = 'SOG=0.75,GOALS=0.60,ASSISTS=0.60,POINTS=0.60,SAVES=0.60,BLOCKS=0.60'
+}
+if ($SkipPropsProjections) { $env:PROPS_SKIP_PROJECTIONS = '1' }
+if ($SkipPropsCalibration) { $env:SKIP_PROPS_CALIBRATION = '1' }
+if ($SkipProps) {
+  $PropsRecs = $false
+  $PropsBackfillRange = $false
 }
 
 # Defaults for props backtests EV gates if not provided
@@ -461,29 +484,33 @@ try {
 }
 
 # Ensure props lines are saved once per slate (CSV+Parquet) without refetching repeatedly
-try {
-  foreach ($d in $dates) {
-    $dir = Join-Path $RepoRoot "data/props/player_props_lines/date=$d"
-    if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir | Out-Null }
-    $haveRows = $false
-    foreach ($fn in @('oddsapi.csv','bovada.csv')) {
-      $p = Join-Path $dir $fn
-      if (Test-Path $p) {
-        try {
-          $cnt = (Import-Csv $p).Count
-          if ($cnt -gt 0) { $haveRows = $true }
-        } catch { }
+if (-not $SkipProps) {
+  try {
+    foreach ($d in $dates) {
+      $dir = Join-Path $RepoRoot "data/props/player_props_lines/date=$d"
+      if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir | Out-Null }
+      $haveRows = $false
+      foreach ($fn in @('oddsapi.csv','bovada.csv')) {
+        $p = Join-Path $dir $fn
+        if (Test-Path $p) {
+          try {
+            $cnt = (Import-Csv $p).Count
+            if ($cnt -gt 0) { $haveRows = $true }
+          } catch { }
+        }
+      }
+      if (-not $haveRows) {
+        Write-Host "[daily_update] Collecting props lines for $d (oddsapi+bovada) …" -ForegroundColor Yellow
+        try { python -m nhl_betting.cli props-collect --date $d --source oddsapi } catch { Write-Warning "[daily_update] props-collect oddsapi failed: $($_.Exception.Message)" }
+        try { python -m nhl_betting.cli props-collect --date $d --source bovada } catch { Write-Warning "[daily_update] props-collect bovada failed: $($_.Exception.Message)" }
+      } else {
+        Write-Host "[daily_update] Props lines already present for $d; skipping collection." -ForegroundColor DarkGreen
       }
     }
-    if (-not $haveRows) {
-      Write-Host "[daily_update] Collecting props lines for $d (oddsapi+bovada) …" -ForegroundColor Yellow
-      try { python -m nhl_betting.cli props-collect --date $d --source oddsapi } catch { Write-Warning "[daily_update] props-collect oddsapi failed: $($_.Exception.Message)" }
-      try { python -m nhl_betting.cli props-collect --date $d --source bovada } catch { Write-Warning "[daily_update] props-collect bovada failed: $($_.Exception.Message)" }
-    } else {
-      Write-Host "[daily_update] Props lines already present for $d; skipping collection." -ForegroundColor DarkGreen
-    }
-  }
-} catch { Write-Warning "[daily_update] props lines ensure failed: $($_.Exception.Message)" }
+  } catch { Write-Warning "[daily_update] props lines ensure failed: $($_.Exception.Message)" }
+} else {
+  Write-Host "[daily_update] SkipProps set; skipping props line collection." -ForegroundColor DarkGreen
+}
 
 # Optional: backfill historical player props via OddsAPI (per-day partitions)
 try {
@@ -563,6 +590,10 @@ try {
 # Run daily update workflow
 $argsList = @("-m", "nhl_betting.scripts.daily_update", "--days-ahead", "$DaysAhead", "--years-back", "$YearsBack")
 if ($NoReconcile) { $argsList += "--no-reconcile" }
+if ($BootstrapModels) { $argsList += "--bootstrap-models" }
+$argsList += @("--trends-decay", "$TrendsDecay")
+if ($ResetTrends) { $argsList += "--reset-trends" }
+if ($SkipProps) { $argsList += "--skip-props" }
 Write-Host "[daily_update] Running core daily_update module with timeout=${CoreTimeoutSec}s …" -ForegroundColor Yellow
 try {
   $coreJob = Start-Job -ScriptBlock { Set-Location $using:RepoRoot; & $using:PyExe @using:argsList }
@@ -589,6 +620,21 @@ try {
   }
 } catch {
   Write-Warning "[daily_update] game-recompute-edges failed: $($_.Exception.Message)"
+}
+
+if ($RecomputeRecs) {
+  try {
+    $base = $AnchorNow
+    $recomputeDays = [Math]::Max($DaysAhead, 2)
+    $env:FIRST10_BLEND = '1'
+    for ($i = 0; $i -lt $recomputeDays; $i++) {
+      $d = $base.AddDays($i).ToString('yyyy-MM-dd')
+      Write-Host "[daily_update] Recomputing recommendations for $d …" -ForegroundColor Cyan
+      python -c "from nhl_betting.core.recs_shared import recompute_edges_and_recommendations as R; R('$d', min_ev=0.0)"
+    }
+  } catch {
+    Write-Warning "[daily_update] recommendation recompute failed: $($_.Exception.Message)"
+  }
 }
 
 # Optional: run game simulations (ML/PL/Totals) driven by NN outputs
@@ -765,31 +811,35 @@ if ($BacktestSimulations) {
 }
 
 # Adaptive gate re-learn: if last learn older than 5 days OR 30-day overall ROI < -0.08
-try {
-  $calPath = Join-Path $RepoRoot 'data/processed/model_calibration.json'
-  $monitorPath = Join-Path $RepoRoot 'data/processed/game_daily_monitor.json'
-  $needLearn = $false
-  $today = $AnchorNow.ToString('yyyy-MM-dd')
-  if (Test-Path $calPath) {
-    $cal = Get-Content $calPath | ConvertFrom-Json
-    if ($cal.ev_gates_last_learned_utc) {
-      $last = [DateTime]::Parse($cal.ev_gates_last_learned_utc)
-      if ($AnchorNow - $last -gt [TimeSpan]::FromDays(5)) { $needLearn = $true }
+if (-not $SkipGameCalibration) {
+  try {
+    $calPath = Join-Path $RepoRoot 'data/processed/model_calibration.json'
+    $monitorPath = Join-Path $RepoRoot 'data/processed/game_daily_monitor.json'
+    $needLearn = $false
+    $today = $AnchorNow.ToString('yyyy-MM-dd')
+    if (Test-Path $calPath) {
+      $cal = Get-Content $calPath | ConvertFrom-Json
+      if ($cal.ev_gates_last_learned_utc) {
+        $last = [DateTime]::Parse($cal.ev_gates_last_learned_utc)
+        if ($AnchorNow - $last -gt [TimeSpan]::FromDays(5)) { $needLearn = $true }
+      } else { $needLearn = $true }
     } else { $needLearn = $true }
-  } else { $needLearn = $true }
-  if (Test-Path $monitorPath) {
-    $mon = Get-Content $monitorPath | ConvertFrom-Json
-    if ($mon.overall -and $mon.overall.roi -lt -0.08) { $needLearn = $true }
+    if (Test-Path $monitorPath) {
+      $mon = Get-Content $monitorPath | ConvertFrom-Json
+      if ($mon.overall -and $mon.overall.roi -lt -0.08) { $needLearn = $true }
+    }
+    if ($needLearn) {
+      $seasonStart = if ($AnchorNow.Month -ge 9) { "$($AnchorNow.Year)-09-01" } else { "$($AnchorNow.AddYears(-1).Year)-09-01" }
+      Write-Host "[daily_update] EV gate re-learn triggered (seasonStart=$seasonStart -> today)" -ForegroundColor Magenta
+      python -m nhl_betting.cli game-learn-ev-gates --start $seasonStart --end $today
+    } else {
+      Write-Host "[daily_update] EV gate re-learn skipped (recent & stable)" -ForegroundColor DarkGreen
+    }
+  } catch {
+    Write-Warning "[daily_update] adaptive gate re-learn failed: $($_.Exception.Message)"
   }
-  if ($needLearn) {
-    $seasonStart = if ($AnchorNow.Month -ge 9) { "$($AnchorNow.Year)-09-01" } else { "$($AnchorNow.AddYears(-1).Year)-09-01" }
-    Write-Host "[daily_update] EV gate re-learn triggered (seasonStart=$seasonStart -> today)" -ForegroundColor Magenta
-    python -m nhl_betting.cli game-learn-ev-gates --start $seasonStart --end $today
-  } else {
-    Write-Host "[daily_update] EV gate re-learn skipped (recent & stable)" -ForegroundColor DarkGreen
-  }
-} catch {
-  Write-Warning "[daily_update] adaptive gate re-learn failed: $($_.Exception.Message)"
+} else {
+  Write-Host "[daily_update] SkipGameCalibration set; skipping adaptive EV gate re-learn." -ForegroundColor DarkGreen
 }
 
 # Optionally run postgame pipeline after daily update

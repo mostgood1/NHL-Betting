@@ -133,7 +133,7 @@ python -c "import pandas as pd; df = pd.read_csv('data/processed/predictions_202
 
 1. **Deploy to Render** ✅ (auto-deploys from GitHub)
 2. **Check website** - Game cards should now show period predictions
-3. **Daily workflow** - Just run `.\daily_update.ps1` as usual
+3. **Daily workflow** - Just run `.\scripts\daily_update.ps1` as usual
 
 ## Key Learnings
 

@@ -7,7 +7,7 @@
 #### 1. **Core Data Pipeline**
 - **NPU-Accelerated NN Models**: All 6 player props models (SOG, GOALS, ASSISTS, POINTS, SAVES, BLOCKS) running with QNNExecutionProvider
 - **Game Predictions**: Elo/Poisson models for moneyline, totals, puck lines
-- **Daily Update**: Automated via `daily_update.ps1` with `PROPS_PRECOMPUTE_ALL=1`
+- **Daily Update**: Automated via `scripts/daily_update.ps1` with `PROPS_PRECOMPUTE_ALL=1`
 - **Data Sources**: OddsAPI (primary), Bovada (fallback), NHL Web API
 
 #### 2. **HTML Pages** (User-Facing)
@@ -177,7 +177,7 @@ C. **Database** (future):
 ### 🔄 Synchronized Workflow (Local ↔ Render)
 
 #### Local Development:
-1. Run `daily_update.ps1` nightly (or on demand)
+1. Run `scripts/daily_update.ps1` nightly (or on demand)
 2. Generates all CSVs with NN projections
 3. Commit to GitHub automatically
 4. Launch `.\run_flask.ps1` for testing

@@ -60,7 +60,7 @@ python -m nhl_betting.cli props-project-all --date 2025-10-16
 
 ### Option 2: Permanent Setting
 ```powershell
-# Add to your PowerShell profile or daily_update.ps1
+# Add to your PowerShell profile or scripts/daily_update.ps1
 $env:USE_NPU = "1"
 ```
 

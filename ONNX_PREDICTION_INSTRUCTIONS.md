@@ -68,7 +68,7 @@ python -c "import pandas as pd; df = pd.read_csv('data/processed/predictions_202
 Once verified working, use your normal workflow:
 ```powershell
 # Daily update script will automatically use ONNX models
-.\daily_update.ps1
+.\scripts\daily_update.ps1
 ```
 
 The predictions CSV will be saved to `data/processed/predictions_YYYY-MM-DD.csv` and Render will read from there.

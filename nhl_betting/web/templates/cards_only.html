@@ -317,19 +317,25 @@
     let propsPollInFlight = false;
     let lastPropsStripSignature = '';
 
-    const LS_COMPACT_KEY = 'nhl:compactMode';
+    const LS_COMPACT_KEY = 'nhl:compactMode:v2';
+    const LS_COMPACT_KEY_LEGACY = 'nhl:compactMode';
     const DEFAULT_PAGE_TITLE = 'NHL Betting – Cards';
 
-    function _lsGetBool(key, defaultVal=false) {
+    function _lsGetStoredBool(key) {
       try {
         const v = localStorage.getItem(key);
-        if (v === null || v === undefined) return defaultVal;
+        if (v === null || v === undefined) return undefined;
         if (v === '1' || v === 'true') return true;
         if (v === '0' || v === 'false') return false;
-        return defaultVal;
+        return undefined;
       } catch (e) {
-        return defaultVal;
+        return undefined;
       }
+    }
+
+    function _lsGetBool(key, defaultVal=false) {
+      const v = _lsGetStoredBool(key);
+      return (v === undefined) ? defaultVal : v;
     }
 
     function _lsSetBool(key, val) {
@@ -3424,8 +3430,13 @@
       // Compact mode toggle persisted in localStorage.
       try {
         const compactChk = $('compactModeChk');
-
-        const compactSaved = _lsGetBool(LS_COMPACT_KEY, false);
+        const compactSaved = (() => {
+          const stored = _lsGetStoredBool(LS_COMPACT_KEY);
+          if (stored !== undefined) return stored;
+          const legacy = _lsGetStoredBool(LS_COMPACT_KEY_LEGACY);
+          if (legacy !== undefined) return legacy;
+          return true;
+        })();
 
         if (compactChk) {
           compactChk.checked = !!compactSaved;
@@ -3434,6 +3445,7 @@
           compactChk.addEventListener('change', () => {
             const on = !!compactChk.checked;
             _lsSetBool(LS_COMPACT_KEY, on);
+            _lsSetBool(LS_COMPACT_KEY_LEGACY, on);
             _syncPillActiveForCheckbox(compactChk);
             setCompactMode(on);
           });

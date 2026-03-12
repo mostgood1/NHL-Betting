@@ -2122,19 +2122,19 @@ date,home,away,market,bet,ev,price,result,stake,payout
 2026-03-10T23:00:00Z,Tampa Bay Lightning,Columbus Blue Jackets,puckline,away_pl_+1.5,0.0371,-115.0,win,100.0,86.95652173913042
 2026-03-10T23:00:00Z,Florida Panthers,Detroit Red Wings,moneyline,home_ml,0.1394,-103.0,win,100.0,97.0873786407767
 2026-03-10T23:00:00Z,Florida Panthers,Detroit Red Wings,totals,under,0.1318,-117.0,loss,100.0,-100.0
-2026-03-10T23:00:00Z,Florida Panthers,Detroit Red Wings,puckline,away_pl_+1.5,0.098,-258.0,win,100.0,38.759689922480625
+2026-03-10T23:00:00Z,Florida Panthers,Detroit Red Wings,puckline,away_pl_+1.5,0.098,-258.0,win,100.0,38.75968992248063
 2026-03-10T23:00:00Z,New York Rangers,Calgary Flames,moneyline,away_ml,0.0537,105.0,loss,100.0,-100.0
 2026-03-10T23:00:00Z,New York Rangers,Calgary Flames,totals,under,0.0295,-112.0,win,100.0,89.28571428571428
 2026-03-10T23:00:00Z,New York Rangers,Calgary Flames,puckline,home_pl_-1.5,0.1522,208.0,win,100.0,208.0
 2026-03-10T23:00:00Z,Carolina Hurricanes,Pittsburgh Penguins,totals,under,0.3068,107.0,loss,100.0,-100.0
 2026-03-10T23:00:00Z,Carolina Hurricanes,Pittsburgh Penguins,puckline,away_pl_+1.5,0.2155,-130.0,win,100.0,76.92307692307692
 2026-03-10T23:30:00Z,St. Louis Blues,New York Islanders,moneyline,home_ml,0.362,111.0,loss,100.0,-100.0
-2026-03-10T23:30:00Z,St. Louis Blues,New York Islanders,totals,over,0.2641,-108.0,win,100.0,92.59259259259261
+2026-03-10T23:30:00Z,St. Louis Blues,New York Islanders,totals,over,0.2641,-108.0,win,100.0,92.5925925925926
 2026-03-11T00:00:00Z,Dallas Stars,Vegas Golden Knights,moneyline,home_ml,0.1639,-145.0,win,100.0,68.96551724137932
 2026-03-11T00:00:00Z,Dallas Stars,Vegas Golden Knights,totals,over,0.0681,-104.0,loss,100.0,-100.0
 2026-03-11T00:00:00Z,Dallas Stars,Vegas Golden Knights,puckline,home_pl_-1.5,0.1341,173.0,loss,100.0,-100.0
 2026-03-11T00:00:00Z,Minnesota Wild,Utah Mammoth,moneyline,home_ml,0.1826,-152.0,win,100.0,65.78947368421053
-2026-03-11T00:00:00Z,Minnesota Wild,Utah Mammoth,totals,under,0.0204,-105.0,win,100.0,95.23809523809523
+2026-03-11T00:00:00Z,Minnesota Wild,Utah Mammoth,totals,under,0.0204,-105.0,win,100.0,95.23809523809524
 2026-03-11T00:00:00Z,Minnesota Wild,Utah Mammoth,puckline,away_pl_+1.5,0.1314,-180.0,loss,100.0,-100.0
 2026-03-11T00:30:00Z,Winnipeg Jets,Anaheim Ducks,moneyline,home_ml,0.2985,-130.0,loss,100.0,-100.0
 2026-03-11T00:30:00Z,Winnipeg Jets,Anaheim Ducks,totals,under,0.1916,-122.0,win,100.0,81.9672131147541
@@ -2145,3 +2145,9 @@ date,home,away,market,bet,ev,price,result,stake,payout
 2026-03-11T02:00:00Z,Seattle Kraken,Nashville Predators,moneyline,home_ml,0.0127,-104.0,loss,100.0,-100.0
 2026-03-11T02:00:00Z,Seattle Kraken,Nashville Predators,totals,under,0.0021,-101.0,loss,100.0,-100.0
 2026-03-11T02:00:00Z,Seattle Kraken,Nashville Predators,puckline,away_pl_+1.5,0.0126,-250.0,win,100.0,39.99999999999999
+2026-03-11T23:30:00Z,Ottawa Senators,Montréal Canadiens,moneyline,home_ml,0.1279,-185.0,loss,100.0,-100.0
+2026-03-11T23:30:00Z,Ottawa Senators,Montréal Canadiens,totals,under,0.0759,-105.0,win,100.0,95.23809523809523
+2026-03-11T23:30:00Z,Ottawa Senators,Montréal Canadiens,puckline,away_pl_+1.5,0.0635,-148.0,win,100.0,67.56756756756756
+2026-03-11T23:30:00Z,Philadelphia Flyers,Washington Capitals,moneyline,home_ml,0.1611,118.0,win,100.0,117.99999999999997
+2026-03-11T23:30:00Z,Philadelphia Flyers,Washington Capitals,totals,under,0.0746,-115.0,win,100.0,86.95652173913042
+2026-03-11T23:30:00Z,Philadelphia Flyers,Washington Capitals,puckline,away_pl_+1.5,0.3204,,loss,100.0,-100.0

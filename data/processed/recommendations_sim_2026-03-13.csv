@@ -1,0 +1,3 @@
+market,side,price,ev,prob,conf,home,away,totals_line
+ML,New York Islanders,-140.0,0.04342857142857154,0.6086666666666667,0.10866666666666669,New York Islanders,Los Angeles Kings,5.5
+TOTAL,Over,-106.0,0.024493710691823933,0.5271666666666667,0.027166666666666672,New York Islanders,Los Angeles Kings,5.5

@@ -1,0 +1,168 @@
+{
+  "data": {
+    "games": {
+      "edges": {
+        "count": 4,
+        "rows": [
+          {
+            "away": "Los Angeles Kings",
+            "bet": "over",
+            "book": null,
+            "edge_reasons": "total 5.86 vs line 5.5 (+0.36); p=0.527; P1 pace 1.87",
+            "edge_score": 0.3601337886304594,
+            "ev": 0.0244937106918239,
+            "home": "New York Islanders",
+            "market": "ev_over",
+            "market_group": "totals",
+            "price": -106.0,
+            "prob": 0.5271666666666667,
+            "side": "Over 5.5",
+            "totals_line": 5.5
+          },
+          {
+            "away": "Los Angeles Kings",
+            "bet": "under",
+            "book": null,
+            "edge_reasons": "total 5.86 vs line 5.5 (+0.36); p=0.473; P1 pace 1.87",
+            "edge_score": 0.2413877799969915,
+            "ev": -0.1124005847953216,
+            "home": "New York Islanders",
+            "market": "ev_under",
+            "market_group": "totals",
+            "price": -114.0,
+            "prob": 0.4728333333333333,
+            "side": "Under 5.5",
+            "totals_line": 5.5
+          },
+          {
+            "away": "Los Angeles Kings",
+            "bet": "home_ml",
+            "book": null,
+            "edge_reasons": "p=0.609",
+            "edge_score": 0.2173333333333333,
+            "ev": 0.0434285714285715,
+            "home": "New York Islanders",
+            "market": "ev_home_ml",
+            "market_group": "moneyline",
+            "price": -140.0,
+            "prob": 0.6086666666666667,
+            "side": "New York Islanders",
+            "totals_line": null
+          },
+          {
+            "away": "Los Angeles Kings",
+            "bet": "away_ml",
+            "book": null,
+            "edge_reasons": "p=0.391",
+            "edge_score": 0.2173333333333333,
+            "ev": -0.1547199999999999,
+            "home": "New York Islanders",
+            "market": "ev_away_ml",
+            "market_group": "moneyline",
+            "price": 116.0,
+            "prob": 0.3913333333333333,
+            "side": "Los Angeles Kings",
+            "totals_line": null
+          }
+        ],
+        "source": "edges_sim_2026-03-13.csv"
+      },
+      "predictions": {
+        "count": 2,
+        "rows": [
+          {
+            "away": "Los Angeles Kings",
+            "away_ml_odds": 116.0,
+            "away_pl_+1.5_odds": -280.0,
+            "date": "2026-03-13",
+            "home": "New York Islanders",
+            "home_ml_odds": -140.0,
+            "home_pl_-1.5_odds": 220.0,
+            "model_total": 5.864333333333334,
+            "over_odds": -106.0,
+            "p_away_ml": 0.3913333333333333,
+            "p_away_pl_+1.5": 0.6773333333333333,
+            "p_home_ml": 0.6086666666666667,
+            "p_home_pl_-1.5": 0.3226666666666666,
+            "p_over": 0.5271666666666667,
+            "p_under": 0.4728333333333333,
+            "pl_line_used": 1.5,
+            "proj_away_goals": 2.642333333333333,
+            "proj_home_goals": 3.222,
+            "total_line_used": 5.5,
+            "under_odds": -114.0
+          },
+          {
+            "away": "Edmonton Oilers",
+            "away_ml_odds": null,
+            "away_pl_+1.5_odds": null,
+            "date": "2026-03-13",
+            "home": "St. Louis Blues",
+            "home_ml_odds": null,
+            "home_pl_-1.5_odds": null,
+            "model_total": 5.9943333333333335,
+            "over_odds": null,
+            "p_away_ml": 0.44025,
+            "p_away_pl_+1.5": 0.727,
+            "p_home_ml": 0.55975,
+            "p_home_pl_-1.5": 0.273,
+            "p_over": 0.4,
+            "p_under": 0.4553333333333333,
+            "pl_line_used": 1.5,
+            "proj_away_goals": 2.8461666666666665,
+            "proj_home_goals": 3.1481666666666666,
+            "total_line_used": 6.0,
+            "under_odds": null
+          }
+        ]
+      },
+      "recommendations": {
+        "count": 2,
+        "rows": [
+          {
+            "away": "Los Angeles Kings",
+            "conf": 0.1086666666666666,
+            "ev": 0.0434285714285715,
+            "home": "New York Islanders",
+            "market": "ML",
+            "price": -140.0,
+            "prob": 0.6086666666666667,
+            "side": "New York Islanders",
+            "totals_line": 5.5
+          },
+          {
+            "away": "Los Angeles Kings",
+            "conf": 0.0271666666666666,
+            "ev": 0.0244937106918239,
+            "home": "New York Islanders",
+            "market": "TOTAL",
+            "price": -106.0,
+            "prob": 0.5271666666666667,
+            "side": "Over",
+            "totals_line": 5.5
+          }
+        ]
+      },
+      "reconciliation": null
+    },
+    "props": {
+      "recommendations": {
+        "count": 0,
+        "rows": [],
+        "source": "props_recommendations_2026-03-13.csv"
+      },
+      "reconciliation": null
+    }
+  },
+  "date": "2026-03-13",
+  "files": {
+    "edges": "data/processed/edges_sim_2026-03-13.csv",
+    "game_recommendations": "data/processed/recommendations_sim_2026-03-13.csv",
+    "predictions": "data/processed/predictions_sim_2026-03-13.csv",
+    "props_recommendations": "data/processed/props_recommendations_2026-03-13.csv",
+    "reconciliation_games": null,
+    "reconciliation_props": null
+  },
+  "generated_at_utc": "2026-03-12T14:25:37+00:00",
+  "schema_version": 1
+}

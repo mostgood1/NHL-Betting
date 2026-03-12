@@ -1,0 +1,87 @@
+{
+  "summary": {
+    "date": "2026-03-11",
+    "picks": 6,
+    "decided": 6,
+    "wins": 4,
+    "losses": 2,
+    "pushes": 0,
+    "staked": 600.0,
+    "pnl": 167.76218454479317,
+    "roi": 0.2796036409079886
+  },
+  "rows": [
+    {
+      "date": "2026-03-11T23:30:00Z",
+      "home": "Ottawa Senators",
+      "away": "Montr\u00e9al Canadiens",
+      "market": "moneyline",
+      "bet": "home_ml",
+      "ev": 0.1279,
+      "price": -185,
+      "result": "loss",
+      "stake": 100.0,
+      "payout": -100.0
+    },
+    {
+      "date": "2026-03-11T23:30:00Z",
+      "home": "Ottawa Senators",
+      "away": "Montr\u00e9al Canadiens",
+      "market": "totals",
+      "bet": "under",
+      "ev": 0.0759,
+      "price": -105,
+      "result": "win",
+      "stake": 100.0,
+      "payout": 95.23809523809523
+    },
+    {
+      "date": "2026-03-11T23:30:00Z",
+      "home": "Ottawa Senators",
+      "away": "Montr\u00e9al Canadiens",
+      "market": "puckline",
+      "bet": "away_pl_+1.5",
+      "ev": 0.0635,
+      "price": -148.0,
+      "result": "win",
+      "stake": 100.0,
+      "payout": 67.56756756756756
+    },
+    {
+      "date": "2026-03-11T23:30:00Z",
+      "home": "Philadelphia Flyers",
+      "away": "Washington Capitals",
+      "market": "moneyline",
+      "bet": "home_ml",
+      "ev": 0.1611,
+      "price": 118,
+      "result": "win",
+      "stake": 100.0,
+      "payout": 117.99999999999997
+    },
+    {
+      "date": "2026-03-11T23:30:00Z",
+      "home": "Philadelphia Flyers",
+      "away": "Washington Capitals",
+      "market": "totals",
+      "bet": "under",
+      "ev": 0.0746,
+      "price": -115,
+      "result": "win",
+      "stake": 100.0,
+      "payout": 86.95652173913042
+    },
+    {
+      "date": "2026-03-11T23:30:00Z",
+      "home": "Philadelphia Flyers",
+      "away": "Washington Capitals",
+      "market": "puckline",
+      "bet": "away_pl_+1.5",
+      "ev": 0.3204,
+      "price": NaN,
+      "result": "loss",
+      "stake": 100.0,
+      "payout": -100.0
+    }
+  ]
+}

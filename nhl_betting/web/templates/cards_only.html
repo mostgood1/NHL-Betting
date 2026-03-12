@@ -198,16 +198,42 @@
     header .btn:disabled, header button:disabled { opacity: 0.55; cursor: not-allowed; }
 
     /* NCAAB-like compact mode + live-edge highlighting */
-    .compact-card .cards { gap: 12px; padding: 14px 0; }
-    .compact-card .card { padding: 12px; gap: 10px; }
-    .compact-card .card-title .match { font-size: 14px; }
-    .compact-card .team-pts-big { font-size: 24px; }
-    .compact-card .tile { padding: 8px; }
-    .compact-card .live-lens, .compact-card .sim-block, .compact-card .merged-block { padding: 8px; }
-    .compact-card .bet { padding: 5px 9px; font-size: 11px; }
+    .compact-card .cards { gap: 8px; padding: 8px 0; }
+    .compact-card .card { padding: 6px; gap: 8px; }
+    .compact-card .card-title { gap: 6px; }
+    .compact-card .card-title .match { font-size: 12px; }
+    .compact-card .pill { padding: 2px 6px; font-size: 11px; }
+    .compact-card .team .name { font-size: 14px; }
+    .compact-card .team .sub { font-size: 10px; }
+    .compact-card .team-logo { height: 28px; width: 28px; margin-right: 6px; }
+    .compact-card .team-pts-big { font-size: 22px; }
+    .compact-card .vs { font-size: 14px; padding: 0 4px; }
+    .compact-card .tile { padding: 8px; gap: 4px; }
+    .compact-card .tile .k,
+    .compact-card .live-lens .k,
+    .compact-card .section-title { font-size: 10px; }
+    .compact-card .tile .v,
+    .compact-card .live-lens .v { font-size: 11px; }
+    .compact-card .tile .v strong { font-size: 12px; }
+    .compact-card .markets-row { gap: 8px; }
+    .compact-card .markets-row .market { gap: 4px; min-width: 190px; }
+    .compact-card .live-lens,
+    .compact-card .sim-block,
+    .compact-card .merged-block { padding: 8px; gap: 8px; }
+    .compact-card .bet { padding: 4px 8px; font-size: 11px; }
+    .compact-card .driver-pills { gap: 4px; margin-top: 4px; }
+    .compact-card .driver-pill,
     .compact-card .lens-card-tag { font-size: 10px; padding: 2px 7px; }
+    .compact-card table.linescore th,
+    .compact-card table.linescore td,
+    .compact-card table.boxscore th,
+    .compact-card table.boxscore td { padding: 3px 5px; font-size: 11px; }
     .compact-card .scoreboard-strip { padding: 8px 0; margin: 6px 0 10px; gap: 6px; }
     .compact-card .scoreboard-strip .s-item { padding: 6px 8px; border-radius: 10px; }
+    .compact-card .scoreboard-strip .s-time,
+    .compact-card .scoreboard-strip .s-score,
+    .compact-card .scoreboard-strip .s-sig { font-size: 10px; }
+    .compact-card .scoreboard-strip .s-teamline { font-size: 11px; }
     .compact-card .game-card .props-game-tile { display:none; }
 
     .card.live-edge-ok { border-color:#1e7a45; box-shadow: 0 0 0 1px rgba(30,122,69,0.5), 0 2px 8px rgba(0,0,0,0.28); }

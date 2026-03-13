@@ -1202,6 +1202,18 @@ try {
           'data/raw/player_game_stats.csv'
         )
 
+        # Bundles are intentionally ignored by default to avoid staging a backlog.
+        # Force-add only the dates needed for web deploy parity (yesterday/today/tomorrow) + manifest.
+        $bundleDates = @(
+          $AnchorNow.AddDays(-1).ToString('yyyy-MM-dd'),
+          $AnchorNow.ToString('yyyy-MM-dd'),
+          $AnchorNow.AddDays(1).ToString('yyyy-MM-dd')
+        )
+        $forceAddFiles = @('data/processed/bundles/manifest.json')
+        foreach ($d in $bundleDates) {
+          $forceAddFiles += "data/processed/bundles/date=$d/bundle.json"
+        }
+
         $branch = $GitBranch
         if (-not $branch -or $branch.Trim() -eq '') {
           $branch = (Invoke-GitCommand -Args @('rev-parse', '--abbrev-ref', 'HEAD') -FailureMessage '[daily_update] Failed to resolve current branch' | Select-Object -First 1)
@@ -1215,45 +1227,46 @@ try {
           Write-Warning '[daily_update] Git user.name/user.email are unset or placeholder values; auto-generated commits may use bad author metadata.'
         }
 
-        $statusArgs = @('--no-pager', 'status', '--short', '--') + $gitPaths
-        $status = Invoke-GitCommand -Args $statusArgs -FailureMessage '[daily_update] Failed to inspect generated artifact status'
         $commitFailed = $false
-        if ($status) {
-          Write-Host "[daily_update] Git changes detected; staging generated artifacts …" -ForegroundColor Yellow
-          foreach ($p in $gitPaths) {
-            if (Test-Path (Join-Path $RepoRoot $p)) {
-              Invoke-GitCommand -Args @('add', '-A', '--', $p) -FailureMessage "[daily_update] Failed to stage generated artifacts under $p" | Out-Null
-            }
+
+        Write-Host "[daily_update] Staging generated artifacts …" -ForegroundColor Yellow
+        foreach ($p in $gitPaths) {
+          if (Test-Path (Join-Path $RepoRoot $p)) {
+            Invoke-GitCommand -Args @('add', '-A', '--', $p) -FailureMessage "[daily_update] Failed to stage generated artifacts under $p" | Out-Null
           }
+        }
 
-          $cachedArgs = @('diff', '--cached', '--name-only', '--') + $gitPaths
-          $cached = Invoke-GitCommand -Args $cachedArgs -FailureMessage '[daily_update] Failed to inspect staged generated artifacts'
-          if ($cached) {
+        foreach ($f in $forceAddFiles) {
+          if (Test-Path (Join-Path $RepoRoot $f)) {
+            Invoke-GitCommand -Args @('add', '-f', '--', $f) -FailureMessage "[daily_update] Failed to force-add ignored artifact $f" | Out-Null
+          }
+        }
+
+        $cachedArgs = @('diff', '--cached', '--name-only', '--') + $gitPaths
+        $cached = Invoke-GitCommand -Args $cachedArgs -FailureMessage '[daily_update] Failed to inspect staged generated artifacts'
+        if ($cached) {
+          $targetDates = @()
+          try {
+            $targetDates = @($dates | Where-Object { $_ -and $_.Trim() -ne '' })
+          } catch {
             $targetDates = @()
-            try {
-              $targetDates = @($dates | Where-Object { $_ -and $_.Trim() -ne '' })
-            } catch {
-              $targetDates = @()
-            }
-            if (-not $targetDates -or $targetDates.Count -eq 0) {
-              $targetDates = @($AnchorNow.ToString('yyyy-MM-dd'))
-            }
-            $stamp = Get-Date -Format 'yyyy-MM-dd HH:mm zzz'
-            $msg = "[auto] daily update: $($targetDates -join ', ') @ $stamp"
+          }
+          if (-not $targetDates -or $targetDates.Count -eq 0) {
+            $targetDates = @($AnchorNow.ToString('yyyy-MM-dd'))
+          }
+          $stamp = Get-Date -Format 'yyyy-MM-dd HH:mm zzz'
+          $msg = "[auto] daily update: $($targetDates -join ', ') @ $stamp"
 
-            try {
-              Invoke-GitCommand -Args @('commit', '--no-gpg-sign', '-m', $msg) -FailureMessage '[daily_update] Git commit failed for generated artifacts' | Out-Null
-              Write-Host "[daily_update] Git commit created." -ForegroundColor Yellow
-            } catch {
-              $commitFailed = $true
-              Write-Warning $_.Exception.Message
-              if ($StrictOutputs) { throw }
-            }
-          } else {
-            Write-Host "[daily_update] No staged artifact changes after git add." -ForegroundColor DarkGreen
+          try {
+            Invoke-GitCommand -Args @('commit', '--no-gpg-sign', '-m', $msg) -FailureMessage '[daily_update] Git commit failed for generated artifacts' | Out-Null
+            Write-Host "[daily_update] Git commit created." -ForegroundColor Yellow
+          } catch {
+            $commitFailed = $true
+            Write-Warning $_.Exception.Message
+            if ($StrictOutputs) { throw }
           }
         } else {
-          Write-Host "[daily_update] No artifact changes detected for git push." -ForegroundColor DarkGreen
+          Write-Host "[daily_update] No staged artifact changes after git add." -ForegroundColor DarkGreen
         }
 
         if (-not $commitFailed) {
@@ -1274,6 +1287,7 @@ try {
   }
 } catch {
   Write-Warning "[daily_update] Git push skipped due to error: $($_.Exception.Message)"
+  if ($StrictOutputs) { throw }
 }
 
 if ($DailyUpdateExitCode -ne 0) {

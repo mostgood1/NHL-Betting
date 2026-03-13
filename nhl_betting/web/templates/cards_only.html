@@ -17,11 +17,16 @@
 
     /* NBA-style compact scoreboard strip + card tags */
     .scoreboard-strip {
-      display:flex;
-      gap:10px;
-      overflow-x:auto;
-      overflow-y:hidden;
-      padding:10px;
+      --sb-gap: 10px;
+      --sb-pad: 10px;
+      --sb-item-min-h: 154px;
+      display:grid;
+      grid-template-columns: repeat(var(--sb-cols, 1), minmax(260px, 1fr));
+      gap:var(--sb-gap);
+      overflow-x:hidden;
+      overflow-y:auto;
+      max-height: calc((var(--sb-item-min-h) * 2) + var(--sb-gap) + (var(--sb-pad) * 2));
+      padding:var(--sb-pad);
       margin: 8px 0 14px;
       border:1px solid #25316a;
       border-radius:18px;
@@ -29,15 +34,13 @@
       position: sticky;
       top: 0;
       z-index: 5;
-      scroll-padding-inline: 10px;
+      align-content:start;
     }
-    .scoreboard-strip::-webkit-scrollbar { height: 10px; }
+    .scoreboard-strip::-webkit-scrollbar { width: 10px; }
     .scoreboard-strip::-webkit-scrollbar-thumb { background:#2a3a7a; border-radius:999px; }
     .scoreboard-strip:empty { display:none; }
     .scoreboard-strip .s-item {
-      flex: 0 0 288px;
-      min-width: 288px;
-      min-height: 154px;
+      min-height: var(--sb-item-min-h);
       background:#0f1530;
       border:1px solid #25316a;
       border-radius:18px;
@@ -48,7 +51,6 @@
       gap:10px;
       align-content:start;
       box-shadow: 0 6px 18px rgba(0,0,0,0.22);
-      scroll-snap-align: start;
     }
     .scoreboard-strip .s-item:hover { border-color:#4a86d9; transform: translateY(-1px); }
     .scoreboard-strip .s-item.live { background:#2d86d9; border-color:#5aa9ff; color:#f3f8ff; }
@@ -237,8 +239,8 @@
     .compact-card table.linescore td,
     .compact-card table.boxscore th,
     .compact-card table.boxscore td { padding: 3px 5px; font-size: 11px; }
-    .compact-card .scoreboard-strip { padding: 8px; margin: 6px 0 12px; gap: 8px; border-radius: 16px; }
-    .compact-card .scoreboard-strip .s-item { flex-basis: 258px; min-width: 258px; min-height: 136px; padding: 10px 12px; border-radius: 16px; gap: 8px; }
+    .compact-card .scoreboard-strip { --sb-gap: 8px; --sb-pad: 8px; --sb-item-min-h: 136px; grid-template-columns: repeat(var(--sb-cols, 1), minmax(236px, 1fr)); max-height: calc((var(--sb-item-min-h) * 2) + var(--sb-gap) + (var(--sb-pad) * 2)); padding: 8px; margin: 6px 0 12px; gap: 8px; border-radius: 16px; }
+    .compact-card .scoreboard-strip .s-item { padding: 10px 12px; border-radius: 16px; gap: 8px; }
     .compact-card .scoreboard-strip .s-time,
     .compact-card .scoreboard-strip .s-score,
     .compact-card .scoreboard-strip .s-sig { font-size: 10px; }
@@ -1377,25 +1379,19 @@
       }
 
       // Keep these in sync with the CSS above.
-      const gapPx = 8;
-      const baselineMinCardPx = 210;
+      const gapPx = 10;
+      const baselineMinCardPx = document.documentElement.classList.contains('compact-card') ? 236 : 260;
 
-      let rows = 1;
-      let cols = n;
+      let cols = 1;
       try {
         const w = Number(strip.clientWidth || strip.getBoundingClientRect().width || 0);
-        const maxColsOneRow = Math.max(1, Math.floor((w + gapPx) / (baselineMinCardPx + gapPx)));
-        if (n > maxColsOneRow) {
-          rows = 2;
-          cols = Math.ceil(n / 2);
-        }
+        const maxCols = Math.max(1, Math.floor((w + gapPx) / (baselineMinCardPx + gapPx)));
+        cols = Math.max(1, Math.min(n, maxCols));
       } catch (e) {
-        rows = 2;
-        cols = Math.ceil(n / 2);
+        cols = Math.min(n, 3);
       }
 
       try { strip.style.setProperty('--sb-cols', String(Math.max(1, cols))); } catch (e) {}
-      try { strip.style.setProperty('--sb-rows', String(Math.max(1, rows))); } catch (e) {}
     }
 
     function buildScoreboardStrip(preds) {

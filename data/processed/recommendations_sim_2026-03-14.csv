@@ -1,0 +1,9 @@
+market,side,price,ev,prob,conf,home,away,totals_line
+ML,New Jersey Devils,-115.0,0.05256521739130415,0.563,0.06299999999999994,New Jersey Devils,Los Angeles Kings,6.0
+ML,Toronto Maple Leafs,155.0,0.39187499999999975,0.5458333333333333,0.04583333333333328,Buffalo Sabres,Toronto Maple Leafs,6.0
+ML,Pittsburgh Penguins,138.0,0.2568383333333333,0.5280833333333333,0.02808333333333335,Utah Mammoth,Pittsburgh Penguins,
+ML,San Jose Sharks,180.0,0.47396666666666654,0.5264166666666666,0.026416666666666644,Montréal Canadiens,San Jose Sharks,6.0
+ML,Boston Bruins,104.0,0.07150999999999996,0.52525,0.025249999999999995,Washington Capitals,Boston Bruins,6.0
+ML,New York Rangers,210.0,0.5954666666666669,0.5146666666666667,0.014666666666666717,Minnesota Wild,New York Rangers,6.0
+ML,Vancouver Canucks,114.0,0.07927333333333308,0.5043333333333333,0.0043333333333333,Vancouver Canucks,Seattle Kraken,6.0
+ML,Carolina Hurricanes,104.0,0.02849999999999997,0.5041666666666667,0.004166666666666652,Tampa Bay Lightning,Carolina Hurricanes,6.0

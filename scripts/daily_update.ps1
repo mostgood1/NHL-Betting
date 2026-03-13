@@ -1195,6 +1195,10 @@ try {
     try {
       $isGit = (Invoke-GitCommand -Args @('rev-parse', '--is-inside-work-tree') -FailureMessage '[daily_update] Failed to detect git repository' | Select-Object -First 1)
       if ("$isGit".Trim() -eq 'true') {
+        $hadDisableAutoGc = Test-Path Env:GIT_DISABLE_AUTO_GC
+        $oldDisableAutoGc = $env:GIT_DISABLE_AUTO_GC
+        $env:GIT_DISABLE_AUTO_GC = '1'
+        try {
         $gitPaths = @(
           'data/models',
           'data/processed',
@@ -1277,6 +1281,13 @@ try {
           Write-Host "[daily_update] Git push complete: $pushSummary" -ForegroundColor DarkGreen
         } else {
           Write-Warning '[daily_update] Git push skipped because the artifact commit failed.'
+        }
+        } finally {
+          if ($hadDisableAutoGc) {
+            $env:GIT_DISABLE_AUTO_GC = $oldDisableAutoGc
+          } else {
+            Remove-Item Env:GIT_DISABLE_AUTO_GC -ErrorAction SilentlyContinue
+          }
         }
       } else {
         Write-Host "[daily_update] Not a git repository; skipping push." -ForegroundColor DarkGreen

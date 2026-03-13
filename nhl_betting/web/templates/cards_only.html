@@ -17,56 +17,65 @@
 
     /* NBA-style compact scoreboard strip + card tags */
     .scoreboard-strip {
-      display:grid;
-      gap:8px;
-      grid-template-columns: repeat(var(--sb-cols, 1), minmax(0, 1fr));
-      grid-template-rows: repeat(var(--sb-rows, 1), auto);
-      overflow-x:hidden;
-      padding:10px 0;
-      margin: 8px 0 12px;
-      border-top: 1px solid #25316a;
-      border-bottom: 1px solid #25316a;
+      display:flex;
+      gap:10px;
+      overflow-x:auto;
+      overflow-y:hidden;
+      padding:10px;
+      margin: 8px 0 14px;
+      border:1px solid #25316a;
+      border-radius:18px;
       background: #0b1020;
       position: sticky;
       top: 0;
       z-index: 5;
+      scroll-padding-inline: 10px;
     }
+    .scoreboard-strip::-webkit-scrollbar { height: 10px; }
+    .scoreboard-strip::-webkit-scrollbar-thumb { background:#2a3a7a; border-radius:999px; }
     .scoreboard-strip:empty { display:none; }
     .scoreboard-strip .s-item {
-      min-width: 0;
+      flex: 0 0 288px;
+      min-width: 288px;
+      min-height: 154px;
       background:#0f1530;
       border:1px solid #25316a;
-      border-radius:12px;
-      padding:8px 10px;
+      border-radius:18px;
+      padding:12px 14px;
       text-decoration:none;
       color:#cfe0ff;
       display:grid;
-      gap:4px;
+      gap:10px;
+      align-content:start;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.22);
+      scroll-snap-align: start;
     }
-    .scoreboard-strip .s-item:hover { border-color:#3a4aa6; }
-    .scoreboard-strip .s-item.live { border-color:#3a4aa6; }
-    .scoreboard-strip .s-item.bet { background:#0f2d1b; border-color:#1e7a45; color:#a7f3c6; }
-    .scoreboard-strip .s-item.watch { background:#152055; border-color:#3a4aa6; color:#e8eaf6; }
-    .scoreboard-strip .s-time { color:#9fb0ff; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.3px; }
-    .scoreboard-strip .s-score { color:#cfe0ff; font-size:11px; font-weight:900; letter-spacing:0.2px; }
+    .scoreboard-strip .s-item:hover { border-color:#4a86d9; transform: translateY(-1px); }
+    .scoreboard-strip .s-item.live { background:#2d86d9; border-color:#5aa9ff; color:#f3f8ff; }
+    .scoreboard-strip .s-item.bet { background:#146036; border-color:#2f9859; color:#f2fff7; }
+    .scoreboard-strip .s-item.watch { background:#73561a; border-color:#b68a2e; color:#fff2cf; }
+    .scoreboard-strip .s-time { color:currentColor; opacity:0.92; font-size:12px; font-weight:800; text-transform:none; letter-spacing:0.2px; }
+    .scoreboard-strip .s-score { color:currentColor; font-size:11px; font-weight:900; letter-spacing:0.2px; }
     .scoreboard-strip .s-score:empty { display:none; }
-    .scoreboard-strip .s-teamline { display:flex; align-items:center; gap:8px; font-weight:900; font-size:12px; letter-spacing:0.2px; justify-content:space-between; }
-    .scoreboard-strip .s-teamline .lhs { display:flex; align-items:center; gap:8px; min-width:0; }
-    .scoreboard-strip .s-teamline .nm { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .scoreboard-strip .s-teamline .pts { font-variant-numeric: tabular-nums; margin-left:10px; }
-    .scoreboard-strip .team-logo { width:18px; height:18px; object-fit:contain; }
+    .scoreboard-strip .s-teamline { display:flex; align-items:flex-start; gap:10px; font-weight:800; font-size:14px; letter-spacing:0.1px; justify-content:space-between; line-height:1.12; }
+    .scoreboard-strip .s-teamline .lhs { display:flex; align-items:flex-start; gap:8px; min-width:0; }
+    .scoreboard-strip .s-teamline .nm { white-space:normal; overflow:visible; text-overflow:clip; }
+    .scoreboard-strip .s-teamline .pts { font-variant-numeric: tabular-nums; margin-left:12px; min-width:16px; text-align:right; font-size:16px; font-weight:900; }
+    .scoreboard-strip .team-logo { width:16px; height:16px; object-fit:contain; margin-top:2px; }
     .scoreboard-strip .s-sig {
-      font-size:11px;
-      font-weight:800;
+      font-size:12px;
+      font-weight:700;
+      color:currentColor;
       white-space:normal;
       overflow:visible;
       text-overflow:clip;
       overflow-wrap:anywhere;
-      opacity: 0.95;
+      line-height:1.22;
+      opacity: 0.98;
     }
     .scoreboard-strip .s-sig:empty { display:none; }
-    .scoreboard-strip .s-sig.bet { color:#a7f3c6; }
-    .scoreboard-strip .s-sig.watch { color:#e8eaf6; }
+    .scoreboard-strip .s-sig.bet,
+    .scoreboard-strip .s-sig.watch { color:currentColor; }
 
     /* Top props strip (live player props cards) */
     .props-strip-label { margin: 6px 0 0; }
@@ -228,12 +237,14 @@
     .compact-card table.linescore td,
     .compact-card table.boxscore th,
     .compact-card table.boxscore td { padding: 3px 5px; font-size: 11px; }
-    .compact-card .scoreboard-strip { padding: 8px 0; margin: 6px 0 10px; gap: 6px; }
-    .compact-card .scoreboard-strip .s-item { padding: 6px 8px; border-radius: 10px; }
+    .compact-card .scoreboard-strip { padding: 8px; margin: 6px 0 12px; gap: 8px; border-radius: 16px; }
+    .compact-card .scoreboard-strip .s-item { flex-basis: 258px; min-width: 258px; min-height: 136px; padding: 10px 12px; border-radius: 16px; gap: 8px; }
     .compact-card .scoreboard-strip .s-time,
     .compact-card .scoreboard-strip .s-score,
     .compact-card .scoreboard-strip .s-sig { font-size: 10px; }
-    .compact-card .scoreboard-strip .s-teamline { font-size: 11px; }
+    .compact-card .scoreboard-strip .s-teamline { font-size: 12px; }
+    .compact-card .scoreboard-strip .s-teamline .pts { font-size: 15px; }
+    .compact-card .scoreboard-strip .team-logo { width: 15px; height: 15px; }
     .compact-card .game-card .props-game-tile { display:none; }
 
     .card.live-edge-ok { border-color:#1e7a45; box-shadow: 0 0 0 1px rgba(30,122,69,0.5), 0 2px 8px rgba(0,0,0,0.28); }
@@ -1450,7 +1461,6 @@
           </div>
           <div class="s-sig" data-role="sig-1"></div>
           <div class="s-sig" data-role="sig-2"></div>
-          <div class="s-sig" data-role="sig-3"></div>
         `;
         aEl.addEventListener('click', (ev) => {
           ev.preventDefault();
@@ -1661,11 +1671,10 @@
           const cls = _signalClass(gameSigs);
           if (cls) item.classList.add(cls);
           // Render up to 3 signal lines with reasons (line 4/5/6)
-          const sigs = _pickTopSignals(gameSigs, 3);
+          const sigs = _pickTopSignals(gameSigs, 2);
           const sigEls = [
             item.querySelector('[data-role="sig-1"]'),
             item.querySelector('[data-role="sig-2"]'),
-            item.querySelector('[data-role="sig-3"]'),
           ];
           for (let i = 0; i < sigEls.length; i++) {
             const el = sigEls[i];

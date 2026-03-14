@@ -1,0 +1,75 @@
+{
+  "summary": {
+    "date": "2026-03-13",
+    "picks": 5,
+    "decided": 5,
+    "wins": 3,
+    "losses": 2,
+    "pushes": 0,
+    "staked": 500.0,
+    "pnl": 34.00000000000003,
+    "roi": 0.06800000000000006
+  },
+  "rows": [
+    {
+      "date": "2026-03-13T23:00:00Z",
+      "home": "New York Islanders",
+      "away": "Los Angeles Kings",
+      "market": "totals",
+      "bet": "over",
+      "ev": 0.0413,
+      "price": -106,
+      "result": "loss",
+      "stake": 100.0,
+      "payout": -100.0
+    },
+    {
+      "date": "2026-03-13T23:00:00Z",
+      "home": "New York Islanders",
+      "away": "Los Angeles Kings",
+      "market": "puckline",
+      "bet": "home_pl_-1.5",
+      "ev": 0.0943,
+      "price": 186.0,
+      "result": "loss",
+      "stake": 100.0,
+      "payout": -100.0
+    },
+    {
+      "date": "2026-03-14T00:00:00Z",
+      "home": "St. Louis Blues",
+      "away": "Edmonton Oilers",
+      "market": "moneyline",
+      "bet": "home_ml",
+      "ev": 0.1295,
+      "price": 132,
+      "result": "win",
+      "stake": 100.0,
+      "payout": 132.00000000000003
+    },
+    {
+      "date": "2026-03-14T00:00:00Z",
+      "home": "St. Louis Blues",
+      "away": "Edmonton Oilers",
+      "market": "totals",
+      "bet": "under",
+      "ev": 0.0956,
+      "price": 102,
+      "result": "win",
+      "stake": 100.0,
+      "payout": 102.0
+    },
+    {
+      "date": "2026-03-14T00:00:00Z",
+      "home": "St. Louis Blues",
+      "away": "Edmonton Oilers",
+      "market": "puckline",
+      "bet": "away_pl_+1.5",
+      "ev": 0.429,
+      "price": NaN,
+      "result": "win",
+      "stake": 100.0,
+      "payout": 0.0
+    }
+  ]
+}

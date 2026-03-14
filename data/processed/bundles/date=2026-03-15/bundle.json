@@ -1,0 +1,172 @@
+{
+  "data": {
+    "games": {
+      "edges": {
+        "count": 0,
+        "rows": [],
+        "source": "edges_sim_2026-03-15.csv"
+      },
+      "predictions": {
+        "count": 6,
+        "rows": [
+          {
+            "away": "Nashville Predators",
+            "away_ml_odds": null,
+            "away_pl_+1.5_odds": null,
+            "date": "2026-03-15",
+            "home": "Edmonton Oilers",
+            "home_ml_odds": null,
+            "home_pl_-1.5_odds": null,
+            "model_total": 6.574166666666667,
+            "over_odds": null,
+            "p_away_ml": 0.4805833333333333,
+            "p_away_pl_+1.5": 0.7488333333333334,
+            "p_home_ml": 0.5194166666666666,
+            "p_home_pl_-1.5": 0.2511666666666666,
+            "p_over": 0.4973333333333333,
+            "p_under": 0.3623333333333333,
+            "pl_line_used": 1.5,
+            "proj_away_goals": 3.2386666666666666,
+            "proj_home_goals": 3.3355,
+            "total_line_used": 6.0,
+            "under_odds": null
+          },
+          {
+            "away": "Toronto Maple Leafs",
+            "away_ml_odds": null,
+            "away_pl_+1.5_odds": null,
+            "date": "2026-03-15",
+            "home": "Minnesota Wild",
+            "home_ml_odds": null,
+            "home_pl_-1.5_odds": null,
+            "model_total": 6.425166666666667,
+            "over_odds": null,
+            "p_away_ml": 0.5563333333333333,
+            "p_away_pl_+1.5": 0.8,
+            "p_home_ml": 0.4436666666666666,
+            "p_home_pl_-1.5": 0.2,
+            "p_over": 0.4735,
+            "p_under": 0.3886666666666666,
+            "pl_line_used": 1.5,
+            "proj_away_goals": 3.3556666666666666,
+            "proj_home_goals": 3.0695,
+            "total_line_used": 6.0,
+            "under_odds": null
+          },
+          {
+            "away": "Anaheim Ducks",
+            "away_ml_odds": null,
+            "away_pl_+1.5_odds": null,
+            "date": "2026-03-15",
+            "home": "Montréal Canadiens",
+            "home_ml_odds": null,
+            "home_pl_-1.5_odds": null,
+            "model_total": 6.2145,
+            "over_odds": null,
+            "p_away_ml": 0.4755833333333333,
+            "p_away_pl_+1.5": 0.7408333333333333,
+            "p_home_ml": 0.5244166666666666,
+            "p_home_pl_-1.5": 0.2591666666666666,
+            "p_over": 0.4328333333333333,
+            "p_under": 0.4218333333333333,
+            "pl_line_used": 1.5,
+            "proj_away_goals": 3.035,
+            "proj_home_goals": 3.1795,
+            "total_line_used": 6.0,
+            "under_odds": null
+          },
+          {
+            "away": "San Jose Sharks",
+            "away_ml_odds": null,
+            "away_pl_+1.5_odds": null,
+            "date": "2026-03-15",
+            "home": "Ottawa Senators",
+            "home_ml_odds": null,
+            "home_pl_-1.5_odds": null,
+            "model_total": 6.134833333333333,
+            "over_odds": null,
+            "p_away_ml": 0.5625833333333333,
+            "p_away_pl_+1.5": 0.8143333333333334,
+            "p_home_ml": 0.4374166666666667,
+            "p_home_pl_-1.5": 0.1856666666666666,
+            "p_over": 0.419,
+            "p_under": 0.4341666666666666,
+            "pl_line_used": 1.5,
+            "proj_away_goals": 3.2471666666666668,
+            "proj_home_goals": 2.8876666666666666,
+            "total_line_used": 6.0,
+            "under_odds": null
+          },
+          {
+            "away": "Florida Panthers",
+            "away_ml_odds": null,
+            "away_pl_+1.5_odds": null,
+            "date": "2026-03-15",
+            "home": "Seattle Kraken",
+            "home_ml_odds": null,
+            "home_pl_-1.5_odds": null,
+            "model_total": 5.945,
+            "over_odds": null,
+            "p_away_ml": 0.5381666666666667,
+            "p_away_pl_+1.5": 0.792,
+            "p_home_ml": 0.4618333333333333,
+            "p_home_pl_-1.5": 0.208,
+            "p_over": 0.3901666666666666,
+            "p_under": 0.4563333333333333,
+            "pl_line_used": 1.5,
+            "proj_away_goals": 3.077166666666667,
+            "proj_home_goals": 2.867833333333333,
+            "total_line_used": 6.0,
+            "under_odds": null
+          },
+          {
+            "away": "St. Louis Blues",
+            "away_ml_odds": null,
+            "away_pl_+1.5_odds": null,
+            "date": "2026-03-15",
+            "home": "Winnipeg Jets",
+            "home_ml_odds": null,
+            "home_pl_-1.5_odds": null,
+            "model_total": 6.3155,
+            "over_odds": null,
+            "p_away_ml": 0.5493333333333333,
+            "p_away_pl_+1.5": 0.8015,
+            "p_home_ml": 0.4506666666666666,
+            "p_home_pl_-1.5": 0.1985,
+            "p_over": 0.4558333333333333,
+            "p_under": 0.4066666666666667,
+            "pl_line_used": 1.5,
+            "proj_away_goals": 3.3063333333333333,
+            "proj_home_goals": 3.0091666666666668,
+            "total_line_used": 6.0,
+            "under_odds": null
+          }
+        ]
+      },
+      "recommendations": {
+        "count": 0,
+        "rows": []
+      },
+      "reconciliation": null
+    },
+    "props": {
+      "recommendations": {
+        "count": 0,
+        "rows": [],
+        "source": "props_recommendations_2026-03-15.csv"
+      },
+      "reconciliation": null
+    }
+  },
+  "date": "2026-03-15",
+  "files": {
+    "edges": "data/processed/edges_sim_2026-03-15.csv",
+    "game_recommendations": "data/processed/recommendations_sim_2026-03-15.csv",
+    "predictions": "data/processed/predictions_sim_2026-03-15.csv",
+    "props_recommendations": "data/processed/props_recommendations_2026-03-15.csv",
+    "reconciliation_games": null,
+    "reconciliation_props": null
+  },
+  "generated_at_utc": "2026-03-14T14:03:45+00:00",
+  "schema_version": 1
+}

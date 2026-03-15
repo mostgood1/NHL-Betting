@@ -1,0 +1,11 @@
+date,home,away,market,ev
+2026-03-16T23:00:00Z,Detroit Red Wings,Calgary Flames,ev_away_ml,0.366
+2026-03-17T01:30:00Z,Colorado Avalanche,Pittsburgh Penguins,ev_away_ml,0.3439
+2026-03-16T23:00:00Z,New Jersey Devils,Boston Bruins,ev_away_ml,0.2297
+2026-03-17T00:00:00Z,Dallas Stars,Utah Mammoth,ev_home_ml,0.081
+2026-03-16T23:00:00Z,New York Rangers,Los Angeles Kings,ev_away_ml,-0.0169
+2026-03-16T23:00:00Z,New York Rangers,Los Angeles Kings,ev_home_ml,-0.0782
+2026-03-17T01:30:00Z,Colorado Avalanche,Pittsburgh Penguins,ev_home_ml,-0.2113
+2026-03-17T00:00:00Z,Dallas Stars,Utah Mammoth,ev_away_ml,-0.2293
+2026-03-16T23:00:00Z,Detroit Red Wings,Calgary Flames,ev_home_ml,-0.2707
+2026-03-16T23:00:00Z,New Jersey Devils,Boston Bruins,ev_home_ml,-0.3186

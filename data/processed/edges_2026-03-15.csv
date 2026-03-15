@@ -1,7 +1,35 @@
-date,home,away,market,ev,date_key,total_line_used,model_total,model_spread,period1_home_proj,period1_away_proj,p_home_ml,p_away_ml,p_over,p_under,p_home_pl_-1.5,p_away_pl_+1.5,p_f10_yes,p_f10_no,home_gd10,away_gd10,form_delta,rest_delta,b2b_delta,total_bias,market_group,bet,prob,price,book,totals_line,side,edge_score,edge_reasons,edge_drivers
-2026-03-16T00:00:00Z,Seattle Kraken,Florida Panthers,ev_under,0.4575,2026-03-16,6.0,5.85,0.27,0.89,0.92,0.3282219960742675,0.6717780039257325,0.3205,0.6795,0.23375,0.76625,0.6304613709704842,0.36953862902951584,,,,,,-0.15000000000000036,totals,under,0.6795,,,6.0,Under 6.0,0.5093060204365447,total 5.85 vs line 6.0 (-0.15); p=0.679; P1 pace 1.81,MODEL UND · LINE+ · PACE+
-2026-03-16T00:00:00Z,Seattle Kraken,Florida Panthers,ev_home_pl_-1.5,-0.5537,2026-03-16,6.0,5.85,0.27,0.89,0.92,0.3282219960742675,0.6717780039257325,0.3205,0.6795,0.23375,0.76625,0.6304613709704842,0.36953862902951584,,,,,,-0.15000000000000036,puckline,home_pl_-1.5,0.23375,,,,Seattle Kraken -1.5,0.3790123199253281,p=0.234; spread +0.27; cover margin -1.23,MODEL HOME · COVER-
-2026-03-16T00:00:00Z,Seattle Kraken,Florida Panthers,ev_over,-0.2278,2026-03-16,6.0,5.85,0.27,0.89,0.92,0.3282219960742675,0.6717780039257325,0.3205,0.6795,0.23375,0.76625,0.6304613709704842,0.36953862902951584,,,,,,-0.15000000000000036,totals,over,0.3205,,,6.0,Over 6.0,0.3646233913281612,total 5.85 vs line 6.0 (-0.15); p=0.321; P1 pace 1.81,MODEL OVR · LINE- · PACE-
-2026-03-16T00:00:00Z,Seattle Kraken,Florida Panthers,ev_away_pl_+1.5,0.4628,2026-03-16,6.0,5.85,0.27,0.89,0.92,0.3282219960742675,0.6717780039257325,0.3205,0.6795,0.23375,0.76625,0.6304613709704842,0.36953862902951584,,,,,,-0.15000000000000036,puckline,away_pl_+1.5,0.76625,,,,Florida Panthers +1.5,0.36192634740166585,p=0.766; spread +0.27; cover margin -1.77,MODEL AWAY · COVER-
-2026-03-16T00:00:00Z,Seattle Kraken,Florida Panthers,ev_f10_yes,0.0508,2026-03-16,6.0,5.85,0.27,0.89,0.92,0.3282219960742675,0.6717780039257325,0.3205,0.6795,0.23375,0.76625,0.6304613709704842,0.36953862902951584,,,,,,-0.15000000000000036,first10,f10_yes,0.6304613709704842,,,,Yes,0.27550436794692307,p=0.630; P1 pace 1.81,MODEL YES · PACE-
-2026-03-16T00:00:00Z,Seattle Kraken,Florida Panthers,ev_f10_no,-0.3841,2026-03-16,6.0,5.85,0.27,0.89,0.92,0.3282219960742675,0.6717780039257325,0.3205,0.6795,0.23375,0.76625,0.6304613709704842,0.36953862902951584,,,,,,-0.15000000000000036,first10,f10_no,0.36953862902951584,,,,No,0.27550436794692307,p=0.370; P1 pace 1.81,MODEL NO · PACE-
+date,home,away,market,ev
+2026-03-15T23:30:00Z,Minnesota Wild,Toronto Maple Leafs,ev_away_pl_+1.5,0.4714
+2026-03-15T23:00:00Z,Montréal Canadiens,Anaheim Ducks,ev_under,0.3838
+2026-03-15T23:30:00Z,Minnesota Wild,Toronto Maple Leafs,ev_away_ml,0.2927
+2026-03-15T19:00:00Z,Winnipeg Jets,St. Louis Blues,ev_under,0.2649
+2026-03-15T19:00:00Z,Winnipeg Jets,St. Louis Blues,ev_home_ml,0.2641
+2026-03-16T00:00:00Z,Edmonton Oilers,Nashville Predators,ev_under,0.1643
+2026-03-15T23:00:00Z,Montréal Canadiens,Anaheim Ducks,ev_away_ml,0.1538
+2026-03-16T00:00:00Z,Seattle Kraken,Florida Panthers,ev_under,0.1132
+2026-03-15T21:00:00Z,Ottawa Senators,San Jose Sharks,ev_away_ml,0.099
+2026-03-16T00:00:00Z,Edmonton Oilers,Nashville Predators,ev_home_ml,0.0892
+2026-03-16T00:00:00Z,Seattle Kraken,Florida Panthers,ev_away_ml,0.0673
+2026-03-15T21:00:00Z,Ottawa Senators,San Jose Sharks,ev_under,0.0352
+2026-03-15T23:30:00Z,Minnesota Wild,Toronto Maple Leafs,ev_under,0.0135
+2026-03-16T00:00:00Z,Edmonton Oilers,Nashville Predators,ev_away_pl_+1.5,0.0063
+2026-03-15T23:00:00Z,Montréal Canadiens,Anaheim Ducks,ev_away_pl_+1.5,-0.0065
+2026-03-15T19:00:00Z,Winnipeg Jets,St. Louis Blues,ev_home_pl_-1.5,-0.0139
+2026-03-15T21:00:00Z,Ottawa Senators,San Jose Sharks,ev_away_pl_+1.5,-0.0393
+2026-03-15T21:00:00Z,Ottawa Senators,San Jose Sharks,ev_home_pl_-1.5,-0.0401
+2026-03-15T19:00:00Z,Winnipeg Jets,St. Louis Blues,ev_away_pl_+1.5,-0.0526
+2026-03-15T23:00:00Z,Montréal Canadiens,Anaheim Ducks,ev_home_pl_-1.5,-0.1027
+2026-03-15T23:30:00Z,Minnesota Wild,Toronto Maple Leafs,ev_over,-0.103
+2026-03-16T00:00:00Z,Edmonton Oilers,Nashville Predators,ev_home_pl_-1.5,-0.1072
+2026-03-15T21:00:00Z,Ottawa Senators,San Jose Sharks,ev_home_ml,-0.1178
+2026-03-15T21:00:00Z,Ottawa Senators,San Jose Sharks,ev_over,-0.1217
+2026-03-16T00:00:00Z,Seattle Kraken,Florida Panthers,ev_over,-0.1648
+2026-03-16T00:00:00Z,Seattle Kraken,Florida Panthers,ev_home_ml,-0.1669
+2026-03-15T23:00:00Z,Montréal Canadiens,Anaheim Ducks,ev_home_ml,-0.1874
+2026-03-15T23:30:00Z,Minnesota Wild,Toronto Maple Leafs,ev_home_ml,-0.1934
+2026-03-16T00:00:00Z,Edmonton Oilers,Nashville Predators,ev_over,-0.2339
+2026-03-16T00:00:00Z,Edmonton Oilers,Nashville Predators,ev_away_ml,-0.2558
+2026-03-15T19:00:00Z,Winnipeg Jets,St. Louis Blues,ev_over,-0.3262
+2026-03-15T19:00:00Z,Winnipeg Jets,St. Louis Blues,ev_away_ml,-0.3677
+2026-03-15T23:00:00Z,Montréal Canadiens,Anaheim Ducks,ev_over,-0.3966
+2026-03-15T23:30:00Z,Minnesota Wild,Toronto Maple Leafs,ev_home_pl_-1.5,-0.6258

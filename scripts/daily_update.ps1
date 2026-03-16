@@ -198,7 +198,15 @@ function Invoke-GitCommand {
 
   # Disable auto-gc for automation runs to avoid interactive prompts (e.g. failed object cleanup on OneDrive).
   $cmdArgs = @('-c', 'gc.auto=0') + $Args
-  $result = & git @cmdArgs 2>&1
+  $previousErrorActionPreference = $ErrorActionPreference
+  try {
+    # Native git warnings may write to stderr even when the command succeeds.
+    # Keep those as captured output and rely on the actual exit code for failure.
+    $ErrorActionPreference = 'Continue'
+    $result = & git @cmdArgs 2>&1
+  } finally {
+    $ErrorActionPreference = $previousErrorActionPreference
+  }
   $exitCode = $LASTEXITCODE
   $output = @($result | ForEach-Object {
     if ($_ -is [System.Management.Automation.ErrorRecord]) {

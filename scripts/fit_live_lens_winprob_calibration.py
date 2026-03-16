@@ -160,6 +160,13 @@ def _extract_ml_home_prob(rec: dict) -> Optional[float]:
 
 def _extract_home_win_label(rec: dict) -> Optional[int]:
     try:
+        if rec.get("final") is False:
+            return None
+        y = rec.get("home_win")
+        if y is not None:
+            y_i = int(y)
+            if y_i in (0, 1):
+                return y_i
         hg = _to_float(rec.get("home_goals_final"))
         ag = _to_float(rec.get("away_goals_final"))
         if hg is None or ag is None:
@@ -237,9 +244,7 @@ def main() -> int:
         used_files += 1
         for rec in _iter_jsonl(fp):
             try:
-                if rec.get("final") is False:
-                    continue
-                y_home = rec.get("home_win")
+                y_home = _extract_home_win_label(rec)
                 if y_home is None:
                     continue
                 gpk = rec.get("gamePk")

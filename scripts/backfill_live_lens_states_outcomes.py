@@ -16,13 +16,19 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional, Dict, Any
 
-import requests
+# Ensure repo root is on sys.path so `import nhl_betting` works
+# even when invoked from outside the repository working directory.
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
+from nhl_betting.data.nhl_api_web import NHLWebClient
 from nhl_betting.utils.io import PROC_DIR
 
 
@@ -47,40 +53,137 @@ def _write_jsonl(path: Path, rows: list[dict]) -> None:
     tmp.replace(path)
 
 
-def _fetch_final_from_statsapi(game_pk: int, timeout: float = 7.0) -> Optional[Dict[str, Any]]:
-    """Fetch final state and score from NHL StatsAPI live feed."""
-    url = f"https://statsapi.web.nhl.com/api/v1/game/{int(game_pk)}/feed/live"
+def _safe_int(x: Any) -> Optional[int]:
     try:
-        r = requests.get(url, timeout=timeout)
-        if r.status_code != 200:
+        if x is None:
             return None
-        obj = r.json()
+        return int(x)
     except Exception:
         return None
 
+
+def _is_final_state(game_state: Any) -> bool:
+    st = str(game_state or "").upper().strip()
+    return bool(st) and (st.startswith("FINAL") or st in {"OFF", "GAMEOVER"})
+
+
+def _load_signal_finals(path: Path) -> dict[int, Dict[str, Any]]:
+    out: dict[int, Dict[str, Any]] = {}
+    if (not path.exists()) or path.stat().st_size <= 0:
+        return out
+    for snap in _iter_jsonl(path):
+        games = snap.get("games") if isinstance(snap, dict) else None
+        if not isinstance(games, list):
+            continue
+        for g in games:
+            if not isinstance(g, dict):
+                continue
+            if not _is_final_state(g.get("gameState")):
+                continue
+            game_pk = _safe_int(g.get("gamePk"))
+            if game_pk is None:
+                continue
+            score = g.get("score") if isinstance(g.get("score"), dict) else {}
+            home = _safe_int(score.get("home"))
+            away = _safe_int(score.get("away"))
+            if home is None or away is None:
+                continue
+            out[int(game_pk)] = {
+                "final": True,
+                "home": int(home),
+                "away": int(away),
+                "state": str(g.get("gameState") or "FINAL"),
+            }
+    return out
+
+
+def _load_schedule_finals(date: str, client: NHLWebClient) -> dict[int, Dict[str, Any]]:
+    out: dict[int, Dict[str, Any]] = {}
     try:
-        status = (((obj or {}).get("gameData") or {}).get("status") or {})
-        abstract = str(status.get("abstractGameState") or "").upper()
-        detailed = str(status.get("detailedState") or "")
+        games = client.schedule_day(date)
+    except Exception:
+        return out
+    for g in games:
+        if g.home_goals is None or g.away_goals is None:
+            continue
+        if not _is_final_state(g.gameState):
+            continue
+        out[int(g.gamePk)] = {
+            "final": True,
+            "home": int(g.home_goals),
+            "away": int(g.away_goals),
+            "state": str(g.gameState or "FINAL"),
+        }
+    return out
 
-        ls = (((obj or {}).get("liveData") or {}).get("linescore") or {})
-        teams = (ls.get("teams") or {})
-        h = ((teams.get("home") or {}).get("goals"))
-        a = ((teams.get("away") or {}).get("goals"))
 
-        if h is None or a is None:
+def _extract_final_from_payload(obj: Any) -> Optional[Dict[str, Any]]:
+    try:
+        if not isinstance(obj, dict):
             return None
+        state = str(
+            obj.get("gameState")
+            or obj.get("gameStatus")
+            or obj.get("gameStatusText")
+            or obj.get("gameOutcome")
+            or ""
+        ).strip()
 
-        # Consider final-ish states.
-        is_final = abstract in {"FINAL", "OFF", "GAMEOVER"} or ("Final" in detailed)
-        # StatsAPI sometimes keeps LIVE but with Final state in detailed.
-        if not is_final:
-            # still return scores/state for logging, but mark not final
-            return {"final": False, "home": int(h), "away": int(a), "state": detailed or abstract}
+        home = None
+        away = None
 
-        return {"final": True, "home": int(h), "away": int(a), "state": detailed or abstract}
+        home_team = obj.get("homeTeam") if isinstance(obj.get("homeTeam"), dict) else {}
+        away_team = obj.get("awayTeam") if isinstance(obj.get("awayTeam"), dict) else {}
+        home = _safe_int(home_team.get("score"))
+        away = _safe_int(away_team.get("score"))
+
+        if home is None or away is None:
+            linescore = obj.get("linescore") if isinstance(obj.get("linescore"), dict) else {}
+            teams = linescore.get("teams") if isinstance(linescore.get("teams"), dict) else {}
+            if home is None:
+                home = _safe_int(((teams.get("home") or {}).get("goals")))
+            if away is None:
+                away = _safe_int(((teams.get("away") or {}).get("goals")))
+
+        if (home is None or away is None) and isinstance(obj.get("summary"), dict):
+            summary = obj.get("summary") or {}
+            scoring = summary.get("scoring") if isinstance(summary.get("scoring"), list) else []
+            home = 0
+            away = 0
+            for bucket in scoring:
+                if not isinstance(bucket, dict):
+                    continue
+                for goal in (bucket.get("goals") or []):
+                    if not isinstance(goal, dict):
+                        continue
+                    if goal.get("isHome") is True:
+                        home += 1
+                    elif goal.get("isHome") is False:
+                        away += 1
+
+        if home is None or away is None or not _is_final_state(state):
+            return None
+        return {"final": True, "home": int(home), "away": int(away), "state": state or "FINAL"}
     except Exception:
         return None
+
+
+def _fetch_final_from_web(game_pk: int, client: NHLWebClient) -> Optional[Dict[str, Any]]:
+    try:
+        box = client.boxscore(int(game_pk))
+        fin = _extract_final_from_payload(box)
+        if isinstance(fin, dict):
+            return fin
+    except Exception:
+        pass
+    try:
+        landing = client._get(f"/gamecenter/{int(game_pk)}/landing", params=None, retries=2)
+        fin = _extract_final_from_payload(landing)
+        if isinstance(fin, dict):
+            return fin
+    except Exception:
+        pass
+    return None
 
 
 def _daterange(start: str, end: str) -> list[str]:
@@ -119,6 +222,7 @@ def main() -> int:
 
     snap_dir = Path(args.snap_dir)
     snap_dir.mkdir(parents=True, exist_ok=True)
+    client = NHLWebClient(timeout=float(args.timeout))
 
     # cache final lookups per run
     finals: Dict[int, Optional[Dict[str, Any]]] = {}
@@ -131,6 +235,12 @@ def main() -> int:
         in_path = snap_dir / f"live_lens_states_{d}.jsonl"
         if (not in_path.exists()) or in_path.stat().st_size <= 0:
             continue
+
+        signal_path = snap_dir / f"live_lens_signals_{d}.jsonl"
+        for game_pk, fin in _load_signal_finals(signal_path).items():
+            finals[int(game_pk)] = fin
+        for game_pk, fin in _load_schedule_finals(d, client).items():
+            finals.setdefault(int(game_pk), fin)
 
         rows_out: list[dict] = []
 
@@ -145,18 +255,18 @@ def main() -> int:
 
             fin = finals.get(gpk_i)
             if fin is None and gpk_i not in finals:
-                fin = _fetch_final_from_statsapi(gpk_i, timeout=float(args.timeout))
+                fin = _fetch_final_from_web(gpk_i, client)
                 finals[gpk_i] = fin
                 if args.sleep and args.sleep > 0:
                     time.sleep(float(args.sleep))
 
-            if isinstance(fin, dict) and fin.get("home") is not None and fin.get("away") is not None:
+            if isinstance(fin, dict) and bool(fin.get("final")) and fin.get("home") is not None and fin.get("away") is not None:
                 rec = dict(rec)
                 rec["home_goals_final"] = int(fin.get("home"))
                 rec["away_goals_final"] = int(fin.get("away"))
                 rec["home_win"] = int(int(fin.get("home")) > int(fin.get("away")))
                 rec["final_state"] = str(fin.get("state") or "")
-                rec["final"] = bool(fin.get("final"))
+                rec["final"] = True
                 n_labeled += 1
 
             rows_out.append(rec)

@@ -3223,11 +3223,12 @@ def _live_lens_total_under_toxic_gate(elapsed_min: Optional[float], driver_tags:
 
         toxic_order = [
             "pressure:home",
-            "pace:down",
             "goalie:weak",
+            "score:away_leading",
+            "goal_away",
+            "pace:down",
             "score:tied",
             "score:home_leading",
-            "score:away_leading",
         ]
         matched = [tag for tag in toxic_order if tag in seen]
         if not matched:
@@ -3250,6 +3251,38 @@ def _live_lens_total_under_toxic_gate(elapsed_min: Optional[float], driver_tags:
         min_required_edge = float(em20_req_edge)
         if float(em) >= 35.0:
             min_required_edge = max(float(min_required_edge), float(em35_req_edge))
+
+        high_risk_tags = {"pressure:home", "goalie:weak", "score:away_leading"}
+        severe_tags = high_risk_tags | {"goal_away"}
+
+        try:
+            high_risk_bump = float(os.getenv("LIVE_LENS_TOTAL_UNDER_TOXIC_HIGH_RISK_EDGE_BUMP", "0.01"))
+        except Exception:
+            high_risk_bump = 0.01
+        if high_risk_bump is None or (not math.isfinite(high_risk_bump)):
+            high_risk_bump = 0.01
+
+        try:
+            goal_away_bump = float(os.getenv("LIVE_LENS_TOTAL_UNDER_TOXIC_GOAL_AWAY_EDGE_BUMP", "0.02"))
+        except Exception:
+            goal_away_bump = 0.02
+        if goal_away_bump is None or (not math.isfinite(goal_away_bump)):
+            goal_away_bump = 0.02
+
+        try:
+            stacked_bump = float(os.getenv("LIVE_LENS_TOTAL_UNDER_TOXIC_STACKED_EDGE_BUMP", "0.01"))
+        except Exception:
+            stacked_bump = 0.01
+        if stacked_bump is None or (not math.isfinite(stacked_bump)):
+            stacked_bump = 0.01
+
+        severe_match_count = sum(1 for tag in matched if tag in severe_tags)
+        if any(tag in matched for tag in high_risk_tags):
+            min_required_edge += float(high_risk_bump)
+        if "goal_away" in matched:
+            min_required_edge += float(goal_away_bump)
+        if severe_match_count >= 2:
+            min_required_edge += float(stacked_bump)
 
         out["min_required_edge"] = float(min_required_edge)
         out["matched"] = matched

@@ -97,6 +97,24 @@ def _read_json(path: Path) -> Optional[dict]:
         return None
 
 
+def _extract_home_win_label(rec: dict) -> Optional[int]:
+    try:
+        if rec.get("final") is False:
+            return None
+        y = rec.get("home_win")
+        if y is not None:
+            y_i = int(y)
+            if y_i in (0, 1):
+                return y_i
+        hg = _to_float(rec.get("home_goals_final"))
+        ag = _to_float(rec.get("away_goals_final"))
+        if hg is None or ag is None:
+            return None
+        return int(float(hg) > float(ag))
+    except Exception:
+        return None
+
+
 def _apply_temp_shift(spec: dict, p: float) -> float:
     try:
         t = float(spec.get("t", 1.0))
@@ -237,13 +255,7 @@ def main() -> int:
             continue
 
         for rec in _iter_jsonl(fp):
-            try:
-                if rec.get("final") is False:
-                    continue
-            except Exception:
-                pass
-
-            y = rec.get("home_win")
+            y = _extract_home_win_label(rec)
             if y is None:
                 continue
             try:

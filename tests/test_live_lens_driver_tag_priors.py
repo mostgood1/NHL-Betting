@@ -177,7 +177,7 @@ def test_live_lens_total_under_toxic_gate_applies_after_20_minutes(monkeypatch: 
     )
 
     assert gate
-    assert pytest.approx(float(gate.get("min_required_edge") or 0.0), abs=1e-6) == 0.10
+    assert pytest.approx(float(gate.get("min_required_edge") or 0.0), abs=1e-6) == 0.11
     assert gate.get("matched") == ["pressure:home", "pace:down"]
 
 
@@ -191,8 +191,22 @@ def test_live_lens_total_under_toxic_gate_uses_later_floor_at_35_minutes(monkeyp
     )
 
     assert gate
-    assert pytest.approx(float(gate.get("min_required_edge") or 0.0), abs=1e-6) == 0.12
+    assert pytest.approx(float(gate.get("min_required_edge") or 0.0), abs=1e-6) == 0.13
     assert gate.get("matched") == ["goalie:weak", "score:tied"]
+
+
+def test_live_lens_total_under_toxic_gate_adds_extra_penalty_after_away_goal(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("LIVE_LENS_TOTAL_UNDER_TOXIC_EM20_REQUIRED_EDGE", "0.10")
+    monkeypatch.setenv("LIVE_LENS_TOTAL_UNDER_TOXIC_EM35_REQUIRED_EDGE", "0.12")
+
+    gate = web_app._live_lens_total_under_toxic_gate(
+        24.0,
+        ["score:away_leading", "goal_away"],
+    )
+
+    assert gate
+    assert pytest.approx(float(gate.get("min_required_edge") or 0.0), abs=1e-6) == 0.13
+    assert gate.get("matched") == ["score:away_leading", "goal_away"]
 
 
 def test_live_lens_total_under_early_gate_blocks_through_first_period(monkeypatch: pytest.MonkeyPatch):

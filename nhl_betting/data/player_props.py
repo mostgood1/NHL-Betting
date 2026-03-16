@@ -28,6 +28,110 @@ class PropsCollectionConfig:
     source: str = "oddsapi"  # oddsapi | bovada
 
 
+def _clean_name_key(value: object) -> str:
+    import re
+    import unicodedata
+
+    text = unicodedata.normalize("NFKD", str(value or "")).encode("ascii", "ignore").decode()
+    return re.sub(r"\s+", " ", text).strip().lower()
+
+
+def _normalize_roster_frame(frame: Optional[pd.DataFrame]) -> Optional[pd.DataFrame]:
+    if frame is None or frame.empty:
+        return None
+
+    name_col = "full_name" if "full_name" in frame.columns else ("player" if "player" in frame.columns else None)
+    team_col = None
+    for cand in ("team", "team_abbr", "teamAbbrev", "team_abbrev", "team_abbreviation"):
+        if cand in frame.columns:
+            team_col = cand
+            break
+    pid_col = "player_id" if "player_id" in frame.columns else None
+    if not name_col:
+        return None
+
+    out = pd.DataFrame({"full_name": frame[name_col].astype(str).map(lambda s: str(s).strip())})
+    out["player_id"] = frame[pid_col] if pid_col else None
+    out["team"] = frame[team_col] if team_col else None
+    out = out[out["full_name"] != ""].copy()
+    if out.empty:
+        return None
+    out["_name_key"] = out["full_name"].map(_clean_name_key)
+    out = out.drop_duplicates(subset=["_name_key"], keep="last")
+    return out
+
+
+def _merge_roster_sources(primary: Optional[pd.DataFrame], fallback: Optional[pd.DataFrame]) -> Optional[pd.DataFrame]:
+    primary = _normalize_roster_frame(primary)
+    fallback = _normalize_roster_frame(fallback)
+
+    if primary is None and fallback is None:
+        return None
+    if primary is None:
+        return fallback[["full_name", "player_id", "team"]] if fallback is not None else None
+    if fallback is None:
+        return primary[["full_name", "player_id", "team"]]
+
+    merged = primary.merge(
+        fallback[["_name_key", "player_id", "team"]].rename(
+            columns={"player_id": "_player_id_fallback", "team": "_team_fallback"}
+        ),
+        on="_name_key",
+        how="left",
+    )
+    merged["player_id"] = merged["player_id"].where(merged["player_id"].notna(), merged["_player_id_fallback"])
+    team_blank = merged["team"].isna() | merged["team"].astype(str).str.strip().isin(["", "nan", "None"])
+    merged.loc[team_blank, "team"] = merged.loc[team_blank, "_team_fallback"]
+
+    fallback_only = fallback.loc[~fallback["_name_key"].isin(set(merged["_name_key"]))].copy()
+    combined = pd.concat(
+        [merged[["full_name", "player_id", "team", "_name_key"]], fallback_only[["full_name", "player_id", "team", "_name_key"]]],
+        ignore_index=True,
+    )
+    combined = combined.drop_duplicates(subset=["_name_key"], keep="first")
+    return combined[["full_name", "player_id", "team"]]
+
+
+def _load_cached_roster_enrichment(date: str, proc_dir=None) -> Optional[pd.DataFrame]:
+    try:
+        from ..utils.io import PROC_DIR as _PROC
+    except Exception:
+        _PROC = None
+
+    proc_root = proc_dir or _PROC
+    if proc_root is None:
+        return None
+
+    dated_path = proc_root / f"roster_{date}.csv"
+    snapshot_path = proc_root / f"roster_snapshot_{date}.csv"
+    master_path = proc_root / "roster_master.csv"
+
+    sources: List[pd.DataFrame] = []
+    for path in (dated_path, snapshot_path, master_path):
+        try:
+            if path.exists() and path.stat().st_size > 64:
+                norm = _normalize_roster_frame(pd.read_csv(path))
+                if norm is not None:
+                    sources.append(norm)
+        except Exception:
+            continue
+
+    try:
+        models_dir = _RAW_DIR.parent / "models"
+        snapshot_jsons = sorted(models_dir.glob("roster_snapshot_*.json"))
+        if snapshot_jsons:
+            norm = _normalize_roster_frame(pd.read_json(snapshot_jsons[-1]))
+            if norm is not None:
+                sources.append(norm)
+    except Exception:
+        pass
+
+    combined = None
+    for source in sources:
+        combined = _merge_roster_sources(combined, source)
+    return combined
+
+
 def _utc_now_iso() -> str:
     return datetime.utcnow().isoformat() + "Z"
 
@@ -476,10 +580,7 @@ def normalize_player_names(raw: pd.DataFrame, roster_df: Optional[pd.DataFrame])
         pass
     # Basic cleaned form
     def _clean(s: str) -> str:
-        import unicodedata, re
-        s = unicodedata.normalize("NFKD", str(s or "")).encode("ascii", "ignore").decode()
-        s = re.sub(r"\s+", " ", s).strip().lower()
-        return s
+        return _clean_name_key(s)
     def _squash(s: str) -> str:
         import re
         return re.sub(r"[^a-z0-9]", "", str(s or "").lower())
@@ -555,6 +656,17 @@ def normalize_player_names(raw: pd.DataFrame, roster_df: Optional[pd.DataFrame])
         # Team mapping from roster
         team_mapper = dict(zip(r["full_name_clean"], r.get("team", pd.Series([None]*len(r)))))
         df["team"] = df["player_clean"].map(team_mapper)
+        try:
+            team_by_pid = (
+                r.loc[r["player_id"].notna(), ["player_id", "team"]]
+                .drop_duplicates(subset=["player_id"], keep="last")
+                .set_index("player_id")["team"]
+            )
+            team_missing = df["team"].isna()
+            if team_missing.any():
+                df.loc[team_missing, "team"] = df.loc[team_missing, "player_id"].map(team_by_pid)
+        except Exception:
+            pass
         # Normalize team to abbreviation when possible
         def _team_abbr(x):
             try:
@@ -846,38 +958,8 @@ def collect_and_write(date: str, roster_df: Optional[pd.DataFrame] = None, cfg: 
         raw = collect_oddsapi_props(date)
     # If no roster_df provided, attempt to build one for reliable player_id/team mapping
     if roster_df is None:
-        # Prefer unified processed roster caches for speed and stability
         try:
-            from ..utils.io import PROC_DIR as _PROC
-            # Try date-stamped roster first, then master
-            p_dated = _PROC / f"roster_{date}.csv"
-            p_master = _PROC / "roster_master.csv"
-            use = None
-            if p_dated.exists() and p_dated.stat().st_size > 64:
-                use = p_dated
-            elif p_master.exists() and p_master.stat().st_size > 64:
-                use = p_master
-            if use is not None:
-                try:
-                    r = pd.read_csv(use)
-                    # Normalize to expected columns [full_name, player_id, team]
-                    name_col = 'full_name' if 'full_name' in r.columns else ('player' if 'player' in r.columns else None)
-                    team_col = None
-                    for cand in ('team','team_abbr','teamAbbrev','team_abbrev','team_abbreviation'):
-                        if cand in r.columns:
-                            team_col = cand; break
-                    pid_col = 'player_id' if 'player_id' in r.columns else None
-                    if name_col and team_col:
-                        roster_df = r.rename(columns={name_col: 'full_name'})
-                        if 'team' != team_col:
-                            roster_df['team'] = roster_df[team_col]
-                        if pid_col and pid_col != 'player_id':
-                            roster_df['player_id'] = roster_df[pid_col]
-                        roster_df = roster_df[['full_name','player_id','team']]
-                    else:
-                        roster_df = None
-                except Exception:
-                    roster_df = None
+            roster_df = _load_cached_roster_enrichment(date)
         except Exception:
             roster_df = None
         # Fallback to dynamic build only if unified roster not present
@@ -916,11 +998,11 @@ def _build_roster_enrichment() -> pd.DataFrame:
                     except Exception:
                         continue
                 snap = snap.copy()
-                snap["team"] = snap["team_id"].map(id_to_abbr).fillna(snap["team_id"].map(id_to_name))
+                snap["team"] = snap["team_id"].map(id_to_abbr).fillna(snap["team_id"].map(id_to_name)).fillna(snap.get("team"))
             except Exception:
-                # If team lookup fails, keep team_id as team string
+                # If team lookup fails, keep any existing team abbreviation before falling back to team_id.
                 snap = snap.copy()
-                snap["team"] = snap.get("team_id")
+                snap["team"] = snap.get("team", snap.get("team_id"))
             out = snap.rename(columns={"full_name": "full_name", "player_id": "player_id"})
             return out[["full_name", "player_id", "team"]]
     except Exception:

@@ -1,22 +1,33 @@
 {
-  "last_calibrated_utc": "2026-03-09T13:55:34Z",
+  "last_calibrated_utc": "2026-03-16T22:23:40Z",
   "range": {
-    "start": "2025-09-01",
-    "end": "2026-03-09"
+    "start": "2026-01-15",
+    "end": "2026-03-16"
   },
-  "dc_rho": 0.2,
-  "market_anchor_w": 0.25,
-  "market_anchor_w_ml": 0.25,
-  "market_anchor_w_totals": 0.25,
-  "totals_temp": 1.0,
-  "min_ev_ml": 0.07875,
-  "min_ev_totals": 0.07700000000000001,
-  "min_ev_pl": 0.005,
+  "dc_rho": -0.2,
+  "market_anchor_w": 1.0,
+  "market_anchor_w_ml": 1.0,
+  "market_anchor_w_totals": 0.6,
+  "ml_temp": 1.1500000000000004,
+  "ml_bias": -0.15,
+  "totals_temp": 0.8,
+  "totals_bias": 0.0,
+  "moneyline": {
+    "t": 1.1500000000000004,
+    "b": -0.15
+  },
+  "totals": {
+    "t": 0.8,
+    "b": 0.0
+  },
+  "min_ev_ml": 0.1,
+  "min_ev_totals": 0.07,
+  "min_ev_pl": 0.095,
   "min_ev_first10": 0.0,
   "min_ev_periods": 0.0,
-  "ev_gates_last_learned_utc": "2026-03-15T14:32:13Z",
+  "ev_gates_last_learned_utc": "2026-03-16T22:50:19Z",
   "ev_gates_range": {
     "start": "2025-09-01",
-    "end": "2026-03-15"
+    "end": "2026-03-16"
   }
 }

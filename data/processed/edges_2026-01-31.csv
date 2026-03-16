@@ -1,79 +1,77 @@
 date,home,away,market,ev
-2026-01-31T22:00:00Z,Washington Capitals,Carolina Hurricanes,ev_home_ml,0.6471
-2026-02-01T00:00:00Z,St. Louis Blues,Columbus Blue Jackets,ev_home_ml,0.4081
-2026-01-31T20:30:00Z,Pittsburgh Penguins,New York Rangers,ev_away_ml,0.3331
-2026-02-01T03:00:00Z,Edmonton Oilers,Minnesota Wild,ev_home_ml,0.2872
-2026-01-31T21:00:00Z,Florida Panthers,Winnipeg Jets,ev_under,0.2718
-2026-01-31T20:30:00Z,Pittsburgh Penguins,New York Rangers,ev_away_pl_+1.5,0.2432
-2026-02-01T03:00:00Z,Edmonton Oilers,Minnesota Wild,ev_under,0.235
-2026-02-01T00:00:00Z,Vancouver Canucks,Toronto Maple Leafs,ev_under,0.2349
-2026-01-31T21:00:00Z,Calgary Flames,San Jose Sharks,ev_home_ml,0.2261
-2026-02-01T03:00:00Z,Vegas Golden Knights,Seattle Kraken,ev_under,0.205
-2026-01-31T20:30:00Z,Pittsburgh Penguins,New York Rangers,ev_under,0.1937
-2026-02-01T02:00:00Z,Utah Mammoth,Dallas Stars,ev_away_pl_+1.5,0.1847
-2026-02-01T00:00:00Z,Ottawa Senators,New Jersey Devils,ev_over,0.1748
-2026-01-31T21:00:00Z,Calgary Flames,San Jose Sharks,ev_under,0.1731
-2026-01-31T17:30:00Z,Philadelphia Flyers,Los Angeles Kings,ev_over,0.1636
-2026-01-31T21:00:00Z,Florida Panthers,Winnipeg Jets,ev_away_ml,0.162
-2026-01-31T21:00:00Z,Florida Panthers,Winnipeg Jets,ev_away_pl_+1.5,0.1587
-2026-01-31T18:00:00Z,Detroit Red Wings,Colorado Avalanche,ev_home_ml,0.1565
-2026-01-31T17:30:00Z,Philadelphia Flyers,Los Angeles Kings,ev_home_ml,0.1547
-2026-02-01T03:00:00Z,Vegas Golden Knights,Seattle Kraken,ev_away_pl_+1.5,0.112
-2026-02-01T00:00:00Z,Vancouver Canucks,Toronto Maple Leafs,ev_home_ml,0.1042
-2026-02-01T00:00:00Z,Buffalo Sabres,Montréal Canadiens,ev_under,0.0903
-2026-02-01T00:00:00Z,Buffalo Sabres,Montréal Canadiens,ev_away_pl_+1.5,0.0883
-2026-02-01T00:00:00Z,Buffalo Sabres,Montréal Canadiens,ev_away_ml,0.067
-2026-02-01T00:00:00Z,Ottawa Senators,New Jersey Devils,ev_away_pl_+1.5,0.0633
-2026-01-31T22:00:00Z,Washington Capitals,Carolina Hurricanes,ev_under,0.0539
-2026-02-01T00:00:00Z,New York Islanders,Nashville Predators,ev_home_ml,0.0525
-2026-01-31T18:00:00Z,Detroit Red Wings,Colorado Avalanche,ev_under,0.051
-2026-02-01T03:00:00Z,Vegas Golden Knights,Seattle Kraken,ev_f10_yes,0.0336
-2026-02-01T02:00:00Z,Utah Mammoth,Dallas Stars,ev_under,0.0248
-2026-02-01T00:00:00Z,Ottawa Senators,New Jersey Devils,ev_home_ml,0.0132
-2026-01-31T21:00:00Z,Calgary Flames,San Jose Sharks,ev_away_pl_+1.5,0.0103
-2026-02-01T00:00:00Z,St. Louis Blues,Columbus Blue Jackets,ev_away_pl_+1.5,-0.0222
-2026-02-01T00:00:00Z,New York Islanders,Nashville Predators,ev_over,-0.0234
-2026-02-01T00:00:00Z,New York Islanders,Nashville Predators,ev_away_pl_+1.5,-0.0254
-2026-02-01T02:00:00Z,Utah Mammoth,Dallas Stars,ev_away_ml,-0.0272
-2026-02-01T03:00:00Z,Edmonton Oilers,Minnesota Wild,ev_away_pl_+1.5,-0.0277
-2026-02-01T03:00:00Z,Vegas Golden Knights,Seattle Kraken,ev_home_ml,-0.0283
-2026-02-01T00:00:00Z,St. Louis Blues,Columbus Blue Jackets,ev_under,-0.0357
-2026-02-01T00:00:00Z,St. Louis Blues,Columbus Blue Jackets,ev_over,-0.052
-2026-02-01T02:00:00Z,Utah Mammoth,Dallas Stars,ev_home_ml,-0.062
-2026-02-01T03:00:00Z,Vegas Golden Knights,Seattle Kraken,ev_away_ml,-0.0635
-2026-02-01T00:00:00Z,New York Islanders,Nashville Predators,ev_under,-0.0654
-2026-02-01T03:00:00Z,Edmonton Oilers,Minnesota Wild,ev_home_pl_-1.5,-0.0663
-2026-02-01T00:00:00Z,New York Islanders,Nashville Predators,ev_home_pl_-1.5,-0.0708
-2026-02-01T00:00:00Z,St. Louis Blues,Columbus Blue Jackets,ev_home_pl_-1.5,-0.0803
-2026-02-01T02:00:00Z,Utah Mammoth,Dallas Stars,ev_over,-0.0929
-2026-02-01T00:00:00Z,Ottawa Senators,New Jersey Devils,ev_away_ml,-0.1079
-2026-02-01T00:00:00Z,Buffalo Sabres,Montréal Canadiens,ev_home_ml,-0.1272
-2026-01-31T18:00:00Z,Detroit Red Wings,Colorado Avalanche,ev_over,-0.1419
-2026-02-01T00:00:00Z,Vancouver Canucks,Toronto Maple Leafs,ev_away_ml,-0.1446
-2026-02-01T00:00:00Z,New York Islanders,Nashville Predators,ev_away_ml,-0.1539
-2026-01-31T22:00:00Z,Washington Capitals,Carolina Hurricanes,ev_over,-0.1557
-2026-01-31T21:00:00Z,Calgary Flames,San Jose Sharks,ev_home_pl_-1.5,-0.1605
-2026-02-01T00:00:00Z,Buffalo Sabres,Montréal Canadiens,ev_over,-0.1625
-2026-01-31T21:00:00Z,Florida Panthers,Winnipeg Jets,ev_home_ml,-0.179
-2026-01-31T18:00:00Z,Detroit Red Wings,Colorado Avalanche,ev_away_ml,-0.1821
-2026-02-01T00:00:00Z,Ottawa Senators,New Jersey Devils,ev_home_pl_-1.5,-0.2252
-2026-01-31T17:30:00Z,Philadelphia Flyers,Los Angeles Kings,ev_away_ml,-0.2421
-2026-02-01T03:00:00Z,Vegas Golden Knights,Seattle Kraken,ev_home_pl_-1.5,-0.2465
-2026-01-31T20:30:00Z,Pittsburgh Penguins,New York Rangers,ev_home_ml,-0.259
-2026-01-31T17:30:00Z,Philadelphia Flyers,Los Angeles Kings,ev_under,-0.2628
-2026-01-31T21:00:00Z,Calgary Flames,San Jose Sharks,ev_over,-0.286
-2026-02-01T00:00:00Z,Buffalo Sabres,Montréal Canadiens,ev_home_pl_-1.5,-0.2889
-2026-01-31T21:00:00Z,Florida Panthers,Winnipeg Jets,ev_over,-0.2938
-2026-02-01T00:00:00Z,Ottawa Senators,New Jersey Devils,ev_under,-0.2944
-2026-01-31T20:30:00Z,Pittsburgh Penguins,New York Rangers,ev_over,-0.3022
-2026-02-01T03:00:00Z,Edmonton Oilers,Minnesota Wild,ev_over,-0.3046
-2026-02-01T00:00:00Z,Vancouver Canucks,Toronto Maple Leafs,ev_over,-0.3208
-2026-01-31T21:00:00Z,Calgary Flames,San Jose Sharks,ev_away_ml,-0.3216
-2026-02-01T03:00:00Z,Vegas Golden Knights,Seattle Kraken,ev_over,-0.3303
-2026-01-31T21:00:00Z,Florida Panthers,Winnipeg Jets,ev_home_pl_-1.5,-0.3565
-2026-02-01T03:00:00Z,Vegas Golden Knights,Seattle Kraken,ev_f10_no,-0.3669
-2026-01-31T20:30:00Z,Pittsburgh Penguins,New York Rangers,ev_home_pl_-1.5,-0.4381
-2026-02-01T03:00:00Z,Edmonton Oilers,Minnesota Wild,ev_away_ml,-0.4424
-2026-01-31T22:00:00Z,Washington Capitals,Carolina Hurricanes,ev_away_ml,-0.485
-2026-02-01T00:00:00Z,St. Louis Blues,Columbus Blue Jackets,ev_away_ml,-0.529
-2026-02-01T02:00:00Z,Utah Mammoth,Dallas Stars,ev_home_pl_-1.5,-0.5817
+2026-01-31T20:30:00Z,Pittsburgh Penguins,New York Rangers,ev_away_ml,0.7403
+2026-01-31T21:00:00Z,Florida Panthers,Winnipeg Jets,ev_under,0.5701
+2026-01-31T21:00:00Z,Calgary Flames,San Jose Sharks,ev_home_ml,0.4639
+2026-02-01T03:00:00Z,Edmonton Oilers,Minnesota Wild,ev_home_ml,0.3663
+2026-01-31T20:30:00Z,Pittsburgh Penguins,New York Rangers,ev_away_pl_+1.5,0.3128
+2026-02-01T02:00:00Z,Utah Mammoth,Dallas Stars,ev_under,0.3033
+2026-02-01T02:00:00Z,Utah Mammoth,Dallas Stars,ev_away_ml,0.2791
+2026-02-01T03:00:00Z,Edmonton Oilers,Minnesota Wild,ev_under,0.2521
+2026-02-01T03:00:00Z,Vegas Golden Knights,Seattle Kraken,ev_under,0.2518
+2026-02-01T00:00:00Z,Vancouver Canucks,Toronto Maple Leafs,ev_under,0.2503
+2026-02-01T00:00:00Z,St. Louis Blues,Columbus Blue Jackets,ev_home_ml,0.245
+2026-02-01T00:00:00Z,New York Islanders,Nashville Predators,ev_under,0.2343
+2026-02-01T02:00:00Z,Utah Mammoth,Dallas Stars,ev_away_pl_+1.5,0.2091
+2026-01-31T22:00:00Z,Washington Capitals,Carolina Hurricanes,ev_home_ml,0.2071
+2026-02-01T03:00:00Z,Vegas Golden Knights,Seattle Kraken,ev_home_ml,0.1728
+2026-01-31T21:00:00Z,Calgary Flames,San Jose Sharks,ev_under,0.1675
+2026-01-31T21:00:00Z,Florida Panthers,Winnipeg Jets,ev_away_pl_+1.5,0.1648
+2026-01-31T20:30:00Z,Pittsburgh Penguins,New York Rangers,ev_under,0.1589
+2026-01-31T22:00:00Z,Washington Capitals,Carolina Hurricanes,ev_under,0.1504
+2026-02-01T03:00:00Z,Vegas Golden Knights,Seattle Kraken,ev_away_pl_+1.5,0.1253
+2026-01-31T18:00:00Z,Detroit Red Wings,Colorado Avalanche,ev_under,0.1161
+2026-02-01T00:00:00Z,Buffalo Sabres,Montréal Canadiens,ev_under,0.0943
+2026-02-01T00:00:00Z,Buffalo Sabres,Montréal Canadiens,ev_away_pl_+1.5,0.0873
+2026-02-01T00:00:00Z,Ottawa Senators,New Jersey Devils,ev_under,0.0709
+2026-02-01T03:00:00Z,Edmonton Oilers,Minnesota Wild,ev_home_pl_-1.5,0.0521
+2026-02-01T00:00:00Z,Buffalo Sabres,Montréal Canadiens,ev_away_ml,0.0316
+2026-01-31T17:30:00Z,Philadelphia Flyers,Los Angeles Kings,ev_under,0.0292
+2026-02-01T00:00:00Z,New York Islanders,Nashville Predators,ev_away_ml,0.0134
+2026-02-01T00:00:00Z,Vancouver Canucks,Toronto Maple Leafs,ev_away_ml,0.0112
+2026-02-01T00:00:00Z,Ottawa Senators,New Jersey Devils,ev_home_ml,0.0008
+2026-02-01T00:00:00Z,Ottawa Senators,New Jersey Devils,ev_away_pl_+1.5,-0.0004
+2026-01-31T21:00:00Z,Florida Panthers,Winnipeg Jets,ev_away_ml,-0.0069
+2026-01-31T18:00:00Z,Detroit Red Wings,Colorado Avalanche,ev_away_ml,-0.0089
+2026-02-01T00:00:00Z,New York Islanders,Nashville Predators,ev_home_pl_-1.5,-0.0143
+2026-01-31T21:00:00Z,Calgary Flames,San Jose Sharks,ev_away_pl_+1.5,-0.0196
+2026-02-01T00:00:00Z,St. Louis Blues,Columbus Blue Jackets,ev_over,-0.0344
+2026-02-01T00:00:00Z,St. Louis Blues,Columbus Blue Jackets,ev_away_pl_+1.5,-0.0355
+2026-01-31T17:30:00Z,Philadelphia Flyers,Los Angeles Kings,ev_away_ml,-0.0397
+2026-01-31T17:30:00Z,Philadelphia Flyers,Los Angeles Kings,ev_home_ml,-0.0511
+2026-02-01T00:00:00Z,St. Louis Blues,Columbus Blue Jackets,ev_home_pl_-1.5,-0.0513
+2026-02-01T00:00:00Z,St. Louis Blues,Columbus Blue Jackets,ev_under,-0.0518
+2026-02-01T00:00:00Z,New York Islanders,Nashville Predators,ev_away_pl_+1.5,-0.0548
+2026-01-31T21:00:00Z,Florida Panthers,Winnipeg Jets,ev_home_ml,-0.0632
+2026-02-01T00:00:00Z,New York Islanders,Nashville Predators,ev_home_ml,-0.0836
+2026-01-31T18:00:00Z,Detroit Red Wings,Colorado Avalanche,ev_home_ml,-0.0856
+2026-02-01T03:00:00Z,Edmonton Oilers,Minnesota Wild,ev_away_pl_+1.5,-0.0894
+2026-02-01T00:00:00Z,Ottawa Senators,New Jersey Devils,ev_away_ml,-0.092
+2026-01-31T21:00:00Z,Calgary Flames,San Jose Sharks,ev_home_pl_-1.5,-0.0922
+2026-02-01T00:00:00Z,Buffalo Sabres,Montréal Canadiens,ev_home_ml,-0.0984
+2026-02-01T00:00:00Z,Ottawa Senators,New Jersey Devils,ev_home_pl_-1.5,-0.1134
+2026-02-01T00:00:00Z,Vancouver Canucks,Toronto Maple Leafs,ev_home_ml,-0.1138
+2026-01-31T17:30:00Z,Philadelphia Flyers,Los Angeles Kings,ev_over,-0.116
+2026-02-01T00:00:00Z,Ottawa Senators,New Jersey Devils,ev_over,-0.133
+2026-02-01T00:00:00Z,Buffalo Sabres,Montréal Canadiens,ev_over,-0.1661
+2026-01-31T22:00:00Z,Washington Capitals,Carolina Hurricanes,ev_away_ml,-0.2028
+2026-01-31T18:00:00Z,Detroit Red Wings,Colorado Avalanche,ev_over,-0.207
+2026-01-31T20:30:00Z,Pittsburgh Penguins,New York Rangers,ev_over,-0.2642
+2026-02-01T03:00:00Z,Vegas Golden Knights,Seattle Kraken,ev_home_pl_-1.5,-0.2643
+2026-01-31T22:00:00Z,Washington Capitals,Carolina Hurricanes,ev_over,-0.2742
+2026-01-31T21:00:00Z,Calgary Flames,San Jose Sharks,ev_over,-0.2796
+2026-02-01T00:00:00Z,Buffalo Sabres,Montréal Canadiens,ev_home_pl_-1.5,-0.2871
+2026-02-01T00:00:00Z,New York Islanders,Nashville Predators,ev_over,-0.2981
+2026-02-01T02:00:00Z,Utah Mammoth,Dallas Stars,ev_over,-0.3194
+2026-02-01T03:00:00Z,Edmonton Oilers,Minnesota Wild,ev_over,-0.3206
+2026-02-01T00:00:00Z,Vancouver Canucks,Toronto Maple Leafs,ev_over,-0.336
+2026-02-01T00:00:00Z,St. Louis Blues,Columbus Blue Jackets,ev_away_ml,-0.3542
+2026-02-01T02:00:00Z,Utah Mammoth,Dallas Stars,ev_home_ml,-0.3552
+2026-01-31T21:00:00Z,Florida Panthers,Winnipeg Jets,ev_home_pl_-1.5,-0.3661
+2026-02-01T03:00:00Z,Vegas Golden Knights,Seattle Kraken,ev_over,-0.3859
+2026-02-01T03:00:00Z,Vegas Golden Knights,Seattle Kraken,ev_away_ml,-0.4283
+2026-01-31T20:30:00Z,Pittsburgh Penguins,New York Rangers,ev_home_ml,-0.4972
+2026-01-31T20:30:00Z,Pittsburgh Penguins,New York Rangers,ev_home_pl_-1.5,-0.5353
+2026-01-31T21:00:00Z,Florida Panthers,Winnipeg Jets,ev_over,-0.5364
+2026-02-01T03:00:00Z,Edmonton Oilers,Minnesota Wild,ev_away_ml,-0.5397
+2026-01-31T21:00:00Z,Calgary Flames,San Jose Sharks,ev_away_ml,-0.5635
+2026-02-01T02:00:00Z,Utah Mammoth,Dallas Stars,ev_home_pl_-1.5,-0.6399

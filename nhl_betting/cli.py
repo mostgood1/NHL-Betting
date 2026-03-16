@@ -16,7 +16,7 @@ import numpy as np
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 
 import pandas as pd
 import typer
@@ -10668,8 +10668,12 @@ def game_recommendations_sim(
     min_ev: float = typer.Option(0.0, help="Minimum EV filter for keeping picks (applied after sim-rooted side selection)"),
     min_prob: float = typer.Option(0.5, help="Minimum model probability required for a pick (default 0.5 means never go against the sim)"),
     min_conf: float = typer.Option(0.0, help="Minimum confidence |p-0.5| required for a pick"),
+    include_totals: bool = typer.Option(True, help="Whether to emit totals recommendations"),
+    ml_prob_thr: Optional[float] = typer.Option(None, help="Optional ML probability floor layered on top of min_prob"),
+    tot_prob_thr: Optional[float] = typer.Option(None, help="Optional totals probability floor layered on top of min_prob"),
+    pl_prob_thr: Optional[float] = typer.Option(None, help="Optional puckline probability floor layered on top of min_prob"),
 ):
-    """Compute sim-backed game probabilities and EV (ML and Totals) from per-sim boxscore samples.
+    """Compute sim-backed game probabilities and EV from per-sim boxscore samples.
 
     Reads props_boxscores_sim_samples_{date}.{parquet|csv} and team odds (oddsapi).
     Aggregates per-sim team goals to compute ML and Totals probabilities and EVs, then writes:
@@ -10679,7 +10683,7 @@ def game_recommendations_sim(
 
     Notes:
     - For each game+market, we only consider the sim-favored side (p >= 0.5 by default).
-    - Optional gates: min_prob/min_conf/min_ev.
+    - Optional gates: min_prob/min_conf/min_ev plus per-market probability floors.
     """
     import pandas as pd
     import numpy as _np
@@ -11033,6 +11037,21 @@ def game_recommendations_sim(
     # - Apply optional gates (min_prob/min_conf/min_ev).
     # - Rank by confidence first, EV second (so we don't get longshot EV-only picks).
     try:
+        def _prob_floor(market: str) -> float:
+            try:
+                base = float(min_prob)
+            except Exception:
+                base = 0.5
+            specific = {
+                'ML': ml_prob_thr,
+                'TOTAL': tot_prob_thr,
+                'PL': pl_prob_thr,
+            }.get(str(market).upper())
+            try:
+                return max(base, float(specific)) if specific is not None else base
+            except Exception:
+                return base
+
         rec_rows = []
         for _, r in pred_sim.iterrows():
             try:
@@ -11061,7 +11080,7 @@ def game_recommendations_sim(
                             return
                         if float(evv) < float(min_ev):
                             return
-                        if float(prob) < float(min_prob):
+                        if float(prob) < _prob_floor(market):
                             return
                         c = _conf(prob)
                         if c is None:
@@ -11104,7 +11123,7 @@ def game_recommendations_sim(
                         )
 
                 # Totals: choose sim-favored side
-                if tl is not None and pd.notna(tl):
+                if include_totals and tl is not None and pd.notna(tl):
                     po = _num(r.get('p_over'))
                     pu = _num(r.get('p_under'))
                     if po is not None and pu is not None:

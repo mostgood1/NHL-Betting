@@ -24,11 +24,11 @@
             "p_home_ml": 0.48225,
             "p_home_pl_-1.5": 0.2168333333333333,
             "p_over": 0.5151666666666667,
-            "p_under": 0.3515,
+            "p_under": 0.4848333333333333,
             "pl_line_used": 1.5,
             "proj_away_goals": 3.3995,
             "proj_home_goals": 3.285333333333333,
-            "total_line_used": 6.0,
+            "total_line_used": 6.5,
             "under_odds": null
           },
           {
@@ -46,11 +46,11 @@
             "p_home_ml": 0.5129166666666667,
             "p_home_pl_-1.5": 0.2485,
             "p_over": 0.5123333333333333,
-            "p_under": 0.3498333333333333,
+            "p_under": 0.4876666666666667,
             "pl_line_used": 1.5,
             "proj_away_goals": 3.324666666666667,
             "proj_home_goals": 3.3703333333333334,
-            "total_line_used": 6.0,
+            "total_line_used": 6.5,
             "under_odds": null
           },
           {
@@ -68,11 +68,11 @@
             "p_home_ml": 0.4719166666666666,
             "p_home_pl_-1.5": 0.216,
             "p_over": 0.495,
-            "p_under": 0.3661666666666666,
+            "p_under": 0.505,
             "pl_line_used": 1.5,
             "proj_away_goals": 3.3586666666666667,
             "proj_home_goals": 3.2065,
-            "total_line_used": 6.0,
+            "total_line_used": 6.5,
             "under_odds": null
           },
           {
@@ -90,11 +90,11 @@
             "p_home_ml": 0.5354166666666667,
             "p_home_pl_-1.5": 0.2603333333333333,
             "p_over": 0.3958333333333333,
-            "p_under": 0.457,
+            "p_under": 0.6041666666666666,
             "pl_line_used": 1.5,
             "proj_away_goals": 2.887,
             "proj_home_goals": 3.078333333333333,
-            "total_line_used": 6.0,
+            "total_line_used": 6.5,
             "under_odds": null
           },
           {
@@ -112,11 +112,11 @@
             "p_home_ml": 0.4939166666666666,
             "p_home_pl_-1.5": 0.2321666666666666,
             "p_over": 0.4218333333333333,
-            "p_under": 0.4338333333333333,
+            "p_under": 0.5781666666666667,
             "pl_line_used": 1.5,
             "proj_away_goals": 3.0775,
             "proj_home_goals": 3.0351666666666666,
-            "total_line_used": 6.0,
+            "total_line_used": 6.5,
             "under_odds": null
           },
           {
@@ -133,12 +133,12 @@
             "p_away_pl_+1.5": 0.7486666666666666,
             "p_home_ml": 0.5160833333333333,
             "p_home_pl_-1.5": 0.2513333333333333,
-            "p_over": 0.4468333333333333,
+            "p_over": 0.5891666666666666,
             "p_under": 0.4108333333333333,
             "pl_line_used": 1.5,
             "proj_away_goals": 3.097166666666667,
             "proj_home_goals": 3.183,
-            "total_line_used": 6.0,
+            "total_line_used": 5.5,
             "under_odds": null
           },
           {
@@ -155,12 +155,12 @@
             "p_away_pl_+1.5": 0.7206666666666667,
             "p_home_ml": 0.5468333333333333,
             "p_home_pl_-1.5": 0.2793333333333333,
-            "p_over": 0.4718333333333333,
+            "p_over": 0.6118333333333333,
             "p_under": 0.3881666666666666,
             "pl_line_used": 1.5,
             "proj_away_goals": 3.091833333333333,
             "proj_home_goals": 3.3621666666666665,
-            "total_line_used": 6.0,
+            "total_line_used": 5.5,
             "under_odds": null
           },
           {
@@ -178,11 +178,11 @@
             "p_home_ml": 0.5110833333333333,
             "p_home_pl_-1.5": 0.2501666666666666,
             "p_over": 0.5183333333333333,
-            "p_under": 0.3553333333333333,
+            "p_under": 0.4816666666666667,
             "pl_line_used": 1.5,
             "proj_away_goals": 3.317333333333333,
             "proj_home_goals": 3.385333333333333,
-            "total_line_used": 6.0,
+            "total_line_used": 6.5,
             "under_odds": null
           },
           {
@@ -199,12 +199,12 @@
             "p_away_pl_+1.5": 0.7441666666666666,
             "p_home_ml": 0.5151666666666667,
             "p_home_pl_-1.5": 0.2558333333333333,
-            "p_over": 0.4873333333333333,
+            "p_over": 0.6265,
             "p_under": 0.3735,
             "pl_line_used": 1.5,
             "proj_away_goals": 3.227,
             "proj_home_goals": 3.3236666666666665,
-            "total_line_used": 6.0,
+            "total_line_used": 5.5,
             "under_odds": null
           }
         ]
@@ -233,6 +233,6 @@
     "reconciliation_games": null,
     "reconciliation_props": null
   },
-  "generated_at_utc": "2026-03-16T15:36:46+00:00",
+  "generated_at_utc": "2026-03-16T17:47:58+00:00",
   "schema_version": 1
 }

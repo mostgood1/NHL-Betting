@@ -1,5 +1,6 @@
 player,position,team
 Brent Burns,F,COL
+Evgeni Malkin,F,PIT
 Anze Kopitar,F,LAK
 Kris Letang,F,PIT
 Jamie Benn,F,DAL
@@ -36,6 +37,7 @@ Adrian Kempe,F,LAK
 Devon Toews,F,COL
 Viktor Arvidsson,F,BOS
 Michael Bunting,F,DAL
+Victor Olofsson,F,CGY
 Pavel Zacha,F,BOS
 Timo Meier,F,NJD
 Tommy Novak,F,PIT
@@ -74,6 +76,7 @@ Mavrik Bourque,F,DAL
 Alex Laferriere,F,LAK
 Will Cuylle,F,NYR
 JJ Peterka,F,UTA
+Marat Khusnutdinov,F,BOS
 Matt Coronato,F,CGY
 Luke Hughes,F,NJD
 Dylan Guenther,F,UTA
@@ -85,5 +88,6 @@ Marco Kasper,F,DET
 Fraser Minten,F,BOS
 Gabe Perreault,F,NYR
 Sam Malinski,F,COL
+Justin Hryckowian,F,DAL
 Matvei Gridin,F,CGY
 Ben Kindel,F,PIT

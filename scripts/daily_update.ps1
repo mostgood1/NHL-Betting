@@ -54,7 +54,7 @@ Param (
   [int]$PropsTop = 400,
   [string]$PropsMinEvPerMarket = "SOG=0.00,GOALS=0.05,ASSISTS=0.00,POINTS=0.12,SAVES=0.02,BLOCKS=0.02",
   [double]$PropsMinProb = 0.0,
-  [string]$PropsMinProbPerMarket = "",
+  [string]$PropsMinProbPerMarket = "SOG=0.75,GOALS=0.60,ASSISTS=0.60,POINTS=0.60,SAVES=0.60,BLOCKS=0.60",
   [int]$PropsMaxPlusOdds = 300,
   [switch]$PropsIncludeGoalies,
   # Props historical backfill (OddsAPI historical event props)
@@ -71,7 +71,7 @@ Param (
   [Alias('RunSimBacktests')]
   [switch]$RunSimPropsBacktests,
   [Alias('SimBacktestDays')]
-  [int]$SimPropsBacktestDays = 13,
+  [int]$SimPropsBacktestDays = 30,
   [Alias('SimBacktestMinEvPerMarket')]
   [string]$SimPropsBacktestMinEvPerMarket = "",
 
@@ -456,9 +456,10 @@ try {
 
     # Produce sim-native game predictions and edges (ML/Totals) directly from per-sim samples
     try {
-      Write-Host "[daily_update] Computing sim-native game predictions for $d …" -ForegroundColor DarkYellow
+      $totFlag = if ($SimIncludeTotals) { "--include-totals" } else { "--no-include-totals" }
+      Write-Host "[daily_update] Computing sim-native game predictions for $d (ML>=$SimMLThr, PL>=$SimPLThr, Tot>=$SimTotThr, includeTotals=$SimIncludeTotals) …" -ForegroundColor DarkYellow
       # Run with timeout to prevent stalls if samples are unavailable
-      $job2 = Start-Job -ScriptBlock { Set-Location $using:RepoRoot; & $using:PyExe -m nhl_betting.cli game-recommendations-sim --date $using:d --top 200 2>&1 }
+      $job2 = Start-Job -ScriptBlock { Set-Location $using:RepoRoot; & $using:PyExe -m nhl_betting.cli game-recommendations-sim --date $using:d --top 200 $using:totFlag --ml-prob-thr $using:SimMLThr --tot-prob-thr $using:SimTotThr --pl-prob-thr $using:SimPLThr 2>&1 }
       $done2 = Wait-Job $job2 -Timeout $GameSimTimeoutSec
       if (-not $done2) {
         try { Stop-Job $job2 -Force } catch {}

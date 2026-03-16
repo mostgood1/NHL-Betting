@@ -3276,9 +3276,18 @@ def _live_lens_total_under_toxic_gate(elapsed_min: Optional[float], driver_tags:
         if stacked_bump is None or (not math.isfinite(stacked_bump)):
             stacked_bump = 0.01
 
+        try:
+            pressure_home_bump = float(os.getenv("LIVE_LENS_TOTAL_UNDER_TOXIC_PRESSURE_HOME_EDGE_BUMP", "0.01"))
+        except Exception:
+            pressure_home_bump = 0.01
+        if pressure_home_bump is None or (not math.isfinite(pressure_home_bump)):
+            pressure_home_bump = 0.01
+
         severe_match_count = sum(1 for tag in matched if tag in severe_tags)
         if any(tag in matched for tag in high_risk_tags):
             min_required_edge += float(high_risk_bump)
+        if "pressure:home" in matched:
+            min_required_edge += float(pressure_home_bump)
         if "goal_away" in matched:
             min_required_edge += float(goal_away_bump)
         if severe_match_count >= 2:

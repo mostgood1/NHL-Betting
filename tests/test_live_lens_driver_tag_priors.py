@@ -170,6 +170,7 @@ def test_live_lens_driver_tag_edge_adjustment_prefers_side_specific_scope(tmp_pa
 def test_live_lens_total_under_toxic_gate_applies_after_20_minutes(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("LIVE_LENS_TOTAL_UNDER_TOXIC_EM20_REQUIRED_EDGE", "0.10")
     monkeypatch.setenv("LIVE_LENS_TOTAL_UNDER_TOXIC_EM35_REQUIRED_EDGE", "0.12")
+    monkeypatch.setenv("LIVE_LENS_TOTAL_UNDER_TOXIC_PRESSURE_HOME_EDGE_BUMP", "0.01")
 
     gate = web_app._live_lens_total_under_toxic_gate(
         24.0,
@@ -177,7 +178,7 @@ def test_live_lens_total_under_toxic_gate_applies_after_20_minutes(monkeypatch: 
     )
 
     assert gate
-    assert pytest.approx(float(gate.get("min_required_edge") or 0.0), abs=1e-6) == 0.11
+    assert pytest.approx(float(gate.get("min_required_edge") or 0.0), abs=1e-6) == 0.12
     assert gate.get("matched") == ["pressure:home", "pace:down"]
 
 
@@ -205,8 +206,24 @@ def test_live_lens_total_under_toxic_gate_adds_extra_penalty_after_away_goal(mon
     )
 
     assert gate
-    assert pytest.approx(float(gate.get("min_required_edge") or 0.0), abs=1e-6) == 0.13
+    assert pytest.approx(float(gate.get("min_required_edge") or 0.0), abs=1e-6) == 0.14
     assert gate.get("matched") == ["score:away_leading", "goal_away"]
+
+
+def test_live_lens_total_under_toxic_gate_adds_extra_pressure_home_bump(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("LIVE_LENS_TOTAL_UNDER_TOXIC_EM20_REQUIRED_EDGE", "0.10")
+    monkeypatch.setenv("LIVE_LENS_TOTAL_UNDER_TOXIC_EM35_REQUIRED_EDGE", "0.12")
+    monkeypatch.setenv("LIVE_LENS_TOTAL_UNDER_TOXIC_HIGH_RISK_EDGE_BUMP", "0.01")
+    monkeypatch.setenv("LIVE_LENS_TOTAL_UNDER_TOXIC_PRESSURE_HOME_EDGE_BUMP", "0.02")
+
+    gate = web_app._live_lens_total_under_toxic_gate(
+        24.0,
+        ["pressure:home"],
+    )
+
+    assert gate
+    assert pytest.approx(float(gate.get("min_required_edge") or 0.0), abs=1e-6) == 0.13
+    assert gate.get("matched") == ["pressure:home"]
 
 
 def test_live_lens_total_under_early_gate_blocks_through_first_period(monkeypatch: pytest.MonkeyPatch):

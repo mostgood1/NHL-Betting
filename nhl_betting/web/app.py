@@ -12608,34 +12608,46 @@ async def cards_alias(request: Request):
         # After projection fallback (and optional sim overrides), compute Dixon–Coles probabilities and apply market anchoring
         try:
             import os
-            from ..utils.odds import american_to_decimal, decimal_to_implied_prob, remove_vig_two_way
         except Exception:
             os = None
+        try:
+            from ..utils.odds import american_to_decimal, decimal_to_implied_prob, remove_vig_two_way
+        except Exception:
+            pass
+        try:
+            from ..utils.market_anchor import blend_probability, implied_pair_from_american, implied_pair_from_two_sided
+        except Exception:
+            blend_probability = None
+            implied_pair_from_american = None
+            implied_pair_from_two_sided = None
+        try:
+            from ..utils.calibration import BinaryCalibration as _BinaryCalibration, load_game_calibration as _load_game_calibration
+        except Exception:
+            _BinaryCalibration = None
+            _load_game_calibration = None
         # Resolve config (model-driven): read model_calibration.json, then env, else defaults
         dc_rho = -0.05
         anchor_w_ml = 0.25
         anchor_w_totals = 0.25
+        ml_temp = 1.0
+        ml_bias = 0.0
         totals_temp = 1.0  # temperature scaling for totals (pushed toward 0.5 when >1)
+        totals_bias = 0.0
         # JSON first (authoritative)
         try:
-            import json as _json
-            if 'PROC_DIR' in globals():
-                _cal_path = PROC_DIR / "model_calibration.json"
-                if _cal_path.exists():
-                    _obj = _json.loads(_cal_path.read_text(encoding="utf-8"))
-                    if _obj.get("dc_rho") is not None:
-                        dc_rho = float(_obj.get("dc_rho"))
-                    # per-market weights with fallback to generic key
-                    if _obj.get("market_anchor_w_ml") is not None:
-                        anchor_w_ml = float(_obj.get("market_anchor_w_ml"))
-                    elif _obj.get("market_anchor_w") is not None:
-                        anchor_w_ml = float(_obj.get("market_anchor_w"))
-                    if _obj.get("market_anchor_w_totals") is not None:
-                        anchor_w_totals = float(_obj.get("market_anchor_w_totals"))
-                    elif _obj.get("market_anchor_w") is not None:
-                        anchor_w_totals = float(_obj.get("market_anchor_w"))
-                    if _obj.get("totals_temp") is not None:
-                        totals_temp = float(_obj.get("totals_temp"))
+            if _load_game_calibration is not None and 'PROC_DIR' in globals():
+                _cfg = _load_game_calibration(PROC_DIR / "model_calibration.json")
+                dc_rho = float(_cfg.get("dc_rho", dc_rho))
+                anchor_w_ml = float(_cfg.get("market_anchor_w_ml", anchor_w_ml))
+                anchor_w_totals = float(_cfg.get("market_anchor_w_totals", anchor_w_totals))
+                _ml_cal = _cfg.get("moneyline")
+                _tot_cal = _cfg.get("totals")
+                if _ml_cal is not None:
+                    ml_temp = float(getattr(_ml_cal, "t", ml_temp))
+                    ml_bias = float(getattr(_ml_cal, "b", ml_bias))
+                if _tot_cal is not None:
+                    totals_temp = float(getattr(_tot_cal, "t", totals_temp))
+                    totals_bias = float(getattr(_tot_cal, "b", totals_bias))
         except Exception:
             pass
         # Env second (dev overrides)
@@ -12655,9 +12667,18 @@ async def cards_alias(request: Request):
                     anchor_w_totals = float(ew_to)
                 elif ew_generic is not None:
                     anchor_w_totals = float(ew_generic)
+                emt = os.getenv("ML_TEMP")
+                if emt is not None:
+                    ml_temp = float(emt)
+                emb = os.getenv("ML_BIAS")
+                if emb is not None:
+                    ml_bias = float(emb)
                 et = os.getenv("TOTALS_TEMP")
                 if et is not None:
                     totals_temp = float(et)
+                etb = os.getenv("TOTALS_BIAS")
+                if etb is not None:
+                    totals_bias = float(etb)
         except Exception:
             pass
         # Sanitize
@@ -12677,6 +12698,20 @@ async def cards_alias(request: Request):
             totals_temp = max(0.5, min(3.0, float(totals_temp)))
         except Exception:
             totals_temp = 1.0
+        try:
+            ml_temp = max(0.5, min(3.0, float(ml_temp)))
+        except Exception:
+            ml_temp = 1.0
+        try:
+            ml_bias = float(ml_bias)
+        except Exception:
+            ml_bias = 0.0
+        try:
+            totals_bias = float(totals_bias)
+        except Exception:
+            totals_bias = 0.0
+        ml_cal = _BinaryCalibration(ml_temp, ml_bias) if _BinaryCalibration is not None else None
+        totals_cal = _BinaryCalibration(totals_temp, totals_bias) if _BinaryCalibration is not None else None
 
         # Helpers for EV recompute
         def _num2(v):
@@ -12770,39 +12805,6 @@ async def cards_alias(request: Request):
                 if r.get("p_away_pl_+1.5_model") is not None:
                     _set_prob("p_away_pl_+1.5", r["p_away_pl_+1.5_model"], p_mkt_apl, anchor_w_ml)
 
-                # Optional totals temperature scaling around 0.5 (logit-space)
-                try:
-                    if totals_temp and abs(totals_temp - 1.0) > 1e-6:
-                        def _sigmoid(x: float) -> float:
-                            try:
-                                return 1.0 / (1.0 + _math.exp(-x))
-                            except Exception:
-                                return 0.5
-                        def _logit(p: float) -> float:
-                            p = min(max(p, 1e-9), 1 - 1e-9)
-                            return _math.log(p / (1.0 - p))
-                        # For integer lines, scale conditional on non-push probability mass
-                        if tl_val is not None and abs(tl_val - round(tl_val)) < 1e-9:
-                            S = max(1e-9, 1.0 - float(p_push))
-                            po = float(r.get("p_over")) if r.get("p_over") is not None else None
-                            pu = float(r.get("p_under")) if r.get("p_under") is not None else None
-                            if po is not None and pu is not None and S > 0:
-                                po_c = min(max(po / S, 1e-9), 1 - 1e-9)
-                                lo = _logit(po_c) / float(totals_temp)
-                                po_adj_c = _sigmoid(lo)
-                                po_adj = float(po_adj_c * S)
-                                r["p_over"] = po_adj
-                                r["p_under"] = max(0.0, S - po_adj)
-                        else:
-                            po = float(r.get("p_over")) if r.get("p_over") is not None else None
-                            if po is not None:
-                                lo = _logit(po) / float(totals_temp)
-                                r["p_over"] = _sigmoid(lo)
-                                r["p_under"] = max(0.0, 1.0 - float(r["p_over"]))
-                except Exception:
-                    pass
-
-                # Recompute EVs using updated probabilities when odds are present
                 # Totals push for integer lines
                 p_push = 0.0
                 try:
@@ -12813,6 +12815,23 @@ async def cards_alias(request: Request):
                         p_push = float(exp(-mu_tot) * (mu_tot ** k) / factorial(k)) if k >= 0 else 0.0
                 except Exception:
                     p_push = 0.0
+
+                try:
+                    if ml_cal is not None and r.get("p_home_ml") is not None:
+                        ph_adj, pa_adj = ml_cal.apply_two_way(float(r.get("p_home_ml")))
+                        r["p_home_ml"] = ph_adj
+                        r["p_away_ml"] = pa_adj
+                except Exception:
+                    pass
+                try:
+                    if totals_cal is not None and r.get("p_over") is not None:
+                        po_adj, pu_adj = totals_cal.apply_two_way(float(r.get("p_over")), push_mass=p_push)
+                        r["p_over"] = po_adj
+                        r["p_under"] = pu_adj
+                except Exception:
+                    pass
+
+                # Recompute EVs using updated probabilities when odds are present
                 # ML
                 r["ev_home_ml"] = _ev_from_prob(r.get("p_home_ml"), _num2(r.get("home_ml_odds") or r.get("close_home_ml_odds")))
                 r["ev_away_ml"] = _ev_from_prob(r.get("p_away_ml"), _num2(r.get("away_ml_odds") or r.get("close_away_ml_odds")))

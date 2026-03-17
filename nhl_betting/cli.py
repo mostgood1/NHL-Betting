@@ -1126,20 +1126,52 @@ def predict_core(
             _sim_available = True
         except Exception:
             _sim_available = False
-        # Moneyline: base on NN/Elo probability then calibrate if available
+        # Moneyline: base on NN/Elo probability, then blend toward market and calibrate if available.
+        p_home_model = float(p_home)
+        p_away_model = 1.0 - p_home_model
+        p_over_raw = None
+        p_under_raw = None
         try:
-            from .utils.calibration import load_calibration as _load_cal
-            _cal_path = PROC_DIR / "model_calibration.json"
-            _ml_cal, _tot_cal = _load_cal(_cal_path)
+            from .utils.calibration import load_game_calibration as _load_game_cal
+            from .utils.market_anchor import (
+                blend_probability as _blend_probability,
+                implied_pair_from_american as _implied_pair_from_american,
+                implied_pair_from_two_sided as _implied_pair_from_two_sided,
+            )
+
+            _game_cal = _load_game_cal(PROC_DIR / "model_calibration.json")
+            _ml_cal = _game_cal.get("moneyline")
+            _tot_cal = _game_cal.get("totals")
+            _anchor_w_ml = float(_game_cal.get("market_anchor_w_ml", 0.25))
+            _anchor_w_totals = float(_game_cal.get("market_anchor_w_totals", 0.25))
         except Exception:
             _ml_cal, _tot_cal = None, None
+            _blend_probability = None
+            _implied_pair_from_american = None
+            _implied_pair_from_two_sided = None
+            _anchor_w_ml = 0.25
+            _anchor_w_totals = 0.25
 
-        # Calibrate ML prob if possible
+        p_home_anchor = p_home_model
         try:
-            p_home_cal = float(_ml_cal.apply(np.array([p_home]))[0]) if _ml_cal is not None else float(p_home)
-            p_away_cal = 1.0 - p_home_cal
+            if match_info is not None and _blend_probability is not None and _implied_pair_from_american is not None:
+                _rev = bool(match_info.get("_reversed_vs_schedule"))
+                _home_ml_src = "away_ml" if _rev else "home_ml"
+                _away_ml_src = "home_ml" if _rev else "away_ml"
+                _nv_ml = _implied_pair_from_american(match_info.get(_home_ml_src), match_info.get(_away_ml_src))
+                if _nv_ml is not None:
+                    p_home_anchor = float(_blend_probability(p_home_model, _nv_ml[0], w_market=_anchor_w_ml))
         except Exception:
-            p_home_cal = float(p_home)
+            p_home_anchor = p_home_model
+
+        try:
+            if _ml_cal is not None:
+                p_home_cal, p_away_cal = _ml_cal.apply_two_way(p_home_anchor)
+            else:
+                p_home_cal = p_home_anchor
+                p_away_cal = 1.0 - p_home_cal
+        except Exception:
+            p_home_cal = p_home_anchor
             p_away_cal = 1.0 - p_home_cal
 
         # Totals & puckline probabilities via simulation (fallback to normal approx if simulation unavailable)
@@ -1184,11 +1216,9 @@ def predict_core(
                         puck_line=-1.5,
                         cfg=sim_cfg,
                     )
-                # Calibrate totals prob if calibrator available
                 if sim.get("over") is not None and not np.isnan(sim["over"]):
                     p_over_raw = float(sim["over"])  # Monte Carlo estimate
-                    p_over_cal = float(_tot_cal.apply(np.array([p_over_raw]))[0]) if _tot_cal is not None else p_over_raw
-                    p_under_cal = 1.0 - p_over_cal
+                    p_under_raw = 1.0 - p_over_raw
                 else:
                     p_over_cal, p_under_cal = None, None
                 # Puck line from simulation
@@ -1202,8 +1232,7 @@ def predict_core(
                         thr = thr + 0.5
                     z = (thr - model_total) / max(1e-6, sigma_total)
                     p_over_raw = 1.0 - (0.5 * (1.0 + _math.erf(z / (_math.sqrt(2.0)))))
-                    p_over_cal = float(_tot_cal.apply(np.array([p_over_raw]))[0]) if _tot_cal is not None else float(p_over_raw)
-                    p_under_cal = 1.0 - p_over_cal
+                    p_under_raw = 1.0 - p_over_raw
                 except Exception:
                     p_over_cal = None
                     p_under_cal = None
@@ -1222,8 +1251,7 @@ def predict_core(
                     thr = thr + 0.5
                 z = (thr - model_total) / max(1e-6, sigma_total)
                 p_over_raw = 1.0 - (0.5 * (1.0 + _math.erf(z / (_math.sqrt(2.0)))))
-                p_over_cal = float(_tot_cal.apply(np.array([p_over_raw]))[0]) if _tot_cal is not None else float(p_over_raw)
-                p_under_cal = 1.0 - p_over_cal
+                p_under_raw = 1.0 - p_over_raw
             except Exception:
                 p_over_cal = None
                 p_under_cal = None
@@ -1234,6 +1262,34 @@ def predict_core(
             except Exception:
                 p_home_pl = None
                 p_away_pl = None
+
+        p_over_anchor = p_over_raw
+        try:
+            if (
+                p_over_anchor is not None
+                and match_info is not None
+                and _blend_probability is not None
+                and _implied_pair_from_two_sided is not None
+            ):
+                _nv_tot = _implied_pair_from_two_sided(match_info.get("over"), match_info.get("under"))
+                if _nv_tot is not None:
+                    p_over_anchor = float(_blend_probability(p_over_anchor, _nv_tot[0], w_market=_anchor_w_totals))
+        except Exception:
+            p_over_anchor = p_over_raw
+
+        try:
+            if p_over_anchor is not None:
+                if _tot_cal is not None:
+                    p_over_cal, p_under_cal = _tot_cal.apply_two_way(float(p_over_anchor))
+                else:
+                    p_over_cal = float(p_over_anchor)
+                    p_under_cal = 1.0 - p_over_cal
+            else:
+                p_over_cal = None
+                p_under_cal = None
+        except Exception:
+            p_over_cal = p_over_anchor
+            p_under_cal = (1.0 - p_over_anchor) if p_over_anchor is not None else None
 
         # Build base row with model probabilities
         row = {
@@ -1258,6 +1314,10 @@ def predict_core(
             "first_10min_proj": round(float(first_10min_proj), 3) if first_10min_proj is not None else None,
             "first_10min_prob": round(float(_first10_prob), 4) if _first10_prob is not None else None,
             "first_10min_source": _first10_source,
+            "p_home_ml_model": p_home_model,
+            "p_away_ml_model": p_away_model,
+            "p_over_model": float(p_over_raw) if p_over_raw is not None else None,
+            "p_under_model": float(p_under_raw) if p_under_raw is not None else None,
             "p_home_ml": p_home_cal,
             "p_away_ml": p_away_cal,
             "p_over": p_over_cal,
@@ -4492,6 +4552,8 @@ def predict_range(
                         for col in [
                             "final_home_goals","final_away_goals","actual_home_goals","actual_away_goals","actual_total",
                             "winner_actual","winner_model","winner_correct","result_total","total_diff",
+                            "home_ml_odds","away_ml_odds","over_odds","under_odds","home_pl_-1.5_odds","away_pl_+1.5_odds",
+                            "home_ml_book","away_ml_book","over_book","under_book","home_pl_-1.5_book","away_pl_+1.5_book",
                             "close_home_ml_odds","close_away_ml_odds","close_over_odds","close_under_odds","close_home_pl_-1.5_odds","close_away_pl_+1.5_odds",
                             "close_total_line_used","close_home_ml_book","close_away_ml_book","close_over_book","close_under_book","close_home_pl_-1.5_book","close_away_pl_+1.5_book","close_snapshot",
                         ]:
@@ -15007,13 +15069,14 @@ def game_auto_calibrate(
 ):
     """Automatically calibrate team-level model hyperparameters from historical predictions and outcomes.
 
-    Learns and persists:
+        Learns and persists:
       - dc_rho: Dixon–Coles low-score correlation (by maximizing exact score likelihood)
       - market_anchor_w_ml: blend weight toward no‑vig market for Moneyline (minimizes log loss)
       - market_anchor_w_totals: blend weight toward no‑vig market for Totals (minimizes log loss)
+            - ml_temp/ml_bias: moneyline temperature + log-odds bias after market anchoring
       - totals_temp: temperature scaling T (>1 flattens toward 0.5) for Totals (minimizes log loss)
 
-    Output JSON is read by the web layer; environment toggles are no longer needed.
+        Output JSON is read by both the web layer and batch prediction paths; environment toggles are no longer needed.
     """
     import math, json
     from datetime import datetime as _dt, timedelta as _td
@@ -15190,6 +15253,19 @@ def game_auto_calibrate(
         w0 = float(grid[int(np.argmin(vals))])
         return w0
 
+    def _fit_moneyline_cal(samples, w_ml):
+        if not samples:
+            from .utils.calibration import BinaryCalibration
+
+            return BinaryCalibration()
+        from .utils.calibration import fit_temp_shift
+
+        ps_mod = np.array([s[0] for s in samples], dtype=float)
+        ps_mkt = np.array([s[1] for s in samples], dtype=float)
+        ys = np.array([s[2] for s in samples], dtype=int)
+        p_blend = np.clip((1.0 - float(w_ml)) * ps_mod + float(w_ml) * ps_mkt, 1e-6, 1 - 1e-6)
+        return fit_temp_shift(p_blend, ys, metric="logloss")
+
     def _fit_totals_temp(samples, w_totals):
         # samples: list of (p_mod_over, p_mkt_over, y_over, line, actual_total)
         if not samples:
@@ -15238,6 +15314,7 @@ def game_auto_calibrate(
 
     w_ml = _fit_anchor(ml_samples)
     w_tot = _fit_anchor([(pm, pk, y) for (pm, pk, y, _, _) in to_samples])
+    ml_cal = _fit_moneyline_cal(ml_samples, w_ml)
     T = _fit_totals_temp(to_samples, w_tot)
     rho = _fit_dc_rho(dc_samples)
 
@@ -15252,11 +15329,16 @@ def game_auto_calibrate(
         "market_anchor_w": float(w_ml),
         "market_anchor_w_ml": float(w_ml),
         "market_anchor_w_totals": float(w_tot),
+        "ml_temp": float(ml_cal.t),
+        "ml_bias": float(ml_cal.b),
         "totals_temp": float(T),
+        "totals_bias": 0.0,
+        "moneyline": {"t": float(ml_cal.t), "b": float(ml_cal.b)},
+        "totals": {"t": float(T), "b": 0.0},
     }
     with out_path.open("w", encoding="utf-8") as f:
         json.dump(obj, f, indent=2)
-    print(json.dumps({k: obj[k] for k in ("dc_rho","market_anchor_w_ml","market_anchor_w_totals","totals_temp")}, indent=2))
+    print(json.dumps({k: obj[k] for k in ("dc_rho","market_anchor_w_ml","market_anchor_w_totals","ml_temp","ml_bias","totals_temp")}, indent=2))
     print(f"Wrote calibration -> {out_path}")
 
 

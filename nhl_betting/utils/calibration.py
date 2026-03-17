@@ -21,6 +21,18 @@ class BinaryCalibration:
         out = 1.0 / (1.0 + np.exp(-adj))
         return np.clip(out, 1e-6, 1 - 1e-6)
 
+    def apply_scalar(self, p: float) -> float:
+        return float(self.apply(np.asarray([p], dtype=float))[0])
+
+    def apply_two_way(self, p_side_a: float, push_mass: float = 0.0) -> Tuple[float, float]:
+        support = max(0.0, min(1.0, 1.0 - float(push_mass)))
+        if support <= 0.0:
+            return 0.0, 0.0
+        p_a = min(max(float(p_side_a), 0.0), support)
+        p_a_adj = float(self.apply_scalar(p_a / support) * support)
+        p_a_adj = min(max(p_a_adj, 0.0), support)
+        return p_a_adj, max(0.0, support - p_a_adj)
+
 
 @dataclass
 class IsotonicCalibration:
@@ -188,14 +200,68 @@ def save_calibration(path: Path, moneyline: BinaryCalibration, totals: BinaryCal
         json.dump(obj, f, indent=2)
 
 
-def load_calibration(path: Path) -> Tuple[BinaryCalibration, BinaryCalibration]:
+def _safe_float(value: Any, default: float) -> float:
+    try:
+        return float(value)
+    except Exception:
+        return float(default)
+
+
+def _clamp(value: float, lower: float, upper: float) -> float:
+    return max(lower, min(upper, float(value)))
+
+
+def _load_binary_calibration(
+    obj: Dict[str, Any],
+    nested_key: str,
+    flat_temp_key: str,
+    flat_bias_key: str,
+) -> BinaryCalibration:
+    nested = obj.get(nested_key)
+    if isinstance(nested, dict):
+        return BinaryCalibration(
+            max(_safe_float(nested.get("t", 1.0), 1.0), 1e-6),
+            _safe_float(nested.get("b", 0.0), 0.0),
+        )
+    return BinaryCalibration(
+        max(_safe_float(obj.get(flat_temp_key, 1.0), 1.0), 1e-6),
+        _safe_float(obj.get(flat_bias_key, 0.0), 0.0),
+    )
+
+
+def load_game_calibration(path: Path) -> Dict[str, Any]:
+    defaults: Dict[str, Any] = {
+        "dc_rho": -0.05,
+        "market_anchor_w_ml": 0.25,
+        "market_anchor_w_totals": 0.25,
+        "moneyline": BinaryCalibration(),
+        "totals": BinaryCalibration(),
+        "raw": {},
+    }
     if not path.exists():
-        return BinaryCalibration(), BinaryCalibration()
-    with path.open("r", encoding="utf-8") as f:
-        obj = json.load(f)
-    ml = obj.get("moneyline", {})
-    tt = obj.get("totals", {})
-    return BinaryCalibration(float(ml.get("t", 1.0)), float(ml.get("b", 0.0))), BinaryCalibration(float(tt.get("t", 1.0)), float(tt.get("b", 0.0)))
+        return defaults
+    try:
+        with path.open("r", encoding="utf-8") as f:
+            obj = json.load(f)
+    except Exception:
+        return defaults
+    generic_anchor = _safe_float(obj.get("market_anchor_w", 0.25), 0.25)
+    defaults["dc_rho"] = _clamp(_safe_float(obj.get("dc_rho", -0.05), -0.05), -0.2, 0.2)
+    defaults["market_anchor_w_ml"] = _clamp(
+        _safe_float(obj.get("market_anchor_w_ml", generic_anchor), generic_anchor), 0.0, 1.0
+    )
+    defaults["market_anchor_w_totals"] = _clamp(
+        _safe_float(obj.get("market_anchor_w_totals", generic_anchor), generic_anchor), 0.0, 1.0
+    )
+    defaults["moneyline"] = _load_binary_calibration(obj, "moneyline", "ml_temp", "ml_bias")
+    defaults["totals"] = _load_binary_calibration(obj, "totals", "totals_temp", "totals_bias")
+    defaults["raw"] = obj
+    return defaults
+
+
+def load_calibration(path: Path) -> Tuple[BinaryCalibration, BinaryCalibration]:
+    obj = load_game_calibration(path)
+    return obj["moneyline"], obj["totals"]
 
 
 def summarize_binary(y_true: np.ndarray, p_pred: np.ndarray) -> Dict[str, float]:

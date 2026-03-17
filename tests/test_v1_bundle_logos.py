@@ -548,6 +548,168 @@ def test_refresh_props_recommendations_keeps_existing_cache_when_refresh_would_b
     assert "Sticky Player" in text
 
 
+def test_refresh_props_recommendations_applies_cli_under_side_gates(tmp_path: Path, monkeypatch):
+    _repo_root, data_dir, proc_dir = _set_render_like_paths(tmp_path, monkeypatch)
+    from nhl_betting.core import props_edge_signals as edge_mod
+
+    _write_csv(
+        data_dir / "props" / "player_props_lines" / "date=2026-03-06" / "oddsapi.csv",
+        "date,player_name,team,market,line,over_price,under_price,book\n"
+        "2026-03-06,Over Favorite,COL,POINTS,0.5,-210,165,draftkings\n"
+        "2026-03-06,Points Under Keep,COL,POINTS,1.5,110,-120,draftkings\n"
+        "2026-03-06,Points Under Drop,COL,POINTS,1.5,110,-130,draftkings\n"
+        "2026-03-06,Goals Under Keep,COL,GOALS,0.5,110,-160,draftkings\n"
+        "2026-03-06,Goals Under Drop,COL,GOALS,0.5,110,-175,draftkings\n"
+        "2026-03-06,Under Low Ev,COL,POINTS,1.5,110,-120,draftkings\n",
+    )
+    _write_csv(
+        proc_dir / "props_projections_all_2026-03-06.csv",
+        "player,team,market,proj_lambda\n"
+        "Over Favorite,COL,POINTS,1.2\n"
+        "Points Under Keep,COL,POINTS,1.0\n"
+        "Points Under Drop,COL,POINTS,1.0\n"
+        "Goals Under Keep,COL,GOALS,0.4\n"
+        "Goals Under Drop,COL,GOALS,0.4\n"
+        "Under Low Ev,COL,POINTS,1.0\n",
+    )
+
+    side_map = {
+        "Over Favorite": "Over",
+        "Points Under Keep": "Under",
+        "Points Under Drop": "Under",
+        "Goals Under Keep": "Under",
+        "Goals Under Drop": "Under",
+        "Under Low Ev": "Under",
+    }
+    prob_map = {
+        "Over Favorite": 0.70,
+        "Points Under Keep": 0.70,
+        "Points Under Drop": 0.72,
+        "Goals Under Keep": 0.82,
+        "Goals Under Drop": 0.82,
+        "Under Low Ev": 0.60,
+    }
+    edge_map = {
+        "Over Favorite": 0.90,
+        "Points Under Keep": 0.80,
+        "Points Under Drop": 0.70,
+        "Goals Under Keep": 0.60,
+        "Goals Under Drop": 0.50,
+        "Under Low Ev": 0.40,
+    }
+
+    def _fake_attach_prop_edge_signals(*, date, props):
+        out = props.copy()
+        out["side_suggested"] = out["player"].map(side_map)
+        out["chosen_prob"] = pd.to_numeric(out["player"].map(prob_map), errors="coerce")
+        out["edge_score"] = pd.to_numeric(out["player"].map(edge_map), errors="coerce")
+        out["edge_reasons"] = "test"
+        out["edge_drivers"] = "test"
+        return out
+
+    monkeypatch.setattr(app_mod, "_gh_upsert_file_if_better_or_same", lambda *_a, **_k: {"ok": True}, raising=True)
+    monkeypatch.setattr(app_mod, "_github_raw_read_csv", lambda *_a, **_k: pd.DataFrame(), raising=True)
+    monkeypatch.setattr(app_mod, "_github_raw_read_parquet", lambda *_a, **_k: pd.DataFrame(), raising=True)
+    monkeypatch.setattr(edge_mod, "attach_prop_edge_signals", _fake_attach_prop_edge_signals, raising=True)
+
+    res = app_mod._refresh_props_recommendations("2026-03-06", min_ev=0.0, top=50)
+
+    assert res.get("ok") is True
+    out = pd.read_csv(proc_dir / "props_recommendations_2026-03-06.csv")
+
+    assert set(out["player"].tolist()) == {
+        "Over Favorite",
+        "Points Under Keep",
+        "Goals Under Keep",
+    }
+
+
+def test_api_props_recommendations_self_heal_route_applies_shared_under_gates(tmp_path: Path, monkeypatch):
+    _repo_root, data_dir, proc_dir = _set_render_like_paths(tmp_path, monkeypatch)
+    from nhl_betting.core import props_edge_signals as edge_mod
+
+    _write_csv(
+        data_dir / "props" / "player_props_lines" / "date=2026-03-06" / "oddsapi.csv",
+        "date,player_name,team,market,line,over_price,under_price,book\n"
+        "2026-03-06,Over Favorite,COL,POINTS,0.5,-210,165,draftkings\n"
+        "2026-03-06,Points Under Keep,COL,POINTS,1.5,110,-120,draftkings\n"
+        "2026-03-06,Points Under Drop,COL,POINTS,1.5,110,-130,draftkings\n"
+        "2026-03-06,Goals Under Keep,COL,GOALS,0.5,110,-160,draftkings\n"
+        "2026-03-06,Goals Under Drop,COL,GOALS,0.5,110,-175,draftkings\n"
+        "2026-03-06,Under Low Ev,COL,POINTS,1.5,110,-120,draftkings\n",
+    )
+    _write_csv(
+        proc_dir / "props_projections_all_2026-03-06.csv",
+        "player,team,market,proj_lambda\n"
+        "Over Favorite,COL,POINTS,1.2\n"
+        "Points Under Keep,COL,POINTS,1.0\n"
+        "Points Under Drop,COL,POINTS,1.0\n"
+        "Goals Under Keep,COL,GOALS,0.4\n"
+        "Goals Under Drop,COL,GOALS,0.4\n"
+        "Under Low Ev,COL,POINTS,1.0\n",
+    )
+
+    side_map = {
+        "Over Favorite": "Over",
+        "Points Under Keep": "Under",
+        "Points Under Drop": "Under",
+        "Goals Under Keep": "Under",
+        "Goals Under Drop": "Under",
+        "Under Low Ev": "Under",
+    }
+    prob_map = {
+        "Over Favorite": 0.70,
+        "Points Under Keep": 0.70,
+        "Points Under Drop": 0.72,
+        "Goals Under Keep": 0.82,
+        "Goals Under Drop": 0.82,
+        "Under Low Ev": 0.60,
+    }
+    edge_map = {
+        "Over Favorite": 0.90,
+        "Points Under Keep": 0.80,
+        "Points Under Drop": 0.70,
+        "Goals Under Keep": 0.60,
+        "Goals Under Drop": 0.50,
+        "Under Low Ev": 0.40,
+    }
+
+    def _fake_attach_prop_edge_signals(*, date, props):
+        out = props.copy()
+        out["side_suggested"] = out["player"].map(side_map)
+        out["chosen_prob"] = pd.to_numeric(out["player"].map(prob_map), errors="coerce")
+        out["edge_score"] = pd.to_numeric(out["player"].map(edge_map), errors="coerce")
+        out["edge_reasons"] = "test"
+        out["edge_drivers"] = "test"
+        return out
+
+    monkeypatch.setattr(app_mod, "_read_only", lambda *_a, **_k: False, raising=True)
+    monkeypatch.setattr(app_mod, "_seed_repo_props_artifacts_to_active_dirs", lambda *_a, **_k: {"ok": True}, raising=True)
+    monkeypatch.setattr(app_mod, "_gh_upsert_file_if_better_or_same", lambda *_a, **_k: {"ok": True}, raising=True)
+    monkeypatch.setattr(app_mod, "_github_raw_read_csv", lambda *_a, **_k: pd.DataFrame(), raising=True)
+    monkeypatch.setattr(app_mod, "_github_raw_read_parquet", lambda *_a, **_k: pd.DataFrame(), raising=True)
+    monkeypatch.setattr(edge_mod, "attach_prop_edge_signals", _fake_attach_prop_edge_signals, raising=True)
+
+    client = TestClient(app_mod.app)
+    r = client.get("/api/props/recommendations", params={"date": "2026-03-06", "top": 50})
+
+    assert r.status_code == 200
+    payload = r.json()
+    assert payload.get("date") == "2026-03-06"
+    assert {row.get("player") for row in (payload.get("data") or [])} == {
+        "Over Favorite",
+        "Points Under Keep",
+        "Goals Under Keep",
+    }
+
+    out = pd.read_csv(proc_dir / "props_recommendations_2026-03-06.csv")
+    assert set(out["player"].tolist()) == {
+        "Over Favorite",
+        "Points Under Keep",
+        "Goals Under Keep",
+    }
+
+
 def test_v1_props_cards_include_team_logo_and_headshot(tmp_path: Path, monkeypatch):
     repo_root, _data_dir, proc_dir = _set_render_like_paths(tmp_path, monkeypatch)
 

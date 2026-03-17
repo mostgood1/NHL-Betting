@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 from nhl_betting.utils.calibration import BinaryCalibration, load_calibration, load_game_calibration
@@ -63,3 +64,59 @@ def test_load_game_calibration_prefers_nested_blocks(tmp_path: Path) -> None:
     assert cfg["moneyline"].b == 0.07
     assert cfg["totals"].t == 1.2
     assert cfg["totals"].b == -0.01
+
+
+def test_game_auto_calibrate_defaults_start_from_end(tmp_path: Path, monkeypatch) -> None:
+    from nhl_betting import cli as cli_module
+
+    raw_dir = tmp_path / "raw"
+    proc_dir = tmp_path / "processed"
+    raw_dir.mkdir()
+    proc_dir.mkdir()
+
+    monkeypatch.setattr("nhl_betting.utils.io.RAW_DIR", raw_dir)
+    monkeypatch.setattr("nhl_betting.utils.io.PROC_DIR", proc_dir)
+
+    out_path = proc_dir / "model_calibration.json"
+    cli_module.game_auto_calibrate(start=None, end="2026-03-16", out_json=str(out_path))
+
+    cfg = json.loads(out_path.read_text(encoding="utf-8"))
+
+    assert cfg["range"] == {"start": "2025-09-01", "end": "2026-03-16"}
+    assert cfg["ml_fit_range"]["start"] == "2025-09-01"
+    assert cfg["ml_fit_range"]["end"] == "2026-03-16"
+    assert cfg["ml_fit_range"]["mode"] == "fallback_all"
+
+
+def test_game_auto_calibrate_preserves_existing_keys(tmp_path: Path, monkeypatch) -> None:
+    from nhl_betting import cli as cli_module
+
+    raw_dir = tmp_path / "raw"
+    proc_dir = tmp_path / "processed"
+    raw_dir.mkdir()
+    proc_dir.mkdir()
+
+    monkeypatch.setattr("nhl_betting.utils.io.RAW_DIR", raw_dir)
+    monkeypatch.setattr("nhl_betting.utils.io.PROC_DIR", proc_dir)
+
+    out_path = proc_dir / "model_calibration.json"
+    out_path.write_text(
+        json.dumps(
+            {
+                "min_ev_ml": 0.095,
+                "min_ev_totals": 0.075,
+                "min_ev_pl": 0.095,
+                "custom_marker": "keep",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    cli_module.game_auto_calibrate(start=None, end="2026-03-16", out_json=str(out_path))
+
+    cfg = json.loads(out_path.read_text(encoding="utf-8"))
+
+    assert cfg["min_ev_ml"] == 0.095
+    assert cfg["min_ev_totals"] == 0.075
+    assert cfg["min_ev_pl"] == 0.095
+    assert cfg["custom_marker"] == "keep"

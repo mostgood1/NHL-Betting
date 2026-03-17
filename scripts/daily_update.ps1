@@ -55,6 +55,10 @@ Param (
   [string]$PropsMinEvPerMarket = "SOG=0.00,GOALS=0.05,ASSISTS=0.00,POINTS=0.12,SAVES=0.02,BLOCKS=0.02",
   [double]$PropsMinProb = 0.0,
   [string]$PropsMinProbPerMarket = "SOG=0.75,GOALS=0.60,ASSISTS=0.60,POINTS=0.60,SAVES=0.60,BLOCKS=0.60",
+  # When omitted, inherit the CLI defaults for props under-side gating.
+  [double]$PropsUnderMinEv = 0,
+  [int]$PropsUnderMaxJuice = 0,
+  [string]$PropsUnderMaxJuicePerMarket = "",
   [int]$PropsMaxPlusOdds = 300,
   [switch]$PropsIncludeGoalies,
   # Props historical backfill (OddsAPI historical event props)
@@ -102,6 +106,9 @@ Param (
   [string]$GitBranch = ""
 )
 $ErrorActionPreference = "Stop"
+$PropsUnderMinEvBound = $PSBoundParameters.ContainsKey('PropsUnderMinEv')
+$PropsUnderMaxJuiceBound = $PSBoundParameters.ContainsKey('PropsUnderMaxJuice')
+$PropsUnderMaxJuicePerMarketBound = $PSBoundParameters.ContainsKey('PropsUnderMaxJuicePerMarket')
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot = Split-Path -Parent $ScriptDir
 $ProcessedDir = Join-Path $RepoRoot 'data/processed'
@@ -1093,6 +1100,30 @@ if ($PropsRecs) {
         Write-Warning "[daily_update] Auto-tune failed: $($_.Exception.Message)"
       }
       $recsSimBase = @("-m", "nhl_betting.cli", "props-recommendations-sim", "--min-ev", "$PropsMinEv", "--top", "$PropsTop", "--min-ev-per-market", $PropsMinEvPerMarket, "--min-prob", "$PropsMinProb", "--min-prob-per-market", $PropsMinProbPerMarket)
+      if ($PropsUnderMinEvBound) {
+        if ($PropsUnderMinEv -gt 0) {
+          Write-Host "[daily_update] Props UNDER EV gate override: min EV = $PropsUnderMinEv" -ForegroundColor DarkGray
+        } else {
+          Write-Host "[daily_update] Props UNDER EV gate override: disabled" -ForegroundColor DarkGray
+        }
+        $recsSimBase += @("--under-min-ev", "$PropsUnderMinEv")
+      }
+      if ($PropsUnderMaxJuiceBound) {
+        if ($PropsUnderMaxJuice -gt 0) {
+          Write-Host "[daily_update] Props UNDER juice cap override: max juice = -$PropsUnderMaxJuice" -ForegroundColor DarkGray
+        } else {
+          Write-Host "[daily_update] Props UNDER juice cap override: disabled" -ForegroundColor DarkGray
+        }
+        $recsSimBase += @("--under-max-juice", "$PropsUnderMaxJuice")
+      }
+      if ($PropsUnderMaxJuicePerMarketBound) {
+        if (-not [string]::IsNullOrWhiteSpace($PropsUnderMaxJuicePerMarket)) {
+          Write-Host "[daily_update] Props UNDER per-market juice cap override: $PropsUnderMaxJuicePerMarket" -ForegroundColor DarkGray
+        } else {
+          Write-Host "[daily_update] Props UNDER per-market juice cap override: disabled" -ForegroundColor DarkGray
+        }
+        $recsSimBase += @("--under-max-juice-per-market", $PropsUnderMaxJuicePerMarket)
+      }
       if ($PropsMaxPlusOdds -and $PropsMaxPlusOdds -gt 0) {
         Write-Host "[daily_update] Props odds clamp enabled: max plus odds = +$PropsMaxPlusOdds" -ForegroundColor DarkGray
         $recsSimBase += @("--max-plus-odds", "$PropsMaxPlusOdds")
@@ -1121,6 +1152,30 @@ if ($PropsRecs) {
         "--min-prob", "$PropsMinProb",
         "--min-prob-per-market", $PropsMinProbPerMarket
       )
+      if ($PropsUnderMinEvBound) {
+        if ($PropsUnderMinEv -gt 0) {
+          Write-Host "[daily_update] Props UNDER EV gate override: min EV = $PropsUnderMinEv" -ForegroundColor DarkGray
+        } else {
+          Write-Host "[daily_update] Props UNDER EV gate override: disabled" -ForegroundColor DarkGray
+        }
+        $recsArgsBase += @("--under-min-ev", "$PropsUnderMinEv")
+      }
+      if ($PropsUnderMaxJuiceBound) {
+        if ($PropsUnderMaxJuice -gt 0) {
+          Write-Host "[daily_update] Props UNDER juice cap override: max juice = -$PropsUnderMaxJuice" -ForegroundColor DarkGray
+        } else {
+          Write-Host "[daily_update] Props UNDER juice cap override: disabled" -ForegroundColor DarkGray
+        }
+        $recsArgsBase += @("--under-max-juice", "$PropsUnderMaxJuice")
+      }
+      if ($PropsUnderMaxJuicePerMarketBound) {
+        if (-not [string]::IsNullOrWhiteSpace($PropsUnderMaxJuicePerMarket)) {
+          Write-Host "[daily_update] Props UNDER per-market juice cap override: $PropsUnderMaxJuicePerMarket" -ForegroundColor DarkGray
+        } else {
+          Write-Host "[daily_update] Props UNDER per-market juice cap override: disabled" -ForegroundColor DarkGray
+        }
+        $recsArgsBase += @("--under-max-juice-per-market", $PropsUnderMaxJuicePerMarket)
+      }
       if ($PropsMaxPlusOdds -and $PropsMaxPlusOdds -gt 0) {
         Write-Host "[daily_update] Props odds clamp enabled: max plus odds = +$PropsMaxPlusOdds" -ForegroundColor DarkGray
         $recsArgsBase += @("--max-plus-odds", "$PropsMaxPlusOdds")

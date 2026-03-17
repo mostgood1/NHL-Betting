@@ -53,6 +53,11 @@ from .models.trends import TrendAdjustments, team_keys, get_adjustment
 from .utils.odds import american_to_decimal, decimal_to_implied_prob, remove_vig_two_way, ev_unit, kelly_stake
 from .data.collect import collect_player_game_stats
 from .props.utils import compute_props_lam_scale_mean
+from .props.recommendation_defaults import (
+    DEFAULT_UNDER_MAX_JUICE,
+    DEFAULT_UNDER_MAX_JUICE_PER_MARKET,
+    DEFAULT_UNDER_MIN_EV,
+)
 from .data.odds_api import OddsAPIClient, normalize_snapshot_to_rows
 from .data import player_props as props_data
 from .data.rosters import build_all_team_roster_snapshots, build_roster_snapshot, infer_lines, project_toi, TEAM_ABBRS
@@ -5154,6 +5159,106 @@ def eval_predictions(
             json.dump(res, f, indent=2)
         print(f"Wrote -> {out_path}")
 
+def _coerce_typer_float_option(value: object, fallback: float) -> float:
+    try:
+        return float(value)
+    except Exception:
+        try:
+            default = getattr(value, "default")
+        except Exception:
+            default = None
+        if default is not None:
+            try:
+                return float(default)
+            except Exception:
+                pass
+        return float(fallback)
+
+
+def _coerce_typer_int_option(value: object, fallback: int) -> int:
+    try:
+        return int(value)
+    except Exception:
+        try:
+            default = getattr(value, "default")
+        except Exception:
+            default = None
+        if default is not None:
+            try:
+                return int(default)
+            except Exception:
+                pass
+        return int(fallback)
+
+
+def _coerce_typer_str_option(value: object, fallback: str = "") -> str:
+    if isinstance(value, str):
+        return value
+    try:
+        default = getattr(value, "default")
+    except Exception:
+        default = None
+    if default is None:
+        return fallback
+    if isinstance(default, str):
+        return default
+    try:
+        return str(default)
+    except Exception:
+        return fallback
+
+
+def _parse_market_float_map(value: object) -> dict[str, float]:
+    out: dict[str, float] = {}
+    for part in _coerce_typer_str_option(value, "").split(","):
+        part = part.strip()
+        if not part or "=" not in part:
+            continue
+        market, raw = part.split("=", 1)
+        try:
+            out[str(market).strip().upper()] = float(str(raw).strip())
+        except Exception:
+            continue
+    return out
+
+
+def _apply_under_side_gates(
+    rows: pd.DataFrame,
+    *,
+    under_min_ev: float = 0.0,
+    under_max_juice: float = 0.0,
+    under_max_juice_per_market: str = "",
+) -> pd.DataFrame:
+    if rows is None or rows.empty:
+        return rows
+    under_min_ev = _coerce_typer_float_option(under_min_ev, 0.0)
+    under_max_juice = _coerce_typer_float_option(under_max_juice, 0.0)
+    under_max_juice_per_market_map = _parse_market_float_map(under_max_juice_per_market)
+    if under_min_ev <= 0.0 and under_max_juice <= 0.0 and not under_max_juice_per_market_map:
+        return rows
+    if "side" not in rows.columns:
+        return rows
+    under_mask = rows["side"].astype(str).str.upper().eq("UNDER")
+    if not under_mask.any():
+        return rows
+    keep_mask = pd.Series(True, index=rows.index)
+    if under_min_ev > 0.0 and "ev" in rows.columns:
+        ev = pd.to_numeric(rows["ev"], errors="coerce")
+        keep_mask &= (~under_mask) | ((ev.notna()) & (ev >= under_min_ev))
+    if (under_max_juice > 0.0 or under_max_juice_per_market_map) and "price" in rows.columns:
+        price = pd.to_numeric(rows["price"], errors="coerce")
+        cap = pd.Series(float("nan"), index=rows.index, dtype=float)
+        if under_max_juice > 0.0:
+            cap.loc[:] = under_max_juice
+        if under_max_juice_per_market_map and "market" in rows.columns:
+            market_cap = pd.to_numeric(
+                rows["market"].astype(str).str.upper().map(under_max_juice_per_market_map),
+                errors="coerce",
+            )
+            cap = cap.where(market_cap.isna(), market_cap)
+        keep_mask &= (~under_mask) | cap.isna() | price.isna() | (price >= -cap)
+    return rows.loc[keep_mask].copy()
+
 
 @app.command()
 def props_recommendations(
@@ -5165,6 +5270,9 @@ def props_recommendations(
     min_prob: float = typer.Option(0.0, help="Minimum chosen-side probability threshold (0-1), e.g., 0.60"),
     min_prob_per_market: str = typer.Option("", help="Optional per-market probability thresholds, e.g., 'SOG=0.58,GOALS=0.60'"),
     max_plus_odds: float = typer.Option(0.0, help="If >0, disallow selecting any side priced longer than +max_plus_odds (e.g., 300)"),
+    under_min_ev: float = typer.Option(DEFAULT_UNDER_MIN_EV, help="Additional minimum EV required for UNDER picks; OVER picks still use min_ev or min_ev_per_market"),
+    under_max_juice: float = typer.Option(DEFAULT_UNDER_MAX_JUICE, help="If >0, disallow UNDER picks priced more expensive than -under_max_juice (e.g., 170 blocks -171 or shorter)"),
+    under_max_juice_per_market: str = typer.Option(DEFAULT_UNDER_MAX_JUICE_PER_MARKET, help="Optional per-market UNDER juice caps, e.g., 'POINTS=120,SOG=150'"),
 ):
     """Build props recommendations_{date}.csv from canonical Parquet lines and simple Poisson projections.
 
@@ -5426,15 +5534,14 @@ def props_recommendations(
         pass
     _dbg(f"player_team_map has {len(player_team_map)} entries")
     
-    # Normalize CLI/func-invocation differences for optional args
-    try:
-        # When called directly as a function, Typer's default may pass OptionInfo objects
-        if not isinstance(min_ev_per_market, str):
-            min_ev_per_market = ""
-        if not isinstance(market, str):
-            market = ""
-    except Exception:
-        pass
+    # Normalize CLI/func-invocation differences for optional args.
+    min_ev = _coerce_typer_float_option(min_ev, 0.0)
+    top = _coerce_typer_int_option(top, 200)
+    min_prob = _coerce_typer_float_option(min_prob, 0.0)
+    max_plus_odds = _coerce_typer_float_option(max_plus_odds, 0.0)
+    min_ev_per_market = _coerce_typer_str_option(min_ev_per_market, "")
+    min_prob_per_market = _coerce_typer_str_option(min_prob_per_market, "")
+    market = _coerce_typer_str_option(market, "")
 
     # Prefer precomputed per-player lambdas to avoid expensive history scans
     # data/processed/props_projections_all_{date}.csv: [date, player, team, position, market, proj_lambda]
@@ -6196,6 +6303,13 @@ def props_recommendations(
     if prob_thr_map or (float(min_prob) > 0.0):
         prob_series = out["market"].astype(str).str.upper().map(lambda m: prob_thr_map.get(m, float(min_prob))).astype(float)
         out = out[(out["chosen_prob"].notna()) & (out["chosen_prob"].astype(float) >= prob_series)]
+
+    out = _apply_under_side_gates(
+        out,
+        under_min_ev=under_min_ev,
+        under_max_juice=under_max_juice,
+        under_max_juice_per_market=under_max_juice_per_market,
+    )
 
     # Rank primarily by non-EV edge score, then EV
     if "edge_score" in out.columns:
@@ -10286,8 +10400,20 @@ def props_recommendations_sim(
     min_prob: float = typer.Option(0.0, help="Minimum chosen-side probability threshold (0-1), e.g., 0.60"),
     min_prob_per_market: str = typer.Option("SOG=0.75,GOALS=0.60,ASSISTS=0.60,POINTS=0.60,SAVES=0.60,BLOCKS=0.60", help="Optional per-market probability thresholds, e.g., 'SOG=0.58,GOALS=0.60'"),
     max_plus_odds: float = typer.Option(0.0, help="If >0, disallow selecting any side priced longer than +max_plus_odds (e.g., 300)"),
+    under_min_ev: float = typer.Option(DEFAULT_UNDER_MIN_EV, help="Additional minimum EV required for UNDER picks; OVER picks still use min_ev or min_ev_per_market"),
+    under_max_juice: float = typer.Option(DEFAULT_UNDER_MAX_JUICE, help="If >0, disallow UNDER picks priced more expensive than -under_max_juice (e.g., 170 blocks -171 or shorter)"),
+    under_max_juice_per_market: str = typer.Option(DEFAULT_UNDER_MAX_JUICE_PER_MARKET, help="Optional per-market UNDER juice caps, e.g., 'POINTS=120,SOG=150'"),
 ):
     """Generate recommendations using simulation-backed p_over if available; falls back to model-only if missing."""
+    min_ev = _coerce_typer_float_option(min_ev, 0.0)
+    top = _coerce_typer_int_option(top, 400)
+    min_prob = _coerce_typer_float_option(min_prob, 0.0)
+    max_plus_odds = _coerce_typer_float_option(max_plus_odds, 0.0)
+    min_ev_per_market = _coerce_typer_str_option(min_ev_per_market, "")
+    min_prob_per_market = _coerce_typer_str_option(
+        min_prob_per_market,
+        "SOG=0.75,GOALS=0.60,ASSISTS=0.60,POINTS=0.60,SAVES=0.60,BLOCKS=0.60",
+    )
     sim_path = PROC_DIR / f"props_simulations_{date}.csv"
     sim_nolines_path = PROC_DIR / f"props_simulations_nolines_{date}.csv"
     if not sim_path.exists():
@@ -10431,6 +10557,13 @@ def props_recommendations_sim(
         prob_series = out["market"].astype(str).str.upper().map(lambda m: prob_thr_map.get(m, float(min_prob))).astype(float)
         out = out[(out["chosen_prob"].notna()) & (out["chosen_prob"].astype(float) >= prob_series)]
 
+    out = _apply_under_side_gates(
+        out,
+        under_min_ev=under_min_ev,
+        under_max_juice=under_max_juice,
+        under_max_juice_per_market=under_max_juice_per_market,
+    )
+
     # Rank by non-EV edge score first; EV is still present as a separate column.
     if "edge_score" in out.columns:
         out = out.sort_values(["edge_score", "ev"], ascending=[False, False])
@@ -10483,6 +10616,9 @@ def props_recommendations_boxscores(
     min_prob: float = typer.Option(0.0, help="Minimum chosen-side probability threshold (0-1)"),
     min_prob_per_market: str = typer.Option("", help="Optional per-market probability thresholds, e.g., 'SOG=0.58,GOALS=0.60'"),
     max_plus_odds: float = typer.Option(0.0, help="If >0, disallow selecting any side priced longer than +max_plus_odds (e.g., 300)"),
+    under_min_ev: float = typer.Option(DEFAULT_UNDER_MIN_EV, help="Additional minimum EV required for UNDER picks; OVER picks still use min_ev or min_ev_per_market"),
+    under_max_juice: float = typer.Option(DEFAULT_UNDER_MAX_JUICE, help="If >0, disallow UNDER picks priced more expensive than -under_max_juice (e.g., 170 blocks -171 or shorter)"),
+    under_max_juice_per_market: str = typer.Option(DEFAULT_UNDER_MAX_JUICE_PER_MARKET, help="Optional per-market UNDER juice caps, e.g., 'POINTS=120,SOG=150'"),
 ):
     """Generate player props recommendations using per-sim totals from play-level boxscore simulation.
 
@@ -10493,6 +10629,13 @@ def props_recommendations_boxscores(
     from glob import glob as _glob
     from .web.teams import get_team_assets as _assets
     from .core.props_edge_signals import attach_prop_edge_signals
+    read_prefix = _coerce_typer_str_option(read_prefix, "")
+    min_ev = _coerce_typer_float_option(min_ev, 0.0)
+    top = _coerce_typer_int_option(top, 400)
+    min_prob = _coerce_typer_float_option(min_prob, 0.0)
+    max_plus_odds = _coerce_typer_float_option(max_plus_odds, 0.0)
+    min_ev_per_market = _coerce_typer_str_option(min_ev_per_market, "")
+    min_prob_per_market = _coerce_typer_str_option(min_prob_per_market, "")
     # Load samples
     _pref = (str(read_prefix).strip() + "_") if str(read_prefix or "").strip() else ""
     samp_path_parq = PROC_DIR / f"{_pref}props_boxscores_sim_samples_{date}.parquet"
@@ -10684,6 +10827,14 @@ def props_recommendations_boxscores(
     if prob_thr_map or (float(min_prob) > 0.0):
         prob_series = out["market"].astype(str).str.upper().map(lambda m: prob_thr_map.get(m, float(min_prob))).astype(float)
         out = out[(out["chosen_prob"].notna()) & (out["chosen_prob"].astype(float) >= prob_series)]
+
+    out = _apply_under_side_gates(
+        out,
+        under_min_ev=under_min_ev,
+        under_max_juice=under_max_juice,
+        under_max_juice_per_market=under_max_juice_per_market,
+    )
+
     if "edge_score" in out.columns:
         out = out.sort_values(["edge_score", "ev"], ascending=[False, False]).head(int(top))
     else:
@@ -15065,6 +15216,9 @@ def game_auto_calibrate(
     start: Optional[str] = typer.Option(None, help="Start date YYYY-MM-DD (ET); default = season to date"),
     end: Optional[str] = typer.Option(None, help="End date YYYY-MM-DD (ET); default = today"),
     use_close: bool = typer.Option(True, help="Prefer closing lines/odds when available for market implied probs"),
+        ml_recent_days: int = typer.Option(60, help="Trailing settled days to use for ML anchor/calibration fitting"),
+        ml_anchor_max: float = typer.Option(0.6, help="Upper bound for ML market-anchor weight search"),
+        ml_recent_min_samples: int = typer.Option(100, help="Minimum ML samples required in the trailing window before falling back to all samples"),
     out_json: Optional[str] = typer.Option(None, help="Write calibration to this JSON path; default data/processed/model_calibration.json"),
 ):
     """Automatically calibrate team-level model hyperparameters from historical predictions and outcomes.
@@ -15094,22 +15248,13 @@ def game_auto_calibrate(
         except Exception:
             return _dt.utcnow().strftime("%Y-%m-%d")
     end = end or _et_today()
-    # Derive season start from RAW games if no start given
+    # Derive season start directly from the requested end date.
     if not start:
-        gpath = RAW_DIR / "games.csv"
-        if gpath.exists():
-            try:
-                gdf = pd.read_csv(gpath)
-                # choose first ET date of current season boundary (July separation)
-                gdf["date_et"] = pd.to_datetime(gdf.get("date_et") or gdf.get("date"), errors="coerce").dt.tz_localize(None)
-                # pick rows within the season containing 'end'
-                e_dt = _dt.strptime(end, "%Y-%m-%d")
-                season_start_year = e_dt.year if e_dt.month >= 7 else (e_dt.year - 1)
-                season_start = _dt(season_start_year, 9, 1)
-                start = season_start.strftime("%Y-%m-%d")
-            except Exception:
-                start = end
-        else:
+        try:
+            e_dt = _dt.strptime(end, "%Y-%m-%d")
+            season_start_year = e_dt.year if e_dt.month >= 7 else (e_dt.year - 1)
+            start = _dt(season_start_year, 9, 1).strftime("%Y-%m-%d")
+        except Exception:
             start = end
 
     def _parse_date(s: str) -> _dt:
@@ -15120,7 +15265,7 @@ def game_auto_calibrate(
         s_dt, e_dt = e_dt, s_dt
 
     # Collect datasets
-    ml_samples = []  # (p_model, p_mkt_home, y_home)
+    ml_samples = []  # (sample_day, p_model, p_mkt_home, y_home)
     to_samples = []  # (p_model_over, p_mkt_over, y_over, line, actual_total)
     dc_samples = []  # (lam_h, lam_a, fh, fa)
 
@@ -15190,7 +15335,7 @@ def game_auto_calibrate(
                 if r.get("final_home_goals") is not None and r.get("final_away_goals") is not None:
                     y_home = 1 if float(r.get("final_home_goals")) > float(r.get("final_away_goals")) else 0
                 if ph_mod is not None and p_mkt is not None and y_home is not None:
-                    ml_samples.append((float(ph_mod), float(p_mkt), int(y_home)))
+                    ml_samples.append((d, float(ph_mod), float(p_mkt), int(y_home)))
             except Exception:
                 continue
         # Totals samples
@@ -15237,18 +15382,24 @@ def game_auto_calibrate(
         d += _td(days=1)
 
     # Optimization helpers
-    def _fit_anchor(samples):
+    def _fit_anchor(samples, max_w: float = 1.0):
         # samples: list of (p_mod, p_mkt, y)
         if not samples:
             return 0.25  # sensible default
         ps_mod = np.array([s[0] for s in samples], dtype=float)
         ps_mkt = np.array([s[1] for s in samples], dtype=float)
         ys = np.array([s[2] for s in samples], dtype=int)
+        try:
+            max_w = max(0.0, min(1.0, float(max_w)))
+        except Exception:
+            max_w = 1.0
+        if max_w <= 1e-9:
+            return 0.0
         def nll(w):
             w = float(w)
             p = np.clip((1.0 - w) * ps_mod + w * ps_mkt, 1e-9, 1 - 1e-9)
             return float(- (ys * np.log(p) + (1 - ys) * np.log(1 - p)).sum())
-        grid = np.linspace(0.0, 1.0, 51)
+        grid = np.linspace(0.0, max_w, max(2, int(round(max_w / 0.05)) + 1))
         vals = [nll(w) for w in grid]
         w0 = float(grid[int(np.argmin(vals))])
         return w0
@@ -15312,16 +15463,55 @@ def game_auto_calibrate(
         rho0 = float(rhos[int(np.argmin(vals))])
         return rho0
 
-    w_ml = _fit_anchor(ml_samples)
+    try:
+        ml_recent_days = max(1, int(ml_recent_days))
+    except Exception:
+        ml_recent_days = 60
+    try:
+        ml_recent_min_samples = max(20, int(ml_recent_min_samples))
+    except Exception:
+        ml_recent_min_samples = 100
+    try:
+        ml_anchor_max = max(0.0, min(1.0, float(ml_anchor_max)))
+    except Exception:
+        ml_anchor_max = 0.6
+
+    ml_recent_start = e_dt - _td(days=ml_recent_days - 1)
+    ml_recent_samples = [(pm, pk, y) for (sample_day, pm, pk, y) in ml_samples if sample_day >= ml_recent_start]
+    if len(ml_recent_samples) >= ml_recent_min_samples:
+        ml_fit_samples = ml_recent_samples
+        ml_fit_range = {
+            "start": ml_recent_start.strftime("%Y-%m-%d"),
+            "end": end,
+            "sample_count": len(ml_recent_samples),
+            "mode": "recent",
+        }
+    else:
+        ml_fit_samples = [(pm, pk, y) for (_, pm, pk, y) in ml_samples]
+        ml_fit_range = {
+            "start": start,
+            "end": end,
+            "sample_count": len(ml_fit_samples),
+            "mode": "fallback_all",
+        }
+
+    w_ml = _fit_anchor(ml_fit_samples, max_w=ml_anchor_max)
     w_tot = _fit_anchor([(pm, pk, y) for (pm, pk, y, _, _) in to_samples])
-    ml_cal = _fit_moneyline_cal(ml_samples, w_ml)
+    ml_cal = _fit_moneyline_cal(ml_fit_samples, w_ml)
     T = _fit_totals_temp(to_samples, w_tot)
     rho = _fit_dc_rho(dc_samples)
 
     # Write calibration JSON
     out_path = Path(out_json) if out_json else PROC_DIR / "model_calibration.json"
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    obj = {
+    obj = {}
+    if out_path.exists():
+        try:
+            with out_path.open("r", encoding="utf-8") as f:
+                obj = json.load(f) or {}
+        except Exception:
+            obj = {}
+    obj.update({
         "last_calibrated_utc": _dt.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
         "range": {"start": start, "end": end},
         "dc_rho": float(rho),
@@ -15329,16 +15519,18 @@ def game_auto_calibrate(
         "market_anchor_w": float(w_ml),
         "market_anchor_w_ml": float(w_ml),
         "market_anchor_w_totals": float(w_tot),
+        "ml_anchor_max": float(ml_anchor_max),
+        "ml_fit_range": ml_fit_range,
         "ml_temp": float(ml_cal.t),
         "ml_bias": float(ml_cal.b),
         "totals_temp": float(T),
         "totals_bias": 0.0,
         "moneyline": {"t": float(ml_cal.t), "b": float(ml_cal.b)},
         "totals": {"t": float(T), "b": 0.0},
-    }
+    })
     with out_path.open("w", encoding="utf-8") as f:
         json.dump(obj, f, indent=2)
-    print(json.dumps({k: obj[k] for k in ("dc_rho","market_anchor_w_ml","market_anchor_w_totals","ml_temp","ml_bias","totals_temp")}, indent=2))
+    print(json.dumps({k: obj[k] for k in ("dc_rho","market_anchor_w_ml","market_anchor_w_totals","ml_anchor_max","ml_temp","ml_bias","totals_temp")}, indent=2))
     print(f"Wrote calibration -> {out_path}")
 
 

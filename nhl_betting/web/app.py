@@ -16151,6 +16151,12 @@ def _refresh_props_recommendations(date: str, min_ev: float = 0.0, top: int = 20
     """
     import numpy as _np
     from scipy.stats import poisson as _poisson
+    from ..cli import _apply_under_side_gates as _apply_cli_under_side_gates
+    from ..props.recommendation_defaults import (
+        DEFAULT_UNDER_MAX_JUICE,
+        DEFAULT_UNDER_MAX_JUICE_PER_MARKET,
+        DEFAULT_UNDER_MIN_EV,
+    )
     from ..core.props_edge_signals import attach_prop_edge_signals
     d = _normalize_date_param(date)
 
@@ -16644,6 +16650,13 @@ def _refresh_props_recommendations(date: str, min_ev: float = 0.0, top: int = 20
         pass
     out["ev"] = pd.to_numeric(ev, errors="coerce")
     out = out[out["ev"].notna() & (out["ev"].astype(float) >= float(min_ev))]
+
+    out = _apply_cli_under_side_gates(
+        out,
+        under_min_ev=DEFAULT_UNDER_MIN_EV,
+        under_max_juice=DEFAULT_UNDER_MAX_JUICE,
+        under_max_juice_per_market=DEFAULT_UNDER_MAX_JUICE_PER_MARKET,
+    )
 
     # Pregame driver: CLV / movement within the chosen book.
     # Uses first_seen_at (open-ish) vs current (is_current or latest last_seen_at).

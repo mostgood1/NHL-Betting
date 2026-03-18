@@ -10784,6 +10784,30 @@ def _normalize_date_param(d: Optional[str]) -> str:
     return d
 
 
+def _live_lens_tick_default_date(cutoff_hour_et: int = 6) -> str:
+    """Default Live Lens tick date using an ET overnight cutoff for late games."""
+    try:
+        cutoff_hour = int(cutoff_hour_et)
+    except Exception:
+        cutoff_hour = 6
+    cutoff_hour = max(0, min(23, cutoff_hour))
+    try:
+        et = ZoneInfo("America/New_York")
+    except Exception:
+        et = timezone(timedelta(hours=-5))
+    now_et = datetime.now(et)
+    if int(now_et.hour) < cutoff_hour:
+        now_et = now_et - timedelta(days=1)
+    return now_et.strftime("%Y-%m-%d")
+
+
+def _resolve_live_lens_tick_date(d: Optional[str], cutoff_hour_et: int = 6) -> str:
+    """Resolve explicit dates normally; otherwise keep late ET games on the prior slate."""
+    if str(d or "").strip():
+        return _normalize_date_param(d)
+    return _live_lens_tick_default_date(cutoff_hour_et=cutoff_hour_et)
+
+
 def _const_time_eq(a: str, b: str) -> bool:
     try:
         if a is None or b is None:
@@ -18107,6 +18131,183 @@ async def api_cron_snapshots_refresh(
         return JSONResponse({"ok": True, "date": d0, "ahead": n_ahead, **res})
     except Exception as e:
         return JSONResponse({"ok": False, "date": d0, "error": str(e)}, status_code=500)
+
+
+@app.api_route("/api/cron/live-lens-tick", methods=["GET", "POST"])
+async def api_cron_live_lens_tick(
+    token: Optional[str] = Query(None, description="Bearer token; must match REFRESH_CRON_TOKEN env var"),
+    date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD; if omitted, uses ET overnight cutoff logic"),
+    regions: str = Query("us", description="Odds regions passed through to the Live Lens endpoint"),
+    best: bool = Query(True, description="Prefer best available odds in the Live Lens payload"),
+    include_non_live: bool = Query(False, description="Include non-live games in the Live Lens payload"),
+    inplay: bool = Query(True, description="Use in-play caching/limits in the Live Lens payload"),
+    include_pbp: bool = Query(False, description="Include play-by-play details in the Live Lens payload"),
+    min_interval_sec: int = Query(60, description="Skip duplicate ticks for the same key inside this window"),
+    cutoff_hour_et: int = Query(6, description="If date is omitted, keep using yesterday until this ET hour"),
+    ttl: int = Query(15, description="Compatibility knob for workflow parity; informational only"),
+    recent_window_sec: int = Query(180, description="Compatibility knob for workflow parity; informational only"),
+    max_props_per_game: int = Query(8, description="Compatibility knob for workflow parity; informational only"),
+    first_bet_only: bool = Query(True, description="Compatibility knob for workflow parity; informational only"),
+    authorization: Optional[str] = Header(
+        None,
+        description="Authorization: Bearer <token> header (optional alternative to token query param)",
+    ),
+):
+    """Trigger the combined Live Lens path on a schedule so signal/state capture stays active.
+
+    Protected by REFRESH_CRON_TOKEN. If no date is supplied, an overnight ET cutoff keeps
+    late west-coast finishes on the previous slate until the configured morning hour.
+    """
+    secret = os.getenv("REFRESH_CRON_TOKEN", "")
+    supplied = (token or "").strip()
+    if (not supplied) and authorization:
+        try:
+            auth = str(authorization)
+            if auth.lower().startswith("bearer "):
+                supplied = auth.split(" ", 1)[1].strip()
+        except Exception:
+            supplied = supplied
+    if not (secret and supplied and _const_time_eq(supplied, secret)):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+
+    d0 = _resolve_live_lens_tick_date(date, cutoff_hour_et=cutoff_hour_et)
+    try:
+        throttle_sec = int(min_interval_sec or 0)
+    except Exception:
+        throttle_sec = 0
+    throttle_sec = max(0, min(3600, throttle_sec))
+
+    tick_key = "|".join(
+        [
+            d0,
+            str(regions or "us"),
+            "1" if bool(best) else "0",
+            "1" if bool(include_non_live) else "0",
+            "1" if bool(inplay) else "0",
+            "1" if bool(include_pbp) else "0",
+        ]
+    )
+    now_ts = datetime.now(timezone.utc).timestamp()
+    try:
+        tick_state = getattr(app.state, "live_lens_tick_last_run_by_key", None)
+        if not isinstance(tick_state, dict):
+            tick_state = {}
+            setattr(app.state, "live_lens_tick_last_run_by_key", tick_state)
+    except Exception:
+        tick_state = {}
+
+    last_ts = 0.0
+    try:
+        last_ts = float(tick_state.get(tick_key) or 0.0)
+    except Exception:
+        last_ts = 0.0
+    age_sec = float(now_ts - last_ts) if last_ts > 0 else None
+    if throttle_sec > 0 and age_sec is not None and age_sec < float(throttle_sec):
+        return JSONResponse(
+            {
+                "ok": True,
+                "date": d0,
+                "skipped": True,
+                "reason": "min_interval",
+                "age_sec": round(float(age_sec), 3),
+                "min_interval_sec": throttle_sec,
+                "cutoff_hour_et": int(cutoff_hour_et),
+                "regions": str(regions or "us"),
+                "best": bool(best),
+                "include_non_live": bool(include_non_live),
+                "inplay": bool(inplay),
+                "include_pbp": bool(include_pbp),
+            }
+        )
+
+    inner_request = Request(
+        {
+            "type": "http",
+            "app": app,
+            "method": "GET",
+            "path": f"/v1/live-lens/{d0}",
+            "raw_path": f"/v1/live-lens/{d0}".encode("utf-8"),
+            "root_path": "",
+            "scheme": "http",
+            "query_string": b"",
+            "headers": [(b"accept", b"application/json")],
+            "client": ("127.0.0.1", 0),
+            "server": ("internal", 80),
+            "http_version": "1.1",
+        }
+    )
+
+    inner_response = await v1_live_lens_combined(
+        request=inner_request,
+        date=d0,
+        regions=regions,
+        best=bool(best),
+        include_non_live=bool(include_non_live),
+        inplay=bool(inplay),
+        include_pbp=bool(include_pbp),
+    )
+    status_code = int(getattr(inner_response, "status_code", 200) or 200)
+    if status_code >= 400:
+        return inner_response
+
+    payload: Dict[str, Any] = {}
+    try:
+        body = bytes(getattr(inner_response, "body", b"") or b"")
+        if body:
+            payload = json.loads(body.decode("utf-8"))
+    except Exception:
+        payload = {}
+
+    try:
+        tick_state[tick_key] = float(now_ts)
+    except Exception:
+        pass
+
+    games = payload.get("games") or []
+    live_games = 0
+    final_games = 0
+    signal_games = 0
+    signal_count = 0
+    for game in games:
+        if not isinstance(game, dict):
+            continue
+        signals = game.get("signals") or []
+        if isinstance(signals, list) and signals:
+            signal_games += 1
+            signal_count += len(signals)
+        state = str(game.get("gameState") or "").upper().strip()
+        if ("LIVE" in state) or ("IN_PROGRESS" in state) or ("IN PROGRESS" in state) or ("IN-PROGRESS" in state) or ("CRIT" in state) or (state == "OT"):
+            live_games += 1
+        if (state == "OFF") or ("FINAL" in state) or ("POST" in state) or ("END" in state):
+            final_games += 1
+
+    return JSONResponse(
+        {
+            "ok": True,
+            "date": d0,
+            "skipped": False,
+            "asof_utc": payload.get("asof_utc"),
+            "odds_asof_utc": payload.get("odds_asof_utc"),
+            "games": len(games),
+            "live_games": live_games,
+            "final_games": final_games,
+            "signal_games": signal_games,
+            "signals": signal_count,
+            "min_interval_sec": throttle_sec,
+            "cutoff_hour_et": int(cutoff_hour_et),
+            "regions": str(regions or "us"),
+            "best": bool(best),
+            "include_non_live": bool(include_non_live),
+            "inplay": bool(inplay),
+            "include_pbp": bool(include_pbp),
+            "compat": {
+                "ttl": int(ttl or 0),
+                "recent_window_sec": int(recent_window_sec or 0),
+                "max_props_per_game": int(max_props_per_game or 0),
+                "first_bet_only": bool(first_bet_only),
+            },
+        }
+    )
 
 
 @app.get("/api/cron/export-artifacts")

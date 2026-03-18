@@ -68,6 +68,17 @@ Notes:
 - The app automatically falls back to The Odds API if Bovada odds aren’t available.
 - Use the header’s “Refresh Odds” to force an odds refresh for the selected date.
 
+### GitHub Live Tick
+
+To keep Live Lens snapshot and signal capture active when nobody has the page open, this repo now includes a GitHub Actions workflow at `.github/workflows/nhlbetting-live-lens-tick.yml`.
+
+Set these repo secrets before enabling it:
+- `CRON_TOKEN` or `NHL_BETTING_CRON_TOKEN`: must match Render’s `REFRESH_CRON_TOKEN`
+- `RENDER_URL` or `NHL_BETTING_BASE_URL`: optional override for the deployed site URL; defaults to `https://nhl-betting.onrender.com`
+
+The workflow runs every 5 minutes during the typical live window and can also be started manually from the Actions tab.
+
+
 ## Local development
 
 1. Python 3.11+. Create a venv and install deps:

@@ -1,0 +1,66 @@
+name: Live Lens Tick
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: '*/5 0-8,21-23 * * *'
+
+concurrency:
+  group: nhlbetting-live-lens-tick
+  cancel-in-progress: true
+
+env:
+  NHL_BETTING_BASE_URL: ${{ secrets['RENDER_URL'] || secrets['NHL_BETTING_BASE_URL'] || 'https://nhl-betting.onrender.com' }}
+  NHL_BETTING_CRON_TOKEN: ${{ secrets['CRON_TOKEN'] || secrets['NHL_BETTING_CRON_TOKEN'] }}
+
+jobs:
+  live-lens-tick:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call /api/cron/live-lens-tick
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test -n "${NHL_BETTING_BASE_URL}" || (echo 'Missing NHL_BETTING_BASE_URL' && exit 1)
+          test -n "${NHL_BETTING_CRON_TOKEN}" || (echo 'Missing NHL_BETTING_CRON_TOKEN (set CRON_TOKEN or NHL_BETTING_CRON_TOKEN secret)' && exit 1)
+
+          URL="${NHL_BETTING_BASE_URL%/}/api/cron/live-lens-tick?min_interval_sec=60&cutoff_hour_et=6&regions=us&best=1&inplay=1"
+          echo "GET $URL"
+
+          for i in 1 2 3 4 5 6; do
+            set +e
+            rm -f resp.txt headers.txt
+            http=$(curl -sS -o resp.txt -D headers.txt -w "%{http_code}" -H "Authorization: Bearer ${NHL_BETTING_CRON_TOKEN}" "$URL")
+            rc=$?
+            set -e
+
+            if [ "$rc" -ne 0 ]; then
+              http="000"
+            fi
+
+            ctype=$(grep -i '^content-type:' headers.txt | tail -n 1 | tr -d '\r' | cut -d' ' -f2- || true)
+            bytes=$(wc -c < resp.txt 2>/dev/null || echo 0)
+
+            if [ "$http" -ge 200 ] && [ "$http" -lt 300 ]; then
+              cat resp.txt || true
+              exit 0
+            fi
+
+            echo "Request attempt $i -> HTTP $http (Content-Type: ${ctype:-unknown}, bytes: $bytes)" >&2
+
+            if echo "${ctype:-}" | grep -qi 'application/json'; then
+              cat resp.txt || true
+            else
+              echo 'Body omitted (non-JSON)' >&2
+            fi
+
+            if [ "$http" = "000" ] || [ "$http" -ge 500 ] || [ "$http" = "429" ]; then
+              sleep $((i * 5))
+              continue
+            fi
+
+            exit 1
+          done
+
+          exit 1

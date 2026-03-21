@@ -817,8 +817,8 @@
       "path": "data/processed/bundles/date=2026-03-21/bundle.json"
     },
     "2026-03-22": {
-      "exists": false,
-      "path": null
+      "exists": true,
+      "path": "data/processed/bundles/date=2026-03-22/bundle.json"
     },
     "2026-03-23": {
       "exists": false,
@@ -1158,7 +1158,7 @@
     "2026-04-16",
     "2026-04-17"
   ],
-  "generated_at_utc": "2026-03-20T16:38:26+00:00",
+  "generated_at_utc": "2026-03-21T17:06:25+00:00",
   "latest": "2026-04-17",
   "schema_version": 1
 }

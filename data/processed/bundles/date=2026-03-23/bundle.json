@@ -1,0 +1,166 @@
+{
+  "data": {
+    "games": {
+      "edges": {
+        "count": 4,
+        "rows": [
+          {
+            "away": "Ottawa Senators",
+            "bet": "over",
+            "book": null,
+            "edge_reasons": "total 6.43 vs line 5.5 (+0.93); p=0.615; P1 pace 2.03",
+            "edge_score": 0.5446093432418686,
+            "ev": 0.0733731343283582,
+            "home": "New York Rangers",
+            "market": "ev_over",
+            "market_group": "totals",
+            "price": -134.0,
+            "prob": 0.6146666666666667,
+            "side": "Over 5.5",
+            "totals_line": 5.5
+          },
+          {
+            "away": "Ottawa Senators",
+            "bet": "under",
+            "book": null,
+            "edge_reasons": "total 6.43 vs line 5.5 (+0.93); p=0.385; P1 pace 2.03",
+            "edge_score": 0.2133828136208765,
+            "ev": -0.1907999999999999,
+            "home": "New York Rangers",
+            "market": "ev_under",
+            "market_group": "totals",
+            "price": 110.0,
+            "prob": 0.3853333333333333,
+            "side": "Under 5.5",
+            "totals_line": 5.5
+          },
+          {
+            "away": "Ottawa Senators",
+            "bet": "home_ml",
+            "book": null,
+            "edge_reasons": "p=0.549",
+            "edge_score": 0.0983333333333333,
+            "ev": 0.2630833333333333,
+            "home": "New York Rangers",
+            "market": "ev_home_ml",
+            "market_group": "moneyline",
+            "price": 130.0,
+            "prob": 0.5491666666666667,
+            "side": "New York Rangers",
+            "totals_line": null
+          },
+          {
+            "away": "Ottawa Senators",
+            "bet": "away_ml",
+            "book": null,
+            "edge_reasons": "p=0.451",
+            "edge_score": 0.0983333333333333,
+            "ev": -0.2656236897274634,
+            "home": "New York Rangers",
+            "market": "ev_away_ml",
+            "market_group": "moneyline",
+            "price": -159.0,
+            "prob": 0.4508333333333333,
+            "side": "Ottawa Senators",
+            "totals_line": null
+          }
+        ],
+        "source": "edges_sim_2026-03-23.csv"
+      },
+      "predictions": {
+        "count": 1,
+        "rows": [
+          {
+            "away": "Ottawa Senators",
+            "away_ml_odds": -159.0,
+            "away_pl_+1.5_odds": null,
+            "date": "2026-03-23",
+            "home": "New York Rangers",
+            "home_ml_odds": 130.0,
+            "home_pl_-1.5_odds": null,
+            "model_total": 6.4315,
+            "over_odds": -134.0,
+            "p_away_ml": 0.4508333333333333,
+            "p_away_pl_+1.5": 0.727,
+            "p_home_ml": 0.5491666666666667,
+            "p_home_pl_-1.5": 0.273,
+            "p_over": 0.6146666666666667,
+            "p_under": 0.3853333333333333,
+            "pl_line_used": 1.5,
+            "proj_away_goals": 3.0751666666666666,
+            "proj_home_goals": 3.356333333333333,
+            "total_line_used": 5.5,
+            "under_odds": 110.0
+          }
+        ]
+      },
+      "recommendations": {
+        "count": 0,
+        "rows": []
+      },
+      "reconciliation": null
+    },
+    "props": {
+      "recommendations": {
+        "count": 3,
+        "rows": [
+          {
+            "book": null,
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
+            "edge_score": 0.6725503091192431,
+            "ev": 0.0,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "NYR",
+            "player": "Brady Tkachuk",
+            "price": null,
+            "prob": 0.8757102595957438,
+            "side": "Over",
+            "team": "OTT"
+          },
+          {
+            "book": null,
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
+            "edge_score": 0.597752730632727,
+            "ev": 0.0,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "NYR",
+            "player": "Dylan Cozens",
+            "price": null,
+            "prob": 0.7822132864875988,
+            "side": "Over",
+            "team": "OTT"
+          },
+          {
+            "book": null,
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
+            "edge_score": 0.5975586465582772,
+            "ev": 0.0,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "NYR",
+            "player": "Drake Batherson",
+            "price": null,
+            "prob": 0.7819706813945364,
+            "side": "Over",
+            "team": "OTT"
+          }
+        ],
+        "source": "props_recommendations_2026-03-23.csv"
+      },
+      "reconciliation": null
+    }
+  },
+  "date": "2026-03-23",
+  "files": {
+    "edges": "data/processed/edges_sim_2026-03-23.csv",
+    "game_recommendations": "data/processed/recommendations_sim_2026-03-23.csv",
+    "predictions": "data/processed/predictions_sim_2026-03-23.csv",
+    "props_recommendations": "data/processed/props_recommendations_2026-03-23.csv",
+    "reconciliation_games": null,
+    "reconciliation_props": null
+  },
+  "generated_at_utc": "2026-03-22T16:06:46+00:00",
+  "schema_version": 1
+}

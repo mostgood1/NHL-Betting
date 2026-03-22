@@ -9951,7 +9951,7 @@ async def api_sim_boxscores(
         pass
     if top is not None and top > 0:
         df = df.head(int(top))
-    return JSONResponse({"ok": True, "date": d, "count": int(len(df)), "rows": df.to_dict(orient="records")})
+    return JSONResponse({"ok": True, "date": d, "count": int(len(df)), "rows": _df_jsonsafe_records(df)})
 
 
 def _compute_props_projections(date: str, market: Optional[str] = None) -> pd.DataFrame:

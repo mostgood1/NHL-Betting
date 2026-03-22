@@ -300,6 +300,112 @@
       background: linear-gradient(180deg, rgba(16, 34, 52, 0.94), rgba(9, 20, 31, 0.98));
     }
 
+    .cards-source-meta,
+    .cards-filters,
+    .cards-prop-filter-pills,
+    .cards-prop-buttons {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .cards-source-meta {
+      margin: 14px 0 0;
+    }
+
+    .cards-source-meta-pill,
+    .cards-filter-pill,
+    .cards-prop-filter-pill,
+    .cards-prop-button {
+      border: 1px solid var(--cards-line);
+      border-radius: 999px;
+      background: rgba(8, 18, 30, 0.78);
+      color: var(--cards-text-soft);
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    html.light .cards-source-meta-pill,
+    html.light .cards-filter-pill,
+    html.light .cards-prop-filter-pill,
+    html.light .cards-prop-button {
+      background: rgba(255, 255, 255, 0.92);
+    }
+
+    .cards-source-meta-pill,
+    .cards-filter-pill,
+    .cards-prop-filter-pill {
+      padding: 9px 14px;
+    }
+
+    .cards-source-meta-pill.is-live,
+    .cards-filter-pill.is-active,
+    .cards-prop-filter-pill.is-active,
+    .cards-prop-button.is-selected {
+      color: #06131c;
+      border-color: transparent;
+      background: linear-gradient(135deg, #9af3de, #ffd166);
+    }
+
+    .cards-source-meta-pill.is-soft {
+      color: var(--cards-text-dim);
+      border-color: rgba(132, 166, 196, 0.12);
+      background: rgba(8, 18, 30, 0.62);
+    }
+
+    .cards-filter-pill,
+    .cards-prop-filter-pill,
+    .cards-prop-button {
+      cursor: pointer;
+    }
+
+    .cards-filter-pill:disabled,
+    .cards-prop-filter-pill:disabled,
+    .cards-prop-button:disabled {
+      opacity: 0.45;
+      cursor: default;
+    }
+
+    .cards-prop-filter-shell,
+    .cards-prop-groups {
+      display: grid;
+      gap: 14px;
+    }
+
+    .cards-prop-filter-group,
+    .cards-prop-group {
+      display: grid;
+      gap: 8px;
+    }
+
+    .cards-prop-group-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .cards-prop-button {
+      min-width: 220px;
+      padding: 12px 14px;
+      text-align: left;
+      display: grid;
+      gap: 4px;
+    }
+
+    .cards-prop-button strong,
+    .cards-prop-button span {
+      display: block;
+    }
+
+    .cards-prop-button .cards-subcopy {
+      color: inherit;
+      opacity: 0.84;
+      font-size: 11px;
+    }
+
     .props-strip .p-item:hover {
       border-color: rgba(154, 243, 222, 0.26);
     }
@@ -733,6 +839,428 @@
       display: none;
     }
 
+    .cards-shell {
+      width: min(100%, 1360px);
+      margin: 0 auto;
+      padding: 18px 18px 40px;
+    }
+
+    .cards-header {
+      display: grid;
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .cards-title-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .cards-header-meta {
+      margin: 8px 0 0;
+      color: var(--cards-text-dim);
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .cards-nav-pill,
+    .cards-chip,
+    .cards-overview-badge,
+    .cards-status-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      min-height: 30px;
+      padding: 0 12px;
+      border-radius: 999px;
+      border: 1px solid var(--cards-line);
+      background: rgba(8, 18, 30, 0.78);
+      color: var(--cards-text-soft);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .cards-nav-pill.is-active,
+    .cards-chip.is-official,
+    .cards-overview-badge.is-live,
+    .cards-status-badge.live,
+    .cards-status-badge.in-progress,
+    .cards-status-badge.in_progress,
+    .cards-status-badge.crit,
+    .cards-status-badge.ot {
+      color: #06131d;
+      border-color: transparent;
+      background: linear-gradient(135deg, var(--cards-warm), var(--cards-accent));
+    }
+
+    .cards-status-badge.final,
+    .cards-status-badge.off,
+    .cards-status-badge.post,
+    .cards-status-badge.end {
+      color: #ecfff8;
+      border-color: rgba(104, 224, 162, 0.22);
+      background: rgba(13, 61, 43, 0.82);
+    }
+
+    .cards-status-badge.scheduled,
+    .cards-status-badge.preview {
+      color: var(--cards-text-soft);
+      border-color: rgba(132, 166, 196, 0.18);
+      background: rgba(8, 18, 30, 0.68);
+    }
+
+    .cards-scoreboard {
+      margin-top: 18px;
+    }
+
+    .cards-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+      margin-top: 18px;
+      justify-items: center;
+    }
+
+    .cards-game-card {
+      display: grid;
+      gap: 14px;
+      width: min(100%, 1320px);
+      padding: 17px;
+      border: 1px solid var(--cards-line);
+      border-radius: 28px;
+      background: linear-gradient(180deg, rgba(13, 27, 43, 0.96), rgba(7, 16, 26, 0.98));
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
+      overflow: hidden;
+    }
+
+    .cards-strip-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: start;
+      gap: 12px;
+    }
+
+    .cards-head-left {
+      display: grid;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .cards-matchup-line {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+      font-family: "Space Grotesk", sans-serif;
+      font-size: clamp(18px, 2vw, 24px);
+      line-height: 1;
+      letter-spacing: -0.02em;
+    }
+
+    .cards-team-token {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .cards-team-token strong {
+      font-weight: 800;
+    }
+
+    .cards-team-token .team-logo {
+      width: 22px;
+      height: 22px;
+      margin-top: 0;
+    }
+
+    .cards-status-cluster {
+      display: grid;
+      gap: 8px;
+      justify-items: end;
+      min-width: 180px;
+    }
+
+    .cards-status-line {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .cards-start-time {
+      color: var(--cards-text-dim);
+      font-size: 12px;
+      line-height: 1.35;
+      text-align: right;
+    }
+
+    .cards-score-ribbon {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr minmax(250px, 1.08fr);
+      gap: 10px;
+      align-items: center;
+      padding: 14px;
+      border: 1px solid var(--cards-line);
+      border-radius: 22px;
+      background: rgba(5, 14, 24, 0.65);
+    }
+
+    .cards-score-side {
+      display: grid;
+      gap: 4px;
+    }
+
+    .cards-score-side.is-home {
+      justify-items: end;
+      text-align: right;
+    }
+
+    .cards-score-label {
+      color: var(--cards-text-dim);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .cards-score-number {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 34px;
+      line-height: 1;
+      font-weight: 800;
+    }
+
+    .cards-team-code {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 22px;
+      line-height: 1;
+      font-weight: 800;
+    }
+
+    .cards-score-meta {
+      display: grid;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .cards-live-line,
+    .cards-sim-line,
+    .cards-mini-copy,
+    .cards-subcopy,
+    .cards-callout-copy,
+    .cards-empty-copy {
+      color: var(--cards-text-soft);
+      font-size: 12.5px;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }
+
+    .cards-market-row {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      align-items: start;
+    }
+
+    .cards-market-tile,
+    .cards-panel-card,
+    .cards-lens-shell {
+      display: grid;
+      gap: 8px;
+      align-content: start;
+      padding: 13px 14px;
+      border: 1px solid var(--cards-line);
+      border-radius: 18px;
+      background: rgba(5, 14, 24, 0.66);
+    }
+
+    .cards-market-tile {
+      min-height: 96px;
+    }
+
+    .cards-market-label,
+    .cards-table-title,
+    .cards-section-label {
+      color: var(--cards-text-dim);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .cards-market-main,
+    .cards-lens-main {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 17px;
+      line-height: 1.12;
+      font-weight: 700;
+      overflow-wrap: anywhere;
+    }
+
+    .cards-box-head,
+    .cards-lens-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: start;
+      gap: 10px;
+    }
+
+    .cards-overview-grid,
+    .cards-box-grid,
+    .cards-props-grid,
+    .cards-detail-grid {
+      display: grid;
+      gap: 12px;
+    }
+
+    .cards-overview-grid {
+      grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+    }
+
+    .cards-box-grid,
+    .cards-props-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .cards-detail-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .cards-data-pair {
+      display: grid;
+      gap: 4px;
+      padding: 8px 10px;
+      border: 1px solid var(--cards-line);
+      border-radius: 14px;
+      background: rgba(10, 21, 34, 0.88);
+    }
+
+    .cards-data-pair span {
+      color: var(--cards-text-dim);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .cards-data-pair strong {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 17px;
+      line-height: 1.08;
+      overflow-wrap: anywhere;
+    }
+
+    .cards-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .cards-tab {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 38px;
+      padding: 0 14px;
+      border-radius: 999px;
+      border: 1px solid var(--cards-line);
+      background: rgba(8, 18, 30, 0.78);
+      color: var(--cards-text-soft);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: border-color 0.16s ease, background 0.16s ease, transform 0.16s ease;
+    }
+
+    .cards-tab:hover {
+      border-color: rgba(154, 243, 222, 0.28);
+      transform: translateY(-1px);
+    }
+
+    .cards-tab.is-active {
+      color: #06131d;
+      border-color: transparent;
+      background: linear-gradient(135deg, var(--cards-warm), var(--cards-accent));
+    }
+
+    .cards-panel {
+      display: none;
+    }
+
+    .cards-panel.is-active {
+      display: grid;
+      gap: 12px;
+    }
+
+    .cards-overview-copy .v,
+    .cards-overview-copy .bets,
+    .cards-props-grid .market {
+      margin-top: 6px;
+    }
+
+    .cards-props-grid .market {
+      min-height: 100%;
+    }
+
+    .cards-box-body .k,
+    .cards-props-grid .k {
+      margin-bottom: 6px;
+    }
+
+    .cards-box-body .section-title {
+      margin-top: 10px;
+    }
+
+    .cards-live-panel {
+      display: none;
+    }
+
+    .cards-live-panel.is-visible {
+      display: grid;
+      gap: 10px;
+    }
+
+    .compact-card .cards-shell {
+      padding-top: 12px;
+    }
+
+    .compact-card .cards-game-card {
+      gap: 12px;
+      padding: 14px;
+      border-radius: 24px;
+    }
+
+    .compact-card .cards-score-ribbon,
+    .compact-card .cards-market-tile,
+    .compact-card .cards-panel-card {
+      padding: 11px 12px;
+    }
+
+    .compact-card .cards-score-number {
+      font-size: 28px;
+    }
+
+    .compact-card .cards-team-code {
+      font-size: 19px;
+    }
+
+    .compact-card .cards-market-row,
+    .compact-card .cards-overview-grid,
+    .compact-card .cards-box-grid,
+    .compact-card .cards-props-grid,
+    .compact-card .cards-detail-grid {
+      gap: 10px;
+    }
+
     @media (max-width: 900px) {
       .cards-title-block,
       .cards-section-heading,
@@ -746,6 +1274,43 @@
 
       .props-strip-label {
         text-align: left;
+      }
+
+      .cards-header,
+      .cards-strip-head,
+      .cards-box-head,
+      .cards-lens-head {
+        align-items: start;
+      }
+
+      .cards-strip-head,
+      .cards-score-ribbon,
+      .cards-market-row,
+      .cards-overview-grid,
+      .cards-box-grid,
+      .cards-props-grid,
+      .cards-detail-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .cards-status-cluster {
+        justify-items: start;
+        min-width: 0;
+      }
+
+      .cards-status-line {
+        justify-content: flex-start;
+      }
+
+      .cards-start-time,
+      .cards-score-side.is-home {
+        text-align: left;
+        justify-items: start;
+      }
+
+      .cards-tabs {
+        width: 100%;
+        justify-content: space-between;
       }
 
       .grid-3,
@@ -773,47 +1338,47 @@
   </script>
 </head>
 <body class="cards-body">
-  <header>
-    <div class="container header-inner">
-      <div class="cards-hero">
-        <div class="cards-title-block">
-          <div>
-            <div class="cards-kicker">NHL projections and live card view</div>
-            <h1 id="pageTitle">NHL Game Cards</h1>
-          </div>
-          <div class="cards-header-actions">
-            <a id="accuracyLink" class="btn" href="/live_lens_accuracy">Live Lens Accuracy</a>
-            <button type="button" id="themeToggle" class="btn" title="Toggle light/dark theme">Toggle Theme</button>
-          </div>
+  <div class="cards-shell">
+    <header class="cards-header">
+      <div class="cards-title-block">
+        <div class="cards-title-row">
+          <h1 id="pageTitle">NHL Game Cards</h1>
+          <span class="cards-nav-pill is-active" id="cardsDateBadge">Loading</span>
         </div>
-        <div class="cards-control-card">
-          <div class="topbar">
-            <div class="date-picker">
-              <label for="datePicker">Date</label>
-              <input id="datePicker" class="date-input" type="date" />
-            </div>
-            <div class="view-toggle">
-              <label class="pill" title="Toggle compact spacing">
-                <input type="checkbox" id="compactModeChk" />
-                Compact
-              </label>
-            </div>
-            <div class="spacer"></div>
-            <div class="muted" id="status">Loading…</div>
-          </div>
-        </div>
+        <div class="cards-kicker">NHL projections and live card view</div>
+        <p class="cards-header-meta" id="cardsHeaderMeta">Loading slate...</p>
       </div>
-    </div>
-  </header>
-  <main>
-    <div class="container">
+      <div class="cards-header-actions">
+        <a id="accuracyLink" class="btn" href="/live_lens_accuracy">Live Lens Accuracy</a>
+        <button type="button" id="themeToggle" class="btn" title="Toggle light/dark theme">Toggle Theme</button>
+      </div>
+      <section class="cards-control-card" aria-label="Slate controls">
+        <div class="topbar">
+          <div class="date-picker">
+            <label for="datePicker">Date</label>
+            <input id="datePicker" class="date-input" type="date" />
+          </div>
+          <div class="view-toggle">
+            <label class="pill" title="Toggle compact spacing">
+              <input type="checkbox" id="compactModeChk" />
+              Compact
+            </label>
+          </div>
+          <div class="spacer"></div>
+          <div class="muted" id="status">Loading…</div>
+        </div>
+      </section>
+      <div id="cardsSourceMeta" class="cards-source-meta" aria-label="Slate summary"></div>
+      <div id="cardsFilters" class="cards-filters" aria-label="Slate filters"></div>
+    </header>
+    <main>
       <div class="cards-section-heading">
         <div>
           <div class="cards-section-kicker">Slate tracker</div>
           <h2>Games at a glance</h2>
         </div>
       </div>
-      <div id="scoreboardStrip" class="scoreboard-strip"></div>
+      <section id="scoreboardStrip" class="scoreboard-strip cards-scoreboard" aria-label="Games"></section>
       <div class="cards-section-heading cards-section-heading--compact">
         <div>
           <div class="cards-section-kicker">Player props pulse</div>
@@ -822,10 +1387,10 @@
         <div id="propsStripLabel" class="muted props-strip-label"></div>
       </div>
       <div id="propsStrip" class="props-strip"></div>
-      <div id="cards" class="cards"></div>
+      <section id="cards" class="cards cards-grid" aria-live="polite"></section>
       <div id="empty" class="empty muted"></div>
-    </div>
-  </main>
+    </main>
+  </div>
 
   <script>
     const $ = (id) => document.getElementById(id);
@@ -838,6 +1403,10 @@
     let propsPollTimer = null;
     let propsPollInFlight = false;
     let lastPropsStripSignature = '';
+    let activeSlateFilter = 'all';
+    let currentSlateCards = [];
+    let currentSlateInfoByKey = new Map();
+    const propCardState = new Map();
 
     const LS_COMPACT_KEY = 'nhl:compactMode:v2';
     const LS_COMPACT_KEY_LEGACY = 'nhl:compactMode';
@@ -1328,19 +1897,548 @@
           edgeReasons: String((rec && (rec.edge_drivers || rec.edge_reasons || rec.drivers || rec.reason)) ? (rec.edge_drivers || rec.edge_reasons || rec.drivers || rec.reason) : '').trim(),
           prob,
           book: String((rec && rec.book) ? rec.book : '').trim(),
+          playerId: (rec && (rec.player_id ?? rec.playerId ?? rec.id)) ?? null,
+          headshotUrl: String((rec && (rec.headshot_url || rec.headshotUrl)) ? (rec.headshot_url || rec.headshotUrl) : '').trim(),
+          teamLogo: String((rec && (rec.team_logo || rec.teamLogo)) ? (rec.team_logo || rec.teamLogo) : '').trim(),
         };
       } catch (e) {
-        return { team:'', opp:'', player:'', market:'', side:'', line:null, price:null, priceNum:NaN, ev:NaN, edgeScore:NaN, edgeReasons:'', prob:NaN, book:'' };
+        return { team:'', opp:'', player:'', market:'', side:'', line:null, price:null, priceNum:NaN, ev:NaN, edgeScore:NaN, edgeReasons:'', prob:NaN, book:'', playerId:null, headshotUrl:'', teamLogo:'' };
       }
     }
 
-    function renderPropsEdgesHtml(title, propsRows) {
-      function americanToDecimal(x) {
-        const v = Number(x);
-        if (!isFinite(v) || v === 0) return NaN;
-        return (v > 0) ? (1 + v/100.0) : (1 + 100.0/Math.abs(v));
+    function americanToDecimal(x) {
+      const v = Number(x);
+      if (!isFinite(v) || v === 0) return NaN;
+      return (v > 0) ? (1 + v / 100.0) : (1 + 100.0 / Math.abs(v));
+    }
+
+    function propRowKey(row) {
+      const ln = (row && row.line !== undefined && row.line !== null && String(row.line).trim() !== '') ? String(row.line).trim() : '';
+      return [normKey(row && row.player), toUpper(row && row.team), toUpper(row && row.market), toUpper(row && row.side), ln].join('|');
+    }
+
+    function propSelectionKey(row) {
+      const side = String((row && row.side) || '').trim().toLowerCase();
+      if (side === 'over' || side === 'under') return side;
+      return 'all';
+    }
+
+    function propMarketInfo(market) {
+      const key = toUpper(market);
+      if (key === 'SOG') return { key: 'sog', label: 'Shots on goal', statKey: 'shots', isGoalie: false };
+      if (key === 'GOALS') return { key: 'goals', label: 'Goals', statKey: 'goals', isGoalie: false };
+      if (key === 'ASSISTS') return { key: 'assists', label: 'Assists', statKey: 'assists', isGoalie: false };
+      if (key === 'POINTS') return { key: 'points', label: 'Points', statKey: 'points', isGoalie: false };
+      if (key === 'BLOCKS') return { key: 'blocks', label: 'Blocked shots', statKey: 'blocks', isGoalie: false };
+      if (key === 'SAVES') return { key: 'saves', label: 'Saves', statKey: 'saves', isGoalie: true };
+      return { key: normKey(market) || 'prop', label: String(market || 'Prop'), statKey: 'shots', isGoalie: false };
+    }
+
+    function propTypeInfo(row) {
+      return propMarketInfo(row && row.market);
+    }
+
+    function propTierLabel(row) {
+      const ev = Number(row && row.ev);
+      const edge = Number(row && row.edgeScore);
+      const best = Math.max(isFinite(ev) ? ev : -Infinity, isFinite(edge) ? edge : -Infinity);
+      if (!isFinite(best)) return 'Lean';
+      if (best >= 0.08) return 'A tier';
+      if (best >= 0.05) return 'B tier';
+      if (best >= 0.03) return 'C tier';
+      return 'Lean';
+    }
+
+    function formatPropEdge(row) {
+      const bits = [];
+      const ev = Number(row && row.ev);
+      const edge = Number(row && row.edgeScore);
+      const prob = Number(row && row.prob);
+      if (isFinite(edge)) bits.push(`Edge ${(100 * edge).toFixed(1)}%`);
+      if (isFinite(ev)) bits.push(`EV ${(100 * ev).toFixed(1)}%`);
+      if (isFinite(prob)) bits.push(`Model ${(100 * prob).toFixed(1)}%`);
+      return bits.join(' | ') || 'No edge detail';
+    }
+
+    function buildCardPropRows(propsRows) {
+      const raw = (propsRows || []).map(normalizePropRec)
+        .filter(r => r && r.player && r.market && r.side && (isFinite(r.edgeScore) || isFinite(r.ev)))
+        .filter(r => {
+          const ev = Number(r.ev);
+          return !isFinite(ev) || ev >= PROPS_EV_MIN;
+        })
+        .filter(r => {
+          const p = Number(r.priceNum);
+          return isFinite(p) && p >= PROPS_AMERICAN_PRICE_MIN && p <= PROPS_AMERICAN_PRICE_MAX;
+        });
+
+      const best = new Map();
+      for (const row of raw) {
+        const key = propRowKey(row);
+        const cur = best.get(key);
+        if (!cur) {
+          best.set(key, row);
+          continue;
+        }
+        const decNew = americanToDecimal(row.price);
+        const decCur = americanToDecimal(cur.price);
+        if (isFinite(decNew) && (!isFinite(decCur) || decNew > decCur)) {
+          best.set(key, row);
+          continue;
+        }
+        if (Number(row.edgeScore) > Number(cur.edgeScore)) {
+          best.set(key, row);
+          continue;
+        }
+        if (Number(row.edgeScore) === Number(cur.edgeScore) && Number(row.ev) > Number(cur.ev)) {
+          best.set(key, row);
+        }
       }
 
+      return Array.from(best.values()).sort((a, b) => {
+        const evDelta = (isFinite(Number(b.ev)) ? Number(b.ev) : -1e9) - (isFinite(Number(a.ev)) ? Number(a.ev) : -1e9);
+        if (evDelta) return evDelta;
+        const edgeDelta = (isFinite(Number(b.edgeScore)) ? Number(b.edgeScore) : -1e9) - (isFinite(Number(a.edgeScore)) ? Number(a.edgeScore) : -1e9);
+        if (edgeDelta) return edgeDelta;
+        return String(a.player || '').localeCompare(String(b.player || ''));
+      });
+    }
+
+    function ensurePropCardState(gameKey, rows) {
+      const key = String(gameKey || '').trim();
+      const normalized = Array.isArray(rows) ? rows : [];
+      if (!propCardState.has(key)) {
+        const first = normalized[0] || null;
+        propCardState.set(key, {
+          rows: normalized,
+          selectedPropKey: first ? propRowKey(first) : null,
+          propFilters: { side: 'all', type: 'all' },
+        });
+      }
+      const detail = propCardState.get(key);
+      detail.rows = normalized;
+      if (detail.selectedPropKey && !normalized.some((row) => propRowKey(row) === detail.selectedPropKey)) {
+        detail.selectedPropKey = normalized[0] ? propRowKey(normalized[0]) : null;
+      }
+      return detail;
+    }
+
+    function filteredPropRows(rows, filters) {
+      const safeRows = Array.isArray(rows) ? rows : [];
+      const safeFilters = filters || { side: 'all', type: 'all' };
+      return safeRows.filter((row) => {
+        const matchesSide = safeFilters.side === 'all' || propSelectionKey(row) === safeFilters.side;
+        const matchesType = safeFilters.type === 'all' || propTypeInfo(row).key === safeFilters.type;
+        return matchesSide && matchesType;
+      });
+    }
+
+    function propSideCounts(rows) {
+      const safeRows = Array.isArray(rows) ? rows : [];
+      return {
+        all: safeRows.length,
+        over: safeRows.filter((row) => propSelectionKey(row) === 'over').length,
+        under: safeRows.filter((row) => propSelectionKey(row) === 'under').length,
+      };
+    }
+
+    function propTypeCounts(rows) {
+      const out = new Map();
+      for (const row of (rows || [])) {
+        const info = propTypeInfo(row);
+        out.set(info.key, (out.get(info.key) || 0) + 1);
+      }
+      return out;
+    }
+
+    function propTypeOptions(rows) {
+      const counts = propTypeCounts(rows);
+      const options = [];
+      for (const [key, count] of counts.entries()) {
+        const sample = (rows || []).find((row) => propTypeInfo(row).key === key);
+        const info = propTypeInfo(sample);
+        options.push({ key, label: info.label, count });
+      }
+      options.sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+      return options;
+    }
+
+    function propFilterPillMarkup(config) {
+      return `
+        <button
+          type="button"
+          class="cards-prop-filter-pill ${config.active ? 'is-active' : ''}"
+          data-prop-filter-kind="${escHtml(config.kind)}"
+          data-prop-filter-value="${escHtml(config.value)}"
+          ${config.disabled ? 'disabled' : ''}
+        >${escHtml(config.label)}${config.count !== undefined ? ` ${escHtml(String(config.count))}` : ''}</button>`;
+    }
+
+    function renderPropFilterControls(rows, detail) {
+      const filters = detail?.propFilters || { side: 'all', type: 'all' };
+      const sideBaseRows = (rows || []).filter((row) => filters.type === 'all' || propTypeInfo(row).key === filters.type);
+      const typeBaseRows = (rows || []).filter((row) => filters.side === 'all' || propSelectionKey(row) === filters.side);
+      const sideCounts = propSideCounts(sideBaseRows);
+      const typeCounts = propTypeCounts(typeBaseRows);
+      const typeOptions = propTypeOptions(rows || []);
+
+      return `
+        <div class="cards-prop-filter-group">
+          <div class="cards-section-label">Side</div>
+          <div class="cards-prop-filter-pills">
+            ${[
+              { kind: 'side', value: 'all', label: 'All', count: sideCounts.all, active: filters.side === 'all', disabled: sideCounts.all === 0 && filters.side !== 'all' },
+              { kind: 'side', value: 'over', label: 'Over', count: sideCounts.over, active: filters.side === 'over', disabled: sideCounts.over === 0 && filters.side !== 'over' },
+              { kind: 'side', value: 'under', label: 'Under', count: sideCounts.under, active: filters.side === 'under', disabled: sideCounts.under === 0 && filters.side !== 'under' },
+            ].map(propFilterPillMarkup).join('')}
+          </div>
+        </div>
+        <div class="cards-prop-filter-group">
+          <div class="cards-section-label">Type</div>
+          <div class="cards-prop-filter-pills">
+            ${propFilterPillMarkup({ kind: 'type', value: 'all', label: 'All', count: (rows || []).length, active: filters.type === 'all', disabled: !(rows || []).length && filters.type !== 'all' })}
+            ${typeOptions.map((option) => propFilterPillMarkup({ kind: 'type', value: option.key, label: option.label, count: typeCounts.get(option.key) || 0, active: filters.type === option.key, disabled: (typeCounts.get(option.key) || 0) === 0 && filters.type !== option.key })).join('')}
+          </div>
+        </div>`;
+    }
+
+    function propButtonMarkup(rows, selectedKey) {
+      return (rows || []).map((row) => {
+        const key = propRowKey(row);
+        const info = propTypeInfo(row);
+        const lineLabel = (row.line !== null && row.line !== undefined && String(row.line).trim() !== '') ? fmt(row.line, 1) : '—';
+        const priceLabel = (row.price !== null && row.price !== undefined && String(row.price).trim() !== '') ? fmtAmerican(row.price) : '—';
+        return `
+          <button type="button" class="cards-prop-button ${selectedKey === key ? 'is-selected' : ''}" data-prop-key="${escHtml(key)}">
+            <strong>${escHtml(row.player || 'Player')}</strong>
+            <span>${escHtml(info.label)} ${escHtml(String(row.side || '').toUpperCase())} ${escHtml(lineLabel)}</span>
+            <span class="cards-subcopy">${escHtml(formatPropEdge(row))} · ${escHtml(priceLabel)}</span>
+          </button>`;
+      }).join('');
+    }
+
+    function propSideForGame(pred, row) {
+      const team = toUpper(row && row.team);
+      const away = predTeamAbbr(pred, 'away');
+      const home = predTeamAbbr(pred, 'home');
+      if (team && away && team === away) return 'away';
+      if (team && home && team === home) return 'home';
+      return 'all';
+    }
+
+    function lookupPropRowInSet(rows, row) {
+      const targetId = getPlayerId(row);
+      const targetFull = normName(row && row.player);
+      const targetKey = nameKey(row && row.player);
+      for (const entry of (rows || [])) {
+        const entryId = getPlayerId(entry);
+        if (targetId !== null && entryId !== null && targetId === entryId) return entry;
+        if (targetFull && normName(entry && entry.name) === targetFull) return entry;
+        if (targetKey && nameKey(entry && entry.name) === targetKey) return entry;
+      }
+      return null;
+    }
+
+    function lookupPropSimRow(rows, row, teamAbbr) {
+      const targetId = getPlayerId(row);
+      const targetFull = normName(row && row.player);
+      const targetKey = nameKey(row && row.player);
+      const team = toUpper(teamAbbr || row?.team);
+      for (const entry of (rows || [])) {
+        if (team && toUpper(entry && entry.team) !== team) continue;
+        const entryId = getPlayerId(entry);
+        if (targetId !== null && entryId !== null && targetId === entryId) return entry;
+        if (targetFull && normName(entry && entry.player) === targetFull) return entry;
+        if (targetKey && nameKey(entry && entry.player) === targetKey) return entry;
+      }
+      return null;
+    }
+
+    function statFromRow(row, market) {
+      if (!row) return null;
+      const info = propMarketInfo(market);
+      if (info.statKey === 'points') {
+        const p = Number(row.points ?? row.p);
+        if (isFinite(p)) return p;
+        const g = Number(row.goals ?? row.g);
+        const a = Number(row.assists ?? row.a);
+        if (isFinite(g) || isFinite(a)) return (isFinite(g) ? g : 0) + (isFinite(a) ? a : 0);
+        return null;
+      }
+      if (info.statKey === 'shots') {
+        const v = Number(row.shots ?? row.s ?? row.sog ?? row.shots_on_goal);
+        return isFinite(v) ? v : null;
+      }
+      if (info.statKey === 'blocks') {
+        const v = Number(row.blocks ?? row.blk ?? row.blocked);
+        return isFinite(v) ? v : null;
+      }
+      if (info.statKey === 'goals') {
+        const v = Number(row.goals ?? row.g);
+        return isFinite(v) ? v : null;
+      }
+      if (info.statKey === 'assists') {
+        const v = Number(row.assists ?? row.a);
+        return isFinite(v) ? v : null;
+      }
+      if (info.statKey === 'saves') {
+        const v = Number(row.saves ?? row.sv);
+        return isFinite(v) ? v : null;
+      }
+      return null;
+    }
+
+    function formatToiValue(row) {
+      if (!row) return '—';
+      const raw = row.toi ?? row.timeOnIce ?? row.time_on_ice;
+      if (raw !== undefined && raw !== null && String(raw).trim()) return String(raw).trim();
+      const sec = Number(row.toi_sec);
+      if (isFinite(sec)) return `${Math.floor(sec / 60)}:${String(Math.round(sec % 60)).padStart(2, '0')}`;
+      return '—';
+    }
+
+    function renderPropPlayerRowTable(title, row, isGoalie, isSim) {
+      if (!row) {
+        return `
+          <div class="cards-panel-card cards-prop-stack">
+            <div class="cards-table-head"><div class="cards-table-title">${escHtml(title)}</div></div>
+            <div class="cards-empty-copy">${escHtml(isSim ? 'No sim row matched this player.' : 'No live or final row matched this player yet.')}</div>
+          </div>`;
+      }
+
+      if (isGoalie) {
+        const saves = statFromRow(row, 'SAVES');
+        const sa = Number(row.shots_against ?? row.shotsAgainst ?? row.sa);
+        return `
+          <div class="cards-panel-card cards-prop-stack">
+            <div class="cards-table-head"><div class="cards-table-title">${escHtml(title)}</div></div>
+            <table class="boxscore">
+              <thead><tr><th>Goalie</th><th>SV</th><th>SA</th><th>TOI</th></tr></thead>
+              <tbody><tr><td class="player">${escHtml(row.name || row.player || '—')}</td><td>${saves == null ? '—' : escHtml(String(isSim ? fmt(saves, 2) : fmtInt(saves)))}</td><td>${isFinite(sa) ? escHtml(String(isSim ? fmt(sa, 2) : fmtInt(sa))) : '—'}</td><td>${escHtml(formatToiValue(row))}</td></tr></tbody>
+            </table>
+          </div>`;
+      }
+
+      const goals = Number(row.goals ?? row.g);
+      const assists = Number(row.assists ?? row.a);
+      const points = statFromRow(row, 'POINTS');
+      const shots = statFromRow(row, 'SOG');
+      const blocks = statFromRow(row, 'BLOCKS');
+      return `
+        <div class="cards-panel-card cards-prop-stack">
+          <div class="cards-table-head"><div class="cards-table-title">${escHtml(title)}</div></div>
+          <table class="boxscore">
+            <thead><tr><th>Player</th><th>G</th><th>A</th><th>P</th><th>S</th><th>BLK</th><th>TOI</th></tr></thead>
+            <tbody><tr><td class="player">${escHtml(row.name || row.player || '—')}</td><td>${isFinite(goals) ? escHtml(String(isSim ? fmt(goals, 2) : fmtInt(goals))) : '—'}</td><td>${isFinite(assists) ? escHtml(String(isSim ? fmt(assists, 2) : fmtInt(assists))) : '—'}</td><td>${points == null ? '—' : escHtml(String(isSim ? fmt(points, 2) : fmtInt(points)))}</td><td>${shots == null ? '—' : escHtml(String(isSim ? fmt(shots, 2) : fmtInt(shots)))}</td><td>${blocks == null ? '—' : escHtml(String(isSim ? fmt(blocks, 2) : fmtInt(blocks)))}</td><td>${escHtml(formatToiValue(row))}</td></tr></tbody>
+          </table>
+        </div>`;
+    }
+
+    function resolvePropRows(pred, liveGame, simRows, selected) {
+      const info = propMarketInfo(selected && selected.market);
+      const side = propSideForGame(pred, selected);
+      const livePlayers = info.isGoalie ? (liveGame?.lens?.goalies || {}) : (liveGame?.lens?.players || {});
+      const actualSet = side === 'away' || side === 'home'
+        ? (livePlayers?.[side] || [])
+        : ([]).concat(livePlayers?.away || [], livePlayers?.home || []);
+      const actualRow = lookupPropRowInSet(actualSet, selected);
+
+      let simTeam = '';
+      if (side === 'away') simTeam = predTeamAbbr(pred, 'away') || selected?.team;
+      else if (side === 'home') simTeam = predTeamAbbr(pred, 'home') || selected?.team;
+      else simTeam = selected?.team;
+      const simRow = lookupPropSimRow((simRows || []).filter((row) => Number(row.period) === 0), selected, simTeam);
+
+      return {
+        actualRow,
+        simRow,
+        actualValue: statFromRow(actualRow, selected?.market),
+        simValue: statFromRow(simRow, selected?.market),
+      };
+    }
+
+    function renderCardPropSections(card, pred, simRows, liveGame) {
+      if (!card || !pred) return;
+      const gameKey = String(card.dataset.gameKey || '').trim();
+      const detail = ensurePropCardState(gameKey, buildCardPropRows([].concat(card.__propsAway || [], card.__propsHome || [])));
+      const rows = Array.isArray(detail.rows) ? detail.rows : [];
+      const groupsNode = card.querySelector('[data-role="prop-groups"]');
+      const lensNode = card.querySelector('[data-role="prop-lens"]');
+      const filtersNode = card.querySelector('[data-role="prop-filters"]');
+      const summaryChip = card.querySelector('[data-role="prop-summary-chip"]');
+      if (!groupsNode || !lensNode || !filtersNode || !summaryChip) return;
+
+      const filters = detail.propFilters || { side: 'all', type: 'all' };
+      const visibleRows = filteredPropRows(rows, filters);
+      filtersNode.innerHTML = rows.length ? renderPropFilterControls(rows, detail) : '';
+      summaryChip.textContent = visibleRows.length ? `${visibleRows.length} props` : (rows.length ? 'No matches' : 'Off card');
+
+      if (!rows.length) {
+        groupsNode.innerHTML = '<div class="cards-empty-copy">No playable player props for this matchup.</div>';
+        lensNode.innerHTML = `
+          <div class="cards-lens-head">
+            <div>
+              <div class="cards-lens-label">Prop lens</div>
+              <div class="cards-lens-main">No player lens available</div>
+            </div>
+            <span class="cards-lens-badge is-live">Off card</span>
+          </div>
+          <div class="cards-callout-copy">This game has the game-market tiles and sim detail, but no saved playable player props to drill into.</div>`;
+        return;
+      }
+
+      if (!visibleRows.length) {
+        groupsNode.innerHTML = '<div class="cards-empty-copy">No props match the current side and type filters.</div>';
+        lensNode.innerHTML = `
+          <div class="cards-lens-head">
+            <div>
+              <div class="cards-lens-label">Prop lens</div>
+              <div class="cards-lens-main">No filtered prop selected</div>
+            </div>
+            <span class="cards-lens-badge is-live">Refine filters</span>
+          </div>
+          <div class="cards-callout-copy">Adjust the side or prop-type pills to bring a saved player edge back into view.</div>`;
+        return;
+      }
+
+      let selected = visibleRows.find((row) => propRowKey(row) === detail.selectedPropKey) || visibleRows[0] || null;
+      if (selected) detail.selectedPropKey = propRowKey(selected);
+
+      const awayAbbr = predTeamAbbr(pred, 'away') || String(pred.away_abbr || pred.away || 'Away').trim() || 'Away';
+      const homeAbbr = predTeamAbbr(pred, 'home') || String(pred.home_abbr || pred.home || 'Home').trim() || 'Home';
+      const awayRows = visibleRows.filter((row) => propSideForGame(pred, row) === 'away');
+      const homeRows = visibleRows.filter((row) => propSideForGame(pred, row) === 'home');
+      const neutralRows = visibleRows.filter((row) => {
+        const side = propSideForGame(pred, row);
+        return side !== 'away' && side !== 'home';
+      });
+
+      groupsNode.innerHTML = `
+        ${awayRows.length ? `<div class="cards-prop-group"><div class="cards-prop-group-head"><div class="cards-section-label">${escHtml(awayAbbr)} board</div><span class="cards-chip">${escHtml(String(awayRows.length))}</span></div><div class="cards-prop-buttons">${propButtonMarkup(awayRows, detail.selectedPropKey)}</div></div>` : ''}
+        ${homeRows.length ? `<div class="cards-prop-group"><div class="cards-prop-group-head"><div class="cards-section-label">${escHtml(homeAbbr)} board</div><span class="cards-chip">${escHtml(String(homeRows.length))}</span></div><div class="cards-prop-buttons">${propButtonMarkup(homeRows, detail.selectedPropKey)}</div></div>` : ''}
+        ${neutralRows.length ? `<div class="cards-prop-group"><div class="cards-prop-group-head"><div class="cards-section-label">Other matched props</div><span class="cards-chip">${escHtml(String(neutralRows.length))}</span></div><div class="cards-prop-buttons">${propButtonMarkup(neutralRows, detail.selectedPropKey)}</div></div>` : ''}`;
+
+      const info = propTypeInfo(selected);
+      const rowsForLens = resolvePropRows(pred, liveGame, simRows, selected);
+      const actualLabel = rowsForLens.actualValue == null ? '—' : String(fmt(rowsForLens.actualValue, rowsForLens.actualValue % 1 ? 2 : 0));
+      const simLabel = rowsForLens.simValue == null ? '—' : String(fmt(rowsForLens.simValue, 2));
+      const lineLabel = `${String(selected?.side || 'OVER').replace(/^./, (m) => m.toUpperCase())} ${fmt(selected?.line, 1)}`;
+      const detailPairs = [
+        { label: 'Tier', value: propTierLabel(selected) },
+        { label: 'Market', value: info.label },
+        { label: 'Line', value: lineLabel },
+        { label: 'Odds', value: fmtAmerican(selected?.price) },
+        { label: 'Model', value: isFinite(Number(selected?.prob)) ? `${pct(selected?.prob)} over` : 'Model unavailable' },
+        { label: 'Actual', value: actualLabel },
+        { label: 'Sim', value: simLabel },
+        { label: 'Edge', value: formatPropEdge(selected) },
+      ];
+
+      lensNode.innerHTML = `
+        <div class="cards-lens-head">
+          <div>
+            <div class="cards-lens-label">Prop lens</div>
+            <div class="cards-lens-main">${escHtml(selected.player || 'Player')} · ${escHtml(info.label)}</div>
+            <div class="cards-subcopy">${escHtml(selected.team || 'Team')} at ${escHtml(selected.opp || (String(selected.team || '').toUpperCase() === awayAbbr ? homeAbbr : awayAbbr || 'Opp'))} · ${escHtml(propTierLabel(selected))}</div>
+          </div>
+          <span class="cards-lens-badge ${escHtml(evClass(selected.ev))}">${escHtml(String(selected.side || '').toUpperCase())}</span>
+        </div>
+        <div class="cards-detail-grid">
+          ${detailPairs.map((pair) => renderDataPair(pair.label, pair.value)).join('')}
+        </div>
+        ${selected.edgeReasons ? `<div class="cards-callout-copy">${renderDriverPills(selected.edgeReasons, 4, false)}</div>` : ''}
+        <div class="cards-box-grid">
+          ${renderPropPlayerRowTable('Live / final player row', rowsForLens.actualRow, info.isGoalie, false)}
+          ${renderPropPlayerRowTable('Sim player row', rowsForLens.simRow, info.isGoalie, true)}
+        </div>`;
+    }
+
+    function sourceMetaPill(label, variant = '') {
+      const classes = ['cards-source-meta-pill'];
+      if (variant) classes.push(`is-${variant}`);
+      return `<span class="${classes.join(' ')}">${escHtml(String(label || ''))}</span>`;
+    }
+
+    function slateCounts(cards) {
+      const list = Array.isArray(cards) ? cards : [];
+      const liveCount = list.filter((card) => isLiveState(card?.status)).length;
+      const finalCount = list.filter((card) => isFinalLikeState(card?.status)).length;
+      const officialCount = list.filter((card) => !!card?.hasOfficial).length;
+      const propsCount = list.filter((card) => !!card?.hasProps).length;
+      return {
+        liveCount,
+        finalCount,
+        officialCount,
+        propsCount,
+        upcomingCount: Math.max(list.length - liveCount - finalCount, 0),
+      };
+    }
+
+    function renderSlateSourceMeta(cards, nSims) {
+      const root = $('cardsSourceMeta');
+      if (!root) return;
+      const counts = slateCounts(cards);
+      const pills = [
+        sourceMetaPill(`${cards.length} games`, 'soft'),
+        sourceMetaPill(`${counts.upcomingCount} upcoming`, 'soft'),
+        sourceMetaPill(`${counts.liveCount} live`, counts.liveCount ? 'live' : 'soft'),
+        sourceMetaPill(`${counts.finalCount} final`, 'soft'),
+        sourceMetaPill(`${counts.officialCount} official cards`, 'soft'),
+        sourceMetaPill(`${counts.propsCount} props boards`, 'soft'),
+      ];
+      if (nSims !== null && nSims !== undefined && isFinite(Number(nSims))) pills.splice(1, 0, sourceMetaPill(`${Number(nSims)} sims / game`, 'soft'));
+      root.innerHTML = pills.join('');
+    }
+
+    function buildSlateFilters(cards) {
+      const counts = slateCounts(cards);
+      return [
+        { key: 'all', label: `All ${cards.length}` },
+        { key: 'official', label: `Official ${counts.officialCount}` },
+        { key: 'props', label: `Props ${counts.propsCount}` },
+        { key: 'live', label: `Live ${counts.liveCount}` },
+        { key: 'final', label: `Final ${counts.finalCount}` },
+      ];
+    }
+
+    function elementMatchesSlateFilter(el, filterKey) {
+      if (!el || filterKey === 'all') return true;
+      const status = String(el.dataset.cardStatus || '').trim();
+      const hasOfficial = el.dataset.hasOfficial === '1';
+      const hasProps = el.dataset.hasProps === '1';
+      if (filterKey === 'official') return hasOfficial;
+      if (filterKey === 'props') return hasProps;
+      if (filterKey === 'live') return isLiveState(status);
+      if (filterKey === 'final') return isFinalLikeState(status);
+      return true;
+    }
+
+    function applySlateFilter() {
+      for (const card of document.querySelectorAll('.cards-game-card[data-game-key]')) {
+        card.hidden = !elementMatchesSlateFilter(card, activeSlateFilter);
+      }
+      for (const item of document.querySelectorAll('.scoreboard-strip .s-item[data-game-key]')) {
+        item.hidden = !elementMatchesSlateFilter(item, activeSlateFilter);
+      }
+    }
+
+    function renderSlateFilters(cards) {
+      const root = $('cardsFilters');
+      if (!root) return;
+      root.innerHTML = buildSlateFilters(cards).map((filter) => `
+        <button type="button" class="cards-filter-pill ${filter.key === activeSlateFilter ? 'is-active' : ''}" data-filter-key="${escHtml(filter.key)}">
+          ${escHtml(filter.label)}
+        </button>`).join('');
+      root.querySelectorAll('[data-filter-key]').forEach((button) => {
+        button.addEventListener('click', () => {
+          activeSlateFilter = button.getAttribute('data-filter-key') || 'all';
+          renderSlateFilters(currentSlateCards);
+          applySlateFilter();
+        });
+      });
+    }
+
+    function renderPropsEdgesHtml(title, propsRows) {
       // Normalize; prefer edge score, but fallback to EV for older bundles.
       const raw = (propsRows || []).map(normalizePropRec)
         .filter(r => r && r.player && r.market && r.side && (isFinite(r.edgeScore) || isFinite(r.ev)))
@@ -1464,6 +2562,106 @@
       return `<span class="${cls}">` + keep.map(p => `<span class="driver-pill">${escHtml(p)}</span>`).join('') + `</span>`;
     }
 
+    function simProjectedTotals(pred, simRows) {
+      const rows = Array.isArray(simRows) ? simRows : [];
+      if (!rows.length) return { away: null, home: null };
+
+      const awayLabel = predTeamAbbr(pred, 'away') || String((pred && pred.away) || 'Away').trim() || 'Away';
+      const homeLabel = predTeamAbbr(pred, 'home') || String((pred && pred.home) || 'Home').trim() || 'Home';
+      const awayKey = String((pred && pred.away) || awayLabel).trim() || awayLabel;
+      const homeKey = String((pred && pred.home) || homeLabel).trim() || homeLabel;
+
+      const totalFor = (teamKey) => {
+        const p0 = sumSim(rows, teamKey, 0, 'goals');
+        if (p0 !== null && p0 !== undefined) return Number(p0);
+        let total = 0;
+        let any = false;
+        for (const per of [1, 2, 3, 4]) {
+          const v = sumSim(rows, teamKey, per, 'goals');
+          if (v !== null && v !== undefined) {
+            total += Number(v);
+            any = true;
+          }
+        }
+        return any ? total : null;
+      };
+
+      return {
+        away: totalFor(awayKey),
+        home: totalFor(homeKey),
+      };
+    }
+
+    function renderDataPair(label, value) {
+      return `
+        <div class="cards-data-pair">
+          <span>${escHtml(label)}</span>
+          <strong>${escHtml(value)}</strong>
+        </div>
+      `;
+    }
+
+    function statusBadgeClass(text) {
+      try {
+        const s = String(text || '').trim().toLowerCase();
+        if (!s) return 'scheduled';
+        return s.replace(/[^a-z0-9]+/g, '-');
+      } catch (e) {
+        return 'scheduled';
+      }
+    }
+
+    function activateCardTab(card, panelId) {
+      if (!card) return;
+      const target = String(panelId || 'overview').trim() || 'overview';
+      for (const btn of card.querySelectorAll('.cards-tab')) {
+        btn.classList.toggle('is-active', btn.dataset.tabTarget === target);
+      }
+      for (const panel of card.querySelectorAll('.cards-panel')) {
+        panel.classList.toggle('is-active', panel.dataset.panelId === target);
+      }
+    }
+
+    function wireCardTabs(card) {
+      if (!card || card.dataset.cardWired === '1') return;
+      card.addEventListener('click', (ev) => {
+        const tab = ev.target && ev.target.closest ? ev.target.closest('.cards-tab') : null;
+        if (tab && card.contains(tab)) {
+          activateCardTab(card, tab.dataset.tabTarget || 'overview');
+          return;
+        }
+        const filterBtn = ev.target && ev.target.closest ? ev.target.closest('.cards-prop-filter-pill') : null;
+        if (filterBtn && card.contains(filterBtn)) {
+          const gameKey = String(card.dataset.gameKey || '').trim();
+          const detail = propCardState.get(gameKey);
+          if (!detail) return;
+          const kind = String(filterBtn.getAttribute('data-prop-filter-kind') || '').trim();
+          const value = String(filterBtn.getAttribute('data-prop-filter-value') || '').trim() || 'all';
+          if (kind !== 'side' && kind !== 'type') return;
+          detail.propFilters = detail.propFilters || { side: 'all', type: 'all' };
+          detail.propFilters[kind] = value;
+          const pred = (window.__PREDS_BY_GAME__ && window.__PREDS_BY_GAME__.get) ? (window.__PREDS_BY_GAME__.get(gameKey) || null) : null;
+          const simRows = (window.__SIM_BY_GAME__ && window.__SIM_BY_GAME__.get) ? (window.__SIM_BY_GAME__.get(gameKey) || []) : [];
+          const liveGame = (window.__LIVE_BY_KEY__ && window.__LIVE_BY_KEY__.get) ? (window.__LIVE_BY_KEY__.get(normKey(gameKey)) || null) : null;
+          renderCardPropSections(card, pred, simRows, liveGame);
+          return;
+        }
+        const propBtn = ev.target && ev.target.closest ? ev.target.closest('.cards-prop-button') : null;
+        if (propBtn && card.contains(propBtn)) {
+          const gameKey = String(card.dataset.gameKey || '').trim();
+          const detail = propCardState.get(gameKey);
+          if (!detail) return;
+          detail.selectedPropKey = String(propBtn.getAttribute('data-prop-key') || '').trim() || null;
+          const pred = (window.__PREDS_BY_GAME__ && window.__PREDS_BY_GAME__.get) ? (window.__PREDS_BY_GAME__.get(gameKey) || null) : null;
+          const simRows = (window.__SIM_BY_GAME__ && window.__SIM_BY_GAME__.get) ? (window.__SIM_BY_GAME__.get(gameKey) || []) : [];
+          const liveGame = (window.__LIVE_BY_KEY__ && window.__LIVE_BY_KEY__.get) ? (window.__LIVE_BY_KEY__.get(normKey(gameKey)) || null) : null;
+          renderCardPropSections(card, pred, simRows, liveGame);
+        }
+      });
+      card.dataset.cardWired = '1';
+      activateCardTab(card, 'overview');
+    }
+
     function _normTeamToken(s) {
       return String(s || '').trim().replace(/\s+/g,' ').toLowerCase();
     }
@@ -1504,7 +2702,7 @@
       return null;
     }
 
-    function renderCard(pred, recsForGame, simForGame, propsAway=null, propsHome=null) {
+    function renderCard(pred, recsForGame, simForGame, propsAway=null, propsHome=null, simMeta=null) {
       const match = keyForGame(pred);
       const state = String(pred.game_state || '').trim();
       const venue = String(pred.venue || '').trim();
@@ -1556,13 +2754,36 @@
         .map(m => bestByMarket.get(m))
         .filter(Boolean);
 
+      const simTotals = simProjectedTotals(pred, simForGame);
+      const simCount = (simMeta && simMeta.nSims !== undefined && simMeta.nSims !== null && isFinite(Number(simMeta.nSims)))
+        ? Number(simMeta.nSims)
+        : null;
+      const awayAbbr = predTeamAbbr(pred, 'away') || String(pred.away_abbr || pred.away || 'Away').trim() || 'Away';
+      const homeAbbr = predTeamAbbr(pred, 'home') || String(pred.home_abbr || pred.home || 'Home').trim() || 'Home';
+      const simHeadline = (simTotals.away !== null && simTotals.home !== null)
+        ? `Sim mean${simCount ? ` (${simCount})` : ''} | ${awayAbbr} ${fmt(simTotals.away, 2)} - ${homeAbbr} ${fmt(simTotals.home, 2)}`
+        : (simCount ? `Sim loaded | ${simCount} sims` : 'Sim unavailable');
+      const simMini = (simTotals.away !== null && simTotals.home !== null)
+        ? `Projected final ${awayAbbr} ${fmt(simTotals.away, 2)} - ${homeAbbr} ${fmt(simTotals.home, 2)}`
+        : `Model goals ${awayAbbr} ${fmt(projAway, 2)} / ${homeAbbr} ${fmt(projHome, 2)}`;
+      const topPick = top[0] || null;
+      const propsCount = (Array.isArray(propsAway) ? propsAway.length : 0) + (Array.isArray(propsHome) ? propsHome.length : 0);
+      const propsSummary = propsCount
+        ? `${propsCount} team props edges ready`
+        : 'Props board waiting for playable edges';
+
       const el = document.createElement('div');
-      el.className = 'card game-card';
+      el.className = 'card game-card cards-game-card';
       el.dataset.gameKey = match;
       try {
         const pk = (pred && (pred.gamePk ?? pred.game_pk ?? pred.nhl_game_pk ?? pred.nhlGamePk ?? pred.game_id ?? pred.gameId));
         if (pk !== undefined && pk !== null && String(pk).trim() !== '') el.dataset.gamePk = String(pk).trim();
       } catch (e) {}
+      el.dataset.cardStatus = state;
+      el.dataset.hasOfficial = top.length ? '1' : '0';
+      el.dataset.hasProps = buildCardPropRows([].concat(propsAway || [], propsHome || [])).length ? '1' : '0';
+      el.__propsAway = Array.isArray(propsAway) ? propsAway.slice() : [];
+      el.__propsHome = Array.isArray(propsHome) ? propsHome.slice() : [];
       try {
         const aab = predTeamAbbr(pred, 'away');
         const hab = predTeamAbbr(pred, 'home');
@@ -1575,109 +2796,206 @@
       if (venue) pills.push(`<span class="pill">${venue}</span>`);
 
       el.innerHTML = `
-        <div class="card-title">
-          <span class="match">${match}</span>
-          <span class="lens-card-tag" data-role="lens-card-tag"></span>
-          <span class="pill active live-score" data-role="live-score"></span>
-          <span class="pill active live-clock" data-role="live-clock"></span>
-          <span class="pill active final-score" data-role="final-score"></span>
-          ${pills.join('')}
-        </div>
-
-        <div class="row matchup">
-          <div class="team side">
-            <div class="team-line">
-              <div class="lhs">${awayLogo ? `<img class="team-logo" src="${awayLogo}" alt="${pred.away || ''}" />` : ''}<div class="name">${pred.away || '—'}</div></div>
-              <div class="team-pts-big" data-role="away-pts-big"></div>
+        <div class="cards-strip-head">
+          <div class="cards-head-left">
+            <div class="cards-matchup-line">
+              <span class="cards-team-token">${awayLogo ? `<img class="team-logo" src="${awayLogo}" alt="${pred.away || ''}" />` : ''}<strong>${awayAbbr}</strong></span>
+              <span class="cards-score-divider">@</span>
+              <span class="cards-team-token">${homeLogo ? `<img class="team-logo" src="${homeLogo}" alt="${pred.home || ''}" />` : ''}<strong>${homeAbbr}</strong></span>
             </div>
-            <div class="score-block">
-              <div class="sub">Proj goals: <strong>${fmt(projAway, 2)}</strong></div>
-              <div class="sub">ML: <strong>${pct(mlAway)}</strong></div>
-            </div>
+            <div class="cards-subcopy">${escHtml(pred.away || awayAbbr)} at ${escHtml(pred.home || homeAbbr)}${venue ? ` · ${escHtml(venue)}` : ''}</div>
           </div>
-          <div class="vs">@</div>
-          <div class="team side">
-            <div class="team-line">
-              <div class="lhs">${homeLogo ? `<img class="team-logo" src="${homeLogo}" alt="${pred.home || ''}" />` : ''}<div class="name">${pred.home || '—'}</div></div>
-              <div class="team-pts-big" data-role="home-pts-big"></div>
+          <div class="cards-status-cluster">
+            <div class="cards-status-line">
+              <span class="cards-status-badge ${statusBadgeClass(state)}" data-role="status-badge">${escHtml(state || 'Scheduled')}</span>
+              <span class="cards-overview-badge" data-role="lens-card-tag"></span>
             </div>
-            <div class="score-block">
-              <div class="sub">Proj goals: <strong>${fmt(projHome, 2)}</strong></div>
-              <div class="sub">ML: <strong>${pct(mlHome)}</strong></div>
+            <div class="cards-start-time" data-role="status-detail">${escHtml(venue || '')}</div>
+            <div class="cards-status-line">
+              <span class="pill active live-clock" data-role="live-clock"></span>
+              <span class="pill active final-score" data-role="final-score"></span>
+              ${pills.join('')}
             </div>
           </div>
         </div>
 
-        <div class="tile">
-          <div class="markets-row">
-            <div class="market">
-              <div class="k">Moneyline</div>
-              <div class="v">Away ${pct(mlAway)} · Home ${pct(mlHome)}</div>
-              <div class="v muted" data-role="odds-move-ml"></div>
-            </div>
-            <div class="market">
-              <div class="k">Total</div>
-              <div class="v">Line <strong>${fmt(totalLine, 1)}</strong> · O ${pct(pOver)} / U ${pct(pUnder)}</div>
-              <div class="v muted" data-role="odds-move-total"></div>
-              <div class="v">Model total: ${fmt(modelTotal, 2)}</div>
-            </div>
-            <div class="market">
-              <div class="k">Puck line</div>
-              <div class="v">Line <strong>${fmt(plLine, 1)}</strong> · H-1.5 ${pct(pHomePl)} / A+1.5 ${pct(pAwayPl)}</div>
-              <div class="v muted" data-role="odds-move-pl"></div>
-              <div class="v">Model spread: ${fmt(modelSpread, 2)}</div>
-            </div>
+        <div class="cards-score-ribbon">
+          <div class="cards-score-side is-away">
+            <div class="cards-score-label">Away</div>
+            <div class="cards-score-number" data-role="away-pts-big"></div>
+            <strong class="cards-team-code">${escHtml(awayAbbr)}</strong>
+            <div class="cards-mini-copy">Proj ${fmt(projAway, 2)} goals | ML ${pct(mlAway)}</div>
           </div>
-          <div class="v live-ctx-top"></div>
-        </div>
-
-        <div class="bets">
-          ${top.length ? top.map(r => {
-            const cls = evClass(r.ev);
-            const mkt = toUpper(r.market);
-            const side = toUpper(r.side);
-            const pModel = (r && r._pModel !== undefined) ? r._pModel : _inferModelProbForRec(pred, r);
-            const drvPills = r.edgeReasons ? renderDriverPills(r.edgeReasons, 2, true) : '';
-            let ln = (r.line !== null && r.line !== undefined && String(r.line).trim() !== '') ? String(r.line) : '';
-            try {
-              if (!ln && mkt.includes('TOTAL') && totalLine !== null && totalLine !== undefined && isFinite(Number(totalLine))) {
-                ln = String(totalLine);
-              }
-            } catch (e) {}
-            const lineAttr = ln ? ` data-line="${ln}"` : '';
-            return `<span class="bet ${cls}" data-market="${mkt}" data-side="${side}"${lineAttr}><strong>${r.market}</strong> ${r.side}${drvPills} <span class="muted" data-role="rec-outcome"></span></span>`;
-          }).join('') : `<span class="muted">No recommendations available for this game.</span>`}
-        </div>
-
-        <div class="tile props-game-tile">
-          <div class="markets-row">
-            ${renderPropsEdgesHtml(`Props edges (${pred.away_abbr || 'Away'})`, propsAway)}
-            ${renderPropsEdgesHtml(`Props edges (${pred.home_abbr || 'Home'})`, propsHome)}
+          <div class="cards-score-divider">at</div>
+          <div class="cards-score-side is-home">
+            <div class="cards-score-label">Home</div>
+            <div class="cards-score-number" data-role="home-pts-big"></div>
+            <strong class="cards-team-code">${escHtml(homeAbbr)}</strong>
+            <div class="cards-mini-copy">Proj ${fmt(projHome, 2)} goals | ML ${pct(mlHome)}</div>
+          </div>
+          <div class="cards-score-meta">
+            <div class="cards-live-line live-ctx-top"></div>
+            <div class="cards-sim-line">${escHtml(simHeadline)}</div>
+            <div class="cards-mini-copy">${escHtml(simMini)}</div>
           </div>
         </div>
 
-        <div class="live-lens" style="display:none;">
-          <div class="live-guidance-body"></div>
-          <div class="live-odds-body"></div>
-          <div class="live-lens-body"></div>
+        <div class="cards-market-row">
+          <div class="cards-market-tile">
+            <div class="cards-market-label">Moneyline</div>
+            <div class="cards-market-main">Away ${pct(mlAway)} · Home ${pct(mlHome)}</div>
+            <div class="cards-subcopy" data-role="odds-move-ml"></div>
+          </div>
+          <div class="cards-market-tile">
+            <div class="cards-market-label">Total</div>
+            <div class="cards-market-main">Line ${fmt(totalLine, 1)} · O ${pct(pOver)} / U ${pct(pUnder)}</div>
+            <div class="cards-subcopy">Model total ${fmt(modelTotal, 2)}</div>
+            <div class="cards-subcopy" data-role="odds-move-total"></div>
+          </div>
+          <div class="cards-market-tile">
+            <div class="cards-market-label">Puck line</div>
+            <div class="cards-market-main">H -1.5 ${pct(pHomePl)} · A +1.5 ${pct(pAwayPl)}</div>
+            <div class="cards-subcopy">Model spread ${fmtSigned(modelSpread, 2)}</div>
+            <div class="cards-subcopy" data-role="odds-move-pl"></div>
+          </div>
+          <div class="cards-market-tile">
+            <div class="cards-market-label">Sim detail</div>
+            <div class="cards-market-main">${escHtml(simHeadline)}</div>
+            <div class="cards-subcopy">${escHtml(propsSummary)}${topPick ? ` · Top pick ${escHtml(String(topPick.market || ''))} ${escHtml(String(topPick.side || ''))}` : ''}</div>
+          </div>
         </div>
 
-        <div class="merged-block">
-          <div class="merged-body"></div>
+        <div class="cards-tabs">
+          <button class="cards-tab is-active" type="button" data-tab-target="overview">Game</button>
+          <button class="cards-tab" type="button" data-tab-target="boxscore">Box Score</button>
+          <button class="cards-tab" type="button" data-tab-target="props">Props</button>
+        </div>
+
+        <section class="cards-panel is-active" data-panel-id="overview">
+          <div class="cards-overview-grid">
+            <div class="cards-panel-card cards-lens-shell">
+              <div class="cards-box-head">
+                <div>
+                  <div class="cards-table-title"><strong>Game lens</strong></div>
+                  <div class="cards-lens-main">${escHtml(match)}</div>
+                </div>
+                <span class="cards-chip">${simCount ? `${simCount} sims` : 'Model'}</span>
+              </div>
+              <div class="cards-detail-grid">
+                ${renderDataPair('Projected final', simTotals.away !== null && simTotals.home !== null ? `${awayAbbr} ${fmt(simTotals.away, 2)} - ${homeAbbr} ${fmt(simTotals.home, 2)}` : `${fmt(projAway, 2)} - ${fmt(projHome, 2)}`)}
+                ${renderDataPair('Moneyline split', `${awayAbbr} ${pct(mlAway)} / ${homeAbbr} ${pct(mlHome)}`)}
+                ${renderDataPair('Model total', `${fmt(modelTotal, 2)} vs ${fmt(totalLine, 1)}`)}
+                ${renderDataPair('Model spread', fmtSigned(modelSpread, 2))}
+                ${renderDataPair('Puck line model', `H ${pct(pHomePl)} / A ${pct(pAwayPl)}`)}
+                ${renderDataPair('Props board', propsSummary)}
+              </div>
+              <div class="cards-overview-copy">
+                <div class="cards-callout-copy">Use the tabs to switch between game context, projected/live box tables, and team props for this matchup.</div>
+              </div>
+            </div>
+
+            <div class="cards-panel-card">
+              <div class="cards-box-head">
+                <div>
+                  <div class="cards-table-title"><strong>Official card</strong></div>
+                  <div class="cards-lens-main">${top.length ? `${top.length} playable game edges` : 'No saved game edges'}</div>
+                </div>
+                <span class="cards-chip is-official">${top.length ? `${top.length} plays` : 'Off card'}</span>
+              </div>
+              <div class="bets">
+                ${top.length ? top.map(r => {
+                  const cls = evClass(r.ev);
+                  const mkt = toUpper(r.market);
+                  const side = toUpper(r.side);
+                  const drvPills = r.edgeReasons ? renderDriverPills(r.edgeReasons, 2, true) : '';
+                  let ln = (r.line !== null && r.line !== undefined && String(r.line).trim() !== '') ? String(r.line) : '';
+                  try {
+                    if (!ln && mkt.includes('TOTAL') && totalLine !== null && totalLine !== undefined && isFinite(Number(totalLine))) {
+                      ln = String(totalLine);
+                    }
+                  } catch (e) {}
+                  const lineAttr = ln ? ` data-line="${ln}"` : '';
+                  return `<span class="bet ${cls}" data-market="${mkt}" data-side="${side}"${lineAttr}><strong>${r.market}</strong> ${r.side}${drvPills} <span class="muted" data-role="rec-outcome"></span></span>`;
+                }).join('') : `<span class="muted">No recommendations available for this game.</span>`}
+              </div>
+              <div class="cards-callout-copy">${topPick ? `Best current edge: ${escHtml(String(topPick.market || ''))} ${escHtml(String(topPick.side || ''))}${topPick.ev !== null && topPick.ev !== undefined && isFinite(Number(topPick.ev)) ? ` · EV ${(100 * Number(topPick.ev)).toFixed(1)}%` : ''}` : 'Model and edge feeds are loaded, but this matchup has no playable game-level recommendation right now.'}</div>
+            </div>
+
+            <div class="cards-panel-card cards-live-panel live-lens" style="display:none;">
+              <div class="cards-box-head">
+                <div>
+                  <div class="cards-table-title"><strong>Live lens</strong></div>
+                  <div class="cards-lens-main">In-game readout</div>
+                </div>
+                <span class="cards-chip">Live</span>
+              </div>
+              <div class="live-guidance-body"></div>
+              <div class="live-odds-body"></div>
+              <div class="live-lens-body"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="cards-panel" data-panel-id="boxscore">
+          <div class="cards-box-grid">
+            <div class="cards-panel-card cards-box-panel">
+              <div class="cards-box-head">
+                <div>
+                  <div class="cards-table-title"><strong>Live / final box</strong></div>
+                  <div class="cards-lens-main">Actual game box score</div>
+                </div>
+                <span class="cards-chip">Live</span>
+              </div>
+              <div class="cards-box-body live-box-body"></div>
+            </div>
+            <div class="cards-panel-card cards-box-panel">
+              <div class="cards-box-head">
+                <div>
+                  <div class="cards-table-title"><strong>Sim box</strong></div>
+                  <div class="cards-lens-main">${escHtml(simHeadline)}</div>
+                </div>
+                <span class="cards-chip">${simCount ? `${simCount} sims` : 'Model'}</span>
+              </div>
+              <div class="cards-box-body sim-box-body"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="cards-panel" data-panel-id="props">
+          <div class="cards-props-grid">
+            <div class="cards-panel-card">
+              <div class="cards-box-head">
+                <div>
+                  <div class="cards-table-title"><strong>Props board</strong></div>
+                  <div class="cards-lens-main">Filtered edges for ${escHtml(match)}</div>
+                </div>
+                <span class="cards-chip" data-role="prop-summary-chip">${escHtml(propsCount ? `${propsCount} props` : 'Off card')}</span>
+              </div>
+              <div class="cards-prop-filter-shell" data-role="prop-filters"></div>
+              <div class="cards-prop-groups" data-role="prop-groups"></div>
+            </div>
+            <div class="cards-lens-shell" data-role="prop-lens"></div>
+          </div>
+        </section>
         </div>
       `;
 
-      // Always show merged Sim vs Live tables (pregame shows sim-only with blank live columns).
+      // Initialize box score tab with left live/final and right sim panels.
       try {
-        const merged = el.querySelector('.merged-body');
-        if (merged) {
+        const simBox = el.querySelector('.sim-box-body');
+        if (simBox) {
           if (Array.isArray(simForGame) && simForGame.length) {
-            merged.innerHTML = renderSimBoxscoresOnly(pred, simForGame);
+            simBox.innerHTML = renderSimBoxscoresOnly(pred, simForGame);
           } else {
-            merged.innerHTML = `<div class="k">Projected box scores</div><div class="v muted">No sim boxscores available yet.</div>`;
+            simBox.innerHTML = `<div class="k">Projected box scores</div><div class="v muted">No sim boxscores available yet.</div>`;
           }
         }
+        const liveBox = el.querySelector('.live-box-body');
+        if (liveBox) liveBox.innerHTML = `<div class="k">Live box</div><div class="v muted">Live or final box is unavailable.</div>`;
       } catch (e) {}
+
+      wireCardTabs(el);
+      renderCardPropSections(el, pred, Array.isArray(simForGame) ? simForGame : [], null);
 
       return el;
     }
@@ -1946,6 +3264,10 @@
         aEl.href = '#';
         aEl.className = 's-item';
         aEl.dataset.gameKey = k;
+        const info = currentSlateInfoByKey.get(normKey(k));
+        aEl.dataset.hasOfficial = info && info.hasOfficial ? '1' : '0';
+        aEl.dataset.hasProps = info && info.hasProps ? '1' : '0';
+        aEl.dataset.cardStatus = info && info.status ? String(info.status) : state;
         try { aEl.dataset.awayName = String(p && p.away || '').trim(); } catch (e) {}
         try { aEl.dataset.homeName = String(p && p.home || '').trim(); } catch (e) {}
         try { if (awayLogo) aEl.dataset.awayLogo = awayLogo; } catch (e) {}
@@ -2163,6 +3485,10 @@
           if (hPtsEl) hPtsEl.textContent = show ? String(hg) : '';
         } catch (e) {}
         if (!g) g = (mapByKey && mapByKey.get) ? (mapByKey.get(k) || null) : null;
+
+        try {
+          item.dataset.cardStatus = String(g && g.gameState ? g.gameState : item.dataset.cardStatus || '').trim();
+        } catch (e) {}
 
         item.classList.remove('live', 'bet', 'watch');
         if (!g) continue;
@@ -2433,6 +3759,125 @@
       }
 
       return `<div class="k">Live lens</div>${lines.join('')}`;
+    }
+
+    function renderLiveBoxscoresOnly(game, pred=null) {
+      try {
+        const lens = (game && game.lens) ? game.lens : {};
+        const totals = lens && lens.totals ? lens.totals : null;
+        const periods = lens && Array.isArray(lens.periods) ? lens.periods : [];
+        const goalies = lens && lens.goalies ? lens.goalies : {};
+        const players = lens && lens.players ? lens.players : {};
+        const awayLabel = predTeamAbbr(pred || game || {}, 'away') || String((game && game.away) || (pred && pred.away) || 'Away').trim() || 'Away';
+        const homeLabel = predTeamAbbr(pred || game || {}, 'home') || String((game && game.home) || (pred && pred.home) || 'Home').trim() || 'Home';
+        const stateText = String((game && (game.gameState || game.game_state)) || '').toUpperCase();
+        const liveLabel = stateText && isFinalLikeState(stateText) ? 'Final' : 'Live';
+
+        if (!totals && !periods.length && !((players && (players.away || players.home)) || (goalies && (goalies.away || goalies.home)))) {
+          return `<div class="k">${liveLabel} box</div><div class="v muted">Live or final box is unavailable.</div>`;
+        }
+
+        const byP = { 1: { a: null, h: null }, 2: { a: null, h: null }, 3: { a: null, h: null } };
+        for (const periodRow of periods) {
+          const pn = Number(periodRow && periodRow.period);
+          if (![1, 2, 3].includes(pn)) continue;
+          byP[pn] = {
+            a: (periodRow.away && periodRow.away.goals !== undefined) ? periodRow.away.goals : null,
+            h: (periodRow.home && periodRow.home.goals !== undefined) ? periodRow.home.goals : null,
+          };
+        }
+
+        const awayRow = {
+          p1: byP[1].a,
+          p2: byP[2].a,
+          p3: byP[3].a,
+          total: (totals && totals.away) ? totals.away.goals : null,
+        };
+        const homeRow = {
+          p1: byP[1].h,
+          p2: byP[2].h,
+          p3: byP[3].h,
+          total: (totals && totals.home) ? totals.home.goals : null,
+        };
+
+        const shotValue = (row) => {
+          const value = row && (row.s ?? row.sog ?? row.shots ?? row.shots_on_goal);
+          return value === null || value === undefined ? null : Number(value);
+        };
+
+        const renderLivePlayersTable = (title, arr) => {
+          const rows = Array.isArray(arr) ? arr.slice() : [];
+          rows.sort((a, b) => (Number(b.p) || 0) - (Number(a.p) || 0) || (Number(shotValue(b)) || 0) - (Number(shotValue(a)) || 0));
+          const body = rows.slice(0, 18).map((row) => `
+              <tr>
+                <td class="player">${row.name ?? '—'}</td>
+                <td>${row.pos ?? '—'}</td>
+                <td>${row.g ?? '—'}</td>
+                <td>${row.a ?? '—'}</td>
+                <td>${row.p ?? '—'}</td>
+                <td>${shotValue(row) ?? '—'}</td>
+                <td>${row.blk ?? '—'}</td>
+                <td>${row.toi ?? '—'}</td>
+              </tr>
+            `).join('');
+          return `
+            <div class="section-title">${title}</div>
+            <table class="boxscore">
+              <thead><tr>
+                <th class="sortable" data-sort-type="text">Player</th>
+                <th class="sortable" data-sort-type="text">Pos</th>
+                <th class="sortable" data-sort-type="num">G</th>
+                <th class="sortable" data-sort-type="num">A</th>
+                <th class="sortable" data-sort-type="num">P</th>
+                <th class="sortable" data-sort-type="num">S</th>
+                <th class="sortable" data-sort-type="num">BLK</th>
+                <th class="sortable" data-sort-type="toi">TOI</th>
+              </tr></thead>
+              <tbody>${body || ''}</tbody>
+            </table>
+          `;
+        };
+
+        const renderLiveGoaliesTable = (title, arr) => {
+          const rows = Array.isArray(arr) ? arr.slice() : [];
+          const body = rows.slice(0, 2).map((row) => {
+            const svPct = (row && row.sv_pct !== undefined && row.sv_pct !== null && isFinite(Number(row.sv_pct)))
+              ? (100 * Number(row.sv_pct)).toFixed(1) + '%'
+              : '—';
+            return `
+              <tr>
+                <td class="player">${row && row.name ? row.name : '—'}</td>
+                <td>${row && row.saves !== undefined ? row.saves : '—'}</td>
+                <td>${row && row.shots_against !== undefined ? row.shots_against : '—'}</td>
+                <td>${svPct}</td>
+              </tr>
+            `;
+          }).join('');
+          return `
+            <div class="section-title">${title}</div>
+            <table class="boxscore">
+              <thead><tr>
+                <th class="sortable" data-sort-type="text">Goalie</th>
+                <th class="sortable" data-sort-type="num">SV</th>
+                <th class="sortable" data-sort-type="num">SA</th>
+                <th class="sortable" data-sort-type="pct">SV%</th>
+              </tr></thead>
+              <tbody>${body || ''}</tbody>
+            </table>
+          `;
+        };
+
+        const out = [];
+        out.push(`<div class="k">${liveLabel} box</div>`);
+        out.push(renderLinescoreHtml(`${liveLabel} line score`, awayLabel, homeLabel, awayRow, homeRow, false));
+        out.push(renderLivePlayersTable(`Skaters (${awayLabel})`, players && players.away ? players.away : []));
+        out.push(renderLivePlayersTable(`Skaters (${homeLabel})`, players && players.home ? players.home : []));
+        out.push(renderLiveGoaliesTable(`Goalies (${awayLabel})`, goalies && goalies.away ? goalies.away : []));
+        out.push(renderLiveGoaliesTable(`Goalies (${homeLabel})`, goalies && goalies.home ? goalies.home : []));
+        return out.join('');
+      } catch (e) {
+        return `<div class="k">Live box</div><div class="v muted">Live or final box is unavailable.</div>`;
+      }
     }
 
     function normName(s) {
@@ -3452,6 +4897,11 @@
 
         const anyLiveNow = Array.from(mapByPk.values()).some(g => isLiveState(g && g.gameState));
 
+        try {
+          window.__LIVE_BY_KEY__ = mapByKey;
+          window.__LIVE_BY_PK__ = mapByPk;
+        } catch (e) {}
+
         // Update compact top strip from merged payload.
         try { updateScoreboardStripFromLive(mapByKey, mapByPk); } catch (e) {}
 
@@ -3477,6 +4927,10 @@
             const hk = String(card.dataset.homeAbbr || '').trim();
             if (ak && hk) g = mapByKey.get(normKey(`${ak} @ ${hk}`)) || null;
           }
+
+          try {
+            card.dataset.cardStatus = String(g && g.gameState ? g.gameState : card.dataset.cardStatus || '').trim();
+          } catch (e) {}
 
           // Compact per-card lens tag (BET/WATCH) in the title + NCAAB-like live-edge border.
           try {
@@ -3590,26 +5044,27 @@
             if (ctxTop) ctxTop.innerHTML = g ? renderTopLiveContext(g) : '';
           } catch (e) {}
 
-          // Update merged Sim vs Live tables using the pregame team names so sim rows match.
+          // Update left live/final and right sim boxscore panels using the pregame team names so sim rows match.
           try {
             const displayKey = String(card.dataset.gameKey || '').trim();
             const simRows = (window.__SIM_BY_GAME__ && window.__SIM_BY_GAME__.get) ? (window.__SIM_BY_GAME__.get(displayKey) || []) : [];
             const pred = (window.__PREDS_BY_GAME__ && window.__PREDS_BY_GAME__.get) ? (window.__PREDS_BY_GAME__.get(displayKey) || null) : null;
             const awayNm = pred ? (pred.away || '') : (g ? (g.away || '') : '');
             const homeNm = pred ? (pred.home || '') : (g ? (g.home || '') : '');
-            const mergedEl = card.querySelector('.merged-body');
-            if (mergedEl && Array.isArray(simRows) && simRows.length) {
-              const gMerge = {
-                away: awayNm,
-                home: homeNm,
-                gameState: g ? g.gameState : null,
-                lens: (g && g.lens) ? g.lens : { players: { away: [], home: [] }, goalies: { away: [], home: [] } },
-              };
-              const mergedHtml = renderMergedSimLive(gMerge, simRows);
-              mergedEl.innerHTML = (mergedHtml && String(mergedHtml).trim())
-                ? mergedHtml
-                : renderSimBoxscoresOnly(pred || { away: awayNm, home: homeNm }, simRows);
+            const simBoxEl = card.querySelector('.sim-box-body');
+            if (simBoxEl) {
+              simBoxEl.innerHTML = (Array.isArray(simRows) && simRows.length)
+                ? renderSimBoxscoresOnly(pred || { away: awayNm, home: homeNm }, simRows)
+                : `<div class="k">Projected box scores</div><div class="v muted">No sim boxscores available yet.</div>`;
             }
+            const liveBoxEl = card.querySelector('.live-box-body');
+            if (liveBoxEl) {
+              liveBoxEl.innerHTML = g
+                ? renderLiveBoxscoresOnly(g, pred || { away: awayNm, home: homeNm })
+                : `<div class="k">Live box</div><div class="v muted">Live or final box is unavailable.</div>`;
+            }
+
+            renderCardPropSections(card, pred || { away: awayNm, home: homeNm }, simRows, g);
           } catch (e) {}
 
           // Show boxscore-derived stats for LIVE and FINAL games.
@@ -3626,6 +5081,8 @@
             box.style.display = 'none';
           }
         }
+
+        applySlateFilter();
 
         return anyLiveNow;
       } catch (e) {
@@ -3734,6 +5191,10 @@
 
     function setStatus(msg) {
       $('status').textContent = msg;
+      try {
+        const meta = $('cardsHeaderMeta');
+        if (meta) meta.textContent = msg;
+      } catch (e) {}
     }
 
     function setEmpty(msg) {
@@ -3750,11 +5211,18 @@
       stopLivePolling();
       currentDate = date;
       lastPropsStripSignature = '';
+      activeSlateFilter = 'all';
+      currentSlateCards = [];
+      currentSlateInfoByKey = new Map();
+      propCardState.clear();
       setStatus(`Loading ${date}…`);
       clearEmpty();
       $('cards').innerHTML = '';
       try { $('propsStrip').innerHTML = ''; } catch (e) {}
       try { $('propsStripLabel').textContent = ''; } catch (e) {}
+      try { $('cardsSourceMeta').innerHTML = ''; } catch (e) {}
+      try { $('cardsFilters').innerHTML = ''; } catch (e) {}
+      try { window.__LIVE_BY_KEY__ = new Map(); window.__LIVE_BY_PK__ = new Map(); } catch (e) {}
 
       let b = null;
       let sim = null;
@@ -3824,6 +5292,7 @@
       }
       // Expose for live lens merging
       try { window.__SIM_BY_GAME__ = simByGame; } catch (e) {}
+      try { window.__SIM_META__ = { nSims }; } catch (e) {}
 
       // Expose predictions for live lens merging (so merged sim/live uses team names consistently)
       try {
@@ -3837,18 +5306,24 @@
 
       if (!preds.length) {
         setStatus(`No games found for ${date}.`);
+        try { $('cardsDateBadge').textContent = date; } catch (e) {}
         setEmpty('No predictions rows available for this date yet.');
         return;
       }
+
+      try { $('cardsDateBadge').textContent = date; } catch (e) {}
+      try {
+        const metaBits = [`${preds.length} games`];
+        if (nSims !== null && nSims !== undefined && isFinite(Number(nSims))) metaBits.push(`${Number(nSims)} sims / game`);
+        metaBits.push('Tabs: Game / Box Score / Props');
+        $('cardsHeaderMeta').textContent = metaBits.join(' | ');
+      } catch (e) {}
 
       // Sort games by scheduled start time.
       const predsSorted = sortPredsByStart(preds);
 
       // Single unified view: always show the full slate.
       const predsToShow = predsSorted;
-
-      // Render the compact top strip (updated during live polling).
-      try { buildScoreboardStrip(predsToShow); } catch (e) {}
 
       // index recs by game key (away@home)
       const byGame = new Map();
@@ -3867,12 +5342,11 @@
         propsByTeam.get(tm).push(r);
       }
 
-      const frag = document.createDocumentFragment();
+      const renderedGames = [];
       for (const p of predsToShow) {
         const k = keyForGame(p);
         const aAb = predTeamAbbr(p, 'away');
         const hAb = predTeamAbbr(p, 'home');
-        // Filter props to the actual opponent to avoid cross-game bleed.
         const propsAwayAll = (aAb && propsByTeam.get(aAb)) ? propsByTeam.get(aAb) : [];
         const propsHomeAll = (hAb && propsByTeam.get(hAb)) ? propsByTeam.get(hAb) : [];
         const propsAway = (aAb && hAb) ? propsAwayAll.filter(r => {
@@ -3883,15 +5357,50 @@
           const opp = toUpper(r && r.opp);
           return !opp || opp === aAb;
         }) : propsHomeAll;
-        frag.appendChild(renderCard(
-          p,
-          byGame.get(k) || [],
-          simByGame.get(k) || [],
+        const recsForGame = byGame.get(k) || [];
+        renderedGames.push({
+          pred: p,
+          recsForGame,
           propsAway,
           propsHome,
+          simForGame: simByGame.get(k) || [],
+          key: k,
+          status: String(p && p.game_state || '').trim(),
+          hasOfficial: recsForGame.some((row) => {
+            const ev = Number(row && row.ev);
+            return String(row && row.market || '').trim() && isFinite(ev);
+          }),
+          hasProps: buildCardPropRows([].concat(propsAway || [], propsHome || [])).length > 0,
+        });
+      }
+
+      currentSlateCards = renderedGames.map((entry) => ({
+        key: entry.key,
+        gamePk: entry.pred && (entry.pred.gamePk ?? entry.pred.game_pk ?? entry.pred.nhl_game_pk ?? entry.pred.game_id),
+        status: entry.status,
+        hasOfficial: entry.hasOfficial,
+        hasProps: entry.hasProps,
+      }));
+      currentSlateInfoByKey = new Map(currentSlateCards.map((entry) => [normKey(entry.key), entry]));
+      renderSlateSourceMeta(currentSlateCards, nSims);
+      renderSlateFilters(currentSlateCards);
+
+      // Render the compact top strip (updated during live polling).
+      try { buildScoreboardStrip(predsToShow); } catch (e) {}
+
+      const frag = document.createDocumentFragment();
+      for (const entry of renderedGames) {
+        frag.appendChild(renderCard(
+          entry.pred,
+          entry.recsForGame,
+          entry.simForGame,
+          entry.propsAway,
+          entry.propsHome,
+          { nSims }
         ));
       }
       $('cards').appendChild(frag);
+      applySlateFilter();
 
       // Top-of-page props cards strip (best-effort).
       try {

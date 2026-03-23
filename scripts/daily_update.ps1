@@ -42,6 +42,10 @@ Param (
   [switch]$InstallDeps,
   [switch]$BacktestSimulations,
   [int]$BacktestWindowDays = 30,
+  [int]$SimCalibrationTrainDays = 52,
+  [int]$SimCalibrationRefreshDays = 7,
+  [int]$SimCalibrationNSims = 6000,
+  [bool]$SimCalibrationTotalsOnly = $true,
   [switch]$SimRecommendations,
   [switch]$SimIncludeTotals,
   [double]$SimMLThr = 0.65,
@@ -652,6 +656,102 @@ if ($RecomputeRecs) {
     }
   } catch {
     Write-Warning "[daily_update] recommendation recompute failed: $($_.Exception.Message)"
+  }
+}
+
+# Refresh simulation probability calibration on a leakage-safe historical window.
+if ((-not $SkipGameCalibration) -and ($SimulateGames -or $BacktestSimulations -or $SimRecommendations)) {
+  try {
+    $simCalPath = Join-Path $ProcessedDir 'sim_calibration.json'
+    $simCalLinePath = Join-Path $ProcessedDir 'sim_calibration_per_line.json'
+    $trainEndDt = $AnchorNow.AddDays(-1 * ([int]$BacktestWindowDays + 1))
+    $trainStartDt = $trainEndDt.AddDays(-1 * ([int]$SimCalibrationTrainDays - 1))
+    $trainStart = $trainStartDt.ToString('yyyy-MM-dd')
+    $trainEnd = $trainEndDt.ToString('yyyy-MM-dd')
+    $refreshCutoff = $AnchorNow.AddDays(-1 * [int]$SimCalibrationRefreshDays)
+    $needSimCalRefresh = $false
+
+    if (([int]$SimCalibrationTrainDays -gt 0) -and ($trainEndDt -ge $trainStartDt)) {
+      if (-not ((Test-Path $simCalPath) -and (Test-Path $simCalLinePath))) {
+        $needSimCalRefresh = $true
+      } else {
+        try {
+          $simCalObj = Get-Content $simCalPath | ConvertFrom-Json
+          $simCalEnd = $null
+          if ($simCalObj.meta -and $simCalObj.meta.end) { $simCalEnd = [datetime]::Parse($simCalObj.meta.end) }
+          $simCalAge = (Get-Item $simCalPath).LastWriteTime
+          $simCalLineAge = (Get-Item $simCalLinePath).LastWriteTime
+          if (($simCalAge -lt $refreshCutoff) -or ($simCalLineAge -lt $refreshCutoff)) {
+            $needSimCalRefresh = $true
+          } elseif (($null -eq $simCalEnd) -or ($simCalEnd -lt $trainEndDt)) {
+            $needSimCalRefresh = $true
+          }
+        } catch {
+          $needSimCalRefresh = $true
+        }
+      }
+    }
+
+    if ($needSimCalRefresh) {
+      Write-Host "[daily_update] Refreshing sim calibration on $trainStart..$trainEnd …" -ForegroundColor Magenta
+      $builtSimCount = 0
+      $availSimCount = 0
+      for ($d = $trainStartDt; $d -le $trainEndDt; $d = $d.AddDays(1)) {
+        $ds = $d.ToString('yyyy-MM-dd')
+        $predPath = Join-Path $ProcessedDir ("predictions_{0}.csv" -f $ds)
+        $simPath = Join-Path $ProcessedDir ("simulations_{0}.csv" -f $ds)
+        if (-not (Test-Path $predPath)) { continue }
+        if ((-not (Test-Path $simPath)) -or ((Get-Item $simPath).Length -le 0)) {
+          Write-Host "[daily_update] Building historical sim for $ds (n=$SimCalibrationNSims) …" -ForegroundColor DarkYellow
+          $pySimCalArgs = @("-m", "nhl_betting.cli", "game-simulate", "--date", $ds, "--n-sims", "$SimCalibrationNSims")
+          if ($SimOverK -gt 0) { $pySimCalArgs += @("--sim-overdispersion-k", "$SimOverK") }
+          if ($SimSharedK -gt 0) { $pySimCalArgs += @("--sim-shared-k", "$SimSharedK") }
+          if ($SimEmptyNetP -gt 0) { $pySimCalArgs += @("--sim-empty-net-p", "$SimEmptyNetP") }
+          if ($SimEmptyNetTwoGoalScale -gt 0) { $pySimCalArgs += @("--sim-empty-net-two-goal-scale", "$SimEmptyNetTwoGoalScale") }
+          if ($TotalsPaceAlpha -gt 0) { $pySimCalArgs += @("--totals-pace-alpha", "$TotalsPaceAlpha") }
+          if ($TotalsGoalieBeta -gt 0) { $pySimCalArgs += @("--totals-goalie-beta", "$TotalsGoalieBeta") }
+          if ($TotalsFatigueBeta -gt 0) { $pySimCalArgs += @("--totals-fatigue-beta", "$TotalsFatigueBeta") }
+          if ($TotalsRollingPaceGamma -gt 0) { $pySimCalArgs += @("--totals-rolling-pace-gamma", "$TotalsRollingPaceGamma") }
+          if ($TotalsPPGamma -gt 0) { $pySimCalArgs += @("--totals-pp-gamma", "$TotalsPPGamma") }
+          if ($TotalsPKBeta -gt 0) { $pySimCalArgs += @("--totals-pk-beta", "$TotalsPKBeta") }
+          if ($TotalsPenaltyGamma -gt 0) { $pySimCalArgs += @("--totals-penalty-gamma", "$TotalsPenaltyGamma") }
+          if ($TotalsXGGamma -gt 0) { $pySimCalArgs += @("--totals-xg-gamma", "$TotalsXGGamma") }
+          if ($TotalsRefsGamma -gt 0) { $pySimCalArgs += @("--totals-refs-gamma", "$TotalsRefsGamma") }
+          if ($TotalsGoalieFormGamma -gt 0) { $pySimCalArgs += @("--totals-goalie-form-gamma", "$TotalsGoalieFormGamma") }
+          python @pySimCalArgs
+          $builtSimCount += 1
+        }
+        if ((Test-Path $simPath) -and ((Get-Item $simPath).Length -gt 0)) { $availSimCount += 1 }
+      }
+
+      if ($availSimCount -gt 0) {
+        Write-Host "[daily_update] Fitting sim calibration from $availSimCount training days …" -ForegroundColor Magenta
+        python -m nhl_betting.cli game-calibrate-sim --start $trainStart --end $trainEnd
+        python -m nhl_betting.cli game-calibrate-sim-per-line --start $trainStart --end $trainEnd
+        if ($SimCalibrationTotalsOnly -and (Test-Path $simCalPath)) {
+          try {
+            $simCalObj = Get-Content $simCalPath | ConvertFrom-Json
+            if (-not $simCalObj.moneyline) { $simCalObj | Add-Member -NotePropertyName moneyline -NotePropertyValue (@{}) }
+            if (-not $simCalObj.puckline) { $simCalObj | Add-Member -NotePropertyName puckline -NotePropertyValue (@{}) }
+            $simCalObj.moneyline.t = 1.0
+            $simCalObj.moneyline.b = 0.0
+            $simCalObj.puckline.t = 1.0
+            $simCalObj.puckline.b = 0.0
+            $simCalObj | ConvertTo-Json -Depth 8 | Set-Content -Encoding UTF8 $simCalPath
+            Write-Host "[daily_update] Applied totals-only sim calibration (ML/PL reset to identity)." -ForegroundColor DarkGreen
+          } catch {
+            Write-Warning "[daily_update] Failed to enforce totals-only sim calibration: $($_.Exception.Message)"
+          }
+        }
+        Write-Host "[daily_update] Sim calibration refresh complete (built $builtSimCount missing simulation files)." -ForegroundColor DarkGreen
+      } else {
+        Write-Warning "[daily_update] No historical simulation inputs available for sim calibration refresh."
+      }
+    } else {
+      Write-Host "[daily_update] Sim calibration refresh skipped (recent coverage already available)." -ForegroundColor DarkGreen
+    }
+  } catch {
+    Write-Warning "[daily_update] sim calibration refresh failed: $($_.Exception.Message)"
   }
 }
 

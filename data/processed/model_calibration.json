@@ -8,13 +8,14 @@
   "market_anchor_w": 1.0,
   "market_anchor_w_ml": 1.0,
   "market_anchor_w_totals": 0.6,
-  "ml_temp": 1.1500000000000004,
-  "ml_bias": -0.15,
+  "ml_temp": 1.0,
+  "ml_bias": 0.0,
+  "ml_post_calibration_policy": "anchor_only",
   "totals_temp": 0.8,
   "totals_bias": 0.0,
   "moneyline": {
-    "t": 1.1500000000000004,
-    "b": -0.15
+    "t": 1.0,
+    "b": 0.0
   },
   "totals": {
     "t": 0.8,

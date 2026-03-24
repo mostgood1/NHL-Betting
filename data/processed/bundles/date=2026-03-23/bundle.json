@@ -107,7 +107,7 @@
           {
             "book": "betmgm",
             "edge_reasons": "MODEL UND · CONF60+ · MATCHUP-",
-            "edge_score": 0.5128053585381642,
+            "edge_score": 0.513389008997041,
             "ev": 0.3170367834340292,
             "line": 0.5,
             "market": "ASSISTS",
@@ -121,7 +121,7 @@
           {
             "book": "betmgm",
             "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
-            "edge_score": 0.4995709544680758,
+            "edge_score": 0.4986753685564004,
             "ev": 0.1291055534197313,
             "line": 0.5,
             "market": "POINTS",
@@ -133,15 +133,15 @@
             "team": "OTT"
           },
           {
-            "book": "betmgm",
+            "book": "draftkings",
             "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
-            "edge_score": 0.4671203918690463,
-            "ev": 0.1389161564125647,
+            "edge_score": 0.4662248059573708,
+            "ev": 0.1994968030302545,
             "line": 0.5,
             "market": "POINTS",
             "opp": "NYR",
             "player": "Thomas Chabot",
-            "price": -135.0,
+            "price": -120.0,
             "prob": 0.6542709834710478,
             "side": "Over",
             "team": "OTT"
@@ -161,6 +161,6 @@
     "reconciliation_games": null,
     "reconciliation_props": null
   },
-  "generated_at_utc": "2026-03-23T21:57:12+00:00",
+  "generated_at_utc": "2026-03-24T00:15:46+00:00",
   "schema_version": 1
 }

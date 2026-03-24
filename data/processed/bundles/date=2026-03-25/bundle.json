@@ -1,0 +1,191 @@
+{
+  "data": {
+    "games": {
+      "edges": {
+        "count": 0,
+        "rows": [],
+        "source": null
+      },
+      "predictions": {
+        "count": 2,
+        "rows": [
+          {
+            "away": "Boston Bruins",
+            "date": "2026-03-25T23:00:00Z",
+            "game_state": "FUT",
+            "home": "Buffalo Sabres",
+            "model_spread": 0.2,
+            "model_total": 6.07,
+            "p_away_ml": 0.4873,
+            "p_away_pl_+1.5": 0.7072,
+            "p_home_ml": 0.5127,
+            "p_home_pl_-1.5": 0.2928,
+            "p_over": 0.4044,
+            "p_under": 0.4339,
+            "pl_line_used": 1.5,
+            "proj_away_goals": 2.94,
+            "proj_home_goals": 3.14,
+            "total_line_used": 6.0,
+            "venue": "KeyBank Center"
+          },
+          {
+            "away": "New York Rangers",
+            "date": "2026-03-25T23:30:00Z",
+            "game_state": "FUT",
+            "home": "Toronto Maple Leafs",
+            "model_spread": -0.37,
+            "model_total": 6.07,
+            "p_away_ml": 0.5555,
+            "p_away_pl_+1.5": 0.7818,
+            "p_home_ml": 0.4445,
+            "p_home_pl_-1.5": 0.2182,
+            "p_over": 0.4043,
+            "p_under": 0.4338,
+            "pl_line_used": 1.5,
+            "proj_away_goals": 3.22,
+            "proj_home_goals": 2.85,
+            "total_line_used": 6.0,
+            "venue": "Scotiabank Arena"
+          }
+        ]
+      },
+      "recommendations": {
+        "count": 0,
+        "rows": []
+      },
+      "reconciliation": null
+    },
+    "props": {
+      "recommendations": {
+        "count": 8,
+        "rows": [
+          {
+            "book": null,
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
+            "edge_score": 0.7209016482273227,
+            "ev": 0.0,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "TOR",
+            "player": "Taylor Raddysh",
+            "price": null,
+            "prob": 0.915845526345344,
+            "side": "Over",
+            "team": "NYR"
+          },
+          {
+            "book": null,
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
+            "edge_score": 0.6211318294984988,
+            "ev": 0.0,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "TOR",
+            "player": "Mika Zibanejad",
+            "price": null,
+            "prob": 0.791133252934314,
+            "side": "Over",
+            "team": "NYR"
+          },
+          {
+            "book": null,
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
+            "edge_score": 0.6097749575725142,
+            "ev": 0.0,
+            "line": 2.5,
+            "market": "SOG",
+            "opp": "TOR",
+            "player": "Taylor Raddysh",
+            "price": null,
+            "prob": 0.7769371630268334,
+            "side": "Over",
+            "team": "NYR"
+          },
+          {
+            "book": null,
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
+            "edge_score": 0.60932481905817,
+            "ev": 0.0,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "TOR",
+            "player": "Matthew Robertson",
+            "price": null,
+            "prob": 0.7763744898839031,
+            "side": "Over",
+            "team": "NYR"
+          },
+          {
+            "book": null,
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
+            "edge_score": 0.592897543051335,
+            "ev": 0.0,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "TOR",
+            "player": "Alexis Lafrenière",
+            "price": null,
+            "prob": 0.7558403948753594,
+            "side": "Over",
+            "team": "NYR"
+          },
+          {
+            "book": null,
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
+            "edge_score": 0.5818479522663843,
+            "ev": 0.0,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "BOS",
+            "player": "Alex Tuch",
+            "price": null,
+            "prob": 0.8090612787779637,
+            "side": "Over",
+            "team": "BUF"
+          },
+          {
+            "book": null,
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
+            "edge_score": 0.56242799613491,
+            "ev": 0.0,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "BOS",
+            "player": "Tage Thompson",
+            "price": null,
+            "prob": 0.7847863336136208,
+            "side": "Over",
+            "team": "BUF"
+          },
+          {
+            "book": null,
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP-",
+            "edge_score": 0.5533521210809914,
+            "ev": 0.0,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "BUF",
+            "player": "David Pastrnak",
+            "price": null,
+            "prob": 0.8645866197048764,
+            "side": "Over",
+            "team": "BOS"
+          }
+        ],
+        "source": "props_recommendations_2026-03-25.csv"
+      },
+      "reconciliation": null
+    }
+  },
+  "date": "2026-03-25",
+  "files": {
+    "edges": null,
+    "game_recommendations": null,
+    "predictions": "data/processed/predictions_2026-03-25.csv",
+    "props_recommendations": "data/processed/props_recommendations_2026-03-25.csv",
+    "reconciliation_games": null,
+    "reconciliation_props": null
+  },
+  "generated_at_utc": "2026-03-24T16:14:18+00:00",
+  "schema_version": 1
+}

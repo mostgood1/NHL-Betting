@@ -8,14 +8,14 @@
             "away": "New York Rangers",
             "bet": "over",
             "book": null,
-            "edge_reasons": "total 8.17 vs line 6.5 (+1.67); p=0.714; P1 pace 2.62",
-            "edge_score": 0.7292255998982035,
-            "ev": 0.4630166666666665,
+            "edge_reasons": "total 8.03 vs line 6.5 (+1.53); p=0.697; P1 pace 2.54",
+            "edge_score": 0.7078088393290145,
+            "ev": 0.4278249999999999,
             "home": "Toronto Maple Leafs",
             "market": "ev_over",
             "market_group": "totals",
             "price": 105.0,
-            "prob": 0.7136666666666667,
+            "prob": 0.6965,
             "side": "Over 6.5",
             "totals_line": 6.5
           },
@@ -23,14 +23,14 @@
             "away": "Boston Bruins",
             "bet": "over",
             "book": null,
-            "edge_reasons": "total 7.75 vs line 6.5 (+1.25); p=0.669; P1 pace 2.47",
-            "edge_score": 0.6715290363225143,
-            "ev": 0.265690476190476,
+            "edge_reasons": "total 7.69 vs line 6.5 (+1.19); p=0.657; P1 pace 2.47",
+            "edge_score": 0.6583517980077341,
+            "ev": 0.2429761904761903,
             "home": "Buffalo Sabres",
             "market": "ev_over",
             "market_group": "totals",
             "price": -112.0,
-            "prob": 0.6686666666666666,
+            "prob": 0.6566666666666666,
             "side": "Over 6.5",
             "totals_line": 6.5
           },
@@ -38,14 +38,14 @@
             "away": "New York Rangers",
             "bet": "away_ml",
             "book": null,
-            "edge_reasons": "p=0.735",
-            "edge_score": 0.4701666666666666,
-            "ev": 0.3376106557377049,
+            "edge_reasons": "p=0.726",
+            "edge_score": 0.4513333333333333,
+            "ev": 0.3204754098360656,
             "home": "Toronto Maple Leafs",
             "market": "ev_away_ml",
             "market_group": "moneyline",
             "price": -122.0,
-            "prob": 0.7350833333333333,
+            "prob": 0.7256666666666667,
             "side": "New York Rangers",
             "totals_line": null
           },
@@ -53,59 +53,59 @@
             "away": "New York Rangers",
             "bet": "home_ml",
             "book": null,
-            "edge_reasons": "p=0.265",
-            "edge_score": 0.4701666666666666,
-            "ev": -0.4648683333333333,
+            "edge_reasons": "p=0.274",
+            "edge_score": 0.4513333333333333,
+            "ev": -0.4458466666666666,
             "home": "Toronto Maple Leafs",
             "market": "ev_home_ml",
             "market_group": "moneyline",
             "price": 102.0,
-            "prob": 0.2649166666666667,
+            "prob": 0.2743333333333333,
             "side": "Toronto Maple Leafs",
-            "totals_line": null
-          },
-          {
-            "away": "Boston Bruins",
-            "bet": "away_ml",
-            "book": null,
-            "edge_reasons": "p=0.345",
-            "edge_score": 0.3091666666666667,
-            "ev": -0.0673749999999999,
-            "home": "Buffalo Sabres",
-            "market": "ev_away_ml",
-            "market_group": "moneyline",
-            "price": 170.0,
-            "prob": 0.3454166666666666,
-            "side": "Boston Bruins",
             "totals_line": null
           },
           {
             "away": "Boston Bruins",
             "bet": "home_ml",
             "book": null,
-            "edge_reasons": "p=0.655",
-            "edge_score": 0.3091666666666666,
-            "ev": -0.0261077235772358,
+            "edge_reasons": "p=0.657",
+            "edge_score": 0.3141666666666667,
+            "ev": -0.0223882113821137,
             "home": "Buffalo Sabres",
             "market": "ev_home_ml",
             "market_group": "moneyline",
             "price": -205.0,
-            "prob": 0.6545833333333333,
+            "prob": 0.6570833333333334,
             "side": "Buffalo Sabres",
+            "totals_line": null
+          },
+          {
+            "away": "Boston Bruins",
+            "bet": "away_ml",
+            "book": null,
+            "edge_reasons": "p=0.343",
+            "edge_score": 0.3141666666666667,
+            "ev": -0.074125,
+            "home": "Buffalo Sabres",
+            "market": "ev_away_ml",
+            "market_group": "moneyline",
+            "price": 170.0,
+            "prob": 0.3429166666666666,
+            "side": "Boston Bruins",
             "totals_line": null
           },
           {
             "away": "New York Rangers",
             "bet": "under",
             "book": null,
-            "edge_reasons": "total 8.17 vs line 6.5 (+1.67); p=0.286; P1 pace 2.62",
-            "edge_score": 0.2058018510821888,
-            "ev": -0.4846,
+            "edge_reasons": "total 8.03 vs line 6.5 (+1.53); p=0.303; P1 pace 2.54",
+            "edge_score": 0.1965205724356914,
+            "ev": -0.4537,
             "home": "Toronto Maple Leafs",
             "market": "ev_under",
             "market_group": "totals",
             "price": -125.0,
-            "prob": 0.2863333333333333,
+            "prob": 0.3035,
             "side": "Under 6.5",
             "totals_line": 6.5
           },
@@ -113,14 +113,14 @@
             "away": "Boston Bruins",
             "bet": "under",
             "book": null,
-            "edge_reasons": "total 7.75 vs line 6.5 (+1.25); p=0.331; P1 pace 2.47",
-            "edge_score": 0.1830278264225837,
-            "ev": -0.3618765432098766,
+            "edge_reasons": "total 7.69 vs line 6.5 (+1.19); p=0.343; P1 pace 2.47",
+            "edge_score": 0.1747462412079521,
+            "ev": -0.3387654320987655,
             "home": "Buffalo Sabres",
             "market": "ev_under",
             "market_group": "totals",
             "price": -108.0,
-            "prob": 0.3313333333333333,
+            "prob": 0.3433333333333333,
             "side": "Under 6.5",
             "totals_line": 6.5
           }
@@ -138,41 +138,41 @@
             "home": "Buffalo Sabres",
             "home_ml_odds": -205.0,
             "home_pl_-1.5_odds": 120.0,
-            "model_total": 7.75,
+            "model_total": 7.693166666666666,
             "over_odds": -112.0,
-            "p_away_ml": 0.3454166666666666,
-            "p_away_pl_+1.5": 0.606,
-            "p_home_ml": 0.6545833333333333,
-            "p_home_pl_-1.5": 0.394,
-            "p_over": 0.6686666666666666,
-            "p_under": 0.3313333333333333,
+            "p_away_ml": 0.3429166666666666,
+            "p_away_pl_+1.5": 0.6045,
+            "p_home_ml": 0.6570833333333334,
+            "p_home_pl_-1.5": 0.3955,
+            "p_over": 0.6566666666666666,
+            "p_under": 0.3433333333333333,
             "pl_line_used": 1.5,
-            "proj_away_goals": 3.3955,
-            "proj_home_goals": 4.3545,
+            "proj_away_goals": 3.3793333333333333,
+            "proj_home_goals": 4.313833333333333,
             "segments": {
               "final": {
-                "away_win_prob": 0.2992921254390661,
-                "home_win_prob": 0.560911941822642,
-                "tie_prob": 0.1397959327382919
+                "away_win_prob": 0.30255923873364077,
+                "home_win_prob": 0.5566692019469709,
+                "tie_prob": 0.14077155931938845
               },
               "ot": {
-                "no_prob": 0.8602040672617081,
-                "yes_prob": 0.1397959327382919
+                "no_prob": 0.8592284406806115,
+                "yes_prob": 0.14077155931938845
               },
               "p1": {
-                "away_win_prob": 0.2815523741954236,
-                "home_win_prob": 0.4519670057057437,
-                "tie_prob": 0.26648062009883267
+                "away_win_prob": 0.2829287152831927,
+                "home_win_prob": 0.4500437141548293,
+                "tie_prob": 0.267027570561978
               },
               "p2": {
-                "away_win_prob": 0.2907847617429591,
-                "home_win_prob": 0.4490435490702599,
-                "tie_prob": 0.260171689186781
+                "away_win_prob": 0.2967130673474061,
+                "home_win_prob": 0.43931022680771453,
+                "tie_prob": 0.26397670584487937
               },
               "p3": {
-                "away_win_prob": 0.31002852818649007,
-                "home_win_prob": 0.4275099068986713,
-                "tie_prob": 0.26246156491483863
+                "away_win_prob": 0.30722964460579383,
+                "home_win_prob": 0.43025100836636765,
+                "tie_prob": 0.26251934702783836
               }
             },
             "total_line_used": 6.5,
@@ -186,41 +186,41 @@
             "home": "Toronto Maple Leafs",
             "home_ml_odds": 102.0,
             "home_pl_-1.5_odds": null,
-            "model_total": 8.167833333333334,
+            "model_total": 8.027666666666667,
             "over_odds": 105.0,
-            "p_away_ml": 0.7350833333333333,
-            "p_away_pl_+1.5": 0.8973333333333333,
-            "p_home_ml": 0.2649166666666667,
-            "p_home_pl_-1.5": 0.1026666666666666,
-            "p_over": 0.7136666666666667,
-            "p_under": 0.2863333333333333,
+            "p_away_ml": 0.7256666666666667,
+            "p_away_pl_+1.5": 0.8906666666666667,
+            "p_home_ml": 0.2743333333333333,
+            "p_home_pl_-1.5": 0.1093333333333333,
+            "p_over": 0.6965,
+            "p_under": 0.3035,
             "pl_line_used": 1.5,
-            "proj_away_goals": 4.874666666666666,
-            "proj_home_goals": 3.2931666666666666,
+            "proj_away_goals": 4.755333333333334,
+            "proj_home_goals": 3.272333333333333,
             "segments": {
               "final": {
-                "away_win_prob": 0.6411731908717658,
-                "home_win_prob": 0.23359496410471606,
-                "tie_prob": 0.12523184502351814
+                "away_win_prob": 0.6300126023505581,
+                "home_win_prob": 0.24187718445124928,
+                "tie_prob": 0.12811021319819257
               },
               "ot": {
-                "no_prob": 0.8747681549764819,
-                "yes_prob": 0.12523184502351814
+                "no_prob": 0.8718897868018074,
+                "yes_prob": 0.12811021319819257
               },
               "p1": {
-                "away_win_prob": 0.5061563888872056,
-                "home_win_prob": 0.2437430743023762,
-                "tie_prob": 0.25010053681041816
+                "away_win_prob": 0.49060280040283183,
+                "home_win_prob": 0.2523627410303808,
+                "tie_prob": 0.25703445856678736
               },
               "p2": {
-                "away_win_prob": 0.4994625932188666,
-                "home_win_prob": 0.25517222217738056,
-                "tie_prob": 0.24536518460375284
+                "away_win_prob": 0.49733669429061483,
+                "home_win_prob": 0.25588561816405764,
+                "tie_prob": 0.24677768754532756
               },
               "p3": {
-                "away_win_prob": 0.4777734119612274,
-                "home_win_prob": 0.2717780286106135,
-                "tie_prob": 0.2504485594281591
+                "away_win_prob": 0.47079944879666685,
+                "home_win_prob": 0.2755690617173452,
+                "tie_prob": 0.25363148948598796
               }
             },
             "total_line_used": 6.5,
@@ -233,12 +233,12 @@
         "rows": [
           {
             "away": "New York Rangers",
-            "conf": 0.2350833333333333,
-            "ev": 0.3376106557377049,
+            "conf": 0.2256666666666666,
+            "ev": 0.3204754098360656,
             "home": "Toronto Maple Leafs",
             "market": "ML",
             "price": -122.0,
-            "prob": 0.7350833333333333,
+            "prob": 0.7256666666666667,
             "side": "New York Rangers",
             "totals_line": 6.5
           }
@@ -248,12 +248,12 @@
     },
     "props": {
       "recommendations": {
-        "count": 6,
+        "count": 8,
         "rows": [
           {
             "book": "draftkings",
             "edge_reasons": "MODEL UND · CONF60+ · MATCHUP+",
-            "edge_score": 0.7501866262637524,
+            "edge_score": 0.7329958839110773,
             "ev": 1.649735013249558,
             "line": 0.5,
             "market": "POINTS",
@@ -265,9 +265,23 @@
             "team": "BUF"
           },
           {
+            "book": "betmgm",
+            "edge_reasons": "MODEL OVR · CONF60+ · B2B · MATCHUP+",
+            "edge_score": 0.694296358697748,
+            "ev": 0.5704604326586693,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "NYR",
+            "player": "Nicholas Robertson",
+            "price": -135.0,
+            "prob": 0.9021793974847676,
+            "side": "Over",
+            "team": "TOR"
+          },
+          {
             "book": "draftkings",
             "edge_reasons": "MODEL UND · CONF60+ · MATCHUP+",
-            "edge_score": 0.6726914926943661,
+            "edge_score": 0.6565251372593911,
             "ev": 0.4898592681713759,
             "line": 0.5,
             "market": "ASSISTS",
@@ -279,23 +293,37 @@
             "team": "BUF"
           },
           {
-            "book": "betmgm",
-            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
-            "edge_score": 0.5937686668281625,
-            "ev": 0.3514667046127202,
-            "line": 1.5,
-            "market": "SOG",
-            "opp": "NYR",
-            "player": "Nicholas Robertson",
-            "price": -135.0,
-            "prob": 0.7763744898839031,
+            "book": "draftkings",
+            "edge_reasons": "MODEL UND · CONF60+ · B2B · MATCHUP+",
+            "edge_score": 0.5204248442518514,
+            "ev": 0.2908950352595107,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "BUF",
+            "player": "Morgan Geekie",
+            "price": -120.0,
+            "prob": 0.7041245646870058,
+            "side": "Under",
+            "team": "BOS"
+          },
+          {
+            "book": "draftkings",
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP-",
+            "edge_score": 0.4824679771328226,
+            "ev": 0.1787010028502762,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "BOS",
+            "player": "Rasmus Dahlin",
+            "price": -188.0,
+            "prob": 0.7694298213050415,
             "side": "Over",
-            "team": "TOR"
+            "team": "BUF"
           },
           {
             "book": "betmgm",
             "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
-            "edge_score": 0.4730349258869531,
+            "edge_score": 0.4741292268296715,
             "ev": 0.211877019025074,
             "line": 0.5,
             "market": "POINTS",
@@ -309,7 +337,7 @@
           {
             "book": "draftkings",
             "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
-            "edge_score": 0.4404765151528287,
+            "edge_score": 0.4415708160955471,
             "ev": 0.4560636557176932,
             "line": 0.5,
             "market": "POINTS",
@@ -321,16 +349,16 @@
             "team": "NYR"
           },
           {
-            "book": "betmgm",
-            "edge_reasons": "MODEL UND · CONF60+ · MATCHUP-",
-            "edge_score": 0.3902739756091247,
-            "ev": 0.2523848692342912,
+            "book": "draftkings",
+            "edge_reasons": "MODEL UND · CONF60+ · B2B · MATCHUP-",
+            "edge_score": 0.3786719557363307,
+            "ev": 0.2820236334414933,
             "line": 0.5,
             "market": "ASSISTS",
             "opp": "NYR",
             "player": "William Nylander",
-            "price": -105.0,
-            "prob": 0.6414654208273199,
+            "price": 105.0,
+            "prob": 0.6253773821665821,
             "side": "Under",
             "team": "TOR"
           }
@@ -349,6 +377,6 @@
     "reconciliation_games": null,
     "reconciliation_props": null
   },
-  "generated_at_utc": "2026-03-25T16:51:47+00:00",
+  "generated_at_utc": "2026-03-25T19:56:27+00:00",
   "schema_version": 2
 }

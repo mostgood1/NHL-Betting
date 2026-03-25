@@ -1,8 +1,11 @@
 market,side,price,ev,prob,conf,home,away,totals_line
-PL,Columbus Blue Jackets +1.5,-258.0,0.12487855297157624,0.8106666666666666,0.31066666666666665,Montréal Canadiens,Columbus Blue Jackets,6.5
-PL,Pittsburgh Penguins +1.5,-205.0,0.16867073170731706,0.7855,0.2855,Ottawa Senators,Pittsburgh Penguins,5.5
-PL,Seattle Kraken +1.5,-115.0,0.4676086956521739,0.785,0.28500000000000003,Tampa Bay Lightning,Seattle Kraken,6.5
-PL,New Jersey Devils +1.5,-265.0,0.08053773584905649,0.7845,0.2845,Nashville Predators,New Jersey Devils,5.5
-PL,Chicago Blackhawks +1.5,-185.0,0.20085135135135135,0.7795,0.27949999999999997,Philadelphia Flyers,Chicago Blackhawks,5.5
-PL,Washington Capitals +1.5,-198.0,0.16591245791245796,0.7746666666666666,0.2746666666666666,Utah Mammoth,Washington Capitals,5.5
-PL,Edmonton Oilers +1.5,-225.0,0.03687037037037033,0.7178333333333333,0.21783333333333332,Vegas Golden Knights,Edmonton Oilers,6.5
+PL,Edmonton Oilers +1.5,-225.0,0.24438888888888877,0.8614999999999999,0.36149999999999993,Vegas Golden Knights,Edmonton Oilers,6.5
+PL,Pittsburgh Penguins +1.5,-205.0,0.1805731707317073,0.7935,0.2935,Ottawa Senators,Pittsburgh Penguins,5.5
+PL,New Jersey Devils +1.5,-265.0,0.05872955974842753,0.7686666666666666,0.2686666666666666,Nashville Predators,New Jersey Devils,5.5
+PL,Chicago Blackhawks +1.5,-185.0,0.15489189189189195,0.7496666666666667,0.2496666666666667,Philadelphia Flyers,Chicago Blackhawks,5.5
+ML,Anaheim Ducks,-148.0,0.24977477477477483,0.7458333333333333,0.24583333333333335,Calgary Flames,Anaheim Ducks,6.5
+ML,Tampa Bay Lightning,-265.0,0.0164905660377358,0.738,0.238,Tampa Bay Lightning,Seattle Kraken,6.5
+ML,Colorado Avalanche,-185.0,0.11047297297297298,0.7208333333333333,0.22083333333333333,Winnipeg Jets,Colorado Avalanche,6.5
+ML,Dallas Stars,-130.0,0.2679487179487179,0.7166666666666667,0.21666666666666667,New York Islanders,Dallas Stars,5.5
+ML,Utah Mammoth,-155.0,0.08950806451612897,0.66225,0.16225,Utah Mammoth,Washington Capitals,5.5
+ML,Edmonton Oilers,114.0,0.4018783333333331,0.6550833333333334,0.15508333333333335,Vegas Golden Knights,Edmonton Oilers,6.5

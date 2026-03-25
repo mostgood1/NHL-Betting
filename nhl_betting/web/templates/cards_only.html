@@ -30,11 +30,8 @@
     }
 
     .cards-title-block {
-      display: flex;
-      align-items: end;
-      justify-content: space-between;
-      gap: 16px;
-      flex-wrap: wrap;
+      display: grid;
+      gap: 8px;
     }
 
     .cards-kicker,
@@ -61,8 +58,7 @@
 
     .cards-header-actions,
     .topbar,
-    .date-picker,
-    .view-toggle {
+    .date-picker {
       display: flex;
       align-items: center;
       gap: 10px;
@@ -98,6 +94,113 @@
       border-radius: 20px;
     }
 
+    .cards-control-card--inline {
+      display: grid;
+      gap: 10px;
+      padding: 12px 14px;
+      border-radius: 20px;
+    }
+
+    .cards-control-surface {
+      display: grid;
+      grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.9fr);
+      gap: 14px;
+      padding: 14px;
+      border: 1px solid var(--cards-line);
+      border-radius: 24px;
+      background: linear-gradient(180deg, rgba(13, 27, 43, 0.92), rgba(8, 18, 30, 0.98));
+      box-shadow: var(--cards-shadow);
+      align-items: start;
+    }
+
+    html.light .cards-control-surface {
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(247, 250, 252, 0.98));
+    }
+
+    .cards-control-main,
+    .cards-control-summary {
+      display: grid;
+      gap: 10px;
+      align-content: start;
+      min-width: 0;
+    }
+
+    .cards-control-summary {
+      padding: 14px;
+      border: 1px solid rgba(132, 166, 196, 0.10);
+      border-radius: 22px;
+      background: rgba(7, 16, 28, 0.58);
+    }
+
+    html.light .cards-control-summary {
+      background: rgba(255, 255, 255, 0.78);
+    }
+
+    .cards-actions-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .cards-actions-row > .cards-control-card--inline {
+      flex: 1 1 460px;
+      min-width: min(100%, 420px);
+    }
+
+    header .btn {
+      min-height: 44px;
+      padding: 0 18px;
+      border-radius: 999px;
+      border: 1px solid rgba(132, 166, 196, 0.18);
+      background: rgba(8, 18, 30, 0.86);
+      color: var(--cards-text);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    }
+
+    header .btn:hover {
+      border-color: rgba(154, 243, 222, 0.22);
+      background: rgba(10, 21, 34, 0.96);
+      transform: translateY(-1px);
+    }
+
+    html.light header .btn {
+      background: rgba(255, 255, 255, 0.92);
+    }
+
+    .topbar--compact {
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .cards-control-card--inline .cards-filters {
+      gap: 10px;
+      align-items: center;
+    }
+
+    .date-picker--inline {
+      gap: 8px;
+      flex-wrap: nowrap;
+    }
+
+    .date-picker--inline label {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
     .date-picker label {
       color: var(--cards-text-dim);
       font-size: 11px;
@@ -117,6 +220,16 @@
       font-weight: 700;
     }
 
+    .date-picker--inline .date-input {
+      min-width: 180px;
+      min-height: 46px;
+      padding: 0 18px;
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      background: rgba(6, 16, 27, 0.86);
+    }
+
     html.light .date-input {
       background: rgba(255, 255, 255, 0.92);
     }
@@ -128,6 +241,10 @@
     .muted {
       color: var(--cards-text-dim);
       font-size: 12px;
+    }
+
+    #status:empty {
+      display: none;
     }
 
     .cards-section-heading {
@@ -310,7 +427,7 @@
     }
 
     .cards-source-meta {
-      margin: 14px 0 0;
+      margin: 0;
     }
 
     .cards-source-meta-pill,
@@ -336,7 +453,8 @@
     .cards-source-meta-pill,
     .cards-filter-pill,
     .cards-prop-filter-pill {
-      padding: 9px 14px;
+      min-height: 40px;
+      padding: 10px 16px;
     }
 
     .cards-source-meta-pill.is-live,
@@ -817,11 +935,16 @@
       --sb-gap: 8px;
       --sb-pad: 8px;
       --sb-item-min-h: 138px;
-      grid-template-columns: repeat(var(--sb-cols, 1), minmax(240px, 1fr));
+      display: flex;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      overflow-y: hidden;
+      max-height: none;
       border-radius: 20px;
     }
 
     .compact-card .scoreboard-strip .s-item {
+      flex: 0 0 320px;
       padding: 10px;
       border-radius: 16px;
       gap: 8px;
@@ -840,15 +963,15 @@
     }
 
     .cards-shell {
-      width: min(100%, 1360px);
+      width: min(1500px, calc(100vw - 24px));
       margin: 0 auto;
-      padding: 18px 18px 40px;
+      padding: 28px 0 44px;
     }
 
     .cards-header {
       display: grid;
       gap: 14px;
-      margin-bottom: 18px;
+      margin-bottom: 12px;
     }
 
     .cards-title-row {
@@ -858,11 +981,37 @@
       gap: 10px;
     }
 
+    .cards-title-row #pageTitle {
+      font-size: clamp(28px, 4vw, 38px);
+      line-height: 0.98;
+      letter-spacing: -0.02em;
+    }
+
     .cards-header-meta {
-      margin: 8px 0 0;
+      margin: 6px 0 0;
       color: var(--cards-text-dim);
       font-size: 13px;
+      font-weight: 600;
       line-height: 1.4;
+    }
+
+    .cards-header-actions {
+      display: contents;
+    }
+
+    .cards-source-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .cards-summary-kicker {
+      color: var(--cards-text-dim);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
     }
 
     .cards-nav-pill,
@@ -884,6 +1033,13 @@
       letter-spacing: 0.08em;
       text-transform: uppercase;
       white-space: nowrap;
+    }
+
+    .cards-nav-pill {
+      min-height: 44px;
+      padding: 0 18px;
+      font-size: 14px;
+      letter-spacing: 0.04em;
     }
 
     .cards-nav-pill.is-active,
@@ -947,8 +1103,10 @@
     }
 
     .cards-head-left {
-      display: grid;
-      gap: 6px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      flex-wrap: wrap;
       min-width: 0;
     }
 
@@ -1073,16 +1231,16 @@
     .cards-panel-card,
     .cards-lens-shell {
       display: grid;
-      gap: 8px;
+      gap: 6px;
       align-content: start;
-      padding: 13px 14px;
+      padding: 10px 12px;
       border: 1px solid var(--cards-line);
-      border-radius: 18px;
-      background: rgba(5, 14, 24, 0.66);
+      border-radius: 16px;
+      background: linear-gradient(180deg, rgba(13, 29, 44, 0.95), rgba(8, 18, 30, 0.92));
     }
 
     .cards-market-tile {
-      min-height: 96px;
+      min-height: 94px;
     }
 
     .cards-market-label,
@@ -1098,8 +1256,8 @@
     .cards-market-main,
     .cards-lens-main {
       font-family: "Space Grotesk", sans-serif;
-      font-size: 17px;
-      line-height: 1.12;
+      font-size: 18px;
+      line-height: 1.08;
       font-weight: 700;
       overflow-wrap: anywhere;
     }
@@ -1108,7 +1266,7 @@
     .cards-lens-head {
       display: flex;
       justify-content: space-between;
-      align-items: start;
+      align-items: center;
       gap: 10px;
     }
 
@@ -1122,6 +1280,7 @@
 
     .cards-overview-grid {
       grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+      gap: 10px;
     }
 
     .cards-box-grid,
@@ -1133,16 +1292,8 @@
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
-    .cards-data-pair {
-      display: grid;
-      gap: 4px;
-      padding: 8px 10px;
-      border: 1px solid var(--cards-line);
-      border-radius: 14px;
-      background: rgba(10, 21, 34, 0.88);
-    }
-
-    .cards-data-pair span {
+    .cards-data-pair span,
+    .cards-mini-metric span {
       color: var(--cards-text-dim);
       font-size: 10px;
       font-weight: 800;
@@ -1150,11 +1301,109 @@
       text-transform: uppercase;
     }
 
-    .cards-data-pair strong {
+    .cards-data-pair strong,
+    .cards-mini-metric strong {
       font-family: "Space Grotesk", sans-serif;
       font-size: 17px;
       line-height: 1.08;
       overflow-wrap: anywhere;
+    }
+
+    .cards-mini-metrics {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .cards-mini-metric {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      min-height: 72px;
+      padding: 10px 12px;
+      border: 1px solid var(--cards-line);
+      border-radius: 16px;
+      background: rgba(10, 21, 34, 0.88);
+    }
+
+    .cards-mini-metric-copy {
+      color: var(--cards-text-soft);
+      font-size: 12px;
+      line-height: 1.32;
+      text-align: right;
+    }
+
+    .cards-prob-grid {
+      display: grid;
+      gap: 10px;
+    }
+
+    .cards-prob-row {
+      display: grid;
+      gap: 6px;
+      padding: 10px 12px;
+      border: 1px solid var(--cards-line);
+      border-radius: 16px;
+      background: rgba(10, 21, 34, 0.72);
+    }
+
+    .cards-prob-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .cards-prob-label {
+      color: var(--cards-text-dim);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .cards-prob-badge {
+      color: var(--cards-text-dim);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .cards-prob-bar {
+      display: flex;
+      align-items: stretch;
+      min-height: 14px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: rgba(25, 34, 46, 0.92);
+      border: 1px solid rgba(132, 166, 196, 0.12);
+    }
+
+    .cards-prob-away,
+    .cards-prob-home,
+    .cards-prob-tie {
+      flex: 0 0 var(--seg-width, 0%);
+      min-width: 0;
+    }
+
+    .cards-prob-away {
+      background: #d97a7d;
+    }
+
+    .cards-prob-tie {
+      background: rgba(38, 48, 61, 0.92);
+    }
+
+    .cards-prob-home {
+      background: #99d8d2;
+    }
+
+    .cards-prob-meta {
+      color: var(--cards-text-soft);
+      font-size: 12px;
+      line-height: 1.35;
     }
 
     .cards-tabs {
@@ -1199,6 +1448,36 @@
     .cards-panel.is-active {
       display: grid;
       gap: 12px;
+    }
+
+    .cards-callout-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      gap: 10px;
+    }
+
+    .cards-callout {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      border: 1px solid var(--cards-line);
+      border-radius: 16px;
+      background: rgba(10, 21, 34, 0.72);
+    }
+
+    .cards-callout strong {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 16px;
+      line-height: 1.08;
+      overflow-wrap: anywhere;
+    }
+
+    .cards-callout .cards-callout-copy {
+      text-align: right;
     }
 
     .cards-overview-copy .v,
@@ -1283,6 +1562,19 @@
         align-items: start;
       }
 
+      .cards-control-surface {
+        grid-template-columns: 1fr;
+      }
+
+      .cards-control-summary {
+        padding: 14px;
+      }
+
+      .topbar--compact,
+      .date-picker--inline {
+        flex-wrap: wrap;
+      }
+
       .cards-strip-head,
       .cards-score-ribbon,
       .cards-market-row,
@@ -1330,10 +1622,6 @@
   </style>
   <script>
     (function() {
-      try {
-        const saved = localStorage.getItem('theme');
-        if (saved === 'light') document.documentElement.classList.add('light');
-      } catch (e) {}
     })();
   </script>
 </head>
@@ -1349,27 +1637,30 @@
         <p class="cards-header-meta" id="cardsHeaderMeta">Loading slate...</p>
       </div>
       <div class="cards-header-actions">
-        <a id="accuracyLink" class="btn" href="/live_lens_accuracy">Live Lens Accuracy</a>
-        <button type="button" id="themeToggle" class="btn" title="Toggle light/dark theme">Toggle Theme</button>
-      </div>
-      <section class="cards-control-card" aria-label="Slate controls">
-        <div class="topbar">
-          <div class="date-picker">
-            <label for="datePicker">Date</label>
-            <input id="datePicker" class="date-input" type="date" />
+        <div class="cards-control-surface">
+          <div class="cards-control-main">
+            <div class="cards-actions-row">
+              <section class="cards-control-card cards-control-card--inline" aria-label="Slate controls">
+                <div class="topbar topbar--compact">
+                  <a id="accuracyLink" class="btn" href="/live_lens_accuracy?date={{ initial_date | urlencode }}">Live Lens Accuracy</a>
+                  <a id="skaterLaddersLink" class="btn" href="/skater-ladders?date={{ initial_date | urlencode }}">Skater Ladders</a>
+                  <a id="goalieLaddersLink" class="btn" href="/goalie-ladders?date={{ initial_date | urlencode }}">Goalie Ladders</a>
+                  <div class="date-picker date-picker--inline">
+                    <label for="datePicker">Date</label>
+                    <input id="datePicker" class="date-input" type="date" value="{{ initial_date }}" />
+                  </div>
+                  <div class="muted" id="status">Loading…</div>
+                </div>
+                <div id="cardsFilters" class="cards-filters" aria-label="Slate filters"></div>
+              </section>
+            </div>
           </div>
-          <div class="view-toggle">
-            <label class="pill" title="Toggle compact spacing">
-              <input type="checkbox" id="compactModeChk" />
-              Compact
-            </label>
-          </div>
-          <div class="spacer"></div>
-          <div class="muted" id="status">Loading…</div>
+          <aside class="cards-control-summary" aria-label="Slate summary">
+            <div class="cards-summary-kicker">Slate Summary</div>
+            <div id="cardsSourceMeta" class="cards-source-meta"></div>
+          </aside>
         </div>
-      </section>
-      <div id="cardsSourceMeta" class="cards-source-meta" aria-label="Slate summary"></div>
-      <div id="cardsFilters" class="cards-filters" aria-label="Slate filters"></div>
+      </div>
     </header>
     <main>
       <div class="cards-section-heading">
@@ -1408,37 +1699,7 @@
     let currentSlateInfoByKey = new Map();
     const propCardState = new Map();
 
-    const LS_COMPACT_KEY = 'nhl:compactMode:v2';
-    const LS_COMPACT_KEY_LEGACY = 'nhl:compactMode';
     const DEFAULT_PAGE_TITLE = 'NHL Game Cards';
-
-    function _lsGetStoredBool(key) {
-      try {
-        const v = localStorage.getItem(key);
-        if (v === null || v === undefined) return undefined;
-        if (v === '1' || v === 'true') return true;
-        if (v === '0' || v === 'false') return false;
-        return undefined;
-      } catch (e) {
-        return undefined;
-      }
-    }
-
-    function _lsGetBool(key, defaultVal=false) {
-      const v = _lsGetStoredBool(key);
-      return (v === undefined) ? defaultVal : v;
-    }
-
-    function _lsSetBool(key, val) {
-      try { localStorage.setItem(key, val ? '1' : '0'); } catch (e) {}
-    }
-
-    function _syncPillActiveForCheckbox(chk) {
-      try {
-        const pill = chk && chk.closest ? chk.closest('.pill') : null;
-        if (pill) pill.classList.toggle('active', !!chk.checked);
-      } catch (e) {}
-    }
 
     function setCompactMode(on) {
       try {
@@ -1458,15 +1719,22 @@
     // Small EV floor to avoid thin/noisy picks dominating the list.
     const PROPS_EV_MIN = 0.02;
 
-    function setAccuracyHref(d) {
-      const base = '/live_lens_accuracy';
+    function setDateScopedHref(elementId, base, d) {
+      const node = $(elementId);
+      if (!node) return;
       if (!d) {
-        $('accuracyLink').setAttribute('href', base);
+        node.setAttribute('href', base);
         return;
       }
       const u = new URL(base, window.location.origin);
       u.searchParams.set('date', d);
-      $('accuracyLink').setAttribute('href', u.pathname + u.search);
+      node.setAttribute('href', u.pathname + u.search);
+    }
+
+    function setPrimaryNavHrefs(d) {
+      setDateScopedHref('accuracyLink', '/live_lens_accuracy', d);
+      setDateScopedHref('skaterLaddersLink', '/skater-ladders', d);
+      setDateScopedHref('goalieLaddersLink', '/goalie-ladders', d);
     }
 
     function pct(x) {
@@ -2328,9 +2596,9 @@
         { label: 'Market', value: info.label },
         { label: 'Line', value: lineLabel },
         { label: 'Odds', value: fmtAmerican(selected?.price) },
-        { label: 'Model', value: isFinite(Number(selected?.prob)) ? `${pct(selected?.prob)} over` : 'Model unavailable' },
+        { label: 'Model', value: isFinite(Number(selected?.prob)) ? `${pct(selected?.prob)} ${String(selected?.side || 'over').toLowerCase()}` : 'Model unavailable' },
         { label: 'Actual', value: actualLabel },
-        { label: 'Sim', value: simLabel },
+        { label: 'Sim mean', value: simLabel },
         { label: 'Edge', value: formatPropEdge(selected) },
       ];
 
@@ -2339,7 +2607,7 @@
           <div>
             <div class="cards-lens-label">Prop lens</div>
             <div class="cards-lens-main">${escHtml(selected.player || 'Player')} · ${escHtml(info.label)}</div>
-            <div class="cards-subcopy">${escHtml(selected.team || 'Team')} at ${escHtml(selected.opp || (String(selected.team || '').toUpperCase() === awayAbbr ? homeAbbr : awayAbbr || 'Opp'))} · ${escHtml(propTierLabel(selected))}</div>
+            <div class="cards-subcopy">${escHtml(selected.team || 'Team')} at ${escHtml(selected.opp || (String(selected.team || '').toUpperCase() === awayAbbr ? homeAbbr : awayAbbr || 'Opp'))} · ${escHtml(propTierLabel(selected))} · Sim-backed lens</div>
           </div>
           <span class="cards-lens-badge ${escHtml(evClass(selected.ev))}">${escHtml(String(selected.side || '').toUpperCase())}</span>
         </div>
@@ -2592,6 +2860,156 @@
       };
     }
 
+    function poissonPmf(k, lambda) {
+      const kk = Number(k);
+      const lam = Number(lambda);
+      if (!isFinite(kk) || !isFinite(lam) || kk < 0 || lam < 0) return 0;
+      if (kk === 0) return Math.exp(-lam);
+      let pmf = Math.exp(-lam);
+      for (let goal = 1; goal <= kk; goal += 1) pmf = (pmf * lam) / goal;
+      return pmf;
+    }
+
+    function segmentWinnerProbabilities(homeLambda, awayLambda, maxGoals=10) {
+      const home = Number(homeLambda);
+      const away = Number(awayLambda);
+      if (!isFinite(home) || !isFinite(away) || home < 0 || away < 0) return null;
+      let pHome = 0;
+      let pAway = 0;
+      let pTie = 0;
+      for (let h = 0; h <= maxGoals; h += 1) {
+        const ph = poissonPmf(h, home);
+        for (let a = 0; a <= maxGoals; a += 1) {
+          const joint = ph * poissonPmf(a, away);
+          if (h > a) pHome += joint;
+          else if (a > h) pAway += joint;
+          else pTie += joint;
+        }
+      }
+      const total = pHome + pAway + pTie;
+      if (!total) return null;
+      return {
+        away_win_prob: pAway / total,
+        home_win_prob: pHome / total,
+        tie_prob: pTie / total,
+      };
+    }
+
+    function predictionSegments(pred) {
+      const existing = pred && pred.segments && typeof pred.segments === 'object' ? pred.segments : null;
+      if (existing) return existing;
+
+      const p1h = Number(pred && pred.period1_home_proj);
+      const p1a = Number(pred && pred.period1_away_proj);
+      const p2h = Number(pred && pred.period2_home_proj);
+      const p2a = Number(pred && pred.period2_away_proj);
+      const p3h = Number(pred && pred.period3_home_proj);
+      const p3a = Number(pred && pred.period3_away_proj);
+
+      const segments = {};
+      const p1 = segmentWinnerProbabilities(p1h, p1a);
+      const p2 = segmentWinnerProbabilities(p2h, p2a);
+      const p3 = segmentWinnerProbabilities(p3h, p3a);
+      if (p1) segments.p1 = p1;
+      if (p2) segments.p2 = p2;
+      if (p3) segments.p3 = p3;
+
+      let regHome = null;
+      let regAway = null;
+      if ([p1h, p2h, p3h].every((value) => isFinite(value))) regHome = p1h + p2h + p3h;
+      else if (isFinite(Number(pred && pred.proj_home_goals))) regHome = Number(pred.proj_home_goals);
+      if ([p1a, p2a, p3a].every((value) => isFinite(value))) regAway = p1a + p2a + p3a;
+      else if (isFinite(Number(pred && pred.proj_away_goals))) regAway = Number(pred.proj_away_goals);
+
+      const final = segmentWinnerProbabilities(regHome, regAway);
+      if (final) {
+        segments.final = final;
+        segments.ot = {
+          yes_prob: Number(final.tie_prob) || 0,
+          no_prob: Math.max(0, 1 - (Number(final.tie_prob) || 0)),
+        };
+      }
+      return segments;
+    }
+
+    function renderProbabilityRow(label, row, awayLabel, homeLabel, badge='Win split') {
+      if (!row) {
+        return `
+          <div class="cards-prob-row">
+            <div class="cards-prob-head">
+              <div class="cards-prob-label">${escHtml(label)}</div>
+              <div class="cards-prob-badge">${escHtml(badge)}</div>
+            </div>
+            <div class="cards-prob-meta">Probabilities unavailable.</div>
+          </div>
+        `;
+      }
+      const away = Math.max(0, Number(row.away_win_prob) || 0);
+      const home = Math.max(0, Number(row.home_win_prob) || 0);
+      const tie = Math.max(0, Number(row.tie_prob) || 0);
+      const total = away + tie + home;
+      const awayWidth = total > 0 ? (away / total) * 100 : 0;
+      const tieWidth = total > 0 ? (tie / total) * 100 : 0;
+      const homeWidth = total > 0 ? (home / total) * 100 : 0;
+      return `
+        <div class="cards-prob-row">
+          <div class="cards-prob-head">
+            <div class="cards-prob-label">${escHtml(label)}</div>
+            <div class="cards-prob-badge">${escHtml(badge)}</div>
+          </div>
+          <div class="cards-prob-bar">
+            <div class="cards-prob-away" style="--seg-width:${awayWidth.toFixed(4)}%;"></div>
+            <div class="cards-prob-tie" style="--seg-width:${tieWidth.toFixed(4)}%;"></div>
+            <div class="cards-prob-home" style="--seg-width:${homeWidth.toFixed(4)}%;"></div>
+          </div>
+          <div class="cards-prob-meta">${escHtml(awayLabel)} ${pct(away)} | Tie ${pct(tie)} | ${escHtml(homeLabel)} ${pct(home)}</div>
+        </div>
+      `;
+    }
+
+    function renderOtProbabilityRow(otRow) {
+      if (!otRow) {
+        return `
+          <div class="cards-prob-row">
+            <div class="cards-prob-head">
+              <div class="cards-prob-label">OT</div>
+              <div class="cards-prob-badge">Game path</div>
+            </div>
+            <div class="cards-prob-meta">OT probability unavailable.</div>
+          </div>
+        `;
+      }
+      const noOt = Math.max(0, Number(otRow.no_prob) || 0);
+      const yesOt = Math.max(0, Number(otRow.yes_prob) || 0);
+      const total = noOt + yesOt;
+      const noOtWidth = total > 0 ? (noOt / total) * 100 : 0;
+      const yesOtWidth = total > 0 ? (yesOt / total) * 100 : 0;
+      return `
+        <div class="cards-prob-row">
+          <div class="cards-prob-head">
+            <div class="cards-prob-label">OT</div>
+            <div class="cards-prob-badge">Game path</div>
+          </div>
+          <div class="cards-prob-bar">
+            <div class="cards-prob-tie" style="--seg-width:${noOtWidth.toFixed(4)}%;"></div>
+            <div class="cards-prob-home" style="--seg-width:${yesOtWidth.toFixed(4)}%;"></div>
+          </div>
+          <div class="cards-prob-meta">No OT ${pct(noOt)} | OT ${pct(yesOt)}</div>
+        </div>
+      `;
+    }
+
+    function renderGameProbabilityRows(pred, awayAbbr, homeAbbr) {
+      const segments = predictionSegments(pred);
+      return [
+        renderProbabilityRow('P1', segments && segments.p1, awayAbbr, homeAbbr),
+        renderProbabilityRow('P2', segments && segments.p2, awayAbbr, homeAbbr),
+        renderProbabilityRow('P3', segments && segments.p3, awayAbbr, homeAbbr),
+        renderProbabilityRow('Final', segments && segments.final, awayAbbr, homeAbbr, 'Regulation'),
+        renderOtProbabilityRow(segments && segments.ot),
+      ].join('');
+    }
+
     function renderDataPair(label, value) {
       return `
         <div class="cards-data-pair">
@@ -2767,10 +3185,55 @@
         ? `Projected final ${awayAbbr} ${fmt(simTotals.away, 2)} - ${homeAbbr} ${fmt(simTotals.home, 2)}`
         : `Model goals ${awayAbbr} ${fmt(projAway, 2)} / ${homeAbbr} ${fmt(projHome, 2)}`;
       const topPick = top[0] || null;
-      const propsCount = (Array.isArray(propsAway) ? propsAway.length : 0) + (Array.isArray(propsHome) ? propsHome.length : 0);
+      const cardPropRows = buildCardPropRows([].concat(propsAway || [], propsHome || []));
+      const propsCount = cardPropRows.length;
+      const leadProp = cardPropRows[0] || null;
+      const extraPlayableProps = Math.max(0, propsCount - (leadProp ? 1 : 0));
       const propsSummary = propsCount
         ? `${propsCount} team props edges ready`
         : 'Props board waiting for playable edges';
+      const officialCardChip = top.length || propsCount
+        ? `${top.length ? `${top.length} plays` : '0 plays'}${propsCount ? ` · ${propsCount} props` : ''}`
+        : 'Off card';
+      const topPickText = topPick
+        ? `${String(topPick.market || '')} ${String(topPick.side || '')}${topPick.ev !== null && topPick.ev !== undefined && isFinite(Number(topPick.ev)) ? ` | EV ${(100 * Number(topPick.ev)).toFixed(1)}%` : ''}`
+        : '';
+      const leadPropText = leadProp
+        ? `${String(leadProp.player || 'Player')} ${String(leadProp.market || 'Prop')} ${String(leadProp.side || '')}${leadProp.line !== null && leadProp.line !== undefined && String(leadProp.line).trim() !== '' ? ` ${String(leadProp.line)}` : ''}${leadProp.price !== null && leadProp.price !== undefined && String(leadProp.price).trim() !== '' ? ` | ${String(leadProp.price)}` : ''}`
+        : '';
+      const officialCallouts = [];
+      if (topPickText) {
+        officialCallouts.push(`
+          <li class="cards-callout">
+            <strong>Top game edge</strong>
+            <span class="cards-callout-copy">${escHtml(topPickText)}</span>
+          </li>
+        `);
+      }
+      if (leadPropText) {
+        officialCallouts.push(`
+          <li class="cards-callout">
+            <strong>Top prop</strong>
+            <span class="cards-callout-copy">${escHtml(leadPropText)}</span>
+          </li>
+        `);
+      }
+      if (extraPlayableProps > 0) {
+        officialCallouts.push(`
+          <li class="cards-callout">
+            <strong>Playable board</strong>
+            <span class="cards-callout-copy">+${escHtml(String(extraPlayableProps))} additional prop lanes qualified but were not promoted to the lead slot.</span>
+          </li>
+        `);
+      }
+      if (!officialCallouts.length) {
+        officialCallouts.push(`
+          <li class="cards-callout">
+            <strong>Market board</strong>
+            <span class="cards-callout-copy">Model outputs are available, but no saved game or player recommendations were captured for this matchup.</span>
+          </li>
+        `);
+      }
 
       const el = document.createElement('div');
       el.className = 'card game-card cards-game-card';
@@ -2881,16 +3344,29 @@
                 </div>
                 <span class="cards-chip">${simCount ? `${simCount} sims` : 'Model'}</span>
               </div>
-              <div class="cards-detail-grid">
-                ${renderDataPair('Projected final', simTotals.away !== null && simTotals.home !== null ? `${awayAbbr} ${fmt(simTotals.away, 2)} - ${homeAbbr} ${fmt(simTotals.home, 2)}` : `${fmt(projAway, 2)} - ${fmt(projHome, 2)}`)}
-                ${renderDataPair('Moneyline split', `${awayAbbr} ${pct(mlAway)} / ${homeAbbr} ${pct(mlHome)}`)}
-                ${renderDataPair('Model total', `${fmt(modelTotal, 2)} vs ${fmt(totalLine, 1)}`)}
-                ${renderDataPair('Model spread', fmtSigned(modelSpread, 2))}
-                ${renderDataPair('Puck line model', `H ${pct(pHomePl)} / A ${pct(pAwayPl)}`)}
-                ${renderDataPair('Props board', propsSummary)}
+              <div class="cards-prob-grid">
+                ${renderGameProbabilityRows(pred, awayAbbr, homeAbbr)}
               </div>
-              <div class="cards-overview-copy">
-                <div class="cards-callout-copy">Use the tabs to switch between game context, projected/live box tables, and team props for this matchup.</div>
+              <div class="cards-mini-metrics">
+                <div class="cards-mini-metric">
+                  <div>
+                    <span>Projected final</span>
+                    <strong>${escHtml(simTotals.away !== null && simTotals.home !== null ? `${awayAbbr} ${fmt(simTotals.away, 2)} - ${homeAbbr} ${fmt(simTotals.home, 2)}` : `${awayAbbr} ${fmt(projAway, 2)} - ${homeAbbr} ${fmt(projHome, 2)}`)}</strong>
+                  </div>
+                </div>
+                <div class="cards-mini-metric">
+                  <div>
+                    <span>Moneyline split</span>
+                    <strong>${escHtml(`${awayAbbr} ${pct(mlAway)} | ${homeAbbr} ${pct(mlHome)}`)}</strong>
+                  </div>
+                </div>
+                <div class="cards-mini-metric">
+                  <div>
+                    <span>Props board</span>
+                    <strong>${escHtml(String(propsCount || 0))}</strong>
+                  </div>
+                  <div class="cards-mini-metric-copy">${escHtml(extraPlayableProps > 0 ? `+${extraPlayableProps} more playable` : propsCount ? 'Lead edge ready' : 'No playable props')}</div>
+                </div>
               </div>
             </div>
 
@@ -2898,27 +3374,11 @@
               <div class="cards-box-head">
                 <div>
                   <div class="cards-table-title"><strong>Official card</strong></div>
-                  <div class="cards-lens-main">${top.length ? `${top.length} playable game edges` : 'No saved game edges'}</div>
+                  <div class="cards-lens-main">${top.length || propsCount ? 'Top saved edges' : 'No saved game edges'}</div>
                 </div>
-                <span class="cards-chip is-official">${top.length ? `${top.length} plays` : 'Off card'}</span>
+                <span class="cards-chip is-official">${escHtml(officialCardChip)}</span>
               </div>
-              <div class="bets">
-                ${top.length ? top.map(r => {
-                  const cls = evClass(r.ev);
-                  const mkt = toUpper(r.market);
-                  const side = toUpper(r.side);
-                  const drvPills = r.edgeReasons ? renderDriverPills(r.edgeReasons, 2, true) : '';
-                  let ln = (r.line !== null && r.line !== undefined && String(r.line).trim() !== '') ? String(r.line) : '';
-                  try {
-                    if (!ln && mkt.includes('TOTAL') && totalLine !== null && totalLine !== undefined && isFinite(Number(totalLine))) {
-                      ln = String(totalLine);
-                    }
-                  } catch (e) {}
-                  const lineAttr = ln ? ` data-line="${ln}"` : '';
-                  return `<span class="bet ${cls}" data-market="${mkt}" data-side="${side}"${lineAttr}><strong>${r.market}</strong> ${r.side}${drvPills} <span class="muted" data-role="rec-outcome"></span></span>`;
-                }).join('') : `<span class="muted">No recommendations available for this game.</span>`}
-              </div>
-              <div class="cards-callout-copy">${topPick ? `Best current edge: ${escHtml(String(topPick.market || ''))} ${escHtml(String(topPick.side || ''))}${topPick.ev !== null && topPick.ev !== undefined && isFinite(Number(topPick.ev)) ? ` · EV ${(100 * Number(topPick.ev)).toFixed(1)}%` : ''}` : 'Model and edge feeds are loaded, but this matchup has no playable game-level recommendation right now.'}</div>
+              <ul class="cards-callout-list">${officialCallouts.join('')}</ul>
             </div>
 
             <div class="cards-panel-card cards-live-panel live-lens" style="display:none;">
@@ -5313,9 +5773,10 @@
 
       try { $('cardsDateBadge').textContent = date; } catch (e) {}
       try {
-        const metaBits = [`${preds.length} games`];
-        if (nSims !== null && nSims !== undefined && isFinite(Number(nSims))) metaBits.push(`${Number(nSims)} sims / game`);
-        metaBits.push('Tabs: Game / Box Score / Props');
+        const officialCount = recs.filter((row) => row && String(row.market || '').trim()).length;
+        const metaBits = [`${preds.length} games on the slate`];
+        if (officialCount > 0) metaBits.push(`${officialCount} with official plays`);
+        else if (nSims !== null && nSims !== undefined && isFinite(Number(nSims))) metaBits.push(`${Number(nSims)} sims per game`);
         $('cardsHeaderMeta').textContent = metaBits.join(' | ');
       } catch (e) {}
 
@@ -5431,51 +5892,18 @@
       if (isToday) startLivePolling(date, preds, { inplay, includeNonLive });
       if (isToday || isTomorrowEt) startPropsStripPolling(date);
 
-      const note = b.note ? ` (${b.note})` : '';
-      const liveCount = predsSorted.filter(p => isLiveState(p.game_state)).length;
-      setStatus(`${date}: ${predsToShow.length} games · live ${liveCount}/${predsSorted.length}${note}`);
+      setStatus('');
     }
 
     async function init() {
-      $('themeToggle').onclick = () => {
-        document.documentElement.classList.toggle('light');
-        try {
-          localStorage.setItem('theme', document.documentElement.classList.contains('light') ? 'light' : 'dark');
-        } catch (e) {}
-      };
-
       try {
         const titleEl = $('pageTitle');
         if (titleEl) titleEl.textContent = DEFAULT_PAGE_TITLE;
         document.title = DEFAULT_PAGE_TITLE;
       } catch (e) {}
 
-      // Compact mode toggle persisted in localStorage.
-      try {
-        const compactChk = $('compactModeChk');
-        const compactSaved = (() => {
-          const stored = _lsGetStoredBool(LS_COMPACT_KEY);
-          if (stored !== undefined) return stored;
-          const legacy = _lsGetStoredBool(LS_COMPACT_KEY_LEGACY);
-          if (legacy !== undefined) return legacy;
-          return true;
-        })();
-
-        if (compactChk) {
-          compactChk.checked = !!compactSaved;
-          _syncPillActiveForCheckbox(compactChk);
-          setCompactMode(!!compactSaved);
-          compactChk.addEventListener('change', () => {
-            const on = !!compactChk.checked;
-            _lsSetBool(LS_COMPACT_KEY, on);
-            _lsSetBool(LS_COMPACT_KEY_LEGACY, on);
-            _syncPillActiveForCheckbox(compactChk);
-            setCompactMode(on);
-          });
-        } else {
-          setCompactMode(!!compactSaved);
-        }
-      } catch (e) {}
+      // Compact mode is always on by default.
+      try { setCompactMode(true); } catch (e) {}
 
       try {
         const d = await fetchJson('/v1/dates');
@@ -5495,11 +5923,11 @@
         }
 
         dateInput.value = initialDate;
-        try { setAccuracyHref(initialDate); } catch (e) {}
+        try { setPrimaryNavHrefs(initialDate); } catch (e) {}
         dateInput.onchange = async () => {
           const next = String(dateInput.value || '').trim();
           if (!next) return;
-          try { setAccuracyHref(next); } catch (e) {}
+          try { setPrimaryNavHrefs(next); } catch (e) {}
           setRequestedDateInUrl(next);
           try {
             await loadDate(next);

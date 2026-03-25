@@ -46,6 +46,7 @@ Param (
   [int]$SimCalibrationRefreshDays = 7,
   [int]$SimCalibrationNSims = 6000,
   [bool]$SimCalibrationTotalsOnly = $true,
+  [bool]$MoneylineAnchorOnly = $true,
   [switch]$SimRecommendations,
   [switch]$SimIncludeTotals,
   [double]$SimMLThr = 0.65,
@@ -173,6 +174,57 @@ function Has-NonEmptyCsv {
     return ($lines.Count -ge 2)
   } catch {
     return $false
+  }
+}
+
+function Set-MoneylineAnchorOnlyCalibration {
+  param(
+    [Parameter(Mandatory=$true)][string]$CalibrationPath,
+    [switch]$Strict
+  )
+
+  if (-not (Test-Path $CalibrationPath)) {
+    $msg = "[daily_update] model calibration not found at $CalibrationPath; cannot enforce moneyline anchor-only policy."
+    if ($Strict) { throw $msg }
+    Write-Host $msg -ForegroundColor DarkGray
+    return
+  }
+
+  try {
+    $raw = Get-Content -LiteralPath $CalibrationPath -Raw -ErrorAction Stop
+    if (-not $raw -or $raw.Trim() -eq '') {
+      throw "calibration file is empty"
+    }
+    $cal = $raw | ConvertFrom-Json -ErrorAction Stop
+    $needsWrite = $false
+
+    if ($null -eq $cal.moneyline) {
+      $cal | Add-Member -NotePropertyName moneyline -NotePropertyValue ([pscustomobject]@{ t = 1.0; b = 0.0 })
+      $needsWrite = $true
+    } else {
+      if ([double]$cal.moneyline.t -ne 1.0) { $cal.moneyline.t = 1.0; $needsWrite = $true }
+      if ([double]$cal.moneyline.b -ne 0.0) { $cal.moneyline.b = 0.0; $needsWrite = $true }
+    }
+    if ([double]$cal.ml_temp -ne 1.0) { $cal.ml_temp = 1.0; $needsWrite = $true }
+    if ([double]$cal.ml_bias -ne 0.0) { $cal.ml_bias = 0.0; $needsWrite = $true }
+    if ($cal.ml_post_calibration_policy -ne 'anchor_only') {
+      if ($cal.PSObject.Properties.Name -contains 'ml_post_calibration_policy') {
+        $cal.ml_post_calibration_policy = 'anchor_only'
+      } else {
+        $cal | Add-Member -NotePropertyName ml_post_calibration_policy -NotePropertyValue 'anchor_only'
+      }
+      $needsWrite = $true
+    }
+    if ($needsWrite) {
+      $cal | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $CalibrationPath -Encoding UTF8
+      Write-Host "[daily_update] Enforced moneyline anchor-only calibration policy at $CalibrationPath" -ForegroundColor DarkGreen
+    } else {
+      Write-Host "[daily_update] Moneyline anchor-only calibration already active at $CalibrationPath" -ForegroundColor DarkGreen
+    }
+  } catch {
+    $msg = "[daily_update] Failed to enforce moneyline anchor-only calibration: $($_.Exception.Message)"
+    if ($Strict) { throw $msg }
+    Write-Warning $msg
   }
 }
 
@@ -344,6 +396,12 @@ if ($InstallDeps) {
 # Use venv Python for timed subprocesses
 $PyExe = Join-Path $RepoRoot '.venv/Scripts/python.exe'
 
+if ($MoneylineAnchorOnly) {
+  Set-MoneylineAnchorOnlyCalibration -CalibrationPath (Join-Path $ProcessedDir 'model_calibration.json') -Strict:$StrictOutputs
+} else {
+  Write-Host "[daily_update] Moneyline anchor-only override disabled." -ForegroundColor DarkGray
+}
+
 # Optional: pull production disk artifacts down to local for reconciliation.
 try {
   if (-not $NoRenderSync) {
@@ -440,6 +498,9 @@ try {
         if ($StrictOutputs) {
           Assert-AnyPath -Label "props_boxscores_sim $d" -Paths @(
             (_PathInProcessed "props_boxscores_sim_${d}.csv")
+          ) -NonEmpty -Strict:$StrictOutputs
+          Assert-AnyPath -Label "props_boxscores_sim_hist $d" -Paths @(
+            (_PathInProcessed "props_boxscores_sim_hist_${d}.csv")
           ) -NonEmpty -Strict:$StrictOutputs
           Assert-AnyPath -Label "props_boxscores_sim_samples $d" -Paths @(
             (_PathInProcessed "props_boxscores_sim_samples_${d}.parquet"),

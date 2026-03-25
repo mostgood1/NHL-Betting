@@ -147,6 +147,124 @@ def _pick_existing(*paths: Path) -> Optional[Path]:
     return None
 
 
+def _num(value: Any) -> Optional[float]:
+    try:
+        if value is None or pd.isna(value):
+            return None
+        out = float(value)
+        if not math.isfinite(out):
+            return None
+        return out
+    except Exception:
+        return None
+
+
+def _winner_probs(home_lambda: Optional[float], away_lambda: Optional[float], max_goals: int = 10) -> Optional[dict[str, float]]:
+    home = _num(home_lambda)
+    away = _num(away_lambda)
+    if home is None or away is None or home < 0 or away < 0:
+        return None
+
+    p_home = 0.0
+    p_away = 0.0
+    p_tie = 0.0
+
+    home_probs = [math.exp(-home)]
+    away_probs = [math.exp(-away)]
+    for goal_count in range(1, max_goals + 1):
+        home_probs.append(home_probs[-1] * home / goal_count)
+        away_probs.append(away_probs[-1] * away / goal_count)
+
+    for home_goals in range(max_goals + 1):
+        for away_goals in range(max_goals + 1):
+            joint = home_probs[home_goals] * away_probs[away_goals]
+            if home_goals > away_goals:
+                p_home += joint
+            elif away_goals > home_goals:
+                p_away += joint
+            else:
+                p_tie += joint
+
+    total = p_home + p_away + p_tie
+    if total <= 0:
+        return None
+
+    return {
+        "away_win_prob": float(max(0.0, min(1.0, p_away / total))),
+        "home_win_prob": float(max(0.0, min(1.0, p_home / total))),
+        "tie_prob": float(max(0.0, min(1.0, p_tie / total))),
+    }
+
+
+def _prediction_segments(row: pd.Series) -> Optional[dict[str, Any]]:
+    p1_home = _num(row.get("period1_home_proj"))
+    p1_away = _num(row.get("period1_away_proj"))
+    p2_home = _num(row.get("period2_home_proj"))
+    p2_away = _num(row.get("period2_away_proj"))
+    p3_home = _num(row.get("period3_home_proj"))
+    p3_away = _num(row.get("period3_away_proj"))
+    full_home = _num(row.get("proj_home_goals"))
+    full_away = _num(row.get("proj_away_goals"))
+
+    period_weights = (0.32, 0.33, 0.35)
+    if full_home is not None:
+        if p1_home is None:
+            p1_home = full_home * period_weights[0]
+        if p2_home is None:
+            p2_home = full_home * period_weights[1]
+        if p3_home is None:
+            p3_home = full_home * period_weights[2]
+    if full_away is not None:
+        if p1_away is None:
+            p1_away = full_away * period_weights[0]
+        if p2_away is None:
+            p2_away = full_away * period_weights[1]
+        if p3_away is None:
+            p3_away = full_away * period_weights[2]
+
+    segments: dict[str, Any] = {}
+    for key, home_mean, away_mean in (
+        ("p1", p1_home, p1_away),
+        ("p2", p2_home, p2_away),
+        ("p3", p3_home, p3_away),
+    ):
+        probs = _winner_probs(home_mean, away_mean)
+        if probs is not None:
+            segments[key] = probs
+
+    reg_home = None
+    reg_away = None
+    if all(value is not None for value in (p1_home, p2_home, p3_home)):
+        reg_home = float(p1_home + p2_home + p3_home)
+    elif full_home is not None:
+        reg_home = full_home
+    if all(value is not None for value in (p1_away, p2_away, p3_away)):
+        reg_away = float(p1_away + p2_away + p3_away)
+    elif full_away is not None:
+        reg_away = full_away
+
+    final_probs = _winner_probs(reg_home, reg_away)
+    if final_probs is not None:
+        segments["final"] = final_probs
+        segments["ot"] = {
+            "yes_prob": float(final_probs["tie_prob"]),
+            "no_prob": float(max(0.0, min(1.0, 1.0 - final_probs["tie_prob"]))),
+        }
+
+    return segments or None
+
+
+def _augment_predictions_df(predictions_df: pd.DataFrame) -> pd.DataFrame:
+    if predictions_df is None or predictions_df.empty:
+        return pd.DataFrame() if predictions_df is None else predictions_df
+    out = predictions_df.copy()
+    try:
+        out["segments"] = out.apply(_prediction_segments, axis=1)
+    except Exception:
+        out["segments"] = None
+    return out
+
+
 def _json_sanitize(obj: Any) -> Any:
     """Convert an object graph to strict-JSON-safe Python primitives.
 
@@ -321,6 +439,8 @@ def build_daily_bundle(date: str, proc_dir: Path = PROC_DIR) -> dict[str, Any]:
     except Exception:
         pass
 
+    predictions_df = _augment_predictions_df(predictions_df)
+
     # If recommendations don't carry prob/conf, derive them from predictions.
     # This keeps the UI/bundle stable across older artifacts.
     try:
@@ -399,7 +519,7 @@ def build_daily_bundle(date: str, proc_dir: Path = PROC_DIR) -> dict[str, Any]:
 
     # Keep bundles reasonably small; UI can fetch large tables via existing /api/* endpoints.
     bundle: dict[str, Any] = {
-        "schema_version": 1,
+        "schema_version": 2,
         "generated_at_utc": _now_utc_iso(),
         "date": d,
         "files": {
@@ -440,6 +560,7 @@ def build_daily_bundle(date: str, proc_dir: Path = PROC_DIR) -> dict[str, Any]:
                             "proj_away_goals",
                             "model_total",
                             "model_spread",
+                            "segments",
                         ],
                         limit=250,
                     ),

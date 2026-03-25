@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Goalie Ladders | NHL Betting</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  <link rel="stylesheet" href="/static/skater_ladders.css" />
+</head>
+<body class="skater-ladders-page">
+  <main class="skater-shell">
+    <section class="skater-hero">
+      <div class="skater-hero-copy">
+        <p class="skater-eyebrow">Simulation Explorer</p>
+        <h1>Goalie Ladders</h1>
+        <p class="skater-subtitle">Exact save-count distributions for NHL goalies, with headshots, matchup context, and line chips when market saves are available.</p>
+      </div>
+      <div class="skater-hero-links">
+        <a class="skater-pill" href="/">Cards</a>
+        <a class="skater-pill" href="/skater-ladders">Skater Ladders</a>
+        <a class="skater-pill" href="/live-lens/accuracy">Live Lens</a>
+      </div>
+    </section>
+
+    <section class="skater-toolbar">
+      <form id="goalie-ladders-form" class="skater-controls" autocomplete="off">
+        <label class="skater-control">
+          <span>Date</span>
+          <input id="goalie-date" name="date" type="date" value="{{ initial_date }}" />
+        </label>
+
+        <label class="skater-control">
+          <span>Prop</span>
+          <select id="goalie-prop" name="prop">
+            {% for option in prop_options %}
+            <option value="{{ option.value }}">{{ option.label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+
+        <label class="skater-control">
+          <span>Team</span>
+          <select id="goalie-team" name="team">
+            <option value="">All teams</option>
+          </select>
+        </label>
+
+        <label class="skater-control skater-control-wide">
+          <span>Goalie</span>
+          <select id="goalie-player" name="goalie">
+            <option value="">All goalies</option>
+          </select>
+        </label>
+
+        <label class="skater-control">
+          <span>Sort</span>
+          <select id="goalie-sort" name="sort">
+            {% for option in sort_options %}
+            <option value="{{ option.value }}">{{ option.label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+      </form>
+
+      <div class="skater-nav-row">
+        <a id="goalie-prev" class="skater-pill skater-pill-muted" href="#">Previous date</a>
+        <a id="goalie-next" class="skater-pill skater-pill-muted" href="#">Next date</a>
+      </div>
+    </section>
+
+    <section class="skater-summary-grid">
+      <div id="goalie-summary" class="skater-summary-card">
+        <div class="skater-summary-head">
+          <p class="skater-label">Slate Summary</p>
+          <h2>Loading goalie ladders</h2>
+        </div>
+      </div>
+      <div id="goalie-status" class="skater-status-card">
+        <div class="skater-status-head">
+          <p class="skater-label">Context</p>
+          <h2>{{ initial_date }}</h2>
+        </div>
+        <p class="skater-status-line">Fetching goalie save distributions and market context.</p>
+      </div>
+    </section>
+
+    <section id="goalie-selected" class="skater-selected-shell" hidden></section>
+
+    <section id="goalie-results" class="skater-results" aria-live="polite">
+      <div class="skater-empty-card">Loading goalie ladders…</div>
+    </section>
+  </main>
+
+  <script id="goalie-ladders-initial-state" type="application/json">{{ initial_state_json | safe }}</script>
+  <script src="/static/goalie_ladders.js"></script>
+</body>
+</html>

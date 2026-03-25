@@ -2515,6 +2515,914 @@ def _nhl_player_headshot_url(
         return f"/img/headshot/{pid}.jpg"
     return f"https://cms.nhl.bamgrid.com/images/headshots/current/168x168/{pid}.jpg"
 
+
+_SKATER_LADDER_PROPS: Dict[str, Dict[str, str]] = {
+    "sog": {"label": "Shots On Goal", "market": "SOG", "mean_col": "shots", "unit": "SOG"},
+    "goals": {"label": "Goals", "market": "GOALS", "mean_col": "goals", "unit": "Goals"},
+    "assists": {"label": "Assists", "market": "ASSISTS", "mean_col": "assists", "unit": "Assists"},
+    "points": {"label": "Points", "market": "POINTS", "mean_col": "points", "unit": "Points"},
+    "blocks": {"label": "Blocked Shots", "market": "BLOCKS", "mean_col": "blocks", "unit": "Blocks"},
+}
+
+_GOALIE_LADDER_PROPS: Dict[str, Dict[str, str]] = {
+    "saves": {"label": "Saves", "market": "SAVES", "mean_col": "saves", "unit": "Saves"},
+}
+
+
+def _skater_ladder_prop_options() -> list[dict[str, str]]:
+    return [
+        {"value": key, "label": str(cfg.get("label") or key.title())}
+        for key, cfg in _SKATER_LADDER_PROPS.items()
+    ]
+
+
+def _normalize_skater_ladder_prop(value: Any) -> str:
+    token = str(value or "").strip().lower().replace("-", "_").replace(" ", "_")
+    aliases = {
+        "": "sog",
+        "shots": "sog",
+        "shot": "sog",
+        "shots_on_goal": "sog",
+        "shot_on_goal": "sog",
+        "sog": "sog",
+        "goals": "goals",
+        "goal": "goals",
+        "assists": "assists",
+        "assist": "assists",
+        "points": "points",
+        "point": "points",
+        "blocks": "blocks",
+        "block": "blocks",
+        "blocked_shots": "blocks",
+        "blocked": "blocks",
+    }
+    normalized = aliases.get(token, token)
+    if normalized not in _SKATER_LADDER_PROPS:
+        return "sog"
+    return normalized
+
+
+def _skater_ladder_sort_options() -> list[dict[str, str]]:
+    return [
+        {"value": "team", "label": "Team"},
+        {"value": "mean", "label": "Mean"},
+        {"value": "mode", "label": "Mode"},
+    ]
+
+
+def _normalize_skater_ladder_sort(value: Any) -> str:
+    token = str(value or "").strip().lower().replace("-", "_").replace(" ", "_")
+    if token not in {"team", "mean", "mode"}:
+        return "team"
+    return token
+
+
+def _normalize_skater_team_selector(value: Any) -> str:
+    return str(value or "").strip().upper()
+
+
+def _normalize_skater_selector(value: Any) -> str:
+    return str(value or "").strip()
+
+
+def _normalize_player_name_key(value: Any) -> str:
+    try:
+        s = str(value or "").strip().lower()
+    except Exception:
+        s = ""
+    s = re.sub(r"\s+", " ", s)
+    return s
+
+
+def _safe_float_or_none(value: Any) -> Optional[float]:
+    try:
+        if value is None:
+            return None
+        out = float(value)
+        if not math.isfinite(out):
+            return None
+        return out
+    except Exception:
+        return None
+
+
+def _safe_int_or_none(value: Any) -> Optional[int]:
+    try:
+        if value is None:
+            return None
+        return int(float(value))
+    except Exception:
+        return None
+
+
+def _relative_path_text(path: Optional[Path]) -> Optional[str]:
+    try:
+        if path is None:
+            return None
+        p = Path(path)
+        try:
+            return str(p.resolve().relative_to(ROOT_DIR.resolve())).replace("\\", "/")
+        except Exception:
+            return str(p).replace("\\", "/")
+    except Exception:
+        return None
+
+
+def _skater_ladders_nav(date_ymd: str) -> dict[str, Any]:
+    d = _normalize_date_param(date_ymd)
+    dates: list[str] = []
+    try:
+        from ..publish.daily_bundles import build_manifest, manifest_path
+
+        try:
+            _seed_repo_bundle_artifacts_to_proc_dir(include_manifest=True)
+        except Exception:
+            pass
+
+        p = manifest_path(PROC_DIR)
+        man: dict[str, Any] = {}
+        if p.exists():
+            try:
+                man = json.loads(p.read_text(encoding="utf-8"))
+            except Exception:
+                man = {}
+        if not isinstance(man, dict) or not man.get("dates"):
+            try:
+                man = build_manifest(PROC_DIR)
+            except Exception:
+                man = {}
+        raw_dates = man.get("dates") if isinstance(man, dict) else []
+        if isinstance(raw_dates, list):
+            dates = [str(x).strip() for x in raw_dates if str(x or "").strip()]
+    except Exception:
+        dates = []
+
+    nav = {"season": _nhl_season_code(d), "prevDate": None, "nextDate": None}
+    if d in dates:
+        idx = dates.index(d)
+        if idx > 0:
+            nav["prevDate"] = dates[idx - 1]
+        if idx + 1 < len(dates):
+            nav["nextDate"] = dates[idx + 1]
+    return nav
+
+
+def _normalize_frame_columns(df: Optional[pd.DataFrame]) -> pd.DataFrame:
+    if df is None or df.empty:
+        return pd.DataFrame()
+    out = df.copy()
+    try:
+        out.columns = [str(col).strip() for col in out.columns]
+    except Exception:
+        pass
+    return out
+
+
+def _load_skater_ladder_market_lines(date_ymd: str) -> tuple[Optional[Path], Dict[tuple[str, str], Dict[str, Dict[str, Any]]]]:
+    from .teams import get_team_assets as _assets
+
+    line_path: Optional[Path] = None
+    parts: list[pd.DataFrame] = []
+    for source in ("oddsapi", "bovada"):
+        try:
+            base = _props_lines_dir(date_ymd)
+            pq = base / f"{source}.parquet"
+            csvp = base / f"{source}.csv"
+            if line_path is None:
+                line_path = pq if pq.exists() else (csvp if csvp.exists() else line_path)
+            df = _read_props_lines_latest(date_ymd, source=source)
+            df = _normalize_frame_columns(df)
+            if df is not None and not df.empty:
+                parts.append(df)
+        except Exception:
+            continue
+    if not parts:
+        return line_path, {}
+
+    lines = pd.concat(parts, ignore_index=True)
+    if "is_current" in lines.columns:
+        try:
+            cur = lines[lines["is_current"].astype(str).str.strip().isin(["1", "True", "true", "TRUE"])]
+            if cur is not None and not cur.empty:
+                lines = cur
+        except Exception:
+            pass
+
+    out: Dict[tuple[str, str], Dict[str, Dict[str, Any]]] = {}
+    for _, row in lines.iterrows():
+        try:
+            player_name = str(row.get("player_name") or row.get("player") or "").strip()
+            player_key = _normalize_player_name_key(player_name)
+            if not player_key:
+                continue
+            team_abbr = str((_assets(str(row.get("team") or "")).get("abbr") or row.get("team") or "")).strip().upper()
+            if not team_abbr:
+                continue
+        except Exception:
+            continue
+        market = str(row.get("market") or "").strip().upper()
+        prop_key = next((key for key, cfg in _SKATER_LADDER_PROPS.items() if str(cfg.get("market") or "") == market), None)
+        if not prop_key:
+            continue
+        bucket = out.setdefault((player_key, team_abbr), {})
+        if prop_key in bucket:
+            continue
+        cfg = _SKATER_LADDER_PROPS[prop_key]
+        bucket[prop_key] = {
+            "stat": prop_key,
+            "label": str(cfg.get("label") or prop_key.title()),
+            "line": _safe_float_or_none(row.get("line")),
+            "overOdds": _safe_int_or_none(row.get("over_price")),
+            "underOdds": _safe_int_or_none(row.get("under_price")),
+            "book": str(row.get("book") or "").strip() or None,
+        }
+    return line_path, out
+
+
+def _load_goalie_ladder_market_lines(date_ymd: str) -> tuple[Optional[Path], Dict[tuple[str, str], Dict[str, Dict[str, Any]]]]:
+    from .teams import get_team_assets as _assets
+
+    line_path: Optional[Path] = None
+    parts: list[pd.DataFrame] = []
+    for source in ("oddsapi", "bovada"):
+        try:
+            base = _props_lines_dir(date_ymd)
+            pq = base / f"{source}.parquet"
+            csvp = base / f"{source}.csv"
+            if line_path is None:
+                line_path = pq if pq.exists() else (csvp if csvp.exists() else line_path)
+            df = _read_props_lines_latest(date_ymd, source=source)
+            df = _normalize_frame_columns(df)
+            if df is not None and not df.empty:
+                parts.append(df)
+        except Exception:
+            continue
+    if not parts:
+        return line_path, {}
+
+    lines = pd.concat(parts, ignore_index=True)
+    if "is_current" in lines.columns:
+        try:
+            cur = lines[lines["is_current"].astype(str).str.strip().isin(["1", "True", "true", "TRUE"])]
+            if cur is not None and not cur.empty:
+                lines = cur
+        except Exception:
+            pass
+
+    out: Dict[tuple[str, str], Dict[str, Dict[str, Any]]] = {}
+    for _, row in lines.iterrows():
+        try:
+            player_name = str(row.get("player_name") or row.get("player") or "").strip()
+            player_key = _normalize_player_name_key(player_name)
+            if not player_key:
+                continue
+            team_abbr = str((_assets(str(row.get("team") or "")).get("abbr") or row.get("team") or "")).strip().upper()
+            if not team_abbr:
+                continue
+        except Exception:
+            continue
+        market = str(row.get("market") or "").strip().upper()
+        prop_key = next((key for key, cfg in _GOALIE_LADDER_PROPS.items() if str(cfg.get("market") or "") == market), None)
+        if not prop_key:
+            continue
+        bucket = out.setdefault((player_key, team_abbr), {})
+        if prop_key in bucket:
+            continue
+        cfg = _GOALIE_LADDER_PROPS[prop_key]
+        bucket[prop_key] = {
+            "stat": prop_key,
+            "label": str(cfg.get("label") or prop_key.title()),
+            "line": _safe_float_or_none(row.get("line")),
+            "overOdds": _safe_int_or_none(row.get("over_price")),
+            "underOdds": _safe_int_or_none(row.get("under_price")),
+            "book": str(row.get("book") or "").strip() or None,
+        }
+    return line_path, out
+
+
+def _goalie_ladder_prop_options() -> list[dict[str, str]]:
+    return [{"value": key, "label": str(cfg.get("label") or key.title())} for key, cfg in _GOALIE_LADDER_PROPS.items()]
+
+
+def _normalize_goalie_ladder_prop(value: Any) -> str:
+    token = str(value or "").strip().lower().replace("-", "_").replace(" ", "_")
+    aliases = {
+        "": "saves",
+        "save": "saves",
+        "saves": "saves",
+        "goalie_saves": "saves",
+    }
+    normalized = aliases.get(token, token)
+    if normalized not in _GOALIE_LADDER_PROPS:
+        return "saves"
+    return normalized
+
+
+def _goalie_ladders_payload(date_ymd: str, prop_value: Any, team_value: Any, goalie_value: Any, sort_value: Any) -> Dict[str, Any]:
+    d = _normalize_date_param(date_ymd)
+    prop = _normalize_goalie_ladder_prop(prop_value)
+    sort_key = _normalize_skater_ladder_sort(sort_value)
+    selected_team = _normalize_skater_team_selector(team_value)
+    selected_goalie = _normalize_skater_selector(goalie_value)
+    prop_cfg = _GOALIE_LADDER_PROPS[prop]
+    market = str(prop_cfg.get("market") or "").upper()
+    mean_col = str(prop_cfg.get("mean_col") or "")
+    hist_path = PROC_DIR / f"props_boxscores_sim_hist_{d}.csv"
+    agg_path = PROC_DIR / f"props_boxscores_sim_{d}.csv"
+    source_path = hist_path if hist_path.exists() else agg_path
+    market_path, market_lines = _load_goalie_ladder_market_lines(d)
+    nav = _skater_ladders_nav(d)
+    payload: Dict[str, Any] = {
+        "date": d,
+        "prop": prop,
+        "propLabel": str(prop_cfg.get("label") or prop.title()),
+        "propUnit": str(prop_cfg.get("unit") or ""),
+        "propOptions": _goalie_ladder_prop_options(),
+        "selectedTeam": selected_team,
+        "selectedGoalie": selected_goalie,
+        "teamOptions": [],
+        "selectedSort": sort_key,
+        "goalieOptions": [],
+        "sortOptions": _skater_ladder_sort_options(),
+        "defaultSims": 0,
+        "found": False,
+        "ladderShape": "exact",
+        "sourceDir": _relative_path_text(source_path),
+        "marketSource": _relative_path_text(market_path),
+        "nav": nav,
+        "rows": [],
+    }
+
+    hist_df = _normalize_frame_columns(_read_csv_fallback(hist_path))
+    agg_df = _normalize_frame_columns(_read_csv_fallback(agg_path))
+    if hist_df.empty:
+        payload["error"] = "goalie_ladders_missing"
+        payload["summary"] = {"games": 0, "goalies": 0, "simCounts": [], "availableTeams": 0, "availableGoalies": 0}
+        return payload
+
+    for frame in (hist_df, agg_df):
+        if frame is None or frame.empty:
+            continue
+        try:
+            frame.columns = [str(col).replace("\r", "").strip() for col in frame.columns]
+        except Exception:
+            pass
+
+    try:
+        hist_df["player_id"] = hist_df.get("player_id").map(_normalize_player_id_value)
+        hist_df["market"] = hist_df.get("market").astype(str).str.upper().str.strip()
+        hist_df["period"] = pd.to_numeric(hist_df.get("period"), errors="coerce").fillna(0).astype(int)
+        hist_df["value"] = pd.to_numeric(hist_df.get("value"), errors="coerce")
+        hist_df["count"] = pd.to_numeric(hist_df.get("count"), errors="coerce").fillna(0).astype(int)
+        hist_df["n_sims"] = pd.to_numeric(hist_df.get("n_sims"), errors="coerce").fillna(0).astype(int)
+        hist_df = hist_df[(hist_df["market"] == market) & (hist_df["period"] == 0)]
+    except Exception:
+        hist_df = pd.DataFrame()
+
+    if hist_df.empty:
+        payload["error"] = "goalie_ladders_missing"
+        payload["summary"] = {"games": 0, "goalies": 0, "simCounts": [], "availableTeams": 0, "availableGoalies": 0}
+        return payload
+
+    if agg_df is None or agg_df.empty:
+        agg_df = pd.DataFrame()
+    else:
+        try:
+            agg_df["player_id"] = agg_df.get("player_id").map(_normalize_player_id_value)
+            agg_df["period"] = pd.to_numeric(agg_df.get("period"), errors="coerce").fillna(0).astype(int)
+            agg_df = agg_df[agg_df["period"] == 0]
+        except Exception:
+            pass
+
+    identity_by_pid = _load_skater_identity_map(d)
+    from .teams import get_team_assets as _assets
+
+    rows: list[dict[str, Any]] = []
+    grouped = hist_df.groupby(["player_id", "team", "game_home", "game_away", "date"], dropna=False)
+    for group_key, group in grouped:
+        try:
+            player_id, team_name, game_home, game_away, _row_date = group_key
+            pid = _normalize_player_id_value(player_id)
+            if not pid or pid == "0":
+                continue
+            ident = identity_by_pid.get(pid, {})
+            if str(ident.get("position") or "").upper().strip() != "G":
+                continue
+            goalie_name = str(ident.get("full_name") or (group.get("player").dropna().astype(str).iloc[0] if "player" in group.columns and group.get("player").dropna().size else "")).strip()
+            if not goalie_name:
+                continue
+            team_abbr = str((ident.get("team_abbr") or _assets(str(team_name or "")).get("abbr") or team_name or "")).strip().upper()
+            if not team_abbr:
+                continue
+            if selected_team and team_abbr != selected_team:
+                continue
+            away_abbr = str((_assets(str(game_away or "")).get("abbr") or game_away or "")).strip().upper()
+            home_abbr = str((_assets(str(game_home or "")).get("abbr") or game_home or "")).strip().upper()
+            if team_abbr == away_abbr:
+                opponent_abbr = home_abbr
+                matchup = f"{away_abbr} @ {home_abbr}" if away_abbr and home_abbr else team_abbr
+            elif team_abbr == home_abbr:
+                opponent_abbr = away_abbr
+                matchup = f"{away_abbr} @ {home_abbr}" if away_abbr and home_abbr else team_abbr
+            else:
+                opponent_abbr = home_abbr or away_abbr
+                matchup = f"{team_abbr} vs {opponent_abbr}" if opponent_abbr else team_abbr
+
+            exact_counts = group.groupby(group["value"].astype(int))["count"].sum().sort_index()
+            if exact_counts.empty:
+                continue
+            sim_count = int(group.get("n_sims").max()) if "n_sims" in group.columns else int(exact_counts.sum())
+            if sim_count <= 0:
+                sim_count = int(exact_counts.sum())
+            cumulative = 0
+            hit_count_by_total: Dict[int, int] = {}
+            for total in sorted((int(x) for x in exact_counts.index.tolist()), reverse=True):
+                cumulative += int(exact_counts.get(total) or 0)
+                hit_count_by_total[int(total)] = cumulative
+            ladder_rows = []
+            for total in sorted(int(x) for x in exact_counts.index.tolist()):
+                exact_count = int(exact_counts.get(total) or 0)
+                hit_count = int(hit_count_by_total.get(total) or 0)
+                ladder_rows.append({
+                    "total": int(total),
+                    "hitCount": hit_count,
+                    "hitProb": float(hit_count / float(max(1, sim_count))),
+                    "exactCount": exact_count,
+                    "exactProb": float(exact_count / float(max(1, sim_count))),
+                })
+            if not ladder_rows:
+                continue
+            mode_row = max(ladder_rows, key=lambda row: (int(row.get("exactCount") or 0), -int(row.get("total") or 0)))
+            mean_value = None
+            try:
+                if not agg_df.empty and mean_col in agg_df.columns:
+                    match = agg_df[(agg_df.get("player_id") == pid) & (agg_df.get("team").astype(str) == str(team_name))]
+                    if match is not None and not match.empty:
+                        mean_value = _safe_float_or_none(match.iloc[0].get(mean_col))
+            except Exception:
+                mean_value = None
+            if mean_value is None:
+                try:
+                    mean_value = float(sum(int(row["total"]) * int(row["exactCount"]) for row in ladder_rows) / float(max(1, sim_count)))
+                except Exception:
+                    mean_value = None
+
+            player_key = _normalize_player_name_key(goalie_name)
+            market_entries = list((market_lines.get((player_key, team_abbr)) or {}).values())
+            market_entries = sorted(market_entries, key=lambda entry: list(_GOALIE_LADDER_PROPS.keys()).index(str(entry.get("stat") or "saves")) if str(entry.get("stat") or "") in _GOALIE_LADDER_PROPS else 999)
+            active_market = next((entry for entry in market_entries if str(entry.get("stat") or "") == prop), None)
+            market_line = _safe_float_or_none((active_market or {}).get("line"))
+            over_line_count = None
+            over_line_prob = None
+            if market_line is not None:
+                over_line_count = int(sum(int(row.get("exactCount") or 0) for row in ladder_rows if float(row.get("total") or 0) > float(market_line)))
+                over_line_prob = float(over_line_count / float(max(1, sim_count)))
+
+            rows.append({
+                "goalieId": int(pid),
+                "playerId": int(pid),
+                "goalieName": goalie_name,
+                "playerName": goalie_name,
+                "headshotUrl": ident.get("headshot_url"),
+                "team": team_abbr,
+                "teamLogoUrl": ident.get("team_logo_url") or _assets(team_abbr).get("logo"),
+                "opponent": opponent_abbr or None,
+                "opponentLogoUrl": _assets(opponent_abbr).get("logo") if opponent_abbr else None,
+                "matchup": matchup,
+                "gameHome": home_abbr or None,
+                "gameAway": away_abbr or None,
+                "mean": mean_value,
+                "mode": int(mode_row.get("total") or 0),
+                "modeCount": int(mode_row.get("exactCount") or 0),
+                "modeProb": float(mode_row.get("exactProb") or 0.0),
+                "simCount": int(sim_count),
+                "minTotal": int(min(int(row.get("total") or 0) for row in ladder_rows)),
+                "maxTotal": int(max(int(row.get("total") or 0) for row in ladder_rows)),
+                "marketLine": market_line,
+                "marketLinesByStat": market_entries,
+                "overLineCount": over_line_count,
+                "overLineProb": over_line_prob,
+                "ladder": ladder_rows,
+                "ladderShape": "exact",
+                "sourceFile": _relative_path_text(source_path),
+            })
+        except Exception:
+            continue
+
+    all_rows = rows[:]
+    payload["teamOptions"] = [
+        {"value": team_key, "label": team_key, "team": team_key, "teamLogoUrl": (next((row.get("teamLogoUrl") for row in all_rows if str(row.get("team") or "") == team_key), None))}
+        for team_key in sorted({str(row.get("team") or "").upper() for row in all_rows if str(row.get("team") or "").strip()})
+    ]
+    if selected_team:
+        rows = [row for row in rows if str(row.get("team") or "").upper() == selected_team]
+    rows = sorted(
+        rows if sort_key != "team" else rows,
+        key=(
+            (lambda row: (-float(_safe_float_or_none(row.get("mean")) or float("-inf")), str(row.get("team") or ""), str(row.get("goalieName") or ""))) if sort_key == "mean"
+            else (lambda row: (-int(_safe_int_or_none(row.get("mode")) or -1), -float(_safe_float_or_none(row.get("modeProb")) or -1.0), -float(_safe_float_or_none(row.get("mean")) or float("-inf")), str(row.get("team") or ""), str(row.get("goalieName") or ""))) if sort_key == "mode"
+            else (lambda row: (str(row.get("team") or ""), str(row.get("opponent") or ""), str(row.get("goalieName") or "")))
+        ),
+    )
+    payload["goalieOptions"] = [
+        {
+            "value": str(int(row.get("goalieId") or 0)),
+            "label": f"{row.get('goalieName') or 'Unknown'} ({row.get('team') or '-'} vs {row.get('opponent') or '-'})",
+            "goalieId": int(row.get("goalieId") or 0),
+            "goalieName": str(row.get("goalieName") or ""),
+            "headshotUrl": row.get("headshotUrl"),
+            "teamLogoUrl": row.get("teamLogoUrl"),
+            "opponentLogoUrl": row.get("opponentLogoUrl"),
+        }
+        for row in rows
+    ]
+    if selected_goalie:
+        if selected_goalie.isdigit():
+            rows = [row for row in rows if str(int(row.get("goalieId") or 0)) == selected_goalie]
+        else:
+            target_name = _normalize_player_name_key(selected_goalie)
+            rows = [row for row in rows if _normalize_player_name_key(row.get("goalieName")) == target_name]
+
+    if not rows:
+        payload["error"] = "goalie_ladders_missing"
+        if selected_team:
+            payload["error"] = "goalie_ladders_team_missing"
+        if selected_goalie:
+            payload["error"] = "goalie_ladders_goalie_missing"
+        payload["summary"] = {
+            "games": int(len({str(row.get("matchup") or "") for row in all_rows if str(row.get("matchup") or "").strip()})),
+            "goalies": 0,
+            "simCounts": sorted({int(row.get("simCount") or 0) for row in all_rows if int(row.get("simCount") or 0) > 0}),
+            "availableTeams": int(len(payload.get("teamOptions") or [])),
+            "availableGoalies": int(len(payload.get("goalieOptions") or [])),
+        }
+        return payload
+
+    payload["found"] = True
+    payload["rows"] = rows
+    payload["defaultSims"] = int(max((int(row.get("simCount") or 0) for row in rows), default=0))
+    payload["summary"] = {
+        "games": int(len({str(row.get("matchup") or "") for row in all_rows if str(row.get("matchup") or "").strip()})),
+        "goalies": int(len(rows)),
+        "simCounts": sorted({int(row.get("simCount") or 0) for row in all_rows if int(row.get("simCount") or 0) > 0}),
+        "availableTeams": int(len(payload.get("teamOptions") or [])),
+        "availableGoalies": int(len(payload.get("goalieOptions") or [])),
+    }
+    return payload
+
+
+def _load_skater_identity_map(date_ymd: str) -> Dict[str, dict[str, Any]]:
+    out: Dict[str, dict[str, Any]] = {}
+    roster_master: Dict[str, dict[str, Any]] = {}
+    try:
+        for path in (PROC_DIR / "roster_master.csv", ROOT_DIR / "data" / "processed" / "roster_master.csv"):
+            if not path.exists():
+                continue
+            rdf = _read_csv_fallback(path)
+            rdf = _normalize_frame_columns(rdf)
+            if rdf is None or rdf.empty:
+                continue
+            for _, row in rdf.iterrows():
+                pid = _normalize_player_id_value(row.get("player_id"))
+                if not pid:
+                    continue
+                roster_master[pid] = {
+                    "image_url": str(row.get("image_url") or "").strip() or None,
+                    "team_abbr": str(row.get("team_abbr") or "").strip().upper() or None,
+                }
+            break
+    except Exception:
+        roster_master = {}
+
+    try:
+        snap = _read_csv_fallback(PROC_DIR / f"roster_snapshot_{date_ymd}.csv")
+        snap = _normalize_frame_columns(snap)
+        if snap is not None and not snap.empty:
+            from .teams import get_team_assets as _assets
+
+            for _, row in snap.iterrows():
+                pid = _normalize_player_id_value(row.get("player_id"))
+                if not pid:
+                    continue
+                team_abbr = str((_assets(str(row.get("team") or "")).get("abbr") or row.get("team") or "")).strip().upper()
+                pref_url = None
+                if pid in roster_master:
+                    pref_url = roster_master[pid].get("image_url")
+                    if not team_abbr:
+                        team_abbr = str(roster_master[pid].get("team_abbr") or "").strip().upper()
+                out[pid] = {
+                    "player_id": pid,
+                    "full_name": str(row.get("full_name") or "").strip() or None,
+                    "team_abbr": team_abbr or None,
+                    "position": str(row.get("position") or "").strip().upper() or None,
+                    "team_logo_url": _assets(team_abbr).get("logo") if team_abbr else None,
+                    "headshot_url": _nhl_player_headshot_url(pid, team_abbr=team_abbr or None, date_ymd=date_ymd, preferred_url=pref_url),
+                }
+    except Exception:
+        pass
+    return out
+
+
+def _sort_skater_ladder_rows(rows: list[dict[str, Any]], sort_key: str) -> list[dict[str, Any]]:
+    normalized = _normalize_skater_ladder_sort(sort_key)
+    if normalized == "mean":
+        return sorted(
+            rows,
+            key=lambda row: (
+                -float(_safe_float_or_none(row.get("mean")) or float("-inf")),
+                str(row.get("team") or ""),
+                str(row.get("skaterName") or ""),
+            ),
+        )
+    if normalized == "mode":
+        return sorted(
+            rows,
+            key=lambda row: (
+                -int(_safe_int_or_none(row.get("mode")) or -1),
+                -float(_safe_float_or_none(row.get("modeProb")) or -1.0),
+                -float(_safe_float_or_none(row.get("mean")) or float("-inf")),
+                str(row.get("team") or ""),
+                str(row.get("skaterName") or ""),
+            ),
+        )
+    return sorted(
+        rows,
+        key=lambda row: (
+            str(row.get("team") or ""),
+            str(row.get("opponent") or ""),
+            str(row.get("skaterName") or ""),
+        ),
+    )
+
+
+def _skater_ladders_payload(date_ymd: str, prop_value: Any, team_value: Any, skater_value: Any, sort_value: Any) -> Dict[str, Any]:
+    d = _normalize_date_param(date_ymd)
+    prop = _normalize_skater_ladder_prop(prop_value)
+    sort_key = _normalize_skater_ladder_sort(sort_value)
+    selected_team = _normalize_skater_team_selector(team_value)
+    selected_skater = _normalize_skater_selector(skater_value)
+    prop_cfg = _SKATER_LADDER_PROPS[prop]
+    market = str(prop_cfg.get("market") or "").upper()
+    mean_col = str(prop_cfg.get("mean_col") or "")
+    hist_path = PROC_DIR / f"props_boxscores_sim_hist_{d}.csv"
+    agg_path = PROC_DIR / f"props_boxscores_sim_{d}.csv"
+    source_path = hist_path if hist_path.exists() else agg_path
+    market_path, market_lines = _load_skater_ladder_market_lines(d)
+    nav = _skater_ladders_nav(d)
+    payload: Dict[str, Any] = {
+        "date": d,
+        "prop": prop,
+        "propLabel": str(prop_cfg.get("label") or prop.title()),
+        "propUnit": str(prop_cfg.get("unit") or ""),
+        "propOptions": _skater_ladder_prop_options(),
+        "selectedTeam": selected_team,
+        "selectedSkater": selected_skater,
+        "teamOptions": [],
+        "selectedSort": sort_key,
+        "skaterOptions": [],
+        "sortOptions": _skater_ladder_sort_options(),
+        "defaultSims": 0,
+        "found": False,
+        "ladderShape": "exact",
+        "sourceDir": _relative_path_text(source_path),
+        "marketSource": _relative_path_text(market_path),
+        "nav": nav,
+        "rows": [],
+    }
+
+    hist_df = _normalize_frame_columns(_read_csv_fallback(hist_path))
+    agg_df = _normalize_frame_columns(_read_csv_fallback(agg_path))
+    if hist_df.empty:
+        payload["error"] = "skater_ladders_missing"
+        payload["summary"] = {"games": 0, "skaters": 0, "simCounts": [], "availableTeams": 0, "availableSkaters": 0}
+        return payload
+
+    for frame in (hist_df, agg_df):
+        if frame is None or frame.empty:
+            continue
+        try:
+            frame.columns = [str(col).replace("\r", "").strip() for col in frame.columns]
+        except Exception:
+            pass
+
+    try:
+        hist_df["player_id"] = hist_df.get("player_id").map(_normalize_player_id_value)
+    except Exception:
+        pass
+    try:
+        hist_df["market"] = hist_df.get("market").astype(str).str.upper().str.strip()
+    except Exception:
+        pass
+    try:
+        hist_df["period"] = pd.to_numeric(hist_df.get("period"), errors="coerce").fillna(0).astype(int)
+    except Exception:
+        hist_df["period"] = 0
+    try:
+        hist_df["value"] = pd.to_numeric(hist_df.get("value"), errors="coerce")
+        hist_df["count"] = pd.to_numeric(hist_df.get("count"), errors="coerce").fillna(0).astype(int)
+        hist_df["n_sims"] = pd.to_numeric(hist_df.get("n_sims"), errors="coerce").fillna(0).astype(int)
+    except Exception:
+        pass
+    try:
+        hist_df = hist_df[(hist_df["market"] == market) & (hist_df["period"] == 0)]
+    except Exception:
+        hist_df = pd.DataFrame()
+
+    if hist_df.empty:
+        payload["error"] = "skater_ladders_missing"
+        payload["summary"] = {"games": 0, "skaters": 0, "simCounts": [], "availableTeams": 0, "availableSkaters": 0}
+        return payload
+
+    if agg_df is None or agg_df.empty:
+        agg_df = pd.DataFrame()
+    else:
+        try:
+            agg_df["player_id"] = agg_df.get("player_id").map(_normalize_player_id_value)
+        except Exception:
+            pass
+        try:
+            agg_df["period"] = pd.to_numeric(agg_df.get("period"), errors="coerce").fillna(0).astype(int)
+            agg_df = agg_df[agg_df["period"] == 0]
+        except Exception:
+            pass
+
+    identity_by_pid = _load_skater_identity_map(d)
+    from .teams import get_team_assets as _assets
+
+    rows: list[dict[str, Any]] = []
+    grouped = hist_df.groupby(["player_id", "team", "game_home", "game_away", "date"], dropna=False)
+    for group_key, group in grouped:
+        try:
+            player_id, team_name, game_home, game_away, _row_date = group_key
+            pid = _normalize_player_id_value(player_id)
+            if not pid or pid == "0":
+                continue
+            ident = identity_by_pid.get(pid, {})
+            position = str(ident.get("position") or "").upper().strip()
+            if position == "G":
+                continue
+            player_name = str(ident.get("full_name") or (group.get("player").dropna().astype(str).iloc[0] if "player" in group.columns and group.get("player").dropna().size else "")).strip()
+            if not player_name or player_name.upper() == "TEAM":
+                continue
+            team_abbr = str((ident.get("team_abbr") or _assets(str(team_name or "")).get("abbr") or team_name or "")).strip().upper()
+            if not team_abbr:
+                continue
+            if selected_team and team_abbr != selected_team:
+                continue
+            opponent_abbr = ""
+            away_abbr = str((_assets(str(game_away or "")).get("abbr") or game_away or "")).strip().upper()
+            home_abbr = str((_assets(str(game_home or "")).get("abbr") or game_home or "")).strip().upper()
+            if team_abbr == away_abbr:
+                opponent_abbr = home_abbr
+                matchup = f"{away_abbr} @ {home_abbr}" if away_abbr and home_abbr else team_abbr
+            elif team_abbr == home_abbr:
+                opponent_abbr = away_abbr
+                matchup = f"{away_abbr} @ {home_abbr}" if away_abbr and home_abbr else team_abbr
+            else:
+                opponent_abbr = home_abbr or away_abbr
+                matchup = f"{team_abbr} vs {opponent_abbr}" if opponent_abbr else team_abbr
+
+            exact_counts = group.groupby(group["value"].astype(int))["count"].sum().sort_index()
+            if exact_counts.empty:
+                continue
+            sim_count = int(group.get("n_sims").max()) if "n_sims" in group.columns else int(exact_counts.sum())
+            if sim_count <= 0:
+                sim_count = int(exact_counts.sum())
+            cumulative = 0
+            hit_count_by_total: Dict[int, int] = {}
+            for total in sorted((int(x) for x in exact_counts.index.tolist()), reverse=True):
+                cumulative += int(exact_counts.get(total) or 0)
+                hit_count_by_total[int(total)] = cumulative
+            ladder_rows = []
+            for total in sorted(int(x) for x in exact_counts.index.tolist()):
+                exact_count = int(exact_counts.get(total) or 0)
+                hit_count = int(hit_count_by_total.get(total) or 0)
+                ladder_rows.append(
+                    {
+                        "total": int(total),
+                        "hitCount": hit_count,
+                        "hitProb": float(hit_count / float(max(1, sim_count))),
+                        "exactCount": exact_count,
+                        "exactProb": float(exact_count / float(max(1, sim_count))),
+                    }
+                )
+            if not ladder_rows:
+                continue
+            mode_row = max(ladder_rows, key=lambda row: (int(row.get("exactCount") or 0), -int(row.get("total") or 0)))
+            mean_value = None
+            try:
+                if not agg_df.empty and mean_col in agg_df.columns:
+                    match = agg_df[(agg_df.get("player_id") == pid) & (agg_df.get("team").astype(str) == str(team_name))]
+                    if match is not None and not match.empty:
+                        mean_value = _safe_float_or_none(match.iloc[0].get(mean_col))
+            except Exception:
+                mean_value = None
+            if mean_value is None:
+                try:
+                    mean_value = float(sum(int(row["total"]) * int(row["exactCount"]) for row in ladder_rows) / float(max(1, sim_count)))
+                except Exception:
+                    mean_value = None
+
+            player_key = _normalize_player_name_key(player_name)
+            market_entries = list((market_lines.get((player_key, team_abbr)) or {}).values())
+            market_entries = sorted(market_entries, key=lambda entry: list(_SKATER_LADDER_PROPS.keys()).index(str(entry.get("stat") or "sog")) if str(entry.get("stat") or "") in _SKATER_LADDER_PROPS else 999)
+            active_market = next((entry for entry in market_entries if str(entry.get("stat") or "") == prop), None)
+            market_line = _safe_float_or_none((active_market or {}).get("line"))
+            over_line_count = None
+            over_line_prob = None
+            if market_line is not None:
+                over_line_count = int(sum(int(row.get("exactCount") or 0) for row in ladder_rows if float(row.get("total") or 0) > float(market_line)))
+                over_line_prob = float(over_line_count / float(max(1, sim_count)))
+
+            row_obj = {
+                "skaterId": int(pid),
+                "playerId": int(pid),
+                "skaterName": player_name,
+                "playerName": player_name,
+                "headshotUrl": ident.get("headshot_url"),
+                "team": team_abbr,
+                "teamLogoUrl": ident.get("team_logo_url") or _assets(team_abbr).get("logo"),
+                "opponent": opponent_abbr or None,
+                "opponentLogoUrl": _assets(opponent_abbr).get("logo") if opponent_abbr else None,
+                "matchup": matchup,
+                "gameHome": home_abbr or None,
+                "gameAway": away_abbr or None,
+                "mean": mean_value,
+                "mode": int(mode_row.get("total") or 0),
+                "modeCount": int(mode_row.get("exactCount") or 0),
+                "modeProb": float(mode_row.get("exactProb") or 0.0),
+                "simCount": int(sim_count),
+                "minTotal": int(min(int(row.get("total") or 0) for row in ladder_rows)),
+                "maxTotal": int(max(int(row.get("total") or 0) for row in ladder_rows)),
+                "marketLine": market_line,
+                "marketLinesByStat": market_entries,
+                "overLineCount": over_line_count,
+                "overLineProb": over_line_prob,
+                "ladder": ladder_rows,
+                "ladderShape": "exact",
+                "sourceFile": _relative_path_text(source_path),
+            }
+            rows.append(row_obj)
+        except Exception:
+            continue
+
+    all_rows = rows[:]
+    payload["teamOptions"] = [
+        {"value": team_key, "label": team_key, "team": team_key, "teamLogoUrl": (next((row.get("teamLogoUrl") for row in all_rows if str(row.get("team") or "") == team_key), None))}
+        for team_key in sorted({str(row.get("team") or "").upper() for row in all_rows if str(row.get("team") or "").strip()})
+    ]
+
+    if selected_team:
+        rows = [row for row in rows if str(row.get("team") or "").upper() == selected_team]
+
+    rows = _sort_skater_ladder_rows(rows, sort_key)
+    payload["skaterOptions"] = [
+        {
+            "value": str(int(row.get("skaterId") or 0)),
+            "label": f"{row.get('skaterName') or 'Unknown'} ({row.get('team') or '-'} vs {row.get('opponent') or '-'})",
+            "skaterId": int(row.get("skaterId") or 0),
+            "skaterName": str(row.get("skaterName") or ""),
+            "headshotUrl": row.get("headshotUrl"),
+            "teamLogoUrl": row.get("teamLogoUrl"),
+            "opponentLogoUrl": row.get("opponentLogoUrl"),
+        }
+        for row in rows
+    ]
+
+    if selected_skater:
+        if selected_skater.isdigit():
+            rows = [row for row in rows if str(int(row.get("skaterId") or 0)) == selected_skater]
+        else:
+            target_name = _normalize_player_name_key(selected_skater)
+            rows = [row for row in rows if _normalize_player_name_key(row.get("skaterName")) == target_name]
+
+    if not rows:
+        payload["error"] = "skater_ladders_missing"
+        if selected_team:
+            payload["error"] = "skater_ladders_team_missing"
+        if selected_skater:
+            payload["error"] = "skater_ladders_skater_missing"
+        payload["summary"] = {
+            "games": int(len({str(row.get("matchup") or "") for row in all_rows if str(row.get("matchup") or "").strip()})),
+            "skaters": 0,
+            "simCounts": sorted({int(row.get("simCount") or 0) for row in all_rows if int(row.get("simCount") or 0) > 0}),
+            "availableTeams": int(len(payload.get("teamOptions") or [])),
+            "availableSkaters": int(len(payload.get("skaterOptions") or [])),
+        }
+        return payload
+
+    payload["found"] = True
+    payload["rows"] = rows
+    payload["defaultSims"] = int(max((int(row.get("simCount") or 0) for row in rows), default=0))
+    payload["summary"] = {
+        "games": int(len({str(row.get("matchup") or "") for row in all_rows if str(row.get("matchup") or "").strip()})),
+        "skaters": int(len(rows)),
+        "simCounts": sorted({int(row.get("simCount") or 0) for row in all_rows if int(row.get("simCount") or 0) > 0}),
+        "availableTeams": int(len(payload.get("teamOptions") or [])),
+        "availableSkaters": int(len(payload.get("skaterOptions") or [])),
+    }
+    return payload
+
 """
 Primary Player Props page.
 
@@ -12507,13 +13415,104 @@ async def _ensure_models(quick: bool = False) -> None:
         # Silent failure; callers may try again
         pass
 
+
+@app.get("/api/skater-ladders")
+@app.get("/api/skater-ladders/")
+async def api_skater_ladders(
+    date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD"),
+    prop: str = Query("sog", description="Skater prop key"),
+    team: Optional[str] = Query(None, description="Team abbreviation filter"),
+    skater: Optional[str] = Query(None, description="Skater id or name filter"),
+    sort: str = Query("team", description="Sort key: team, mean, mode"),
+):
+    d = _normalize_date_param(date)
+    return _skater_ladders_payload(d, prop, team, skater, sort)
+
+
+@app.get("/api/goalie-ladders")
+@app.get("/api/goalie-ladders/")
+async def api_goalie_ladders(
+    date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD"),
+    prop: str = Query("saves", description="Goalie prop key"),
+    team: Optional[str] = Query(None, description="Team abbreviation filter"),
+    goalie: Optional[str] = Query(None, description="Goalie id or name filter"),
+    sort: str = Query("team", description="Sort key: team, mean, mode"),
+):
+    d = _normalize_date_param(date)
+    return _goalie_ladders_payload(d, prop, team, goalie, sort)
+
+
+@app.get("/skater-ladders")
+@app.get("/skater-ladders/")
+async def skater_ladders_page(
+    date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD"),
+    prop: str = Query("sog", description="Skater prop key"),
+    team: Optional[str] = Query(None, description="Team abbreviation filter"),
+    skater: Optional[str] = Query(None, description="Skater id or name filter"),
+    sort: str = Query("team", description="Sort key: team, mean, mode"),
+):
+    d = _normalize_date_param(date)
+    initial_state = {
+        "date": d,
+        "prop": _normalize_skater_ladder_prop(prop),
+        "team": _normalize_skater_team_selector(team),
+        "skater": _normalize_skater_selector(skater),
+        "sort": _normalize_skater_ladder_sort(sort),
+    }
+    try:
+        template = env.get_template("skater_ladders.html")
+        return HTMLResponse(
+            content=template.render(
+                initial_state_json=json.dumps(initial_state),
+                initial_date=d,
+                prop_options=_skater_ladder_prop_options(),
+                sort_options=_skater_ladder_sort_options(),
+            )
+        )
+    except Exception as e:
+        h = (_git_commit_hash() or "")[:12]
+        return PlainTextResponse(f"skater ladders unavailable: {e} (commit {h})", status_code=200)
+
+
+@app.get("/goalie-ladders")
+@app.get("/goalie-ladders/")
+async def goalie_ladders_page(
+    date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD"),
+    prop: str = Query("saves", description="Goalie prop key"),
+    team: Optional[str] = Query(None, description="Team abbreviation filter"),
+    goalie: Optional[str] = Query(None, description="Goalie id or name filter"),
+    sort: str = Query("team", description="Sort key: team, mean, mode"),
+):
+    d = _normalize_date_param(date)
+    initial_state = {
+        "date": d,
+        "prop": _normalize_goalie_ladder_prop(prop),
+        "team": _normalize_skater_team_selector(team),
+        "goalie": _normalize_skater_selector(goalie),
+        "sort": _normalize_skater_ladder_sort(sort),
+    }
+    try:
+        template = env.get_template("goalie_ladders.html")
+        return HTMLResponse(
+            content=template.render(
+                initial_state_json=json.dumps(initial_state),
+                initial_date=d,
+                prop_options=_goalie_ladder_prop_options(),
+                sort_options=_skater_ladder_sort_options(),
+            )
+        )
+    except Exception as e:
+        h = (_git_commit_hash() or "")[:12]
+        return PlainTextResponse(f"goalie ladders unavailable: {e} (commit {h})", status_code=200)
+
 @app.get("/")
 async def cards(date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD")):
     # Cards-only UI: serve a single static page that pulls from the read-only /v1 bundles API.
     # This intentionally avoids server-side compute/odds fetching in response to user page loads.
     try:
+        d = _normalize_date_param(date)
         template = env.get_template("cards_only.html")
-        return HTMLResponse(content=template.render())
+        return HTMLResponse(content=template.render(initial_date=d))
     except Exception as e:
         h = (_git_commit_hash() or "")[:12]
         return PlainTextResponse(f"cards UI unavailable: {e} (commit {h})", status_code=200)

@@ -89,6 +89,32 @@
             "pl_line_used": 1.5,
             "proj_away_goals": 4.4225,
             "proj_home_goals": 4.393166666666667,
+            "segments": {
+              "final": {
+                "away_win_prob": 0.43472497038317887,
+                "home_win_prob": 0.42632694759799794,
+                "tie_prob": 0.13894808201882317
+              },
+              "ot": {
+                "no_prob": 0.8610519179811769,
+                "yes_prob": 0.13894808201882317
+              },
+              "p1": {
+                "away_win_prob": 0.3767543482649721,
+                "home_win_prob": 0.3714797165693171,
+                "tie_prob": 0.2517659351657107
+              },
+              "p2": {
+                "away_win_prob": 0.37906326251664707,
+                "home_win_prob": 0.3751432260328812,
+                "tie_prob": 0.24579351145047168
+              },
+              "p3": {
+                "away_win_prob": 0.37908085236445266,
+                "home_win_prob": 0.3738830472827611,
+                "tie_prob": 0.2470361003527862
+              }
+            },
             "total_line_used": 5.5,
             "under_odds": 110.0
           }
@@ -161,6 +187,6 @@
     "reconciliation_games": null,
     "reconciliation_props": null
   },
-  "generated_at_utc": "2026-03-24T16:14:13+00:00",
-  "schema_version": 1
+  "generated_at_utc": "2026-03-24T20:58:41+00:00",
+  "schema_version": 2
 }

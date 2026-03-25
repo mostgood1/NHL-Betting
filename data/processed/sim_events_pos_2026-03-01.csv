@@ -1,0 +1,7 @@
+gamePk,date,home,away,shots_ev_home,shots_pp_home,shots_pk_home,shots_ev_away,shots_pp_away,shots_pk_away,goals_ev_home,goals_pp_home,goals_pk_home,goals_ev_away,goals_pp_away,goals_pk_away,blocks_ev_home,blocks_pp_home,blocks_pk_home,blocks_ev_away,blocks_pp_away,blocks_pk_away,saves_ev_home,saves_pp_home,saves_pk_home,saves_ev_away,saves_pp_away,saves_pk_away
+2025020947,2026-03-01,Pittsburgh Penguins,Vegas Golden Knights,18,3,0,26,2,1,2,1,0,2,0,0,14,1,1,12,0,1,24,2,1,16,2,0
+2025020949,2026-03-01,Utah Mammoth,Chicago Blackhawks,20,6,2,23,4,1,1,0,0,0,2,0,8,0,2,8,1,2,23,2,1,19,6,2
+2025020950,2026-03-01,San Jose Sharks,Winnipeg Jets,29,0,1,27,2,0,3,0,0,0,0,0,9,0,1,7,0,0,27,2,0,26,0,1
+2025020951,2026-03-01,Minnesota Wild,St. Louis Blues,22,9,1,16,4,5,5,0,0,2,0,1,7,0,2,10,0,6,14,4,4,17,9,1
+2025020948,2026-03-01,New York Islanders,Florida Panthers,21,6,1,30,7,2,3,2,0,2,0,0,8,2,3,11,0,3,28,7,2,18,4,1
+2025020952,2026-03-01,Anaheim Ducks,Calgary Flames,27,1,4,21,2,4,5,0,1,5,0,0,8,1,1,13,3,1,16,2,4,22,1,3

@@ -1,0 +1,8 @@
+market,side,price,ev,prob,conf,home,away,totals_line
+PL,Columbus Blue Jackets +1.5,-258.0,0.12487855297157624,0.8106666666666666,0.31066666666666665,Montréal Canadiens,Columbus Blue Jackets,6.5
+PL,Pittsburgh Penguins +1.5,-205.0,0.16867073170731706,0.7855,0.2855,Ottawa Senators,Pittsburgh Penguins,5.5
+PL,Seattle Kraken +1.5,-115.0,0.4676086956521739,0.785,0.28500000000000003,Tampa Bay Lightning,Seattle Kraken,6.5
+PL,New Jersey Devils +1.5,-265.0,0.08053773584905649,0.7845,0.2845,Nashville Predators,New Jersey Devils,5.5
+PL,Chicago Blackhawks +1.5,-185.0,0.20085135135135135,0.7795,0.27949999999999997,Philadelphia Flyers,Chicago Blackhawks,5.5
+PL,Washington Capitals +1.5,-198.0,0.16591245791245796,0.7746666666666666,0.2746666666666666,Utah Mammoth,Washington Capitals,5.5
+PL,Edmonton Oilers +1.5,-225.0,0.03687037037037033,0.7178333333333333,0.21783333333333332,Vegas Golden Knights,Edmonton Oilers,6.5

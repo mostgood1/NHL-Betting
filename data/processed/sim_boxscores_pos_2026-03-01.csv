@@ -1,0 +1,314 @@
+gamePk,date,team,player_id,full_name,position,shots,goals,saves,blocks
+2025020947,2026-03-01,Pittsburgh Penguins,8478569,Noel Acciari,F,1,0,0,3
+2025020947,2026-03-01,Pittsburgh Penguins,8479638,Justin Brazeau,F,0,0,0,1
+2025020947,2026-03-01,Pittsburgh Penguins,8482475,Egor Chinakhov,F,2,0,0,1
+2025020947,2026-03-01,Pittsburgh Penguins,8471675,Sidney Crosby,F,0,0,0,1
+2025020947,2026-03-01,Pittsburgh Penguins,8480980,Connor Dewar,F,0,0,0,1
+2025020947,2026-03-01,Pittsburgh Penguins,8480842,Filip Hallander,F,2,0,0,0
+2025020947,2026-03-01,Pittsburgh Penguins,8475763,Kevin Hayes,F,0,0,0,0
+2025020947,2026-03-01,Pittsburgh Penguins,8485414,Ben Kindel,F,1,1,0,1
+2025020947,2026-03-01,Pittsburgh Penguins,8482758,Ville Koivunen,F,1,0,0,0
+2025020947,2026-03-01,Pittsburgh Penguins,8481481,Blake Lizotte,F,2,0,0,0
+2025020947,2026-03-01,Pittsburgh Penguins,8471215,Evgeni Malkin,F,0,0,0,0
+2025020947,2026-03-01,Pittsburgh Penguins,8477511,Anthony Mantha,F,2,0,0,0
+2025020947,2026-03-01,Pittsburgh Penguins,8478438,Tommy Novak,F,0,0,0,0
+2025020947,2026-03-01,Pittsburgh Penguins,8476483,Rickard Rakell,F,1,0,0,0
+2025020947,2026-03-01,Pittsburgh Penguins,8475810,Bryan Rust,F,0,0,0,0
+2025020947,2026-03-01,Pittsburgh Penguins,8481725,Elmer Soderblom,F,0,0,0,0
+2025020947,2026-03-01,Pittsburgh Penguins,8477365,Connor Clifton,D,1,1,0,0
+2025020947,2026-03-01,Pittsburgh Penguins,8479398,Samuel Girard,D,0,0,0,1
+2025020947,2026-03-01,Pittsburgh Penguins,8477435,Ryan Graves,D,2,0,0,2
+2025020947,2026-03-01,Pittsburgh Penguins,8474578,Erik Karlsson,D,2,0,0,1
+2025020947,2026-03-01,Pittsburgh Penguins,8471724,Kris Letang,D,1,0,0,1
+2025020947,2026-03-01,Pittsburgh Penguins,8478854,Ryan Shea,D,1,0,0,2
+2025020947,2026-03-01,Pittsburgh Penguins,8482470,Ilya Solovyov,D,1,1,0,1
+2025020947,2026-03-01,Pittsburgh Penguins,8481030,Jack St. Ivany,D,1,0,0,0
+2025020947,2026-03-01,Pittsburgh Penguins,8478450,Parker Wotherspoon,D,0,0,0,0
+2025020947,2026-03-01,Pittsburgh Penguins,8481668,Arturs Silovs,G,0,0,27,0
+2025020947,2026-03-01,Pittsburgh Penguins,8479973,Stuart Skinner,G,0,0,0,0
+2025020947,2026-03-01,Vegas Golden Knights,8477964,Ivan Barbashev,F,1,0,0,0
+2025020947,2026-03-01,Vegas Golden Knights,8483890,Braeden Bowman,F,2,1,0,0
+2025020947,2026-03-01,Vegas Golden Knights,8481604,Pavel Dorofeyev,F,0,0,0,0
+2025020947,2026-03-01,Vegas Golden Knights,8475343,Nic Dowd,F,0,0,0,0
+2025020947,2026-03-01,Vegas Golden Knights,8478403,Jack Eichel,F,0,0,0,0
+2025020947,2026-03-01,Vegas Golden Knights,8476881,Tomas Hertl,F,0,0,0,0
+2025020947,2026-03-01,Vegas Golden Knights,8482125,Alexander Holtz,F,2,0,0,2
+2025020947,2026-03-01,Vegas Golden Knights,8479353,Brett Howden,F,0,0,0,1
+2025020947,2026-03-01,Vegas Golden Knights,8476448,William Karlsson,F,1,0,0,1
+2025020947,2026-03-01,Vegas Golden Knights,8478434,Keegan Kolesar,F,5,0,0,0
+2025020947,2026-03-01,Vegas Golden Knights,8478483,Mitch Marner,F,1,0,0,1
+2025020947,2026-03-01,Vegas Golden Knights,8480007,Jonas Rondbjerg,F,3,0,0,1
+2025020947,2026-03-01,Vegas Golden Knights,8476438,Brandon Saad,F,1,0,0,1
+2025020947,2026-03-01,Vegas Golden Knights,8476925,Colton Sissons,F,3,0,0,1
+2025020947,2026-03-01,Vegas Golden Knights,8482062,Cole Smith,F,0,0,0,1
+2025020947,2026-03-01,Vegas Golden Knights,8475191,Reilly Smith,F,1,0,0,0
+2025020947,2026-03-01,Vegas Golden Knights,8475913,Mark Stone,F,0,0,0,0
+2025020947,2026-03-01,Vegas Golden Knights,8478397,Rasmus Andersson,D,0,0,0,1
+2025020947,2026-03-01,Vegas Golden Knights,8478396,Noah Hanifin,D,3,0,0,0
+2025020947,2026-03-01,Vegas Golden Knights,8477018,Ben Hutton,D,1,0,0,0
+2025020947,2026-03-01,Vegas Golden Knights,8481527,Kaedan Korczak,D,2,0,0,2
+2025020947,2026-03-01,Vegas Golden Knights,8478468,Jeremy Lauzon,D,2,1,0,1
+2025020947,2026-03-01,Vegas Golden Knights,8475188,Brayden McNabb,D,1,0,0,0
+2025020947,2026-03-01,Vegas Golden Knights,8477447,Shea Theodore,D,0,0,0,0
+2025020947,2026-03-01,Vegas Golden Knights,8479394,Carter Hart,G,0,0,18,0
+2025020947,2026-03-01,Vegas Golden Knights,8478499,Adin Hill,G,0,0,0,0
+2025020947,2026-03-01,Vegas Golden Knights,8481033,Akira Schmid,G,0,0,0,0
+2025020949,2026-03-01,Utah Mammoth,8479619,Michael Carcone,F,1,0,0,0
+2025020949,2026-03-01,Utah Mammoth,8483431,Logan Cooley,F,1,0,0,0
+2025020949,2026-03-01,Utah Mammoth,8478474,Lawson Crouse,F,1,0,0,1
+2025020949,2026-03-01,Utah Mammoth,8482699,Dylan Guenther,F,1,0,0,1
+2025020949,2026-03-01,Utah Mammoth,8480849,Barrett Hayton,F,2,0,0,0
+2025020949,2026-03-01,Utah Mammoth,8479343,Clayton Keller,F,2,0,0,0
+2025020949,2026-03-01,Utah Mammoth,8477021,Alexander Kerfoot,F,1,0,0,0
+2025020949,2026-03-01,Utah Mammoth,8480855,Jack McBain,F,0,0,0,1
+2025020949,2026-03-01,Utah Mammoth,8477070,Liam O'Brien,F,3,0,0,0
+2025020949,2026-03-01,Utah Mammoth,8482175,JJ Peterka,F,2,0,0,1
+2025020949,2026-03-01,Utah Mammoth,8477951,Nick Schmaltz,F,1,0,0,1
+2025020949,2026-03-01,Utah Mammoth,8478831,Kevin Stenlund,F,0,0,0,0
+2025020949,2026-03-01,Utah Mammoth,8479293,Brandon Tanev,F,0,0,0,0
+2025020949,2026-03-01,Utah Mammoth,8479977,Kailer Yamamoto,F,0,0,0,0
+2025020949,2026-03-01,Utah Mammoth,8474013,Ian Cole,D,1,0,0,2
+2025020949,2026-03-01,Utah Mammoth,8480084,Nick DeSimone,D,2,0,0,0
+2025020949,2026-03-01,Utah Mammoth,8480434,Sean Durzi,D,2,1,0,1
+2025020949,2026-03-01,Utah Mammoth,8478507,John Marino,D,2,0,0,0
+2025020949,2026-03-01,Utah Mammoth,8477220,Nate Schmidt,D,4,0,0,0
+2025020949,2026-03-01,Utah Mammoth,8479410,Mikhail Sergachev,D,2,0,0,2
+2025020949,2026-03-01,Utah Mammoth,8477346,MacKenzie Weegar,D,0,0,0,0
+2025020949,2026-03-01,Utah Mammoth,8477970,Vitek Vanecek,G,0,0,26,0
+2025020949,2026-03-01,Utah Mammoth,8478872,Karel Vejmelka,G,0,0,0,0
+2025020949,2026-03-01,Chicago Blackhawks,8484144,Connor Bedard,F,3,0,0,0
+2025020949,2026-03-01,Chicago Blackhawks,8477479,Tyler Bertuzzi,F,3,0,0,1
+2025020949,2026-03-01,Chicago Blackhawks,8484793,Sacha Boisvert,F,3,0,0,0
+2025020949,2026-03-01,Chicago Blackhawks,8477444,Andre Burakovsky,F,1,0,0,0
+2025020949,2026-03-01,Chicago Blackhawks,8477987,Ryan Donato,F,3,0,0,0
+2025020949,2026-03-01,Chicago Blackhawks,8485391,Anton Frondell,F,1,0,0,2
+2025020949,2026-03-01,Chicago Blackhawks,8483450,Ryan Greene,F,1,0,0,0
+2025020949,2026-03-01,Chicago Blackhawks,8478043,Sam Lafferty,F,0,0,0,0
+2025020949,2026-03-01,Chicago Blackhawks,8484185,Nick Lardis,F,1,0,0,0
+2025020949,2026-03-01,Chicago Blackhawks,8478233,Andrew Mangiapane,F,1,0,0,0
+2025020949,2026-03-01,Chicago Blackhawks,8481624,Ilya Mikheyev,F,1,0,0,2
+2025020949,2026-03-01,Chicago Blackhawks,8484197,Oliver Moore,F,0,0,0,0
+2025020949,2026-03-01,Chicago Blackhawks,8483493,Frank Nazar,F,0,0,0,0
+2025020949,2026-03-01,Chicago Blackhawks,8482172,Landon Slaggert,F,0,0,0,0
+2025020949,2026-03-01,Chicago Blackhawks,8476882,Teuvo Teravainen,F,0,0,0,0
+2025020949,2026-03-01,Chicago Blackhawks,8476952,Dominic Toninato,F,0,0,0,0
+2025020949,2026-03-01,Chicago Blackhawks,8481806,Louis Crevier,D,2,0,0,0
+2025020949,2026-03-01,Chicago Blackhawks,8482807,Ethan Del Mastro,D,0,0,0,2
+2025020949,2026-03-01,Chicago Blackhawks,8476891,Matt Grzelcyk,D,1,0,0,0
+2025020949,2026-03-01,Chicago Blackhawks,8482176,Wyatt Kaiser,D,3,0,0,1
+2025020949,2026-03-01,Chicago Blackhawks,8484783,Artyom Levshunov,D,1,0,0,2
+2025020949,2026-03-01,Chicago Blackhawks,8483506,Sam Rinzel,D,3,2,0,1
+2025020949,2026-03-01,Chicago Blackhawks,8481568,Alex Vlasic,D,0,0,0,0
+2025020949,2026-03-01,Chicago Blackhawks,8481519,Spencer Knight,G,0,0,27,0
+2025020949,2026-03-01,Chicago Blackhawks,8482821,Arvid Soderblom,G,0,0,0,0
+2025020950,2026-03-01,San Jose Sharks,8484801,Macklin Celebrini,F,3,0,0,1
+2025020950,2026-03-01,San Jose Sharks,8484994,Igor Chernyshov,F,3,1,0,1
+2025020950,2026-03-01,San Jose Sharks,8480848,Ty Dellandrea,F,1,1,0,0
+2025020950,2026-03-01,San Jose Sharks,8482667,William Eklund,F,3,0,0,0
+2025020950,2026-03-01,San Jose Sharks,8478874,Adam Gaudette,F,3,0,0,0
+2025020950,2026-03-01,San Jose Sharks,8476624,Barclay Goodrow,F,2,0,0,0
+2025020950,2026-03-01,San Jose Sharks,8484911,Collin Graf,F,0,0,0,0
+2025020950,2026-03-01,San Jose Sharks,8480798,Philipp Kurashev,F,2,0,0,0
+2025020950,2026-03-01,San Jose Sharks,8485402,Michael Misa,F,0,0,0,0
+2025020950,2026-03-01,San Jose Sharks,8482859,Zack Ostapchuk,F,4,0,0,0
+2025020950,2026-03-01,San Jose Sharks,8471817,Ryan Reaves,F,0,0,0,0
+2025020950,2026-03-01,San Jose Sharks,8483630,Pavol Regenda,F,1,0,0,3
+2025020950,2026-03-01,San Jose Sharks,8480748,Kiefer Sherwood,F,1,0,0,0
+2025020950,2026-03-01,San Jose Sharks,8484227,Will Smith,F,0,0,0,0
+2025020950,2026-03-01,San Jose Sharks,8475726,Tyler Toffoli,F,0,0,0,0
+2025020950,2026-03-01,San Jose Sharks,8477505,Alexander Wennberg,F,0,0,0,0
+2025020950,2026-03-01,San Jose Sharks,8479576,Vincent Desharnais,D,2,1,0,1
+2025020950,2026-03-01,San Jose Sharks,8484806,Sam Dickinson,D,2,0,0,1
+2025020950,2026-03-01,San Jose Sharks,8479983,Mario Ferraro,D,2,0,0,1
+2025020950,2026-03-01,San Jose Sharks,8475906,John Klingberg,D,0,0,0,0
+2025020950,2026-03-01,San Jose Sharks,8475181,Nick Leddy,D,1,0,0,2
+2025020950,2026-03-01,San Jose Sharks,8482166,Shakir Mukhamadullin,D,0,0,0,0
+2025020950,2026-03-01,San Jose Sharks,8475200,Dmitry Orlov,D,0,0,0,0
+2025020950,2026-03-01,San Jose Sharks,8482137,Yaroslav Askarov,G,0,0,29,0
+2025020950,2026-03-01,San Jose Sharks,8477968,Alex Nedeljkovic,G,0,0,0,0
+2025020950,2026-03-01,Winnipeg Jets,8480289,Morgan Barron,F,0,0,0,1
+2025020950,2026-03-01,Winnipeg Jets,8478398,Kyle Connor,F,2,0,0,0
+2025020950,2026-03-01,Winnipeg Jets,8480113,Alex Iafallo,F,3,0,0,1
+2025020950,2026-03-01,Winnipeg Jets,8481043,Cole Koepke,F,1,0,0,0
+2025020950,2026-03-01,Winnipeg Jets,8483471,Brad Lambert,F,1,0,0,0
+2025020950,2026-03-01,Winnipeg Jets,8476392,Adam Lowry,F,1,0,0,0
+2025020950,2026-03-01,Winnipeg Jets,8476480,Vladislav Namestnikov,F,2,0,0,0
+2025020950,2026-03-01,Winnipeg Jets,8475799,Nino Niederreiter,F,0,0,0,0
+2025020950,2026-03-01,Winnipeg Jets,8474679,Gustav Nyquist,F,0,0,0,0
+2025020950,2026-03-01,Winnipeg Jets,8482149,Cole Perfetti,F,4,0,0,1
+2025020950,2026-03-01,Winnipeg Jets,8482765,Isak Rosen,F,2,0,0,0
+2025020950,2026-03-01,Winnipeg Jets,8476460,Mark Scheifele,F,0,0,0,0
+2025020950,2026-03-01,Winnipeg Jets,8473604,Jonathan Toews,F,1,0,0,0
+2025020950,2026-03-01,Winnipeg Jets,8480014,Gabriel Vilardi,F,0,0,0,0
+2025020950,2026-03-01,Winnipeg Jets,8480196,Jacob Bryson,D,2,0,0,1
+2025020950,2026-03-01,Winnipeg Jets,8476331,Dylan DeMelo,D,0,0,0,0
+2025020950,2026-03-01,Winnipeg Jets,8477938,Haydn Fleury,D,4,0,0,1
+2025020950,2026-03-01,Winnipeg Jets,8481572,Ville Heinola,D,0,0,0,0
+2025020950,2026-03-01,Winnipeg Jets,8476525,Colin Miller,D,4,0,0,0
+2025020950,2026-03-01,Winnipeg Jets,8477504,Josh Morrissey,D,1,0,0,2
+2025020950,2026-03-01,Winnipeg Jets,8480145,Neal Pionk,D,1,0,0,0
+2025020950,2026-03-01,Winnipeg Jets,8483510,Elias Salomonsson,D,0,0,0,0
+2025020950,2026-03-01,Winnipeg Jets,8480049,Dylan Samberg,D,0,0,0,0
+2025020950,2026-03-01,Winnipeg Jets,8477480,Eric Comrie,G,0,0,27,0
+2025020950,2026-03-01,Winnipeg Jets,8476945,Connor Hellebuyck,G,0,0,0,0
+2025020951,2026-03-01,Minnesota Wild,8481557,Matt Boldy,F,6,0,0,1
+2025020951,2026-03-01,Minnesota Wild,8481553,Bobby Brink,F,2,0,0,1
+2025020951,2026-03-01,Minnesota Wild,8478493,Joel Eriksson Ek,F,2,1,0,1
+2025020951,2026-03-01,Minnesota Wild,8477952,Robby Fabbri,F,0,0,0,1
+2025020951,2026-03-01,Minnesota Wild,8475220,Marcus Foligno,F,0,0,0,0
+2025020951,2026-03-01,Minnesota Wild,8473422,Nick Foligno,F,2,0,0,0
+2025020951,2026-03-01,Minnesota Wild,8483452,Hunter Haight,F,2,0,0,0
+2025020951,2026-03-01,Minnesota Wild,8477451,Ryan Hartman,F,1,0,0,1
+2025020951,2026-03-01,Minnesota Wild,8475149,Marcus Johansson,F,1,0,0,0
+2025020951,2026-03-01,Minnesota Wild,8478864,Kirill Kaprizov,F,0,0,0,0
+2025020951,2026-03-01,Minnesota Wild,8477446,Michael McCarron,F,1,1,0,0
+2025020951,2026-03-01,Minnesota Wild,8481477,Nico Sturm,F,1,0,0,0
+2025020951,2026-03-01,Minnesota Wild,8475765,Vladimir Tarasenko,F,0,0,0,0
+2025020951,2026-03-01,Minnesota Wild,8478508,Yakov Trenin,F,0,0,0,0
+2025020951,2026-03-01,Minnesota Wild,8483525,Danila Yurov,F,0,0,0,0
+2025020951,2026-03-01,Minnesota Wild,8475692,Mats Zuccarello,F,0,0,0,0
+2025020951,2026-03-01,Minnesota Wild,8474567,Zach Bogosian,D,1,1,0,0
+2025020951,2026-03-01,Minnesota Wild,8476463,Jonas Brodin,D,1,1,0,1
+2025020951,2026-03-01,Minnesota Wild,8482122,Brock Faber,D,0,0,0,0
+2025020951,2026-03-01,Minnesota Wild,8480800,Quinn Hughes,D,3,0,0,0
+2025020951,2026-03-01,Minnesota Wild,8482094,Daemon Hunt,D,5,1,0,1
+2025020951,2026-03-01,Minnesota Wild,8478136,Jake Middleton,D,3,0,0,2
+2025020951,2026-03-01,Minnesota Wild,8473507,Jeff Petry,D,1,0,0,0
+2025020951,2026-03-01,Minnesota Wild,8474716,Jared Spurgeon,D,0,0,0,0
+2025020951,2026-03-01,Minnesota Wild,8479406,Filip Gustavsson,G,0,0,22,0
+2025020951,2026-03-01,Minnesota Wild,8482661,Jesper Wallstedt,G,0,0,0,0
+2025020951,2026-03-01,St. Louis Blues,8481013,Jonatan Berggren,F,2,0,0,0
+2025020951,2026-03-01,St. Louis Blues,8477402,Pavel Buchnevich,F,0,0,0,0
+2025020951,2026-03-01,St. Louis Blues,8477494,Jonathan Drouin,F,1,0,0,1
+2025020951,2026-03-01,St. Louis Blues,8484164,Dalibor Dvorsky,F,0,0,0,0
+2025020951,2026-03-01,St. Louis Blues,8482090,Jack Finley,F,1,0,0,0
+2025020951,2026-03-01,St. Louis Blues,8482077,Dylan Holloway,F,0,0,0,0
+2025020951,2026-03-01,St. Louis Blues,8479385,Jordan Kyrou,F,0,0,0,0
+2025020951,2026-03-01,St. Louis Blues,8482089,Jake Neighbours,F,2,0,0,1
+2025020951,2026-03-01,St. Louis Blues,8483516,Jimmy Snuggerud,F,2,0,0,0
+2025020951,2026-03-01,St. Louis Blues,8484230,Otto Stenberg,F,0,0,0,0
+2025020951,2026-03-01,St. Louis Blues,8476897,Oskar Sundqvist,F,0,0,0,0
+2025020951,2026-03-01,St. Louis Blues,8480459,Pius Suter,F,1,0,0,1
+2025020951,2026-03-01,St. Louis Blues,8480023,Robert Thomas,F,3,1,0,1
+2025020951,2026-03-01,St. Louis Blues,8480281,Alexey Toropchenko,F,0,0,0,0
+2025020951,2026-03-01,St. Louis Blues,8477573,Nathan Walker,F,0,0,0,0
+2025020951,2026-03-01,St. Louis Blues,8481598,Philip Broberg,D,1,0,0,1
+2025020951,2026-03-01,St. Louis Blues,8475764,Cam Fowler,D,3,1,0,2
+2025020951,2026-03-01,St. Louis Blues,8475718,Justin Holl,D,0,0,0,3
+2025020951,2026-03-01,St. Louis Blues,8482516,Matthew Kessel,D,2,0,0,0
+2025020951,2026-03-01,St. Louis Blues,8484188,Theo Lindstein,D,1,0,0,1
+2025020951,2026-03-01,St. Louis Blues,8482733,Logan Mailloux,D,4,1,0,2
+2025020951,2026-03-01,St. Louis Blues,8476892,Colton Parayko,D,2,0,0,3
+2025020951,2026-03-01,St. Louis Blues,8481006,Tyler Tucker,D,0,0,0,0
+2025020951,2026-03-01,St. Louis Blues,8476412,Jordan Binnington,G,0,0,27,0
+2025020951,2026-03-01,St. Louis Blues,8480981,Joel Hofer,G,0,0,0,0
+2025020948,2026-03-01,New York Islanders,8478445,Mathew Barzal,F,1,1,0,1
+2025020948,2026-03-01,New York Islanders,8475231,Casey Cizikas,F,3,0,0,0
+2025020948,2026-03-01,New York Islanders,8477407,Anthony Duclair,F,0,0,0,0
+2025020948,2026-03-01,New York Islanders,8483553,Marc Gatcomb,F,2,1,0,0
+2025020948,2026-03-01,New York Islanders,8482476,Emil Heineman,F,1,0,0,0
+2025020948,2026-03-01,New York Islanders,8481601,Simon Holmstrom,F,2,0,0,0
+2025020948,2026-03-01,New York Islanders,8477500,Bo Horvat,F,2,0,0,0
+2025020948,2026-03-01,New York Islanders,8475314,Anders Lee,F,0,0,0,0
+2025020948,2026-03-01,New York Islanders,8481237,Kyle MacLean,F,1,0,0,0
+2025020948,2026-03-01,New York Islanders,8476419,Jean-Gabriel Pageau,F,3,1,0,0
+2025020948,2026-03-01,New York Islanders,8476292,Ondrej Palat,F,1,0,0,0
+2025020948,2026-03-01,New York Islanders,8475151,Kyle Palmieri,F,1,0,0,0
+2025020948,2026-03-01,New York Islanders,8484221,Calum Ritchie,F,4,1,0,1
+2025020948,2026-03-01,New York Islanders,8475170,Brayden Schenn,F,0,0,0,0
+2025020948,2026-03-01,New York Islanders,8485702,Max Shabanov,F,0,0,0,0
+2025020948,2026-03-01,New York Islanders,8480871,Adam Boqvist,D,1,0,0,1
+2025020948,2026-03-01,New York Islanders,8477950,Tony DeAngelo,D,0,0,0,3
+2025020948,2026-03-01,New York Islanders,8476429,Scott Mayfield,D,0,0,0,2
+2025020948,2026-03-01,New York Islanders,8476917,Adam Pelech,D,1,1,0,1
+2025020948,2026-03-01,New York Islanders,8477506,Ryan Pulock,D,3,0,0,3
+2025020948,2026-03-01,New York Islanders,8481014,Alexander Romanov,D,1,0,0,0
+2025020948,2026-03-01,New York Islanders,8485366,Matthew Schaefer,D,1,0,0,1
+2025020948,2026-03-01,New York Islanders,8477369,Carson Soucy,D,0,0,0,0
+2025020948,2026-03-01,New York Islanders,8479496,David Rittich,G,0,0,37,0
+2025020948,2026-03-01,New York Islanders,8478009,Ilya Sorokin,G,0,0,0,0
+2025020948,2026-03-01,New York Islanders,8473575,Semyon Varlamov,G,0,0,0,0
+2025020948,2026-03-01,Florida Panthers,8477493,Aleksander Barkov,F,7,1,0,1
+2025020948,2026-03-01,Florida Panthers,8477935,Sam Bennett,F,2,0,0,1
+2025020948,2026-03-01,Florida Panthers,8480003,Jesper Boqvist,F,0,0,0,0
+2025020948,2026-03-01,Florida Panthers,8481518,Nolan Foote,F,0,0,0,0
+2025020948,2026-03-01,Florida Panthers,8479981,Jonah Gadjovich,F,0,0,0,0
+2025020948,2026-03-01,Florida Panthers,8478421,A.J. Greer,F,3,0,0,0
+2025020948,2026-03-01,Florida Panthers,8479393,Noah Gregor,F,0,0,0,0
+2025020948,2026-03-01,Florida Panthers,8476994,Vinnie Hinostroza,F,0,0,0,0
+2025020948,2026-03-01,Florida Panthers,8479316,Luke Kunin,F,0,0,0,0
+2025020948,2026-03-01,Florida Panthers,8482113,Anton Lundell,F,1,0,0,0
+2025020948,2026-03-01,Florida Panthers,8480185,Eetu Luostarinen,F,1,0,0,1
+2025020948,2026-03-01,Florida Panthers,8473419,Brad Marchand,F,2,0,0,0
+2025020948,2026-03-01,Florida Panthers,8477931,Tomas Nosek,F,3,0,0,0
+2025020948,2026-03-01,Florida Panthers,8481133,Cole Reinhardt,F,3,0,0,0
+2025020948,2026-03-01,Florida Panthers,8477933,Sam Reinhart,F,1,1,0,0
+2025020948,2026-03-01,Florida Panthers,8478542,Evan Rodrigues,F,1,0,0,0
+2025020948,2026-03-01,Florida Panthers,8482713,Mackie Samoskevich,F,1,0,0,1
+2025020948,2026-03-01,Florida Panthers,8481655,Cole Schwindt,F,1,0,0,1
+2025020948,2026-03-01,Florida Panthers,8479314,Matthew Tkachuk,F,5,0,0,0
+2025020948,2026-03-01,Florida Panthers,8477409,Carter Verhaeghe,F,0,0,0,0
+2025020948,2026-03-01,Florida Panthers,8484304,Uvis Balinskis,D,1,0,0,3
+2025020948,2026-03-01,Florida Panthers,8482107,Mike Benning,D,0,0,0,0
+2025020948,2026-03-01,Florida Panthers,8481600,Tobias Bjornfot,D,0,0,0,1
+2025020948,2026-03-01,Florida Panthers,8477932,Aaron Ekblad,D,3,0,0,1
+2025020948,2026-03-01,Florida Panthers,8478055,Gustav Forsling,D,0,0,0,1
+2025020948,2026-03-01,Florida Panthers,8477495,Seth Jones,D,0,0,0,1
+2025020948,2026-03-01,Florida Panthers,8475179,Dmitry Kulikov,D,3,0,0,0
+2025020948,2026-03-01,Florida Panthers,8478859,Niko Mikkola,D,1,0,0,2
+2025020948,2026-03-01,Florida Panthers,8482131,Donovan Sebrango,D,0,0,0,0
+2025020948,2026-03-01,Florida Panthers,8475683,Sergei Bobrovsky,G,0,0,23,0
+2025020948,2026-03-01,Florida Panthers,8480193,Daniil Tarasov,G,0,0,0,0
+2025020952,2026-03-01,Anaheim Ducks,8484153,Leo Carlsson,F,4,0,0,1
+2025020952,2026-03-01,Anaheim Ducks,8483445,Cutter Gauthier,F,2,1,0,2
+2025020952,2026-03-01,Anaheim Ducks,8475798,Mikael Granlund,F,0,0,0,0
+2025020952,2026-03-01,Anaheim Ducks,8478424,Jansen Harkins,F,0,0,0,1
+2025020952,2026-03-01,Anaheim Ducks,8477527,Ross Johnston,F,1,0,0,0
+2025020952,2026-03-01,Anaheim Ducks,8473986,Alex Killorn,F,2,0,0,0
+2025020952,2026-03-01,Anaheim Ducks,8475184,Chris Kreider,F,3,0,0,2
+2025020952,2026-03-01,Anaheim Ducks,8482745,Mason McTavish,F,1,1,0,0
+2025020952,2026-03-01,Anaheim Ducks,8480068,Ryan Poehling,F,1,0,0,1
+2025020952,2026-03-01,Anaheim Ducks,8484762,Beckett Sennecke,F,0,0,0,0
+2025020952,2026-03-01,Anaheim Ducks,8478873,Troy Terry,F,2,0,0,0
+2025020952,2026-03-01,Anaheim Ducks,8478366,Frank Vatrano,F,2,0,0,1
+2025020952,2026-03-01,Anaheim Ducks,8479705,Jeffrey Viel,F,0,0,0,0
+2025020952,2026-03-01,Anaheim Ducks,8485512,Tim Washe,F,0,0,0,0
+2025020952,2026-03-01,Anaheim Ducks,8474590,John Carlson,D,2,0,0,0
+2025020952,2026-03-01,Anaheim Ducks,8475462,Radko Gudas,D,1,0,0,0
+2025020952,2026-03-01,Anaheim Ducks,8481563,Drew Helleson,D,3,3,0,0
+2025020952,2026-03-01,Anaheim Ducks,8481605,Jackson LaCombe,D,3,0,0,0
+2025020952,2026-03-01,Anaheim Ducks,8483490,Pavel Mintyukov,D,2,0,0,0
+2025020952,2026-03-01,Anaheim Ducks,8482178,Ian Moore,D,3,1,0,2
+2025020952,2026-03-01,Anaheim Ducks,8476885,Jacob Trouba,D,0,0,0,0
+2025020952,2026-03-01,Anaheim Ducks,8482803,Olen Zellweger,D,0,0,0,0
+2025020952,2026-03-01,Anaheim Ducks,8480843,Lukas Dostal,G,0,0,22,0
+2025020952,2026-03-01,Anaheim Ducks,8478024,Ville Husso,G,0,0,0,0
+2025020952,2026-03-01,Anaheim Ducks,8475852,Petr Mrazek,G,0,0,0,0
+2025020952,2026-03-01,Calgary Flames,8474150,Mikael Backlund,F,2,0,0,2
+2025020952,2026-03-01,Calgary Flames,8481556,John Beecher,F,1,0,0,0
+2025020952,2026-03-01,Calgary Flames,8476399,Blake Coleman,F,0,0,0,0
+2025020952,2026-03-01,Calgary Flames,8482679,Matt Coronato,F,0,0,0,0
+2025020952,2026-03-01,Calgary Flames,8480797,Joel Farabee,F,0,0,0,0
+2025020952,2026-03-01,Calgary Flames,8480028,Morgan Frost,F,0,0,0,0
+2025020952,2026-03-01,Calgary Flames,8484860,Matvei Gridin,F,1,0,0,0
+2025020952,2026-03-01,Calgary Flames,8486056,Tyson Gross,F,2,1,0,1
+2025020952,2026-03-01,Calgary Flames,8484180,Samuel Honzek,F,2,1,0,0
+2025020952,2026-03-01,Calgary Flames,8476456,Jonathan Huberdeau,F,3,0,0,0
+2025020952,2026-03-01,Calgary Flames,8483609,Adam Klapka,F,0,0,0,0
+2025020952,2026-03-01,Calgary Flames,8479066,Ryan Lomberg,F,2,0,0,3
+2025020952,2026-03-01,Calgary Flames,8478109,Victor Olofsson,F,1,1,0,0
+2025020952,2026-03-01,Calgary Flames,8481028,Martin Pospisil,F,0,0,0,0
+2025020952,2026-03-01,Calgary Flames,8481068,Yegor Sharangovich,F,3,2,0,0
+2025020952,2026-03-01,Calgary Flames,8476458,Ryan Strome,F,3,0,0,2
+2025020952,2026-03-01,Calgary Flames,8482074,Connor Zary,F,0,0,0,0
+2025020952,2026-03-01,Calgary Flames,8480860,Kevin Bahl,D,0,0,0,1
+2025020952,2026-03-01,Calgary Flames,8479402,Jake Bean,D,2,0,0,1
+2025020952,2026-03-01,Calgary Flames,8484150,Hunter Brzustewicz,D,1,0,0,1
+2025020952,2026-03-01,Calgary Flames,8477810,Joel Hanley,D,2,0,0,3
+2025020952,2026-03-01,Calgary Flames,8482165,Yan Kuznetsov,D,1,0,0,0
+2025020952,2026-03-01,Calgary Flames,8476874,Olli Määttä,D,0,0,0,1
+2025020952,2026-03-01,Calgary Flames,8481167,Brayden Pachal,D,1,0,0,1
+2025020952,2026-03-01,Calgary Flames,8484768,Zayne Parekh,D,0,0,0,1
+2025020952,2026-03-01,Calgary Flames,8480727,Zach Whitecloud,D,0,0,0,0
+2025020952,2026-03-01,Calgary Flames,8482445,Devin Cooley,G,0,0,26,0
+2025020952,2026-03-01,Calgary Flames,8481692,Dustin Wolf,G,0,0,0,0

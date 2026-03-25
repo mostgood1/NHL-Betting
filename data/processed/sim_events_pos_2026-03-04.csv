@@ -1,0 +1,6 @@
+gamePk,date,home,away,shots_ev_home,shots_pp_home,shots_pk_home,shots_ev_away,shots_pp_away,shots_pk_away,goals_ev_home,goals_pp_home,goals_pk_home,goals_ev_away,goals_pp_away,goals_pk_away,blocks_ev_home,blocks_pp_home,blocks_pk_home,blocks_ev_away,blocks_pp_away,blocks_pk_away,saves_ev_home,saves_pp_home,saves_pk_home,saves_ev_away,saves_pp_away,saves_pk_away
+2025020970,2026-03-04,Detroit Red Wings,Vegas Golden Knights,21,4,0,22,5,6,2,1,0,2,1,1,15,1,1,10,0,2,20,4,5,19,3,0
+2025020971,2026-03-04,New Jersey Devils,Toronto Maple Leafs,24,4,6,15,9,0,1,0,0,4,2,0,4,0,6,13,1,2,11,7,0,23,4,6
+2025020972,2026-03-04,Vancouver Canucks,Carolina Hurricanes,19,7,2,27,6,6,1,1,0,1,0,0,14,1,3,7,1,5,26,6,6,18,6,2
+2025020973,2026-03-04,Anaheim Ducks,New York Islanders,13,7,2,26,8,3,4,1,0,2,0,0,12,0,5,8,0,5,24,8,3,9,6,2
+2025020974,2026-03-04,Seattle Kraken,St. Louis Blues,33,5,2,23,7,2,2,0,0,1,2,0,11,0,5,14,1,3,22,5,2,31,5,2

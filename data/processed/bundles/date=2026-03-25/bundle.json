@@ -2,174 +2,337 @@
   "data": {
     "games": {
       "edges": {
-        "count": 0,
-        "rows": [],
-        "source": null
+        "count": 8,
+        "rows": [
+          {
+            "away": "New York Rangers",
+            "bet": "over",
+            "book": null,
+            "edge_reasons": "total 8.17 vs line 6.5 (+1.67); p=0.714; P1 pace 2.62",
+            "edge_score": 0.7292255998982035,
+            "ev": 0.4630166666666665,
+            "home": "Toronto Maple Leafs",
+            "market": "ev_over",
+            "market_group": "totals",
+            "price": 105.0,
+            "prob": 0.7136666666666667,
+            "side": "Over 6.5",
+            "totals_line": 6.5
+          },
+          {
+            "away": "Boston Bruins",
+            "bet": "over",
+            "book": null,
+            "edge_reasons": "total 7.75 vs line 6.5 (+1.25); p=0.669; P1 pace 2.47",
+            "edge_score": 0.6715290363225143,
+            "ev": 0.265690476190476,
+            "home": "Buffalo Sabres",
+            "market": "ev_over",
+            "market_group": "totals",
+            "price": -112.0,
+            "prob": 0.6686666666666666,
+            "side": "Over 6.5",
+            "totals_line": 6.5
+          },
+          {
+            "away": "New York Rangers",
+            "bet": "away_ml",
+            "book": null,
+            "edge_reasons": "p=0.735",
+            "edge_score": 0.4701666666666666,
+            "ev": 0.3376106557377049,
+            "home": "Toronto Maple Leafs",
+            "market": "ev_away_ml",
+            "market_group": "moneyline",
+            "price": -122.0,
+            "prob": 0.7350833333333333,
+            "side": "New York Rangers",
+            "totals_line": null
+          },
+          {
+            "away": "New York Rangers",
+            "bet": "home_ml",
+            "book": null,
+            "edge_reasons": "p=0.265",
+            "edge_score": 0.4701666666666666,
+            "ev": -0.4648683333333333,
+            "home": "Toronto Maple Leafs",
+            "market": "ev_home_ml",
+            "market_group": "moneyline",
+            "price": 102.0,
+            "prob": 0.2649166666666667,
+            "side": "Toronto Maple Leafs",
+            "totals_line": null
+          },
+          {
+            "away": "Boston Bruins",
+            "bet": "away_ml",
+            "book": null,
+            "edge_reasons": "p=0.345",
+            "edge_score": 0.3091666666666667,
+            "ev": -0.0673749999999999,
+            "home": "Buffalo Sabres",
+            "market": "ev_away_ml",
+            "market_group": "moneyline",
+            "price": 170.0,
+            "prob": 0.3454166666666666,
+            "side": "Boston Bruins",
+            "totals_line": null
+          },
+          {
+            "away": "Boston Bruins",
+            "bet": "home_ml",
+            "book": null,
+            "edge_reasons": "p=0.655",
+            "edge_score": 0.3091666666666666,
+            "ev": -0.0261077235772358,
+            "home": "Buffalo Sabres",
+            "market": "ev_home_ml",
+            "market_group": "moneyline",
+            "price": -205.0,
+            "prob": 0.6545833333333333,
+            "side": "Buffalo Sabres",
+            "totals_line": null
+          },
+          {
+            "away": "New York Rangers",
+            "bet": "under",
+            "book": null,
+            "edge_reasons": "total 8.17 vs line 6.5 (+1.67); p=0.286; P1 pace 2.62",
+            "edge_score": 0.2058018510821888,
+            "ev": -0.4846,
+            "home": "Toronto Maple Leafs",
+            "market": "ev_under",
+            "market_group": "totals",
+            "price": -125.0,
+            "prob": 0.2863333333333333,
+            "side": "Under 6.5",
+            "totals_line": 6.5
+          },
+          {
+            "away": "Boston Bruins",
+            "bet": "under",
+            "book": null,
+            "edge_reasons": "total 7.75 vs line 6.5 (+1.25); p=0.331; P1 pace 2.47",
+            "edge_score": 0.1830278264225837,
+            "ev": -0.3618765432098766,
+            "home": "Buffalo Sabres",
+            "market": "ev_under",
+            "market_group": "totals",
+            "price": -108.0,
+            "prob": 0.3313333333333333,
+            "side": "Under 6.5",
+            "totals_line": 6.5
+          }
+        ],
+        "source": "edges_sim_2026-03-25.csv"
       },
       "predictions": {
         "count": 2,
         "rows": [
           {
             "away": "Boston Bruins",
-            "date": "2026-03-25T23:00:00Z",
-            "game_state": "FUT",
+            "away_ml_odds": 170.0,
+            "away_pl_+1.5_odds": -142.0,
+            "date": "2026-03-25",
             "home": "Buffalo Sabres",
-            "model_spread": 0.2,
-            "model_total": 6.07,
-            "p_away_ml": 0.4873,
-            "p_away_pl_+1.5": 0.7072,
-            "p_home_ml": 0.5127,
-            "p_home_pl_-1.5": 0.2928,
-            "p_over": 0.4044,
-            "p_under": 0.4339,
+            "home_ml_odds": -205.0,
+            "home_pl_-1.5_odds": 120.0,
+            "model_total": 7.75,
+            "over_odds": -112.0,
+            "p_away_ml": 0.3454166666666666,
+            "p_away_pl_+1.5": 0.606,
+            "p_home_ml": 0.6545833333333333,
+            "p_home_pl_-1.5": 0.394,
+            "p_over": 0.6686666666666666,
+            "p_under": 0.3313333333333333,
             "pl_line_used": 1.5,
-            "proj_away_goals": 2.94,
-            "proj_home_goals": 3.14,
-            "total_line_used": 6.0,
-            "venue": "KeyBank Center"
+            "proj_away_goals": 3.3955,
+            "proj_home_goals": 4.3545,
+            "segments": {
+              "final": {
+                "away_win_prob": 0.2992921254390661,
+                "home_win_prob": 0.560911941822642,
+                "tie_prob": 0.1397959327382919
+              },
+              "ot": {
+                "no_prob": 0.8602040672617081,
+                "yes_prob": 0.1397959327382919
+              },
+              "p1": {
+                "away_win_prob": 0.2815523741954236,
+                "home_win_prob": 0.4519670057057437,
+                "tie_prob": 0.26648062009883267
+              },
+              "p2": {
+                "away_win_prob": 0.2907847617429591,
+                "home_win_prob": 0.4490435490702599,
+                "tie_prob": 0.260171689186781
+              },
+              "p3": {
+                "away_win_prob": 0.31002852818649007,
+                "home_win_prob": 0.4275099068986713,
+                "tie_prob": 0.26246156491483863
+              }
+            },
+            "total_line_used": 6.5,
+            "under_odds": -108.0
           },
           {
             "away": "New York Rangers",
-            "date": "2026-03-25T23:30:00Z",
-            "game_state": "FUT",
+            "away_ml_odds": -122.0,
+            "away_pl_+1.5_odds": null,
+            "date": "2026-03-25",
             "home": "Toronto Maple Leafs",
-            "model_spread": -0.37,
-            "model_total": 6.07,
-            "p_away_ml": 0.5555,
-            "p_away_pl_+1.5": 0.7818,
-            "p_home_ml": 0.4445,
-            "p_home_pl_-1.5": 0.2182,
-            "p_over": 0.4043,
-            "p_under": 0.4338,
+            "home_ml_odds": 102.0,
+            "home_pl_-1.5_odds": null,
+            "model_total": 8.167833333333334,
+            "over_odds": 105.0,
+            "p_away_ml": 0.7350833333333333,
+            "p_away_pl_+1.5": 0.8973333333333333,
+            "p_home_ml": 0.2649166666666667,
+            "p_home_pl_-1.5": 0.1026666666666666,
+            "p_over": 0.7136666666666667,
+            "p_under": 0.2863333333333333,
             "pl_line_used": 1.5,
-            "proj_away_goals": 3.22,
-            "proj_home_goals": 2.85,
-            "total_line_used": 6.0,
-            "venue": "Scotiabank Arena"
+            "proj_away_goals": 4.874666666666666,
+            "proj_home_goals": 3.2931666666666666,
+            "segments": {
+              "final": {
+                "away_win_prob": 0.6411731908717658,
+                "home_win_prob": 0.23359496410471606,
+                "tie_prob": 0.12523184502351814
+              },
+              "ot": {
+                "no_prob": 0.8747681549764819,
+                "yes_prob": 0.12523184502351814
+              },
+              "p1": {
+                "away_win_prob": 0.5061563888872056,
+                "home_win_prob": 0.2437430743023762,
+                "tie_prob": 0.25010053681041816
+              },
+              "p2": {
+                "away_win_prob": 0.4994625932188666,
+                "home_win_prob": 0.25517222217738056,
+                "tie_prob": 0.24536518460375284
+              },
+              "p3": {
+                "away_win_prob": 0.4777734119612274,
+                "home_win_prob": 0.2717780286106135,
+                "tie_prob": 0.2504485594281591
+              }
+            },
+            "total_line_used": 6.5,
+            "under_odds": -125.0
           }
         ]
       },
       "recommendations": {
-        "count": 0,
-        "rows": []
+        "count": 1,
+        "rows": [
+          {
+            "away": "New York Rangers",
+            "conf": 0.2350833333333333,
+            "ev": 0.3376106557377049,
+            "home": "Toronto Maple Leafs",
+            "market": "ML",
+            "price": -122.0,
+            "prob": 0.7350833333333333,
+            "side": "New York Rangers",
+            "totals_line": 6.5
+          }
+        ]
       },
       "reconciliation": null
     },
     "props": {
       "recommendations": {
-        "count": 8,
+        "count": 6,
         "rows": [
           {
-            "book": null,
-            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
-            "edge_score": 0.7209016482273227,
-            "ev": 0.0,
-            "line": 1.5,
-            "market": "SOG",
-            "opp": "TOR",
-            "player": "Taylor Raddysh",
-            "price": null,
-            "prob": 0.915845526345344,
-            "side": "Over",
-            "team": "NYR"
-          },
-          {
-            "book": null,
-            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
-            "edge_score": 0.6211318294984988,
-            "ev": 0.0,
-            "line": 1.5,
-            "market": "SOG",
-            "opp": "TOR",
-            "player": "Mika Zibanejad",
-            "price": null,
-            "prob": 0.791133252934314,
-            "side": "Over",
-            "team": "NYR"
-          },
-          {
-            "book": null,
-            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
-            "edge_score": 0.6097749575725142,
-            "ev": 0.0,
-            "line": 2.5,
-            "market": "SOG",
-            "opp": "TOR",
-            "player": "Taylor Raddysh",
-            "price": null,
-            "prob": 0.7769371630268334,
-            "side": "Over",
-            "team": "NYR"
-          },
-          {
-            "book": null,
-            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
-            "edge_score": 0.60932481905817,
-            "ev": 0.0,
-            "line": 1.5,
-            "market": "SOG",
-            "opp": "TOR",
-            "player": "Matthew Robertson",
-            "price": null,
-            "prob": 0.7763744898839031,
-            "side": "Over",
-            "team": "NYR"
-          },
-          {
-            "book": null,
-            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
-            "edge_score": 0.592897543051335,
-            "ev": 0.0,
-            "line": 1.5,
-            "market": "SOG",
-            "opp": "TOR",
-            "player": "Alexis Lafrenière",
-            "price": null,
-            "prob": 0.7558403948753594,
-            "side": "Over",
-            "team": "NYR"
-          },
-          {
-            "book": null,
-            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
-            "edge_score": 0.5818479522663843,
-            "ev": 0.0,
-            "line": 1.5,
-            "market": "SOG",
-            "opp": "BOS",
-            "player": "Alex Tuch",
-            "price": null,
-            "prob": 0.8090612787779637,
-            "side": "Over",
-            "team": "BUF"
-          },
-          {
-            "book": null,
-            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
-            "edge_score": 0.56242799613491,
-            "ev": 0.0,
-            "line": 1.5,
-            "market": "SOG",
+            "book": "draftkings",
+            "edge_reasons": "MODEL UND · CONF60+ · MATCHUP+",
+            "edge_score": 0.7501866262637524,
+            "ev": 1.649735013249558,
+            "line": 0.5,
+            "market": "POINTS",
             "opp": "BOS",
             "player": "Tage Thompson",
-            "price": null,
-            "prob": 0.7847863336136208,
-            "side": "Over",
+            "price": 165.0,
+            "prob": 0.9999000049998332,
+            "side": "Under",
             "team": "BUF"
           },
           {
-            "book": null,
-            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP-",
-            "edge_score": 0.5533521210809914,
-            "ev": 0.0,
+            "book": "draftkings",
+            "edge_reasons": "MODEL UND · CONF60+ · MATCHUP+",
+            "edge_score": 0.6726914926943661,
+            "ev": 0.4898592681713759,
+            "line": 0.5,
+            "market": "ASSISTS",
+            "opp": "BOS",
+            "player": "Tage Thompson",
+            "price": -154.0,
+            "prob": 0.9033005011747712,
+            "side": "Under",
+            "team": "BUF"
+          },
+          {
+            "book": "betmgm",
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
+            "edge_score": 0.5937686668281625,
+            "ev": 0.3514667046127202,
             "line": 1.5,
             "market": "SOG",
-            "opp": "BUF",
-            "player": "David Pastrnak",
-            "price": null,
-            "prob": 0.8645866197048764,
+            "opp": "NYR",
+            "player": "Nicholas Robertson",
+            "price": -135.0,
+            "prob": 0.7763744898839031,
             "side": "Over",
-            "team": "BOS"
+            "team": "TOR"
+          },
+          {
+            "book": "betmgm",
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
+            "edge_score": 0.4730349258869531,
+            "ev": 0.211877019025074,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "TOR",
+            "player": "Alexis Lafrenière",
+            "price": -130.0,
+            "prob": 0.6849739672750419,
+            "side": "Over",
+            "team": "NYR"
+          },
+          {
+            "book": "draftkings",
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
+            "edge_score": 0.4404765151528287,
+            "ev": 0.4560636557176932,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "TOR",
+            "player": "Gabe Perreault",
+            "price": 126.0,
+            "prob": 0.6442759538573865,
+            "side": "Over",
+            "team": "NYR"
+          },
+          {
+            "book": "betmgm",
+            "edge_reasons": "MODEL UND · CONF60+ · MATCHUP-",
+            "edge_score": 0.3902739756091247,
+            "ev": 0.2523848692342912,
+            "line": 0.5,
+            "market": "ASSISTS",
+            "opp": "NYR",
+            "player": "William Nylander",
+            "price": -105.0,
+            "prob": 0.6414654208273199,
+            "side": "Under",
+            "team": "TOR"
           }
         ],
         "source": "props_recommendations_2026-03-25.csv"
@@ -179,13 +342,13 @@
   },
   "date": "2026-03-25",
   "files": {
-    "edges": null,
-    "game_recommendations": null,
-    "predictions": "data/processed/predictions_2026-03-25.csv",
+    "edges": "data/processed/edges_sim_2026-03-25.csv",
+    "game_recommendations": "data/processed/recommendations_sim_2026-03-25.csv",
+    "predictions": "data/processed/predictions_sim_2026-03-25.csv",
     "props_recommendations": "data/processed/props_recommendations_2026-03-25.csv",
     "reconciliation_games": null,
     "reconciliation_props": null
   },
-  "generated_at_utc": "2026-03-24T16:14:18+00:00",
-  "schema_version": 1
+  "generated_at_utc": "2026-03-25T16:51:47+00:00",
+  "schema_version": 2
 }

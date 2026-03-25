@@ -1,21 +1,42 @@
 {
-  "last_calibrated_utc": "2026-03-16T22:23:40Z",
+  "last_calibrated_utc": "2026-03-24T17:04:32Z",
   "range": {
     "start": "2026-01-15",
     "end": "2026-03-16"
   },
   "dc_rho": -0.2,
-  "market_anchor_w": 1.0,
-  "market_anchor_w_ml": 1.0,
+  "market_anchor_w": 0.8,
+  "market_anchor_w_ml": 0.8,
   "market_anchor_w_totals": 0.6,
-  "ml_temp": 1.0,
-  "ml_bias": 0.0,
+  "ml_anchor_max": 0.6,
+  "ml_fit_range": {
+    "start": "2025-12-25",
+    "end": "2026-02-22",
+    "sample_count": 108,
+    "mode": "recent"
+  },
+  "ml_validation": {
+    "enabled": true,
+    "used": true,
+    "split_mode": "sample_tail",
+    "validation_days": 14,
+    "min_train_samples": 30,
+    "min_validation_samples": 20,
+    "train_count": 88,
+    "validation_count": 20,
+    "anchor_logloss": 0.702658688079477,
+    "calibrated_logloss": 0.677169323843639,
+    "kept_calibration": true,
+    "forced_anchor_only": true
+  },
+  "ml_temp": 1,
+  "ml_bias": 0,
   "ml_post_calibration_policy": "anchor_only",
   "totals_temp": 0.8,
   "totals_bias": 0.0,
   "moneyline": {
-    "t": 1.0,
-    "b": 0.0
+    "t": 1,
+    "b": 0
   },
   "totals": {
     "t": 0.8,
@@ -30,5 +51,6 @@
   "ev_gates_range": {
     "start": "2025-09-01",
     "end": "2026-03-22"
-  }
+  },
+  "moneyline_candidate_variant": "anchor_only_w=0.8"
 }

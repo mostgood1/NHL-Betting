@@ -3931,6 +3931,7 @@
           const pk = String(item.dataset.gamePk || '').trim();
           if (pk && mapByPk && mapByPk.has(pk)) g = mapByPk.get(pk);
         } catch (e) {}
+        if (!g) g = (mapByKey && mapByKey.get) ? (mapByKey.get(k) || null) : null;
 
         try {
           const aPtsEl = item.querySelector('[data-role="away-pts"]');
@@ -3944,7 +3945,6 @@
           if (aPtsEl) aPtsEl.textContent = show ? String(ag) : '';
           if (hPtsEl) hPtsEl.textContent = show ? String(hg) : '';
         } catch (e) {}
-        if (!g) g = (mapByKey && mapByKey.get) ? (mapByKey.get(k) || null) : null;
 
         try {
           item.dataset.cardStatus = String(g && g.gameState ? g.gameState : item.dataset.cardStatus || '').trim();

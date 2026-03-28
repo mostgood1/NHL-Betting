@@ -299,6 +299,11 @@ def _seed_repo_props_artifacts_to_active_dirs(dates: Optional[list[str]] = None)
                     f"props_recommendations_{ds}.csv",
                     f"props_projections_{ds}.csv",
                     f"props_projections_all_{ds}.csv",
+                    f"props_boxscores_sim_{ds}.csv",
+                    f"props_boxscores_sim_hist_{ds}.csv",
+                    f"props_boxscores_sim_samples_{ds}.csv",
+                    f"props_boxscores_sim_samples_{ds}.parquet",
+                    f"roster_snapshot_{ds}.csv",
                 ):
                     tasks.append((repo_proc_dir / name, PROC_DIR / name))
 
@@ -2820,6 +2825,10 @@ def _normalize_goalie_ladder_prop(value: Any) -> str:
 
 def _goalie_ladders_payload(date_ymd: str, prop_value: Any, team_value: Any, goalie_value: Any, sort_value: Any) -> Dict[str, Any]:
     d = _normalize_date_param(date_ymd)
+    try:
+        _seed_repo_props_artifacts_to_active_dirs([d])
+    except Exception:
+        pass
     prop = _normalize_goalie_ladder_prop(prop_value)
     sort_key = _normalize_skater_ladder_sort(sort_value)
     selected_team = _normalize_skater_team_selector(team_value)
@@ -3157,6 +3166,10 @@ def _sort_skater_ladder_rows(rows: list[dict[str, Any]], sort_key: str) -> list[
 
 def _skater_ladders_payload(date_ymd: str, prop_value: Any, team_value: Any, skater_value: Any, sort_value: Any) -> Dict[str, Any]:
     d = _normalize_date_param(date_ymd)
+    try:
+        _seed_repo_props_artifacts_to_active_dirs([d])
+    except Exception:
+        pass
     prop = _normalize_skater_ladder_prop(prop_value)
     sort_key = _normalize_skater_ladder_sort(sort_value)
     selected_team = _normalize_skater_team_selector(team_value)

@@ -1,1 +1,5 @@
 market,side,price,ev,prob,conf,home,away,totals_line
+ML,Vancouver Canucks,117.0,0.5595066666666666,0.7186666666666667,0.21866666666666668,Calgary Flames,Vancouver Canucks,6.0
+ML,Los Angeles Kings,-129.0,0.22325645994832055,0.6890833333333334,0.18908333333333338,Los Angeles Kings,Utah Mammoth,6.0
+ML,Vegas Golden Knights,-141.0,0.15500531914893617,0.67575,0.17574999999999996,Vegas Golden Knights,Washington Capitals,6.0
+ML,Edmonton Oilers,-148.0,0.08988738738738733,0.6504166666666666,0.15041666666666664,Edmonton Oilers,Anaheim Ducks,6.0

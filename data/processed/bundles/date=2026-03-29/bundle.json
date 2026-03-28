@@ -1,0 +1,1113 @@
+{
+  "data": {
+    "games": {
+      "edges": {
+        "count": 24,
+        "rows": [
+          {
+            "away": "Chicago Blackhawks",
+            "bet": "over",
+            "book": null,
+            "edge_reasons": "total 6.52 vs line 5.5 (+1.02); p=0.619; P1 pace 2.08",
+            "edge_score": 0.5632530194157318,
+            "ev": 0.0957435897435896,
+            "home": "New Jersey Devils",
+            "market": "ev_over",
+            "market_group": "totals",
+            "price": -130.0,
+            "prob": 0.6193333333333333,
+            "side": "Over 5.5",
+            "totals_line": 5.5
+          },
+          {
+            "away": "Dallas Stars",
+            "bet": "over",
+            "book": null,
+            "edge_reasons": "total 6.43 vs line 5.5 (+0.93); p=0.613; P1 pace 2.05",
+            "edge_score": 0.5474056878855382,
+            "ev": 0.0842435897435897,
+            "home": "Philadelphia Flyers",
+            "market": "ev_over",
+            "market_group": "totals",
+            "price": -130.0,
+            "prob": 0.6128333333333333,
+            "side": "Over 5.5",
+            "totals_line": 5.5
+          },
+          {
+            "away": "Montréal Canadiens",
+            "bet": "under",
+            "book": null,
+            "edge_reasons": "total 5.93 vs line 6.5 (-0.57); p=0.609; P1 pace 1.86",
+            "edge_score": 0.5206866402549565,
+            "ev": 0.0774615384615384,
+            "home": "Carolina Hurricanes",
+            "market": "ev_under",
+            "market_group": "totals",
+            "price": -130.0,
+            "prob": 0.609,
+            "side": "Under 6.5",
+            "totals_line": 6.5
+          },
+          {
+            "away": "Florida Panthers",
+            "bet": "over",
+            "book": null,
+            "edge_reasons": "total 6.15 vs line 5.5 (+0.65); p=0.574; P1 pace 1.95",
+            "edge_score": 0.4648590451304654,
+            "ev": 0.0514166666666667,
+            "home": "New York Rangers",
+            "market": "ev_over",
+            "market_group": "totals",
+            "price": -120.0,
+            "prob": 0.5735,
+            "side": "Over 5.5",
+            "totals_line": 5.5
+          },
+          {
+            "away": "Nashville Predators",
+            "bet": "under",
+            "book": null,
+            "edge_reasons": "total 6.22 vs line 6.5 (-0.28); p=0.566; P1 pace 1.98",
+            "edge_score": 0.4058087384080157,
+            "ev": 0.0572391304347825,
+            "home": "Tampa Bay Lightning",
+            "market": "ev_under",
+            "market_group": "totals",
+            "price": -115.0,
+            "prob": 0.5655,
+            "side": "Under 6.5",
+            "totals_line": 6.5
+          },
+          {
+            "away": "Boston Bruins",
+            "bet": "under",
+            "book": null,
+            "edge_reasons": "total 6.44 vs line 6.5 (-0.06); p=0.525; P1 pace 2.03",
+            "edge_score": 0.3085188881520809,
+            "ev": -0.086111111111111,
+            "home": "Columbus Blue Jackets",
+            "market": "ev_under",
+            "market_group": "totals",
+            "price": -135.0,
+            "prob": 0.525,
+            "side": "Under 6.5",
+            "totals_line": 6.5
+          },
+          {
+            "away": "Boston Bruins",
+            "bet": "over",
+            "book": null,
+            "edge_reasons": "total 6.44 vs line 6.5 (-0.06); p=0.475; P1 pace 2.03",
+            "edge_score": 0.2891281706714484,
+            "ev": 0.0164999999999998,
+            "home": "Columbus Blue Jackets",
+            "market": "ev_over",
+            "market_group": "totals",
+            "price": 114.0,
+            "prob": 0.475,
+            "side": "Over 6.5",
+            "totals_line": 6.5
+          },
+          {
+            "away": "Nashville Predators",
+            "bet": "over",
+            "book": null,
+            "edge_reasons": "total 6.22 vs line 6.5 (-0.28); p=0.434; P1 pace 1.98",
+            "edge_score": 0.2642618498272783,
+            "ev": -0.1516904761904762,
+            "home": "Tampa Bay Lightning",
+            "market": "ev_over",
+            "market_group": "totals",
+            "price": -105.0,
+            "prob": 0.4345,
+            "side": "Over 6.5",
+            "totals_line": 6.5
+          },
+          {
+            "away": "Florida Panthers",
+            "bet": "home_ml",
+            "book": null,
+            "edge_reasons": "p=0.629",
+            "edge_score": 0.2583333333333333,
+            "ev": 0.0350806451612902,
+            "home": "New York Rangers",
+            "market": "ev_home_ml",
+            "market_group": "moneyline",
+            "price": -155.0,
+            "prob": 0.6291666666666667,
+            "side": "New York Rangers",
+            "totals_line": null
+          },
+          {
+            "away": "Florida Panthers",
+            "bet": "away_ml",
+            "book": null,
+            "edge_reasons": "p=0.371",
+            "edge_score": 0.2583333333333333,
+            "ev": -0.1470833333333333,
+            "home": "New York Rangers",
+            "market": "ev_away_ml",
+            "market_group": "moneyline",
+            "price": 130.0,
+            "prob": 0.3708333333333333,
+            "side": "Florida Panthers",
+            "totals_line": null
+          },
+          {
+            "away": "Montréal Canadiens",
+            "bet": "over",
+            "book": null,
+            "edge_reasons": "total 5.93 vs line 6.5 (-0.57); p=0.391; P1 pace 1.86",
+            "edge_score": 0.2271721832744553,
+            "ev": -0.1788999999999999,
+            "home": "Carolina Hurricanes",
+            "market": "ev_over",
+            "market_group": "totals",
+            "price": 110.0,
+            "prob": 0.391,
+            "side": "Over 6.5",
+            "totals_line": 6.5
+          },
+          {
+            "away": "Florida Panthers",
+            "bet": "under",
+            "book": null,
+            "edge_reasons": "total 6.15 vs line 5.5 (+0.65); p=0.426; P1 pace 1.95",
+            "edge_score": 0.2195174254577699,
+            "ev": -0.147,
+            "home": "New York Rangers",
+            "market": "ev_under",
+            "market_group": "totals",
+            "price": 100.0,
+            "prob": 0.4265,
+            "side": "Under 5.5",
+            "totals_line": 5.5
+          },
+          {
+            "away": "Dallas Stars",
+            "bet": "under",
+            "book": null,
+            "edge_reasons": "total 6.43 vs line 5.5 (+0.93); p=0.387; P1 pace 2.05",
+            "edge_score": 0.2073080376046578,
+            "ev": -0.18695,
+            "home": "Philadelphia Flyers",
+            "market": "ev_under",
+            "market_group": "totals",
+            "price": 110.0,
+            "prob": 0.3871666666666666,
+            "side": "Under 5.5",
+            "totals_line": 5.5
+          },
+          {
+            "away": "Chicago Blackhawks",
+            "bet": "under",
+            "book": null,
+            "edge_reasons": "total 6.52 vs line 5.5 (+1.02); p=0.381; P1 pace 2.08",
+            "edge_score": 0.2030842354862289,
+            "ev": -0.2005999999999999,
+            "home": "New Jersey Devils",
+            "market": "ev_under",
+            "market_group": "totals",
+            "price": 110.0,
+            "prob": 0.3806666666666666,
+            "side": "Under 5.5",
+            "totals_line": 5.5
+          },
+          {
+            "away": "Dallas Stars",
+            "bet": "home_ml",
+            "book": null,
+            "edge_reasons": "p=0.466",
+            "edge_score": 0.0688333333333333,
+            "ev": 0.0708416666666665,
+            "home": "Philadelphia Flyers",
+            "market": "ev_home_ml",
+            "market_group": "moneyline",
+            "price": 130.0,
+            "prob": 0.4655833333333333,
+            "side": "Philadelphia Flyers",
+            "totals_line": null
+          },
+          {
+            "away": "Dallas Stars",
+            "bet": "away_ml",
+            "book": null,
+            "edge_reasons": "p=0.534",
+            "edge_score": 0.0688333333333333,
+            "ev": -0.1207983870967742,
+            "home": "Philadelphia Flyers",
+            "market": "ev_away_ml",
+            "market_group": "moneyline",
+            "price": -155.0,
+            "prob": 0.5344166666666667,
+            "side": "Dallas Stars",
+            "totals_line": null
+          },
+          {
+            "away": "Nashville Predators",
+            "bet": "away_ml",
+            "book": null,
+            "edge_reasons": "p=0.531",
+            "edge_score": 0.062,
+            "ev": 0.4018399999999998,
+            "home": "Tampa Bay Lightning",
+            "market": "ev_away_ml",
+            "market_group": "moneyline",
+            "price": 164.0,
+            "prob": 0.531,
+            "side": "Nashville Predators",
+            "totals_line": null
+          },
+          {
+            "away": "Nashville Predators",
+            "bet": "home_ml",
+            "book": null,
+            "edge_reasons": "p=0.469",
+            "edge_score": 0.062,
+            "ev": -0.2941313131313131,
+            "home": "Tampa Bay Lightning",
+            "market": "ev_home_ml",
+            "market_group": "moneyline",
+            "price": -198.0,
+            "prob": 0.469,
+            "side": "Tampa Bay Lightning",
+            "totals_line": null
+          },
+          {
+            "away": "Montréal Canadiens",
+            "bet": "away_ml",
+            "book": null,
+            "edge_reasons": "p=0.477",
+            "edge_score": 0.0463333333333333,
+            "ev": 0.1539366666666666,
+            "home": "Carolina Hurricanes",
+            "market": "ev_away_ml",
+            "market_group": "moneyline",
+            "price": 142.0,
+            "prob": 0.4768333333333333,
+            "side": "Montréal Canadiens",
+            "totals_line": null
+          },
+          {
+            "away": "Montréal Canadiens",
+            "bet": "home_ml",
+            "book": null,
+            "edge_reasons": "p=0.523",
+            "edge_score": 0.0463333333333333,
+            "ev": -0.1690882352941176,
+            "home": "Carolina Hurricanes",
+            "market": "ev_home_ml",
+            "market_group": "moneyline",
+            "price": -170.0,
+            "prob": 0.5231666666666667,
+            "side": "Carolina Hurricanes",
+            "totals_line": null
+          },
+          {
+            "away": "Boston Bruins",
+            "bet": "away_ml",
+            "book": null,
+            "edge_reasons": "p=0.512",
+            "edge_score": 0.0236666666666667,
+            "ev": 0.1260333333333334,
+            "home": "Columbus Blue Jackets",
+            "market": "ev_away_ml",
+            "market_group": "moneyline",
+            "price": 120.0,
+            "prob": 0.5118333333333334,
+            "side": "Boston Bruins",
+            "totals_line": null
+          },
+          {
+            "away": "Boston Bruins",
+            "bet": "home_ml",
+            "book": null,
+            "edge_reasons": "p=0.488",
+            "edge_score": 0.0236666666666666,
+            "ev": -0.1680539906103286,
+            "home": "Columbus Blue Jackets",
+            "market": "ev_home_ml",
+            "market_group": "moneyline",
+            "price": -142.0,
+            "prob": 0.4881666666666667,
+            "side": "Columbus Blue Jackets",
+            "totals_line": null
+          },
+          {
+            "away": "Chicago Blackhawks",
+            "bet": "away_ml",
+            "book": null,
+            "edge_reasons": "p=0.492",
+            "edge_score": 0.0164999999999999,
+            "ev": 0.190035,
+            "home": "New Jersey Devils",
+            "market": "ev_away_ml",
+            "market_group": "moneyline",
+            "price": 142.0,
+            "prob": 0.49175,
+            "side": "Chicago Blackhawks",
+            "totals_line": null
+          },
+          {
+            "away": "Chicago Blackhawks",
+            "bet": "home_ml",
+            "book": null,
+            "edge_reasons": "p=0.508",
+            "edge_score": 0.0164999999999999,
+            "ev": -0.1927794117647058,
+            "home": "New Jersey Devils",
+            "market": "ev_home_ml",
+            "market_group": "moneyline",
+            "price": -170.0,
+            "prob": 0.50825,
+            "side": "New Jersey Devils",
+            "totals_line": null
+          }
+        ],
+        "source": "edges_sim_2026-03-29.csv"
+      },
+      "predictions": {
+        "count": 6,
+        "rows": [
+          {
+            "away": "Montréal Canadiens",
+            "away_ml_odds": 142.0,
+            "away_pl_+1.5_odds": -175.0,
+            "date": "2026-03-29",
+            "home": "Carolina Hurricanes",
+            "home_ml_odds": -170.0,
+            "home_pl_-1.5_odds": 145.0,
+            "model_total": 5.931666666666667,
+            "over_odds": 110.0,
+            "p_away_ml": 0.4768333333333333,
+            "p_away_pl_+1.5": 0.7543333333333333,
+            "p_home_ml": 0.5231666666666667,
+            "p_home_pl_-1.5": 0.2456666666666666,
+            "p_over": 0.391,
+            "p_under": 0.609,
+            "pl_line_used": 1.5,
+            "proj_away_goals": 2.899833333333333,
+            "proj_home_goals": 3.031833333333333,
+            "segments": {
+              "final": {
+                "away_win_prob": 0.39359432776477815,
+                "home_win_prob": 0.4372594814603282,
+                "tie_prob": 0.16914619077489362
+              },
+              "ot": {
+                "no_prob": 0.8308538092251063,
+                "yes_prob": 0.16914619077489362
+              },
+              "p1": {
+                "away_win_prob": 0.32846186763864504,
+                "home_win_prob": 0.34940285132178966,
+                "tie_prob": 0.32213528103956524
+              },
+              "p2": {
+                "away_win_prob": 0.3349678995914745,
+                "home_win_prob": 0.35494264600812664,
+                "tie_prob": 0.3100894544003988
+              },
+              "p3": {
+                "away_win_prob": 0.32945839777828506,
+                "home_win_prob": 0.3602282700247623,
+                "tie_prob": 0.31031333219695256
+              }
+            },
+            "total_line_used": 6.5,
+            "under_odds": -130.0
+          },
+          {
+            "away": "Boston Bruins",
+            "away_ml_odds": 120.0,
+            "away_pl_+1.5_odds": -205.0,
+            "date": "2026-03-29",
+            "home": "Columbus Blue Jackets",
+            "home_ml_odds": -142.0,
+            "home_pl_-1.5_odds": 170.0,
+            "model_total": 6.439,
+            "over_odds": 114.0,
+            "p_away_ml": 0.5118333333333334,
+            "p_away_pl_+1.5": 0.7681666666666667,
+            "p_home_ml": 0.4881666666666667,
+            "p_home_pl_-1.5": 0.2318333333333333,
+            "p_over": 0.475,
+            "p_under": 0.525,
+            "pl_line_used": 1.5,
+            "proj_away_goals": 3.2493333333333334,
+            "proj_home_goals": 3.1896666666666667,
+            "segments": {
+              "final": {
+                "away_win_prob": 0.4282703313812567,
+                "home_win_prob": 0.4095820223478824,
+                "tie_prob": 0.16214764627086095
+              },
+              "ot": {
+                "no_prob": 0.837852353729139,
+                "yes_prob": 0.16214764627086095
+              },
+              "p1": {
+                "away_win_prob": 0.3551987804170415,
+                "home_win_prob": 0.33896999012599055,
+                "tie_prob": 0.3058312294569679
+              },
+              "p2": {
+                "away_win_prob": 0.3592389694454386,
+                "home_win_prob": 0.34639184511173016,
+                "tie_prob": 0.2943691854428312
+              },
+              "p3": {
+                "away_win_prob": 0.35286306802776696,
+                "home_win_prob": 0.35091062477584,
+                "tie_prob": 0.2962263071963929
+              }
+            },
+            "total_line_used": 6.5,
+            "under_odds": -135.0
+          },
+          {
+            "away": "Chicago Blackhawks",
+            "away_ml_odds": 142.0,
+            "away_pl_+1.5_odds": -170.0,
+            "date": "2026-03-29",
+            "home": "New Jersey Devils",
+            "home_ml_odds": -170.0,
+            "home_pl_-1.5_odds": 142.0,
+            "model_total": 6.5168333333333335,
+            "over_odds": -130.0,
+            "p_away_ml": 0.49175,
+            "p_away_pl_+1.5": 0.7536666666666667,
+            "p_home_ml": 0.50825,
+            "p_home_pl_-1.5": 0.2463333333333333,
+            "p_over": 0.6193333333333333,
+            "p_under": 0.3806666666666666,
+            "pl_line_used": 1.5,
+            "proj_away_goals": 3.223333333333333,
+            "proj_home_goals": 3.2935,
+            "segments": {
+              "final": {
+                "away_win_prob": 0.40736815363841616,
+                "home_win_prob": 0.4313994443837275,
+                "tie_prob": 0.16123240197785632
+              },
+              "ot": {
+                "no_prob": 0.8387675980221436,
+                "yes_prob": 0.16123240197785632
+              },
+              "p1": {
+                "away_win_prob": 0.34027090546079386,
+                "home_win_prob": 0.35839745926321176,
+                "tie_prob": 0.30133163527599444
+              },
+              "p2": {
+                "away_win_prob": 0.34381516790282984,
+                "home_win_prob": 0.36295054446165176,
+                "tie_prob": 0.2932342876355183
+              },
+              "p3": {
+                "away_win_prob": 0.3507737931494205,
+                "home_win_prob": 0.3533185498885538,
+                "tie_prob": 0.29590765696202564
+              }
+            },
+            "total_line_used": 5.5,
+            "under_odds": 110.0
+          },
+          {
+            "away": "Florida Panthers",
+            "away_ml_odds": 130.0,
+            "away_pl_+1.5_odds": -192.0,
+            "date": "2026-03-29",
+            "home": "New York Rangers",
+            "home_ml_odds": -155.0,
+            "home_pl_-1.5_odds": 160.0,
+            "model_total": 6.151166666666667,
+            "over_odds": -120.0,
+            "p_away_ml": 0.3708333333333333,
+            "p_away_pl_+1.5": 0.656,
+            "p_home_ml": 0.6291666666666667,
+            "p_home_pl_-1.5": 0.344,
+            "p_over": 0.5735,
+            "p_under": 0.4265,
+            "pl_line_used": 1.5,
+            "proj_away_goals": 2.716333333333333,
+            "proj_home_goals": 3.434833333333333,
+            "segments": {
+              "final": {
+                "away_win_prob": 0.30951104679249647,
+                "home_win_prob": 0.530529221268805,
+                "tie_prob": 0.15995973193869858
+              },
+              "ot": {
+                "no_prob": 0.8400402680613014,
+                "yes_prob": 0.15995973193869858
+              },
+              "p1": {
+                "away_win_prob": 0.27924095204648525,
+                "home_win_prob": 0.4112321416024103,
+                "tie_prob": 0.30952690635110447
+              },
+              "p2": {
+                "away_win_prob": 0.2886328847839957,
+                "home_win_prob": 0.4109960263617629,
+                "tie_prob": 0.30037108885424135
+              },
+              "p3": {
+                "away_win_prob": 0.29211705609222066,
+                "home_win_prob": 0.40533662188552705,
+                "tie_prob": 0.3025463220222523
+              }
+            },
+            "total_line_used": 5.5,
+            "under_odds": 100.0
+          },
+          {
+            "away": "Dallas Stars",
+            "away_ml_odds": -155.0,
+            "away_pl_+1.5_odds": null,
+            "date": "2026-03-29",
+            "home": "Philadelphia Flyers",
+            "home_ml_odds": 130.0,
+            "home_pl_-1.5_odds": null,
+            "model_total": 6.433333333333334,
+            "over_odds": -130.0,
+            "p_away_ml": 0.5344166666666667,
+            "p_away_pl_+1.5": 0.7966666666666666,
+            "p_home_ml": 0.4655833333333333,
+            "p_home_pl_-1.5": 0.2033333333333333,
+            "p_over": 0.6128333333333333,
+            "p_under": 0.3871666666666666,
+            "pl_line_used": 1.5,
+            "proj_away_goals": 3.31,
+            "proj_home_goals": 3.123333333333333,
+            "segments": {
+              "final": {
+                "away_win_prob": 0.44687751059538455,
+                "home_win_prob": 0.39123788401352677,
+                "tie_prob": 0.16188460539108873
+              },
+              "ot": {
+                "no_prob": 0.8381153946089113,
+                "yes_prob": 0.16188460539108873
+              },
+              "p1": {
+                "away_win_prob": 0.3605528152565709,
+                "home_win_prob": 0.3360376017643373,
+                "tie_prob": 0.3034095829790919
+              },
+              "p2": {
+                "away_win_prob": 0.3745197071352988,
+                "home_win_prob": 0.33236730277910814,
+                "tie_prob": 0.29311299008559305
+              },
+              "p3": {
+                "away_win_prob": 0.3627059113204374,
+                "home_win_prob": 0.3375382813825157,
+                "tie_prob": 0.29975580729704693
+              }
+            },
+            "total_line_used": 5.5,
+            "under_odds": 110.0
+          },
+          {
+            "away": "Nashville Predators",
+            "away_ml_odds": 164.0,
+            "away_pl_+1.5_odds": -148.0,
+            "date": "2026-03-29",
+            "home": "Tampa Bay Lightning",
+            "home_ml_odds": -198.0,
+            "home_pl_-1.5_odds": 124.0,
+            "model_total": 6.224166666666667,
+            "over_odds": -105.0,
+            "p_away_ml": 0.531,
+            "p_away_pl_+1.5": 0.784,
+            "p_home_ml": 0.469,
+            "p_home_pl_-1.5": 0.216,
+            "p_over": 0.4345,
+            "p_under": 0.5655,
+            "pl_line_used": 1.5,
+            "proj_away_goals": 3.1991666666666667,
+            "proj_home_goals": 3.025,
+            "segments": {
+              "final": {
+                "away_win_prob": 0.44403601076362437,
+                "home_win_prob": 0.3912527785380819,
+                "tie_prob": 0.16471121069829378
+              },
+              "ot": {
+                "no_prob": 0.8352887893017062,
+                "yes_prob": 0.16471121069829378
+              },
+              "p1": {
+                "away_win_prob": 0.3641010540895252,
+                "home_win_prob": 0.32551821071345055,
+                "tie_prob": 0.3103807351970242
+              },
+              "p2": {
+                "away_win_prob": 0.35361221867058823,
+                "home_win_prob": 0.34502132434587884,
+                "tie_prob": 0.3013664569835329
+              },
+              "p3": {
+                "away_win_prob": 0.3688520534748185,
+                "home_win_prob": 0.3287038130818367,
+                "tie_prob": 0.30244413344334475
+              }
+            },
+            "total_line_used": 6.5,
+            "under_odds": -115.0
+          }
+        ]
+      },
+      "recommendations": {
+        "count": 4,
+        "rows": [
+          {
+            "away": "Nashville Predators",
+            "conf": 0.284,
+            "ev": 0.3137297297297298,
+            "home": "Tampa Bay Lightning",
+            "market": "PL",
+            "price": -148.0,
+            "prob": 0.784,
+            "side": "Nashville Predators +1.5",
+            "totals_line": 6.5
+          },
+          {
+            "away": "Boston Bruins",
+            "conf": 0.2681666666666666,
+            "ev": 0.1428821138211382,
+            "home": "Columbus Blue Jackets",
+            "market": "PL",
+            "price": -205.0,
+            "prob": 0.7681666666666667,
+            "side": "Boston Bruins +1.5",
+            "totals_line": 6.5
+          },
+          {
+            "away": "Montréal Canadiens",
+            "conf": 0.2543333333333333,
+            "ev": 0.1853809523809523,
+            "home": "Carolina Hurricanes",
+            "market": "PL",
+            "price": -175.0,
+            "prob": 0.7543333333333333,
+            "side": "Montréal Canadiens +1.5",
+            "totals_line": 6.5
+          },
+          {
+            "away": "Chicago Blackhawks",
+            "conf": 0.2536666666666667,
+            "ev": 0.1970000000000001,
+            "home": "New Jersey Devils",
+            "market": "PL",
+            "price": -170.0,
+            "prob": 0.7536666666666667,
+            "side": "Chicago Blackhawks +1.5",
+            "totals_line": 5.5
+          }
+        ]
+      },
+      "reconciliation": null
+    },
+    "props": {
+      "recommendations": {
+        "count": 27,
+        "rows": [
+          {
+            "book": null,
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
+            "edge_score": 0.7099117856593246,
+            "ev": 0.0,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "CHI",
+            "player": "Timo Meier",
+            "price": null,
+            "prob": 0.9079812398587844,
+            "side": "Over",
+            "team": "NJD"
+          },
+          {
+            "book": null,
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
+            "edge_score": 0.6989816523215794,
+            "ev": 0.0,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "NSH",
+            "player": "Darren Raddysh",
+            "price": null,
+            "prob": 0.925956965386212,
+            "side": "Over",
+            "team": "TBL"
+          },
+          {
+            "book": null,
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
+            "edge_score": 0.6777482852083871,
+            "ev": 0.0,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "FLA",
+            "player": "Taylor Raddysh",
+            "price": null,
+            "prob": 0.925956965386212,
+            "side": "Over",
+            "team": "NYR"
+          },
+          {
+            "book": null,
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
+            "edge_score": 0.6560236223073252,
+            "ev": 0.0,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "NSH",
+            "player": "Nikita Kucherov",
+            "price": null,
+            "prob": 0.8722594278683942,
+            "side": "Over",
+            "team": "TBL"
+          },
+          {
+            "book": null,
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
+            "edge_score": 0.6387297171018136,
+            "ev": 0.0,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "NYR",
+            "player": "Matthew Tkachuk",
+            "price": null,
+            "prob": 0.8519274646947309,
+            "side": "Over",
+            "team": "FLA"
+          },
+          {
+            "book": null,
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
+            "edge_score": 0.6252408570741226,
+            "ev": 0.0,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "FLA",
+            "player": "Mika Zibanejad",
+            "price": null,
+            "prob": 0.8603226802183811,
+            "side": "Over",
+            "team": "NYR"
+          },
+          {
+            "book": null,
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
+            "edge_score": 0.615816792534658,
+            "ev": 0.0,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "FLA",
+            "player": "Alexis Lafrenière",
+            "price": null,
+            "prob": 0.8485425995440505,
+            "side": "Over",
+            "team": "NYR"
+          },
+          {
+            "book": null,
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
+            "edge_score": 0.6047668128339101,
+            "ev": 0.0,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "BOS",
+            "player": "Adam Fantilli",
+            "price": null,
+            "prob": 0.8347301249181156,
+            "side": "Over",
+            "team": "CBJ"
+          },
+          {
+            "book": null,
+            "edge_reasons": "MODEL OVR · CONF60+",
+            "edge_score": 0.6025549638773852,
+            "ev": 0.0,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "MTL",
+            "player": "Jackson Blake",
+            "price": null,
+            "prob": 0.8587319181175976,
+            "side": "Over",
+            "team": "CAR"
+          },
+          {
+            "book": null,
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
+            "edge_score": 0.5995199943863634,
+            "ev": 0.0,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "FLA",
+            "player": "Matthew Robertson",
+            "price": null,
+            "prob": 0.8281716018586822,
+            "side": "Over",
+            "team": "NYR"
+          },
+          {
+            "book": null,
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
+            "edge_score": 0.5966846959184353,
+            "ev": 0.0,
+            "line": 2.5,
+            "market": "SOG",
+            "opp": "NSH",
+            "player": "Darren Raddysh",
+            "price": null,
+            "prob": 0.7980857698822819,
+            "side": "Over",
+            "team": "TBL"
+          },
+          {
+            "book": null,
+            "edge_reasons": "MODEL OVR · CONF60+",
+            "edge_score": 0.5958614369428994,
+            "ev": 0.0,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "MTL",
+            "player": "Seth Jarvis",
+            "price": null,
+            "prob": 0.8503650094494903,
+            "side": "Over",
+            "team": "CAR"
+          },
+          {
+            "book": null,
+            "edge_reasons": "MODEL OVR · CONF60+",
+            "edge_score": 0.5938785292378661,
+            "ev": 0.0,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "DAL",
+            "player": "Owen Tippett",
+            "price": null,
+            "prob": 0.8842377471932646,
+            "side": "Over",
+            "team": "PHI"
+          },
+          {
+            "book": null,
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
+            "edge_score": 0.5923397732886369,
+            "ev": 0.0,
+            "line": 2.5,
+            "market": "SOG",
+            "opp": "CHI",
+            "player": "Timo Meier",
+            "price": null,
+            "prob": 0.7610162243954248,
+            "side": "Over",
+            "team": "NJD"
+          },
+          {
+            "book": null,
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
+            "edge_score": 0.5839259483094394,
+            "ev": 0.0,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "NYR",
+            "player": "Evan Rodrigues",
+            "price": null,
+            "prob": 0.7834227537042633,
+            "side": "Over",
+            "team": "FLA"
+          },
+          {
+            "book": null,
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP-",
+            "edge_score": 0.5765408008817411,
+            "ev": 0.0,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "NJD",
+            "player": "Oliver Moore",
+            "price": null,
+            "prob": 0.8946007959247421,
+            "side": "Over",
+            "team": "CHI"
+          },
+          {
+            "book": null,
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
+            "edge_score": 0.5754513288052431,
+            "ev": 0.0,
+            "line": 2.5,
+            "market": "SOG",
+            "opp": "FLA",
+            "player": "Taylor Raddysh",
+            "price": null,
+            "prob": 0.7980857698822819,
+            "side": "Over",
+            "team": "NYR"
+          },
+          {
+            "book": null,
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
+            "edge_score": 0.5724273040415592,
+            "ev": 0.0,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "BOS",
+            "player": "Zach Werenski",
+            "price": null,
+            "prob": 0.7943057389276769,
+            "side": "Over",
+            "team": "CBJ"
+          },
+          {
+            "book": null,
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
+            "edge_score": 0.5616742268604678,
+            "ev": 0.0,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "NYR",
+            "player": "Sam Bennett",
+            "price": null,
+            "prob": 0.7556081018930485,
+            "side": "Over",
+            "team": "FLA"
+          },
+          {
+            "book": null,
+            "edge_reasons": "MODEL OVR · CONF60+",
+            "edge_score": 0.5408480096857179,
+            "ev": 0.0,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "MTL",
+            "player": "Sebastian Aho",
+            "price": null,
+            "prob": 0.7815982253780135,
+            "side": "Over",
+            "team": "CAR"
+          },
+          {
+            "book": null,
+            "edge_reasons": "MODEL OVR · CONF60+",
+            "edge_score": 0.5381986918420647,
+            "ev": 0.0,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "MTL",
+            "player": "Andrei Svechnikov",
+            "price": null,
+            "prob": 0.7782865780734469,
+            "side": "Over",
+            "team": "CAR"
+          },
+          {
+            "book": null,
+            "edge_reasons": "MODEL OVR · CONF60+",
+            "edge_score": 0.5372990107183494,
+            "ev": 0.0,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "TBL",
+            "player": "Reid Schaefer",
+            "price": null,
+            "prob": 0.8078060014326612,
+            "side": "Over",
+            "team": "NSH"
+          },
+          {
+            "book": null,
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP-",
+            "edge_score": 0.5287416843053248,
+            "ev": 0.0,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "PHI",
+            "player": "Jason Robertson",
+            "price": null,
+            "prob": 0.8281716018586822,
+            "side": "Over",
+            "team": "DAL"
+          },
+          {
+            "book": null,
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP-",
+            "edge_score": 0.5258277239730534,
+            "ev": 0.0,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "NJD",
+            "player": "Connor Bedard",
+            "price": null,
+            "prob": 0.8312094497888826,
+            "side": "Over",
+            "team": "CHI"
+          },
+          {
+            "book": null,
+            "edge_reasons": "MODEL OVR · CONF60+",
+            "edge_score": 0.4980295128043537,
+            "ev": 0.0,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "TBL",
+            "player": "Zachary L'Heureux",
+            "price": null,
+            "prob": 0.7587191290401667,
+            "side": "Over",
+            "team": "NSH"
+          },
+          {
+            "book": null,
+            "edge_reasons": "MODEL OVR · CONF60+",
+            "edge_score": 0.4965395343401932,
+            "ev": 0.0,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "TBL",
+            "player": "Steven Stamkos",
+            "price": null,
+            "prob": 0.7568566559599661,
+            "side": "Over",
+            "team": "NSH"
+          },
+          {
+            "book": null,
+            "edge_reasons": "MODEL OVR · CONF60+",
+            "edge_score": 0.4953117618663755,
+            "ev": 0.0,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "TBL",
+            "player": "Filip Forsberg",
+            "price": null,
+            "prob": 0.7553219403676938,
+            "side": "Over",
+            "team": "NSH"
+          }
+        ],
+        "source": "props_recommendations_2026-03-29.csv"
+      },
+      "reconciliation": null
+    }
+  },
+  "date": "2026-03-29",
+  "files": {
+    "edges": "data/processed/edges_sim_2026-03-29.csv",
+    "game_recommendations": "data/processed/recommendations_sim_2026-03-29.csv",
+    "predictions": "data/processed/predictions_sim_2026-03-29.csv",
+    "props_recommendations": "data/processed/props_recommendations_2026-03-29.csv",
+    "reconciliation_games": null,
+    "reconciliation_props": null
+  },
+  "generated_at_utc": "2026-03-28T16:30:50+00:00",
+  "schema_version": 2
+}

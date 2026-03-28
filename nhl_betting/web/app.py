@@ -2823,6 +2823,180 @@ def _normalize_goalie_ladder_prop(value: Any) -> str:
     return normalized
 
 
+def _load_props_boxscores_hist_frame(date_ymd: str) -> tuple[pd.DataFrame, Path]:
+    hist_path = PROC_DIR / f"props_boxscores_sim_hist_{date_ymd}.csv"
+    hist_df = _normalize_frame_columns(_read_csv_fallback(hist_path))
+    if hist_df is not None and not hist_df.empty:
+        return hist_df, hist_path
+
+    samples_csv_path = PROC_DIR / f"props_boxscores_sim_samples_{date_ymd}.csv"
+    samples_parquet_path = PROC_DIR / f"props_boxscores_sim_samples_{date_ymd}.parquet"
+    samples_df = _normalize_frame_columns(_read_csv_fallback(samples_csv_path))
+    source_path = samples_csv_path
+    if (samples_df is None or samples_df.empty) and samples_parquet_path.exists():
+        try:
+            samples_df = _normalize_frame_columns(pd.read_parquet(samples_parquet_path))
+            source_path = samples_parquet_path
+        except Exception:
+            samples_df = pd.DataFrame()
+
+    if samples_df is None or samples_df.empty:
+        return pd.DataFrame(), hist_path
+
+    if "sim_idx" not in samples_df.columns:
+        return pd.DataFrame(), source_path
+
+    group_no_value = [
+        "team",
+        "player_id",
+        "player",
+        "market",
+        "game_home",
+        "game_away",
+        "date",
+        "period",
+    ]
+    for col in group_no_value + ["value"]:
+        if col not in samples_df.columns:
+            samples_df[col] = pd.NA
+
+    try:
+        samples_df["sim_idx"] = pd.to_numeric(samples_df.get("sim_idx"), errors="coerce")
+        samples_df = samples_df.dropna(subset=["sim_idx"]).copy()
+        if samples_df.empty:
+            return pd.DataFrame(), source_path
+        samples_df["sim_idx"] = samples_df["sim_idx"].astype(int)
+    except Exception:
+        return pd.DataFrame(), source_path
+
+    try:
+        value_counts = (
+            samples_df.groupby(group_no_value + ["value"], dropna=False)["sim_idx"]
+            .nunique()
+            .reset_index(name="count")
+        )
+        sim_counts = (
+            samples_df.groupby(group_no_value, dropna=False)["sim_idx"]
+            .nunique()
+            .reset_index(name="n_sims")
+        )
+        hist_df = value_counts.merge(sim_counts, on=group_no_value, how="left")
+        return hist_df, source_path
+    except Exception:
+        return pd.DataFrame(), source_path
+
+
+def _infer_props_boxscores_n_sims(date_ymd: str) -> int:
+    hist_path = PROC_DIR / f"props_boxscores_sim_hist_{date_ymd}.csv"
+    hist_df = _normalize_frame_columns(_read_csv_fallback(hist_path))
+    try:
+        if hist_df is not None and not hist_df.empty and "n_sims" in hist_df.columns:
+            vals = pd.to_numeric(hist_df.get("n_sims"), errors="coerce").dropna()
+            if not vals.empty:
+                return max(1, int(vals.iloc[0]))
+    except Exception:
+        pass
+
+    samples_csv_path = PROC_DIR / f"props_boxscores_sim_samples_{date_ymd}.csv"
+    samples_df = _normalize_frame_columns(_read_csv_fallback(samples_csv_path))
+    try:
+        if samples_df is not None and not samples_df.empty and "sim_idx" in samples_df.columns:
+            vals = pd.to_numeric(samples_df.get("sim_idx"), errors="coerce").dropna()
+            if not vals.empty:
+                return max(1, int(vals.max()) + 1)
+    except Exception:
+        pass
+
+    return 0
+
+
+def _poisson_hist_rows(mean_value: float, sim_count: int, max_total: int) -> list[dict[str, Any]]:
+    try:
+        lam = max(0.0, float(mean_value))
+    except Exception:
+        return []
+    sims = max(1, int(sim_count or 0))
+    max_k = max(0, int(max_total or 0))
+    probs: list[float] = []
+    try:
+        p = math.exp(-lam)
+    except Exception:
+        p = 0.0
+    probs.append(p)
+    for k in range(1, max_k + 1):
+        try:
+            p = p * lam / float(k)
+        except Exception:
+            p = 0.0
+        probs.append(p)
+    total_prob = float(sum(probs))
+    if probs and total_prob < 1.0:
+        probs[-1] = probs[-1] + (1.0 - total_prob)
+    counts = [int(round(max(0.0, prob) * float(sims))) for prob in probs]
+    if counts:
+        counts[-1] += sims - int(sum(counts))
+    return [{"value": int(total), "count": max(0, int(count)), "n_sims": sims} for total, count in enumerate(counts)]
+
+
+def _synthesize_player_hist_from_agg(
+    agg_df: pd.DataFrame,
+    date_ymd: str,
+    market: str,
+    mean_col: str,
+    position_filter: Optional[str],
+) -> pd.DataFrame:
+    if agg_df is None or agg_df.empty or not mean_col or mean_col not in agg_df.columns:
+        return pd.DataFrame()
+    sim_count = _infer_props_boxscores_n_sims(date_ymd)
+    if sim_count <= 0:
+        sim_count = 6000
+    work = agg_df.copy()
+    try:
+        if "period" in work.columns:
+            work["period"] = pd.to_numeric(work.get("period"), errors="coerce").fillna(0).astype(int)
+            work = work[work["period"] == 0]
+        if work.empty:
+            return pd.DataFrame()
+        if position_filter:
+            if "pos" in work.columns:
+                work = work[work.get("pos").astype(str).str.upper().str.strip() == str(position_filter).upper()]
+        elif "pos" in work.columns:
+            work = work[work.get("pos").astype(str).str.upper().str.strip() != "G"]
+        if work.empty:
+            return pd.DataFrame()
+    except Exception:
+        return pd.DataFrame()
+
+    rows: list[dict[str, Any]] = []
+    for _, row in work.iterrows():
+        try:
+            pid = _normalize_player_id_value(row.get("player_id"))
+            if not pid or pid == "0":
+                continue
+            mean_value = _safe_float_or_none(row.get(mean_col))
+            if mean_value is None or mean_value < 0:
+                continue
+            tail_pad = 10 if str(market).upper() == "SAVES" else 6
+            max_total = max(int(math.ceil(float(mean_value) + 6.0 * math.sqrt(float(mean_value) + 1.0) + tail_pad)), tail_pad)
+            for hist_row in _poisson_hist_rows(mean_value, sim_count, max_total):
+                rows.append({
+                    "team": row.get("team"),
+                    "player_id": pid,
+                    "player": row.get("player"),
+                    "market": str(market).upper(),
+                    "value": hist_row.get("value"),
+                    "count": hist_row.get("count"),
+                    "n_sims": hist_row.get("n_sims"),
+                    "game_home": row.get("game_home"),
+                    "game_away": row.get("game_away"),
+                    "date": row.get("date") or date_ymd,
+                    "period": 0,
+                })
+        except Exception:
+            continue
+    return pd.DataFrame(rows)
+
+
 def _goalie_ladders_payload(date_ymd: str, prop_value: Any, team_value: Any, goalie_value: Any, sort_value: Any) -> Dict[str, Any]:
     d = _normalize_date_param(date_ymd)
     try:
@@ -2838,7 +3012,8 @@ def _goalie_ladders_payload(date_ymd: str, prop_value: Any, team_value: Any, goa
     mean_col = str(prop_cfg.get("mean_col") or "")
     hist_path = PROC_DIR / f"props_boxscores_sim_hist_{d}.csv"
     agg_path = PROC_DIR / f"props_boxscores_sim_{d}.csv"
-    source_path = hist_path if hist_path.exists() else agg_path
+    hist_df, hist_source_path = _load_props_boxscores_hist_frame(d)
+    source_path = hist_source_path if hist_df is not None and not hist_df.empty else agg_path
     market_path, market_lines = _load_goalie_ladder_market_lines(d)
     nav = _skater_ladders_nav(d)
     payload: Dict[str, Any] = {
@@ -2862,8 +3037,21 @@ def _goalie_ladders_payload(date_ymd: str, prop_value: Any, team_value: Any, goa
         "rows": [],
     }
 
-    hist_df = _normalize_frame_columns(_read_csv_fallback(hist_path))
+    ladder_shape = "exact"
     agg_df = _normalize_frame_columns(_read_csv_fallback(agg_path))
+    if agg_df is None or agg_df.empty:
+        agg_df = pd.DataFrame()
+    else:
+        try:
+            agg_df["player_id"] = agg_df.get("player_id").map(_normalize_player_id_value)
+            agg_df["period"] = pd.to_numeric(agg_df.get("period"), errors="coerce").fillna(0).astype(int)
+            agg_df = agg_df[agg_df["period"] == 0]
+        except Exception:
+            pass
+    if hist_df.empty and not agg_df.empty:
+        hist_df = _synthesize_player_hist_from_agg(agg_df, d, market, mean_col, "G")
+        if hist_df is not None and not hist_df.empty:
+            ladder_shape = "approx"
     if hist_df.empty:
         payload["error"] = "goalie_ladders_missing"
         payload["summary"] = {"games": 0, "goalies": 0, "simCounts": [], "availableTeams": 0, "availableGoalies": 0}
@@ -2895,13 +3083,6 @@ def _goalie_ladders_payload(date_ymd: str, prop_value: Any, team_value: Any, goa
 
     if agg_df is None or agg_df.empty:
         agg_df = pd.DataFrame()
-    else:
-        try:
-            agg_df["player_id"] = agg_df.get("player_id").map(_normalize_player_id_value)
-            agg_df["period"] = pd.to_numeric(agg_df.get("period"), errors="coerce").fillna(0).astype(int)
-            agg_df = agg_df[agg_df["period"] == 0]
-        except Exception:
-            pass
 
     identity_by_pid = _load_skater_identity_map(d)
     from .teams import get_team_assets as _assets
@@ -3012,7 +3193,7 @@ def _goalie_ladders_payload(date_ymd: str, prop_value: Any, team_value: Any, goa
                 "overLineCount": over_line_count,
                 "overLineProb": over_line_prob,
                 "ladder": ladder_rows,
-                "ladderShape": "exact",
+                "ladderShape": ladder_shape,
                 "sourceFile": _relative_path_text(source_path),
             })
         except Exception:
@@ -3068,6 +3249,7 @@ def _goalie_ladders_payload(date_ymd: str, prop_value: Any, team_value: Any, goa
         return payload
 
     payload["found"] = True
+    payload["ladderShape"] = ladder_shape
     payload["rows"] = rows
     payload["defaultSims"] = int(max((int(row.get("simCount") or 0) for row in rows), default=0))
     payload["summary"] = {
@@ -3179,7 +3361,8 @@ def _skater_ladders_payload(date_ymd: str, prop_value: Any, team_value: Any, ska
     mean_col = str(prop_cfg.get("mean_col") or "")
     hist_path = PROC_DIR / f"props_boxscores_sim_hist_{d}.csv"
     agg_path = PROC_DIR / f"props_boxscores_sim_{d}.csv"
-    source_path = hist_path if hist_path.exists() else agg_path
+    hist_df, hist_source_path = _load_props_boxscores_hist_frame(d)
+    source_path = hist_source_path if hist_df is not None and not hist_df.empty else agg_path
     market_path, market_lines = _load_skater_ladder_market_lines(d)
     nav = _skater_ladders_nav(d)
     payload: Dict[str, Any] = {
@@ -3203,8 +3386,21 @@ def _skater_ladders_payload(date_ymd: str, prop_value: Any, team_value: Any, ska
         "rows": [],
     }
 
-    hist_df = _normalize_frame_columns(_read_csv_fallback(hist_path))
+    ladder_shape = "exact"
     agg_df = _normalize_frame_columns(_read_csv_fallback(agg_path))
+    if agg_df is None or agg_df.empty:
+        agg_df = pd.DataFrame()
+    else:
+        try:
+            agg_df["player_id"] = agg_df.get("player_id").map(_normalize_player_id_value)
+            agg_df["period"] = pd.to_numeric(agg_df.get("period"), errors="coerce").fillna(0).astype(int)
+            agg_df = agg_df[agg_df["period"] == 0]
+        except Exception:
+            pass
+    if hist_df.empty and not agg_df.empty:
+        hist_df = _synthesize_player_hist_from_agg(agg_df, d, market, mean_col, None)
+        if hist_df is not None and not hist_df.empty:
+            ladder_shape = "approx"
     if hist_df.empty:
         payload["error"] = "skater_ladders_missing"
         payload["summary"] = {"games": 0, "skaters": 0, "simCounts": [], "availableTeams": 0, "availableSkaters": 0}
@@ -3245,7 +3441,6 @@ def _skater_ladders_payload(date_ymd: str, prop_value: Any, team_value: Any, ska
         payload["error"] = "skater_ladders_missing"
         payload["summary"] = {"games": 0, "skaters": 0, "simCounts": [], "availableTeams": 0, "availableSkaters": 0}
         return payload
-
     if agg_df is None or agg_df.empty:
         agg_df = pd.DataFrame()
     else:
@@ -3372,7 +3567,7 @@ def _skater_ladders_payload(date_ymd: str, prop_value: Any, team_value: Any, ska
                 "overLineCount": over_line_count,
                 "overLineProb": over_line_prob,
                 "ladder": ladder_rows,
-                "ladderShape": "exact",
+                "ladderShape": ladder_shape,
                 "sourceFile": _relative_path_text(source_path),
             }
             rows.append(row_obj)
@@ -3425,6 +3620,7 @@ def _skater_ladders_payload(date_ymd: str, prop_value: Any, team_value: Any, ska
         return payload
 
     payload["found"] = True
+    payload["ladderShape"] = ladder_shape
     payload["rows"] = rows
     payload["defaultSims"] = int(max((int(row.get("simCount") or 0) for row in rows), default=0))
     payload["summary"] = {

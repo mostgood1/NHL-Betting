@@ -1,5 +1,6 @@
 market,side,price,ev,prob,conf,home,away,totals_line
-PL,Nashville Predators +1.5,-148.0,0.3137297297297298,0.784,0.28400000000000003,Tampa Bay Lightning,Nashville Predators,6.5
-PL,Boston Bruins +1.5,-205.0,0.1428821138211382,0.7681666666666667,0.26816666666666666,Columbus Blue Jackets,Boston Bruins,6.5
-PL,Montréal Canadiens +1.5,-175.0,0.1853809523809523,0.7543333333333333,0.2543333333333333,Carolina Hurricanes,Montréal Canadiens,6.5
-PL,Chicago Blackhawks +1.5,-170.0,0.19700000000000017,0.7536666666666667,0.2536666666666667,New Jersey Devils,Chicago Blackhawks,5.5
+PL,Boston Bruins +1.5,-205.0,0.24206910569105689,0.8348333333333333,0.3348333333333333,Columbus Blue Jackets,Boston Bruins,6.5
+ML,New York Rangers,-155.0,0.32202419354838696,0.8035833333333333,0.3035833333333333,New York Rangers,Florida Panthers,5.5
+ML,Tampa Bay Lightning,-198.0,0.042623737373737425,0.69275,0.19274999999999998,Tampa Bay Lightning,Nashville Predators,6.5
+PL,Montréal Canadiens +1.5,-175.0,0.0779999999999999,0.6859999999999999,0.18599999999999994,Carolina Hurricanes,Montréal Canadiens,6.5
+PL,Chicago Blackhawks +1.5,-170.0,0.05167647058823538,0.6621666666666667,0.16216666666666668,New Jersey Devils,Chicago Blackhawks,5.5

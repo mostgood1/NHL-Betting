@@ -47,10 +47,10 @@
   "min_ev_pl": 0.095,
   "min_ev_first10": 0.0,
   "min_ev_periods": 0.0,
-  "ev_gates_last_learned_utc": "2026-03-28T15:49:58Z",
+  "ev_gates_last_learned_utc": "2026-04-03T14:10:20Z",
   "ev_gates_range": {
     "start": "2025-09-01",
-    "end": "2026-03-28"
+    "end": "2026-04-03"
   },
   "moneyline_candidate_variant": "anchor_only_w=0.8"
 }

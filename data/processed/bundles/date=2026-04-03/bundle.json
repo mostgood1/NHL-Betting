@@ -17,41 +17,41 @@
             "home": "Anaheim Ducks",
             "home_ml_odds": null,
             "home_pl_-1.5_odds": null,
-            "model_total": 6.024333333333334,
+            "model_total": 8.628166666666667,
             "over_odds": null,
-            "p_away_ml": 0.4815833333333333,
-            "p_away_pl_+1.5": 0.7521666666666667,
-            "p_home_ml": 0.5184166666666666,
-            "p_home_pl_-1.5": 0.2478333333333333,
-            "p_over": 0.411,
-            "p_under": 0.4503333333333333,
+            "p_away_ml": 0.3625,
+            "p_away_pl_+1.5": 0.6068333333333333,
+            "p_home_ml": 0.6375,
+            "p_home_pl_-1.5": 0.3931666666666666,
+            "p_over": 0.7661666666666667,
+            "p_under": 0.1478333333333333,
             "pl_line_used": 1.5,
-            "proj_away_goals": 2.956833333333333,
-            "proj_home_goals": 3.0675,
+            "proj_away_goals": 3.8665,
+            "proj_home_goals": 4.761666666666667,
             "segments": {
               "final": {
-                "away_win_prob": 0.3973604720100122,
-                "home_win_prob": 0.43473538368767306,
-                "tie_prob": 0.1679041443023148
+                "away_win_prob": 0.3181639528869693,
+                "home_win_prob": 0.5472154990879537,
+                "tie_prob": 0.13462054802507695
               },
               "ot": {
-                "no_prob": 0.8320958556976852,
-                "yes_prob": 0.1679041443023148
+                "no_prob": 0.865379451974923,
+                "yes_prob": 0.13462054802507695
               },
               "p1": {
-                "away_win_prob": 0.32451020572077155,
-                "home_win_prob": 0.3570677650526547,
-                "tie_prob": 0.31842202922657376
+                "away_win_prob": 0.3005109025081606,
+                "home_win_prob": 0.4477966697597219,
+                "tie_prob": 0.25169242773211753
               },
               "p2": {
-                "away_win_prob": 0.34351628576281695,
-                "home_win_prob": 0.3494333671226055,
-                "tie_prob": 0.3070503471145777
+                "away_win_prob": 0.30409114639239154,
+                "home_win_prob": 0.4521179132149919,
+                "tie_prob": 0.24379094039261648
               },
               "p3": {
-                "away_win_prob": 0.33403997155621845,
-                "home_win_prob": 0.3573561878102462,
-                "tie_prob": 0.3086038406335354
+                "away_win_prob": 0.3260554469044275,
+                "home_win_prob": 0.4254482004871828,
+                "tie_prob": 0.24849635260838976
               }
             },
             "total_line_used": 6.0,
@@ -65,41 +65,41 @@
             "home": "New York Islanders",
             "home_ml_odds": null,
             "home_pl_-1.5_odds": null,
-            "model_total": 6.476833333333333,
+            "model_total": 6.8365,
             "over_odds": null,
-            "p_away_ml": 0.4725833333333333,
-            "p_away_pl_+1.5": 0.7401666666666666,
-            "p_home_ml": 0.5274166666666666,
-            "p_home_pl_-1.5": 0.2598333333333333,
-            "p_over": 0.4813333333333333,
-            "p_under": 0.3775,
+            "p_away_ml": 0.60275,
+            "p_away_pl_+1.5": 0.8355,
+            "p_home_ml": 0.39725,
+            "p_home_pl_-1.5": 0.1645,
+            "p_over": 0.5366666666666666,
+            "p_under": 0.3385,
             "pl_line_used": 1.5,
-            "proj_away_goals": 3.16,
-            "proj_home_goals": 3.3168333333333333,
+            "proj_away_goals": 3.7138333333333335,
+            "proj_home_goals": 3.1226666666666665,
             "segments": {
               "final": {
-                "away_win_prob": 0.39622149788444655,
-                "home_win_prob": 0.44236648227268704,
-                "tie_prob": 0.1614120198428664
+                "away_win_prob": 0.5096629341419027,
+                "home_win_prob": 0.33652916749788997,
+                "tie_prob": 0.15380789836020736
               },
               "ot": {
-                "no_prob": 0.8385879801571337,
-                "yes_prob": 0.1614120198428664
+                "no_prob": 0.8461921016397926,
+                "yes_prob": 0.15380789836020736
               },
               "p1": {
-                "away_win_prob": 0.33331332041304856,
-                "home_win_prob": 0.36180869826736856,
-                "tie_prob": 0.3048779813195829
+                "away_win_prob": 0.40564227694270805,
+                "home_win_prob": 0.3027426994017586,
+                "tie_prob": 0.29161502365553343
               },
               "p2": {
-                "away_win_prob": 0.3413525559782056,
-                "home_win_prob": 0.3664145606308419,
-                "tie_prob": 0.2922328833909527
+                "away_win_prob": 0.4197396479769465,
+                "home_win_prob": 0.296507094290304,
+                "tie_prob": 0.2837532577327495
               },
               "p3": {
-                "away_win_prob": 0.3406891691972864,
-                "home_win_prob": 0.3635853385788622,
-                "tie_prob": 0.2957254922238513
+                "away_win_prob": 0.3895077118445669,
+                "home_win_prob": 0.3261861779759266,
+                "tie_prob": 0.2843061101795065
               }
             },
             "total_line_used": 6.0,
@@ -115,189 +115,63 @@
     },
     "props": {
       "recommendations": {
-        "count": 13,
+        "count": 4,
         "rows": [
           {
-            "book": null,
-            "edge_reasons": "MODEL OVR · CONF60+",
-            "edge_score": 0.6765841210308715,
-            "ev": 0.0,
-            "line": 1.5,
-            "market": "SOG",
-            "opp": "NYI",
-            "player": "Porter Martone",
-            "price": null,
-            "prob": 0.9595723180054871,
-            "side": "Over",
-            "team": "PHI"
+            "book": "draftkings",
+            "edge_reasons": "MODEL UND · CONF60+ · B2B · MATCHUP+",
+            "edge_score": 0.77908333371762,
+            "ev": 0.6857734312308026,
+            "line": 0.5,
+            "market": "ASSISTS",
+            "opp": "STL",
+            "player": "Mikael Granlund",
+            "price": -145.0,
+            "prob": 0.997702642973332,
+            "side": "Under",
+            "team": "ANA"
           },
           {
-            "book": null,
+            "book": "betmgm",
             "edge_reasons": "MODEL OVR · CONF60+",
-            "edge_score": 0.6545942259127775,
-            "ev": 0.0,
-            "line": 1.5,
-            "market": "SOG",
-            "opp": "NYI",
-            "player": "Owen Tippett",
-            "price": null,
-            "prob": 0.9320849491078698,
-            "side": "Over",
-            "team": "PHI"
-          },
-          {
-            "book": null,
-            "edge_reasons": "MODEL OVR · CONF60+",
-            "edge_score": 0.6092046510400168,
-            "ev": 0.0,
+            "edge_score": 0.6106668728365937,
+            "ev": 1.0133003551889133,
             "line": 2.5,
             "market": "SOG",
             "opp": "NYI",
             "player": "Porter Martone",
-            "price": null,
+            "price": 130.0,
             "prob": 0.8753479805169189,
             "side": "Over",
             "team": "PHI"
           },
           {
-            "book": null,
-            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
-            "edge_score": 0.6074534964689223,
-            "ev": 0.0,
-            "line": 1.5,
-            "market": "SOG",
-            "opp": "ANA",
-            "player": "Jimmy Snuggerud",
-            "price": null,
-            "prob": 0.8580623824202976,
-            "side": "Over",
-            "team": "STL"
-          },
-          {
-            "book": null,
-            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
-            "edge_score": 0.5721211957207624,
-            "ev": 0.0,
-            "line": 1.5,
-            "market": "SOG",
-            "opp": "ANA",
-            "player": "Nathan Walker",
-            "price": null,
-            "prob": 0.8138970064850978,
-            "side": "Over",
-            "team": "STL"
-          },
-          {
-            "book": null,
-            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP-",
-            "edge_score": 0.5672755617160886,
-            "ev": 0.0,
-            "line": 1.5,
-            "market": "SOG",
-            "opp": "PHI",
-            "player": "Matthew Schaefer",
-            "price": null,
-            "prob": 0.8805002251049718,
-            "side": "Over",
-            "team": "NYI"
-          },
-          {
-            "book": null,
-            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
-            "edge_score": 0.5654680505517662,
-            "ev": 0.0,
-            "line": 1.5,
-            "market": "SOG",
-            "opp": "ANA",
-            "player": "Dylan Holloway",
-            "price": null,
-            "prob": 0.8055805750238525,
-            "side": "Over",
-            "team": "STL"
-          },
-          {
-            "book": null,
+            "book": "betmgm",
             "edge_reasons": "MODEL OVR · CONF60+",
-            "edge_score": 0.5579753984685462,
-            "ev": 0.0,
+            "edge_score": 0.5594376202651231,
+            "ev": 0.460360546644645,
             "line": 2.5,
             "market": "SOG",
             "opp": "NYI",
             "player": "Owen Tippett",
-            "price": null,
+            "price": -125.0,
             "prob": 0.8113114148025805,
             "side": "Over",
             "team": "PHI"
           },
           {
-            "book": null,
+            "book": "betmgm",
             "edge_reasons": "MODEL OVR · CONF60+",
-            "edge_score": 0.553148531181425,
-            "ev": 0.0,
-            "line": 1.5,
-            "market": "SOG",
-            "opp": "STL",
-            "player": "Cutter Gauthier",
-            "price": null,
-            "prob": 0.8341226462580893,
+            "edge_score": 0.410758358710334,
+            "ev": 0.2823798057144024,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "NYI",
+            "player": "Owen Tippett",
+            "price": 105.0,
+            "prob": 0.625551124738733,
             "side": "Over",
-            "team": "ANA"
-          },
-          {
-            "book": null,
-            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP-",
-            "edge_score": 0.5475170783261395,
-            "ev": 0.0,
-            "line": 1.5,
-            "market": "SOG",
-            "opp": "PHI",
-            "player": "Bo Horvat",
-            "price": null,
-            "prob": 0.8558021208675355,
-            "side": "Over",
-            "team": "NYI"
-          },
-          {
-            "book": null,
-            "edge_reasons": "MODEL OVR · CONF60+",
-            "edge_score": 0.5460669060400353,
-            "ev": 0.0,
-            "line": 1.5,
-            "market": "SOG",
-            "opp": "STL",
-            "player": "Ian Moore",
-            "price": null,
-            "prob": 0.8252706148313521,
-            "side": "Over",
-            "team": "ANA"
-          },
-          {
-            "book": null,
-            "edge_reasons": "MODEL OVR · CONF60+",
-            "edge_score": 0.5127301296425122,
-            "ev": 0.0,
-            "line": 1.5,
-            "market": "SOG",
-            "opp": "STL",
-            "player": "Leo Carlsson",
-            "price": null,
-            "prob": 0.7835996443344482,
-            "side": "Over",
-            "team": "ANA"
-          },
-          {
-            "book": null,
-            "edge_reasons": "MODEL OVR · CONF60+",
-            "edge_score": 0.4884124432880354,
-            "ev": 0.0,
-            "line": 1.5,
-            "market": "SOG",
-            "opp": "STL",
-            "player": "Beckett Sennecke",
-            "price": null,
-            "prob": 0.7532025363913523,
-            "side": "Over",
-            "team": "ANA"
+            "team": "PHI"
           }
         ],
         "source": "props_recommendations_2026-04-03.csv"
@@ -314,6 +188,6 @@
     "reconciliation_games": null,
     "reconciliation_props": null
   },
-  "generated_at_utc": "2026-04-02T14:25:28+00:00",
+  "generated_at_utc": "2026-04-03T14:48:35+00:00",
   "schema_version": 2
 }

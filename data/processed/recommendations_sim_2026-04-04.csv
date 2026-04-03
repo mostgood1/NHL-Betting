@@ -1,0 +1,7 @@
+market,side,price,ev,prob,conf,home,away,totals_line
+PL,Toronto Maple Leafs +1.5,-180.0,0.2815185185185185,0.8238333333333333,0.3238333333333333,Los Angeles Kings,Toronto Maple Leafs,6.5
+PL,New York Islanders +1.5,-130.0,0.4080128205128206,0.7958333333333334,0.2958333333333334,Carolina Hurricanes,New York Islanders,6.5
+PL,Minnesota Wild +1.5,-275.0,0.08068181818181824,0.7925,0.2925,Ottawa Senators,Minnesota Wild,6.5
+PL,Florida Panthers +1.5,-130.0,0.3791153846153845,0.7795,0.27949999999999997,Pittsburgh Penguins,Florida Panthers,6.5
+PL,Boston Bruins +1.5,-180.0,0.20011111111111107,0.7715,0.27149999999999996,Tampa Bay Lightning,Boston Bruins,6.5
+PL,Winnipeg Jets +1.5,-200.0,0.13449999999999995,0.7563333333333333,0.2563333333333333,Columbus Blue Jackets,Winnipeg Jets,6.5

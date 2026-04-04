@@ -1,7 +1,9 @@
 market,side,price,ev,prob,conf,home,away,totals_line
-PL,Toronto Maple Leafs +1.5,-180.0,0.2815185185185185,0.8238333333333333,0.3238333333333333,Los Angeles Kings,Toronto Maple Leafs,6.5
-PL,New York Islanders +1.5,-130.0,0.4080128205128206,0.7958333333333334,0.2958333333333334,Carolina Hurricanes,New York Islanders,6.5
-PL,Minnesota Wild +1.5,-275.0,0.08068181818181824,0.7925,0.2925,Ottawa Senators,Minnesota Wild,6.5
-PL,Florida Panthers +1.5,-130.0,0.3791153846153845,0.7795,0.27949999999999997,Pittsburgh Penguins,Florida Panthers,6.5
-PL,Boston Bruins +1.5,-180.0,0.20011111111111107,0.7715,0.27149999999999996,Tampa Bay Lightning,Boston Bruins,6.5
-PL,Winnipeg Jets +1.5,-200.0,0.13449999999999995,0.7563333333333333,0.2563333333333333,Columbus Blue Jackets,Winnipeg Jets,6.5
+PL,Winnipeg Jets +1.5,-200.0,0.32725000000000004,0.8848333333333334,0.38483333333333336,Columbus Blue Jackets,Winnipeg Jets,6.5
+ML,New York Rangers,116.0,0.7888400000000002,0.8281666666666667,0.3281666666666667,New York Rangers,Detroit Red Wings,5.5
+PL,Boston Bruins +1.5,-180.0,0.22499999999999998,0.7875,0.2875,Tampa Bay Lightning,Boston Bruins,6.5
+ML,Anaheim Ducks,-165.0,0.24295707070707068,0.7739166666666667,0.2739166666666667,Anaheim Ducks,Calgary Flames,6.0
+ML,Pittsburgh Penguins,-220.0,0.031151515151515152,0.7089166666666666,0.20891666666666664,Pittsburgh Penguins,Florida Panthers,6.5
+ML,Carolina Hurricanes,-215.0,0.0005523255813952299,0.6829166666666666,0.18291666666666662,Carolina Hurricanes,New York Islanders,6.5
+ML,Nashville Predators,-120.0,0.23398611111111123,0.6730833333333334,0.17308333333333337,San Jose Sharks,Nashville Predators,6.0
+ML,Winnipeg Jets,107.0,0.3703400000000002,0.662,0.16200000000000003,Columbus Blue Jackets,Winnipeg Jets,6.5

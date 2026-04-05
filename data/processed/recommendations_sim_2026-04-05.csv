@@ -1,4 +1,5 @@
 market,side,price,ev,prob,conf,home,away,totals_line
-PL,Florida Panthers +1.5,-135.0,0.45293827160493827,0.8346666666666667,0.33466666666666667,Pittsburgh Penguins,Florida Panthers,6.5
-PL,New Jersey Devils +1.5,-198.0,0.22661616161616166,0.815,0.31499999999999995,Montréal Canadiens,New Jersey Devils,6.5
-PL,Boston Bruins +1.5,-218.0,0.1139724770642202,0.7636666666666667,0.2636666666666667,Philadelphia Flyers,Boston Bruins,5.5
+PL,Boston Bruins +1.5,-218.0,0.22726605504587138,0.8413333333333333,0.34133333333333327,Philadelphia Flyers,Boston Bruins,5.5
+ML,New York Rangers,-110.0,0.559409090909091,0.8168333333333333,0.3168333333333333,New York Rangers,Washington Capitals,5.5
+PL,New Jersey Devils +1.5,-198.0,0.22862289562289578,0.8163333333333334,0.31633333333333336,Montréal Canadiens,New Jersey Devils,6.5
+ML,Pittsburgh Penguins,-218.0,0.08333944954128436,0.7426666666666667,0.2426666666666667,Pittsburgh Penguins,Florida Panthers,6.5

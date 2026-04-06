@@ -360,7 +360,7 @@
           {
             "book": "betonlineag",
             "edge_reasons": "MODEL UND · CONF60+ · MATCHUP+",
-            "edge_score": 0.7358742818253579,
+            "edge_score": 0.7341018184627632,
             "ev": 1.5797420128995705,
             "line": 0.5,
             "market": "POINTS",
@@ -374,7 +374,7 @@
           {
             "book": "draftkings",
             "edge_reasons": "MODEL UND · CONF60+ · B2B · MATCHUP-",
-            "edge_score": 0.655661885572217,
+            "edge_score": 0.655119257005017,
             "ev": 0.625,
             "line": 0.5,
             "market": "ASSISTS",
@@ -388,7 +388,7 @@
           {
             "book": "betonlineag",
             "edge_reasons": "MODEL OVR · CONF60+ · B2B",
-            "edge_score": 0.5901183940672825,
+            "edge_score": 0.5916608768224878,
             "ev": 0.3142461358107385,
             "line": 0.5,
             "market": "POINTS",
@@ -402,7 +402,7 @@
           {
             "book": "draftkings",
             "edge_reasons": "MODEL UND · CONF60+ · B2B · MATCHUP-",
-            "edge_score": 0.5666537458274875,
+            "edge_score": 0.5659739630120875,
             "ev": 1.0765655022890477,
             "line": 0.5,
             "market": "POINTS",
@@ -416,7 +416,7 @@
           {
             "book": "betonlineag",
             "edge_reasons": "MODEL UND · CONF60+",
-            "edge_score": 0.5382430645679704,
+            "edge_score": 0.5366296261360265,
             "ev": 0.7541350139384172,
             "line": 0.5,
             "market": "POINTS",
@@ -430,7 +430,7 @@
           {
             "book": "betmgm",
             "edge_reasons": "MODEL UND · CONF60+ · MATCHUP+",
-            "edge_score": 0.492646056806955,
+            "edge_score": 0.4908735934443603,
             "ev": 0.2855805912919397,
             "line": 0.5,
             "market": "POINTS",
@@ -444,7 +444,7 @@
           {
             "book": "betmgm",
             "edge_reasons": "MODEL UND · CONF60+ · MATCHUP+",
-            "edge_score": 0.4707771047331566,
+            "edge_score": 0.4687449311467271,
             "ev": 0.204165342242624,
             "line": 0.5,
             "market": "ASSISTS",
@@ -456,23 +456,9 @@
             "team": "BUF"
           },
           {
-            "book": "draftkings",
-            "edge_reasons": "MODEL UND · CONF60+ · B2B · MATCHUP-",
-            "edge_score": 0.4501941456813962,
-            "ev": 0.2409739324609608,
-            "line": 0.5,
-            "market": "ASSISTS",
-            "opp": "SJS",
-            "player": "Connor Bedard",
-            "price": -140.0,
-            "prob": 0.7239014606022272,
-            "side": "Under",
-            "team": "CHI"
-          },
-          {
             "book": "betonlineag",
             "edge_reasons": "MODEL OVR · CONF60+ · B2B · MATCHUP-",
-            "edge_score": 0.4497632252058723,
+            "edge_score": 0.4514811372357851,
             "ev": 0.6177227318776741,
             "line": 0.5,
             "market": "POINTS",
@@ -485,8 +471,22 @@
           },
           {
             "book": "draftkings",
+            "edge_reasons": "MODEL UND · CONF60+ · B2B · MATCHUP-",
+            "edge_score": 0.4492615752626973,
+            "ev": 0.2409739324609608,
+            "line": 0.5,
+            "market": "ASSISTS",
+            "opp": "SJS",
+            "player": "Connor Bedard",
+            "price": -140.0,
+            "prob": 0.7239014606022272,
+            "side": "Under",
+            "team": "CHI"
+          },
+          {
+            "book": "draftkings",
             "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
-            "edge_score": 0.4325058360346403,
+            "edge_score": 0.4333365922739674,
             "ev": 0.123966964532107,
             "line": 0.5,
             "market": "ASSISTS",
@@ -500,7 +500,7 @@
           {
             "book": "betmgm",
             "edge_reasons": "MODEL UND · CONF60+ · B2B · MATCHUP-",
-            "edge_score": 0.3716128483906115,
+            "edge_score": 0.3710702198234115,
             "ev": 0.4511120829267342,
             "line": 0.5,
             "market": "ASSISTS",
@@ -526,6 +526,6 @@
     "reconciliation_games": null,
     "reconciliation_props": null
   },
-  "generated_at_utc": "2026-04-06T14:44:19+00:00",
+  "generated_at_utc": "2026-04-06T14:53:07+00:00",
   "schema_version": 2
 }

@@ -1,0 +1,423 @@
+{
+  "data": {
+    "games": {
+      "edges": {
+        "count": 0,
+        "rows": [],
+        "source": "edges_sim_2026-04-08.csv"
+      },
+      "predictions": {
+        "count": 3,
+        "rows": [
+          {
+            "away": "Buffalo Sabres",
+            "away_ml_odds": null,
+            "away_pl_+1.5_odds": null,
+            "date": "2026-04-08",
+            "home": "New York Rangers",
+            "home_ml_odds": null,
+            "home_pl_-1.5_odds": null,
+            "model_total": 6.034,
+            "over_odds": null,
+            "p_away_ml": 0.3928333333333333,
+            "p_away_pl_+1.5": 0.681,
+            "p_home_ml": 0.6071666666666666,
+            "p_home_pl_-1.5": 0.319,
+            "p_over": 0.418,
+            "p_under": 0.4465,
+            "pl_line_used": 1.5,
+            "proj_away_goals": 2.7256666666666667,
+            "proj_home_goals": 3.308333333333333,
+            "segments": {
+              "final": {
+                "away_win_prob": 0.32569846116700685,
+                "home_win_prob": 0.5107543751843624,
+                "tie_prob": 0.1635471636486308
+              },
+              "ot": {
+                "no_prob": 0.8364528363513692,
+                "yes_prob": 0.1635471636486308
+              },
+              "p1": {
+                "away_win_prob": 0.2853232496618328,
+                "home_win_prob": 0.39920883391178635,
+                "tie_prob": 0.3154679164263808
+              },
+              "p2": {
+                "away_win_prob": 0.29692073092877375,
+                "home_win_prob": 0.3990872716451809,
+                "tie_prob": 0.3039919974260455
+              },
+              "p3": {
+                "away_win_prob": 0.301120164005449,
+                "home_win_prob": 0.3915911188443798,
+                "tie_prob": 0.3072887171501712
+              }
+            },
+            "total_line_used": 6.0,
+            "under_odds": null
+          },
+          {
+            "away": "Edmonton Oilers",
+            "away_ml_odds": null,
+            "away_pl_+1.5_odds": null,
+            "date": "2026-04-08",
+            "home": "San Jose Sharks",
+            "home_ml_odds": null,
+            "home_pl_-1.5_odds": null,
+            "model_total": 6.249,
+            "over_odds": null,
+            "p_away_ml": 0.4584166666666666,
+            "p_away_pl_+1.5": 0.7326666666666667,
+            "p_home_ml": 0.5415833333333333,
+            "p_home_pl_-1.5": 0.2673333333333333,
+            "p_over": 0.437,
+            "p_under": 0.4168333333333333,
+            "pl_line_used": 1.5,
+            "proj_away_goals": 3.0178333333333334,
+            "proj_home_goals": 3.2311666666666667,
+            "segments": {
+              "final": {
+                "away_win_prob": 0.3845389942100358,
+                "home_win_prob": 0.4512077888025973,
+                "tie_prob": 0.16425321698736697
+              },
+              "ot": {
+                "no_prob": 0.835746783012633,
+                "yes_prob": 0.16425321698736697
+              },
+              "p1": {
+                "away_win_prob": 0.3233287295227891,
+                "home_win_prob": 0.36805746099990744,
+                "tie_prob": 0.3086138094773035
+              },
+              "p2": {
+                "away_win_prob": 0.33281405680917814,
+                "home_win_prob": 0.36692868441022164,
+                "tie_prob": 0.3002572587806003
+              },
+              "p3": {
+                "away_win_prob": 0.3326104254281901,
+                "home_win_prob": 0.36395022409938965,
+                "tie_prob": 0.30343935047242027
+              }
+            },
+            "total_line_used": 6.0,
+            "under_odds": null
+          },
+          {
+            "away": "Washington Capitals",
+            "away_ml_odds": null,
+            "away_pl_+1.5_odds": null,
+            "date": "2026-04-08",
+            "home": "Toronto Maple Leafs",
+            "home_ml_odds": null,
+            "home_pl_-1.5_odds": null,
+            "model_total": 6.0535,
+            "over_odds": null,
+            "p_away_ml": 0.4038333333333333,
+            "p_away_pl_+1.5": 0.6903333333333334,
+            "p_home_ml": 0.5961666666666666,
+            "p_home_pl_-1.5": 0.3096666666666666,
+            "p_over": 0.4071666666666667,
+            "p_under": 0.444,
+            "pl_line_used": 1.5,
+            "proj_away_goals": 2.7601666666666667,
+            "proj_home_goals": 3.293333333333333,
+            "segments": {
+              "final": {
+                "away_win_prob": 0.33409065763864876,
+                "home_win_prob": 0.5017603810722678,
+                "tie_prob": 0.16414896128908346
+              },
+              "ot": {
+                "no_prob": 0.8358510387109166,
+                "yes_prob": 0.16414896128908346
+              },
+              "p1": {
+                "away_win_prob": 0.28769316183433175,
+                "home_win_prob": 0.3976354395183622,
+                "tie_prob": 0.3146713986473059
+              },
+              "p2": {
+                "away_win_prob": 0.3018150953921251,
+                "home_win_prob": 0.3954443582886535,
+                "tie_prob": 0.3027405463192214
+              },
+              "p3": {
+                "away_win_prob": 0.3084247378277003,
+                "home_win_prob": 0.3823249605733629,
+                "tie_prob": 0.30925030159893685
+              }
+            },
+            "total_line_used": 6.0,
+            "under_odds": null
+          }
+        ]
+      },
+      "recommendations": {
+        "count": 0,
+        "rows": []
+      },
+      "reconciliation": null
+    },
+    "props": {
+      "recommendations": {
+        "count": 17,
+        "rows": [
+          {
+            "book": null,
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
+            "edge_score": 0.6975531668474011,
+            "ev": 0.0,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "WSH",
+            "player": "Nicholas Robertson",
+            "price": null,
+            "prob": 0.936075804410952,
+            "side": "Over",
+            "team": "TOR"
+          },
+          {
+            "book": null,
+            "edge_reasons": "MODEL OVR · CONF60+",
+            "edge_score": 0.650425286544313,
+            "ev": 0.0,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "BUF",
+            "player": "Matthew Robertson",
+            "price": null,
+            "prob": 0.936075804410952,
+            "side": "Over",
+            "team": "NYR"
+          },
+          {
+            "book": null,
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
+            "edge_score": 0.6258541037497871,
+            "ev": 0.0,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "WSH",
+            "player": "Auston Matthews",
+            "price": null,
+            "prob": 0.8464519755389346,
+            "side": "Over",
+            "team": "TOR"
+          },
+          {
+            "book": null,
+            "edge_reasons": "MODEL OVR · CONF60+",
+            "edge_score": 0.6144161228225482,
+            "ev": 0.0,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "NYR",
+            "player": "Tage Thompson",
+            "price": null,
+            "prob": 0.8818729118963166,
+            "side": "Over",
+            "team": "BUF"
+          },
+          {
+            "book": null,
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
+            "edge_score": 0.6142359030096203,
+            "ev": 0.0,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "WSH",
+            "player": "William Nylander",
+            "price": null,
+            "prob": 0.831929224613726,
+            "side": "Over",
+            "team": "TOR"
+          },
+          {
+            "book": null,
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
+            "edge_score": 0.604777045152774,
+            "ev": 0.0,
+            "line": 2.5,
+            "market": "SOG",
+            "opp": "WSH",
+            "player": "Nicholas Robertson",
+            "price": null,
+            "prob": 0.8201056522926681,
+            "side": "Over",
+            "team": "TOR"
+          },
+          {
+            "book": null,
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
+            "edge_score": 0.6037304766832816,
+            "ev": 0.0,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "TOR",
+            "player": "Alex Ovechkin",
+            "price": null,
+            "prob": 0.7792699497098998,
+            "side": "Over",
+            "team": "WSH"
+          },
+          {
+            "book": null,
+            "edge_reasons": "MODEL OVR · CONF60+",
+            "edge_score": 0.599401232090073,
+            "ev": 0.0,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "NYR",
+            "player": "Jack Quinn",
+            "price": null,
+            "prob": 0.8631042984807226,
+            "side": "Over",
+            "team": "BUF"
+          },
+          {
+            "book": null,
+            "edge_reasons": "MODEL OVR · CONF60+",
+            "edge_score": 0.598204181830544,
+            "ev": 0.0,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "EDM",
+            "player": "Macklin Celebrini",
+            "price": null,
+            "prob": 0.8927562292339286,
+            "side": "Over",
+            "team": "SJS"
+          },
+          {
+            "book": null,
+            "edge_reasons": "MODEL OVR · CONF60+",
+            "edge_score": 0.5906007143762855,
+            "ev": 0.0,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "BUF",
+            "player": "Mika Zibanejad",
+            "price": null,
+            "prob": 0.8612950892009176,
+            "side": "Over",
+            "team": "NYR"
+          },
+          {
+            "book": null,
+            "edge_reasons": "MODEL OVR · CONF60+",
+            "edge_score": 0.5893797456108957,
+            "ev": 0.0,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "BUF",
+            "player": "Taylor Raddysh",
+            "price": null,
+            "prob": 0.8597688782441804,
+            "side": "Over",
+            "team": "NYR"
+          },
+          {
+            "book": null,
+            "edge_reasons": "MODEL OVR · CONF60+",
+            "edge_score": 0.5749120450209678,
+            "ev": 0.0,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "NYR",
+            "player": "Alex Tuch",
+            "price": null,
+            "prob": 0.8324928146443411,
+            "side": "Over",
+            "team": "BUF"
+          },
+          {
+            "book": null,
+            "edge_reasons": "MODEL OVR · CONF60+",
+            "edge_score": 0.5696213999195836,
+            "ev": 0.0,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "BUF",
+            "player": "Will Cuylle",
+            "price": null,
+            "prob": 0.8350709461300403,
+            "side": "Over",
+            "team": "NYR"
+          },
+          {
+            "book": null,
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP-",
+            "edge_score": 0.5610233038748897,
+            "ev": 0.0,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "SJS",
+            "player": "Connor McDavid",
+            "price": null,
+            "prob": 0.8586113963623612,
+            "side": "Over",
+            "team": "EDM"
+          },
+          {
+            "book": null,
+            "edge_reasons": "MODEL OVR · CONF60+",
+            "edge_score": 0.5576491648496859,
+            "ev": 0.0,
+            "line": 2.5,
+            "market": "SOG",
+            "opp": "BUF",
+            "player": "Matthew Robertson",
+            "price": null,
+            "prob": 0.8201056522926681,
+            "side": "Over",
+            "team": "NYR"
+          },
+          {
+            "book": null,
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP-",
+            "edge_score": 0.5187739990292506,
+            "ev": 0.0,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "SJS",
+            "player": "Leon Draisaitl",
+            "price": null,
+            "prob": 0.8057997653053122,
+            "side": "Over",
+            "team": "EDM"
+          },
+          {
+            "book": null,
+            "edge_reasons": "MODEL OVR · CONF60+",
+            "edge_score": 0.5057935628588509,
+            "ev": 0.0,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "BUF",
+            "player": "Alexis Lafrenière",
+            "price": null,
+            "prob": 0.7552861498041243,
+            "side": "Over",
+            "team": "NYR"
+          }
+        ],
+        "source": "props_recommendations_2026-04-08.csv"
+      },
+      "reconciliation": null
+    }
+  },
+  "date": "2026-04-08",
+  "files": {
+    "edges": "data/processed/edges_sim_2026-04-08.csv",
+    "game_recommendations": "data/processed/recommendations_sim_2026-04-08.csv",
+    "predictions": "data/processed/predictions_sim_2026-04-08.csv",
+    "props_recommendations": "data/processed/props_recommendations_2026-04-08.csv",
+    "reconciliation_games": null,
+    "reconciliation_props": null
+  },
+  "generated_at_utc": "2026-04-07T13:19:05+00:00",
+  "schema_version": 2
+}

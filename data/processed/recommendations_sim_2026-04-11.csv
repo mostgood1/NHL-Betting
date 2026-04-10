@@ -1,0 +1,11 @@
+market,side,price,ev,prob,conf,home,away,totals_line
+PL,Calgary Flames +1.5,-176.0,0.31596590909090916,0.8391666666666666,0.3391666666666666,Seattle Kraken,Calgary Flames,5.5
+PL,Columbus Blue Jackets +1.5,-192.0,0.26710763888888894,0.8331666666666666,0.3331666666666666,Montréal Canadiens,Columbus Blue Jackets,5.5
+PL,Edmonton Oilers +1.5,-278.0,0.056949640287769776,0.7773333333333333,0.2773333333333333,Los Angeles Kings,Edmonton Oilers,6.5
+PL,Vancouver Canucks +1.5,-128.0,0.35998437500000013,0.7635000000000001,0.26350000000000007,San Jose Sharks,Vancouver Canucks,6.5
+PL,Carolina Hurricanes +1.5,-240.0,0.07454166666666667,0.7585,0.25849999999999995,Utah Mammoth,Carolina Hurricanes,6.5
+PL,Vegas Golden Knights +1.5,-188.0,0.16170212765957442,0.7583333333333333,0.2583333333333333,Colorado Avalanche,Vegas Golden Knights,5.5
+PL,New Jersey Devils +1.5,-215.0,0.10249999999999987,0.7525,0.25249999999999995,Detroit Red Wings,New Jersey Devils,6.5
+PL,Florida Panthers +1.5,-235.0,0.06582269503546101,0.7476666666666667,0.2476666666666667,Toronto Maple Leafs,Florida Panthers,6.5
+PL,New York Rangers +1.5,-143.0,0.25549999999999995,0.7388333333333333,0.23883333333333334,Dallas Stars,New York Rangers,6.0
+PL,Philadelphia Flyers +1.5,-225.0,0.06455555555555553,0.737,0.237,Winnipeg Jets,Philadelphia Flyers,5.5

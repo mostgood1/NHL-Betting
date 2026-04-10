@@ -893,12 +893,12 @@
       "path": "data/processed/bundles/date=2026-04-09/bundle.json"
     },
     "2026-04-10": {
-      "exists": false,
-      "path": null
+      "exists": true,
+      "path": "data/processed/bundles/date=2026-04-10/bundle.json"
     },
     "2026-04-11": {
-      "exists": false,
-      "path": null
+      "exists": true,
+      "path": "data/processed/bundles/date=2026-04-11/bundle.json"
     },
     "2026-04-12": {
       "exists": false,
@@ -1158,7 +1158,7 @@
     "2026-04-16",
     "2026-04-17"
   ],
-  "generated_at_utc": "2026-04-08T15:09:31+00:00",
+  "generated_at_utc": "2026-04-10T15:58:54+00:00",
   "latest": "2026-04-17",
   "schema_version": 1
 }

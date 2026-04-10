@@ -6297,6 +6297,30 @@ async def v1_live_lens_combined(
             except Exception:
                 return False
 
+        def _slate_summary(games: object) -> dict[str, Any]:
+            try:
+                items = [gg for gg in (games or []) if isinstance(gg, dict)]
+            except Exception:
+                items = []
+            live_or_final = 0
+            scheduled_only = 0
+            for gg in items:
+                state = gg.get("gameState")
+                if _is_live_state(state) or _is_final_like(state):
+                    live_or_final += 1
+                else:
+                    scheduled_only += 1
+            total = len(items)
+            return {
+                "total_games": total,
+                "live_or_final_games": live_or_final,
+                "scheduled_only_games": scheduled_only,
+                "has_slate": bool(total > 0),
+                "has_live_or_final": bool(live_or_final > 0),
+                "pregame_only": bool(total > 0 and live_or_final == 0),
+                "likely_no_slate": bool(total == 0),
+            }
+
         def _american_to_implied_prob(price: object) -> Optional[float]:
             try:
                 if price is None:
@@ -6953,6 +6977,7 @@ async def v1_live_lens_combined(
                         any_live_or_final = True
                         break
                 if not any_live_or_final:
+                    slate = _slate_summary(live_obj.get("games") or [])
                     payload = {
                         "ok": True,
                         "date": d,
@@ -6960,6 +6985,7 @@ async def v1_live_lens_combined(
                         "regions": str(regions or "us"),
                         "best": bool(best),
                         "odds_asof_utc": None,
+                        "slate": slate,
                         "games": [],
                     }
                     payload = _strict_json_sanitize(payload)
@@ -10416,6 +10442,7 @@ async def v1_live_lens_combined(
             "regions": str(regions or "us"),
             "best": bool(best),
             "odds_asof_utc": (odds_obj or {}).get("asof_utc") if isinstance(odds_obj, dict) else None,
+            "slate": _slate_summary(live_obj.get("games") or []),
             "games": out_games,
         }
         payload = _strict_json_sanitize(payload)
@@ -12132,6 +12159,140 @@ def _artifact_info_for_date(d: str) -> dict:
     except Exception:
         pass
     return info
+
+
+def _local_slate_status_for_date(d: str) -> dict:
+    """Summarize archived local slate artifacts for a date.
+
+    This helps distinguish an expected no-slate day from a failed ingestion day.
+    """
+    info: dict[str, Any] = {"date": d}
+
+    def _rows_csv(p: Path):
+        try:
+            if not p.exists():
+                return None
+            df = _read_csv_fallback(p)
+            return 0 if df is None or df.empty else int(len(df))
+        except Exception:
+            return None
+
+    try:
+        games_dir = DATA_DIR / "odds" / "games" / f"date={d}"
+        team_dir = DATA_DIR / "odds" / "team" / f"date={d}"
+        scoreboard = games_dir / "scoreboard.csv"
+        team_odds = team_dir / "oddsapi.csv"
+
+        scoreboard_rows = _rows_csv(scoreboard)
+        team_odds_rows = _rows_csv(team_odds)
+        archives_present = bool(scoreboard.exists() or team_odds.exists())
+        local_has_games = any(v is not None and v > 0 for v in (scoreboard_rows, team_odds_rows))
+        zero_archives = any(v == 0 for v in (scoreboard_rows, team_odds_rows))
+
+        info.update(
+            {
+                "games_archive": {
+                    "path": str(scoreboard),
+                    "exists": scoreboard.exists(),
+                    "rows": scoreboard_rows,
+                    "mtime": _file_mtime_iso(scoreboard),
+                },
+                "team_odds_archive": {
+                    "path": str(team_odds),
+                    "exists": team_odds.exists(),
+                    "rows": team_odds_rows,
+                    "mtime": _file_mtime_iso(team_odds),
+                },
+                "archives_present": archives_present,
+                "local_has_games": local_has_games,
+                "likely_no_slate": bool(archives_present and zero_archives and not local_has_games),
+            }
+        )
+    except Exception:
+        info.update(
+            {
+                "archives_present": False,
+                "local_has_games": False,
+                "likely_no_slate": False,
+            }
+        )
+    return info
+
+
+def _debug_status_payload(date: str) -> dict:
+    """Build a richer debug payload for freshness and artifact gap diagnosis."""
+    try:
+        target_dt = datetime.strptime(str(date), "%Y-%m-%d")
+    except Exception:
+        target_dt = datetime.strptime(_today_ymd(), "%Y-%m-%d")
+    target = target_dt.strftime("%Y-%m-%d")
+    previous = (target_dt - timedelta(days=1)).strftime("%Y-%m-%d")
+
+    items: dict[str, Any] = {
+        "date": target,
+        "compare_previous_date": previous,
+        "commit": _git_commit_hash(),
+    }
+    try:
+        items["models"] = {
+            "elo_path": str((_MODEL_DIR / "elo_ratings.json").resolve()),
+            "elo_exists": (_MODEL_DIR / "elo_ratings.json").exists(),
+            "config_path": str((_MODEL_DIR / "config.json").resolve()),
+            "config_exists": (_MODEL_DIR / "config.json").exists(),
+        }
+    except Exception:
+        items["models"] = {"elo_exists": False, "config_exists": False}
+    try:
+        raw_games = RAW_DIR / "games.csv"
+        items["raw_games"] = {
+            "path": str(raw_games.resolve()),
+            "exists": raw_games.exists(),
+            "size": raw_games.stat().st_size if raw_games.exists() else 0,
+            "mtime": _file_mtime_iso(raw_games),
+        }
+    except Exception:
+        items["raw_games"] = {"exists": False}
+
+    items["artifacts"] = {
+        "target": _artifact_info_for_date(target),
+        "previous": _artifact_info_for_date(previous),
+    }
+    items["slate"] = {
+        "target": _local_slate_status_for_date(target),
+        "previous": _local_slate_status_for_date(previous),
+    }
+    items["last_update"] = _last_update_info(target)
+
+    try:
+        games_all = _read_pregame_accuracy_log_df("games")
+        props_all = _read_pregame_accuracy_log_df("props")
+        items["pregame_accuracy"] = {
+            "games_latest_settled_date": _latest_slate_date_from_df(games_all),
+            "props_latest_settled_date": _latest_slate_date_from_df(props_all),
+        }
+    except Exception:
+        items["pregame_accuracy"] = {
+            "games_latest_settled_date": None,
+            "props_latest_settled_date": None,
+        }
+
+    try:
+        perf_dir = _live_lens_perf_dir()
+        files = _perf_files(perf_dir)
+        ledger_path = perf_dir / "live_lens_bets_all.jsonl"
+        items["live_lens_accuracy"] = {
+            "perf_dir": str(perf_dir),
+            "ledger_exists": ledger_path.exists(),
+            "ledger_mtime": _file_mtime_iso(ledger_path),
+            "files_scanned": len(files),
+            "latest_settled_date": _latest_ledger_date(files),
+        }
+    except Exception:
+        items["live_lens_accuracy"] = {
+            "ledger_exists": False,
+            "latest_settled_date": None,
+        }
+    return items
 
 
 _ROSTER_CACHE = None
@@ -19200,37 +19361,9 @@ async def api_debug_push_test(
 
 @app.get("/api/debug/status")
 async def api_debug_status(date: Optional[str] = Query(None)):
-    """Lightweight debug endpoint to inspect presence of model/data files and sizes."""
-    date = date or _today_ymd()
-    items = {}
-    try:
-        items["models"] = {
-            "elo_path": str((_MODEL_DIR / "elo_ratings.json").resolve()),
-            "elo_exists": (_MODEL_DIR / "elo_ratings.json").exists(),
-            "config_path": str((_MODEL_DIR / "config.json").resolve()),
-            "config_exists": (_MODEL_DIR / "config.json").exists(),
-        }
-    except Exception:
-        items["models"] = {"elo_exists": False, "config_exists": False}
-    try:
-        raw_games = RAW_DIR / "games.csv"
-        items["raw_games"] = {
-            "path": str(raw_games.resolve()),
-            "exists": raw_games.exists(),
-            "size": raw_games.stat().st_size if raw_games.exists() else 0,
-        }
-    except Exception:
-        items["raw_games"] = {"exists": False}
-    try:
-        pred = PROC_DIR / f"predictions_{date}.csv"
-        items["predictions"] = {
-            "path": str(pred.resolve()),
-            "exists": pred.exists(),
-            "size": pred.stat().st_size if pred.exists() else 0,
-        }
-    except Exception:
-        items["predictions"] = {"exists": False}
-    return JSONResponse(items)
+    """Debug endpoint for deployment freshness, artifact coverage, and latest settled ledgers."""
+    target = _normalize_date_param(date)
+    return JSONResponse(_debug_status_payload(target))
 
 
 @app.get("/api/cron/config")

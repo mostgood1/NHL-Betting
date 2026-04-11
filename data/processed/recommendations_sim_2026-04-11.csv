@@ -1,11 +1,15 @@
 market,side,price,ev,prob,conf,home,away,totals_line
-PL,Calgary Flames +1.5,-176.0,0.31596590909090916,0.8391666666666666,0.3391666666666666,Seattle Kraken,Calgary Flames,5.5
-PL,Columbus Blue Jackets +1.5,-192.0,0.26710763888888894,0.8331666666666666,0.3331666666666666,Montréal Canadiens,Columbus Blue Jackets,5.5
-PL,Edmonton Oilers +1.5,-278.0,0.056949640287769776,0.7773333333333333,0.2773333333333333,Los Angeles Kings,Edmonton Oilers,6.5
-PL,Vancouver Canucks +1.5,-128.0,0.35998437500000013,0.7635000000000001,0.26350000000000007,San Jose Sharks,Vancouver Canucks,6.5
-PL,Carolina Hurricanes +1.5,-240.0,0.07454166666666667,0.7585,0.25849999999999995,Utah Mammoth,Carolina Hurricanes,6.5
-PL,Vegas Golden Knights +1.5,-188.0,0.16170212765957442,0.7583333333333333,0.2583333333333333,Colorado Avalanche,Vegas Golden Knights,5.5
-PL,New Jersey Devils +1.5,-215.0,0.10249999999999987,0.7525,0.25249999999999995,Detroit Red Wings,New Jersey Devils,6.5
-PL,Florida Panthers +1.5,-235.0,0.06582269503546101,0.7476666666666667,0.2476666666666667,Toronto Maple Leafs,Florida Panthers,6.5
-PL,New York Rangers +1.5,-143.0,0.25549999999999995,0.7388333333333333,0.23883333333333334,Dallas Stars,New York Rangers,6.0
-PL,Philadelphia Flyers +1.5,-225.0,0.06455555555555553,0.737,0.237,Winnipeg Jets,Philadelphia Flyers,5.5
+PL,Philadelphia Flyers +1.5,-225.0,0.24631481481481482,0.8628333333333333,0.36283333333333334,Winnipeg Jets,Philadelphia Flyers,5.5
+PL,New York Rangers +1.5,-143.0,0.46196503496503494,0.8603333333333334,0.3603333333333334,Dallas Stars,New York Rangers,6.0
+PL,Calgary Flames +1.5,-176.0,0.34471590909090927,0.8575,0.35750000000000004,Seattle Kraken,Calgary Flames,5.5
+PL,Ottawa Senators +1.5,-286.0,0.13190675990675987,0.8386666666666667,0.33866666666666667,New York Islanders,Ottawa Senators,6.5
+PL,New Jersey Devils +1.5,-215.0,0.21555813953488367,0.8296666666666667,0.32966666666666666,Detroit Red Wings,New Jersey Devils,6.5
+PL,Vancouver Canucks +1.5,-128.0,0.447265625,0.8125,0.3125,San Jose Sharks,Vancouver Canucks,6.5
+ML,Montréal Canadiens,-136.0,0.3812941176470589,0.796,0.29600000000000004,Montréal Canadiens,Columbus Blue Jackets,5.5
+ML,Colorado Avalanche,-152.0,0.31650657894736856,0.7940833333333334,0.29408333333333336,Colorado Avalanche,Vegas Golden Knights,5.5
+PL,Edmonton Oilers +1.5,-278.0,0.049244604316546814,0.7716666666666667,0.2716666666666667,Los Angeles Kings,Edmonton Oilers,6.5
+PL,Carolina Hurricanes +1.5,-240.0,0.05612500000000015,0.7455,0.24550000000000005,Utah Mammoth,Carolina Hurricanes,6.5
+ML,Pittsburgh Penguins,-132.0,0.23044949494949485,0.7000833333333333,0.20008333333333328,Pittsburgh Penguins,Washington Capitals,6.5
+ML,New York Rangers,185.0,0.9306375000000001,0.6774166666666667,0.17741666666666667,Dallas Stars,New York Rangers,6.0
+ML,Philadelphia Flyers,125.0,0.48931250000000004,0.6619166666666667,0.1619166666666667,Winnipeg Jets,Philadelphia Flyers,5.5
+ML,Calgary Flames,114.0,0.409368333333333,0.6585833333333333,0.1585833333333333,Seattle Kraken,Calgary Flames,5.5

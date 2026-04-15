@@ -1,0 +1,1029 @@
+{
+  "data": {
+    "games": {
+      "edges": {
+        "count": 24,
+        "rows": [
+          {
+            "away": "Seattle Kraken",
+            "bet": "under",
+            "book": null,
+            "edge_reasons": "total 4.90 vs line 6.5 (-1.60); p=0.774; P1 pace 1.56",
+            "edge_score": 0.7704325185908556,
+            "ev": 0.346753086419753,
+            "home": "Vegas Golden Knights",
+            "market": "ev_under",
+            "market_group": "totals",
+            "price": -135.0,
+            "prob": 0.7736666666666666,
+            "side": "Under 6.5",
+            "totals_line": 6.5
+          },
+          {
+            "away": "Toronto Maple Leafs",
+            "bet": "under",
+            "book": null,
+            "edge_reasons": "total 5.97 vs line 6.5 (-0.53); p=0.601; P1 pace 1.90",
+            "edge_score": 0.5004568299135358,
+            "ev": 0.1239202898550723,
+            "home": "Ottawa Senators",
+            "market": "ev_under",
+            "market_group": "totals",
+            "price": -115.0,
+            "prob": 0.6011666666666666,
+            "side": "Under 6.5",
+            "totals_line": 6.5
+          },
+          {
+            "away": "New York Rangers",
+            "bet": "over",
+            "book": null,
+            "edge_reasons": "total 6.80 vs line 6.5 (+0.30); p=0.528; P1 pace 2.19",
+            "edge_score": 0.4074645720424517,
+            "ev": 0.1309899999999997,
+            "home": "Tampa Bay Lightning",
+            "market": "ev_over",
+            "market_group": "totals",
+            "price": 114.0,
+            "prob": 0.5285,
+            "side": "Over 6.5",
+            "totals_line": 6.5
+          },
+          {
+            "away": "Dallas Stars",
+            "bet": "under",
+            "book": null,
+            "edge_reasons": "total 6.23 vs line 6.5 (-0.27); p=0.564; P1 pace 1.99",
+            "edge_score": 0.400591871388887,
+            "ev": -0.0021538461538462,
+            "home": "Buffalo Sabres",
+            "market": "ev_under",
+            "market_group": "totals",
+            "price": -130.0,
+            "prob": 0.564,
+            "side": "Under 6.5",
+            "totals_line": 6.5
+          },
+          {
+            "away": "Detroit Red Wings",
+            "bet": "over",
+            "book": null,
+            "edge_reasons": "total 6.68 vs line 6.5 (+0.18); p=0.507; P1 pace 2.11",
+            "edge_score": 0.3472601495496274,
+            "ev": 0.0654,
+            "home": "Florida Panthers",
+            "market": "ev_over",
+            "market_group": "totals",
+            "price": 110.0,
+            "prob": 0.5073333333333333,
+            "side": "Over 6.5",
+            "totals_line": 6.5
+          },
+          {
+            "away": "San Jose Sharks",
+            "bet": "under",
+            "book": null,
+            "edge_reasons": "total 6.37 vs line 6.5 (-0.13); p=0.542; P1 pace 2.02",
+            "edge_score": 0.3416566136142009,
+            "ev": 0.0344090909090908,
+            "home": "Chicago Blackhawks",
+            "market": "ev_under",
+            "market_group": "totals",
+            "price": -110.0,
+            "prob": 0.5418333333333333,
+            "side": "Under 6.5",
+            "totals_line": 6.5
+          },
+          {
+            "away": "Seattle Kraken",
+            "bet": "home_ml",
+            "book": null,
+            "edge_reasons": "p=0.655",
+            "edge_score": 0.3096666666666667,
+            "ev": -0.1254239373601789,
+            "home": "Vegas Golden Knights",
+            "market": "ev_home_ml",
+            "market_group": "moneyline",
+            "price": -298.0,
+            "prob": 0.6548333333333334,
+            "side": "Vegas Golden Knights",
+            "totals_line": null
+          },
+          {
+            "away": "Seattle Kraken",
+            "bet": "away_ml",
+            "book": null,
+            "edge_reasons": "p=0.345",
+            "edge_score": 0.3096666666666666,
+            "ev": 0.1735666666666666,
+            "home": "Vegas Golden Knights",
+            "market": "ev_away_ml",
+            "market_group": "moneyline",
+            "price": 240.0,
+            "prob": 0.3451666666666667,
+            "side": "Seattle Kraken",
+            "totals_line": null
+          },
+          {
+            "away": "San Jose Sharks",
+            "bet": "over",
+            "book": null,
+            "edge_reasons": "total 6.37 vs line 6.5 (-0.13); p=0.458; P1 pace 2.02",
+            "edge_score": 0.2860924059936421,
+            "ev": -0.1253181818181818,
+            "home": "Chicago Blackhawks",
+            "market": "ev_over",
+            "market_group": "totals",
+            "price": -110.0,
+            "prob": 0.4581666666666666,
+            "side": "Over 6.5",
+            "totals_line": 6.5
+          },
+          {
+            "away": "Seattle Kraken",
+            "bet": "over",
+            "book": null,
+            "edge_reasons": "total 4.90 vs line 6.5 (-1.60); p=0.226; P1 pace 1.56",
+            "edge_score": 0.2718890500365953,
+            "ev": -0.5156466666666668,
+            "home": "Vegas Golden Knights",
+            "market": "ev_over",
+            "market_group": "totals",
+            "price": 114.0,
+            "prob": 0.2263333333333333,
+            "side": "Over 6.5",
+            "totals_line": 6.5
+          },
+          {
+            "away": "Dallas Stars",
+            "bet": "over",
+            "book": null,
+            "edge_reasons": "total 6.23 vs line 6.5 (-0.27); p=0.436; P1 pace 1.99",
+            "edge_score": 0.2667963639052306,
+            "ev": -0.0844,
+            "home": "Buffalo Sabres",
+            "market": "ev_over",
+            "market_group": "totals",
+            "price": 110.0,
+            "prob": 0.436,
+            "side": "Over 6.5",
+            "totals_line": 6.5
+          },
+          {
+            "away": "Dallas Stars",
+            "bet": "away_ml",
+            "book": null,
+            "edge_reasons": "p=0.622",
+            "edge_score": 0.2435,
+            "ev": 0.1768839285714285,
+            "home": "Buffalo Sabres",
+            "market": "ev_away_ml",
+            "market_group": "moneyline",
+            "price": -112.0,
+            "prob": 0.62175,
+            "side": "Dallas Stars",
+            "totals_line": null
+          },
+          {
+            "away": "Dallas Stars",
+            "bet": "home_ml",
+            "book": null,
+            "edge_reasons": "p=0.378",
+            "edge_score": 0.2435,
+            "ev": -0.2715185185185185,
+            "home": "Buffalo Sabres",
+            "market": "ev_home_ml",
+            "market_group": "moneyline",
+            "price": -108.0,
+            "prob": 0.37825,
+            "side": "Buffalo Sabres",
+            "totals_line": null
+          },
+          {
+            "away": "Toronto Maple Leafs",
+            "bet": "over",
+            "book": null,
+            "edge_reasons": "total 5.97 vs line 6.5 (-0.53); p=0.399; P1 pace 1.90",
+            "edge_score": 0.2333941504786211,
+            "ev": -0.2213253968253968,
+            "home": "Ottawa Senators",
+            "market": "ev_over",
+            "market_group": "totals",
+            "price": -105.0,
+            "prob": 0.3988333333333333,
+            "side": "Over 6.5",
+            "totals_line": 6.5
+          },
+          {
+            "away": "Detroit Red Wings",
+            "bet": "under",
+            "book": null,
+            "edge_reasons": "total 6.68 vs line 6.5 (+0.18); p=0.493; P1 pace 2.11",
+            "edge_score": 0.2187947524111569,
+            "ev": -0.1283589743589744,
+            "home": "Florida Panthers",
+            "market": "ev_under",
+            "market_group": "totals",
+            "price": -130.0,
+            "prob": 0.4926666666666666,
+            "side": "Under 6.5",
+            "totals_line": 6.5
+          },
+          {
+            "away": "New York Rangers",
+            "bet": "under",
+            "book": null,
+            "edge_reasons": "total 6.80 vs line 6.5 (+0.30); p=0.471; P1 pace 2.19",
+            "edge_score": 0.1964413103104895,
+            "ev": -0.1792407407407407,
+            "home": "Tampa Bay Lightning",
+            "market": "ev_under",
+            "market_group": "totals",
+            "price": -135.0,
+            "prob": 0.4715,
+            "side": "Under 6.5",
+            "totals_line": 6.5
+          },
+          {
+            "away": "San Jose Sharks",
+            "bet": "home_ml",
+            "book": null,
+            "edge_reasons": "p=0.564",
+            "edge_score": 0.1281666666666667,
+            "ev": 0.1845750000000001,
+            "home": "Chicago Blackhawks",
+            "market": "ev_home_ml",
+            "market_group": "moneyline",
+            "price": 110.0,
+            "prob": 0.5640833333333334,
+            "side": "Chicago Blackhawks",
+            "totals_line": null
+          },
+          {
+            "away": "San Jose Sharks",
+            "bet": "away_ml",
+            "book": null,
+            "edge_reasons": "p=0.436",
+            "edge_score": 0.1281666666666666,
+            "ev": -0.2287628205128205,
+            "home": "Chicago Blackhawks",
+            "market": "ev_away_ml",
+            "market_group": "moneyline",
+            "price": -130.0,
+            "prob": 0.4359166666666667,
+            "side": "San Jose Sharks",
+            "totals_line": null
+          },
+          {
+            "away": "Detroit Red Wings",
+            "bet": "home_ml",
+            "book": null,
+            "edge_reasons": "p=0.457",
+            "edge_score": 0.0869999999999999,
+            "ev": 0.0043,
+            "home": "Florida Panthers",
+            "market": "ev_home_ml",
+            "market_group": "moneyline",
+            "price": 120.0,
+            "prob": 0.4565,
+            "side": "Florida Panthers",
+            "totals_line": null
+          },
+          {
+            "away": "Detroit Red Wings",
+            "bet": "away_ml",
+            "book": null,
+            "edge_reasons": "p=0.543",
+            "edge_score": 0.0869999999999999,
+            "ev": -0.0737535211267606,
+            "home": "Florida Panthers",
+            "market": "ev_away_ml",
+            "market_group": "moneyline",
+            "price": -142.0,
+            "prob": 0.5435,
+            "side": "Detroit Red Wings",
+            "totals_line": null
+          },
+          {
+            "away": "Toronto Maple Leafs",
+            "bet": "away_ml",
+            "book": null,
+            "edge_reasons": "p=0.525",
+            "edge_score": 0.0496666666666667,
+            "ev": 0.3120833333333334,
+            "home": "Ottawa Senators",
+            "market": "ev_away_ml",
+            "market_group": "moneyline",
+            "price": 150.0,
+            "prob": 0.5248333333333334,
+            "side": "Toronto Maple Leafs",
+            "totals_line": null
+          },
+          {
+            "away": "Toronto Maple Leafs",
+            "bet": "home_ml",
+            "book": null,
+            "edge_reasons": "p=0.475",
+            "edge_score": 0.0496666666666666,
+            "ev": -0.2608518518518518,
+            "home": "Ottawa Senators",
+            "market": "ev_home_ml",
+            "market_group": "moneyline",
+            "price": -180.0,
+            "prob": 0.4751666666666667,
+            "side": "Ottawa Senators",
+            "totals_line": null
+          },
+          {
+            "away": "New York Rangers",
+            "bet": "away_ml",
+            "book": null,
+            "edge_reasons": "p=0.501",
+            "edge_score": 0.0016666666666667,
+            "ev": -0.0221825396825396,
+            "home": "Tampa Bay Lightning",
+            "market": "ev_away_ml",
+            "market_group": "moneyline",
+            "price": -105.0,
+            "prob": 0.5008333333333334,
+            "side": "New York Rangers",
+            "totals_line": null
+          },
+          {
+            "away": "New York Rangers",
+            "bet": "home_ml",
+            "book": null,
+            "edge_reasons": "p=0.499",
+            "edge_score": 0.0016666666666667,
+            "ev": -0.0667753623188406,
+            "home": "Tampa Bay Lightning",
+            "market": "ev_home_ml",
+            "market_group": "moneyline",
+            "price": -115.0,
+            "prob": 0.4991666666666666,
+            "side": "Tampa Bay Lightning",
+            "totals_line": null
+          }
+        ],
+        "source": "edges_sim_2026-04-15.csv"
+      },
+      "predictions": {
+        "count": 6,
+        "rows": [
+          {
+            "away": "Dallas Stars",
+            "away_ml_odds": -112.0,
+            "away_pl_+1.5_odds": -265.0,
+            "date": "2026-04-15",
+            "home": "Buffalo Sabres",
+            "home_ml_odds": -108.0,
+            "home_pl_-1.5_odds": 215.0,
+            "model_total": 6.227833333333334,
+            "over_odds": 110.0,
+            "p_away_ml": 0.62175,
+            "p_away_pl_+1.5": 0.8421666666666667,
+            "p_home_ml": 0.37825,
+            "p_home_pl_-1.5": 0.1578333333333333,
+            "p_over": 0.436,
+            "p_under": 0.564,
+            "pl_line_used": 1.5,
+            "proj_away_goals": 3.432,
+            "proj_home_goals": 2.7958333333333334,
+            "segments": {
+              "final": {
+                "away_win_prob": 0.5177996540435865,
+                "home_win_prob": 0.3219000392072037,
+                "tie_prob": 0.16030030674920975
+              },
+              "ot": {
+                "no_prob": 0.8396996932507903,
+                "yes_prob": 0.16030030674920975
+              },
+              "p1": {
+                "away_win_prob": 0.4070877746719804,
+                "home_win_prob": 0.28657688293110883,
+                "tie_prob": 0.30633534239691074
+              },
+              "p2": {
+                "away_win_prob": 0.40311912726715815,
+                "home_win_prob": 0.2980066399324888,
+                "tie_prob": 0.29887423280035297
+              },
+              "p3": {
+                "away_win_prob": 0.3986143369473895,
+                "home_win_prob": 0.29876099240753995,
+                "tie_prob": 0.3026246706450706
+              }
+            },
+            "total_line_used": 6.5,
+            "under_odds": -130.0
+          },
+          {
+            "away": "San Jose Sharks",
+            "away_ml_odds": -130.0,
+            "away_pl_+1.5_odds": null,
+            "date": "2026-04-15",
+            "home": "Chicago Blackhawks",
+            "home_ml_odds": 110.0,
+            "home_pl_-1.5_odds": null,
+            "model_total": 6.369666666666666,
+            "over_odds": -110.0,
+            "p_away_ml": 0.4359166666666667,
+            "p_away_pl_+1.5": 0.7126666666666667,
+            "p_home_ml": 0.5640833333333334,
+            "p_home_pl_-1.5": 0.2873333333333333,
+            "p_over": 0.4581666666666666,
+            "p_under": 0.5418333333333333,
+            "pl_line_used": 1.5,
+            "proj_away_goals": 2.9991666666666665,
+            "proj_home_goals": 3.3705,
+            "segments": {
+              "final": {
+                "away_win_prob": 0.3617194608264973,
+                "home_win_prob": 0.47674143599729324,
+                "tie_prob": 0.16153910317620945
+              },
+              "ot": {
+                "no_prob": 0.8384608968237905,
+                "yes_prob": 0.16153910317620945
+              },
+              "p1": {
+                "away_win_prob": 0.31270782065254027,
+                "home_win_prob": 0.38188957642055715,
+                "tie_prob": 0.3054026029269027
+              },
+              "p2": {
+                "away_win_prob": 0.3178899277137031,
+                "home_win_prob": 0.3863254070511437,
+                "tie_prob": 0.2957846652351531
+              },
+              "p3": {
+                "away_win_prob": 0.3240163439262509,
+                "home_win_prob": 0.3769476538335992,
+                "tie_prob": 0.2990360022401498
+              }
+            },
+            "total_line_used": 6.5,
+            "under_odds": -110.0
+          },
+          {
+            "away": "Detroit Red Wings",
+            "away_ml_odds": -142.0,
+            "away_pl_+1.5_odds": null,
+            "date": "2026-04-15",
+            "home": "Florida Panthers",
+            "home_ml_odds": 120.0,
+            "home_pl_-1.5_odds": null,
+            "model_total": 6.676833333333334,
+            "over_odds": 110.0,
+            "p_away_ml": 0.5435,
+            "p_away_pl_+1.5": 0.7955,
+            "p_home_ml": 0.4565,
+            "p_home_pl_-1.5": 0.2045,
+            "p_over": 0.5073333333333333,
+            "p_under": 0.4926666666666666,
+            "pl_line_used": 1.5,
+            "proj_away_goals": 3.46,
+            "proj_home_goals": 3.216833333333333,
+            "segments": {
+              "final": {
+                "away_win_prob": 0.45693308276882516,
+                "home_win_prob": 0.3845396854296998,
+                "tie_prob": 0.1585272318014751
+              },
+              "ot": {
+                "no_prob": 0.8414727681985249,
+                "yes_prob": 0.1585272318014751
+              },
+              "p1": {
+                "away_win_prob": 0.3763145154110477,
+                "home_win_prob": 0.3252530520601874,
+                "tie_prob": 0.29843243252876483
+              },
+              "p2": {
+                "away_win_prob": 0.38067176111706397,
+                "home_win_prob": 0.33345303157756534,
+                "tie_prob": 0.28587520730537064
+              },
+              "p3": {
+                "away_win_prob": 0.36515184887193747,
+                "home_win_prob": 0.343146502515802,
+                "tie_prob": 0.2917016486122606
+              }
+            },
+            "total_line_used": 6.5,
+            "under_odds": -130.0
+          },
+          {
+            "away": "Toronto Maple Leafs",
+            "away_ml_odds": 150.0,
+            "away_pl_+1.5_odds": -162.0,
+            "date": "2026-04-15",
+            "home": "Ottawa Senators",
+            "home_ml_odds": -180.0,
+            "home_pl_-1.5_odds": 136.0,
+            "model_total": 5.966666666666667,
+            "over_odds": -105.0,
+            "p_away_ml": 0.5248333333333334,
+            "p_away_pl_+1.5": 0.7825,
+            "p_home_ml": 0.4751666666666667,
+            "p_home_pl_-1.5": 0.2175,
+            "p_over": 0.3988333333333333,
+            "p_under": 0.6011666666666666,
+            "pl_line_used": 1.5,
+            "proj_away_goals": 3.037166666666667,
+            "proj_home_goals": 2.9295,
+            "segments": {
+              "final": {
+                "away_win_prob": 0.4326960186243528,
+                "home_win_prob": 0.3985883639754251,
+                "tie_prob": 0.16871561740022212
+              },
+              "ot": {
+                "no_prob": 0.8312843825997779,
+                "yes_prob": 0.16871561740022212
+              },
+              "p1": {
+                "away_win_prob": 0.35475952662247345,
+                "home_win_prob": 0.32760063599617373,
+                "tie_prob": 0.3176398373813527
+              },
+              "p2": {
+                "away_win_prob": 0.35416344879838946,
+                "home_win_prob": 0.3357667255373133,
+                "tie_prob": 0.3100698256642973
+              },
+              "p3": {
+                "away_win_prob": 0.3496623630975453,
+                "home_win_prob": 0.33903442047984117,
+                "tie_prob": 0.3113032164226134
+              }
+            },
+            "total_line_used": 6.5,
+            "under_odds": -115.0
+          },
+          {
+            "away": "New York Rangers",
+            "away_ml_odds": -105.0,
+            "away_pl_+1.5_odds": -250.0,
+            "date": "2026-04-15",
+            "home": "Tampa Bay Lightning",
+            "home_ml_odds": -115.0,
+            "home_pl_-1.5_odds": 205.0,
+            "model_total": 6.797,
+            "over_odds": 114.0,
+            "p_away_ml": 0.5008333333333334,
+            "p_away_pl_+1.5": 0.7605,
+            "p_home_ml": 0.4991666666666666,
+            "p_home_pl_-1.5": 0.2395,
+            "p_over": 0.5285,
+            "p_under": 0.4715,
+            "pl_line_used": 1.5,
+            "proj_away_goals": 3.396,
+            "proj_home_goals": 3.401,
+            "segments": {
+              "final": {
+                "away_win_prob": 0.42029658362716166,
+                "home_win_prob": 0.4220043740682891,
+                "tie_prob": 0.15769904230454918
+              },
+              "ot": {
+                "no_prob": 0.8423009576954508,
+                "yes_prob": 0.15769904230454918
+              },
+              "p1": {
+                "away_win_prob": 0.3555779738472205,
+                "home_win_prob": 0.3520451180069215,
+                "tie_prob": 0.29237690814585793
+              },
+              "p2": {
+                "away_win_prob": 0.36598751016948794,
+                "home_win_prob": 0.3478419857777186,
+                "tie_prob": 0.2861705040527935
+              },
+              "p3": {
+                "away_win_prob": 0.3433722447240037,
+                "home_win_prob": 0.3679675083272981,
+                "tie_prob": 0.2886602469486983
+              }
+            },
+            "total_line_used": 6.5,
+            "under_odds": -135.0
+          },
+          {
+            "away": "Seattle Kraken",
+            "away_ml_odds": 240.0,
+            "away_pl_+1.5_odds": -108.0,
+            "date": "2026-04-15",
+            "home": "Vegas Golden Knights",
+            "home_ml_odds": -298.0,
+            "home_pl_-1.5_odds": -112.0,
+            "model_total": 4.898166666666667,
+            "over_odds": 114.0,
+            "p_away_ml": 0.3451666666666667,
+            "p_away_pl_+1.5": 0.654,
+            "p_home_ml": 0.6548333333333334,
+            "p_home_pl_-1.5": 0.346,
+            "p_over": 0.2263333333333333,
+            "p_under": 0.7736666666666666,
+            "pl_line_used": 1.5,
+            "proj_away_goals": 2.040666666666666,
+            "proj_home_goals": 2.8575,
+            "segments": {
+              "final": {
+                "away_win_prob": 0.2717304107754135,
+                "home_win_prob": 0.5516425720040697,
+                "tie_prob": 0.17662701722051669
+              },
+              "ot": {
+                "no_prob": 0.8233729827794833,
+                "yes_prob": 0.17662701722051669
+              },
+              "p1": {
+                "away_win_prob": 0.23509451272662582,
+                "home_win_prob": 0.4130338018378304,
+                "tie_prob": 0.3518716854355438
+              },
+              "p2": {
+                "away_win_prob": 0.25408060858040743,
+                "home_win_prob": 0.40147532420275783,
+                "tie_prob": 0.3444440672168349
+              },
+              "p3": {
+                "away_win_prob": 0.25875798699103186,
+                "home_win_prob": 0.3924734347602584,
+                "tie_prob": 0.3487685782487096
+              }
+            },
+            "total_line_used": 6.5,
+            "under_odds": -135.0
+          }
+        ]
+      },
+      "recommendations": {
+        "count": 4,
+        "rows": [
+          {
+            "away": "Dallas Stars",
+            "conf": 0.3421666666666667,
+            "ev": 0.1599654088050314,
+            "home": "Buffalo Sabres",
+            "market": "PL",
+            "price": -265.0,
+            "prob": 0.8421666666666667,
+            "side": "Dallas Stars +1.5",
+            "totals_line": 6.5
+          },
+          {
+            "away": "Toronto Maple Leafs",
+            "conf": 0.2825,
+            "ev": 0.2655246913580247,
+            "home": "Ottawa Senators",
+            "market": "PL",
+            "price": -162.0,
+            "prob": 0.7825,
+            "side": "Toronto Maple Leafs +1.5",
+            "totals_line": 6.5
+          },
+          {
+            "away": "New York Rangers",
+            "conf": 0.2604999999999999,
+            "ev": 0.0646999999999998,
+            "home": "Tampa Bay Lightning",
+            "market": "PL",
+            "price": -250.0,
+            "prob": 0.7605,
+            "side": "New York Rangers +1.5",
+            "totals_line": 6.5
+          },
+          {
+            "away": "Seattle Kraken",
+            "conf": 0.154,
+            "ev": 0.2595555555555556,
+            "home": "Vegas Golden Knights",
+            "market": "PL",
+            "price": -108.0,
+            "prob": 0.654,
+            "side": "Seattle Kraken +1.5",
+            "totals_line": 6.5
+          }
+        ]
+      },
+      "reconciliation": null
+    },
+    "props": {
+      "recommendations": {
+        "count": 21,
+        "rows": [
+          {
+            "book": "betmgm",
+            "edge_reasons": "MODEL UND · CONF60+ · MATCHUP+",
+            "edge_score": 0.7308452940101049,
+            "ev": 1.4997500124995833,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "DAL",
+            "player": "Tage Thompson",
+            "price": 150.0,
+            "prob": 0.9999000049998332,
+            "side": "Under",
+            "team": "BUF"
+          },
+          {
+            "book": "williamhill_us",
+            "edge_reasons": "MODEL OVR · CONF60+",
+            "edge_score": 0.6573321365546847,
+            "ev": 0.7831653990853661,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "OTT",
+            "player": "Nicholas Robertson",
+            "price": -114.0,
+            "prob": 0.949910539699681,
+            "side": "Over",
+            "team": "TOR"
+          },
+          {
+            "book": "betmgm",
+            "edge_reasons": "MODEL UND · CONF60+ · MATCHUP-",
+            "edge_score": 0.6261043249501124,
+            "ev": 0.6666666666666665,
+            "line": 0.5,
+            "market": "ASSISTS",
+            "opp": "CHI",
+            "player": "Will Smith",
+            "price": -150.0,
+            "prob": 1.0,
+            "side": "Under",
+            "team": "SJS"
+          },
+          {
+            "book": "betmgm",
+            "edge_reasons": "MODEL UND · CONF60+ · MATCHUP+",
+            "edge_score": 0.6008448683803359,
+            "ev": 0.3615282958720378,
+            "line": 0.5,
+            "market": "ASSISTS",
+            "opp": "DAL",
+            "player": "Tage Thompson",
+            "price": -160.0,
+            "prob": 0.8378635666904848,
+            "side": "Under",
+            "team": "BUF"
+          },
+          {
+            "book": "betmgm",
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
+            "edge_score": 0.5954501460083536,
+            "ev": 0.2511708855852366,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "FLA",
+            "player": "Moritz Seider",
+            "price": -190.0,
+            "prob": 0.8197326491765344,
+            "side": "Over",
+            "team": "DET"
+          },
+          {
+            "book": "betrivers",
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
+            "edge_score": 0.5627927981894435,
+            "ev": 0.4356924985537552,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "SEA",
+            "player": "Ivan Barbashev",
+            "price": -118.0,
+            "prob": 0.7771179579327666,
+            "side": "Over",
+            "team": "VGK"
+          },
+          {
+            "book": "betmgm",
+            "edge_reasons": "MODEL UND · CONF60+ · MATCHUP+",
+            "edge_score": 0.5489576625729848,
+            "ev": 0.4339542007687857,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "TBL",
+            "player": "Vincent Trocheck",
+            "price": -120.0,
+            "prob": 0.782156836782974,
+            "side": "Under",
+            "team": "NYR"
+          },
+          {
+            "book": "betmgm",
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP-",
+            "edge_score": 0.5269151693781765,
+            "ev": 0.5309634012384074,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "TBL",
+            "player": "Will Cuylle",
+            "price": -120.0,
+            "prob": 0.8350709461300403,
+            "side": "Over",
+            "team": "NYR"
+          },
+          {
+            "book": "betmgm",
+            "edge_reasons": "MODEL UND · CONF60+",
+            "edge_score": 0.5241175736176825,
+            "ev": 0.3524590690809576,
+            "line": 0.5,
+            "market": "ASSISTS",
+            "opp": "FLA",
+            "player": "Patrick Kane",
+            "price": -145.0,
+            "prob": 0.8004349592519953,
+            "side": "Under",
+            "team": "DET"
+          },
+          {
+            "book": "betmgm",
+            "edge_reasons": "MODEL UND · CONF60+ · MATCHUP+",
+            "edge_score": 0.5075039230306708,
+            "ev": 0.3759262833442143,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "DAL",
+            "player": "Alex Tuch",
+            "price": -110.0,
+            "prob": 0.7207232912755408,
+            "side": "Under",
+            "team": "BUF"
+          },
+          {
+            "book": "betmgm",
+            "edge_reasons": "MODEL UND · CONF60+ · MATCHUP-",
+            "edge_score": 0.5006711258800149,
+            "ev": 0.4515121858027788,
+            "line": 0.5,
+            "market": "ASSISTS",
+            "opp": "SEA",
+            "player": "Mark Stone",
+            "price": -115.0,
+            "prob": 0.7763902389177655,
+            "side": "Under",
+            "team": "VGK"
+          },
+          {
+            "book": "betmgm",
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP-",
+            "edge_score": 0.4984064249310538,
+            "ev": 0.2627034429702458,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "OTT",
+            "player": "John Tavares",
+            "price": -160.0,
+            "prob": 0.7770482725970743,
+            "side": "Over",
+            "team": "TOR"
+          },
+          {
+            "book": "betmgm",
+            "edge_reasons": "MODEL UND · CONF60+ · MATCHUP-",
+            "edge_score": 0.4938999527363533,
+            "ev": 0.4783508336979938,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "SEA",
+            "player": "Tomas Hertl",
+            "price": -110.0,
+            "prob": 0.7743742462227586,
+            "side": "Under",
+            "team": "VGK"
+          },
+          {
+            "book": "betmgm",
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
+            "edge_score": 0.4801449114346289,
+            "ev": 0.2477273011837444,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "SEA",
+            "player": "Ivan Barbashev",
+            "price": -125.0,
+            "prob": 0.6931818339909691,
+            "side": "Over",
+            "team": "VGK"
+          },
+          {
+            "book": "betmgm",
+            "edge_reasons": "MODEL UND · CONF60+ · MATCHUP+",
+            "edge_score": 0.4716578497272812,
+            "ev": 0.1921230623852307,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "VGK",
+            "player": "Matty Beniers",
+            "price": -120.0,
+            "prob": 0.6502489431192167,
+            "side": "Under",
+            "team": "SEA"
+          },
+          {
+            "book": "betmgm",
+            "edge_reasons": "MODEL UND · CONF60+ · MATCHUP+",
+            "edge_score": 0.4684750249455503,
+            "ev": 0.2327356477278384,
+            "line": 0.5,
+            "market": "ASSISTS",
+            "opp": "DAL",
+            "player": "Rasmus Dahlin",
+            "price": -120.0,
+            "prob": 0.6724012623970027,
+            "side": "Under",
+            "team": "BUF"
+          },
+          {
+            "book": "betmgm",
+            "edge_reasons": "MODEL UND · CONF60+ · MATCHUP-",
+            "edge_score": 0.4600667417043412,
+            "ev": 0.8949050606412785,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "CHI",
+            "player": "Will Smith",
+            "price": 140.0,
+            "prob": 0.7895437752671994,
+            "side": "Under",
+            "team": "SJS"
+          },
+          {
+            "book": "betmgm",
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP-",
+            "edge_score": 0.4557569718086077,
+            "ev": 0.1760717413152771,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "TBL",
+            "player": "Adam Fox",
+            "price": -160.0,
+            "prob": 0.7237364561940167,
+            "side": "Over",
+            "team": "NYR"
+          },
+          {
+            "book": "betmgm",
+            "edge_reasons": "MODEL UND · CONF60+ · MATCHUP-",
+            "edge_score": 0.4525185869903801,
+            "ev": 0.6331819299718392,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "FLA",
+            "player": "Patrick Kane",
+            "price": 125.0,
+            "prob": 0.7258586355430396,
+            "side": "Under",
+            "team": "DET"
+          },
+          {
+            "book": "betmgm",
+            "edge_reasons": "MODEL UND · CONF60+ · MATCHUP-",
+            "edge_score": 0.4247151790129646,
+            "ev": 0.4608955367010086,
+            "line": 0.5,
+            "market": "ASSISTS",
+            "opp": "TOR",
+            "player": "Jake Sanderson",
+            "price": -105.0,
+            "prob": 0.7482635675785654,
+            "side": "Under",
+            "team": "OTT"
+          },
+          {
+            "book": "betmgm",
+            "edge_reasons": "MODEL UND · CONF60+ · MATCHUP-",
+            "edge_score": 0.3877775640637889,
+            "ev": 0.4293648949568366,
+            "line": 0.5,
+            "market": "ASSISTS",
+            "opp": "SEA",
+            "player": "Mitch Marner",
+            "price": 125.0,
+            "prob": 0.635273286647483,
+            "side": "Under",
+            "team": "VGK"
+          }
+        ],
+        "source": "props_recommendations_2026-04-15.csv"
+      },
+      "reconciliation": null
+    }
+  },
+  "date": "2026-04-15",
+  "files": {
+    "edges": "data/processed/edges_sim_2026-04-15.csv",
+    "game_recommendations": "data/processed/recommendations_sim_2026-04-15.csv",
+    "predictions": "data/processed/predictions_sim_2026-04-15.csv",
+    "props_recommendations": "data/processed/props_recommendations_2026-04-15.csv",
+    "reconciliation_games": null,
+    "reconciliation_props": null
+  },
+  "generated_at_utc": "2026-04-15T13:51:13+00:00",
+  "schema_version": 2
+}

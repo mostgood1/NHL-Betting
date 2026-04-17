@@ -921,8 +921,12 @@
       "path": "data/processed/bundles/date=2026-04-16/bundle.json"
     },
     "2026-04-17": {
-      "exists": false,
-      "path": null
+      "exists": true,
+      "path": "data/processed/bundles/date=2026-04-17/bundle.json"
+    },
+    "2026-04-18": {
+      "exists": true,
+      "path": "data/processed/bundles/date=2026-04-18/bundle.json"
     }
   },
   "dates": [
@@ -1156,9 +1160,10 @@
     "2026-04-14",
     "2026-04-15",
     "2026-04-16",
-    "2026-04-17"
+    "2026-04-17",
+    "2026-04-18"
   ],
-  "generated_at_utc": "2026-04-15T13:51:18+00:00",
-  "latest": "2026-04-17",
+  "generated_at_utc": "2026-04-17T17:09:36+00:00",
+  "latest": "2026-04-18",
   "schema_version": 1
 }

@@ -34,6 +34,13 @@ class BinaryCalibration:
         return p_a_adj, max(0.0, support - p_a_adj)
 
 
+DEFAULT_GAME_DC_RHO = -0.05
+DEFAULT_GAME_MARKET_ANCHOR_W_ML = 0.8
+DEFAULT_GAME_MARKET_ANCHOR_W_TOTALS = 0.6
+DEFAULT_GAME_MONEYLINE_CALIBRATION = BinaryCalibration()
+DEFAULT_GAME_TOTALS_CALIBRATION = BinaryCalibration(t=0.8, b=0.0)
+
+
 @dataclass
 class IsotonicCalibration:
     """Monotone calibration via isotonic regression (piecewise-linear).
@@ -231,11 +238,11 @@ def _load_binary_calibration(
 
 def load_game_calibration(path: Path) -> Dict[str, Any]:
     defaults: Dict[str, Any] = {
-        "dc_rho": -0.05,
-        "market_anchor_w_ml": 0.25,
-        "market_anchor_w_totals": 0.25,
-        "moneyline": BinaryCalibration(),
-        "totals": BinaryCalibration(),
+        "dc_rho": DEFAULT_GAME_DC_RHO,
+        "market_anchor_w_ml": DEFAULT_GAME_MARKET_ANCHOR_W_ML,
+        "market_anchor_w_totals": DEFAULT_GAME_MARKET_ANCHOR_W_TOTALS,
+        "moneyline": DEFAULT_GAME_MONEYLINE_CALIBRATION,
+        "totals": DEFAULT_GAME_TOTALS_CALIBRATION,
         "raw": {},
     }
     if not path.exists():
@@ -245,8 +252,8 @@ def load_game_calibration(path: Path) -> Dict[str, Any]:
             obj = json.load(f)
     except Exception:
         return defaults
-    generic_anchor = _safe_float(obj.get("market_anchor_w", 0.25), 0.25)
-    defaults["dc_rho"] = _clamp(_safe_float(obj.get("dc_rho", -0.05), -0.05), -0.2, 0.2)
+    generic_anchor = _safe_float(obj.get("market_anchor_w", DEFAULT_GAME_MARKET_ANCHOR_W_ML), DEFAULT_GAME_MARKET_ANCHOR_W_ML)
+    defaults["dc_rho"] = _clamp(_safe_float(obj.get("dc_rho", DEFAULT_GAME_DC_RHO), DEFAULT_GAME_DC_RHO), -0.2, 0.2)
     defaults["market_anchor_w_ml"] = _clamp(
         _safe_float(obj.get("market_anchor_w_ml", generic_anchor), generic_anchor), 0.0, 1.0
     )

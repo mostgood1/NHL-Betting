@@ -14014,17 +14014,26 @@ async def cards_alias(request: Request):
             implied_pair_from_american = None
             implied_pair_from_two_sided = None
         try:
-            from ..utils.calibration import BinaryCalibration as _BinaryCalibration, load_game_calibration as _load_game_calibration
+            from ..utils.calibration import (
+                BinaryCalibration as _BinaryCalibration,
+                DEFAULT_GAME_DC_RHO as _DEFAULT_GAME_DC_RHO,
+                DEFAULT_GAME_MARKET_ANCHOR_W_ML as _DEFAULT_GAME_MARKET_ANCHOR_W_ML,
+                DEFAULT_GAME_MARKET_ANCHOR_W_TOTALS as _DEFAULT_GAME_MARKET_ANCHOR_W_TOTALS,
+                load_game_calibration as _load_game_calibration,
+            )
         except Exception:
             _BinaryCalibration = None
+            _DEFAULT_GAME_DC_RHO = -0.05
+            _DEFAULT_GAME_MARKET_ANCHOR_W_ML = 0.8
+            _DEFAULT_GAME_MARKET_ANCHOR_W_TOTALS = 0.6
             _load_game_calibration = None
         # Resolve config (model-driven): read model_calibration.json, then env, else defaults
-        dc_rho = -0.05
-        anchor_w_ml = 0.25
-        anchor_w_totals = 0.25
+        dc_rho = _DEFAULT_GAME_DC_RHO
+        anchor_w_ml = _DEFAULT_GAME_MARKET_ANCHOR_W_ML
+        anchor_w_totals = _DEFAULT_GAME_MARKET_ANCHOR_W_TOTALS
         ml_temp = 1.0
         ml_bias = 0.0
-        totals_temp = 1.0  # temperature scaling for totals (pushed toward 0.5 when >1)
+        totals_temp = 0.8  # temperature scaling for totals (pushed toward 0.5 when >1)
         totals_bias = 0.0
         # JSON first (authoritative)
         try:
@@ -14078,19 +14087,19 @@ async def cards_alias(request: Request):
         try:
             dc_rho = max(-0.2, min(0.2, float(dc_rho)))
         except Exception:
-            dc_rho = -0.05
+            dc_rho = _DEFAULT_GAME_DC_RHO
         try:
             anchor_w_ml = max(0.0, min(1.0, float(anchor_w_ml)))
         except Exception:
-            anchor_w_ml = 0.25
+            anchor_w_ml = _DEFAULT_GAME_MARKET_ANCHOR_W_ML
         try:
             anchor_w_totals = max(0.0, min(1.0, float(anchor_w_totals)))
         except Exception:
-            anchor_w_totals = 0.25
+            anchor_w_totals = _DEFAULT_GAME_MARKET_ANCHOR_W_TOTALS
         try:
             totals_temp = max(0.5, min(3.0, float(totals_temp)))
         except Exception:
-            totals_temp = 1.0
+            totals_temp = 0.8
         try:
             ml_temp = max(0.5, min(3.0, float(ml_temp)))
         except Exception:

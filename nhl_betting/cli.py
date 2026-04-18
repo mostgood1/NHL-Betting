@@ -54,6 +54,8 @@ from .utils.odds import american_to_decimal, decimal_to_implied_prob, remove_vig
 from .data.collect import collect_player_game_stats
 from .props.utils import compute_props_lam_scale_mean
 from .props.recommendation_defaults import (
+    DEFAULT_NOLINES_MARKETS,
+    DEFAULT_NOLINES_MIN_PROB_PER_MARKET,
     DEFAULT_UNDER_MAX_JUICE,
     DEFAULT_UNDER_MAX_JUICE_PER_MARKET,
     DEFAULT_UNDER_MIN_EV,
@@ -70,6 +72,10 @@ from .data.shifts_api import shifts_frame, co_toi_from_shifts, player_toi_from_s
 from .sim.engine import GameSimulator, SimConfig
 from .sim.models import RateModels
 from .web.teams import get_team_assets
+from .utils.calibration import (
+    DEFAULT_GAME_MARKET_ANCHOR_W_ML,
+    DEFAULT_GAME_MARKET_ANCHOR_W_TOTALS,
+)
 
 app = typer.Typer(help="NHL Betting predictive engine CLI")
 
@@ -1147,15 +1153,15 @@ def predict_core(
             _game_cal = _load_game_cal(PROC_DIR / "model_calibration.json")
             _ml_cal = _game_cal.get("moneyline")
             _tot_cal = _game_cal.get("totals")
-            _anchor_w_ml = float(_game_cal.get("market_anchor_w_ml", 0.25))
-            _anchor_w_totals = float(_game_cal.get("market_anchor_w_totals", 0.25))
+            _anchor_w_ml = float(_game_cal.get("market_anchor_w_ml", DEFAULT_GAME_MARKET_ANCHOR_W_ML))
+            _anchor_w_totals = float(_game_cal.get("market_anchor_w_totals", DEFAULT_GAME_MARKET_ANCHOR_W_TOTALS))
         except Exception:
             _ml_cal, _tot_cal = None, None
             _blend_probability = None
             _implied_pair_from_american = None
             _implied_pair_from_two_sided = None
-            _anchor_w_ml = 0.25
-            _anchor_w_totals = 0.25
+            _anchor_w_ml = DEFAULT_GAME_MARKET_ANCHOR_W_ML
+            _anchor_w_totals = DEFAULT_GAME_MARKET_ANCHOR_W_TOTALS
 
         p_home_anchor = p_home_model
         try:
@@ -4673,9 +4679,11 @@ def backfill_finals(
 def eval_segments(
     start: str = typer.Argument(..., help="Start date YYYY-MM-DD"),
     end: str = typer.Argument(..., help="End date YYYY-MM-DD"),
+    source: str = typer.Option("predictions", help="Input source: predictions|simulations"),
+    use_calibrated: bool = typer.Option(True, help="When source=simulations, use calibrated sim probabilities if available"),
     out_json: Optional[str] = typer.Option(None, help="Optional path to write JSON summary"),
 ):
-    """Segmented diagnostics on moneyline predictions vs results and closings.
+    """Segmented diagnostics on moneyline probabilities vs results and closings.
 
     Reports by:
       - side: favored by model (home p>=0.5) vs dog
@@ -4684,24 +4692,92 @@ def eval_segments(
       - line movement (if open/close available): moved toward home vs away
     """
     from datetime import datetime as _dt, timedelta as _td
+    source_key = str(source or "predictions").strip().lower()
+    if source_key not in {"predictions", "simulations"}:
+        print("Invalid source; use 'predictions' or 'simulations'.")
+        raise typer.Exit(code=1)
     try:
         s_dt = _dt.strptime(start, "%Y-%m-%d"); e_dt = _dt.strptime(end, "%Y-%m-%d")
     except Exception:
         print("Invalid date format; use YYYY-MM-DD"); raise typer.Exit(code=1)
     if e_dt < s_dt:
         s_dt, e_dt = e_dt, s_dt
+
+    games_raw = load_df(RAW_DIR / "games.csv")
+    if games_raw is None or games_raw.empty:
+        print("Missing or empty data/raw/games.csv.")
+        raise typer.Exit(code=1)
+    games_raw["date_et"] = pd.to_datetime(games_raw["date"], utc=True).dt.tz_convert("America/New_York").dt.strftime("%Y-%m-%d")
+    games_join = games_raw[["date_et", "home", "away", "home_goals", "away_goals"]].rename(columns={
+        "home_goals": "final_home_goals_actual",
+        "away_goals": "final_away_goals_actual",
+    })
+
+    prefix = "predictions" if source_key == "predictions" else "simulations"
+    prob_col = "p_home_ml"
+    if source_key == "simulations":
+        prob_col = "p_home_ml_sim_cal" if use_calibrated else "p_home_ml_sim"
+
+    def _merge_actuals(df: pd.DataFrame, day: str) -> pd.DataFrame:
+        out = df.copy()
+        date_col = "date_et" if "date_et" in out.columns else ("date" if "date" in out.columns else None)
+        if date_col is None:
+            out["date_et"] = day
+        else:
+            out[date_col] = pd.to_datetime(out[date_col], errors="coerce").dt.strftime("%Y-%m-%d")
+            if date_col != "date_et":
+                out["date_et"] = out[date_col]
+        out = out.merge(games_join, on=["date_et", "home", "away"], how="left")
+        if "final_home_goals" not in out.columns:
+            out["final_home_goals"] = pd.NA
+        if "final_away_goals" not in out.columns:
+            out["final_away_goals"] = pd.NA
+        out["final_home_goals"] = out["final_home_goals"].fillna(out["final_home_goals_actual"])
+        out["final_away_goals"] = out["final_away_goals"].fillna(out["final_away_goals_actual"])
+        return out.drop(columns=[c for c in ["final_home_goals_actual", "final_away_goals_actual"] if c in out.columns])
+
+    def _merge_prediction_odds(df: pd.DataFrame, day: str) -> pd.DataFrame:
+        pred_path = PROC_DIR / f"predictions_{day}.csv"
+        if not pred_path.exists() or getattr(pred_path.stat(), "st_size", 0) <= 0:
+            return df
+        try:
+            pdf = pd.read_csv(pred_path)
+        except Exception:
+            return df
+        if pdf.empty:
+            return df
+        keep_cols = [
+            "date_et", "home", "away",
+            "open_home_ml_odds", "open_away_ml_odds", "close_home_ml_odds", "close_away_ml_odds",
+        ]
+        have_cols = [c for c in keep_cols if c in pdf.columns]
+        if not {"home", "away"}.issubset(have_cols):
+            return df
+        odds_df = pdf[have_cols].copy()
+        if "date_et" in odds_df.columns:
+            odds_df["date_et"] = pd.to_datetime(odds_df["date_et"], errors="coerce").dt.strftime("%Y-%m-%d")
+        keys = ["home", "away"]
+        if "date_et" in odds_df.columns and "date_et" in df.columns:
+            keys = ["date_et", "home", "away"]
+        return df.merge(odds_df.drop_duplicates(subset=keys), on=keys, how="left")
+
     rows = []
     d = s_dt
     while d <= e_dt:
         day = d.strftime("%Y-%m-%d")
-        path = PROC_DIR / f"predictions_{day}.csv"
+        path = PROC_DIR / f"{prefix}_{day}.csv"
         if path.exists():
             try:
                 df = pd.read_csv(path)
-                need = {"home","away","p_home_ml","final_home_goals","final_away_goals"}
+                if df.empty:
+                    d += _td(days=1); continue
+                df = _merge_actuals(df, day)
+                if source_key == "simulations":
+                    df = _merge_prediction_odds(df, day)
+                need = {"home", "away", prob_col, "final_home_goals", "final_away_goals"}
                 if not need.issubset(df.columns):
                     d += _td(days=1); continue
-                sub = df.dropna(subset=["p_home_ml","final_home_goals","final_away_goals"]).copy()
+                sub = df.dropna(subset=[prob_col, "final_home_goals", "final_away_goals"]).copy()
                 if sub.empty:
                     d += _td(days=1); continue
                 rows.append(sub)
@@ -4714,7 +4790,7 @@ def eval_segments(
     data = pd.concat(rows, ignore_index=True)
     # outcome 1 if home won
     y = (data["final_home_goals"].astype(float) > data["final_away_goals"].astype(float)).astype(int)
-    p = data["p_home_ml"].astype(float).clip(1e-6, 1-1e-6)
+    p = data[prob_col].astype(float).clip(1e-6, 1-1e-6)
     # side buckets
     favored = (p >= 0.5).astype(int)
     seg_side = data.assign(y=y, p=p).groupby(favored).apply(lambda g: pd.Series({
@@ -4749,12 +4825,402 @@ def eval_segments(
             seg_move = tmp.assign(y=y.loc[tmp.index].values, p=p.loc[tmp.index].values).groupby("move_dir").apply(lambda g: pd.Series({
                 "n": int(len(g)), "acc": float(((g["p"]>=0.5).astype(int) == g["y"]).mean()), "brier": float(((g["p"]-g["y"])**2).mean())
             })).to_dict(orient="index")
-    res = {"range": {"start": start, "end": end}, "side": seg_side, "prob_bins": seg_bins, "team_bias": seg_team[:20], "line_move": seg_move}
+    res = {
+        "range": {"start": start, "end": end},
+        "source": source_key,
+        "probability_column": prob_col,
+        "use_calibrated": bool(use_calibrated) if source_key == "simulations" else None,
+        "side": seg_side,
+        "prob_bins": seg_bins,
+        "team_bias": seg_team[:20],
+        "line_move": seg_move,
+    }
     print(res)
     if out_json:
         out_path = Path(out_json); out_path.parent.mkdir(parents=True, exist_ok=True)
         with out_path.open("w", encoding="utf-8") as f:
             json.dump(res, f, indent=2)
+        print(f"Wrote -> {out_path}")
+
+
+@app.command(name="eval-moneyline-vs-market")
+def eval_moneyline_vs_market(
+    start: str = typer.Argument(..., help="Start date YYYY-MM-DD"),
+    end: str = typer.Argument(..., help="End date YYYY-MM-DD"),
+    use_close: bool = typer.Option(True, help="Use close moneyline odds when available; otherwise use open/current odds"),
+    out_json: Optional[str] = typer.Option(None, help="Optional path to write JSON summary"),
+):
+    """Compare raw model and blended home moneyline probabilities against no-vig market implied probabilities."""
+    from datetime import datetime as _dt, timedelta as _td
+
+    try:
+        s_dt = _dt.strptime(start, "%Y-%m-%d")
+        e_dt = _dt.strptime(end, "%Y-%m-%d")
+    except Exception:
+        print("Invalid date format; use YYYY-MM-DD")
+        raise typer.Exit(code=1)
+    if e_dt < s_dt:
+        s_dt, e_dt = e_dt, s_dt
+
+    def _american_implied(odds: object) -> Optional[float]:
+        try:
+            value = float(odds)
+        except Exception:
+            return None
+        if not np.isfinite(value):
+            return None
+        if value > 0:
+            return 100.0 / (value + 100.0)
+        return abs(value) / (abs(value) + 100.0)
+
+    rows = []
+    d = s_dt
+    while d <= e_dt:
+        day = d.strftime("%Y-%m-%d")
+        path = PROC_DIR / f"predictions_{day}.csv"
+        if path.exists():
+            try:
+                df = pd.read_csv(path)
+                home_col = "close_home_ml_odds" if use_close else "home_ml_odds"
+                away_col = "close_away_ml_odds" if use_close else "away_ml_odds"
+                required = {"home", "away", "p_home_ml_model", "p_home_ml", home_col, away_col}
+                if required.issubset(df.columns):
+                    sub = df.dropna(subset=list(required)).copy()
+                    if not sub.empty:
+                        sub["date"] = day
+                        sub["market_home_raw"] = sub[home_col].apply(_american_implied)
+                        sub["market_away_raw"] = sub[away_col].apply(_american_implied)
+                        sub = sub.dropna(subset=["market_home_raw", "market_away_raw"])
+                        if not sub.empty:
+                            denom = sub["market_home_raw"] + sub["market_away_raw"]
+                            sub = sub[denom > 0].copy()
+                            if not sub.empty:
+                                sub["p_home_market"] = sub["market_home_raw"] / denom[denom > 0]
+                                if {"final_home_goals", "final_away_goals"}.issubset(sub.columns):
+                                    sub = sub.dropna(subset=["final_home_goals", "final_away_goals"]).copy()
+                                    if not sub.empty:
+                                        sub["y_home"] = (
+                                            sub["final_home_goals"].astype(float) > sub["final_away_goals"].astype(float)
+                                        ).astype(int)
+                                        rows.append(
+                                            sub[[
+                                                "date", "home", "away", "p_home_ml_model", "p_home_ml", "p_home_market", "y_home"
+                                            ]].copy()
+                                        )
+            except Exception:
+                pass
+        d += _td(days=1)
+
+    if not rows:
+        print("No settled prediction rows to evaluate.")
+        raise typer.Exit(code=0)
+
+    data = pd.concat(rows, ignore_index=True)
+    data["p_home_ml_model"] = data["p_home_ml_model"].astype(float).clip(1e-6, 1 - 1e-6)
+    data["p_home_ml"] = data["p_home_ml"].astype(float).clip(1e-6, 1 - 1e-6)
+    data["p_home_market"] = data["p_home_market"].astype(float).clip(1e-6, 1 - 1e-6)
+    data["y_home"] = data["y_home"].astype(int)
+    data["edge_model_vs_market"] = data["p_home_ml_model"] - data["p_home_market"]
+    data["edge_blend_vs_market"] = data["p_home_ml"] - data["p_home_market"]
+
+    def _brier(prob_col: str) -> float:
+        return float(((data[prob_col] - data["y_home"]) ** 2).mean())
+
+    def _bucket_summary(edge_col: str) -> list[dict]:
+        bins = [(-1.0, -0.05), (-0.05, -0.02), (-0.02, 0.02), (0.02, 0.05), (0.05, 1.0)]
+        out = []
+        for low, high in bins:
+            if high >= 1.0:
+                mask = (data[edge_col] >= low) & (data[edge_col] <= high)
+            else:
+                mask = (data[edge_col] >= low) & (data[edge_col] < high)
+            sub = data.loc[mask]
+            if sub.empty:
+                continue
+            out.append({
+                "bucket": f"[{low:.2f},{high:.2f}{']' if high >= 1.0 else ')'}",
+                "n": int(len(sub)),
+                "mean_edge": float(sub[edge_col].mean()),
+                "model_mean": float(sub["p_home_ml_model"].mean()),
+                "blend_mean": float(sub["p_home_ml"].mean()),
+                "market_mean": float(sub["p_home_market"].mean()),
+                "home_win_rate": float(sub["y_home"].mean()),
+            })
+        return out
+
+    def _quantile_summary(prob_col: str) -> list[dict]:
+        bins = pd.qcut(data[prob_col], q=5, duplicates="drop")
+        return (
+            data.assign(bin=bins.astype(str))
+            .groupby("bin")
+            .apply(lambda g: pd.Series({
+                "n": int(len(g)),
+                "mean_prob": float(g[prob_col].mean()),
+                "market_mean": float(g["p_home_market"].mean()),
+                "obs": float(g["y_home"].mean()),
+            }))
+            .reset_index()
+            .to_dict(orient="records")
+        )
+
+    def _team_disagreement(edge_col: str) -> dict:
+        by_team = (
+            data.groupby("home")
+            .apply(lambda g: pd.Series({"n": int(len(g)), "mean_edge": float(g[edge_col].mean())}))
+            .reset_index()
+        )
+        by_team = by_team[by_team["n"] >= 3].sort_values("mean_edge", ascending=False)
+        return {
+            "most_positive": by_team.head(10).to_dict(orient="records"),
+            "most_negative": by_team.tail(10).sort_values("mean_edge", ascending=True).to_dict(orient="records"),
+        }
+
+    result = {
+        "range": {"start": start, "end": end},
+        "n": int(len(data)),
+        "use_close": bool(use_close),
+        "overall": {
+            "model": {
+                "brier": _brier("p_home_ml_model"),
+                "mean_prob": float(data["p_home_ml_model"].mean()),
+                "mean_market": float(data["p_home_market"].mean()),
+                "mean_edge_vs_market": float(data["edge_model_vs_market"].mean()),
+                "mae_vs_market": float(np.abs(data["edge_model_vs_market"]).mean()),
+            },
+            "blend": {
+                "brier": _brier("p_home_ml"),
+                "mean_prob": float(data["p_home_ml"].mean()),
+                "mean_market": float(data["p_home_market"].mean()),
+                "mean_edge_vs_market": float(data["edge_blend_vs_market"].mean()),
+                "mae_vs_market": float(np.abs(data["edge_blend_vs_market"]).mean()),
+            },
+            "market": {
+                "brier": _brier("p_home_market"),
+                "mean_prob": float(data["p_home_market"].mean()),
+            },
+        },
+        "edge_buckets": {
+            "model_vs_market": _bucket_summary("edge_model_vs_market"),
+            "blend_vs_market": _bucket_summary("edge_blend_vs_market"),
+        },
+        "prob_bins": {
+            "model": _quantile_summary("p_home_ml_model"),
+            "blend": _quantile_summary("p_home_ml"),
+            "market": _quantile_summary("p_home_market"),
+        },
+        "team_disagreement": {
+            "model_vs_market": _team_disagreement("edge_model_vs_market"),
+            "blend_vs_market": _team_disagreement("edge_blend_vs_market"),
+        },
+    }
+    print(result)
+    if out_json:
+        out_path = Path(out_json)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        with out_path.open("w", encoding="utf-8") as f:
+            json.dump(result, f, indent=2)
+        print(f"Wrote -> {out_path}")
+
+
+@app.command(name="eval-moneyline-recomputed-range")
+def eval_moneyline_recomputed_range(
+    start: str = typer.Argument(..., help="Start date YYYY-MM-DD"),
+    end: str = typer.Argument(..., help="End date YYYY-MM-DD"),
+    use_close: bool = typer.Option(True, help="Use close moneyline odds when available; otherwise use open/current odds"),
+    calibration_json: str = typer.Option("data/processed/model_calibration.json", help="Calibration JSON to use for recomputing anchored/calibrated moneyline probabilities"),
+    out_json: Optional[str] = typer.Option(None, help="Optional path to write JSON summary"),
+):
+    """Recompute current moneyline anchor/calibration on historical predictions and evaluate the result."""
+    from datetime import datetime as _dt, timedelta as _td
+    from .utils.calibration import load_game_calibration
+    from .utils.market_anchor import blend_probability, implied_pair_from_american
+
+    try:
+        s_dt = _dt.strptime(start, "%Y-%m-%d")
+        e_dt = _dt.strptime(end, "%Y-%m-%d")
+    except Exception:
+        print("Invalid date format; use YYYY-MM-DD")
+        raise typer.Exit(code=1)
+    if e_dt < s_dt:
+        s_dt, e_dt = e_dt, s_dt
+
+    game_cal = load_game_calibration(Path(calibration_json))
+    ml_cal = game_cal.get("moneyline")
+    anchor_w_ml = float(game_cal.get("market_anchor_w_ml", DEFAULT_GAME_MARKET_ANCHOR_W_ML))
+
+    rows = []
+    d = s_dt
+    while d <= e_dt:
+        day = d.strftime("%Y-%m-%d")
+        path = PROC_DIR / f"predictions_{day}.csv"
+        if path.exists():
+            try:
+                df = pd.read_csv(path)
+                home_col = "close_home_ml_odds" if use_close else "home_ml_odds"
+                away_col = "close_away_ml_odds" if use_close else "away_ml_odds"
+                required = {"home", "away", "p_home_ml_model", home_col, away_col, "final_home_goals", "final_away_goals"}
+                if not required.issubset(df.columns):
+                    d += _td(days=1)
+                    continue
+                sub = df.dropna(subset=list(required)).copy()
+                if sub.empty:
+                    d += _td(days=1)
+                    continue
+                sub["date"] = day
+                sub["p_home_ml_model"] = sub["p_home_ml_model"].astype(float).clip(1e-6, 1 - 1e-6)
+                if "p_home_ml" in sub.columns:
+                    sub["p_home_ml_stored"] = sub["p_home_ml"].astype(float).clip(1e-6, 1 - 1e-6)
+                else:
+                    sub["p_home_ml_stored"] = pd.NA
+                sub["p_home_market"] = sub.apply(
+                    lambda r: (
+                        implied_pair_from_american(r.get(home_col), r.get(away_col))[0]
+                        if implied_pair_from_american(r.get(home_col), r.get(away_col)) is not None
+                        else np.nan
+                    ),
+                    axis=1,
+                )
+                sub = sub.dropna(subset=["p_home_market"]).copy()
+                if sub.empty:
+                    d += _td(days=1)
+                    continue
+                sub["p_home_anchor_recalc"] = sub.apply(
+                    lambda r: blend_probability(float(r["p_home_ml_model"]), float(r["p_home_market"]), w_market=anchor_w_ml),
+                    axis=1,
+                )
+                if ml_cal is not None:
+                    sub["p_home_ml_recalc"] = sub["p_home_anchor_recalc"].apply(lambda v: float(ml_cal.apply_two_way(float(v))[0]))
+                else:
+                    sub["p_home_ml_recalc"] = sub["p_home_anchor_recalc"].astype(float)
+                sub["y_home"] = (
+                    sub["final_home_goals"].astype(float) > sub["final_away_goals"].astype(float)
+                ).astype(int)
+                rows.append(
+                    sub[[
+                        "date", "home", "away", "p_home_ml_model", "p_home_ml_stored", "p_home_market",
+                        "p_home_anchor_recalc", "p_home_ml_recalc", "y_home",
+                    ]].copy()
+                )
+            except Exception:
+                pass
+        d += _td(days=1)
+
+    if not rows:
+        print("No settled prediction rows to evaluate.")
+        raise typer.Exit(code=0)
+
+    data = pd.concat(rows, ignore_index=True)
+    data["p_home_market"] = data["p_home_market"].astype(float).clip(1e-6, 1 - 1e-6)
+    data["p_home_anchor_recalc"] = data["p_home_anchor_recalc"].astype(float).clip(1e-6, 1 - 1e-6)
+    data["p_home_ml_recalc"] = data["p_home_ml_recalc"].astype(float).clip(1e-6, 1 - 1e-6)
+    data["y_home"] = data["y_home"].astype(int)
+
+    def _brier(prob_col: str) -> Optional[float]:
+        if prob_col not in data.columns:
+            return None
+        sub = data.dropna(subset=[prob_col]).copy()
+        if sub.empty:
+            return None
+        return float(((sub[prob_col].astype(float) - sub["y_home"]) ** 2).mean())
+
+    def _mean_abs_shift(left_col: str, right_col: str) -> Optional[float]:
+        if left_col not in data.columns or right_col not in data.columns:
+            return None
+        sub = data.dropna(subset=[left_col, right_col]).copy()
+        if sub.empty:
+            return None
+        return float((sub[left_col].astype(float) - sub[right_col].astype(float)).abs().mean())
+
+    def _quantile_summary(prob_col: str) -> list[dict]:
+        sub = data.dropna(subset=[prob_col]).copy()
+        if sub.empty:
+            return []
+        bins = pd.qcut(sub[prob_col], q=5, duplicates="drop")
+        return (
+            sub.assign(bin=bins.astype(str))
+            .groupby("bin")
+            .apply(lambda g: pd.Series({
+                "n": int(len(g)),
+                "mean_prob": float(g[prob_col].mean()),
+                "market_mean": float(g["p_home_market"].mean()),
+                "obs": float(g["y_home"].mean()),
+            }))
+            .reset_index()
+            .to_dict(orient="records")
+        )
+
+    def _team_bias(prob_col: str) -> dict:
+        sub = data.dropna(subset=[prob_col]).copy()
+        if sub.empty:
+            return {"most_positive": [], "most_negative": []}
+        by_team = (
+            sub.groupby("home")
+            .apply(lambda g: pd.Series({
+                "n": int(len(g)),
+                "bias": float(g["y_home"].mean() - g[prob_col].mean()),
+                "vs_market": float(g[prob_col].mean() - g["p_home_market"].mean()),
+            }))
+            .reset_index()
+        )
+        by_team = by_team[by_team["n"] >= 3]
+        return {
+            "most_positive": by_team.sort_values("bias", ascending=False).head(10).to_dict(orient="records"),
+            "most_negative": by_team.sort_values("bias", ascending=True).head(10).to_dict(orient="records"),
+        }
+
+    result = {
+        "range": {"start": start, "end": end},
+        "n": int(len(data)),
+        "use_close": bool(use_close),
+        "calibration_json": str(calibration_json),
+        "current_calibration": {
+            "market_anchor_w_ml": anchor_w_ml,
+            "ml_temp": float(getattr(ml_cal, "t", 1.0)) if ml_cal is not None else 1.0,
+            "ml_bias": float(getattr(ml_cal, "b", 0.0)) if ml_cal is not None else 0.0,
+        },
+        "overall": {
+            "model": {
+                "brier": _brier("p_home_ml_model"),
+                "mean_prob": float(data["p_home_ml_model"].mean()),
+            },
+            "stored": {
+                "brier": _brier("p_home_ml_stored"),
+                "mean_prob": float(data["p_home_ml_stored"].dropna().mean()) if data["p_home_ml_stored"].notna().any() else None,
+            },
+            "recomputed_anchor": {
+                "brier": _brier("p_home_anchor_recalc"),
+                "mean_prob": float(data["p_home_anchor_recalc"].mean()),
+            },
+            "recomputed_calibrated": {
+                "brier": _brier("p_home_ml_recalc"),
+                "mean_prob": float(data["p_home_ml_recalc"].mean()),
+            },
+            "market": {
+                "brier": _brier("p_home_market"),
+                "mean_prob": float(data["p_home_market"].mean()),
+            },
+        },
+        "shift": {
+            "stored_vs_model_mae": _mean_abs_shift("p_home_ml_stored", "p_home_ml_model"),
+            "recomputed_vs_model_mae": _mean_abs_shift("p_home_ml_recalc", "p_home_ml_model"),
+            "recomputed_vs_stored_mae": _mean_abs_shift("p_home_ml_recalc", "p_home_ml_stored"),
+        },
+        "prob_bins": {
+            "model": _quantile_summary("p_home_ml_model"),
+            "recomputed_calibrated": _quantile_summary("p_home_ml_recalc"),
+            "market": _quantile_summary("p_home_market"),
+        },
+        "team_bias": {
+            "model": _team_bias("p_home_ml_model"),
+            "recomputed_calibrated": _team_bias("p_home_ml_recalc"),
+        },
+    }
+    print(result)
+    if out_json:
+        out_path = Path(out_json)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        with out_path.open("w", encoding="utf-8") as f:
+            json.dump(result, f, indent=2)
         print(f"Wrote -> {out_path}")
 
 
@@ -4857,6 +5323,266 @@ def retune_elo(
         with cfg_path.open("w", encoding="utf-8") as f:
             json.dump(obj, f, indent=2)
         print({"saved": {"elo_k": float(k), "elo_home_adv": float(ha)}})
+
+
+@app.command(name="compare-moneyline-calibration-candidates")
+def compare_moneyline_calibration_candidates(
+    start: str = typer.Argument(..., help="Start date YYYY-MM-DD"),
+    end: str = typer.Argument(..., help="End date YYYY-MM-DD"),
+    candidates: str = typer.Option(..., help="Comma-separated calibration JSON paths to compare"),
+    use_close: bool = typer.Option(True, help="Use close moneyline odds when available; otherwise use open/current odds"),
+    out_json: Optional[str] = typer.Option(None, help="Optional path to write JSON summary"),
+):
+    """Compare moneyline calibration candidate JSON files on a historical holdout and rank them by effective Brier."""
+    from datetime import datetime as _dt, timedelta as _td
+    from .utils.calibration import load_game_calibration
+    from .utils.market_anchor import blend_probability, implied_pair_from_american
+
+    try:
+        s_dt = _dt.strptime(start, "%Y-%m-%d")
+        e_dt = _dt.strptime(end, "%Y-%m-%d")
+    except Exception:
+        print("Invalid date format; use YYYY-MM-DD")
+        raise typer.Exit(code=1)
+    if e_dt < s_dt:
+        s_dt, e_dt = e_dt, s_dt
+
+    candidate_paths = [c.strip() for c in str(candidates or "").split(",") if c.strip()]
+    if not candidate_paths:
+        print("No candidate calibration paths supplied.")
+        raise typer.Exit(code=1)
+
+    def _load_holdout_rows() -> pd.DataFrame:
+        rows = []
+        d = s_dt
+        while d <= e_dt:
+            day = d.strftime("%Y-%m-%d")
+            path = PROC_DIR / f"predictions_{day}.csv"
+            if path.exists():
+                try:
+                    df = pd.read_csv(path)
+                    home_col = "close_home_ml_odds" if use_close else "home_ml_odds"
+                    away_col = "close_away_ml_odds" if use_close else "away_ml_odds"
+                    required = {"home", "away", "p_home_ml_model", home_col, away_col, "final_home_goals", "final_away_goals"}
+                    if not required.issubset(df.columns):
+                        d += _td(days=1)
+                        continue
+                    sub = df.dropna(subset=list(required)).copy()
+                    if sub.empty:
+                        d += _td(days=1)
+                        continue
+                    sub["date"] = day
+                    sub["p_home_ml_model"] = sub["p_home_ml_model"].astype(float).clip(1e-6, 1 - 1e-6)
+                    if "p_home_ml" in sub.columns:
+                        sub["p_home_ml_stored"] = sub["p_home_ml"].astype(float).clip(1e-6, 1 - 1e-6)
+                    else:
+                        sub["p_home_ml_stored"] = pd.NA
+
+                    def _market_prob(row: pd.Series) -> float:
+                        pair = implied_pair_from_american(row.get(home_col), row.get(away_col))
+                        return float(pair[0]) if pair is not None else np.nan
+
+                    sub["p_home_market"] = sub.apply(_market_prob, axis=1)
+                    sub = sub.dropna(subset=["p_home_market"]).copy()
+                    if sub.empty:
+                        d += _td(days=1)
+                        continue
+                    sub["y_home"] = (
+                        sub["final_home_goals"].astype(float) > sub["final_away_goals"].astype(float)
+                    ).astype(int)
+                    rows.append(sub[["date", "home", "away", "p_home_ml_model", "p_home_ml_stored", "p_home_market", "y_home"]].copy())
+                except Exception:
+                    pass
+            d += _td(days=1)
+        if not rows:
+            return pd.DataFrame()
+        data = pd.concat(rows, ignore_index=True)
+        data["p_home_market"] = data["p_home_market"].astype(float).clip(1e-6, 1 - 1e-6)
+        data["y_home"] = data["y_home"].astype(int)
+        return data
+
+    def _brier(df: pd.DataFrame, prob_col: str) -> Optional[float]:
+        if prob_col not in df.columns:
+            return None
+        sub = df.dropna(subset=[prob_col]).copy()
+        if sub.empty:
+            return None
+        return float(((sub[prob_col].astype(float) - sub["y_home"]) ** 2).mean())
+
+    base = _load_holdout_rows()
+    if base.empty:
+        print("No settled prediction rows to evaluate.")
+        raise typer.Exit(code=0)
+
+    comparisons = []
+    for candidate_path in candidate_paths:
+        cal_path = Path(candidate_path)
+        game_cal = load_game_calibration(cal_path)
+        raw_cfg = game_cal.get("raw") or {}
+        ml_cal = game_cal.get("moneyline")
+        anchor_w_ml = float(game_cal.get("market_anchor_w_ml", DEFAULT_GAME_MARKET_ANCHOR_W_ML))
+        policy = str(raw_cfg.get("ml_post_calibration_policy", "calibrated") or "calibrated").strip().lower()
+        if policy not in {"anchor_only", "calibrated"}:
+            policy = "calibrated"
+
+        data = base.copy()
+        data["p_home_anchor_recalc"] = data.apply(
+            lambda r: blend_probability(float(r["p_home_ml_model"]), float(r["p_home_market"]), w_market=anchor_w_ml),
+            axis=1,
+        )
+        if ml_cal is not None:
+            data["p_home_ml_recalc"] = data["p_home_anchor_recalc"].apply(lambda v: float(ml_cal.apply_two_way(float(v))[0]))
+        else:
+            data["p_home_ml_recalc"] = data["p_home_anchor_recalc"].astype(float)
+        effective_col = "p_home_anchor_recalc" if policy == "anchor_only" else "p_home_ml_recalc"
+        data["p_home_effective"] = data[effective_col].astype(float).clip(1e-6, 1 - 1e-6)
+
+        comparisons.append({
+            "calibration_json": str(candidate_path),
+            "policy": policy,
+            "market_anchor_w_ml": anchor_w_ml,
+            "ml_temp": float(getattr(ml_cal, "t", 1.0)) if ml_cal is not None else 1.0,
+            "ml_bias": float(getattr(ml_cal, "b", 0.0)) if ml_cal is not None else 0.0,
+            "effective_brier": _brier(data, "p_home_effective"),
+            "anchor_brier": _brier(data, "p_home_anchor_recalc"),
+            "calibrated_brier": _brier(data, "p_home_ml_recalc"),
+            "market_brier": _brier(data, "p_home_market"),
+            "model_brier": _brier(data, "p_home_ml_model"),
+            "stored_brier": _brier(data, "p_home_ml_stored"),
+            "effective_mean_prob": float(data["p_home_effective"].mean()),
+        })
+
+    comparisons = sorted(comparisons, key=lambda row: float(row.get("effective_brier") if row.get("effective_brier") is not None else 999.0))
+    result = {
+        "range": {"start": start, "end": end},
+        "n": int(len(base)),
+        "use_close": bool(use_close),
+        "winner": comparisons[0] if comparisons else None,
+        "comparisons": comparisons,
+        "baselines": {
+            "model_brier": _brier(base, "p_home_ml_model"),
+            "stored_brier": _brier(base, "p_home_ml_stored"),
+            "market_brier": _brier(base, "p_home_market"),
+        },
+    }
+    print(result)
+    if out_json:
+        out_path = Path(out_json)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        with out_path.open("w", encoding="utf-8") as f:
+            json.dump(result, f, indent=2)
+        print(f"Wrote -> {out_path}")
+
+
+@app.command(name="promote-moneyline-calibration-winner")
+def promote_moneyline_calibration_winner(
+    comparison_json: str = typer.Argument(..., help="Path to compare-moneyline-calibration-candidates JSON output"),
+    target_json: str = typer.Option("data/processed/model_calibration.json", help="Target calibration JSON to overwrite with the winning candidate"),
+    backup: bool = typer.Option(True, help="Backup the current target JSON before promotion"),
+):
+    """Promote the winning moneyline calibration candidate into the live calibration file while preserving non-ML settings."""
+    import shutil
+    from datetime import datetime as _dt
+
+    comparison_path = Path(comparison_json)
+    if not comparison_path.exists():
+        print(f"Comparison JSON not found: {comparison_path}")
+        raise typer.Exit(code=1)
+
+    try:
+        with comparison_path.open("r", encoding="utf-8") as f:
+            comparison = json.load(f)
+    except Exception as exc:
+        print(f"Failed to read comparison JSON: {exc}")
+        raise typer.Exit(code=1)
+
+    winner = comparison.get("winner") if isinstance(comparison, dict) else None
+    if not isinstance(winner, dict):
+        print("Comparison JSON does not contain a winner.")
+        raise typer.Exit(code=1)
+
+    winner_path_raw = winner.get("calibration_json")
+    if not winner_path_raw:
+        print("Winner entry does not contain a calibration_json path.")
+        raise typer.Exit(code=1)
+
+    winner_path = Path(str(winner_path_raw))
+    if not winner_path.exists():
+        print(f"Winning calibration file not found: {winner_path}")
+        raise typer.Exit(code=1)
+
+    try:
+        with winner_path.open("r", encoding="utf-8") as f:
+            winner_obj = json.load(f)
+    except Exception as exc:
+        print(f"Failed to read winning calibration JSON: {exc}")
+        raise typer.Exit(code=1)
+    if not isinstance(winner_obj, dict):
+        print("Winning calibration JSON must be a JSON object.")
+        raise typer.Exit(code=1)
+
+    target_path = Path(target_json)
+    winner_resolved = winner_path.resolve()
+    target_resolved = target_path.resolve() if target_path.exists() else target_path.resolve()
+
+    if winner_resolved == target_resolved:
+        print({
+            "promoted": False,
+            "reason": "winner_already_live",
+            "target_json": str(target_path),
+            "winner_json": str(winner_path),
+            "policy": winner.get("policy"),
+            "effective_brier": winner.get("effective_brier"),
+        })
+        return
+
+    backup_path = None
+    target_obj = {}
+    if target_path.exists():
+        try:
+            with target_path.open("r", encoding="utf-8") as f:
+                target_obj = json.load(f)
+        except Exception as exc:
+            print(f"Failed to read target calibration JSON: {exc}")
+            raise typer.Exit(code=1)
+        if not isinstance(target_obj, dict):
+            print("Target calibration JSON must be a JSON object.")
+            raise typer.Exit(code=1)
+
+    if backup and target_path.exists():
+        stamp = _dt.utcnow().strftime("%Y%m%dT%H%M%SZ")
+        backup_path = target_path.with_name(f"{target_path.stem}.bak_{stamp}{target_path.suffix}")
+        shutil.copy2(target_path, backup_path)
+
+    merged_obj = dict(target_obj)
+    ml_keys = (
+        "market_anchor_w",
+        "market_anchor_w_ml",
+        "ml_anchor_max",
+        "ml_fit_range",
+        "ml_validation",
+        "ml_temp",
+        "ml_bias",
+        "moneyline",
+        "ml_post_calibration_policy",
+        "moneyline_candidate_variant",
+        "last_calibrated_utc",
+    )
+    for key in ml_keys:
+        if key in winner_obj:
+            merged_obj[key] = winner_obj[key]
+
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    with target_path.open("w", encoding="utf-8") as f:
+        json.dump(merged_obj, f, indent=2)
+    print({
+        "promoted": True,
+        "target_json": str(target_path),
+        "winner_json": str(winner_path),
+        "backup_json": str(backup_path) if backup_path is not None else None,
+        "policy": winner.get("policy"),
+        "effective_brier": winner.get("effective_brier"),
+    })
 
 
 @app.command()
@@ -8069,6 +8795,11 @@ def props_simulate_boxscores(
                             # If the actual-stats feed is missing a dressed skater (rare but happens),
                             # backfill from the processed roster snapshot so we can still dress 18 skaters.
                             try:
+                                n_skaters = sum(1 for rr in out_rows if _norm_pos(rr.get("position")) in ("F", "D"))
+                            except Exception:
+                                n_skaters = 0
+
+
                                 n_skaters = sum(1 for rr in out_rows if _norm_pos(rr.get("position")) in ("F", "D"))
                             except Exception:
                                 n_skaters = 0
@@ -13054,10 +13785,10 @@ def props_backtest(
 @app.command(name="props-recommendations-nolines")
 def props_recommendations_nolines(
     date: str = typer.Option(..., help="Slate date YYYY-MM-DD (ET)"),
-    markets: str = typer.Option("SAVES,BLOCKS", help="Comma list of markets to include"),
+    markets: str = typer.Option(DEFAULT_NOLINES_MARKETS, help="Comma list of markets to include"),
     top: int = typer.Option(400, help="Top N to keep after sorting by chosen_prob desc"),
     min_prob: float = typer.Option(0.0, help="Global minimum chosen-side probability (0-1)"),
-    min_prob_per_market: str = typer.Option("SAVES=0.60,BLOCKS=0.85", help="Per-market minimum chosen-side probability thresholds"),
+    min_prob_per_market: str = typer.Option(DEFAULT_NOLINES_MIN_PROB_PER_MARKET, help="Per-market minimum chosen-side probability thresholds"),
 ):
     """Generate recommendations from nolines simulations by probability gating.
 
@@ -13117,8 +13848,8 @@ def props_recommendations_nolines(
 @app.command(name="props-nolines-monitor")
 def props_nolines_monitor(
     window_days: int = typer.Option(7, help="Rolling window in days for monitor"),
-    markets: str = typer.Option("SAVES,BLOCKS", help="Markets to include"),
-    min_prob_per_market: str = typer.Option("SAVES=0.60,BLOCKS=0.85", help="Per-market probability gates for backtest"),
+    markets: str = typer.Option(DEFAULT_NOLINES_MARKETS, help="Markets to include"),
+    min_prob_per_market: str = typer.Option(DEFAULT_NOLINES_MIN_PROB_PER_MARKET, help="Per-market probability gates for backtest"),
 ):
     """Generate a rolling monitor JSON for nolines simulations over the last N days."""
     from datetime import date, timedelta
@@ -13529,9 +14260,9 @@ def props_simulate_unlined(
 def props_backtest_nolines(
     start: str = typer.Option(..., help="Start date YYYY-MM-DD (ET)"),
     end: str = typer.Option(..., help="End date YYYY-MM-DD (ET)"),
-    markets: str = typer.Option("SAVES,BLOCKS", help="Comma list of markets to include"),
+    markets: str = typer.Option(DEFAULT_NOLINES_MARKETS, help="Comma list of markets to include"),
     min_prob: float = typer.Option(0.0, help="Minimum chosen-side probability threshold (0-1)"),
-    min_prob_per_market: str = typer.Option("", help="Optional per-market probability thresholds, e.g., 'SAVES=0.60,BLOCKS=0.60'"),
+    min_prob_per_market: str = typer.Option(DEFAULT_NOLINES_MIN_PROB_PER_MARKET, help="Optional per-market probability thresholds, e.g., 'SAVES=0.65,BLOCKS=0.92,SOG=0.72'"),
     out_prefix: str = typer.Option("nolines", help="Output filename prefix under data/processed/"),
 ):
     """Backtest 'nolines' simulations (no odds/EV) using chosen probability and outcomes.
@@ -15219,6 +15950,7 @@ def game_auto_calibrate(
         ml_recent_days: int = typer.Option(60, help="Trailing settled days to use for ML anchor/calibration fitting"),
         ml_anchor_max: float = typer.Option(0.6, help="Upper bound for ML market-anchor weight search"),
         ml_recent_min_samples: int = typer.Option(100, help="Minimum ML samples required in the trailing window before falling back to all samples"),
+        ml_validation_days: int = typer.Option(14, help="Trailing ML holdout days used to decide whether post-anchor calibration helps; set 0 to disable"),
     out_json: Optional[str] = typer.Option(None, help="Write calibration to this JSON path; default data/processed/model_calibration.json"),
 ):
     """Automatically calibrate team-level model hyperparameters from historical predictions and outcomes.
@@ -15472,14 +16204,18 @@ def game_auto_calibrate(
     except Exception:
         ml_recent_min_samples = 100
     try:
+        ml_validation_days = max(0, int(ml_validation_days))
+    except Exception:
+        ml_validation_days = 14
+    try:
         ml_anchor_max = max(0.0, min(1.0, float(ml_anchor_max)))
     except Exception:
         ml_anchor_max = 0.6
 
     ml_recent_start = e_dt - _td(days=ml_recent_days - 1)
-    ml_recent_samples = [(pm, pk, y) for (sample_day, pm, pk, y) in ml_samples if sample_day >= ml_recent_start]
+    ml_recent_samples = [(sample_day, pm, pk, y) for (sample_day, pm, pk, y) in ml_samples if sample_day >= ml_recent_start]
     if len(ml_recent_samples) >= ml_recent_min_samples:
-        ml_fit_samples = ml_recent_samples
+        ml_fit_samples_full = ml_recent_samples
         ml_fit_range = {
             "start": ml_recent_start.strftime("%Y-%m-%d"),
             "end": end,
@@ -15487,17 +16223,79 @@ def game_auto_calibrate(
             "mode": "recent",
         }
     else:
-        ml_fit_samples = [(pm, pk, y) for (_, pm, pk, y) in ml_samples]
+        ml_fit_samples_full = [(sample_day, pm, pk, y) for (sample_day, pm, pk, y) in ml_samples]
         ml_fit_range = {
             "start": start,
             "end": end,
-            "sample_count": len(ml_fit_samples),
+            "sample_count": len(ml_fit_samples_full),
             "mode": "fallback_all",
         }
 
-    w_ml = _fit_anchor(ml_fit_samples, max_w=ml_anchor_max)
+    ml_validation = {
+        "enabled": False,
+        "used": False,
+        "split_mode": None,
+        "validation_days": int(ml_validation_days),
+        "min_train_samples": 30,
+        "min_validation_samples": 20,
+        "train_count": 0,
+        "validation_count": 0,
+        "anchor_logloss": None,
+        "calibrated_logloss": None,
+        "kept_calibration": True,
+    }
+
+    ml_train_samples_full = list(ml_fit_samples_full)
+    ml_valid_samples_full = []
+    if ml_validation_days > 0 and ml_fit_samples_full:
+        ml_validation["enabled"] = True
+        ml_fit_end_day = max(sample_day for (sample_day, _, _, _) in ml_fit_samples_full)
+        ml_valid_start = ml_fit_end_day - _td(days=ml_validation_days - 1)
+        candidate_valid = [s for s in ml_fit_samples_full if s[0] >= ml_valid_start]
+        candidate_train = [s for s in ml_fit_samples_full if s[0] < ml_valid_start]
+        if len(candidate_train) >= int(ml_validation["min_train_samples"]) and len(candidate_valid) >= int(ml_validation["min_validation_samples"]):
+            ml_train_samples_full = candidate_train
+            ml_valid_samples_full = candidate_valid
+            ml_validation["used"] = True
+            ml_validation["split_mode"] = "day_window"
+            ml_validation["train_count"] = len(candidate_train)
+            ml_validation["validation_count"] = len(candidate_valid)
+        elif len(ml_fit_samples_full) >= int(ml_validation["min_train_samples"]) + int(ml_validation["min_validation_samples"]):
+            ordered = sorted(ml_fit_samples_full, key=lambda s: s[0])
+            split_at = len(ordered) - int(ml_validation["min_validation_samples"])
+            candidate_train = ordered[:split_at]
+            candidate_valid = ordered[split_at:]
+            if len(candidate_train) >= int(ml_validation["min_train_samples"]):
+                ml_train_samples_full = candidate_train
+                ml_valid_samples_full = candidate_valid
+                ml_validation["used"] = True
+                ml_validation["split_mode"] = "sample_tail"
+                ml_validation["train_count"] = len(candidate_train)
+                ml_validation["validation_count"] = len(candidate_valid)
+
+    ml_train_samples = [(pm, pk, y) for (_, pm, pk, y) in ml_train_samples_full]
+    ml_valid_samples = [(pm, pk, y) for (_, pm, pk, y) in ml_valid_samples_full]
+
+    w_ml = _fit_anchor(ml_train_samples, max_w=ml_anchor_max)
     w_tot = _fit_anchor([(pm, pk, y) for (pm, pk, y, _, _) in to_samples])
-    ml_cal = _fit_moneyline_cal(ml_fit_samples, w_ml)
+    ml_cal = _fit_moneyline_cal(ml_train_samples, w_ml)
+
+    if ml_validation["used"] and ml_valid_samples:
+        from .utils.calibration import BinaryCalibration
+
+        ps_mod_val = np.array([s[0] for s in ml_valid_samples], dtype=float)
+        ps_mkt_val = np.array([s[1] for s in ml_valid_samples], dtype=float)
+        ys_val = np.array([s[2] for s in ml_valid_samples], dtype=int)
+        p_anchor_val = np.clip((1.0 - float(w_ml)) * ps_mod_val + float(w_ml) * ps_mkt_val, 1e-9, 1 - 1e-9)
+        p_cal_val = np.clip(ml_cal.apply(p_anchor_val), 1e-9, 1 - 1e-9)
+        anchor_logloss = float(-np.mean(ys_val * np.log(p_anchor_val) + (1 - ys_val) * np.log(1 - p_anchor_val)))
+        cal_logloss = float(-np.mean(ys_val * np.log(p_cal_val) + (1 - ys_val) * np.log(1 - p_cal_val)))
+        ml_validation["anchor_logloss"] = anchor_logloss
+        ml_validation["calibrated_logloss"] = cal_logloss
+        if cal_logloss >= anchor_logloss - 1e-9:
+            ml_cal = BinaryCalibration()
+            ml_validation["kept_calibration"] = False
+
     T = _fit_totals_temp(to_samples, w_tot)
     rho = _fit_dc_rho(dc_samples)
 
@@ -15521,6 +16319,7 @@ def game_auto_calibrate(
         "market_anchor_w_totals": float(w_tot),
         "ml_anchor_max": float(ml_anchor_max),
         "ml_fit_range": ml_fit_range,
+        "ml_validation": ml_validation,
         "ml_temp": float(ml_cal.t),
         "ml_bias": float(ml_cal.b),
         "totals_temp": float(T),

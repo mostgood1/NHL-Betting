@@ -60,6 +60,8 @@ Param (
   [string]$PropsMinEvPerMarket = "SOG=0.00,GOALS=0.05,ASSISTS=0.00,POINTS=0.12,SAVES=0.02,BLOCKS=0.02",
   [double]$PropsMinProb = 0.0,
   [string]$PropsMinProbPerMarket = "SOG=0.75,GOALS=0.60,ASSISTS=0.60,POINTS=0.60,SAVES=0.60,BLOCKS=0.60",
+  [string]$PropsNolinesMarkets = "SAVES,BLOCKS,SOG",
+  [string]$PropsNolinesMinProbPerMarket = "SAVES=0.65,BLOCKS=0.92,SOG=0.72",
   # When omitted, inherit the CLI defaults for props under-side gating.
   [double]$PropsUnderMinEv = 0,
   [int]$PropsUnderMaxJuice = 0,
@@ -175,6 +177,27 @@ function Has-NonEmptyCsv {
   } catch {
     return $false
   }
+}
+
+function Set-MarketThreshold {
+  param(
+    [Parameter(Mandatory=$true)][string]$Thresholds,
+    [Parameter(Mandatory=$true)][string]$Market,
+    [Parameter(Mandatory=$true)][double]$Value
+  )
+
+  $entries = [ordered]@{}
+  foreach ($part in ($Thresholds -split ',')) {
+    $trimmed = $part.Trim()
+    if (-not $trimmed -or $trimmed.IndexOf('=') -lt 0) { continue }
+    $pieces = $trimmed -split '=', 2
+    $key = $pieces[0].Trim().ToUpper()
+    $rawVal = $pieces[1].Trim()
+    if (-not $key) { continue }
+    $entries[$key] = $rawVal
+  }
+  $entries[$Market.Trim().ToUpper()] = ('{0:0.##}' -f $Value)
+  return (($entries.GetEnumerator() | ForEach-Object { "{0}={1}" -f $_.Key, $_.Value }) -join ',')
 }
 
 function Set-MoneylineAnchorOnlyCalibration {
@@ -1240,10 +1263,13 @@ if ($PropsRecs) {
       Write-Host "[daily_update] Generating SIM-based props recommendations for $today & $tomorrow …" -ForegroundColor Cyan
       # Weekly auto-tune for SAVES nolines gate (range 0.65–0.68) based on 7-day monitor
       $SavesGate = 0.65
+      $nolinesMarkets = $PropsNolinesMarkets
+      $nolinesMinProbPerMarket = $PropsNolinesMinProbPerMarket
       try {
         if ($AnchorNow.DayOfWeek -eq 'Monday') {
           Write-Host "[daily_update] Auto-tuning SAVES gate via 7-day monitor …" -ForegroundColor DarkGreen
-          $monCmd = @("-m", "nhl_betting.cli", "props-nolines-monitor", "--window-days", "7", "--markets", "SAVES,BLOCKS", "--min-prob-per-market", "SAVES=$SavesGate,BLOCKS=0.92")
+          $tunedNolinesMinProbPerMarket = Set-MarketThreshold -Thresholds $nolinesMinProbPerMarket -Market 'SAVES' -Value $SavesGate
+          $monCmd = @("-m", "nhl_betting.cli", "props-nolines-monitor", "--window-days", "7", "--markets", $nolinesMarkets, "--min-prob-per-market", $tunedNolinesMinProbPerMarket)
           python $monCmd
           $monPath = Join-Path "data\processed" "props_nolines_monitor.json"
           if (Test-Path $monPath) {
@@ -1260,6 +1286,7 @@ if ($PropsRecs) {
       } catch {
         Write-Warning "[daily_update] Auto-tune failed: $($_.Exception.Message)"
       }
+      $nolinesMinProbPerMarket = Set-MarketThreshold -Thresholds $nolinesMinProbPerMarket -Market 'SAVES' -Value $SavesGate
       $recsSimBase = @("-m", "nhl_betting.cli", "props-recommendations-sim", "--min-ev", "$PropsMinEv", "--top", "$PropsTop", "--min-ev-per-market", $PropsMinEvPerMarket, "--min-prob", "$PropsMinProb", "--min-prob-per-market", $PropsMinProbPerMarket)
       if ($PropsUnderMinEvBound) {
         if ($PropsUnderMinEv -gt 0) {
@@ -1291,9 +1318,9 @@ if ($PropsRecs) {
       }
       python @($recsSimBase + @("--date", $today))
       python @($recsSimBase + @("--date", $tomorrow))
-      # Also produce nolines-only recommendations (SAVES/BLOCKS) without odds
+      # Also produce nolines-only recommendations without odds
       Write-Host "[daily_update] Generating nolines props recommendations for $today & $tomorrow …" -ForegroundColor Cyan
-      $recsNoBase = @("-m", "nhl_betting.cli", "props-recommendations-nolines", "--markets", "SAVES,BLOCKS,SOG", "--top", "$PropsTop", "--min-prob-per-market", "SAVES=$SavesGate,BLOCKS=0.92,SOG=0.72")
+      $recsNoBase = @("-m", "nhl_betting.cli", "props-recommendations-nolines", "--markets", $nolinesMarkets, "--top", "$PropsTop", "--min-prob-per-market", $nolinesMinProbPerMarket)
       python @($recsNoBase + @("--date", $today))
       python @($recsNoBase + @("--date", $tomorrow))
       # Combine EV-based and nolines into one output per day
@@ -1302,7 +1329,7 @@ if ($PropsRecs) {
       python -m nhl_betting.cli props-recommendations-combined --date $tomorrow
       # Write 7-day nolines monitor
       Write-Host "[daily_update] Generating nolines monitor (7-day) …" -ForegroundColor DarkGreen
-      python -m nhl_betting.cli props-nolines-monitor --window-days 7 --markets "SAVES,BLOCKS" --min-prob-per-market "SAVES=$SavesGate,BLOCKS=0.92"
+      python -m nhl_betting.cli props-nolines-monitor --window-days 7 --markets $nolinesMarkets --min-prob-per-market $nolinesMinProbPerMarket
     } else {
       Write-Host "[daily_update] Generating props recommendations (model-only) for $today & $tomorrow …" -ForegroundColor Cyan
       $recsArgsBase = @(

@@ -315,11 +315,11 @@
     .scoreboard-strip .s-item {
       min-height: var(--sb-item-min-h);
       display: grid;
-      gap: 12px;
+      gap: 10px;
       align-content: start;
-      padding: 14px;
+      padding: 12px;
       border: 1px solid var(--cards-line);
-      border-radius: 20px;
+      border-radius: 18px;
       text-decoration: none;
       color: var(--cards-text);
       background: linear-gradient(180deg, rgba(16, 34, 52, 0.94), rgba(9, 20, 31, 0.98));
@@ -357,8 +357,8 @@
       display: flex;
       align-items: start;
       justify-content: space-between;
-      gap: 12px;
-      font-size: 15px;
+      gap: 10px;
+      font-size: 14px;
       font-weight: 700;
       line-height: 1.15;
     }
@@ -366,7 +366,7 @@
     .scoreboard-strip .s-teamline .lhs {
       display: flex;
       align-items: start;
-      gap: 9px;
+      gap: 8px;
       min-width: 0;
     }
 
@@ -377,16 +377,16 @@
 
     .scoreboard-strip .s-teamline .pts {
       min-width: 18px;
-      margin-left: 12px;
+      margin-left: 10px;
       text-align: right;
-      font-size: 18px;
+      font-size: 17px;
       font-weight: 900;
       font-variant-numeric: tabular-nums;
     }
 
     .scoreboard-strip .team-logo {
-      width: 18px;
-      height: 18px;
+      width: 17px;
+      height: 17px;
       margin-top: 1px;
     }
 
@@ -944,18 +944,18 @@
     }
 
     .compact-card .scoreboard-strip .s-item {
-      flex: 0 0 320px;
-      padding: 10px;
+      flex: 0 0 300px;
+      padding: 9px 10px;
       border-radius: 16px;
       gap: 8px;
     }
 
     .compact-card .scoreboard-strip .s-teamline {
-      font-size: 13px;
+      font-size: 12.5px;
     }
 
     .compact-card .scoreboard-strip .s-teamline .pts {
-      font-size: 16px;
+      font-size: 15px;
     }
 
     .compact-card .game-card .props-game-tile {
@@ -981,37 +981,117 @@
       gap: 10px;
     }
 
+    .cards-shell {
+      width: min(1640px, calc(100vw - 16px));
+      margin: 0 auto;
+      padding: 10px 0 24px;
+    }
+
+    .cards-header {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+
+    .cards-title-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+      min-width: 0;
+    }
+
     .cards-title-row #pageTitle {
-      font-size: clamp(28px, 4vw, 38px);
-      line-height: 0.98;
-      letter-spacing: -0.02em;
+      margin: 0;
+      font-family: "Space Grotesk", sans-serif;
+      font-size: clamp(17px, 1.8vw, 22px);
+      line-height: 1;
+      letter-spacing: 0;
     }
 
     .cards-header-meta {
-      margin: 6px 0 0;
-      color: var(--cards-text-dim);
-      font-size: 13px;
-      font-weight: 600;
-      line-height: 1.4;
+      margin: 0;
+      color: var(--cards-text-soft);
+      font-size: 10.5px;
+      line-height: 1.15;
+      white-space: nowrap;
     }
 
     .cards-header-actions {
-      display: contents;
+      display: none;
+    }
+
+    .cards-control-card {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      align-items: start;
+      justify-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border: 1px solid var(--cards-line);
+      border-radius: var(--cards-radius-lg);
+      background: rgba(7, 18, 29, 0.82);
+      box-shadow: var(--cards-shadow);
+      -webkit-backdrop-filter: blur(14px);
+      backdrop-filter: blur(14px);
+    }
+
+    .cards-date-form {
+      display: flex;
+      min-width: 0;
+      width: fit-content;
+      max-width: 100%;
+      gap: 8px;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      padding: 0;
+      border: 0;
+      background: transparent;
+    }
+
+    .cards-date-form > * {
+      flex: 0 0 auto;
+    }
+
+    .cards-toolbar-rail {
+      display: flex;
+      min-width: 0;
+      width: 100%;
+      flex-direction: row;
+      align-items: center;
+      justify-content: center;
+      gap: 7px 10px;
+      flex-wrap: wrap;
     }
 
     .cards-source-meta {
       display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
+      gap: 6px;
       align-items: center;
+      justify-content: center;
+      flex: 0 1 auto;
+      flex-wrap: wrap;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: var(--cards-text-soft);
+      font-size: 10.5px;
     }
 
-    .cards-summary-kicker {
-      color: var(--cards-text-dim);
-      font-size: 10px;
-      font-weight: 800;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
+    .cards-source-meta span {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 22px;
+      padding: 0 8px;
+      border: 1px solid var(--cards-line);
+      border-radius: 999px;
+      background: rgba(8, 18, 30, 0.82);
     }
 
     .cards-nav-pill,
@@ -1022,23 +1102,245 @@
       align-items: center;
       justify-content: center;
       gap: 6px;
-      min-height: 30px;
-      padding: 0 12px;
+      min-height: 26px;
+      padding: 0 11px;
       border-radius: 999px;
-      border: 1px solid var(--cards-line);
-      background: rgba(8, 18, 30, 0.78);
+      border: 1px solid var(--cards-line-strong);
+      background: rgba(4, 12, 20, 0.72);
       color: var(--cards-text-soft);
       font-size: 11px;
-      font-weight: 800;
-      letter-spacing: 0.08em;
+      font-weight: 700;
+      letter-spacing: 0.04em;
       text-transform: uppercase;
       white-space: nowrap;
+      text-decoration: none;
     }
 
     .cards-nav-pill {
-      min-height: 44px;
-      padding: 0 18px;
-      font-size: 14px;
+      min-height: 38px;
+      padding: 0 13px;
+      font-size: 11px;
+    }
+
+    .cards-nav-pill:hover,
+    .cards-nav-pill:focus-visible {
+      border-color: rgba(154, 243, 222, 0.36);
+      color: var(--cards-text);
+    }
+
+    .cards-form-pill {
+      pointer-events: none;
+    }
+
+    .date-picker,
+    .date-picker--inline {
+      display: contents;
+    }
+
+    .date-picker label,
+    .date-picker--inline label {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .date-input {
+      width: 150px;
+      min-height: 38px;
+      padding: 0 12px;
+      border: 1px solid var(--cards-line-strong);
+      border-radius: 12px;
+      color: var(--cards-text);
+      background: rgba(4, 12, 20, 0.8);
+      font: inherit;
+    }
+
+    .date-input::-webkit-calendar-picker-indicator {
+      filter: invert(1);
+      opacity: 0.88;
+    }
+
+    .cards-date-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 38px;
+      padding: 0 14px;
+      border: 1px solid var(--cards-line-strong);
+      border-radius: 999px;
+      color: var(--cards-bg);
+      background: linear-gradient(135deg, var(--cards-accent), var(--cards-warm));
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+
+    .cards-filters {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 auto;
+    }
+
+    .cards-filter-pill {
+      border: 1px solid var(--cards-line);
+      background: rgba(8, 18, 30, 0.78);
+      color: var(--cards-text-soft);
+      cursor: pointer;
+      min-height: 22px;
+      padding: 0 9px;
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    .cards-filter-pill.is-active {
+      color: var(--cards-bg);
+      border-color: transparent;
+      background: linear-gradient(135deg, var(--cards-warm), var(--cards-accent));
+    }
+
+    .muted {
+      color: var(--cards-text-dim);
+      font-size: 11px;
+    }
+
+    .cards-nav-pill.is-active,
+    .cards-chip.is-official,
+    .cards-overview-badge.is-live,
+    .cards-status-badge.live,
+    .cards-status-badge.in-progress,
+    .cards-status-badge.in_progress,
+    .cards-status-badge.crit,
+    .cards-status-badge.ot,
+    .cards-filter-pill.is-active {
+      color: var(--cards-bg);
+      border-color: transparent;
+      background: linear-gradient(135deg, var(--cards-accent-strong), var(--cards-warm));
+    }
+
+    .cards-scoreboard {
+      display: grid;
+      grid-auto-flow: column;
+      grid-auto-columns: minmax(300px, 1fr);
+      gap: 10px;
+      overflow-x: auto;
+      margin-top: 8px;
+      padding-bottom: 2px;
+    }
+
+    .cards-scoreboard::-webkit-scrollbar {
+      height: 10px;
+    }
+
+    .cards-scoreboard::-webkit-scrollbar-thumb {
+      border-radius: 999px;
+      background: rgba(132, 166, 196, 0.18);
+    }
+
+    .cards-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .cards-game-card {
+      display: grid;
+      gap: 12px;
+      padding: 15px;
+      border: 1px solid var(--cards-line);
+      border-radius: 24px;
+      background: linear-gradient(180deg, rgba(13, 28, 42, 0.96), rgba(8, 17, 28, 0.92));
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
+      width: 100%;
+      max-width: none;
+      overflow: visible;
+    }
+
+    .cards-strip-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .cards-head-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .cards-matchup-line {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      font-family: "Space Grotesk", sans-serif;
+      font-size: clamp(17px, 1.8vw, 22px);
+      line-height: 1;
+      letter-spacing: 0;
+    }
+
+    .cards-team-token {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      min-width: 0;
+    }
+
+    .cards-team-token strong {
+      font-weight: 800;
+    }
+
+    .cards-score-ribbon {
+      display: grid;
+      gap: 10px;
+      padding: 11px;
+      border: 1px solid var(--cards-line);
+      border-radius: 18px;
+      background: linear-gradient(180deg, rgba(13, 28, 42, 0.96), rgba(8, 17, 28, 0.92));
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
+    }
+
+    .cards-market-row {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .cards-market-tile {
+      display: grid;
+      gap: 10px;
+      padding: 11px;
+      border: 1px solid var(--cards-line);
+      border-radius: 18px;
+      background: linear-gradient(180deg, rgba(13, 28, 42, 0.96), rgba(8, 17, 28, 0.92));
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
+    }
+
+    .cards-status-cluster {
+      display: grid;
+      gap: 6px;
+      justify-items: end;
+      min-width: 220px;
+    }
+
+    .cards-nav-pill,
+    .cards-chip,
+    .cards-overview-badge,
+    .cards-status-badge {
       letter-spacing: 0.04em;
     }
 
@@ -1071,67 +1373,6 @@
       background: rgba(8, 18, 30, 0.68);
     }
 
-    .cards-scoreboard {
-      margin-top: 18px;
-    }
-
-    .cards-grid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 16px;
-      margin-top: 18px;
-      justify-items: center;
-    }
-
-    .cards-game-card {
-      display: grid;
-      gap: 14px;
-      width: min(100%, 1320px);
-      padding: 17px;
-      border: 1px solid var(--cards-line);
-      border-radius: 28px;
-      background: linear-gradient(180deg, rgba(13, 27, 43, 0.96), rgba(7, 16, 26, 0.98));
-      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
-      overflow: hidden;
-    }
-
-    .cards-strip-head {
-      display: flex;
-      justify-content: space-between;
-      align-items: start;
-      gap: 12px;
-    }
-
-    .cards-head-left {
-      display: flex;
-      align-items: flex-start;
-      gap: 12px;
-      flex-wrap: wrap;
-      min-width: 0;
-    }
-
-    .cards-matchup-line {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      min-width: 0;
-      font-family: "Space Grotesk", sans-serif;
-      font-size: clamp(18px, 2vw, 24px);
-      line-height: 1;
-      letter-spacing: -0.02em;
-    }
-
-    .cards-team-token {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      min-width: 0;
-    }
-
-    .cards-team-token strong {
-      font-weight: 800;
-    }
-
     .cards-team-token .team-logo {
       width: 22px;
       height: 22px;
@@ -1140,39 +1381,39 @@
 
     .cards-status-cluster {
       display: grid;
-      gap: 8px;
+      gap: 6px;
       justify-items: end;
-      min-width: 180px;
+      min-width: 168px;
     }
 
     .cards-status-line {
       display: flex;
       flex-wrap: wrap;
       justify-content: flex-end;
-      gap: 8px;
+      gap: 6px;
     }
 
     .cards-start-time {
       color: var(--cards-text-dim);
-      font-size: 12px;
+      font-size: 11px;
       line-height: 1.35;
       text-align: right;
     }
 
     .cards-score-ribbon {
       display: grid;
-      grid-template-columns: 1fr auto 1fr minmax(250px, 1.08fr);
-      gap: 10px;
+      grid-template-columns: 1fr auto 1fr minmax(220px, 1fr);
+      gap: 8px;
       align-items: center;
-      padding: 14px;
+      padding: 12px;
       border: 1px solid var(--cards-line);
-      border-radius: 22px;
+      border-radius: 20px;
       background: rgba(5, 14, 24, 0.65);
     }
 
     .cards-score-side {
       display: grid;
-      gap: 4px;
+      gap: 3px;
     }
 
     .cards-score-side.is-home {
@@ -1182,7 +1423,7 @@
 
     .cards-score-label {
       color: var(--cards-text-dim);
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 700;
       letter-spacing: 0.08em;
       text-transform: uppercase;
@@ -1190,21 +1431,21 @@
 
     .cards-score-number {
       font-family: "Space Grotesk", sans-serif;
-      font-size: 34px;
+      font-size: 31px;
       line-height: 1;
       font-weight: 800;
     }
 
     .cards-team-code {
       font-family: "Space Grotesk", sans-serif;
-      font-size: 22px;
+      font-size: 20px;
       line-height: 1;
       font-weight: 800;
     }
 
     .cards-score-meta {
       display: grid;
-      gap: 6px;
+      gap: 5px;
       min-width: 0;
     }
 
@@ -1215,7 +1456,7 @@
     .cards-callout-copy,
     .cards-empty-copy {
       color: var(--cards-text-soft);
-      font-size: 12.5px;
+      font-size: 11.5px;
       line-height: 1.35;
       overflow-wrap: anywhere;
     }
@@ -1223,7 +1464,7 @@
     .cards-market-row {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 10px;
+      gap: 8px;
       align-items: start;
     }
 
@@ -1233,21 +1474,21 @@
       display: grid;
       gap: 6px;
       align-content: start;
-      padding: 10px 12px;
+      padding: 9px 11px;
       border: 1px solid var(--cards-line);
-      border-radius: 16px;
+      border-radius: 15px;
       background: linear-gradient(180deg, rgba(13, 29, 44, 0.95), rgba(8, 18, 30, 0.92));
     }
 
     .cards-market-tile {
-      min-height: 94px;
+      min-height: 86px;
     }
 
     .cards-market-label,
     .cards-table-title,
     .cards-section-label {
       color: var(--cards-text-dim);
-      font-size: 10px;
+      font-size: 9px;
       font-weight: 800;
       letter-spacing: 0.12em;
       text-transform: uppercase;
@@ -1256,7 +1497,7 @@
     .cards-market-main,
     .cards-lens-main {
       font-family: "Space Grotesk", sans-serif;
-      font-size: 18px;
+      font-size: 16px;
       line-height: 1.08;
       font-weight: 700;
       overflow-wrap: anywhere;
@@ -1275,7 +1516,7 @@
     .cards-props-grid,
     .cards-detail-grid {
       display: grid;
-      gap: 12px;
+      gap: 10px;
     }
 
     .cards-overview-grid {
@@ -1295,7 +1536,7 @@
     .cards-data-pair span,
     .cards-mini-metric span {
       color: var(--cards-text-dim);
-      font-size: 10px;
+      font-size: 9px;
       font-weight: 800;
       letter-spacing: 0.12em;
       text-transform: uppercase;
@@ -1304,7 +1545,7 @@
     .cards-data-pair strong,
     .cards-mini-metric strong {
       font-family: "Space Grotesk", sans-serif;
-      font-size: 17px;
+      font-size: 15px;
       line-height: 1.08;
       overflow-wrap: anywhere;
     }
@@ -1312,39 +1553,39 @@
     .cards-mini-metrics {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 10px;
+      gap: 8px;
     }
 
     .cards-mini-metric {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 10px;
-      min-height: 72px;
-      padding: 10px 12px;
+      gap: 8px;
+      min-height: 66px;
+      padding: 9px 10px;
       border: 1px solid var(--cards-line);
-      border-radius: 16px;
+      border-radius: 14px;
       background: rgba(10, 21, 34, 0.88);
     }
 
     .cards-mini-metric-copy {
       color: var(--cards-text-soft);
-      font-size: 12px;
+      font-size: 11px;
       line-height: 1.32;
       text-align: right;
     }
 
     .cards-prob-grid {
       display: grid;
-      gap: 10px;
+      gap: 8px;
     }
 
     .cards-prob-row {
       display: grid;
       gap: 6px;
-      padding: 10px 12px;
+      padding: 9px 10px;
       border: 1px solid var(--cards-line);
-      border-radius: 16px;
+      border-radius: 14px;
       background: rgba(10, 21, 34, 0.72);
     }
 
@@ -1357,7 +1598,7 @@
 
     .cards-prob-label {
       color: var(--cards-text-dim);
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 800;
       letter-spacing: 0.08em;
       text-transform: uppercase;
@@ -1365,7 +1606,7 @@
 
     .cards-prob-badge {
       color: var(--cards-text-dim);
-      font-size: 10px;
+      font-size: 9px;
       font-weight: 800;
       letter-spacing: 0.12em;
       text-transform: uppercase;
@@ -1402,27 +1643,27 @@
 
     .cards-prob-meta {
       color: var(--cards-text-soft);
-      font-size: 12px;
+      font-size: 11px;
       line-height: 1.35;
     }
 
     .cards-tabs {
       display: flex;
       flex-wrap: wrap;
-      gap: 10px;
+      gap: 8px;
     }
 
     .cards-tab {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      min-height: 38px;
-      padding: 0 14px;
+      min-height: 34px;
+      padding: 0 12px;
       border-radius: 999px;
       border: 1px solid var(--cards-line);
       background: rgba(8, 18, 30, 0.78);
       color: var(--cards-text-soft);
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 800;
       letter-spacing: 0.08em;
       text-transform: uppercase;
@@ -1447,7 +1688,7 @@
 
     .cards-panel.is-active {
       display: grid;
-      gap: 12px;
+      gap: 10px;
     }
 
     .cards-callout-list {
@@ -1455,23 +1696,23 @@
       margin: 0;
       padding: 0;
       display: grid;
-      gap: 10px;
+      gap: 8px;
     }
 
     .cards-callout {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 12px;
-      padding: 12px 14px;
+      gap: 10px;
+      padding: 10px 12px;
       border: 1px solid var(--cards-line);
-      border-radius: 16px;
+      border-radius: 14px;
       background: rgba(10, 21, 34, 0.72);
     }
 
     .cards-callout strong {
       font-family: "Space Grotesk", sans-serif;
-      font-size: 16px;
+      font-size: 14px;
       line-height: 1.08;
       overflow-wrap: anywhere;
     }
@@ -1513,23 +1754,23 @@
     }
 
     .compact-card .cards-game-card {
-      gap: 12px;
-      padding: 14px;
-      border-radius: 24px;
+      gap: 10px;
+      padding: 13px;
+      border-radius: 22px;
     }
 
     .compact-card .cards-score-ribbon,
     .compact-card .cards-market-tile,
     .compact-card .cards-panel-card {
-      padding: 11px 12px;
+      padding: 10px 11px;
     }
 
     .compact-card .cards-score-number {
-      font-size: 28px;
+      font-size: 26px;
     }
 
     .compact-card .cards-team-code {
-      font-size: 19px;
+      font-size: 18px;
     }
 
     .compact-card .cards-market-row,
@@ -1537,7 +1778,7 @@
     .compact-card .cards-box-grid,
     .compact-card .cards-props-grid,
     .compact-card .cards-detail-grid {
-      gap: 10px;
+      gap: 8px;
     }
 
     @media (max-width: 900px) {
@@ -1628,47 +1869,30 @@
 <body class="cards-body">
   <div class="cards-shell">
     <header class="cards-header">
-      <div class="cards-title-block">
-        <div class="cards-title-row">
-          <h1 id="pageTitle">NHL Game Cards</h1>
-          <span class="cards-nav-pill is-active" id="cardsDateBadge">Loading</span>
-        </div>
-        <div class="cards-kicker">NHL projections and live card view</div>
-        <p class="cards-header-meta" id="cardsHeaderMeta">Loading slate...</p>
-      </div>
-      <div class="cards-header-actions">
-        <div class="cards-control-surface">
-          <div class="cards-control-main">
-            <div class="cards-actions-row">
-              <section class="cards-control-card cards-control-card--inline" aria-label="Slate controls">
-                <div class="topbar topbar--compact">
-                  <a id="accuracyLink" class="btn" href="/live_lens_accuracy?date={{ initial_date | urlencode }}">Live Lens Accuracy</a>
-                  <a id="skaterLaddersLink" class="btn" href="/skater-ladders?date={{ initial_date | urlencode }}">Skater Ladders</a>
-                  <a id="goalieLaddersLink" class="btn" href="/goalie-ladders?date={{ initial_date | urlencode }}">Goalie Ladders</a>
-                  <div class="date-picker date-picker--inline">
-                    <label for="datePicker">Date</label>
-                    <input id="datePicker" class="date-input" type="date" value="{{ initial_date }}" />
-                  </div>
-                  <div class="muted" id="status">Loading…</div>
-                </div>
-                <div id="cardsFilters" class="cards-filters" aria-label="Slate filters"></div>
-              </section>
-            </div>
-          </div>
-          <aside class="cards-control-summary" aria-label="Slate summary">
-            <div class="cards-summary-kicker">Slate Summary</div>
-            <div id="cardsSourceMeta" class="cards-source-meta"></div>
-          </aside>
-        </div>
+      <div class="cards-title-row">
+        <h1 id="pageTitle">NHL Game Cards</h1>
+        <div class="cards-header-meta" id="cardsHeaderMeta">Loading slate...</div>
       </div>
     </header>
-    <main>
-      <div class="cards-section-heading">
-        <div>
-          <div class="cards-section-kicker">Slate tracker</div>
-          <h2>Games at a glance</h2>
-        </div>
+    <section class="cards-control-card" aria-label="Slate controls">
+      <div class="cards-date-form">
+        <a class="cards-nav-pill" id="cardsPrevDateLink" href="/?date={{ initial_date | urlencode }}" rel="prev">Prev</a>
+        <span class="cards-nav-pill cards-form-pill" id="cardsDateBadge" aria-hidden="true">{{ initial_date }}</span>
+        <label for="datePicker">Slate date</label>
+        <input id="datePicker" class="date-input" type="date" value="{{ initial_date }}" />
+        <button type="button" class="cards-date-button" id="cardsDateLoadButton">Load</button>
+        <a class="cards-nav-pill" id="cardsNextDateLink" href="/?date={{ initial_date | urlencode }}" rel="next">Next</a>
+        <a id="accuracyLink" class="cards-nav-pill" href="/live_lens_accuracy?date={{ initial_date | urlencode }}">Live Lens Accuracy</a>
+        <a id="skaterLaddersLink" class="cards-nav-pill" href="/skater-ladders?date={{ initial_date | urlencode }}">Skater Ladders</a>
+        <a id="goalieLaddersLink" class="cards-nav-pill" href="/goalie-ladders?date={{ initial_date | urlencode }}">Goalie Ladders</a>
       </div>
+      <div class="cards-toolbar-rail">
+        <div id="cardsSourceMeta" class="cards-source-meta"></div>
+        <div id="cardsFilters" class="cards-filters" aria-label="Slate filters"></div>
+        <div class="muted" id="status">Loading…</div>
+      </div>
+    </section>
+    <main>
       <section id="scoreboardStrip" class="scoreboard-strip cards-scoreboard" aria-label="Games"></section>
       <div class="cards-section-heading cards-section-heading--compact">
         <div>
@@ -1697,6 +1921,7 @@
     let activeSlateFilter = 'all';
     let currentSlateCards = [];
     let currentSlateInfoByKey = new Map();
+    let currentSlateNSims = null;
     const propCardState = new Map();
 
     const DEFAULT_PAGE_TITLE = 'NHL Game Cards';
@@ -1735,6 +1960,18 @@
       setDateScopedHref('accuracyLink', '/live_lens_accuracy', d);
       setDateScopedHref('skaterLaddersLink', '/skater-ladders', d);
       setDateScopedHref('goalieLaddersLink', '/goalie-ladders', d);
+      try {
+        const baseDate = String(d || '').trim();
+        if (!baseDate) return;
+        const prev = new Date(`${baseDate}T00:00:00Z`);
+        const next = new Date(`${baseDate}T00:00:00Z`);
+        if (!Number.isNaN(prev.getTime()) && !Number.isNaN(next.getTime())) {
+          prev.setUTCDate(prev.getUTCDate() - 1);
+          next.setUTCDate(next.getUTCDate() + 1);
+          setDateScopedHref('cardsPrevDateLink', '/', prev.toISOString().slice(0, 10));
+          setDateScopedHref('cardsNextDateLink', '/', next.toISOString().slice(0, 10));
+        }
+      } catch (e) {}
     }
 
     function pct(x) {
@@ -3019,6 +3256,59 @@
       `;
     }
 
+    function gameStatusInfo(rawStatus, opts = null) {
+      const o = opts || {};
+      const raw = String(rawStatus || '').trim();
+      const detailed = String(o.detailed || '').trim();
+      const periodDisp = String(o.periodDisp || '').trim();
+      const tokens = [raw, detailed, periodDisp].filter(Boolean);
+      const upper = tokens.join(' | ').toUpperCase();
+      const compact = upper.replace(/[^A-Z0-9]+/g, '');
+      const has = (value) => upper.includes(String(value || '').toUpperCase());
+      const hasCompact = (value) => compact.includes(String(value || '').toUpperCase().replace(/[^A-Z0-9]+/g, ''));
+      const isFinal = has('FINAL') || hasCompact('FINAL') || has('POST') || hasCompact('POST') || has('END') || hasCompact('END') || upper === 'OFF' || compact === 'OFF';
+      const isIntermission = has('INTERMISSION') || hasCompact('INTERMISSION') || /(?:^|\b)INT(?:\b|$)/.test(upper) || hasCompact('INT');
+      const isShootout = has('SHOOTOUT') || hasCompact('SHOOTOUT') || upper === 'SO' || compact === 'SO' || /(?:^|\b)SO(?:\b|$)/.test(upper);
+      const isOvertime = !isFinal && !isShootout && (has('OVERTIME') || hasCompact('OVERTIME') || /(?:^|\b)OT(?:\b|$)/.test(upper) || hasCompact('OT'));
+      const isCritical = has('CRIT') || hasCompact('CRIT');
+      const isLive = !isFinal && (has('LIVE') || hasCompact('LIVE') || has('IN_PROGRESS') || has('IN PROGRESS') || has('IN-PROGRESS') || hasCompact('INPROGRESS') || isIntermission || isShootout || isOvertime || isCritical);
+
+      let text = raw || detailed || periodDisp || 'Scheduled';
+      let className = statusBadgeClass(text);
+      if (isFinal) {
+        text = 'Final';
+        className = 'final';
+      } else if (isShootout) {
+        text = 'SO';
+        className = 'so';
+      } else if (isOvertime) {
+        text = 'OT';
+        className = 'ot';
+      } else if (isIntermission) {
+        text = 'Intermission';
+        className = 'intermission';
+      } else if (isCritical) {
+        text = 'Crunch Time';
+        className = 'crit';
+      } else if (isLive) {
+        text = 'Live';
+        className = 'live';
+      } else if (has('PRE') || hasCompact('PRE') || has('PREGAME') || hasCompact('PREGAME') || has('PREVIEW') || hasCompact('PREVIEW') || has('SCHEDULED') || hasCompact('SCHEDULED') || has('FUT') || hasCompact('FUT')) {
+        text = 'Scheduled';
+        className = 'scheduled';
+      }
+
+      return {
+        raw,
+        detailed,
+        periodDisp,
+        text,
+        className,
+        isLive,
+        isFinal,
+      };
+    }
+
     function statusBadgeClass(text) {
       try {
         const s = String(text || '').trim().toLowerCase();
@@ -3123,7 +3413,22 @@
     function renderCard(pred, recsForGame, simForGame, propsAway=null, propsHome=null, simMeta=null) {
       const match = keyForGame(pred);
       const state = String(pred.game_state || '').trim();
+      const stateInfo = gameStatusInfo(state);
       const venue = String(pred.venue || '').trim();
+      let startDetail = venue;
+      try {
+        const startMs = startTimeMs(pred);
+        if (isFinite(Number(startMs))) {
+          const startText = new Intl.DateTimeFormat(undefined, {
+            month: 'numeric',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+            timeZoneName: 'short',
+          }).format(new Date(Number(startMs)));
+          startDetail = venue ? `${startText} · ${venue}` : startText;
+        }
+      } catch (e) {}
 
       const awayLogo = pred.away_logo ? String(pred.away_logo) : '';
       const homeLogo = pred.home_logo ? String(pred.home_logo) : '';
@@ -3242,7 +3547,8 @@
         const pk = (pred && (pred.gamePk ?? pred.game_pk ?? pred.nhl_game_pk ?? pred.nhlGamePk ?? pred.game_id ?? pred.gameId));
         if (pk !== undefined && pk !== null && String(pk).trim() !== '') el.dataset.gamePk = String(pk).trim();
       } catch (e) {}
-      el.dataset.cardStatus = state;
+      el.dataset.cardStatus = stateInfo.text;
+      el.dataset.scheduledDetail = startDetail;
       el.dataset.hasOfficial = top.length ? '1' : '0';
       el.dataset.hasProps = buildCardPropRows([].concat(propsAway || [], propsHome || [])).length ? '1' : '0';
       el.__propsAway = Array.isArray(propsAway) ? propsAway.slice() : [];
@@ -3270,10 +3576,10 @@
           </div>
           <div class="cards-status-cluster">
             <div class="cards-status-line">
-              <span class="cards-status-badge ${statusBadgeClass(state)}" data-role="status-badge">${escHtml(state || 'Scheduled')}</span>
+              <span class="cards-status-badge ${stateInfo.className}" data-role="status-badge">${escHtml(stateInfo.text)}</span>
               <span class="cards-overview-badge" data-role="lens-card-tag"></span>
             </div>
-            <div class="cards-start-time" data-role="status-detail">${escHtml(venue || '')}</div>
+            <div class="cards-start-time" data-role="status-detail">${escHtml(startDetail || '')}</div>
             <div class="cards-status-line">
               <span class="pill active live-clock" data-role="live-clock"></span>
               <span class="pill active final-score" data-role="final-score"></span>
@@ -3688,7 +3994,7 @@
 
       function _dispState(s) {
         try {
-          return isFinalLikeState(s) ? 'Final' : String(s || '').trim();
+          return gameStatusInfo(s).text;
         } catch (e) {
           return String(s || '').trim();
         }
@@ -3722,7 +4028,7 @@
 
         const aEl = document.createElement('a');
         aEl.href = '#';
-        aEl.className = 's-item';
+        aEl.className = 'cards-strip-card s-item';
         aEl.dataset.gameKey = k;
         const info = currentSlateInfoByKey.get(normKey(k));
         aEl.dataset.hasOfficial = info && info.hasOfficial ? '1' : '0';
@@ -3758,6 +4064,30 @@
       }
       strip.appendChild(frag);
       try { _setScoreboardStripLayout(strip, (preds || []).length); } catch (e) {}
+    }
+
+    function syncSlateStatusesFromLive(mapByKey, mapByPk) {
+      currentSlateCards = (currentSlateCards || []).map((entry) => {
+        let liveGame = null;
+        try {
+          const pk = String(entry && entry.gamePk != null ? entry.gamePk : '').trim();
+          if (pk && mapByPk && mapByPk.has(pk)) liveGame = mapByPk.get(pk);
+        } catch (e) {}
+        if (!liveGame) {
+          try {
+            const key = normKey(entry && entry.key ? entry.key : '');
+            if (key && mapByKey && mapByKey.get) liveGame = mapByKey.get(key) || null;
+          } catch (e) {}
+        }
+        const statusInfo = gameStatusInfo(liveGame && liveGame.gameState ? liveGame.gameState : entry && entry.status ? entry.status : '');
+        return {
+          ...entry,
+          status: statusInfo.text,
+        };
+      });
+      currentSlateInfoByKey = new Map(currentSlateCards.map((entry) => [normKey(entry.key), entry]));
+      renderSlateSourceMeta(currentSlateCards, currentSlateNSims);
+      renderSlateFilters(currentSlateCards);
     }
 
     (function() {
@@ -3947,7 +4277,10 @@
         } catch (e) {}
 
         try {
-          item.dataset.cardStatus = String(g && g.gameState ? g.gameState : item.dataset.cardStatus || '').trim();
+          const itemStatus = gameStatusInfo(g && g.gameState ? g.gameState : item.dataset.cardStatus || '', {
+            periodDisp: g && g.period_disp ? g.period_disp : '',
+          });
+          item.dataset.cardStatus = itemStatus.text;
         } catch (e) {}
 
         item.classList.remove('live', 'bet', 'watch');
@@ -3987,15 +4320,16 @@
           const clk = g && g.clock ? String(g.clock) : '';
           const intermission = !!(g && g.intermission);
           const st = String(g && g.gameState ? g.gameState : '').trim();
+          const statusInfo = gameStatusInfo(st, { periodDisp: perDisp });
           if (stEl) {
-            if (isLiveState(st)) {
+            if (statusInfo.isLive) {
               stEl.textContent = formatLiveClockText(st, per, clk, perDisp, intermission);
             } else {
               // Preserve scheduled start time from initial render if present.
               const existing = String(stEl.textContent || '').trim();
-              const next = (st || '').trim();
+              const next = statusInfo.text;
               if (!existing || existing === '—') stEl.textContent = (next || '—');
-              else if (next && isFinalLikeState(next)) stEl.textContent = 'Final';
+              else if (statusInfo.isFinal) stEl.textContent = 'Final';
             }
           }
         } catch (e) {}
@@ -4003,14 +4337,11 @@
     }
 
     function isLiveState(s) {
-      const x = String(s || '').toUpperCase();
-      return x.includes('LIVE') || x.includes('IN_PROGRESS') || x.includes('IN PROGRESS') || x.includes('IN-PROGRESS') || x.includes('INTERMISSION') || x.includes('CRIT');
+      return !!gameStatusInfo(s).isLive;
     }
 
     function isFinalLikeState(s) {
-      const x = String(s || '').toUpperCase();
-      // NHL Web schedule commonly uses OFF for completed games.
-      return x.includes('FINAL') || x.includes('POST') || x.includes('END') || (x === 'OFF');
+      return !!gameStatusInfo(s).isFinal;
     }
 
     function formatPeriodLabel(period, gameState) {
@@ -5364,6 +5695,7 @@
 
         // Update compact top strip from merged payload.
         try { updateScoreboardStripFromLive(mapByKey, mapByPk); } catch (e) {}
+        try { syncSlateStatusesFromLive(mapByKey, mapByPk); } catch (e) {}
 
         for (const card of document.querySelectorAll('.card[data-game-key]')) {
           const k = normKey(card.dataset.gameKey);
@@ -5389,7 +5721,29 @@
           }
 
           try {
-            card.dataset.cardStatus = String(g && g.gameState ? g.gameState : card.dataset.cardStatus || '').trim();
+            const cardStatus = gameStatusInfo(g && g.gameState ? g.gameState : card.dataset.cardStatus || '', {
+              periodDisp: g && g.period_disp ? g.period_disp : '',
+            });
+            card.dataset.cardStatus = cardStatus.text;
+            const badgeEl = card.querySelector('[data-role="status-badge"]');
+            if (badgeEl) {
+              badgeEl.className = `cards-status-badge ${cardStatus.className}`;
+              badgeEl.textContent = cardStatus.text || 'Scheduled';
+            }
+            const detailEl = card.querySelector('[data-role="status-detail"]');
+            if (detailEl) {
+              const scheduledDetail = String(card.dataset.scheduledDetail || '').trim();
+              const liveClockText = g ? formatLiveClockText(
+                g.gameState,
+                g.period !== undefined ? g.period : null,
+                g.clock || '',
+                g.period_disp || '',
+                !!g.intermission
+              ) : '';
+              if (cardStatus.isLive) detailEl.textContent = liveClockText || cardStatus.text;
+              else if (cardStatus.isFinal) detailEl.textContent = 'Completed';
+              else detailEl.textContent = scheduledDetail;
+            }
           } catch (e) {}
 
           // Compact per-card lens tag (BET/WATCH) in the title + NCAAB-like live-edge border.
@@ -5651,10 +6005,6 @@
 
     function setStatus(msg) {
       $('status').textContent = msg;
-      try {
-        const meta = $('cardsHeaderMeta');
-        if (meta) meta.textContent = msg;
-      } catch (e) {}
     }
 
     function setEmpty(msg) {
@@ -5674,6 +6024,7 @@
       activeSlateFilter = 'all';
       currentSlateCards = [];
       currentSlateInfoByKey = new Map();
+      currentSlateNSims = null;
       propCardState.clear();
       setStatus(`Loading ${date}…`);
       clearEmpty();
@@ -5838,10 +6189,11 @@
       currentSlateCards = renderedGames.map((entry) => ({
         key: entry.key,
         gamePk: entry.pred && (entry.pred.gamePk ?? entry.pred.game_pk ?? entry.pred.nhl_game_pk ?? entry.pred.game_id),
-        status: entry.status,
+        status: gameStatusInfo(entry.status).text,
         hasOfficial: entry.hasOfficial,
         hasProps: entry.hasProps,
       }));
+      currentSlateNSims = nSims;
       currentSlateInfoByKey = new Map(currentSlateCards.map((entry) => [normKey(entry.key), entry]));
       renderSlateSourceMeta(currentSlateCards, nSims);
       renderSlateFilters(currentSlateCards);
@@ -5922,12 +6274,11 @@
           }
         }
 
-        dateInput.value = initialDate;
-        try { setPrimaryNavHrefs(initialDate); } catch (e) {}
-        dateInput.onchange = async () => {
+        const runDateLoad = async () => {
           const next = String(dateInput.value || '').trim();
           if (!next) return;
           try { setPrimaryNavHrefs(next); } catch (e) {}
+          try { $('cardsDateBadge').textContent = next; } catch (e) {}
           setRequestedDateInUrl(next);
           try {
             await loadDate(next);
@@ -5937,6 +6288,13 @@
             setEmpty(String(e && e.message ? e.message : e));
           }
         };
+        dateInput.value = initialDate;
+        try { setPrimaryNavHrefs(initialDate); } catch (e) {}
+        dateInput.onchange = runDateLoad;
+        try {
+          const loadBtn = $('cardsDateLoadButton');
+          if (loadBtn) loadBtn.onclick = runDateLoad;
+        } catch (e) {}
 
         // Trigger initial load.
         setRequestedDateInUrl(initialDate);

@@ -110,7 +110,8 @@ Param (
   # Git auto-push controls (enabled by default to keep generated artifacts published)
   [switch]$NoGitPush,
   [string]$GitRemote = "origin",
-  [string]$GitBranch = ""
+  [string]$GitBranch = "",
+  [string]$OpsReportOut = ""
 )
 $ErrorActionPreference = "Stop"
 $PropsUnderMinEvBound = $PSBoundParameters.ContainsKey('PropsUnderMinEv')
@@ -131,6 +132,82 @@ try {
   }
 } catch {
   $AnchorNow = Get-Date
+}
+
+$AnchorDate = $AnchorNow.ToString('yyyy-MM-dd')
+$TomorrowDate = $AnchorNow.AddDays(1).ToString('yyyy-MM-dd')
+$YesterdayDate = $AnchorNow.AddDays(-1).ToString('yyyy-MM-dd')
+$OpsReportPath = $OpsReportOut
+if (-not $OpsReportPath -or $OpsReportPath.Trim() -eq '') {
+  $OpsReportPath = Join-Path $ProcessedDir ("daily_update_ops_{0}.json" -f $AnchorDate)
+}
+$script:DailyUpdateReport = [ordered]@{
+  tool = 'scripts/daily_update.ps1'
+  workflow = 'daily-update'
+  generated_at = (Get-Date).ToString('o')
+  anchor_date = $AnchorDate
+  current_day = [ordered]@{
+    date = $AnchorDate
+    tomorrow = $TomorrowDate
+    processed_dir = $ProcessedDir
+  }
+  prior_day = [ordered]@{
+    date = $YesterdayDate
+  }
+  stages = [ordered]@{}
+  warnings = New-Object System.Collections.Generic.List[string]
+  errors = New-Object System.Collections.Generic.List[string]
+  git_push = [ordered]@{
+    requested = (-not $NoGitPush)
+    remote = $GitRemote
+    branch = $GitBranch
+  }
+}
+
+function Add-ReportWarning {
+  param([Parameter(Mandatory=$true)][string]$Message)
+  if (-not $script:DailyUpdateReport.warnings) {
+    $script:DailyUpdateReport.warnings = New-Object System.Collections.Generic.List[string]
+  }
+  $null = $script:DailyUpdateReport.warnings.Add($Message)
+}
+
+function Add-ReportError {
+  param([Parameter(Mandatory=$true)][string]$Message)
+  if (-not $script:DailyUpdateReport.errors) {
+    $script:DailyUpdateReport.errors = New-Object System.Collections.Generic.List[string]
+  }
+  $null = $script:DailyUpdateReport.errors.Add($Message)
+}
+
+function Set-ReportStage {
+  param(
+    [Parameter(Mandatory=$true)][string]$Name,
+    [Parameter(Mandatory=$true)][string]$Status,
+    [hashtable]$Details
+  )
+
+  $stage = [ordered]@{ status = $Status }
+  if ($Details) {
+    foreach ($key in $Details.Keys) {
+      $stage[$key] = $Details[$key]
+    }
+  }
+  $script:DailyUpdateReport.stages[$Name] = $stage
+}
+
+function Write-DailyUpdateReport {
+  try {
+    $script:DailyUpdateReport.generated_at = (Get-Date).ToString('o')
+    $dir = Split-Path -Parent $OpsReportPath
+    if ($dir -and -not (Test-Path $dir)) {
+      New-Item -ItemType Directory -Path $dir -Force | Out-Null
+    }
+    $script:DailyUpdateReport | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $OpsReportPath -Encoding UTF8
+    Write-Host "[daily_update] Ops report written to $OpsReportPath" -ForegroundColor DarkGreen
+  } catch {
+    Write-Warning "[daily_update] Failed to write ops report: $($_.Exception.Message)"
+  }
 }
 
 function Assert-AnyPath {
@@ -421,11 +498,14 @@ $PyExe = Join-Path $RepoRoot '.venv/Scripts/python.exe'
 
 if ($MoneylineAnchorOnly) {
   Set-MoneylineAnchorOnlyCalibration -CalibrationPath (Join-Path $ProcessedDir 'model_calibration.json') -Strict:$StrictOutputs
+  Set-ReportStage -Name 'moneyline_anchor_policy' -Status 'ok' -Details @{ calibration_path = (Join-Path $ProcessedDir 'model_calibration.json'); policy = 'anchor_only' }
 } else {
   Write-Host "[daily_update] Moneyline anchor-only override disabled." -ForegroundColor DarkGray
+  Set-ReportStage -Name 'moneyline_anchor_policy' -Status 'skipped' -Details @{ reason = 'MoneylineAnchorOnly=false'; calibration_path = (Join-Path $ProcessedDir 'model_calibration.json') }
 }
 
 # Optional: pull production disk artifacts down to local for reconciliation.
+Set-ReportStage -Name 'render_sync' -Status 'skipped' -Details @{ reason = 'not_run' }
 try {
   if (-not $NoRenderSync) {
     $baseUrl = $RenderBaseUrl
@@ -442,14 +522,19 @@ try {
       $syncStart = $AnchorNow.AddDays(-1 * [int]$RenderSyncDaysBack).ToString('yyyy-MM-dd')
       $syncEnd = $AnchorNow.AddDays([int]$RenderSyncDaysAhead).ToString('yyyy-MM-dd')
       Sync-RenderArtifacts -BaseUrl $baseUrl -Token $tok -StartDate $syncStart -EndDate $syncEnd -RepoRoot $RepoRoot
+      Set-ReportStage -Name 'render_sync' -Status 'ok' -Details @{ start = $syncStart; end = $syncEnd; base_url = $baseUrl }
     } else {
       Write-Host "[daily_update] Render sync skipped (missing token). Set NHL_RENDER_CRON_TOKEN or REFRESH_CRON_TOKEN." -ForegroundColor DarkGreen
+      Set-ReportStage -Name 'render_sync' -Status 'skipped' -Details @{ reason = 'missing_token'; base_url = $baseUrl }
     }
   } else {
     Write-Host "[daily_update] Render sync skipped (-NoRenderSync)" -ForegroundColor DarkGreen
+    Set-ReportStage -Name 'render_sync' -Status 'skipped' -Details @{ reason = 'NoRenderSync=true' }
   }
 } catch {
   Write-Warning "[daily_update] Render sync failed (continuing): $($_.Exception.Message)"
+  Add-ReportWarning "render sync failed: $($_.Exception.Message)"
+  Set-ReportStage -Name 'render_sync' -Status 'warning' -Details @{ error = $_.Exception.Message }
 }
 # Optional: lightweight PBP backfill via NHL Web API for recent days (true period splits)
 if ($PBPBackfill) {
@@ -484,8 +569,11 @@ try {
   Assert-AnyPath -Label "lineups $today" -Paths @(_PathInProcessed "lineups_${today}.csv") -NonEmpty -Strict:$StrictOutputs
   Assert-AnyPath -Label "lineups $tomorrow" -Paths @(_PathInProcessed "lineups_${tomorrow}.csv") -NonEmpty -Strict:$StrictOutputs
   Assert-AnyPath -Label "shifts $today (optional)" -Paths @(_PathInProcessed "shifts_${today}.csv") -NonEmpty -Strict:$false
+  Set-ReportStage -Name 'pregame_context_refresh' -Status 'ok' -Details @{ today = $today; tomorrow = $tomorrow; lineup_today = (_PathInProcessed "lineups_${today}.csv"); lineup_tomorrow = (_PathInProcessed "lineups_${tomorrow}.csv") }
 } catch {
   Write-Warning "[daily_update] roster/lineup/injuries update failed: $($_.Exception.Message)"
+  Add-ReportWarning "pregame context refresh failed: $($_.Exception.Message)"
+  Set-ReportStage -Name 'pregame_context_refresh' -Status 'warning' -Details @{ error = $_.Exception.Message; today = $today; tomorrow = $tomorrow }
 }
 
 # Helper date array (today/tomorrow) used by multiple sections
@@ -584,8 +672,11 @@ try {
       if ($StrictOutputs) { throw }
     }
   }
+  Set-ReportStage -Name 'current_day_sim_artifacts' -Status 'ok' -Details @{ dates = $dates; props_boxscore_n_sims = $PropsBoxscoreNSims; game_sim_timeout_sec = $GameSimTimeoutSec }
 } catch {
   Write-Warning "[daily_update] props-simulate-boxscores block failed: $($_.Exception.Message)"
+  Add-ReportWarning "current-day sim artifacts failed: $($_.Exception.Message)"
+  Set-ReportStage -Name 'current_day_sim_artifacts' -Status 'warning' -Details @{ error = $_.Exception.Message; dates = $dates }
   if ($StrictOutputs) { throw }
 }
 
@@ -664,6 +755,7 @@ try {
     }
   }
 } catch { Write-Warning "[daily_update] team odds / games archive failed: $($_.Exception.Message)" }
+Set-ReportStage -Name 'market_archives' -Status 'ok' -Details @{ dates = $dates; team_odds_root = 'data/odds/team'; games_root = 'data/odds/games' }
 
 # Compute accuracy JSON for yesterday (post-settlement)
 try {
@@ -712,8 +804,11 @@ try {
     Receive-Job $coreJob | Write-Host
     Remove-Job $coreJob -Force
   }
+  Set-ReportStage -Name 'core_daily_update' -Status 'ok' -Details @{ timeout_sec = $CoreTimeoutSec; args = $argsList }
 } catch {
   Write-Warning "[daily_update] Core daily_update failed: $($_.Exception.Message)"
+  Add-ReportWarning "core daily_update failed: $($_.Exception.Message)"
+  Set-ReportStage -Name 'core_daily_update' -Status 'warning' -Details @{ error = $_.Exception.Message; timeout_sec = $CoreTimeoutSec; args = $argsList }
 }
 
 # After core daily update, recompute edges for today and forward DaysAhead-1 days
@@ -834,9 +929,14 @@ if ((-not $SkipGameCalibration) -and ($SimulateGames -or $BacktestSimulations -o
     } else {
       Write-Host "[daily_update] Sim calibration refresh skipped (recent coverage already available)." -ForegroundColor DarkGreen
     }
+    Set-ReportStage -Name 'sim_calibration_refresh' -Status 'ok' -Details @{ train_days = $SimCalibrationTrainDays; refresh_days = $SimCalibrationRefreshDays; totals_only = $SimCalibrationTotalsOnly; calibration_path = $simCalPath }
   } catch {
     Write-Warning "[daily_update] sim calibration refresh failed: $($_.Exception.Message)"
+    Add-ReportWarning "sim calibration refresh failed: $($_.Exception.Message)"
+    Set-ReportStage -Name 'sim_calibration_refresh' -Status 'warning' -Details @{ error = $_.Exception.Message; train_days = $SimCalibrationTrainDays; refresh_days = $SimCalibrationRefreshDays }
   }
+} else {
+  Set-ReportStage -Name 'sim_calibration_refresh' -Status 'skipped' -Details @{ reason = 'SkipGameCalibration or no sim workflows requested' }
 }
 
 # Optional: run game simulations (ML/PL/Totals) driven by NN outputs
@@ -895,9 +995,14 @@ if ($SimulateGames) {
         Write-Warning "[daily_update] game-simulate-possession failed for ${d}: $($_.Exception.Message)"
       }
     }
+    Set-ReportStage -Name 'forward_game_simulation' -Status 'ok' -Details @{ dates = $dates; n_sims = $SimSamples }
   } catch {
     Write-Warning "[daily_update] game-simulate failed: $($_.Exception.Message)"
+    Add-ReportWarning "forward game simulation failed: $($_.Exception.Message)"
+    Set-ReportStage -Name 'forward_game_simulation' -Status 'warning' -Details @{ error = $_.Exception.Message; dates = $dates; n_sims = $SimSamples }
   }
+} else {
+  Set-ReportStage -Name 'forward_game_simulation' -Status 'skipped' -Details @{ reason = 'SimulateGames=false' }
 }
 
 # Optional: generate threshold-based recommendations from simulations
@@ -1009,6 +1114,7 @@ if ($BacktestSimulations) {
     Write-Host "[daily_update] Backtest written to data/processed/sim_backtest_${start}_to_${end}.json"
   } catch {
     Write-Warning "[daily_update] game-backtest-sim failed: $($_.Exception.Message)"
+    Add-ReportWarning "simulation backtest failed: $($_.Exception.Message)"
   }
 }
 
@@ -1056,8 +1162,11 @@ try {
   Write-Host "[daily_update] Generating game_daily_monitor for last $wd days …"
   python -m nhl_betting.cli game-daily-monitor --window-days $wd
   Write-Host "[daily_update] Monitor written to data/processed/game_daily_monitor.json"
+  Set-ReportStage -Name 'game_monitoring' -Status 'ok' -Details @{ window_days = $wd; monitor_path = (Join-Path $ProcessedDir 'game_daily_monitor.json') }
 } catch {
   Write-Warning "[daily_update] game_daily_monitor failed: $($_.Exception.Message)"
+  Add-ReportWarning "game daily monitor failed: $($_.Exception.Message)"
+  Set-ReportStage -Name 'game_monitoring' -Status 'warning' -Details @{ error = $_.Exception.Message; window_days = $wd }
 }
 
 # Generate anomaly alerts from latest monitor
@@ -1201,8 +1310,11 @@ try {
   } catch {
     Write-Warning "[daily_update] Live Lens win-prob monitor/drift failed: $($_.Exception.Message)"
   }
+  Set-ReportStage -Name 'live_lens_calibration' -Status 'ok' -Details @{ fit_start = $llFitStart; fit_end = $llFitEnd; calibration_path = (_PathInProcessed 'live_lens_winprob_calibration.json') }
 } catch {
   Write-Warning "[daily_update] Live Lens win-prob calibration fit failed: $($_.Exception.Message)"
+  Add-ReportWarning "live lens calibration failed: $($_.Exception.Message)"
+  Set-ReportStage -Name 'live_lens_calibration' -Status 'warning' -Details @{ error = $_.Exception.Message }
 }
 
 # Optional: precompute props projections and generate props recommendations
@@ -1371,9 +1483,14 @@ if ($PropsRecs) {
       python @($recsArgsBase + @("--date", $today))
       python @($recsArgsBase + @("--date", $tomorrow))
     }
+    Set-ReportStage -Name 'props_workflow' -Status 'ok' -Details @{ today = $today; tomorrow = $tomorrow; use_sim = $PropsUseSim; combined_today = (Join-Path $ProcessedDir ("props_recommendations_combined_{0}.csv" -f $today)); combined_tomorrow = (Join-Path $ProcessedDir ("props_recommendations_combined_{0}.csv" -f $tomorrow)) }
   } catch {
     Write-Warning "[daily_update] Props projections/recommendations failed: $($_.Exception.Message)"
+    Add-ReportWarning "props workflow failed: $($_.Exception.Message)"
+    Set-ReportStage -Name 'props_workflow' -Status 'warning' -Details @{ error = $_.Exception.Message; use_sim = $PropsUseSim }
   }
+} else {
+  Set-ReportStage -Name 'props_workflow' -Status 'skipped' -Details @{ reason = 'PropsRecs=false or SkipProps=true' }
 }
 
   # Post-settlement props reconciliation and summary (yesterday)
@@ -1419,8 +1536,15 @@ if ($PropsRecs) {
     } else {
       Write-Host "[daily_update] Props reconciliation skipped (-NoReconcile)" -ForegroundColor DarkGreen
     }
+    if ($NoReconcile) {
+      Set-ReportStage -Name 'prior_day_props_reconciliation' -Status 'skipped' -Details @{ reason = 'NoReconcile=true'; date = $YesterdayDate }
+    } else {
+      Set-ReportStage -Name 'prior_day_props_reconciliation' -Status 'ok' -Details @{ date = $YesterdayDate }
+    }
   } catch {
     Write-Warning "[daily_update] props reconciliation pipeline failed: $($_.Exception.Message)"
+    Add-ReportWarning "prior-day props reconciliation failed: $($_.Exception.Message)"
+    Set-ReportStage -Name 'prior_day_props_reconciliation' -Status 'warning' -Details @{ error = $_.Exception.Message; date = $YesterdayDate }
   }
 
 # Publish stable web/UI artifacts: daily bundles + manifest
@@ -1433,8 +1557,11 @@ try {
   python -m nhl_betting.cli bundle-build --date $t
   python -m nhl_betting.cli bundle-build --date $tm
   python -m nhl_betting.cli bundle-manifest
+  Set-ReportStage -Name 'bundle_publish' -Status 'ok' -Details @{ dates = @($y, $t, $tm); manifest_path = 'data/processed/bundles/manifest.json' }
 } catch {
   Write-Warning "[daily_update] Bundle publish failed: $($_.Exception.Message)"
+  Add-ReportWarning "bundle publish failed: $($_.Exception.Message)"
+  Set-ReportStage -Name 'bundle_publish' -Status 'warning' -Details @{ error = $_.Exception.Message; dates = @($y, $t, $tm) }
   if ($StrictOutputs) { throw "[daily_update] Bundle publish failed under -StrictOutputs: $($_.Exception.Message)" }
 }
 
@@ -1444,6 +1571,8 @@ $DailyUpdateExitCode = $LASTEXITCODE
 try {
   if ($NoGitPush) {
     Write-Host "[daily_update] Git push skipped (-NoGitPush)" -ForegroundColor DarkGreen
+    $script:DailyUpdateReport.git_push.status = 'skipped'
+    $script:DailyUpdateReport.git_push.reason = 'NoGitPush=true'
   } else {
     Push-Location $RepoRoot
     try {
@@ -1478,6 +1607,7 @@ try {
         }
         if (-not $branch -or $branch.Trim() -eq '') { $branch = 'master' }
         $branch = $branch.Trim()
+        $script:DailyUpdateReport.git_push.branch = $branch
 
         $userName = (& git config --get user.name 2>$null | Select-Object -First 1)
         $userEmail = (& git config --get user.email 2>$null | Select-Object -First 1)
@@ -1518,13 +1648,19 @@ try {
           try {
             Invoke-GitCommand -Args @('commit', '--no-gpg-sign', '-m', $msg) -FailureMessage '[daily_update] Git commit failed for generated artifacts' | Out-Null
             Write-Host "[daily_update] Git commit created." -ForegroundColor Yellow
+            $script:DailyUpdateReport.git_push.commit_message = $msg
           } catch {
             $commitFailed = $true
             Write-Warning $_.Exception.Message
+            Add-ReportWarning "git commit failed: $($_.Exception.Message)"
+            $script:DailyUpdateReport.git_push.status = 'warning'
+            $script:DailyUpdateReport.git_push.error = $_.Exception.Message
             if ($StrictOutputs) { throw }
           }
         } else {
           Write-Host "[daily_update] No staged artifact changes after git add." -ForegroundColor DarkGreen
+          $script:DailyUpdateReport.git_push.status = 'skipped'
+          $script:DailyUpdateReport.git_push.reason = 'no_staged_artifact_changes'
         }
 
         if (-not $commitFailed) {
@@ -1533,8 +1669,14 @@ try {
           $pushSummary = ($pushOutput -join ' ').Trim()
           if (-not $pushSummary) { $pushSummary = 'push completed' }
           Write-Host "[daily_update] Git push complete: $pushSummary" -ForegroundColor DarkGreen
+          $script:DailyUpdateReport.git_push.status = 'ok'
+          $script:DailyUpdateReport.git_push.summary = $pushSummary
         } else {
           Write-Warning '[daily_update] Git push skipped because the artifact commit failed.'
+          if (-not $script:DailyUpdateReport.git_push.status) {
+            $script:DailyUpdateReport.git_push.status = 'warning'
+          }
+          $script:DailyUpdateReport.git_push.reason = 'commit_failed'
         }
         } finally {
           if ($hadDisableAutoGc) {
@@ -1545,6 +1687,8 @@ try {
         }
       } else {
         Write-Host "[daily_update] Not a git repository; skipping push." -ForegroundColor DarkGreen
+        $script:DailyUpdateReport.git_push.status = 'skipped'
+        $script:DailyUpdateReport.git_push.reason = 'not_a_git_repository'
       }
     } finally {
       Pop-Location
@@ -1552,8 +1696,16 @@ try {
   }
 } catch {
   Write-Warning "[daily_update] Git push skipped due to error: $($_.Exception.Message)"
+  Add-ReportWarning "git push failed: $($_.Exception.Message)"
+  $script:DailyUpdateReport.git_push.status = 'warning'
+  $script:DailyUpdateReport.git_push.error = $_.Exception.Message
   if ($StrictOutputs) { throw }
 }
+
+if ($DailyUpdateExitCode -ne 0) {
+  Add-ReportError "daily update exited with code $DailyUpdateExitCode"
+}
+Write-DailyUpdateReport
 
 if ($DailyUpdateExitCode -ne 0) {
   exit $DailyUpdateExitCode

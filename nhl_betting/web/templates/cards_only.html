@@ -4344,6 +4344,27 @@
       return !!gameStatusInfo(s).isFinal;
     }
 
+    function scoreInfoFromGame(game) {
+      try {
+        const row = game || {};
+        const nested = row && row.score ? row.score : null;
+        const awayRaw = (nested && nested.away !== undefined && nested.away !== null)
+          ? nested.away
+          : (row.awayScore ?? row.away_score ?? row.away_goals ?? null);
+        const homeRaw = (nested && nested.home !== undefined && nested.home !== null)
+          ? nested.home
+          : (row.homeScore ?? row.home_score ?? row.home_goals ?? null);
+        const away = (awayRaw !== null && awayRaw !== undefined && String(awayRaw).trim() !== '') ? Number(awayRaw) : null;
+        const home = (homeRaw !== null && homeRaw !== undefined && String(homeRaw).trim() !== '') ? Number(homeRaw) : null;
+        return {
+          away: Number.isFinite(away) ? away : null,
+          home: Number.isFinite(home) ? home : null,
+        };
+      } catch (e) {
+        return { away: null, home: null };
+      }
+    }
+
     function formatPeriodLabel(period, gameState) {
       try {
         const st = String(gameState || '').toUpperCase();
@@ -5775,10 +5796,10 @@
           // FINAL score at top for historic slates.
           try {
             const fs = card.querySelector('[data-role="final-score"]');
-            const st = String(g && g.gameState ? g.gameState : '').toUpperCase();
-            const sc = (g && g.score) ? g.score : null;
-            const ag = sc && sc.away !== undefined ? sc.away : null;
-            const hg = sc && sc.home !== undefined ? sc.home : null;
+            const st = String(g && g.gameState ? g.gameState : card.dataset.cardStatus || '').trim();
+            const sc = scoreInfoFromGame(g);
+            const ag = sc.away;
+            const hg = sc.home;
             if (fs) {
               if (g && isFinalLikeState(st) && ag !== null && hg !== null) {
                 fs.textContent = `FINAL ${ag}-${hg}`;
@@ -5796,7 +5817,7 @@
             const ls = card.querySelector('[data-role="live-score"]');
             const aBig = card.querySelector('[data-role="away-pts-big"]');
             const hBig = card.querySelector('[data-role="home-pts-big"]');
-            const st = String(g && g.gameState ? g.gameState : '').trim();
+            const st = String(g && g.gameState ? g.gameState : card.dataset.cardStatus || '').trim();
             const per = (g && g.period !== undefined && g.period !== null) ? g.period : null;
             const perDisp = (g && (g.period_disp !== undefined && g.period_disp !== null)) ? String(g.period_disp).trim() : '';
             const intermission = !!(g && g.intermission);
@@ -5818,11 +5839,10 @@
             }
 
             try {
-              const up = String(st || '').toUpperCase();
-              const sc = (g && g.score) ? g.score : null;
-              const ag = sc && sc.away !== undefined && sc.away !== null ? sc.away : null;
-              const hg = sc && sc.home !== undefined && sc.home !== null ? sc.home : null;
-              const show = (ag !== null && hg !== null) && (isLiveState(st) || isFinalLikeState(up));
+              const sc = scoreInfoFromGame(g);
+              const ag = sc.away;
+              const hg = sc.home;
+              const show = (ag !== null && hg !== null) && (isLiveState(st) || isFinalLikeState(st));
               if (aBig) aBig.textContent = show ? String(ag) : '';
               if (hBig) hBig.textContent = show ? String(hg) : '';
             } catch (e) {

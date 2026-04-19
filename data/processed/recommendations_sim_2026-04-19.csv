@@ -1,5 +1,6 @@
 market,side,price,ev,prob,conf,home,away,totals_line
-PL,Utah Mammoth +1.5,-192.0,0.28763888888888905,0.8466666666666667,0.3466666666666667,Vegas Golden Knights,Utah Mammoth,6.5
-PL,Boston Bruins +1.5,-192.0,0.25544791666666683,0.8255,0.3255,Buffalo Sabres,Boston Bruins,6.5
-PL,Los Angeles Kings +1.5,-125.0,0.26270000000000004,0.7015,0.2015,Colorado Avalanche,Los Angeles Kings,5.5
-PL,Montréal Canadiens +1.5,-155.0,0.1321451612903224,0.6881666666666666,0.1881666666666666,Tampa Bay Lightning,Montréal Canadiens,6.5
+PL,Boston Bruins +1.5,-192.0,0.3373194444444445,0.8793333333333333,0.3793333333333333,Buffalo Sabres,Boston Bruins,6.5
+PL,Utah Mammoth +1.5,-192.0,0.16698611111111117,0.7673333333333333,0.2673333333333333,Vegas Golden Knights,Utah Mammoth,6.5
+ML,Boston Bruins,130.0,0.5988833333333333,0.6951666666666667,0.1951666666666667,Buffalo Sabres,Boston Bruins,6.5
+ML,Tampa Bay Lightning,-185.0,0.04204729729729734,0.6764166666666667,0.17641666666666667,Tampa Bay Lightning,Montréal Canadiens,6.5
+PL,Los Angeles Kings +1.5,-125.0,0.1732999999999999,0.6518333333333333,0.15183333333333326,Colorado Avalanche,Los Angeles Kings,5.5

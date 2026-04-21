@@ -1,0 +1,498 @@
+{
+  "data": {
+    "games": {
+      "edges": {
+        "count": 12,
+        "rows": [
+          {
+            "away": "Dallas Stars",
+            "bet": "over",
+            "book": null,
+            "edge_reasons": "total 6.73 vs line 5.5 (+1.23); p=0.651; P1 pace 2.15",
+            "edge_score": 0.6148949603929894,
+            "ev": 0.151179487179487,
+            "home": "Minnesota Wild",
+            "market": "ev_over",
+            "market_group": "totals",
+            "price": -130.0,
+            "prob": 0.6506666666666666,
+            "side": "Over 5.5",
+            "totals_line": 5.5
+          },
+          {
+            "away": "Pittsburgh Penguins",
+            "bet": "over",
+            "book": null,
+            "edge_reasons": "total 6.11 vs line 5.5 (+0.61); p=0.556; P1 pace 1.95",
+            "edge_score": 0.4425477268185566,
+            "ev": 0.0114344262295081,
+            "home": "Philadelphia Flyers",
+            "market": "ev_over",
+            "market_group": "totals",
+            "price": -122.0,
+            "prob": 0.5558333333333333,
+            "side": "Over 5.5",
+            "totals_line": 5.5
+          },
+          {
+            "away": "Anaheim Ducks",
+            "bet": "under",
+            "book": null,
+            "edge_reasons": "total 6.23 vs line 6.5 (-0.27); p=0.565; P1 pace 2.01",
+            "edge_score": 0.3967383701075648,
+            "ev": 0.2426333333333333,
+            "home": "Edmonton Oilers",
+            "market": "ev_under",
+            "market_group": "totals",
+            "price": 120.0,
+            "prob": 0.5648333333333333,
+            "side": "Under 6.5",
+            "totals_line": 6.5
+          },
+          {
+            "away": "Anaheim Ducks",
+            "bet": "over",
+            "book": null,
+            "edge_reasons": "total 6.23 vs line 6.5 (-0.27); p=0.435; P1 pace 2.01",
+            "edge_score": 0.2721400612649842,
+            "ev": -0.2583779342723005,
+            "home": "Edmonton Oilers",
+            "market": "ev_over",
+            "market_group": "totals",
+            "price": -142.0,
+            "prob": 0.4351666666666666,
+            "side": "Over 6.5",
+            "totals_line": 6.5
+          },
+          {
+            "away": "Pittsburgh Penguins",
+            "bet": "under",
+            "book": null,
+            "edge_reasons": "total 6.11 vs line 5.5 (+0.61); p=0.444; P1 pace 1.95",
+            "edge_score": 0.2102365869069336,
+            "ev": -0.1027833333333334,
+            "home": "Philadelphia Flyers",
+            "market": "ev_under",
+            "market_group": "totals",
+            "price": 102.0,
+            "prob": 0.4441666666666666,
+            "side": "Under 5.5",
+            "totals_line": 5.5
+          },
+          {
+            "away": "Dallas Stars",
+            "bet": "under",
+            "book": null,
+            "edge_reasons": "total 6.73 vs line 5.5 (+1.23); p=0.349; P1 pace 2.15",
+            "edge_score": 0.2074736670579909,
+            "ev": -0.2664,
+            "home": "Minnesota Wild",
+            "market": "ev_under",
+            "market_group": "totals",
+            "price": 110.0,
+            "prob": 0.3493333333333333,
+            "side": "Under 5.5",
+            "totals_line": 5.5
+          },
+          {
+            "away": "Dallas Stars",
+            "bet": "away_ml",
+            "book": null,
+            "edge_reasons": "p=0.555",
+            "edge_score": 0.1100000000000001,
+            "ev": 0.1655000000000002,
+            "home": "Minnesota Wild",
+            "market": "ev_away_ml",
+            "market_group": "moneyline",
+            "price": 110.0,
+            "prob": 0.555,
+            "side": "Dallas Stars",
+            "totals_line": null
+          },
+          {
+            "away": "Dallas Stars",
+            "bet": "home_ml",
+            "book": null,
+            "edge_reasons": "p=0.445",
+            "edge_score": 0.1099999999999999,
+            "ev": -0.2126923076923076,
+            "home": "Minnesota Wild",
+            "market": "ev_home_ml",
+            "market_group": "moneyline",
+            "price": -130.0,
+            "prob": 0.445,
+            "side": "Minnesota Wild",
+            "totals_line": null
+          },
+          {
+            "away": "Pittsburgh Penguins",
+            "bet": "home_ml",
+            "book": null,
+            "edge_reasons": "p=0.539",
+            "edge_score": 0.0781666666666667,
+            "ev": 0.0078514492753622,
+            "home": "Philadelphia Flyers",
+            "market": "ev_home_ml",
+            "market_group": "moneyline",
+            "price": -115.0,
+            "prob": 0.5390833333333334,
+            "side": "Philadelphia Flyers",
+            "totals_line": null
+          },
+          {
+            "away": "Pittsburgh Penguins",
+            "bet": "away_ml",
+            "book": null,
+            "edge_reasons": "p=0.461",
+            "edge_score": 0.0781666666666667,
+            "ev": -0.1001150793650794,
+            "home": "Philadelphia Flyers",
+            "market": "ev_away_ml",
+            "market_group": "moneyline",
+            "price": -105.0,
+            "prob": 0.4609166666666666,
+            "side": "Pittsburgh Penguins",
+            "totals_line": null
+          },
+          {
+            "away": "Anaheim Ducks",
+            "bet": "away_ml",
+            "book": null,
+            "edge_reasons": "p=0.476",
+            "edge_score": 0.0486666666666666,
+            "ev": 0.2557599999999999,
+            "home": "Edmonton Oilers",
+            "market": "ev_away_ml",
+            "market_group": "moneyline",
+            "price": 164.0,
+            "prob": 0.4756666666666667,
+            "side": "Anaheim Ducks",
+            "totals_line": null
+          },
+          {
+            "away": "Anaheim Ducks",
+            "bet": "home_ml",
+            "book": null,
+            "edge_reasons": "p=0.524",
+            "edge_score": 0.0486666666666666,
+            "ev": -0.2108518518518518,
+            "home": "Edmonton Oilers",
+            "market": "ev_home_ml",
+            "market_group": "moneyline",
+            "price": -198.0,
+            "prob": 0.5243333333333333,
+            "side": "Edmonton Oilers",
+            "totals_line": null
+          }
+        ],
+        "source": "edges_sim_2026-04-22.csv"
+      },
+      "predictions": {
+        "count": 3,
+        "rows": [
+          {
+            "away": "Anaheim Ducks",
+            "away_ml_odds": 164.0,
+            "away_pl_+1.5_odds": -148.0,
+            "date": "2026-04-22",
+            "home": "Edmonton Oilers",
+            "home_ml_odds": -198.0,
+            "home_pl_-1.5_odds": 124.0,
+            "model_total": 6.228833333333333,
+            "over_odds": -142.0,
+            "p_away_ml": 0.4756666666666667,
+            "p_away_pl_+1.5": 0.7408333333333333,
+            "p_home_ml": 0.5243333333333333,
+            "p_home_pl_-1.5": 0.2591666666666666,
+            "p_over": 0.4351666666666666,
+            "p_under": 0.5648333333333333,
+            "pl_line_used": 1.5,
+            "proj_away_goals": 3.034,
+            "proj_home_goals": 3.1948333333333334,
+            "segments": {
+              "final": {
+                "away_win_prob": 0.3918431230785582,
+                "home_win_prob": 0.44342316922643243,
+                "tie_prob": 0.16473370769500947
+              },
+              "ot": {
+                "no_prob": 0.8352662923049905,
+                "yes_prob": 0.16473370769500947
+              },
+              "p1": {
+                "away_win_prob": 0.3331103863192252,
+                "home_win_prob": 0.3599116503955619,
+                "tie_prob": 0.306977963285213
+              },
+              "p2": {
+                "away_win_prob": 0.3353704505505051,
+                "home_win_prob": 0.3623223454469982,
+                "tie_prob": 0.3023072040024968
+              },
+              "p3": {
+                "away_win_prob": 0.33186113085994595,
+                "home_win_prob": 0.36321903862606686,
+                "tie_prob": 0.30491983051398713
+              }
+            },
+            "total_line_used": 6.5,
+            "under_odds": 120.0
+          },
+          {
+            "away": "Dallas Stars",
+            "away_ml_odds": 110.0,
+            "away_pl_+1.5_odds": -230.0,
+            "date": "2026-04-22",
+            "home": "Minnesota Wild",
+            "home_ml_odds": -130.0,
+            "home_pl_-1.5_odds": 190.0,
+            "model_total": 6.7275,
+            "over_odds": -130.0,
+            "p_away_ml": 0.555,
+            "p_away_pl_+1.5": 0.8073333333333333,
+            "p_home_ml": 0.445,
+            "p_home_pl_-1.5": 0.1926666666666666,
+            "p_over": 0.6506666666666666,
+            "p_under": 0.3493333333333333,
+            "pl_line_used": 1.5,
+            "proj_away_goals": 3.522333333333333,
+            "proj_home_goals": 3.2051666666666665,
+            "segments": {
+              "final": {
+                "away_win_prob": 0.46806694116172226,
+                "home_win_prob": 0.37444911481333465,
+                "tie_prob": 0.1574839440249431
+              },
+              "ot": {
+                "no_prob": 0.8425160559750569,
+                "yes_prob": 0.1574839440249431
+              },
+              "p1": {
+                "away_win_prob": 0.3824158752212665,
+                "home_win_prob": 0.32329365557741896,
+                "tie_prob": 0.2942904692013146
+              },
+              "p2": {
+                "away_win_prob": 0.38303948903991303,
+                "home_win_prob": 0.328504274760805,
+                "tie_prob": 0.28845623619928196
+              },
+              "p3": {
+                "away_win_prob": 0.3768391982414302,
+                "home_win_prob": 0.3347472091729641,
+                "tie_prob": 0.28841359258560584
+              }
+            },
+            "total_line_used": 5.5,
+            "under_odds": 110.0
+          },
+          {
+            "away": "Pittsburgh Penguins",
+            "away_ml_odds": -105.0,
+            "away_pl_+1.5_odds": -250.0,
+            "date": "2026-04-22",
+            "home": "Philadelphia Flyers",
+            "home_ml_odds": -115.0,
+            "home_pl_-1.5_odds": 205.0,
+            "model_total": 6.112,
+            "over_odds": -122.0,
+            "p_away_ml": 0.4609166666666666,
+            "p_away_pl_+1.5": 0.7458333333333333,
+            "p_home_ml": 0.5390833333333334,
+            "p_home_pl_-1.5": 0.2541666666666666,
+            "p_over": 0.5558333333333333,
+            "p_under": 0.4441666666666666,
+            "pl_line_used": 1.5,
+            "proj_away_goals": 2.9556666666666667,
+            "proj_home_goals": 3.156333333333333,
+            "segments": {
+              "final": {
+                "away_win_prob": 0.38487458323543366,
+                "home_win_prob": 0.44893969380429327,
+                "tie_prob": 0.16618572296027298
+              },
+              "ot": {
+                "no_prob": 0.833814277039727,
+                "yes_prob": 0.16618572296027298
+              },
+              "p1": {
+                "away_win_prob": 0.32525819391810734,
+                "home_win_prob": 0.36135511893897854,
+                "tie_prob": 0.313386687142914
+              },
+              "p2": {
+                "away_win_prob": 0.32326941042568813,
+                "home_win_prob": 0.3723444396911083,
+                "tie_prob": 0.30438614988320345
+              },
+              "p3": {
+                "away_win_prob": 0.33644384005582784,
+                "home_win_prob": 0.3567944744760694,
+                "tie_prob": 0.3067616854681028
+              }
+            },
+            "total_line_used": 5.5,
+            "under_odds": 102.0
+          }
+        ]
+      },
+      "recommendations": {
+        "count": 3,
+        "rows": [
+          {
+            "away": "Dallas Stars",
+            "conf": 0.3073333333333333,
+            "ev": 0.1583478260869564,
+            "home": "Minnesota Wild",
+            "market": "PL",
+            "price": -230.0,
+            "prob": 0.8073333333333333,
+            "side": "Dallas Stars +1.5",
+            "totals_line": 5.5
+          },
+          {
+            "away": "Pittsburgh Penguins",
+            "conf": 0.2458333333333333,
+            "ev": 0.0441666666666666,
+            "home": "Philadelphia Flyers",
+            "market": "PL",
+            "price": -250.0,
+            "prob": 0.7458333333333333,
+            "side": "Pittsburgh Penguins +1.5",
+            "totals_line": 5.5
+          },
+          {
+            "away": "Anaheim Ducks",
+            "conf": 0.2408333333333333,
+            "ev": 0.2413963963963964,
+            "home": "Edmonton Oilers",
+            "market": "PL",
+            "price": -148.0,
+            "prob": 0.7408333333333333,
+            "side": "Anaheim Ducks +1.5",
+            "totals_line": 6.5
+          }
+        ]
+      },
+      "reconciliation": null
+    },
+    "props": {
+      "recommendations": {
+        "count": 7,
+        "rows": [
+          {
+            "book": "betmgm",
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
+            "edge_score": 0.5293600149891705,
+            "ev": 0.1023171077084844,
+            "line": 0.5,
+            "market": "ASSISTS",
+            "opp": "ANA",
+            "player": "Evan Bouchard",
+            "price": -175,
+            "prob": 0.7014745230872174,
+            "side": "Over",
+            "team": "EDM"
+          },
+          {
+            "book": "betmgm",
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP-",
+            "edge_score": 0.494120718740597,
+            "ev": 0.1462804248060305,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "DAL",
+            "player": "Matt Boldy",
+            "price": -210,
+            "prob": 0.7765125458363432,
+            "side": "Over",
+            "team": "MIN"
+          },
+          {
+            "book": "betmgm",
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP-",
+            "edge_score": 0.4779447716790343,
+            "ev": 0.2128885094375372,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "PHI",
+            "player": "Erik Karlsson",
+            "price": -175,
+            "prob": 0.7718381423693419,
+            "side": "Over",
+            "team": "PIT"
+          },
+          {
+            "book": "draftkings",
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP-",
+            "edge_score": 0.474480757634409,
+            "ev": 0.2968240729608433,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "PHI",
+            "player": "Evgeni Malkin",
+            "price": -145,
+            "prob": 0.7675081248135603,
+            "side": "Over",
+            "team": "PIT"
+          },
+          {
+            "book": "betmgm",
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
+            "edge_score": 0.4588237768403067,
+            "ev": 0.3031275053352695,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "PIT",
+            "player": "Porter Martone",
+            "price": 100,
+            "prob": 0.6515637526676348,
+            "side": "Over",
+            "team": "PHI"
+          },
+          {
+            "book": "pinnacle",
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
+            "edge_score": 0.4412907675437736,
+            "ev": 0.5237469283336634,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "PIT",
+            "player": "Matvei Michkov",
+            "price": 142,
+            "prob": 0.6296474910469684,
+            "side": "Over",
+            "team": "PHI"
+          },
+          {
+            "book": "draftkings",
+            "edge_reasons": "MODEL UND · CONF60+ · MATCHUP-",
+            "edge_score": 0.3786011935743604,
+            "ev": 0.3283660179174942,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "ANA",
+            "player": "Ryan Nugent-Hopkins",
+            "price": -105,
+            "prob": 0.6803825945431068,
+            "side": "Under",
+            "team": "EDM"
+          }
+        ],
+        "source": "props_recommendations_2026-04-22.csv"
+      },
+      "reconciliation": null
+    }
+  },
+  "date": "2026-04-22",
+  "files": {
+    "edges": "data/processed/edges_sim_2026-04-22.csv",
+    "game_recommendations": "data/processed/recommendations_sim_2026-04-22.csv",
+    "predictions": "data/processed/predictions_sim_2026-04-22.csv",
+    "props_recommendations": "data/processed/props_recommendations_2026-04-22.csv",
+    "reconciliation_games": null,
+    "reconciliation_props": null
+  },
+  "generated_at_utc": "2026-04-21T16:04:16+00:00",
+  "schema_version": 2
+}

@@ -504,7 +504,105 @@
           }
         ]
       },
-      "reconciliation": null
+      "reconciliation": {
+        "rows": [
+          {
+            "away": "Montréal Canadiens",
+            "bet": "away_pl_+1.5",
+            "date": "2026-04-21T23:00:00Z",
+            "ev": 0.1707,
+            "home": "Tampa Bay Lightning",
+            "market": "puckline",
+            "payout": 64.51612903225805,
+            "price": -155.0,
+            "result": "win",
+            "stake": 100.0
+          },
+          {
+            "away": "Boston Bruins",
+            "bet": "away_pl_+1.5",
+            "date": "2026-04-21T23:30:00Z",
+            "ev": 0.1847,
+            "home": "Buffalo Sabres",
+            "market": "puckline",
+            "payout": 57.14285714285714,
+            "price": -175.0,
+            "result": "win",
+            "stake": 100.0
+          },
+          {
+            "away": "Utah Mammoth",
+            "bet": "home_ml",
+            "date": "2026-04-22T01:30:00Z",
+            "ev": 0.0252,
+            "home": "Vegas Golden Knights",
+            "market": "moneyline",
+            "payout": -100.0,
+            "price": -140,
+            "result": "loss",
+            "stake": 100.0
+          },
+          {
+            "away": "Utah Mammoth",
+            "bet": "under",
+            "date": "2026-04-22T01:30:00Z",
+            "ev": 0.0966,
+            "home": "Vegas Golden Knights",
+            "market": "totals",
+            "payout": 97.0873786407767,
+            "price": -103,
+            "result": "win",
+            "stake": 100.0
+          },
+          {
+            "away": "Utah Mammoth",
+            "bet": "away_pl_+1.5",
+            "date": "2026-04-22T01:30:00Z",
+            "ev": 0.0453,
+            "home": "Vegas Golden Knights",
+            "market": "puckline",
+            "payout": 56.17977528089888,
+            "price": -178.0,
+            "result": "win",
+            "stake": 100.0
+          },
+          {
+            "away": "Los Angeles Kings",
+            "bet": "over",
+            "date": "2026-04-22T02:00:00Z",
+            "ev": 0.049,
+            "home": "Colorado Avalanche",
+            "market": "totals",
+            "payout": -100.0,
+            "price": -115,
+            "result": "loss",
+            "stake": 100.0
+          },
+          {
+            "away": "Los Angeles Kings",
+            "bet": "away_pl_+1.5",
+            "date": "2026-04-22T02:00:00Z",
+            "ev": 0.1116,
+            "home": "Colorado Avalanche",
+            "market": "puckline",
+            "payout": 90.90909090909092,
+            "price": -110.0,
+            "result": "win",
+            "stake": 100.0
+          }
+        ],
+        "summary": {
+          "date": "2026-04-21",
+          "decided": 7,
+          "losses": 2,
+          "picks": 7,
+          "pnl": 165.83523100588172,
+          "pushes": 0,
+          "roi": 0.2369074728655453,
+          "staked": 700.0,
+          "wins": 5
+        }
+      }
     },
     "props": {
       "recommendations": {
@@ -774,9 +872,9 @@
     "game_recommendations": "data/processed/recommendations_sim_2026-04-21.csv",
     "predictions": "data/processed/predictions_sim_2026-04-21.csv",
     "props_recommendations": "data/processed/props_recommendations_2026-04-21.csv",
-    "reconciliation_games": null,
+    "reconciliation_games": "data/processed/reconciliation_2026-04-21.json",
     "reconciliation_props": null
   },
-  "generated_at_utc": "2026-04-21T16:04:13+00:00",
+  "generated_at_utc": "2026-04-22T16:37:09+00:00",
   "schema_version": 2
 }

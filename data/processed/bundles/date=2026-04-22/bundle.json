@@ -363,7 +363,81 @@
           }
         ]
       },
-      "reconciliation": null
+      "reconciliation": {
+        "rows": [
+          {
+            "away": "Pittsburgh Penguins",
+            "bet": "home_ml",
+            "date": "2026-04-22T23:00:00Z",
+            "ev": 0.0109,
+            "home": "Philadelphia Flyers",
+            "market": "moneyline",
+            "payout": 96.15384615384616,
+            "price": -104,
+            "result": "win",
+            "stake": 100.0
+          },
+          {
+            "away": "Pittsburgh Penguins",
+            "bet": "home_pl_-1.5",
+            "date": "2026-04-22T23:00:00Z",
+            "ev": 0.0403,
+            "home": "Philadelphia Flyers",
+            "market": "puckline",
+            "payout": 225.99999999999997,
+            "price": 226.0,
+            "result": "win",
+            "stake": 100.0
+          },
+          {
+            "away": "Dallas Stars",
+            "bet": "home_ml",
+            "date": "2026-04-23T01:30:00Z",
+            "ev": 0.0302,
+            "home": "Minnesota Wild",
+            "market": "moneyline",
+            "payout": -100.0,
+            "price": -130,
+            "result": "loss",
+            "stake": 100.0
+          },
+          {
+            "away": "Dallas Stars",
+            "bet": "away_pl_+1.5",
+            "date": "2026-04-23T01:30:00Z",
+            "ev": 0.1866,
+            "home": "Minnesota Wild",
+            "market": "puckline",
+            "payout": 47.61904761904763,
+            "price": -210.0,
+            "result": "win",
+            "stake": 100.0
+          },
+          {
+            "away": "Anaheim Ducks",
+            "bet": "under",
+            "date": "2026-04-23T02:00:00Z",
+            "ev": 0.1133,
+            "home": "Edmonton Oilers",
+            "market": "totals",
+            "payout": -100.0,
+            "price": 122,
+            "result": "loss",
+            "stake": 100.0
+          }
+        ],
+        "summary": {
+          "date": "2026-04-22",
+          "decided": 5,
+          "losses": 2,
+          "picks": 5,
+          "pnl": 169.77289377289378,
+          "pushes": 0,
+          "roi": 0.33954578754578757,
+          "staked": 500.0,
+          "wins": 3
+        }
+      }
     },
     "props": {
       "recommendations": {
@@ -521,9 +595,9 @@
     "game_recommendations": "data/processed/recommendations_sim_2026-04-22.csv",
     "predictions": "data/processed/predictions_sim_2026-04-22.csv",
     "props_recommendations": "data/processed/props_recommendations_2026-04-22.csv",
-    "reconciliation_games": null,
+    "reconciliation_games": "data/processed/reconciliation_2026-04-22.json",
     "reconciliation_props": null
   },
-  "generated_at_utc": "2026-04-22T16:37:12+00:00",
+  "generated_at_utc": "2026-04-23T14:47:31+00:00",
   "schema_version": 2
 }

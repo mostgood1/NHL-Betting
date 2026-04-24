@@ -374,7 +374,93 @@
           }
         ]
       },
-      "reconciliation": null
+      "reconciliation": {
+        "rows": [
+          {
+            "away": "Buffalo Sabres",
+            "bet": "home_ml",
+            "date": "2026-04-23T23:00:00Z",
+            "ev": 0.0053,
+            "home": "Boston Bruins",
+            "market": "moneyline",
+            "payout": -100.0,
+            "price": -112,
+            "result": "loss",
+            "stake": 100.0
+          },
+          {
+            "away": "Buffalo Sabres",
+            "bet": "under",
+            "date": "2026-04-23T23:00:00Z",
+            "ev": 0.0481,
+            "home": "Boston Bruins",
+            "market": "totals",
+            "payout": 100.0,
+            "price": 100,
+            "result": "win",
+            "stake": 100.0
+          },
+          {
+            "away": "Carolina Hurricanes",
+            "bet": "over",
+            "date": "2026-04-23T23:30:00Z",
+            "ev": 0.0566,
+            "home": "Ottawa Senators",
+            "market": "totals",
+            "payout": -100.0,
+            "price": -104,
+            "result": "loss",
+            "stake": 100.0
+          },
+          {
+            "away": "Carolina Hurricanes",
+            "bet": "home_pl_-1.5",
+            "date": "2026-04-23T23:30:00Z",
+            "ev": 0.0629,
+            "home": "Ottawa Senators",
+            "market": "puckline",
+            "payout": -100.0,
+            "price": 208.0,
+            "result": "loss",
+            "stake": 100.0
+          },
+          {
+            "away": "Colorado Avalanche",
+            "bet": "over",
+            "date": "2026-04-24T02:00:00Z",
+            "ev": 0.0523,
+            "home": "Los Angeles Kings",
+            "market": "totals",
+            "payout": 86.95652173913042,
+            "price": -115,
+            "result": "win",
+            "stake": 100.0
+          },
+          {
+            "away": "Colorado Avalanche",
+            "bet": "away_pl_+1.5",
+            "date": "2026-04-24T02:00:00Z",
+            "ev": 0.4204,
+            "home": "Los Angeles Kings",
+            "market": "puckline",
+            "payout": 0.0,
+            "price": null,
+            "result": "win",
+            "stake": 100.0
+          }
+        ],
+        "summary": {
+          "date": "2026-04-23",
+          "decided": 6,
+          "losses": 3,
+          "picks": 6,
+          "pnl": -113.04347826086958,
+          "pushes": 0,
+          "roi": -0.1884057971014493,
+          "staked": 600.0,
+          "wins": 3
+        }
+      }
     },
     "props": {
       "recommendations": {
@@ -630,9 +716,9 @@
     "game_recommendations": "data/processed/recommendations_sim_2026-04-23.csv",
     "predictions": "data/processed/predictions_sim_2026-04-23.csv",
     "props_recommendations": "data/processed/props_recommendations_2026-04-23.csv",
-    "reconciliation_games": null,
+    "reconciliation_games": "data/processed/reconciliation_2026-04-23.json",
     "reconciliation_props": null
   },
-  "generated_at_utc": "2026-04-23T14:47:34+00:00",
+  "generated_at_utc": "2026-04-24T15:03:39+00:00",
   "schema_version": 2
 }

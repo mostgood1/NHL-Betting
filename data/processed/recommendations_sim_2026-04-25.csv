@@ -1,4 +1,5 @@
 market,side,price,ev,prob,conf,home,away,totals_line
-PL,Carolina Hurricanes +1.5,-278.0,0.04652517985611515,0.7696666666666667,0.2696666666666667,Ottawa Senators,Carolina Hurricanes,5.5
-PL,Dallas Stars +1.5,-218.0,0.11372935779816518,0.7635000000000001,0.26350000000000007,Minnesota Wild,Dallas Stars,5.5
-PL,Pittsburgh Penguins +1.5,-258.0,0.01502713178294579,0.7315,0.23150000000000004,Philadelphia Flyers,Pittsburgh Penguins,5.5
+PL,Carolina Hurricanes +1.5,-278.0,0.17297841726618707,0.8626666666666667,0.3626666666666667,Ottawa Senators,Carolina Hurricanes,5.5
+ML,Minnesota Wild,-135.0,0.38388888888888895,0.795,0.29500000000000004,Minnesota Wild,Dallas Stars,5.5
+PL,Pittsburgh Penguins +1.5,-258.0,0.03931007751937987,0.749,0.249,Philadelphia Flyers,Pittsburgh Penguins,5.5
+ML,Carolina Hurricanes,-112.0,0.28745833333333337,0.6801666666666667,0.1801666666666667,Ottawa Senators,Carolina Hurricanes,5.5

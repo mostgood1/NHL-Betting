@@ -1,0 +1,780 @@
+{
+  "data": {
+    "games": {
+      "edges": {
+        "count": 16,
+        "rows": [
+          {
+            "away": "Edmonton Oilers",
+            "bet": "under",
+            "book": null,
+            "edge_reasons": "total 6.17 vs line 7.5 (-1.33); p=0.728; P1 pace 1.96",
+            "edge_score": 0.6651618285640516,
+            "ev": 0.1979516129032256,
+            "home": "Anaheim Ducks",
+            "market": "ev_under",
+            "market_group": "totals",
+            "price": -155.0,
+            "prob": 0.7281666666666666,
+            "side": "Under 7.5",
+            "totals_line": 7.5
+          },
+          {
+            "away": "Tampa Bay Lightning",
+            "bet": "over",
+            "book": null,
+            "edge_reasons": "total 6.47 vs line 5.5 (+0.97); p=0.617; P1 pace 2.09",
+            "edge_score": 0.5593992853322579,
+            "ev": 0.091025641025641,
+            "home": "Montréal Canadiens",
+            "market": "ev_over",
+            "market_group": "totals",
+            "price": -130.0,
+            "prob": 0.6166666666666667,
+            "side": "Over 5.5",
+            "totals_line": 5.5
+          },
+          {
+            "away": "Colorado Avalanche",
+            "bet": "over",
+            "book": null,
+            "edge_reasons": "total 6.37 vs line 5.5 (+0.87); p=0.596; P1 pace 2.02",
+            "edge_score": 0.5209765929879907,
+            "ev": 0.1013926553672315,
+            "home": "Los Angeles Kings",
+            "market": "ev_over",
+            "market_group": "totals",
+            "price": -118.0,
+            "prob": 0.5961666666666666,
+            "side": "Over 5.5",
+            "totals_line": 5.5
+          },
+          {
+            "away": "Buffalo Sabres",
+            "bet": "over",
+            "book": null,
+            "edge_reasons": "total 6.34 vs line 5.5 (+0.84); p=0.595; P1 pace 2.02",
+            "edge_score": 0.5165852240505662,
+            "ev": 0.052102564102564,
+            "home": "Boston Bruins",
+            "market": "ev_over",
+            "market_group": "totals",
+            "price": -130.0,
+            "prob": 0.5946666666666667,
+            "side": "Over 5.5",
+            "totals_line": 5.5
+          },
+          {
+            "away": "Edmonton Oilers",
+            "bet": "over",
+            "book": null,
+            "edge_reasons": "total 6.17 vs line 7.5 (-1.33); p=0.272; P1 pace 1.96",
+            "edge_score": 0.2957950341810464,
+            "ev": -0.3747833333333333,
+            "home": "Anaheim Ducks",
+            "market": "ev_over",
+            "market_group": "totals",
+            "price": 130.0,
+            "prob": 0.2718333333333333,
+            "side": "Over 7.5",
+            "totals_line": 7.5
+          },
+          {
+            "away": "Buffalo Sabres",
+            "bet": "under",
+            "book": null,
+            "edge_reasons": "total 6.34 vs line 5.5 (+0.84); p=0.405; P1 pace 2.02",
+            "edge_score": 0.2056422269298259,
+            "ev": -0.1488,
+            "home": "Boston Bruins",
+            "market": "ev_under",
+            "market_group": "totals",
+            "price": 110.0,
+            "prob": 0.4053333333333333,
+            "side": "Under 5.5",
+            "totals_line": 5.5
+          },
+          {
+            "away": "Colorado Avalanche",
+            "bet": "under",
+            "book": null,
+            "edge_reasons": "total 6.37 vs line 5.5 (+0.87); p=0.404; P1 pace 2.02",
+            "edge_score": 0.2039332109335778,
+            "ev": -0.2002516339869281,
+            "home": "Los Angeles Kings",
+            "market": "ev_under",
+            "market_group": "totals",
+            "price": -102.0,
+            "prob": 0.4038333333333333,
+            "side": "Under 5.5",
+            "totals_line": 5.5
+          },
+          {
+            "away": "Tampa Bay Lightning",
+            "bet": "under",
+            "book": null,
+            "edge_reasons": "total 6.47 vs line 5.5 (+0.97); p=0.383; P1 pace 2.09",
+            "edge_score": 0.2021693421187225,
+            "ev": -0.1949999999999999,
+            "home": "Montréal Canadiens",
+            "market": "ev_under",
+            "market_group": "totals",
+            "price": 110.0,
+            "prob": 0.3833333333333333,
+            "side": "Under 5.5",
+            "totals_line": 5.5
+          },
+          {
+            "away": "Colorado Avalanche",
+            "bet": "away_ml",
+            "book": null,
+            "edge_reasons": "p=0.528",
+            "edge_score": 0.0558333333333334,
+            "ev": -0.1615441176470587,
+            "home": "Los Angeles Kings",
+            "market": "ev_away_ml",
+            "market_group": "moneyline",
+            "price": -170.0,
+            "prob": 0.5279166666666667,
+            "side": "Colorado Avalanche",
+            "totals_line": null
+          },
+          {
+            "away": "Colorado Avalanche",
+            "bet": "home_ml",
+            "book": null,
+            "edge_reasons": "p=0.472",
+            "edge_score": 0.0558333333333332,
+            "ev": 0.1424416666666667,
+            "home": "Los Angeles Kings",
+            "market": "ev_home_ml",
+            "market_group": "moneyline",
+            "price": 142.0,
+            "prob": 0.4720833333333333,
+            "side": "Los Angeles Kings",
+            "totals_line": null
+          },
+          {
+            "away": "Edmonton Oilers",
+            "bet": "home_ml",
+            "book": null,
+            "edge_reasons": "p=0.492",
+            "edge_score": 0.015,
+            "ev": 0.0539499999999997,
+            "home": "Anaheim Ducks",
+            "market": "ev_home_ml",
+            "market_group": "moneyline",
+            "price": 114.0,
+            "prob": 0.4925,
+            "side": "Anaheim Ducks",
+            "totals_line": null
+          },
+          {
+            "away": "Edmonton Oilers",
+            "bet": "away_ml",
+            "book": null,
+            "edge_reasons": "p=0.507",
+            "edge_score": 0.0149999999999999,
+            "ev": -0.1165740740740741,
+            "home": "Anaheim Ducks",
+            "market": "ev_away_ml",
+            "market_group": "moneyline",
+            "price": -135.0,
+            "prob": 0.5075,
+            "side": "Edmonton Oilers",
+            "totals_line": null
+          },
+          {
+            "away": "Tampa Bay Lightning",
+            "bet": "home_ml",
+            "book": null,
+            "edge_reasons": "p=0.496",
+            "edge_score": 0.008,
+            "ev": -0.0316190476190476,
+            "home": "Montréal Canadiens",
+            "market": "ev_home_ml",
+            "market_group": "moneyline",
+            "price": -105.0,
+            "prob": 0.496,
+            "side": "Montréal Canadiens",
+            "totals_line": null
+          },
+          {
+            "away": "Tampa Bay Lightning",
+            "bet": "away_ml",
+            "book": null,
+            "edge_reasons": "p=0.504",
+            "edge_score": 0.008,
+            "ev": -0.0577391304347826,
+            "home": "Montréal Canadiens",
+            "market": "ev_away_ml",
+            "market_group": "moneyline",
+            "price": -115.0,
+            "prob": 0.504,
+            "side": "Tampa Bay Lightning",
+            "totals_line": null
+          },
+          {
+            "away": "Buffalo Sabres",
+            "bet": "away_ml",
+            "book": null,
+            "edge_reasons": "p=0.503",
+            "edge_score": 0.0063333333333333,
+            "ev": -0.0176269841269841,
+            "home": "Boston Bruins",
+            "market": "ev_away_ml",
+            "market_group": "moneyline",
+            "price": -105.0,
+            "prob": 0.5031666666666667,
+            "side": "Buffalo Sabres",
+            "totals_line": null
+          },
+          {
+            "away": "Buffalo Sabres",
+            "bet": "home_ml",
+            "book": null,
+            "edge_reasons": "p=0.497",
+            "edge_score": 0.0063333333333333,
+            "ev": -0.0711376811594203,
+            "home": "Boston Bruins",
+            "market": "ev_home_ml",
+            "market_group": "moneyline",
+            "price": -115.0,
+            "prob": 0.4968333333333333,
+            "side": "Boston Bruins",
+            "totals_line": null
+          }
+        ],
+        "source": "edges_sim_2026-04-26.csv"
+      },
+      "predictions": {
+        "count": 4,
+        "rows": [
+          {
+            "away": "Edmonton Oilers",
+            "away_ml_odds": -135.0,
+            "away_pl_+1.5_odds": null,
+            "date": "2026-04-26",
+            "home": "Anaheim Ducks",
+            "home_ml_odds": 114.0,
+            "home_pl_-1.5_odds": null,
+            "model_total": 6.174166666666666,
+            "over_odds": 130.0,
+            "p_away_ml": 0.5075,
+            "p_away_pl_+1.5": 0.7673333333333333,
+            "p_home_ml": 0.4925,
+            "p_home_pl_-1.5": 0.2326666666666666,
+            "p_over": 0.2718333333333333,
+            "p_under": 0.7281666666666666,
+            "pl_line_used": 1.5,
+            "proj_away_goals": 3.1026666666666665,
+            "proj_home_goals": 3.0715,
+            "segments": {
+              "final": {
+                "away_win_prob": 0.42049425961714915,
+                "home_win_prob": 0.41369175901139815,
+                "tie_prob": 0.1658139813714528
+              },
+              "ot": {
+                "no_prob": 0.8341860186285472,
+                "yes_prob": 0.1658139813714528
+              },
+              "p1": {
+                "away_win_prob": 0.34746043371544294,
+                "home_win_prob": 0.3406000147376524,
+                "tie_prob": 0.3119395515469047
+              },
+              "p2": {
+                "away_win_prob": 0.3489226112177151,
+                "home_win_prob": 0.3471946081096508,
+                "tie_prob": 0.30388278067263413
+              },
+              "p3": {
+                "away_win_prob": 0.3494056200927385,
+                "home_win_prob": 0.34672730737431573,
+                "tie_prob": 0.3038670725329457
+              }
+            },
+            "total_line_used": 7.5,
+            "under_odds": -155.0
+          },
+          {
+            "away": "Buffalo Sabres",
+            "away_ml_odds": -105.0,
+            "away_pl_+1.5_odds": -265.0,
+            "date": "2026-04-26",
+            "home": "Boston Bruins",
+            "home_ml_odds": -115.0,
+            "home_pl_-1.5_odds": 215.0,
+            "model_total": 6.343333333333334,
+            "over_odds": -130.0,
+            "p_away_ml": 0.5031666666666667,
+            "p_away_pl_+1.5": 0.7625,
+            "p_home_ml": 0.4968333333333333,
+            "p_home_pl_-1.5": 0.2375,
+            "p_over": 0.5946666666666667,
+            "p_under": 0.4053333333333333,
+            "pl_line_used": 1.5,
+            "proj_away_goals": 3.1755,
+            "proj_home_goals": 3.1678333333333333,
+            "segments": {
+              "final": {
+                "away_win_prob": 0.4190327469090917,
+                "home_win_prob": 0.4174718790759083,
+                "tie_prob": 0.163495374015
+              },
+              "ot": {
+                "no_prob": 0.836504625985,
+                "yes_prob": 0.163495374015
+              },
+              "p1": {
+                "away_win_prob": 0.33691687393208614,
+                "home_win_prob": 0.35614426929266413,
+                "tie_prob": 0.30693885677524985
+              },
+              "p2": {
+                "away_win_prob": 0.3534413770236269,
+                "home_win_prob": 0.3474591160047954,
+                "tie_prob": 0.2990995069715777
+              },
+              "p3": {
+                "away_win_prob": 0.3584297755562963,
+                "home_win_prob": 0.3429787416227155,
+                "tie_prob": 0.2985914828209882
+              }
+            },
+            "total_line_used": 5.5,
+            "under_odds": 110.0
+          },
+          {
+            "away": "Colorado Avalanche",
+            "away_ml_odds": -170.0,
+            "away_pl_+1.5_odds": null,
+            "date": "2026-04-26",
+            "home": "Los Angeles Kings",
+            "home_ml_odds": 142.0,
+            "home_pl_-1.5_odds": null,
+            "model_total": 6.3655,
+            "over_odds": -118.0,
+            "p_away_ml": 0.5279166666666667,
+            "p_away_pl_+1.5": 0.7948333333333333,
+            "p_home_ml": 0.4720833333333333,
+            "p_home_pl_-1.5": 0.2051666666666666,
+            "p_over": 0.5961666666666666,
+            "p_under": 0.4038333333333333,
+            "pl_line_used": 1.5,
+            "proj_away_goals": 3.2666666666666666,
+            "proj_home_goals": 3.0988333333333333,
+            "segments": {
+              "final": {
+                "away_win_prob": 0.44446497864791756,
+                "home_win_prob": 0.3925874127805475,
+                "tie_prob": 0.16294760857153498
+              },
+              "ot": {
+                "no_prob": 0.837052391428465,
+                "yes_prob": 0.16294760857153498
+              },
+              "p1": {
+                "away_win_prob": 0.36254868924860256,
+                "home_win_prob": 0.33118294093662165,
+                "tie_prob": 0.3062683698147758
+              },
+              "p2": {
+                "away_win_prob": 0.36494285086769307,
+                "home_win_prob": 0.33724569866183496,
+                "tie_prob": 0.29781145047047203
+              },
+              "p3": {
+                "away_win_prob": 0.36397547144522163,
+                "home_win_prob": 0.33724098652586937,
+                "tie_prob": 0.29878354202890905
+              }
+            },
+            "total_line_used": 5.5,
+            "under_odds": -102.0
+          },
+          {
+            "away": "Tampa Bay Lightning",
+            "away_ml_odds": -115.0,
+            "away_pl_+1.5_odds": null,
+            "date": "2026-04-26",
+            "home": "Montréal Canadiens",
+            "home_ml_odds": -105.0,
+            "home_pl_-1.5_odds": null,
+            "model_total": 6.465833333333333,
+            "over_odds": -130.0,
+            "p_away_ml": 0.504,
+            "p_away_pl_+1.5": 0.7581666666666667,
+            "p_home_ml": 0.496,
+            "p_home_pl_-1.5": 0.2418333333333333,
+            "p_over": 0.6166666666666667,
+            "p_under": 0.3833333333333333,
+            "pl_line_used": 1.5,
+            "proj_away_goals": 3.240333333333333,
+            "proj_home_goals": 3.2255,
+            "segments": {
+              "final": {
+                "away_win_prob": 0.4212714991945017,
+                "home_win_prob": 0.41694509967708737,
+                "tie_prob": 0.16178340112841083
+              },
+              "ot": {
+                "no_prob": 0.8382165988715892,
+                "yes_prob": 0.16178340112841083
+              },
+              "p1": {
+                "away_win_prob": 0.35472034957314563,
+                "home_win_prob": 0.34468674588212067,
+                "tie_prob": 0.3005929045447337
+              },
+              "p2": {
+                "away_win_prob": 0.3530294506057851,
+                "home_win_prob": 0.3504812082802333,
+                "tie_prob": 0.29648934111398145
+              },
+              "p3": {
+                "away_win_prob": 0.3490747804770307,
+                "home_win_prob": 0.3544262423238587,
+                "tie_prob": 0.2964989771991106
+              }
+            },
+            "total_line_used": 5.5,
+            "under_odds": 110.0
+          }
+        ]
+      },
+      "recommendations": {
+        "count": 1,
+        "rows": [
+          {
+            "away": "Buffalo Sabres",
+            "conf": 0.2624999999999999,
+            "ev": 0.0502358490566036,
+            "home": "Boston Bruins",
+            "market": "PL",
+            "price": -265.0,
+            "prob": 0.7625,
+            "side": "Buffalo Sabres +1.5",
+            "totals_line": 5.5
+          }
+        ]
+      },
+      "reconciliation": null
+    },
+    "props": {
+      "recommendations": {
+        "count": 21,
+        "rows": [
+          {
+            "book": "draftkings",
+            "edge_reasons": "MODEL UND · CONF60+ · MATCHUP+",
+            "edge_score": 0.7419188078809265,
+            "ev": 1.599740012999567,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "BOS",
+            "player": "Tage Thompson",
+            "price": 160,
+            "prob": 0.9999000049998332,
+            "side": "Under",
+            "team": "BUF"
+          },
+          {
+            "book": "draftkings",
+            "edge_reasons": "MODEL UND · CONF60+ · MATCHUP+",
+            "edge_score": 0.6388392737020002,
+            "ev": 0.4214941268236659,
+            "line": 0.5,
+            "market": "ASSISTS",
+            "opp": "EDM",
+            "player": "Leo Carlsson",
+            "price": -166,
+            "prob": 0.8870978385440923,
+            "side": "Under",
+            "team": "ANA"
+          },
+          {
+            "book": "draftkings",
+            "edge_reasons": "MODEL UND · CONF60+",
+            "edge_score": 0.6251642125470582,
+            "ev": 0.4233432708717468,
+            "line": 0.5,
+            "market": "ASSISTS",
+            "opp": "TBL",
+            "player": "Ivan Demidov",
+            "price": -166,
+            "prob": 0.8882518156568044,
+            "side": "Under",
+            "team": "MTL"
+          },
+          {
+            "book": "draftkings",
+            "edge_reasons": "MODEL UND · CONF60+ · MATCHUP+",
+            "edge_score": 0.6128163331851403,
+            "ev": 0.3331232107883751,
+            "line": 0.5,
+            "market": "ASSISTS",
+            "opp": "COL",
+            "player": "Anze Kopitar",
+            "price": -145,
+            "prob": 0.7889912880176098,
+            "side": "Under",
+            "team": "LAK"
+          },
+          {
+            "book": "betmgm",
+            "edge_reasons": "MODEL UND · CONF60+ · MATCHUP+",
+            "edge_score": 0.611641980683832,
+            "ev": 0.5718404289606469,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "COL",
+            "player": "Anze Kopitar",
+            "price": 100,
+            "prob": 0.7859202144803235,
+            "side": "Under",
+            "team": "LAK"
+          },
+          {
+            "book": "pinnacle",
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
+            "edge_score": 0.5706582596289634,
+            "ev": 0.2982924117735064,
+            "line": 2.5,
+            "market": "SOG",
+            "opp": "BOS",
+            "player": "Jack Quinn",
+            "price": -156,
+            "prob": 0.7911469384244805,
+            "side": "Over",
+            "team": "BUF"
+          },
+          {
+            "book": "betmgm",
+            "edge_reasons": "MODEL UND · CONF60+ · MATCHUP+",
+            "edge_score": 0.5572409897558761,
+            "ev": 0.4393783383292221,
+            "line": 1.5,
+            "market": "POINTS",
+            "opp": "LAK",
+            "player": "Nathan MacKinnon",
+            "price": -120,
+            "prob": 0.7851154572704847,
+            "side": "Under",
+            "team": "COL"
+          },
+          {
+            "book": "pinnacle",
+            "edge_reasons": "MODEL UND · CONF60+ · MATCHUP+",
+            "edge_score": 0.5509038432750331,
+            "ev": 0.4507582774911255,
+            "line": 0.5,
+            "market": "ASSISTS",
+            "opp": "BOS",
+            "player": "Rasmus Dahlin",
+            "price": -109,
+            "prob": 0.7566155609881946,
+            "side": "Under",
+            "team": "BUF"
+          },
+          {
+            "book": "betmgm",
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP-",
+            "edge_score": 0.5482252945998815,
+            "ev": 0.3967419502094494,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "ANA",
+            "player": "Matt Savoie",
+            "price": -165,
+            "prob": 0.8696695161681478,
+            "side": "Over",
+            "team": "EDM"
+          },
+          {
+            "book": "draftkings",
+            "edge_reasons": "MODEL UND · CONF60+ · MATCHUP+",
+            "edge_score": 0.5418219799820458,
+            "ev": 0.2444676097654927,
+            "line": 0.5,
+            "market": "ASSISTS",
+            "opp": "EDM",
+            "player": "John Carlson",
+            "price": -160,
+            "prob": 0.7658262213941494,
+            "side": "Under",
+            "team": "ANA"
+          },
+          {
+            "book": "betmgm",
+            "edge_reasons": "MODEL UND · CONF60+ · MATCHUP+",
+            "edge_score": 0.5141499350873616,
+            "ev": 0.5906899328373647,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "MTL",
+            "player": "Brayden Point",
+            "price": 115,
+            "prob": 0.7398557827150534,
+            "side": "Under",
+            "team": "TBL"
+          },
+          {
+            "book": "betmgm",
+            "edge_reasons": "MODEL OVR · CONF60+",
+            "edge_score": 0.4873425620963071,
+            "ev": 0.2235144796194615,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "LAK",
+            "player": "Valeri Nichushkin",
+            "price": -160,
+            "prob": 0.7529319874581302,
+            "side": "Over",
+            "team": "COL"
+          },
+          {
+            "book": "draftkings",
+            "edge_reasons": "MODEL UND · CONF60+ · MATCHUP-",
+            "edge_score": 0.4720776468751371,
+            "ev": 0.3602880798459486,
+            "line": 0.5,
+            "market": "ASSISTS",
+            "opp": "ANA",
+            "player": "Ryan Nugent-Hopkins",
+            "price": -140,
+            "prob": 0.7935013799101366,
+            "side": "Under",
+            "team": "EDM"
+          },
+          {
+            "book": "pinnacle",
+            "edge_reasons": "MODEL UND · CONF60+ · MATCHUP+",
+            "edge_score": 0.456750404189238,
+            "ev": 0.690271892166599,
+            "line": 0.5,
+            "market": "ASSISTS",
+            "opp": "LAK",
+            "player": "Nathan MacKinnon",
+            "price": 158,
+            "prob": 0.6551441442506197,
+            "side": "Under",
+            "team": "COL"
+          },
+          {
+            "book": "betmgm",
+            "edge_reasons": "MODEL UND · CONF60+ · MATCHUP+",
+            "edge_score": 0.446701516450765,
+            "ev": 0.2350694025837284,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "LAK",
+            "player": "Gabriel Landeskog",
+            "price": -110,
+            "prob": 0.6469411156390958,
+            "side": "Under",
+            "team": "COL"
+          },
+          {
+            "book": "draftkings",
+            "edge_reasons": "MODEL UND · CONF60+ · MATCHUP+",
+            "edge_score": 0.4443847143090799,
+            "ev": 0.5848472406672184,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "EDM",
+            "player": "Leo Carlsson",
+            "price": 145,
+            "prob": 0.6468764247621299,
+            "side": "Under",
+            "team": "ANA"
+          },
+          {
+            "book": "betmgm",
+            "edge_reasons": "MODEL UND · CONF60+ · MATCHUP+",
+            "edge_score": 0.4421157327149931,
+            "ev": 0.2241260550324546,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "LAK",
+            "player": "Nazem Kadri",
+            "price": -110,
+            "prob": 0.641208885969381,
+            "side": "Under",
+            "team": "COL"
+          },
+          {
+            "book": "betmgm",
+            "edge_reasons": "MODEL UND · CONF60+",
+            "edge_score": 0.4288653186123923,
+            "ev": 0.3821881262127148,
+            "line": 0.5,
+            "market": "ASSISTS",
+            "opp": "TBL",
+            "player": "Lane Hutson",
+            "price": 115,
+            "prob": 0.642878198238472,
+            "side": "Under",
+            "team": "MTL"
+          },
+          {
+            "book": "draftkings",
+            "edge_reasons": "MODEL UND · CONF60+",
+            "edge_score": 0.419876595821079,
+            "ev": 0.20445497886246,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "TBL",
+            "player": "Ivan Demidov",
+            "price": -110,
+            "prob": 0.6309049889279552,
+            "side": "Under",
+            "team": "MTL"
+          },
+          {
+            "book": "draftkings",
+            "edge_reasons": "MODEL UND · CONF60+ · MATCHUP+",
+            "edge_score": 0.4109933682910984,
+            "ev": 0.4220725192631844,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "EDM",
+            "player": "Troy Terry",
+            "price": 135,
+            "prob": 0.6051372422396529,
+            "side": "Under",
+            "team": "ANA"
+          },
+          {
+            "book": "draftkings",
+            "edge_reasons": "MODEL UND · CONF60+ · MATCHUP-",
+            "edge_score": 0.3849554338677203,
+            "ev": 0.5240570117765594,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "ANA",
+            "player": "Ryan Nugent-Hopkins",
+            "price": 124,
+            "prob": 0.6803825945431068,
+            "side": "Under",
+            "team": "EDM"
+          }
+        ],
+        "source": "props_recommendations_2026-04-26.csv"
+      },
+      "reconciliation": null
+    }
+  },
+  "date": "2026-04-26",
+  "files": {
+    "edges": "data/processed/edges_sim_2026-04-26.csv",
+    "game_recommendations": "data/processed/recommendations_sim_2026-04-26.csv",
+    "predictions": "data/processed/predictions_sim_2026-04-26.csv",
+    "props_recommendations": "data/processed/props_recommendations_2026-04-26.csv",
+    "reconciliation_games": null,
+    "reconciliation_props": null
+  },
+  "generated_at_utc": "2026-04-25T16:15:32+00:00",
+  "schema_version": 2
+}

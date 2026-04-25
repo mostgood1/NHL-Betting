@@ -2,10 +2,13 @@ player,position,team
 Evgeni Malkin,F,PIT
 Sidney Crosby,F,PIT
 Kris Letang,F,PIT
+Claude Giroux,F,OTT
 Jordan Staal,F,CAR
 Jamie Benn,F,DAL
 Erik Karlsson,F,PIT
+Marcus Johansson,F,MIN
 Matt Duchene,F,DAL
+Vladimir Tarasenko,F,MIN
 Taylor Hall,F,CAR
 Bryan Rust,F,PIT
 Sean Couturier,F,PHI
@@ -24,6 +27,7 @@ Mikko Rantanen,F,DAL
 Sebastian Aho,F,CAR
 Tommy Novak,F,PIT
 Travis Konecny,F,PHI
+Thomas Chabot,F,OTT
 Joel Eriksson Ek,F,MIN
 Kirill Kaprizov,F,MIN
 Sam Steel,F,DAL
@@ -42,8 +46,11 @@ Trevor Zegras,F,PHI
 Matt Boldy,F,MIN
 Thomas Harley,F,DAL
 Shane Pinto,F,OTT
+Jordan Spence,F,OTT
+Elmer Soderblom,F,PIT
 Ridly Greig,F,OTT
 Seth Jarvis,F,CAR
+Alexander Nikishin,F,CAR
 Tim Stützle,F,OTT
 Brock Faber,F,MIN
 Jamie Drysdale,F,PHI

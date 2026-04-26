@@ -1,0 +1,396 @@
+{
+  "data": {
+    "games": {
+      "edges": {
+        "count": 8,
+        "rows": [
+          {
+            "away": "Vegas Golden Knights",
+            "bet": "over",
+            "book": null,
+            "edge_reasons": "total 6.68 vs line 5.5 (+1.18); p=0.645; P1 pace 2.13",
+            "edge_score": 0.6028063646386496,
+            "ev": 0.1405641025641026,
+            "home": "Utah Mammoth",
+            "market": "ev_over",
+            "market_group": "totals",
+            "price": -130.0,
+            "prob": 0.6446666666666667,
+            "side": "Over 5.5",
+            "totals_line": 5.5
+          },
+          {
+            "away": "Philadelphia Flyers",
+            "bet": "over",
+            "book": null,
+            "edge_reasons": "total 5.93 vs line 5.5 (+0.43); p=0.536; P1 pace 1.88",
+            "edge_score": 0.3827480742767012,
+            "ev": -0.0358,
+            "home": "Pittsburgh Penguins",
+            "market": "ev_over",
+            "market_group": "totals",
+            "price": -125.0,
+            "prob": 0.5356666666666666,
+            "side": "Over 5.5",
+            "totals_line": 5.5
+          },
+          {
+            "away": "Philadelphia Flyers",
+            "bet": "under",
+            "book": null,
+            "edge_reasons": "total 5.93 vs line 5.5 (+0.43); p=0.464; P1 pace 1.88",
+            "edge_score": 0.2339734943507497,
+            "ev": -0.0481166666666668,
+            "home": "Pittsburgh Penguins",
+            "market": "ev_under",
+            "market_group": "totals",
+            "price": 105.0,
+            "prob": 0.4643333333333333,
+            "side": "Under 5.5",
+            "totals_line": 5.5
+          },
+          {
+            "away": "Vegas Golden Knights",
+            "bet": "under",
+            "book": null,
+            "edge_reasons": "total 6.68 vs line 5.5 (+1.18); p=0.355; P1 pace 2.13",
+            "edge_score": 0.208832851047625,
+            "ev": -0.2538,
+            "home": "Utah Mammoth",
+            "market": "ev_under",
+            "market_group": "totals",
+            "price": 110.0,
+            "prob": 0.3553333333333333,
+            "side": "Under 5.5",
+            "totals_line": 5.5
+          },
+          {
+            "away": "Philadelphia Flyers",
+            "bet": "away_ml",
+            "book": null,
+            "edge_reasons": "p=0.551",
+            "edge_score": 0.1011666666666666,
+            "ev": 0.1782483333333331,
+            "home": "Pittsburgh Penguins",
+            "market": "ev_away_ml",
+            "market_group": "moneyline",
+            "price": 114.0,
+            "prob": 0.5505833333333333,
+            "side": "Philadelphia Flyers",
+            "totals_line": null
+          },
+          {
+            "away": "Philadelphia Flyers",
+            "bet": "home_ml",
+            "book": null,
+            "edge_reasons": "p=0.449",
+            "edge_score": 0.1011666666666666,
+            "ev": -0.2176820987654321,
+            "home": "Pittsburgh Penguins",
+            "market": "ev_home_ml",
+            "market_group": "moneyline",
+            "price": -135.0,
+            "prob": 0.4494166666666667,
+            "side": "Pittsburgh Penguins",
+            "totals_line": null
+          },
+          {
+            "away": "Vegas Golden Knights",
+            "bet": "home_ml",
+            "book": null,
+            "edge_reasons": "p=0.545",
+            "edge_score": 0.0898333333333334,
+            "ev": 0.0638849206349206,
+            "home": "Utah Mammoth",
+            "market": "ev_home_ml",
+            "market_group": "moneyline",
+            "price": -105.0,
+            "prob": 0.5449166666666667,
+            "side": "Utah Mammoth",
+            "totals_line": null
+          },
+          {
+            "away": "Vegas Golden Knights",
+            "bet": "away_ml",
+            "book": null,
+            "edge_reasons": "p=0.455",
+            "edge_score": 0.0898333333333333,
+            "ev": -0.1491920289855073,
+            "home": "Utah Mammoth",
+            "market": "ev_away_ml",
+            "market_group": "moneyline",
+            "price": -115.0,
+            "prob": 0.4550833333333333,
+            "side": "Vegas Golden Knights",
+            "totals_line": null
+          }
+        ],
+        "source": "edges_sim_2026-04-27.csv"
+      },
+      "predictions": {
+        "count": 2,
+        "rows": [
+          {
+            "away": "Philadelphia Flyers",
+            "away_ml_odds": 114.0,
+            "away_pl_+1.5_odds": -218.0,
+            "date": "2026-04-27",
+            "home": "Pittsburgh Penguins",
+            "home_ml_odds": -135.0,
+            "home_pl_-1.5_odds": 180.0,
+            "model_total": 5.9271666666666665,
+            "over_odds": -125.0,
+            "p_away_ml": 0.5505833333333333,
+            "p_away_pl_+1.5": 0.8140000000000001,
+            "p_home_ml": 0.4494166666666667,
+            "p_home_pl_-1.5": 0.186,
+            "p_over": 0.5356666666666666,
+            "p_under": 0.4643333333333333,
+            "pl_line_used": 1.5,
+            "proj_away_goals": 3.098,
+            "proj_home_goals": 2.8291666666666666,
+            "segments": {
+              "final": {
+                "away_win_prob": 0.45934679696544534,
+                "home_win_prob": 0.372250627345899,
+                "tie_prob": 0.16840257568865571
+              },
+              "ot": {
+                "no_prob": 0.8315974243113443,
+                "yes_prob": 0.16840257568865571
+              },
+              "p1": {
+                "away_win_prob": 0.3735851043801005,
+                "home_win_prob": 0.3072423007903557,
+                "tie_prob": 0.31917259482954374
+              },
+              "p2": {
+                "away_win_prob": 0.3598661081950949,
+                "home_win_prob": 0.3298901222577229,
+                "tie_prob": 0.3102437695471823
+              },
+              "p3": {
+                "away_win_prob": 0.36783937312947146,
+                "home_win_prob": 0.3205253849875515,
+                "tie_prob": 0.311635241882977
+              }
+            },
+            "total_line_used": 5.5,
+            "under_odds": 105.0
+          },
+          {
+            "away": "Vegas Golden Knights",
+            "away_ml_odds": -115.0,
+            "away_pl_+1.5_odds": null,
+            "date": "2026-04-27",
+            "home": "Utah Mammoth",
+            "home_ml_odds": -105.0,
+            "home_pl_-1.5_odds": null,
+            "model_total": 6.681,
+            "over_odds": -130.0,
+            "p_away_ml": 0.4550833333333333,
+            "p_away_pl_+1.5": 0.7248333333333333,
+            "p_home_ml": 0.5449166666666667,
+            "p_home_pl_-1.5": 0.2751666666666666,
+            "p_over": 0.6446666666666667,
+            "p_under": 0.3553333333333333,
+            "pl_line_used": 1.5,
+            "proj_away_goals": 3.2091666666666665,
+            "proj_home_goals": 3.471833333333333,
+            "segments": {
+              "final": {
+                "away_win_prob": 0.3820160188241819,
+                "home_win_prob": 0.45952144967750247,
+                "tie_prob": 0.15846253149831566
+              },
+              "ot": {
+                "no_prob": 0.8415374685016843,
+                "yes_prob": 0.15846253149831566
+              },
+              "p1": {
+                "away_win_prob": 0.32654843796593386,
+                "home_win_prob": 0.37664930643169064,
+                "tie_prob": 0.29680225560237544
+              },
+              "p2": {
+                "away_win_prob": 0.3347503455107838,
+                "home_win_prob": 0.3777469954765988,
+                "tie_prob": 0.28750265901261746
+              },
+              "p3": {
+                "away_win_prob": 0.3363287321554196,
+                "home_win_prob": 0.37202722127328314,
+                "tie_prob": 0.29164404657129733
+              }
+            },
+            "total_line_used": 5.5,
+            "under_odds": 110.0
+          }
+        ]
+      },
+      "recommendations": {
+        "count": 1,
+        "rows": [
+          {
+            "away": "Philadelphia Flyers",
+            "conf": 0.314,
+            "ev": 0.187394495412844,
+            "home": "Pittsburgh Penguins",
+            "market": "PL",
+            "price": -218.0,
+            "prob": 0.8140000000000001,
+            "side": "Philadelphia Flyers +1.5",
+            "totals_line": 5.5
+          }
+        ]
+      },
+      "reconciliation": null
+    },
+    "props": {
+      "recommendations": {
+        "count": 9,
+        "rows": [
+          {
+            "book": "draftkings",
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
+            "edge_score": 0.5212613633702078,
+            "ev": 0.2266159524896188,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "PIT",
+            "player": "Porter Martone",
+            "price": -135,
+            "prob": 0.7046517173876534,
+            "side": "Over",
+            "team": "PHI"
+          },
+          {
+            "book": "betmgm",
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP-",
+            "edge_score": 0.4948605460871428,
+            "ev": 0.5321948015228255,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "PIT",
+            "player": "Matvei Michkov",
+            "price": 100,
+            "prob": 0.7660974007614128,
+            "side": "Over",
+            "team": "PHI"
+          },
+          {
+            "book": "betmgm",
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
+            "edge_score": 0.4932857342298538,
+            "ev": 0.7746577795498588,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "PIT",
+            "player": "Matvei Michkov",
+            "price": 165,
+            "prob": 0.6696821809622109,
+            "side": "Over",
+            "team": "PHI"
+          },
+          {
+            "book": "draftkings",
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP-",
+            "edge_score": 0.4867692250138816,
+            "ev": 0.1759739435419674,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "PIT",
+            "player": "Tyson Foerster",
+            "price": -180,
+            "prob": 0.7559832494198362,
+            "side": "Over",
+            "team": "PHI"
+          },
+          {
+            "book": "draftkings",
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
+            "edge_score": 0.481371340056163,
+            "ev": 0.1224957512773098,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "PIT",
+            "player": "Trevor Zegras",
+            "price": -140,
+            "prob": 0.6547891882450974,
+            "side": "Over",
+            "team": "PHI"
+          },
+          {
+            "book": "draftkings",
+            "edge_reasons": "MODEL UND · CONF60+ · MATCHUP-",
+            "edge_score": 0.4600280142760455,
+            "ev": 0.1939673441101668,
+            "line": 0.5,
+            "market": "ASSISTS",
+            "opp": "UTA",
+            "player": "Mark Stone",
+            "price": -154,
+            "prob": 0.7239014606022272,
+            "side": "Under",
+            "team": "VGK"
+          },
+          {
+            "book": "draftkings",
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
+            "edge_score": 0.44488143096983,
+            "ev": 0.2792712839630804,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "PIT",
+            "player": "Christian Dvorak",
+            "price": 110,
+            "prob": 0.6091768018871812,
+            "side": "Over",
+            "team": "PHI"
+          },
+          {
+            "book": "betmgm",
+            "edge_reasons": "MODEL UND · CONF60+ · MATCHUP-",
+            "edge_score": 0.4213239116980775,
+            "ev": 0.2459651348636722,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "UTA",
+            "player": "Pavel Dorofeyev",
+            "price": -118,
+            "prob": 0.674421495017951,
+            "side": "Under",
+            "team": "VGK"
+          },
+          {
+            "book": "betmgm",
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
+            "edge_score": 0.4158250524784582,
+            "ev": 0.2144096723005455,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "UTA",
+            "player": "Ivan Barbashev",
+            "price": -105,
+            "prob": 0.6220147102027185,
+            "side": "Over",
+            "team": "VGK"
+          }
+        ],
+        "source": "props_recommendations_2026-04-27.csv"
+      },
+      "reconciliation": null
+    }
+  },
+  "date": "2026-04-27",
+  "files": {
+    "edges": "data/processed/edges_sim_2026-04-27.csv",
+    "game_recommendations": "data/processed/recommendations_sim_2026-04-27.csv",
+    "predictions": "data/processed/predictions_sim_2026-04-27.csv",
+    "props_recommendations": "data/processed/props_recommendations_2026-04-27.csv",
+    "reconciliation_games": null,
+    "reconciliation_props": null
+  },
+  "generated_at_utc": "2026-04-26T15:53:27+00:00",
+  "schema_version": 2
+}

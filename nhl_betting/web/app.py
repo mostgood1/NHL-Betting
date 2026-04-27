@@ -5972,6 +5972,100 @@ async def v1_props_cards(
             except Exception:
                 return ""
 
+        def _market_label(market: object) -> str:
+            key = _norm_market(market)
+            if key == "SOG":
+                return "shots on goal"
+            if key == "GOALS":
+                return "goals"
+            if key == "ASSISTS":
+                return "assists"
+            if key == "POINTS":
+                return "points"
+            if key == "BLOCKS":
+                return "blocked shots"
+            if key == "SAVES":
+                return "saves"
+            return str(market or "prop").strip().lower() or "prop"
+
+        def _fmt_american(v: object) -> str:
+            num = _num(v)
+            if num is None:
+                return "-"
+            iv = int(round(num))
+            return f"+{iv}" if iv > 0 else str(iv)
+
+        def _split_driver_tokens(v: object) -> list[str]:
+            try:
+                raw = str(v or "").strip()
+            except Exception:
+                return []
+            if not raw:
+                return []
+            parts = [p.strip() for p in re.split(r"\s*[;|]\s*|\s*\u00b7\s*|\s*,\s*", raw) if str(p).strip()]
+            out: list[str] = []
+            seen: set[str] = set()
+            for part in parts:
+                key = part.lower()
+                if key in seen:
+                    continue
+                seen.add(key)
+                out.append(part)
+            return out
+
+        def _prop_reason_context(side: str, market: object, line: object, price: object, prob: object, ev: object) -> str:
+            side_text = str(side or "").strip().title() or "Recommended"
+            line_num = _num(line)
+            line_text = f"{line_num:.1f}" if line_num is not None else "-"
+            bits = [f"{side_text} {line_text} {_market_label(market)} at {_fmt_american(price)}"]
+            prob_num = _num(prob)
+            if prob_num is not None:
+                bits.append(f"model win rate {prob_num * 100:.1f}%")
+            ev_num = _num(ev)
+            if ev_num is not None:
+                bits.append(f"EV {ev_num * 100:.1f}%")
+            return " | ".join(bits)
+
+        def _explain_prop_driver(token: object, side: str, market: object) -> str:
+            t = str(token or "").strip().upper()
+            if not t:
+                return ""
+            side_label = str(side or "").strip().title().lower() or "over"
+            market_label = _market_label(market)
+            if t == "MODEL OVR":
+                return f"The model's base case leans over the listed {market_label} line."
+            if t == "MODEL UND":
+                return f"The model's base case leans under the listed {market_label} line."
+            if t == "CONF60+":
+                return "Model confidence clears the 60% win-rate tier for this side."
+            if t == "CONF55+":
+                return "Model confidence clears the 55% win-rate tier for this side."
+            if t == "CONS4+":
+                return "Several independent support checks align behind the recommendation, not just one signal."
+            if t == "CONS3+":
+                return "Multiple support checks align behind the recommendation."
+            if t == "SINGLE":
+                return "This is a narrower case driven by one primary angle rather than a stacked signal set."
+            if t == "B2B":
+                return "Back-to-back scheduling context is part of the case for this bet."
+            if t == "MATCHUP+":
+                return f"The opponent matchup supports the recommended {side_label} side."
+            if t == "MATCHUP-":
+                return "The recommendation still grades well even with a tougher matchup backdrop."
+            if t == "JUICE+":
+                return "The price is heavily juiced, which usually means the market is charging a premium on this side."
+            if t == "JUICE":
+                return "The price carries meaningful juice, which matters when comparing the market to the model."
+            if t == "MOVE+":
+                return "The tracked line has moved in the recommendation's favor since the opener."
+            if t == "MOVE-":
+                return "The tracked line has moved against the recommendation since the opener."
+            if t == "PRICE+":
+                return "The tracked payout has improved versus the opener for the recommended side."
+            if t == "PRICE-":
+                return "The tracked payout has worsened versus the opener for the recommended side."
+            return str(token or "").strip()
+
         def _rows_by_key(obj: Optional[dict]) -> Dict[tuple[str, str, str, str], list[dict]]:
             out: Dict[tuple[str, str, str, str], list[dict]] = {}
             if not isinstance(obj, dict):
@@ -6288,6 +6382,20 @@ async def v1_props_cards(
                     tracking_note = "Historical snapshot only"
                 else:
                     tracking_note = "No snapshot match"
+                prob_value = _num(rr.get("chosen_prob")) or _num(rr.get("prob")) or _num(rr.get("p_over"))
+                ev_value = _num(rr.get("ev"))
+                driver_text = str(rr.get("edge_drivers") or rr.get("edge_reasons") or "").strip()
+                reason_summary = f"Sportsbook case: {_prop_reason_context(side, market, rr.get('line'), rr.get('price'), prob_value, ev_value)}."
+                reasons = [
+                    text
+                    for text in (
+                        _explain_prop_driver(token, side, market)
+                        for token in _split_driver_tokens(driver_text)
+                    )
+                    if text
+                ][:4]
+                if not reasons:
+                    reasons = [f"The recommendation is supported by the current model and price context: {_prop_reason_context(side, market, rr.get('line'), rr.get('price'), prob_value, ev_value)}."]
 
                 cards.append(
                     {
@@ -6301,11 +6409,13 @@ async def v1_props_cards(
                         "market": market,
                         "side": side or None,
                         "book": book or None,
-                        "ev": _num(rr.get("ev")),
-                        "prob": _num(rr.get("chosen_prob")) or _num(rr.get("prob")) or _num(rr.get("p_over")),
+                        "ev": ev_value,
+                        "prob": prob_value,
                         "line": _num(rr.get("line")),
                         "price": _num(rr.get("price")),
                         "drivers": str(rr.get("edge_drivers") or rr.get("edge_reasons") or "").strip() or None,
+                        "reason_summary": reason_summary,
+                        "reasons": reasons,
                         "movement": {
                             "line": line_movement,
                             "price": price_movement,

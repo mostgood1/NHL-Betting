@@ -27,6 +27,7 @@ def test_cards_root_html_renders():
     assert 'Tracking' in text
     assert 'Current snap' in text
     assert 'Open / prev' in text
+    assert 'Sportsbook case:' in text
     assert 'cards-strip-starters' in text
     assert 'cards-head-team' in text
     assert 'cards-game-time-label' in text
@@ -140,5 +141,8 @@ def test_props_cards_prefers_tracked_movement_rows(monkeypatch, tmp_path):
     assert payload['cards'][0]['player'] == 'Tracked Mover'
     assert payload['cards'][0]['has_current_snapshot'] is True
     assert payload['cards'][0]['has_movement'] is True
+    assert payload['cards'][0]['reason_summary'].startswith('Sportsbook case:')
+    assert isinstance(payload['cards'][0]['reasons'], list)
+    assert payload['cards'][0]['reasons']
     assert payload['cards'][1]['player'] == 'Tracked Flat'
     assert payload['cards'][1]['has_snapshot'] is True

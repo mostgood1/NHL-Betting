@@ -5907,8 +5907,10 @@ async def v1_props_cards(
             df = df.sort_values(["ev"], ascending=[False])
         except Exception:
             pass
-        if n_top and n_top > 0:
-            df = df.head(int(n_top))
+        candidate_limit = max(int(n_top or 0) * 6, 60) if n_top and n_top > 0 else 200
+        candidate_limit = min(candidate_limit, 500)
+        if candidate_limit > 0:
+            df = df.head(int(candidate_limit))
 
         # Load disk-backed snapshots.
         snap_dir = _props_odds_snapshots_dir(d)
@@ -6241,6 +6243,52 @@ async def v1_props_cards(
                     preferred_url=preferred_headshot,
                 )
 
+                line_movement = _diff(open_line, prev_line, cur_line)
+                price_movement = _diff(open_price, prev_price, cur_price)
+                has_any_snapshot = any(
+                    v is not None
+                    for v in (
+                        line_movement.get("open"),
+                        line_movement.get("prev"),
+                        line_movement.get("cur"),
+                        price_movement.get("open"),
+                        price_movement.get("prev"),
+                        price_movement.get("cur"),
+                    )
+                )
+                has_current_snapshot = any(
+                    v is not None
+                    for v in (
+                        line_movement.get("cur"),
+                        price_movement.get("cur"),
+                    )
+                )
+                movement_score = sum(
+                    abs(float(v))
+                    for v in (
+                        price_movement.get("d_prev"),
+                        price_movement.get("d_open"),
+                    )
+                    if _num(v) is not None
+                )
+                movement_score += 10.0 * sum(
+                    abs(float(v))
+                    for v in (
+                        line_movement.get("d_prev"),
+                        line_movement.get("d_open"),
+                    )
+                    if _num(v) is not None
+                )
+                has_meaningful_movement = movement_score > 1e-9
+                if has_current_snapshot and has_meaningful_movement:
+                    tracking_note = "Tracked live movement"
+                elif has_current_snapshot:
+                    tracking_note = "Tracked, unchanged"
+                elif has_any_snapshot:
+                    tracking_note = "Historical snapshot only"
+                else:
+                    tracking_note = "No snapshot match"
+
                 cards.append(
                     {
                         "player": player,
@@ -6259,13 +6307,36 @@ async def v1_props_cards(
                         "price": _num(rr.get("price")),
                         "drivers": str(rr.get("edge_drivers") or rr.get("edge_reasons") or "").strip() or None,
                         "movement": {
-                            "line": _diff(open_line, prev_line, cur_line),
-                            "price": _diff(open_price, prev_price, cur_price),
+                            "line": line_movement,
+                            "price": price_movement,
                         },
+                        "has_snapshot": bool(has_any_snapshot),
+                        "has_current_snapshot": bool(has_current_snapshot),
+                        "has_movement": bool(has_meaningful_movement),
+                        "movement_score": movement_score,
+                        "tracking_note": tracking_note,
                     }
                 )
             except Exception:
                 continue
+
+        try:
+            cards.sort(
+                key=lambda c: (
+                    0 if bool(c.get("has_current_snapshot")) else 1,
+                    0 if bool(c.get("has_movement")) else 1,
+                    -float(c.get("movement_score") or 0.0),
+                    -float(c.get("ev") or 0.0),
+                    str(c.get("player") or ""),
+                )
+            )
+        except Exception:
+            pass
+        if n_top and n_top > 0:
+            cards = cards[: int(n_top)]
+
+        tracked_cards = sum(1 for c in cards if bool(c.get("has_snapshot")))
+        moving_cards = sum(1 for c in cards if bool(c.get("has_movement")))
 
         payload = {
             "ok": True,
@@ -6273,6 +6344,9 @@ async def v1_props_cards(
             "open_asof_utc": (open_obj or {}).get("asof_utc") if isinstance(open_obj, dict) else None,
             "prev_asof_utc": (prev_obj or {}).get("asof_utc") if isinstance(prev_obj, dict) else None,
             "current_asof_utc": (cur_obj or {}).get("asof_utc") if isinstance(cur_obj, dict) else None,
+            "tracked_cards": tracked_cards,
+            "moving_cards": moving_cards,
+            "snapshot_bookmaker": (os.getenv("ODDS_SNAPSHOT_BOOKMAKER") or "").strip().lower() or None,
             "cards": cards,
         }
         try:

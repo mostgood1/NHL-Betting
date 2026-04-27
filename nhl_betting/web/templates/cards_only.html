@@ -286,18 +286,19 @@
     }
 
     .scoreboard-strip {
-      --sb-gap: 12px;
+      --sb-gap: 10px;
       --sb-pad: 12px;
-      --sb-item-min-h: 160px;
+      --sb-item-min-h: 186px;
       display: grid;
-      grid-template-columns: repeat(var(--sb-cols, 1), minmax(280px, 1fr));
+      grid-auto-flow: column;
+      grid-auto-columns: minmax(320px, 1fr);
       gap: var(--sb-gap);
-      max-height: calc((var(--sb-item-min-h) * 2) + var(--sb-gap) + (var(--sb-pad) * 2));
-      overflow-x: hidden;
-      overflow-y: auto;
-      padding: var(--sb-pad);
+      max-height: none;
+      overflow-x: auto;
+      overflow-y: hidden;
+      padding: 0 0 2px;
       border-radius: 24px;
-      align-content: start;
+      align-content: stretch;
     }
 
     .scoreboard-strip::-webkit-scrollbar,
@@ -317,13 +318,15 @@
       display: grid;
       gap: 10px;
       align-content: start;
-      padding: 12px;
+      padding: 11px;
       border: 1px solid var(--cards-line);
       border-radius: 18px;
       text-decoration: none;
       color: var(--cards-text);
-      background: linear-gradient(180deg, rgba(16, 34, 52, 0.94), rgba(9, 20, 31, 0.98));
+      background: linear-gradient(180deg, rgba(13, 28, 42, 0.96), rgba(8, 17, 28, 0.92));
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
       transition: transform 0.16s ease, border-color 0.16s ease;
+      min-width: 0;
     }
 
     .scoreboard-strip .s-item:hover {
@@ -353,11 +356,26 @@
       letter-spacing: 0.06em;
     }
 
+    .scoreboard-strip .s-board-head {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      color: var(--cards-text-dim);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
     .scoreboard-strip .s-teamline {
       display: flex;
-      align-items: start;
+      align-items: center;
       justify-content: space-between;
       gap: 10px;
+      padding: 10px 12px;
+      border: 1px solid rgba(132, 166, 196, 0.12);
+      border-radius: 16px;
+      background: rgba(9, 20, 31, 0.68);
       font-size: 14px;
       font-weight: 700;
       line-height: 1.15;
@@ -365,13 +383,29 @@
 
     .scoreboard-strip .s-teamline .lhs {
       display: flex;
-      align-items: start;
+      align-items: center;
       gap: 8px;
       min-width: 0;
     }
 
     .scoreboard-strip .s-teamline .nm {
-      white-space: normal;
+      display: grid;
+      gap: 2px;
+      min-width: 0;
+    }
+
+    .scoreboard-strip .s-teamline .abbr {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 17px;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .scoreboard-strip .s-teamline .full {
+      color: var(--cards-text-soft);
+      font-size: 10.5px;
+      font-weight: 600;
+      line-height: 1.2;
       overflow-wrap: anywhere;
     }
 
@@ -385,9 +419,21 @@
     }
 
     .scoreboard-strip .team-logo {
-      width: 17px;
-      height: 17px;
-      margin-top: 1px;
+      width: 20px;
+      height: 20px;
+      margin-top: 0;
+      flex: 0 0 20px;
+    }
+
+    .scoreboard-strip .cards-strip-meta {
+      color: var(--cards-text-soft);
+      font-size: 12px;
+      line-height: 1.24;
+    }
+
+    .scoreboard-strip .cards-strip-lens {
+      display: grid;
+      gap: 6px;
     }
 
     .scoreboard-strip .s-sig {
@@ -399,11 +445,22 @@
     }
 
     .props-strip {
-      display: flex;
-      gap: 10px;
-      overflow-x: auto;
+      display: block;
+      overflow: visible;
       padding: 12px;
       border-radius: 24px;
+    }
+
+    .cards-date-form > label {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
     }
 
     .props-strip .p-item {
@@ -1007,7 +1064,7 @@
     .cards-title-row #pageTitle {
       margin: 0;
       font-family: "Space Grotesk", sans-serif;
-      font-size: clamp(17px, 1.8vw, 22px);
+      font-size: clamp(18px, 2vw, 24px);
       line-height: 1;
       letter-spacing: 0;
     }
@@ -1015,7 +1072,7 @@
     .cards-header-meta {
       margin: 0;
       color: var(--cards-text-soft);
-      font-size: 10.5px;
+      font-size: 11px;
       line-height: 1.15;
       white-space: nowrap;
     }
@@ -1029,8 +1086,8 @@
       grid-template-columns: minmax(0, 1fr);
       align-items: start;
       justify-items: center;
-      gap: 10px;
-      padding: 10px 12px;
+      gap: 12px;
+      padding: 11px 13px;
       border: 1px solid var(--cards-line);
       border-radius: var(--cards-radius-lg);
       background: rgba(7, 18, 29, 0.82);
@@ -1042,13 +1099,13 @@
     .cards-date-form {
       display: flex;
       min-width: 0;
-      width: fit-content;
+      width: 100%;
       max-width: 100%;
       gap: 8px;
       align-items: center;
       justify-content: center;
-      flex-wrap: nowrap;
-      overflow-x: auto;
+      flex-wrap: wrap;
+      overflow: visible;
       padding: 0;
       border: 0;
       background: transparent;
@@ -1056,6 +1113,7 @@
 
     .cards-date-form > * {
       flex: 0 0 auto;
+      min-width: 0;
     }
 
     .cards-toolbar-rail {
@@ -1065,8 +1123,16 @@
       flex-direction: row;
       align-items: center;
       justify-content: center;
-      gap: 7px 10px;
+      gap: 8px 12px;
       flex-wrap: wrap;
+    }
+
+    .cards-date-form .date-input {
+      min-width: 180px;
+    }
+
+    .cards-hr-targets {
+      margin: 0 0 16px;
     }
 
     .cards-source-meta {
@@ -1275,33 +1341,164 @@
       gap: 8px;
     }
 
+    .cards-strip-meta {
+      color: var(--cards-text-soft);
+      font-size: 11px;
+      line-height: 1.3;
+      overflow-wrap: anywhere;
+    }
+
+    .cards-strip-live,
+    .cards-strip-lens,
+    .cards-strip-starters {
+      display: grid;
+      gap: 6px;
+    }
+
+    .cards-strip-starter-line {
+      display: grid;
+      gap: 4px;
+    }
+
+    .cards-strip-starter-name {
+      color: var(--cards-text-soft);
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .cards-hr-targets-card {
+      position: relative;
+      overflow: hidden;
+      padding: 16px 18px 18px;
+      border: 1px solid var(--cards-line);
+      border-radius: var(--cards-radius-lg);
+      background:
+        radial-gradient(circle at top right, rgba(255, 191, 105, 0.11), transparent 24%),
+        linear-gradient(180deg, rgba(10, 23, 37, 0.95), rgba(6, 16, 28, 0.92));
+      box-shadow: var(--cards-shadow);
+      -webkit-backdrop-filter: blur(14px);
+      backdrop-filter: blur(14px);
+    }
+
+    .cards-hr-targets-card::before {
+      content: "";
+      position: absolute;
+      inset: 0 0 auto;
+      height: 1px;
+      background: linear-gradient(90deg, rgba(154, 243, 222, 0), rgba(154, 243, 222, 0.9), rgba(255, 191, 105, 0.45), rgba(154, 243, 222, 0));
+    }
+
+    .cards-hr-targets-head,
+    .cards-hr-targets-actions {
+      display: flex;
+      gap: 10px;
+    }
+
+    .cards-hr-targets-head {
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 14px;
+    }
+
+    .cards-hr-targets-copy {
+      display: grid;
+      gap: 5px;
+    }
+
+    .cards-hr-targets-kicker {
+      color: var(--cards-accent-strong);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    .cards-hr-targets-head .cards-table-title {
+      font-size: 18px;
+    }
+
+    .cards-hr-targets-actions {
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .cards-hr-targets-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 12px;
+    }
+
+    .cards-hr-target-chip {
+      position: relative;
+      display: grid;
+      gap: 10px;
+      min-height: 186px;
+      padding: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      border-radius: 22px;
+      background: linear-gradient(180deg, rgba(17, 28, 45, 0.98), rgba(10, 18, 31, 0.94));
+      box-shadow: 0 18px 44px rgba(0, 0, 0, 0.22);
+      color: var(--cards-text);
+      text-decoration: none;
+      transition: transform 160ms ease, border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+    }
+
+    .cards-hr-target-chip:hover,
+    .cards-hr-target-chip:focus-visible {
+      border-color: rgba(154, 243, 222, 0.36);
+      background: linear-gradient(180deg, rgba(18, 31, 49, 0.98), rgba(11, 20, 34, 0.96));
+      transform: translateY(-2px);
+      box-shadow: 0 14px 32px rgba(0, 0, 0, 0.24);
+    }
+
+    .cards-head-left,
+    .cards-head-right {
+      align-items: flex-start;
+    }
+
     .cards-head-left {
       display: flex;
-      align-items: center;
-      gap: 8px;
+      gap: 12px;
+      flex-wrap: wrap;
       min-width: 0;
     }
 
-    .cards-matchup-line {
+    .cards-head-matchup {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 12px;
       min-width: 0;
-      font-family: "Space Grotesk", sans-serif;
-      font-size: clamp(17px, 1.8vw, 22px);
-      line-height: 1;
-      letter-spacing: 0;
     }
 
-    .cards-team-token {
-      display: inline-flex;
+    .cards-head-team {
+      display: flex;
       align-items: center;
-      gap: 7px;
+      gap: 10px;
       min-width: 0;
     }
 
-    .cards-team-token strong {
-      font-weight: 800;
+    .cards-head-team-score {
+      min-width: 22px;
+      text-align: right;
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 22px;
+      line-height: 1;
+      color: var(--cards-text);
+    }
+
+    .cards-team-meta {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .cards-team-name {
+      font-size: 12px;
+      line-height: 1.32;
+      color: var(--cards-text-soft);
     }
 
     .cards-score-ribbon {
@@ -1331,10 +1528,32 @@
     }
 
     .cards-status-cluster {
-      display: grid;
-      gap: 6px;
-      justify-items: end;
-      min-width: 220px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .cards-game-time-row {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 8px;
+      color: var(--cards-text-soft);
+    }
+
+    .cards-game-time-label {
+      color: var(--cards-text-dim);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .cards-game-time-value {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 15px;
+      line-height: 1;
     }
 
     .cards-nav-pill,
@@ -1373,17 +1592,10 @@
       background: rgba(8, 18, 30, 0.68);
     }
 
-    .cards-team-token .team-logo {
+    .cards-head-team .team-logo {
       width: 22px;
       height: 22px;
       margin-top: 0;
-    }
-
-    .cards-status-cluster {
-      display: grid;
-      gap: 6px;
-      justify-items: end;
-      min-width: 168px;
     }
 
     .cards-status-line {
@@ -1400,40 +1612,23 @@
       text-align: right;
     }
 
-    .cards-score-ribbon {
-      display: grid;
-      grid-template-columns: 1fr auto 1fr minmax(220px, 1fr);
-      gap: 8px;
-      align-items: center;
-      padding: 12px;
-      border: 1px solid var(--cards-line);
-      border-radius: 20px;
-      background: rgba(5, 14, 24, 0.65);
-    }
-
-    .cards-score-side {
-      display: grid;
-      gap: 3px;
-    }
-
-    .cards-score-side.is-home {
-      justify-items: end;
-      text-align: right;
-    }
-
-    .cards-score-label {
-      color: var(--cards-text-dim);
-      font-size: 10px;
+    .cards-game-link {
+      color: var(--cards-accent-strong);
+      font-size: 11px;
       font-weight: 700;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
+      text-decoration: none;
     }
 
-    .cards-score-number {
-      font-family: "Space Grotesk", sans-serif;
-      font-size: 31px;
-      line-height: 1;
-      font-weight: 800;
+    .cards-score-ribbon {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 8px;
+      flex-wrap: wrap;
+      padding: 9px 11px;
+      border: 1px solid var(--cards-line);
+      border-radius: 18px;
+      background: rgba(5, 14, 24, 0.65);
     }
 
     .cards-team-code {
@@ -1524,6 +1719,16 @@
       gap: 10px;
     }
 
+    .cards-data-pair {
+      display: grid;
+      gap: 4px;
+      padding: 7px 8px;
+      border: 1px solid var(--cards-line);
+      border-radius: 14px;
+      background: rgba(10, 21, 34, 0.88);
+      min-height: 0;
+    }
+
     .cards-box-grid,
     .cards-props-grid {
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1556,6 +1761,13 @@
       gap: 8px;
     }
 
+    .cards-mini-metrics--rail {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      align-self: stretch;
+      justify-self: end;
+      width: min(100%, 540px);
+    }
+
     .cards-mini-metric {
       display: flex;
       align-items: center;
@@ -1578,6 +1790,107 @@
     .cards-prob-grid {
       display: grid;
       gap: 8px;
+    }
+
+    .cards-panel-card--overview-main {
+      gap: 8px;
+    }
+
+    .cards-live-lens-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .cards-live-lens-card {
+      display: grid;
+      gap: 8px;
+      min-height: 0;
+      padding: 10px;
+      border: 1px solid rgba(132, 166, 196, 0.14);
+      border-radius: 14px;
+      background: rgba(10, 21, 34, 0.9);
+    }
+
+    .cards-live-lens-card.is-closed {
+      opacity: 0.72;
+    }
+
+    .cards-live-lens-head,
+    .cards-live-lens-summary-row,
+    .cards-live-lens-picks,
+    .cards-live-lens-signals,
+    .cards-live-lens-reasons,
+    .cards-prob-groups,
+    .cards-prob-group {
+      display: grid;
+      gap: 8px;
+    }
+
+    .cards-live-lens-head {
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: start;
+    }
+
+    .cards-live-lens-title-block {
+      display: grid;
+      gap: 3px;
+    }
+
+    .cards-live-lens-summary-row {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .cards-live-lens-signal {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      color: var(--cards-text);
+      font-size: 11px;
+      line-height: 1.18;
+    }
+
+    .cards-live-lens-subtitle,
+    .cards-live-lens-market,
+    .cards-live-lens-margin,
+    .cards-live-lens-reason,
+    .cards-live-lens-recon {
+      color: var(--cards-text-soft);
+      font-size: 11px;
+      line-height: 1.28;
+    }
+
+    .cards-live-lens-picks {
+      border-top: 1px solid rgba(132, 166, 196, 0.12);
+      padding-top: 7px;
+    }
+
+    .cards-live-lens-pick {
+      color: var(--cards-text);
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 11px;
+      line-height: 1.22;
+    }
+
+    .cards-live-lens-grid .cards-data-pair {
+      padding: 6px 7px;
+    }
+
+    .cards-live-lens-grid .cards-data-pair strong {
+      font-size: 13px;
+    }
+
+    .cards-prob-groups {
+      gap: 14px;
+    }
+
+    .cards-overview-main-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(190px, 0.34fr);
+      gap: 8px;
+      align-items: start;
     }
 
     .cards-prob-row {
@@ -1648,9 +1961,20 @@
     }
 
     .cards-tabs {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
+      display: inline-flex;
+      gap: 6px;
+      padding: 3px;
+      border: 1px solid var(--cards-line);
+      border-radius: 999px;
+      background: rgba(5, 14, 24, 0.58);
+      width: fit-content;
+    }
+
+    .cards-tabs-rail {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 10px;
+      align-items: start;
     }
 
     .cards-tab {
@@ -1658,10 +1982,10 @@
       align-items: center;
       justify-content: center;
       min-height: 34px;
-      padding: 0 12px;
+      padding: 7px 11px;
       border-radius: 999px;
-      border: 1px solid var(--cards-line);
-      background: rgba(8, 18, 30, 0.78);
+      border: 0;
+      background: transparent;
       color: var(--cards-text-soft);
       font-size: 11px;
       font-weight: 800;
@@ -1672,8 +1996,7 @@
     }
 
     .cards-tab:hover {
-      border-color: rgba(154, 243, 222, 0.28);
-      transform: translateY(-1px);
+      background: rgba(255, 255, 255, 0.04);
     }
 
     .cards-tab.is-active {
@@ -1738,6 +2061,28 @@
 
     .cards-box-body .section-title {
       margin-top: 10px;
+    }
+
+    .cards-box-totals {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .cards-box-totals .cards-mini-metric {
+      min-height: 48px;
+      padding: 7px 10px;
+      border-radius: 12px;
+    }
+
+    .cards-box-totals .cards-mini-metric span {
+      font-size: 9px;
+      letter-spacing: 0.1em;
+    }
+
+    .cards-box-totals .cards-mini-metric strong {
+      font-size: 15px;
+      line-height: 1.05;
     }
 
     .cards-live-panel {
@@ -1843,7 +2188,11 @@
 
       .cards-tabs {
         width: 100%;
-        justify-content: space-between;
+        justify-content: stretch;
+      }
+
+      .cards-tab {
+        flex: 1 1 0;
       }
 
       .grid-3,
@@ -1875,17 +2224,17 @@
       </div>
     </header>
     <section class="cards-control-card" aria-label="Slate controls">
-      <div class="cards-date-form">
+      <form class="cards-date-form" method="get" action="/">
         <a class="cards-nav-pill" id="cardsPrevDateLink" href="/?date={{ initial_date | urlencode }}" rel="prev">Prev</a>
-        <span class="cards-nav-pill cards-form-pill" id="cardsDateBadge" aria-hidden="true">{{ initial_date }}</span>
+        <span class="cards-nav-pill cards-form-pill" aria-hidden="true">Date</span>
         <label for="datePicker">Slate date</label>
-        <input id="datePicker" class="date-input" type="date" value="{{ initial_date }}" />
-        <button type="button" class="cards-date-button" id="cardsDateLoadButton">Load</button>
+        <input id="datePicker" class="date-input" type="date" name="date" value="{{ initial_date }}" aria-label="Slate date" />
+        <button type="submit" class="cards-date-button" id="cardsDateLoadButton">Load</button>
         <a class="cards-nav-pill" id="cardsNextDateLink" href="/?date={{ initial_date | urlencode }}" rel="next">Next</a>
         <a id="accuracyLink" class="cards-nav-pill" href="/live_lens_accuracy?date={{ initial_date | urlencode }}">Live Lens Accuracy</a>
         <a id="skaterLaddersLink" class="cards-nav-pill" href="/skater-ladders?date={{ initial_date | urlencode }}">Skater Ladders</a>
         <a id="goalieLaddersLink" class="cards-nav-pill" href="/goalie-ladders?date={{ initial_date | urlencode }}">Goalie Ladders</a>
-      </div>
+      </form>
       <div class="cards-toolbar-rail">
         <div id="cardsSourceMeta" class="cards-source-meta"></div>
         <div id="cardsFilters" class="cards-filters" aria-label="Slate filters"></div>
@@ -1893,16 +2242,18 @@
       </div>
     </section>
     <main>
-      <section id="scoreboardStrip" class="scoreboard-strip cards-scoreboard" aria-label="Games"></section>
-      <div class="cards-section-heading cards-section-heading--compact">
-        <div>
-          <div class="cards-section-kicker">Player props pulse</div>
-          <h2>Top moving edges</h2>
-        </div>
-        <div id="propsStripLabel" class="muted props-strip-label"></div>
+      <section id="scoreboardStrip" class="scoreboard-strip cards-scoreboard" aria-label="Games">
+        <div class="cards-loading-strip">Loading scoreboard…</div>
+      </section>
+      <section class="cards-hr-targets" aria-label="Player props pulse">
+      <div id="propsStripLabel" class="muted props-strip-label" hidden></div>
+      <div id="propsStrip" class="props-strip">
+        <div class="cards-loading-state">Loading props pulse…</div>
       </div>
-      <div id="propsStrip" class="props-strip"></div>
-      <section id="cards" class="cards cards-grid" aria-live="polite"></section>
+      </section>
+      <section id="cards" class="cards cards-grid" aria-live="polite">
+        <div class="cards-loading-state">Loading cards…</div>
+      </section>
       <div id="empty" class="empty muted"></div>
     </main>
   </div>
@@ -2256,11 +2607,13 @@
       `;
     }
 
-    function renderSimBoxscoresOnly(pred, simRows) {
+    function renderSimBoxscoresOnly(pred, simRows, options = {}) {
       const rows = Array.isArray(simRows) ? simRows : [];
       if (!rows.length) {
         return `<div class="k">Projected box scores</div><div class="v muted">No sim boxscores available yet.</div>`;
       }
+
+      const includeHeading = options.includeHeading !== false;
 
       const awayLabel = predTeamAbbr(pred, 'away') || String((pred && pred.away) || 'Away').trim() || 'Away';
       const homeLabel = predTeamAbbr(pred, 'home') || String((pred && pred.home) || 'Home').trim() || 'Home';
@@ -2296,13 +2649,72 @@
       };
 
       const out = [];
-      out.push(`<div class="k">Projected box scores</div>`);
+      if (includeHeading) out.push(`<div class="k">Projected box scores</div>`);
       out.push(renderLinescoreHtml('Sim line score', awayLabel, homeLabel, awayLine, homeLine, true));
       out.push(renderSimSkatersTableHtml(`Skaters (${awayLabel})`, rows, awayKey));
       out.push(renderSimSkatersTableHtml(`Skaters (${homeLabel})`, rows, homeKey));
       out.push(renderSimGoaliesTableHtml(`Goalies (${awayLabel})`, rows, awayKey));
       out.push(renderSimGoaliesTableHtml(`Goalies (${homeLabel})`, rows, homeKey));
       return out.join('');
+    }
+
+    function renderSimBoxscoreSections(pred, simRows, simMeta = null) {
+      const rows = Array.isArray(simRows) ? simRows : [];
+      if (!rows.length) {
+        return {
+          badge: 'Unavailable',
+          totalsHtml: '<div class="cards-empty-copy">No sim boxscores available yet.</div>',
+          detailHtml: '<div class="cards-empty-copy">No sim boxscores available yet.</div>',
+        };
+      }
+
+      const awayLabel = predTeamAbbr(pred, 'away') || String((pred && pred.away) || 'Away').trim() || 'Away';
+      const homeLabel = predTeamAbbr(pred, 'home') || String((pred && pred.home) || 'Home').trim() || 'Home';
+      const awayKey = String((pred && pred.away) || awayLabel).trim() || awayLabel;
+      const homeKey = String((pred && pred.home) || homeLabel).trim() || homeLabel;
+      const teamTotal = (teamKey, col) => {
+        const p0 = sumSim(rows, teamKey, 0, col);
+        if (p0 !== null && p0 !== undefined) return p0;
+        let total = 0;
+        let any = false;
+        for (const per of [1, 2, 3, 4]) {
+          const v = sumSim(rows, teamKey, per, col);
+          if (v !== null && v !== undefined) {
+            total += Number(v);
+            any = true;
+          }
+        }
+        return any ? total : null;
+      };
+      const awayGoals = teamTotal(awayKey, 'goals');
+      const homeGoals = teamTotal(homeKey, 'goals');
+      const totalGoals = (awayGoals !== null && homeGoals !== null) ? Number(awayGoals) + Number(homeGoals) : null;
+      const spread = (awayGoals !== null && homeGoals !== null) ? Number(homeGoals) - Number(awayGoals) : null;
+      const simCount = (simMeta && simMeta.nSims !== undefined && simMeta.nSims !== null && isFinite(Number(simMeta.nSims)))
+        ? `${Number(simMeta.nSims)} sims`
+        : 'Model';
+
+      return {
+        badge: simCount,
+        totalsHtml: `
+          <div class="cards-mini-metric">
+            <span>Projected final</span>
+            <strong>${escHtml(`${awayLabel} ${fmt(awayGoals, 2)} - ${homeLabel} ${fmt(homeGoals, 2)}`)}</strong>
+          </div>
+          <div class="cards-mini-metric">
+            <span>Model total</span>
+            <strong>${escHtml(totalGoals === null ? '—' : fmt(totalGoals, 2))}</strong>
+          </div>
+          <div class="cards-mini-metric">
+            <span>Spread</span>
+            <strong>${escHtml(spread === null ? '—' : fmtSigned(spread, 2))}</strong>
+          </div>
+          <div class="cards-mini-metric">
+            <span>Sim engine</span>
+            <strong>${escHtml(simCount)}</strong>
+          </div>`,
+        detailHtml: renderSimBoxscoresOnly(pred, rows, { includeHeading: false }),
+      };
     }
 
     function evClass(ev) {
@@ -2356,6 +2768,16 @@
         if (!g) return null;
         // Accept AWY@HOME or "AWY @ HOME"
         return g.replace(/\s+/g,' ').replace('@', ' @ ').replace(/\s+@\s+/, ' @ ').trim();
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function getSelectedGamePkFromUrl() {
+      try {
+        const p = new URLSearchParams(window.location.search || '');
+        const v = String(p.get('gamePk') || '').trim();
+        return v || null;
       } catch (e) {
         return null;
       }
@@ -2762,6 +3184,31 @@
       };
     }
 
+    function renderPropOverviewLensCard(selected, rowsForLens, info) {
+      if (!selected || !rowsForLens || !info) return '<div class="cards-empty-copy">No lead prop lens available.</div>';
+      const actualLabel = rowsForLens.actualValue == null ? '—' : String(fmt(rowsForLens.actualValue, rowsForLens.actualValue % 1 ? 2 : 0));
+      const projectedLabel = rowsForLens.simValue == null ? '—' : String(fmt(rowsForLens.simValue, 2));
+      const lineLabel = `${String(selected?.side || 'OVER').replace(/^./, (m) => m.toUpperCase())} ${fmt(selected?.line, 1)}`;
+      return `
+        <div class="cards-lens-shell">
+          <div class="cards-lens-head">
+            <div>
+              <div class="cards-lens-label">Lead prop lens</div>
+              <div class="cards-lens-main">${escHtml(selected.player || 'Player')} · ${escHtml(info.label)}</div>
+              <div class="cards-subcopy">${escHtml(selected.team || 'Team')} · ${escHtml(propTierLabel(selected))}</div>
+            </div>
+            <span class="cards-lens-badge ${escHtml(evClass(selected.ev))}">${escHtml(String(selected.side || '').toUpperCase())}</span>
+          </div>
+          <div class="cards-detail-grid">
+            ${renderDataPair('Actual', actualLabel)}
+            ${renderDataPair('Projected', projectedLabel)}
+            ${renderDataPair('Odds', fmtAmerican(selected?.price))}
+            ${renderDataPair('Edge', formatPropEdge(selected))}
+          </div>
+          <div class="cards-prob-meta">${escHtml(lineLabel)}${selected?.book ? ` · ${escHtml(String(selected.book))}` : ''}</div>
+        </div>`;
+    }
+
     function renderCardPropSections(card, pred, simRows, liveGame) {
       if (!card || !pred) return;
       const gameKey = String(card.dataset.gameKey || '').trim();
@@ -2769,9 +3216,10 @@
       const rows = Array.isArray(detail.rows) ? detail.rows : [];
       const groupsNode = card.querySelector('[data-role="prop-groups"]');
       const lensNode = card.querySelector('[data-role="prop-lens"]');
+      const overviewNode = card.querySelector('[data-role="prop-overview-lens"]');
       const filtersNode = card.querySelector('[data-role="prop-filters"]');
       const summaryChip = card.querySelector('[data-role="prop-summary-chip"]');
-      if (!groupsNode || !lensNode || !filtersNode || !summaryChip) return;
+      if (!groupsNode || !lensNode || !filtersNode || !summaryChip || !overviewNode) return;
 
       const filters = detail.propFilters || { side: 'all', type: 'all' };
       const visibleRows = filteredPropRows(rows, filters);
@@ -2780,6 +3228,7 @@
 
       if (!rows.length) {
         groupsNode.innerHTML = '<div class="cards-empty-copy">No playable player props for this matchup.</div>';
+        overviewNode.innerHTML = '<div class="cards-empty-copy">No lead prop lens available.</div>';
         lensNode.innerHTML = `
           <div class="cards-lens-head">
             <div>
@@ -2794,6 +3243,7 @@
 
       if (!visibleRows.length) {
         groupsNode.innerHTML = '<div class="cards-empty-copy">No props match the current side and type filters.</div>';
+        overviewNode.innerHTML = '<div class="cards-empty-copy">Refine filters to surface a lead prop lens.</div>';
         lensNode.innerHTML = `
           <div class="cards-lens-head">
             <div>
@@ -2825,18 +3275,19 @@
 
       const info = propTypeInfo(selected);
       const rowsForLens = resolvePropRows(pred, liveGame, simRows, selected);
+      overviewNode.innerHTML = renderPropOverviewLensCard(selected, rowsForLens, info);
       const actualLabel = rowsForLens.actualValue == null ? '—' : String(fmt(rowsForLens.actualValue, rowsForLens.actualValue % 1 ? 2 : 0));
       const simLabel = rowsForLens.simValue == null ? '—' : String(fmt(rowsForLens.simValue, 2));
       const lineLabel = `${String(selected?.side || 'OVER').replace(/^./, (m) => m.toUpperCase())} ${fmt(selected?.line, 1)}`;
       const detailPairs = [
-        { label: 'Tier', value: propTierLabel(selected) },
-        { label: 'Market', value: info.label },
-        { label: 'Line', value: lineLabel },
-        { label: 'Odds', value: fmtAmerican(selected?.price) },
-        { label: 'Model', value: isFinite(Number(selected?.prob)) ? `${pct(selected?.prob)} ${String(selected?.side || 'over').toLowerCase()}` : 'Model unavailable' },
         { label: 'Actual', value: actualLabel },
-        { label: 'Sim mean', value: simLabel },
+        { label: 'Projected', value: simLabel },
+        { label: 'Odds', value: fmtAmerican(selected?.price) },
         { label: 'Edge', value: formatPropEdge(selected) },
+        { label: 'Line', value: lineLabel },
+        { label: 'Market', value: info.label },
+        { label: 'Tier', value: propTierLabel(selected) },
+        { label: 'Model', value: isFinite(Number(selected?.prob)) ? `${pct(selected?.prob)} ${String(selected?.side || 'over').toLowerCase()}` : 'Model unavailable' },
       ];
 
       lensNode.innerHTML = `
@@ -2862,6 +3313,15 @@
       const classes = ['cards-source-meta-pill'];
       if (variant) classes.push(`is-${variant}`);
       return `<span class="${classes.join(' ')}">${escHtml(String(label || ''))}</span>`;
+    }
+
+    function goalieMetricMarkup(label, goalieName) {
+      const name = String(goalieName || '').trim() || 'TBD';
+      return `
+        <div class="cards-mini-metric">
+          <span>${escHtml(label)}</span>
+          <strong>${escHtml(name)}</strong>
+        </div>`;
     }
 
     function slateCounts(cards) {
@@ -3247,6 +3707,158 @@
       ].join('');
     }
 
+    function topRecForMarket(top, matcher) {
+      const rows = Array.isArray(top) ? top : [];
+      return rows.find((row) => matcher(toUpper(row && row.market))) || null;
+    }
+
+    function segmentLeanText(row, awayAbbr, homeAbbr) {
+      if (!row) return '';
+      const away = Number(row.away_win_prob) || 0;
+      const home = Number(row.home_win_prob) || 0;
+      const tie = Number(row.tie_prob) || 0;
+      if (tie >= away && tie >= home) return `Most likely tie ${pct(tie)}`;
+      const homeFavored = home >= away;
+      const team = homeFavored ? homeAbbr : awayAbbr;
+      const edgeGoals = 100 * Math.abs(home - away);
+      return `Lean ${team} by ${edgeGoals.toFixed(1)} goals`;
+    }
+
+    function renderGameLensCard(title, subtitle, badge, pairs, picks = [], note = '', closed = false) {
+      const summaryPairs = Array.isArray(pairs) ? pairs.filter(Boolean) : [];
+      const pickLines = Array.isArray(picks) ? picks.filter(Boolean) : [];
+      return `
+        <div class="cards-live-lens-card${closed ? ' is-closed' : ''}">
+          <div class="cards-live-lens-head">
+            <div class="cards-live-lens-title-block">
+              <div class="cards-lens-label">${escHtml(title)}</div>
+              <div class="cards-lens-main">${escHtml(subtitle)}</div>
+              ${note ? `<div class="cards-live-lens-subtitle">${escHtml(note)}</div>` : ''}
+            </div>
+            <span class="cards-chip${closed ? '' : ' is-live'}">${escHtml(badge)}</span>
+          </div>
+          <div class="cards-live-lens-summary-row">
+            ${summaryPairs.map((pair) => renderDataPair(pair.label, pair.value)).join('')}
+          </div>
+          ${pickLines.length ? `<div class="cards-live-lens-picks">${pickLines.map((line) => `<div class="cards-live-lens-pick">${escHtml(line)}</div>`).join('')}</div>` : ''}
+        </div>`;
+    }
+
+    function renderNhlGameLens(pred, top, liveGame = null) {
+      const awayAbbr = predTeamAbbr(pred, 'away') || String(pred.away_abbr || pred.away || 'Away').trim() || 'Away';
+      const homeAbbr = predTeamAbbr(pred, 'home') || String(pred.home_abbr || pred.home || 'Home').trim() || 'Home';
+      const stateInfo = gameStatusInfo(liveGame ? liveGame.gameState : pred.game_state, {
+        periodDisp: liveGame && liveGame.period_disp ? liveGame.period_disp : '',
+      });
+      const segments = predictionSegments(pred) || {};
+      const simTotals = simProjectedTotals(pred, (window.__SIM_BY_GAME__ && window.__SIM_BY_GAME__.get) ? (window.__SIM_BY_GAME__.get(keyForGame(pred)) || []) : []);
+      const mlRec = topRecForMarket(top, (market) => market.includes('ML'));
+      const totalRec = topRecForMarket(top, (market) => market.includes('TOTAL'));
+      const puckRec = topRecForMarket(top, (market) => market.includes('PL') || market.includes('PUCK'));
+      const propsCount = buildCardPropRows([].concat(pred.__propsAway || [], pred.__propsHome || [])).length;
+      const liveStateLabel = (liveGame && stateInfo.isLive)
+        ? (formatLiveClockText(liveGame.gameState, liveGame.period, liveGame.clock, liveGame.period_disp, !!liveGame.intermission) || stateInfo.text)
+        : stateInfo.text;
+      const hasLiveScore = Boolean(
+        liveGame
+          && liveGame.score
+          && (liveGame.score.away !== undefined && liveGame.score.away !== null)
+          && (liveGame.score.home !== undefined && liveGame.score.home !== null)
+      );
+      const fullGameProjection = simTotals.away !== null && simTotals.home !== null
+        ? `${awayAbbr} ${fmt(simTotals.away, 2)} - ${homeAbbr} ${fmt(simTotals.home, 2)}`
+        : `${awayAbbr} ${fmt(pred.proj_away_goals, 2)} - ${homeAbbr} ${fmt(pred.proj_home_goals, 2)}`;
+      const gamePickLines = [];
+      if (hasLiveScore) gamePickLines.push(`Score ${awayAbbr} ${liveGame.score.away} - ${homeAbbr} ${liveGame.score.home}`);
+      if (mlRec) gamePickLines.push(`ML ${String(mlRec.side || '').toUpperCase()} ${fmtAmerican(mlRec.price)}${isFinite(Number(mlRec.ev)) ? ` | EV ${(100 * Number(mlRec.ev)).toFixed(1)}%` : ''}`);
+      if (totalRec) gamePickLines.push(`Total ${String(totalRec.side || '').toUpperCase()} ${fmt(totalRec.line, 1)} ${fmtAmerican(totalRec.price)}`);
+      if (puckRec) gamePickLines.push(`Puck line ${String(puckRec.side || '').toUpperCase()} ${fmt(puckRec.line, 1)} ${fmtAmerican(puckRec.price)}`);
+
+      const cards = [
+        renderGameLensCard(
+          'Game',
+          'Full game',
+          stateInfo.text,
+          [
+            { label: 'Status', value: liveStateLabel },
+            { label: 'Projected final', value: fullGameProjection },
+            { label: 'Model total', value: fmt(pred.model_total, 2) },
+            { label: 'Props board', value: String(propsCount || 0) },
+          ],
+          gamePickLines,
+          String(pred.venue || 'TBD').trim() || 'TBD'
+        ),
+      ];
+
+      [
+        { key: 'p1', label: 'P1', subtitle: 'Opening period', awayProj: Number(pred && pred.period1_away_proj), homeProj: Number(pred && pred.period1_home_proj), periodNo: 1 },
+        { key: 'p2', label: 'P2', subtitle: 'Middle period', awayProj: Number(pred && pred.period2_away_proj), homeProj: Number(pred && pred.period2_home_proj), periodNo: 2 },
+        { key: 'p3', label: 'P3', subtitle: 'Closing period', awayProj: Number(pred && pred.period3_away_proj), homeProj: Number(pred && pred.period3_home_proj), periodNo: 3 },
+      ].forEach((segmentDef) => {
+        const row = segments && segments[segmentDef.key] ? segments[segmentDef.key] : null;
+        if (!row) return;
+        const projection = (isFinite(segmentDef.awayProj) && isFinite(segmentDef.homeProj))
+          ? `${awayAbbr} ${fmt(segmentDef.awayProj, 2)} - ${homeAbbr} ${fmt(segmentDef.homeProj, 2)}`
+          : '';
+        const segmentBadge = (stateInfo.isLive && liveGame && Number(liveGame.period) === segmentDef.periodNo)
+          ? (formatLiveClockText(liveGame.gameState, liveGame.period, liveGame.clock, liveGame.period_disp, !!liveGame.intermission) || 'Live')
+          : 'Model';
+        cards.push(renderGameLensCard(
+          segmentDef.label,
+          segmentDef.subtitle,
+          segmentBadge,
+          [
+            { label: awayAbbr, value: pct(row.away_win_prob) },
+            { label: 'Tie', value: pct(row.tie_prob) },
+            { label: homeAbbr, value: pct(row.home_win_prob) },
+            projection ? { label: 'Proj', value: projection } : null,
+          ],
+          [segmentLeanText(row, awayAbbr, homeAbbr)].filter(Boolean),
+          'Period edge'
+        ));
+      });
+
+      if (segments && segments.ot) {
+        cards.push(renderGameLensCard(
+          'OT',
+          'Extra-time path',
+          (stateInfo.isLive && liveGame && Number(liveGame.period) >= 4) ? liveStateLabel : 'Model',
+          [
+            { label: 'No OT', value: pct(segments.ot.no_prob) },
+            { label: 'OT', value: pct(segments.ot.yes_prob) },
+            { label: awayAbbr, value: pct(segments.final && segments.final.away_win_prob) },
+            { label: homeAbbr, value: pct(segments.final && segments.final.home_win_prob) },
+          ],
+          [segmentLeanText(segments.final, awayAbbr, homeAbbr)].filter(Boolean),
+          'Overtime route'
+        ));
+      }
+
+      return cards.join('');
+    }
+
+    function renderGoalProjectionRows(pred, awayAbbr, homeAbbr, propsCount = 0, extraPlayableProps = 0) {
+      return [
+        `<div class="cards-prob-row"><div class="cards-prob-head"><div class="cards-prob-label">Projected final</div><div class="cards-prob-badge">Model</div></div><div class="cards-prob-meta">${escHtml(`${awayAbbr} ${fmt(pred.proj_away_goals, 2)} - ${homeAbbr} ${fmt(pred.proj_home_goals, 2)}`)}</div></div>`,
+        `<div class="cards-prob-row"><div class="cards-prob-head"><div class="cards-prob-label">Model total</div><div class="cards-prob-badge">Scoring</div></div><div class="cards-prob-meta">${escHtml(`Total ${fmt(pred.model_total, 2)} | Spread ${fmtSigned(pred.model_spread, 2)}`)}</div></div>`,
+        `<div class="cards-prob-row"><div class="cards-prob-head"><div class="cards-prob-label">Props board</div><div class="cards-prob-badge">Saved edges</div></div><div class="cards-prob-meta">${escHtml(propsCount ? `${propsCount} playable props${extraPlayableProps > 0 ? ` | +${extraPlayableProps} secondary` : ''}` : 'No playable props captured')}</div></div>`,
+      ].join('');
+    }
+
+    function renderNhlOverviewBars(pred, awayAbbr, homeAbbr, propsCount = 0, extraPlayableProps = 0) {
+      return `
+        <div class="cards-prob-groups">
+          <section class="cards-prob-group">
+            <div class="cards-table-title"><strong>Win Probability</strong></div>
+            <div class="cards-prob-grid">${renderGameProbabilityRows(pred, awayAbbr, homeAbbr)}</div>
+          </section>
+          <section class="cards-prob-group">
+            <div class="cards-table-title"><strong>Goal Projections</strong></div>
+            <div class="cards-prob-grid">${renderGoalProjectionRows(pred, awayAbbr, homeAbbr, propsCount, extraPlayableProps)}</div>
+          </section>
+        </div>`;
+    }
+
     function renderDataPair(label, value) {
       return `
         <div class="cards-data-pair">
@@ -3370,6 +3982,24 @@
       activateCardTab(card, 'overview');
     }
 
+    function focusRequestedGameCard() {
+      try {
+        const requestedPk = getSelectedGamePkFromUrl();
+        const requestedKey = getSelectedGameKeyFromUrl();
+        let card = null;
+        if (requestedPk) {
+          card = Array.from(document.querySelectorAll('.cards-game-card')).find((node) => String(node.dataset.gamePk || '').trim() === requestedPk) || null;
+        }
+        if (!card && requestedKey) {
+          const normalizedKey = normKey(requestedKey);
+          card = Array.from(document.querySelectorAll('.cards-game-card')).find((node) => normKey(String(node.dataset.gameKey || '').trim()) === normalizedKey) || null;
+        }
+        if (!card) return;
+        activateCardTab(card, 'overview');
+        if (card.scrollIntoView) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } catch (e) {}
+    }
+
     function _normTeamToken(s) {
       return String(s || '').trim().replace(/\s+/g,' ').toLowerCase();
     }
@@ -3412,10 +4042,13 @@
 
     function renderCard(pred, recsForGame, simForGame, propsAway=null, propsHome=null, simMeta=null) {
       const match = keyForGame(pred);
+      pred.__propsAway = Array.isArray(propsAway) ? propsAway.slice() : [];
+      pred.__propsHome = Array.isArray(propsHome) ? propsHome.slice() : [];
       const state = String(pred.game_state || '').trim();
       const stateInfo = gameStatusInfo(state);
       const venue = String(pred.venue || '').trim();
-      let startDetail = venue;
+      let startTimeLabel = 'TBD';
+      let scheduledDetail = venue;
       try {
         const startMs = startTimeMs(pred);
         if (isFinite(Number(startMs))) {
@@ -3426,9 +4059,11 @@
             minute: '2-digit',
             timeZoneName: 'short',
           }).format(new Date(Number(startMs)));
-          startDetail = venue ? `${startText} · ${venue}` : startText;
+          startTimeLabel = startText;
+          if (!scheduledDetail) scheduledDetail = startText;
         }
       } catch (e) {}
+      if (!scheduledDetail && startTimeLabel !== 'TBD') scheduledDetail = startTimeLabel;
 
       const awayLogo = pred.away_logo ? String(pred.away_logo) : '';
       const homeLogo = pred.home_logo ? String(pred.home_logo) : '';
@@ -3548,9 +4183,10 @@
         if (pk !== undefined && pk !== null && String(pk).trim() !== '') el.dataset.gamePk = String(pk).trim();
       } catch (e) {}
       el.dataset.cardStatus = stateInfo.text;
-      el.dataset.scheduledDetail = startDetail;
+      el.dataset.scheduledDetail = scheduledDetail;
       el.dataset.hasOfficial = top.length ? '1' : '0';
       el.dataset.hasProps = buildCardPropRows([].concat(propsAway || [], propsHome || [])).length ? '1' : '0';
+      el.__topRecs = Array.isArray(top) ? top.slice() : [];
       el.__propsAway = Array.isArray(propsAway) ? propsAway.slice() : [];
       el.__propsHome = Array.isArray(propsHome) ? propsHome.slice() : [];
       try {
@@ -3562,24 +4198,40 @@
 
       const pills = [];
       if (state) pills.push(`<span class="pill">${state}</span>`);
-      if (venue) pills.push(`<span class="pill">${venue}</span>`);
+      const awayTeamName = String(pred.away || awayAbbr || 'Away').trim();
+      const homeTeamName = String(pred.home || homeAbbr || 'Home').trim();
+      const gamePk = String(el.dataset.gamePk || '').trim();
 
       el.innerHTML = `
         <div class="cards-strip-head">
-          <div class="cards-head-left">
-            <div class="cards-matchup-line">
-              <span class="cards-team-token">${awayLogo ? `<img class="team-logo" src="${awayLogo}" alt="${pred.away || ''}" />` : ''}<strong>${awayAbbr}</strong></span>
-              <span class="cards-score-divider">@</span>
-              <span class="cards-team-token">${homeLogo ? `<img class="team-logo" src="${homeLogo}" alt="${pred.home || ''}" />` : ''}<strong>${homeAbbr}</strong></span>
+          <div class="cards-head-left cards-head-matchup">
+            <div class="cards-head-team">
+              ${awayLogo ? `<img class="team-logo" src="${awayLogo}" alt="${awayTeamName}" />` : ''}
+              <div class="cards-team-meta">
+                <strong class="cards-team-code">${escHtml(awayAbbr)}</strong>
+                <span class="cards-team-name">${escHtml(awayTeamName)}</span>
+              </div>
+              <div class="cards-head-team-score" data-role="away-pts-big"></div>
             </div>
-            <div class="cards-subcopy">${escHtml(pred.away || awayAbbr)} at ${escHtml(pred.home || homeAbbr)}${venue ? ` · ${escHtml(venue)}` : ''}</div>
+            <span class="cards-score-divider">@</span>
+            <div class="cards-head-team">
+              ${homeLogo ? `<img class="team-logo" src="${homeLogo}" alt="${homeTeamName}" />` : ''}
+              <div class="cards-team-meta">
+                <strong class="cards-team-code">${escHtml(homeAbbr)}</strong>
+                <span class="cards-team-name">${escHtml(homeTeamName)}</span>
+              </div>
+              <div class="cards-head-team-score" data-role="home-pts-big"></div>
+            </div>
           </div>
           <div class="cards-status-cluster">
-            <div class="cards-status-line">
-              <span class="cards-status-badge ${stateInfo.className}" data-role="status-badge">${escHtml(stateInfo.text)}</span>
-              <span class="cards-overview-badge" data-role="lens-card-tag"></span>
+            <div class="cards-game-time-row">
+              <span class="cards-game-time-label">Puck drop</span>
+              <span class="cards-game-time-value">${escHtml(startTimeLabel)}</span>
             </div>
-            <div class="cards-start-time" data-role="status-detail">${escHtml(startDetail || '')}</div>
+            <span class="cards-status-badge ${stateInfo.className}" data-role="status-badge">${escHtml(stateInfo.text)}</span>
+            <span class="cards-overview-badge" data-role="lens-card-tag"></span>
+            <div class="cards-start-time" data-role="status-detail">${escHtml(scheduledDetail || '')}</div>
+            ${gamePk ? `<a class="cards-game-link" href="/game/${encodeURIComponent(gamePk)}?date=${encodeURIComponent(currentDate || getRequestedDate() || '{{ initial_date }}')}">Open game view</a>` : ''}
             <div class="cards-status-line">
               <span class="pill active live-clock" data-role="live-clock"></span>
               <span class="pill active final-score" data-role="final-score"></span>
@@ -3589,23 +4241,10 @@
         </div>
 
         <div class="cards-score-ribbon">
-          <div class="cards-score-side is-away">
-            <div class="cards-score-label">Away</div>
-            <div class="cards-score-number" data-role="away-pts-big"></div>
-            <strong class="cards-team-code">${escHtml(awayAbbr)}</strong>
-            <div class="cards-mini-copy">Proj ${fmt(projAway, 2)} goals | ML ${pct(mlAway)}</div>
-          </div>
-          <div class="cards-score-divider">at</div>
-          <div class="cards-score-side is-home">
-            <div class="cards-score-label">Home</div>
-            <div class="cards-score-number" data-role="home-pts-big"></div>
-            <strong class="cards-team-code">${escHtml(homeAbbr)}</strong>
-            <div class="cards-mini-copy">Proj ${fmt(projHome, 2)} goals | ML ${pct(mlHome)}</div>
-          </div>
           <div class="cards-score-meta">
             <div class="cards-live-line live-ctx-top"></div>
             <div class="cards-sim-line">${escHtml(simHeadline)}</div>
-            <div class="cards-mini-copy">${escHtml(simMini)}</div>
+            <div class="cards-mini-copy">${escHtml(simMini)} · ${escHtml(`Model total ${fmt(modelTotal, 2)} | Spread ${fmtSigned(modelSpread, 2)}`)}</div>
           </div>
         </div>
 
@@ -3634,45 +4273,28 @@
           </div>
         </div>
 
-        <div class="cards-tabs">
-          <button class="cards-tab is-active" type="button" data-tab-target="overview">Game</button>
-          <button class="cards-tab" type="button" data-tab-target="boxscore">Box Score</button>
-          <button class="cards-tab" type="button" data-tab-target="props">Props</button>
+        <div class="cards-tabs-rail">
+          <div class="cards-tabs">
+            <button class="cards-tab is-active" type="button" data-tab-target="overview">Game</button>
+            <button class="cards-tab" type="button" data-tab-target="boxscore">Box Score</button>
+            <button class="cards-tab" type="button" data-tab-target="props">Props</button>
+          </div>
+          <div class="cards-mini-metrics cards-mini-metrics--rail">
+            ${goalieMetricMarkup('Away goalie', pred?.away_goalie_name || pred?.away_goalie)}
+            ${goalieMetricMarkup('Home goalie', pred?.home_goalie_name || pred?.home_goalie)}
+          </div>
         </div>
 
         <section class="cards-panel is-active" data-panel-id="overview">
           <div class="cards-overview-grid">
-            <div class="cards-panel-card cards-lens-shell">
+            <div class="cards-panel-card cards-panel-card--overview-main">
               <div class="cards-box-head">
-                <div>
-                  <div class="cards-table-title"><strong>Game lens</strong></div>
-                  <div class="cards-lens-main">${escHtml(match)}</div>
-                </div>
-                <span class="cards-chip">${simCount ? `${simCount} sims` : 'Model'}</span>
+                <div class="cards-table-title"><strong>Game lens</strong></div>
+                <span class="cards-overview-badge">NHL</span>
               </div>
-              <div class="cards-prob-grid">
-                ${renderGameProbabilityRows(pred, awayAbbr, homeAbbr)}
-              </div>
-              <div class="cards-mini-metrics">
-                <div class="cards-mini-metric">
-                  <div>
-                    <span>Projected final</span>
-                    <strong>${escHtml(simTotals.away !== null && simTotals.home !== null ? `${awayAbbr} ${fmt(simTotals.away, 2)} - ${homeAbbr} ${fmt(simTotals.home, 2)}` : `${awayAbbr} ${fmt(projAway, 2)} - ${homeAbbr} ${fmt(projHome, 2)}`)}</strong>
-                  </div>
-                </div>
-                <div class="cards-mini-metric">
-                  <div>
-                    <span>Moneyline split</span>
-                    <strong>${escHtml(`${awayAbbr} ${pct(mlAway)} | ${homeAbbr} ${pct(mlHome)}`)}</strong>
-                  </div>
-                </div>
-                <div class="cards-mini-metric">
-                  <div>
-                    <span>Props board</span>
-                    <strong>${escHtml(String(propsCount || 0))}</strong>
-                  </div>
-                  <div class="cards-mini-metric-copy">${escHtml(extraPlayableProps > 0 ? `+${extraPlayableProps} more playable` : propsCount ? 'Lead edge ready' : 'No playable props')}</div>
-                </div>
+              <div class="cards-overview-main-grid">
+                <div class="cards-live-lens-grid" data-role="game-lens">${renderNhlGameLens(pred, top, null)}</div>
+                <div data-role="overview-bars">${renderNhlOverviewBars(pred, awayAbbr, homeAbbr, propsCount, extraPlayableProps)}</div>
               </div>
             </div>
 
@@ -3685,6 +4307,7 @@
                 <span class="cards-chip is-official">${escHtml(officialCardChip)}</span>
               </div>
               <ul class="cards-callout-list">${officialCallouts.join('')}</ul>
+              <div data-role="prop-overview-lens"></div>
             </div>
 
             <div class="cards-panel-card cards-live-panel live-lens" style="display:none;">
@@ -3710,9 +4333,12 @@
                   <div class="cards-table-title"><strong>Live / final box</strong></div>
                   <div class="cards-lens-main">Actual game box score</div>
                 </div>
-                <span class="cards-chip">Live</span>
+                <span class="cards-overview-badge" data-role="actual-badge">Scheduled</span>
               </div>
-              <div class="cards-box-body live-box-body"></div>
+              <div class="cards-box-totals" data-role="actual-totals">
+                <div class="cards-empty-copy">Live or final box is unavailable.</div>
+              </div>
+              <div class="cards-box-body" data-role="actual-box"></div>
             </div>
             <div class="cards-panel-card cards-box-panel">
               <div class="cards-box-head">
@@ -3720,9 +4346,12 @@
                   <div class="cards-table-title"><strong>Sim box</strong></div>
                   <div class="cards-lens-main">${escHtml(simHeadline)}</div>
                 </div>
-                <span class="cards-chip">${simCount ? `${simCount} sims` : 'Model'}</span>
+                <span class="cards-chip" data-role="sim-badge">${simCount ? `${simCount} sims` : 'Model'}</span>
               </div>
-              <div class="cards-box-body sim-box-body"></div>
+              <div class="cards-box-totals" data-role="sim-totals">
+                <div class="cards-empty-copy">No sim boxscores available yet.</div>
+              </div>
+              <div class="cards-box-body" data-role="sim-box"></div>
             </div>
           </div>
         </section>
@@ -3748,16 +4377,21 @@
 
       // Initialize box score tab with left live/final and right sim panels.
       try {
-        const simBox = el.querySelector('.sim-box-body');
-        if (simBox) {
-          if (Array.isArray(simForGame) && simForGame.length) {
-            simBox.innerHTML = renderSimBoxscoresOnly(pred, simForGame);
-          } else {
-            simBox.innerHTML = `<div class="k">Projected box scores</div><div class="v muted">No sim boxscores available yet.</div>`;
-          }
-        }
-        const liveBox = el.querySelector('.live-box-body');
-        if (liveBox) liveBox.innerHTML = `<div class="k">Live box</div><div class="v muted">Live or final box is unavailable.</div>`;
+        const simSections = renderSimBoxscoreSections(pred, Array.isArray(simForGame) ? simForGame : [], simMeta);
+        const simTotals = el.querySelector('[data-role="sim-totals"]');
+        const simBox = el.querySelector('[data-role="sim-box"]');
+        const simBadge = el.querySelector('[data-role="sim-badge"]');
+        if (simTotals) simTotals.innerHTML = simSections.totalsHtml;
+        if (simBox) simBox.innerHTML = simSections.detailHtml;
+        if (simBadge) simBadge.textContent = simSections.badge;
+
+        const liveSections = renderLiveBoxscoreSections(null, pred);
+        const liveTotals = el.querySelector('[data-role="actual-totals"]');
+        const liveBox = el.querySelector('[data-role="actual-box"]');
+        const liveBadge = el.querySelector('[data-role="actual-badge"]');
+        if (liveTotals) liveTotals.innerHTML = liveSections.totalsHtml;
+        if (liveBox) liveBox.innerHTML = liveSections.detailHtml;
+        if (liveBadge) liveBadge.textContent = liveSections.badge;
       } catch (e) {}
 
       wireCardTabs(el);
@@ -3877,7 +4511,7 @@
       if (!payload || !payload.ok || !Array.isArray(payload.cards) || !payload.cards.length) return;
       if (label) label.textContent = 'Top props';
 
-      const frag = document.createDocumentFragment();
+      const entries = [];
       for (const c of (payload.cards || [])) {
         try {
           const player = String(c && c.player || '').trim();
@@ -3909,9 +4543,8 @@
             ? `<img class="p-team-logo" src="${escHtml(teamLogo)}" alt="${escHtml(team)}" loading="lazy" />`
             : '';
 
-          const item = document.createElement('div');
-          item.className = 'p-item';
-          item.innerHTML = `
+          entries.push(`
+            <article class="cards-hr-target-chip p-item">
             <div class="p-head">
               <div class="p-who">
                 ${whoImg}
@@ -3926,11 +4559,24 @@
             ${mvLine ? `<div class="p-move">Line ${escHtml(mvLine)}</div>` : ''}
             ${mvPrice ? `<div class="p-move">Price ${escHtml(mvPrice)}</div>` : ''}
             ${drivers ? `<div>${renderDriverPills(drivers, 2, false)}</div>` : ''}
-          `;
-          frag.appendChild(item);
+            </article>`);
         } catch (e) {}
       }
-      strip.appendChild(frag);
+      if (!entries.length) return;
+      strip.innerHTML = `
+        <div class="cards-hr-targets-card">
+          <div class="cards-hr-targets-head">
+            <div class="cards-hr-targets-copy">
+              <div class="cards-hr-targets-kicker">Player props pulse</div>
+              <div class="cards-table-title">Top moving edges</div>
+              <div class="cards-mini-copy">${escHtml(String(entries.length))} playable prop edges surfaced for this slate.</div>
+            </div>
+            <div class="cards-hr-targets-actions">
+              <span class="cards-source-meta-pill is-soft">Top ${escHtml(String(entries.length))}</span>
+            </div>
+          </div>
+          <div class="cards-hr-targets-grid">${entries.join('')}</div>
+        </div>`;
     }
 
     function propsStripSignature(payload) {
@@ -4021,16 +4667,22 @@
         const a = String(p && p.away || '').trim() || toUpper(p && p.away_abbr);
         const h = String(p && p.home || '').trim() || toUpper(p && p.home_abbr);
         const state = _dispState(p && p.game_state);
+        const stateInfo = gameStatusInfo(p && p.game_state);
         const awayLogo = (p && p.away_logo) ? String(p.away_logo) : '';
         const homeLogo = (p && p.home_logo) ? String(p.home_logo) : '';
         const startLocal = _fmtStartLocal(p);
         const timeLine = (startLocal || state || '—');
+        const awayGoalie = String(p && (p.away_goalie_name || p.away_goalie) || '').trim();
+        const homeGoalie = String(p && (p.home_goalie_name || p.home_goalie) || '').trim();
 
         const aEl = document.createElement('a');
         aEl.href = '#';
         aEl.className = 'cards-strip-card s-item';
         aEl.dataset.gameKey = k;
         const info = currentSlateInfoByKey.get(normKey(k));
+        const metaBits = [];
+        if (info && info.hasOfficial) metaBits.push('Official');
+        if (info && info.hasProps) metaBits.push('Props');
         aEl.dataset.hasOfficial = info && info.hasOfficial ? '1' : '0';
         aEl.dataset.hasProps = info && info.hasProps ? '1' : '0';
         aEl.dataset.cardStatus = info && info.status ? String(info.status) : state;
@@ -4042,18 +4694,31 @@
           const pk = (p && (p.gamePk ?? p.game_pk ?? p.nhl_game_pk ?? p.nhlGamePk ?? p.game_id ?? p.gameId));
           if (pk !== undefined && pk !== null && String(pk).trim() !== '') aEl.dataset.gamePk = String(pk).trim();
         } catch (e) {}
+        const awayAbbr = predTeamAbbr(p, 'away') || toUpper(a) || 'AWY';
+        const homeAbbr = predTeamAbbr(p, 'home') || toUpper(h) || 'HME';
         aEl.innerHTML = `
-          <div class="s-time">${timeLine}</div>
+          <div class="cards-strip-head">
+            <span class="cards-status-badge ${escHtml(stateInfo.className || '')}">${escHtml(stateInfo.text || state || 'Game')}</span>
+            <span class="cards-strip-meta s-time">${timeLine}</span>
+          </div>
+          <div class="s-board-head">
+            <span>Team</span>
+            <span>G</span>
+          </div>
           <div class="s-teamline">
-            <div class="lhs">${awayLogo ? `<img class="team-logo" src="${awayLogo}" alt="${a || ''}" />` : ''}<div class="nm">${a || '—'}</div></div>
+            <div class="lhs">${awayLogo ? `<img class="team-logo" src="${awayLogo}" alt="${a || ''}" />` : ''}<div class="nm"><strong class="abbr">${escHtml(awayAbbr)}</strong><span class="full">${escHtml(a || awayAbbr)}</span></div></div>
             <div class="pts" data-role="away-pts"></div>
           </div>
           <div class="s-teamline">
-            <div class="lhs">${homeLogo ? `<img class="team-logo" src="${homeLogo}" alt="${h || ''}" />` : ''}<div class="nm">${h || '—'}</div></div>
+            <div class="lhs">${homeLogo ? `<img class="team-logo" src="${homeLogo}" alt="${h || ''}" />` : ''}<div class="nm"><strong class="abbr">${escHtml(homeAbbr)}</strong><span class="full">${escHtml(h || homeAbbr)}</span></div></div>
             <div class="pts" data-role="home-pts"></div>
           </div>
-          <div class="s-sig" data-role="sig-1"></div>
-          <div class="s-sig" data-role="sig-2"></div>
+          <div class="cards-strip-meta">${escHtml(metaBits.join(' · ') || 'Slate view')}</div>
+          ${awayGoalie || homeGoalie ? `<div class="cards-strip-starters">${awayGoalie ? `<div class="cards-strip-starter-line"><span class="cards-strip-starter-name">Away goalie: ${escHtml(awayGoalie)}</span></div>` : ''}${homeGoalie ? `<div class="cards-strip-starter-line"><span class="cards-strip-starter-name">Home goalie: ${escHtml(homeGoalie)}</span></div>` : ''}</div>` : ''}
+          <div class="cards-strip-lens">
+            <div class="s-sig" data-role="sig-1"></div>
+            <div class="s-sig" data-role="sig-2"></div>
+          </div>
         `;
         aEl.addEventListener('click', (ev) => {
           ev.preventDefault();
@@ -4573,7 +5238,7 @@
       return `<div class="k">Live lens</div>${lines.join('')}`;
     }
 
-    function renderLiveBoxscoresOnly(game, pred=null) {
+    function renderLiveBoxscoresOnly(game, pred=null, options = {}) {
       try {
         const lens = (game && game.lens) ? game.lens : {};
         const totals = lens && lens.totals ? lens.totals : null;
@@ -4584,6 +5249,7 @@
         const homeLabel = predTeamAbbr(pred || game || {}, 'home') || String((game && game.home) || (pred && pred.home) || 'Home').trim() || 'Home';
         const stateText = String((game && (game.gameState || game.game_state)) || '').toUpperCase();
         const liveLabel = stateText && isFinalLikeState(stateText) ? 'Final' : 'Live';
+        const includeHeading = options.includeHeading !== false;
 
         if (!totals && !periods.length && !((players && (players.away || players.home)) || (goalies && (goalies.away || goalies.home)))) {
           return `<div class="k">${liveLabel} box</div><div class="v muted">Live or final box is unavailable.</div>`;
@@ -4680,7 +5346,7 @@
         };
 
         const out = [];
-        out.push(`<div class="k">${liveLabel} box</div>`);
+        if (includeHeading) out.push(`<div class="k">${liveLabel} box</div>`);
         out.push(renderLinescoreHtml(`${liveLabel} line score`, awayLabel, homeLabel, awayRow, homeRow, false));
         out.push(renderLivePlayersTable(`Skaters (${awayLabel})`, players && players.away ? players.away : []));
         out.push(renderLivePlayersTable(`Skaters (${homeLabel})`, players && players.home ? players.home : []));
@@ -4690,6 +5356,50 @@
       } catch (e) {
         return `<div class="k">Live box</div><div class="v muted">Live or final box is unavailable.</div>`;
       }
+    }
+
+    function renderLiveBoxscoreSections(game, pred = null) {
+      if (!game) {
+        return {
+          badge: 'Scheduled',
+          totalsHtml: '<div class="cards-empty-copy">Live or final box is unavailable.</div>',
+          detailHtml: '<div class="cards-empty-copy">Live or final box is unavailable.</div>',
+        };
+      }
+
+      const lens = game && game.lens ? game.lens : {};
+      const totals = lens && lens.totals ? lens.totals : null;
+      const awayLabel = predTeamAbbr(pred || game || {}, 'away') || String((game && game.away) || (pred && pred.away) || 'Away').trim() || 'Away';
+      const homeLabel = predTeamAbbr(pred || game || {}, 'home') || String((game && game.home) || (pred && pred.home) || 'Home').trim() || 'Home';
+      const stateText = String((game && (game.gameState || game.game_state)) || '').trim();
+      const badge = isFinalLikeState(stateText) ? 'Final' : (isLiveState(stateText) ? 'Live' : (stateText || 'Scheduled'));
+      const awayGoals = totals && totals.away ? totals.away.goals : null;
+      const homeGoals = totals && totals.home ? totals.home.goals : null;
+      const awayShots = totals && totals.away ? totals.away.shots : null;
+      const homeShots = totals && totals.home ? totals.home.shots : null;
+      const periodContext = formatLiveClockText(stateText, game.period, game.clock, game.period_disp, !!game.intermission) || 'Scheduled';
+
+      return {
+        badge,
+        totalsHtml: `
+          <div class="cards-mini-metric">
+            <span>Score</span>
+            <strong>${escHtml((awayGoals !== null && homeGoals !== null) ? `${awayLabel} ${fmtInt(awayGoals)} - ${homeLabel} ${fmtInt(homeGoals)}` : 'Awaiting live score')}</strong>
+          </div>
+          <div class="cards-mini-metric">
+            <span>Shots</span>
+            <strong>${escHtml((awayShots !== null && homeShots !== null) ? `${awayLabel} ${fmtInt(awayShots)} - ${homeLabel} ${fmtInt(homeShots)}` : 'Awaiting shots')}</strong>
+          </div>
+          <div class="cards-mini-metric">
+            <span>Game state</span>
+            <strong>${escHtml(badge)}</strong>
+          </div>
+          <div class="cards-mini-metric">
+            <span>Period context</span>
+            <strong>${escHtml(periodContext)}</strong>
+          </div>`,
+        detailHtml: renderLiveBoxscoresOnly(game, pred, { includeHeading: false }),
+      };
     }
 
     function normName(s) {
@@ -5885,18 +6595,33 @@
             const pred = (window.__PREDS_BY_GAME__ && window.__PREDS_BY_GAME__.get) ? (window.__PREDS_BY_GAME__.get(displayKey) || null) : null;
             const awayNm = pred ? (pred.away || '') : (g ? (g.away || '') : '');
             const homeNm = pred ? (pred.home || '') : (g ? (g.home || '') : '');
-            const simBoxEl = card.querySelector('.sim-box-body');
-            if (simBoxEl) {
-              simBoxEl.innerHTML = (Array.isArray(simRows) && simRows.length)
-                ? renderSimBoxscoresOnly(pred || { away: awayNm, home: homeNm }, simRows)
-                : `<div class="k">Projected box scores</div><div class="v muted">No sim boxscores available yet.</div>`;
+            const gameLensEl = card.querySelector('[data-role="game-lens"]');
+            const overviewBarsEl = card.querySelector('[data-role="overview-bars"]');
+            if (pred && gameLensEl) {
+              pred.__propsAway = Array.isArray(card.__propsAway) ? card.__propsAway.slice() : [];
+              pred.__propsHome = Array.isArray(card.__propsHome) ? card.__propsHome.slice() : [];
+              gameLensEl.innerHTML = renderNhlGameLens(pred, Array.isArray(card.__topRecs) ? card.__topRecs : [], g);
             }
-            const liveBoxEl = card.querySelector('.live-box-body');
-            if (liveBoxEl) {
-              liveBoxEl.innerHTML = g
-                ? renderLiveBoxscoresOnly(g, pred || { away: awayNm, home: homeNm })
-                : `<div class="k">Live box</div><div class="v muted">Live or final box is unavailable.</div>`;
+            if (pred && overviewBarsEl) {
+              const propsCount = buildCardPropRows([].concat(card.__propsAway || [], card.__propsHome || [])).length;
+              const extraPlayableProps = Math.max(0, propsCount - (propsCount ? 1 : 0));
+              overviewBarsEl.innerHTML = renderNhlOverviewBars(pred, predTeamAbbr(pred, 'away') || awayNm, predTeamAbbr(pred, 'home') || homeNm, propsCount, extraPlayableProps);
             }
+            const simSections = renderSimBoxscoreSections(pred || { away: awayNm, home: homeNm }, simRows, null);
+            const simTotalsEl = card.querySelector('[data-role="sim-totals"]');
+            const simBoxEl = card.querySelector('[data-role="sim-box"]');
+            const simBadgeEl = card.querySelector('[data-role="sim-badge"]');
+            if (simTotalsEl) simTotalsEl.innerHTML = simSections.totalsHtml;
+            if (simBoxEl) simBoxEl.innerHTML = simSections.detailHtml;
+            if (simBadgeEl) simBadgeEl.textContent = simSections.badge;
+
+            const liveSections = renderLiveBoxscoreSections(g, pred || { away: awayNm, home: homeNm });
+            const liveTotalsEl = card.querySelector('[data-role="actual-totals"]');
+            const liveBoxEl = card.querySelector('[data-role="actual-box"]');
+            const liveBadgeEl = card.querySelector('[data-role="actual-badge"]');
+            if (liveTotalsEl) liveTotalsEl.innerHTML = liveSections.totalsHtml;
+            if (liveBoxEl) liveBoxEl.innerHTML = liveSections.detailHtml;
+            if (liveBadgeEl) liveBadgeEl.textContent = liveSections.badge;
 
             renderCardPropSections(card, pred || { away: awayNm, home: homeNm }, simRows, g);
           } catch (e) {}
@@ -6234,6 +6959,7 @@
       }
       $('cards').appendChild(frag);
       applySlateFilter();
+      focusRequestedGameCard();
 
       // Top-of-page props cards strip (best-effort).
       try {

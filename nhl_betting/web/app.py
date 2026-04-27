@@ -26,7 +26,7 @@ except Exception:
         df.to_csv(path, index=False)
 
 from fastapi import BackgroundTasks, FastAPI, Header, Query, Request
-from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response, FileResponse
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response, FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
@@ -5269,6 +5269,86 @@ async def v1_bundle(date: str, request: Request):
                 return obj
             return obj
 
+        def _enrich_predictions_goalies(obj: dict, date_ymd: str) -> dict:
+            """Best-effort: attach goalie names to prediction rows from goalie ladders payload.
+
+            The cards page already knows how to render `away_goalie_name` / `home_goalie_name`,
+            but persisted predictions artifacts do not currently carry those fields.
+            Reuse the existing goalie-ladders data path instead of introducing a new source.
+            """
+            try:
+                rows = (
+                    (obj.get("data") or {})
+                    .get("games", {})
+                    .get("predictions", {})
+                    .get("rows", [])
+                )
+                if not isinstance(rows, list) or not rows:
+                    return obj
+
+                needs_goalies = False
+                for r in rows:
+                    if not isinstance(r, dict):
+                        continue
+                    if not (str(r.get("away_goalie_name") or r.get("away_goalie") or "").strip() and str(r.get("home_goalie_name") or r.get("home_goalie") or "").strip()):
+                        needs_goalies = True
+                        break
+                if not needs_goalies:
+                    return obj
+
+                goalie_payload = _goalie_ladders_payload(date_ymd, "saves", "", "", "mean")
+                goalie_rows = goalie_payload.get("rows") if isinstance(goalie_payload, dict) else None
+                if not isinstance(goalie_rows, list) or not goalie_rows:
+                    return obj
+
+                goalie_by_game: dict[tuple[str, str], dict[str, str]] = {}
+                for gr in goalie_rows:
+                    if not isinstance(gr, dict):
+                        continue
+                    goalie_name = str(gr.get("goalieName") or gr.get("playerName") or "").strip()
+                    team_abbr = str(gr.get("team") or "").strip().upper()
+                    away_abbr = str(gr.get("gameAway") or "").strip().upper()
+                    home_abbr = str(gr.get("gameHome") or "").strip().upper()
+                    if not goalie_name or not team_abbr or not away_abbr or not home_abbr:
+                        continue
+                    game_key = (away_abbr, home_abbr)
+                    slot = "away" if team_abbr == away_abbr else ("home" if team_abbr == home_abbr else "")
+                    if not slot:
+                        continue
+                    if game_key not in goalie_by_game:
+                        goalie_by_game[game_key] = {}
+                    goalie_by_game[game_key].setdefault(slot, goalie_name)
+
+                if not goalie_by_game:
+                    return obj
+
+                for r in rows:
+                    if not isinstance(r, dict):
+                        continue
+                    try:
+                        away_abbr = str(r.get("away_abbr") or "").strip().upper()
+                        home_abbr = str(r.get("home_abbr") or "").strip().upper()
+                        if not away_abbr or not home_abbr:
+                            try:
+                                from .teams import get_team_assets
+                                away_abbr = away_abbr or str((get_team_assets(str(r.get("away") or "")) or {}).get("abbr") or "").strip().upper()
+                                home_abbr = home_abbr or str((get_team_assets(str(r.get("home") or "")) or {}).get("abbr") or "").strip().upper()
+                            except Exception:
+                                pass
+                        game_key = (away_abbr, home_abbr)
+                        picks = goalie_by_game.get(game_key) or {}
+                        if picks.get("away") and not str(r.get("away_goalie_name") or r.get("away_goalie") or "").strip():
+                            r["away_goalie_name"] = picks.get("away")
+                            r.setdefault("away_goalie", picks.get("away"))
+                        if picks.get("home") and not str(r.get("home_goalie_name") or r.get("home_goalie") or "").strip():
+                            r["home_goalie_name"] = picks.get("home")
+                            r.setdefault("home_goalie", picks.get("home"))
+                    except Exception:
+                        continue
+            except Exception:
+                return obj
+            return obj
+
         from ..publish.daily_bundles import bundle_path, build_daily_bundle, select_daily_bundle_files, build_manifest, manifest_path
 
         try:
@@ -5434,6 +5514,7 @@ async def v1_bundle(date: str, request: Request):
 
                 obj = _enrich_predictions_team_assets(obj)
                 obj = _enrich_predictions_schedule(obj, d)
+                obj = _enrich_predictions_goalies(obj, d)
                 obj = _strict_json_sanitize(obj)
                 return JSONResponse({"ok": True, **obj}, headers=(hdrs or None))
             except Exception:
@@ -5444,6 +5525,7 @@ async def v1_bundle(date: str, request: Request):
         persisted = _persist_bundle_obj(obj)
         obj = _enrich_predictions_team_assets(obj)
         obj = _enrich_predictions_schedule(obj, d)
+        obj = _enrich_predictions_goalies(obj, d)
         obj = _strict_json_sanitize(obj)
         if persisted:
             try:
@@ -13898,6 +13980,16 @@ async def cards_alias(request: Request):
     qs = str(request.url.query or "").strip()
     target = "/" + (f"?{qs}" if qs else "")
     return RedirectResponse(url=target, status_code=307)
+
+
+@app.get("/game/{game_pk}")
+@app.get("/game/{game_pk}/")
+async def cards_game_view(
+    game_pk: str,
+    date: Optional[str] = Query(None, description="Slate date YYYY-MM-DD"),
+):
+    d = _normalize_date_param(date)
+    return RedirectResponse(url=f"/?date={d}&gamePk={game_pk}", status_code=307)
     rows = df.to_dict(orient="records") if not df.empty else []
     # Fallback/sanitization: if predictions CSV lacks projection fields (older files) or they are NaN, derive them now
     if rows:

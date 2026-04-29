@@ -1,0 +1,492 @@
+{
+  "data": {
+    "games": {
+      "edges": {
+        "count": 8,
+        "rows": [
+          {
+            "away": "Dallas Stars",
+            "bet": "over",
+            "book": null,
+            "edge_reasons": "total 6.75 vs line 5.5 (+1.25); p=0.657; P1 pace 2.14",
+            "edge_score": 0.6182510911476896,
+            "ev": 0.2131638418079094,
+            "home": "Minnesota Wild",
+            "market": "ev_over",
+            "market_group": "totals",
+            "price": -118.0,
+            "prob": 0.6566666666666666,
+            "side": "Over 5.5",
+            "totals_line": 5.5
+          },
+          {
+            "away": "Edmonton Oilers",
+            "bet": "under",
+            "book": null,
+            "edge_reasons": "total 6.29 vs line 6.5 (-0.21); p=0.556; P1 pace 1.97",
+            "edge_score": 0.3832274972391712,
+            "ev": 0.2784166666666664,
+            "home": "Anaheim Ducks",
+            "market": "ev_under",
+            "market_group": "totals",
+            "price": 130.0,
+            "prob": 0.5558333333333333,
+            "side": "Under 6.5",
+            "totals_line": 6.5
+          },
+          {
+            "away": "Edmonton Oilers",
+            "bet": "over",
+            "book": null,
+            "edge_reasons": "total 6.29 vs line 6.5 (-0.21); p=0.444; P1 pace 1.97",
+            "edge_score": 0.2695568164863189,
+            "ev": -0.2692741935483872,
+            "home": "Anaheim Ducks",
+            "market": "ev_over",
+            "market_group": "totals",
+            "price": -155.0,
+            "prob": 0.4441666666666666,
+            "side": "Over 6.5",
+            "totals_line": 6.5
+          },
+          {
+            "away": "Dallas Stars",
+            "bet": "under",
+            "book": null,
+            "edge_reasons": "total 6.75 vs line 5.5 (+1.25); p=0.343; P1 pace 2.14",
+            "edge_score": 0.2148469480679966,
+            "ev": -0.3200653594771242,
+            "home": "Minnesota Wild",
+            "market": "ev_under",
+            "market_group": "totals",
+            "price": -102.0,
+            "prob": 0.3433333333333333,
+            "side": "Under 5.5",
+            "totals_line": 5.5
+          },
+          {
+            "away": "Dallas Stars",
+            "bet": "away_ml",
+            "book": null,
+            "edge_reasons": "p=0.538",
+            "edge_score": 0.0756666666666667,
+            "ev": 0.0864233333333334,
+            "home": "Minnesota Wild",
+            "market": "ev_away_ml",
+            "market_group": "moneyline",
+            "price": 102.0,
+            "prob": 0.5378333333333334,
+            "side": "Dallas Stars",
+            "totals_line": null
+          },
+          {
+            "away": "Dallas Stars",
+            "bet": "home_ml",
+            "book": null,
+            "edge_reasons": "p=0.462",
+            "edge_score": 0.0756666666666666,
+            "ev": -0.1590081967213115,
+            "home": "Minnesota Wild",
+            "market": "ev_home_ml",
+            "market_group": "moneyline",
+            "price": -122.0,
+            "prob": 0.4621666666666666,
+            "side": "Minnesota Wild",
+            "totals_line": null
+          },
+          {
+            "away": "Edmonton Oilers",
+            "bet": "home_ml",
+            "book": null,
+            "edge_reasons": "p=0.519",
+            "edge_score": 0.038,
+            "ev": 0.0899,
+            "home": "Anaheim Ducks",
+            "market": "ev_home_ml",
+            "market_group": "moneyline",
+            "price": 110.0,
+            "prob": 0.519,
+            "side": "Anaheim Ducks",
+            "totals_line": null
+          },
+          {
+            "away": "Edmonton Oilers",
+            "bet": "away_ml",
+            "book": null,
+            "edge_reasons": "p=0.481",
+            "edge_score": 0.038,
+            "ev": -0.149,
+            "home": "Anaheim Ducks",
+            "market": "ev_away_ml",
+            "market_group": "moneyline",
+            "price": -130.0,
+            "prob": 0.481,
+            "side": "Edmonton Oilers",
+            "totals_line": null
+          }
+        ],
+        "source": "edges_sim_2026-04-30.csv"
+      },
+      "predictions": {
+        "count": 2,
+        "rows": [
+          {
+            "away": "Edmonton Oilers",
+            "away_ml_odds": -130.0,
+            "away_pl_+1.5_odds": null,
+            "date": "2026-04-30",
+            "home": "Anaheim Ducks",
+            "home_ml_odds": 110.0,
+            "home_pl_-1.5_odds": null,
+            "model_total": 6.287833333333333,
+            "over_odds": -155.0,
+            "p_away_ml": 0.481,
+            "p_away_pl_+1.5": 0.7466666666666666,
+            "p_home_ml": 0.519,
+            "p_home_pl_-1.5": 0.2533333333333333,
+            "p_over": 0.4441666666666666,
+            "p_under": 0.5558333333333333,
+            "period1_away_proj": 0.9548333333333332,
+            "period1_home_proj": 1.0198333333333334,
+            "period2_away_proj": 1.0445,
+            "period2_home_proj": 1.074,
+            "period3_away_proj": 1.0136666666666667,
+            "period3_home_proj": 1.0538333333333334,
+            "pl_line_used": 1.5,
+            "proj_away_goals": 3.081166666666667,
+            "proj_home_goals": 3.2066666666666666,
+            "segments": {
+              "final": {
+                "away_win_prob": 0.39673856168113286,
+                "home_win_prob": 0.4390020307970491,
+                "tie_prob": 0.1642594075218181
+              },
+              "ot": {
+                "no_prob": 0.8357405924781819,
+                "yes_prob": 0.1642594075218181
+              },
+              "p1": {
+                "away_win_prob": 0.3275588797783735,
+                "home_win_prob": 0.36177579824690376,
+                "tie_prob": 0.31066532197472263
+              },
+              "p2": {
+                "away_win_prob": 0.343484842221702,
+                "home_win_prob": 0.3585716120855124,
+                "tie_prob": 0.2979435456927855
+              },
+              "p3": {
+                "away_win_prob": 0.33847184081086956,
+                "home_win_prob": 0.3592222738747059,
+                "tie_prob": 0.30230588531442454
+              }
+            },
+            "total_line_used": 6.5,
+            "under_odds": 130.0
+          },
+          {
+            "away": "Dallas Stars",
+            "away_ml_odds": 102.0,
+            "away_pl_+1.5_odds": -258.0,
+            "date": "2026-04-30",
+            "home": "Minnesota Wild",
+            "home_ml_odds": -122.0,
+            "home_pl_-1.5_odds": 210.0,
+            "model_total": 6.746,
+            "over_odds": -118.0,
+            "p_away_ml": 0.5378333333333334,
+            "p_away_pl_+1.5": 0.7851666666666667,
+            "p_home_ml": 0.4621666666666666,
+            "p_home_pl_-1.5": 0.2148333333333333,
+            "p_over": 0.6566666666666666,
+            "p_under": 0.3433333333333333,
+            "period1_away_proj": 1.1085,
+            "period1_home_proj": 1.0313333333333334,
+            "period2_away_proj": 1.1655,
+            "period2_home_proj": 1.1055,
+            "period3_away_proj": 1.1485,
+            "period3_home_proj": 1.0811666666666666,
+            "pl_line_used": 1.5,
+            "proj_away_goals": 3.478666666666667,
+            "proj_home_goals": 3.267333333333333,
+            "segments": {
+              "final": {
+                "away_win_prob": 0.45199951743818795,
+                "home_win_prob": 0.39021442527418565,
+                "tie_prob": 0.15778605728762643
+              },
+              "ot": {
+                "no_prob": 0.8422139427123736,
+                "yes_prob": 0.15778605728762643
+              },
+              "p1": {
+                "away_win_prob": 0.3716934880960608,
+                "home_win_prob": 0.33240358850168705,
+                "tie_prob": 0.2959029234022521
+              },
+              "p2": {
+                "away_win_prob": 0.37205958751807905,
+                "home_win_prob": 0.3422632498273163,
+                "tie_prob": 0.28567716265460463
+              },
+              "p3": {
+                "away_win_prob": 0.37245948293685266,
+                "home_win_prob": 0.3387617028884351,
+                "tie_prob": 0.28877881417471224
+              }
+            },
+            "total_line_used": 5.5,
+            "under_odds": -102.0
+          }
+        ]
+      },
+      "recommendations": {
+        "count": 1,
+        "rows": [
+          {
+            "away": "Dallas Stars",
+            "conf": 0.2851666666666667,
+            "ev": 0.0894948320413437,
+            "home": "Minnesota Wild",
+            "market": "PL",
+            "price": -258.0,
+            "prob": 0.7851666666666667,
+            "side": "Dallas Stars +1.5",
+            "totals_line": 5.5
+          }
+        ]
+      },
+      "reconciliation": null
+    },
+    "props": {
+      "recommendations": {
+        "count": 15,
+        "rows": [
+          {
+            "book": "fanduel",
+            "edge_reasons": "MODEL UND · CONF60+ · MATCHUP-",
+            "edge_score": 0.523563346982802,
+            "ev": 0.3595291522733386,
+            "line": 0.5,
+            "market": "GOALS",
+            "opp": "ANA",
+            "player": "Connor McDavid",
+            "price": -155,
+            "prob": 0.8263804651073235,
+            "side": "Under",
+            "team": "EDM"
+          },
+          {
+            "book": "fanduel",
+            "edge_reasons": "MODEL OVR · CONF60+",
+            "edge_score": 0.5186490217842977,
+            "ev": 0.3054719624832041,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "EDM",
+            "player": "John Carlson",
+            "price": -152,
+            "prob": 0.787427532926377,
+            "side": "Over",
+            "team": "ANA"
+          },
+          {
+            "book": "draftkings",
+            "edge_reasons": "MODEL OVR · CONF60+",
+            "edge_score": 0.4919078838464472,
+            "ev": 0.2780025899762853,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "DAL",
+            "player": "Mats Zuccarello",
+            "price": -145,
+            "prob": 0.7563688797818832,
+            "side": "Over",
+            "team": "MIN"
+          },
+          {
+            "book": "betmgm",
+            "edge_reasons": "MODEL OVR · CONF60+",
+            "edge_score": 0.4890092433861156,
+            "ev": 0.1356473190477539,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "EDM",
+            "player": "Cutter Gauthier",
+            "price": -175,
+            "prob": 0.7226846575758434,
+            "side": "Over",
+            "team": "ANA"
+          },
+          {
+            "book": "draftkings",
+            "edge_reasons": "MODEL UND · CONF60+ · MATCHUP-",
+            "edge_score": 0.4861238433566093,
+            "ev": 0.3602880798459486,
+            "line": 0.5,
+            "market": "ASSISTS",
+            "opp": "ANA",
+            "player": "Ryan Nugent-Hopkins",
+            "price": -140,
+            "prob": 0.7935013799101366,
+            "side": "Under",
+            "team": "EDM"
+          },
+          {
+            "book": "betmgm",
+            "edge_reasons": "MODEL UND · CONF60+",
+            "edge_score": 0.4806955414424644,
+            "ev": 0.1804852984072775,
+            "line": 0.5,
+            "market": "ASSISTS",
+            "opp": "MIN",
+            "player": "Jason Robertson",
+            "price": -150,
+            "prob": 0.7082911790443666,
+            "side": "Under",
+            "team": "DAL"
+          },
+          {
+            "book": "draftkings",
+            "edge_reasons": "MODEL OVR · CONF60+",
+            "edge_score": 0.4695444435310056,
+            "ev": 0.2156526635028491,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "EDM",
+            "player": "Jackson LaCombe",
+            "price": -135,
+            "prob": 0.6983536577569559,
+            "side": "Over",
+            "team": "ANA"
+          },
+          {
+            "book": "betmgm",
+            "edge_reasons": "MODEL OVR · CONF60+",
+            "edge_score": 0.4556061697173681,
+            "ev": 0.3573478617755657,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "DAL",
+            "player": "Ryan Hartman",
+            "price": -110,
+            "prob": 0.7109917371205344,
+            "side": "Over",
+            "team": "MIN"
+          },
+          {
+            "book": "draftkings",
+            "edge_reasons": "MODEL OVR · CONF60+",
+            "edge_score": 0.4348423529661295,
+            "ev": 0.1574762532032007,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "DAL",
+            "player": "Joel Eriksson Ek",
+            "price": -145,
+            "prob": 0.6850369661814861,
+            "side": "Over",
+            "team": "MIN"
+          },
+          {
+            "book": "draftkings",
+            "edge_reasons": "MODEL OVR · CONF60+",
+            "edge_score": 0.4307522515558097,
+            "ev": 0.4868351218406634,
+            "line": 0.5,
+            "market": "ASSISTS",
+            "opp": "DAL",
+            "player": "Mats Zuccarello",
+            "price": 120,
+            "prob": 0.6758341462912106,
+            "side": "Over",
+            "team": "MIN"
+          },
+          {
+            "book": "pinnacle",
+            "edge_reasons": "MODEL UND · CONF60+ · MATCHUP-",
+            "edge_score": 0.4052781531768094,
+            "ev": 0.3189593621810527,
+            "line": 1.5,
+            "market": "POINTS",
+            "opp": "ANA",
+            "player": "Connor McDavid",
+            "price": -109,
+            "prob": 0.6878783276446638,
+            "side": "Under",
+            "team": "EDM"
+          },
+          {
+            "book": "betmgm",
+            "edge_reasons": "MODEL OVR · CONF60+",
+            "edge_score": 0.4026680210451487,
+            "ev": 0.2099685345301573,
+            "line": 0.5,
+            "market": "ASSISTS",
+            "opp": "EDM",
+            "player": "Jackson LaCombe",
+            "price": -105,
+            "prob": 0.6197399811008123,
+            "side": "Over",
+            "team": "ANA"
+          },
+          {
+            "book": "draftkings",
+            "edge_reasons": "MODEL OVR · CONF60+",
+            "edge_score": 0.396195527131425,
+            "ev": 0.2436684001278342,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "EDM",
+            "player": "Alex Killorn",
+            "price": 105,
+            "prob": 0.6066675122574802,
+            "side": "Over",
+            "team": "ANA"
+          },
+          {
+            "book": "pinnacle",
+            "edge_reasons": "MODEL OVR · CONF60+",
+            "edge_score": 0.3919187328560627,
+            "ev": 0.1795152880798903,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "EDM",
+            "player": "John Carlson",
+            "price": -104,
+            "prob": 0.6013215194132774,
+            "side": "Over",
+            "team": "ANA"
+          },
+          {
+            "book": "draftkings",
+            "edge_reasons": "MODEL UND · CONF60+ · MATCHUP-",
+            "edge_score": 0.3475332484725064,
+            "ev": 0.3791617207519986,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "ANA",
+            "player": "Ryan Nugent-Hopkins",
+            "price": 124,
+            "prob": 0.615697196764285,
+            "side": "Under",
+            "team": "EDM"
+          }
+        ],
+        "source": "props_recommendations_2026-04-30.csv"
+      },
+      "reconciliation": null
+    }
+  },
+  "date": "2026-04-30",
+  "files": {
+    "edges": "data/processed/edges_sim_2026-04-30.csv",
+    "game_recommendations": "data/processed/recommendations_sim_2026-04-30.csv",
+    "predictions": "data/processed/predictions_sim_2026-04-30.csv",
+    "props_recommendations": "data/processed/props_recommendations_2026-04-30.csv",
+    "reconciliation_games": null,
+    "reconciliation_props": null
+  },
+  "generated_at_utc": "2026-04-29T13:49:28+00:00",
+  "schema_version": 2
+}

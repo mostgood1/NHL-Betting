@@ -1,0 +1,167 @@
+{
+  "data": {
+    "games": {
+      "edges": {
+        "count": 4,
+        "rows": [
+          {
+            "away": "Philadelphia Flyers",
+            "bet": "over",
+            "book": null,
+            "edge_reasons": "total 6.41 vs line 5.5 (+0.91); p=0.608; P1 pace 2.06",
+            "edge_score": 0.5425386292144087,
+            "ev": 0.0941,
+            "home": "Carolina Hurricanes",
+            "market": "ev_over",
+            "market_group": "totals",
+            "price": -125.0,
+            "prob": 0.6078333333333333,
+            "side": "Over 5.5",
+            "totals_line": 5.5
+          },
+          {
+            "away": "Philadelphia Flyers",
+            "bet": "under",
+            "book": null,
+            "edge_reasons": "total 6.41 vs line 5.5 (+0.91); p=0.392; P1 pace 2.06",
+            "edge_score": 0.2032339198051991,
+            "ev": -0.1960583333333334,
+            "home": "Carolina Hurricanes",
+            "market": "ev_under",
+            "market_group": "totals",
+            "price": 105.0,
+            "prob": 0.3921666666666666,
+            "side": "Under 5.5",
+            "totals_line": 5.5
+          },
+          {
+            "away": "Philadelphia Flyers",
+            "bet": "away_ml",
+            "book": null,
+            "edge_reasons": "p=0.464",
+            "edge_score": 0.0715,
+            "ev": 0.2998999999999999,
+            "home": "Carolina Hurricanes",
+            "market": "ev_away_ml",
+            "market_group": "moneyline",
+            "price": 180.0,
+            "prob": 0.46425,
+            "side": "Philadelphia Flyers",
+            "totals_line": null
+          },
+          {
+            "away": "Philadelphia Flyers",
+            "bet": "home_ml",
+            "book": null,
+            "edge_reasons": "p=0.536",
+            "edge_score": 0.0714999999999999,
+            "ev": -0.2184931192660551,
+            "home": "Carolina Hurricanes",
+            "market": "ev_home_ml",
+            "market_group": "moneyline",
+            "price": -218.0,
+            "prob": 0.53575,
+            "side": "Carolina Hurricanes",
+            "totals_line": null
+          }
+        ],
+        "source": "edges_sim_2026-05-02.csv"
+      },
+      "predictions": {
+        "count": 1,
+        "rows": [
+          {
+            "away": "Philadelphia Flyers",
+            "away_ml_odds": 180.0,
+            "away_pl_+1.5_odds": -148.0,
+            "date": "2026-05-02",
+            "home": "Carolina Hurricanes",
+            "home_ml_odds": -218.0,
+            "home_pl_-1.5_odds": 124.0,
+            "model_total": 6.406,
+            "over_odds": -125.0,
+            "p_away_ml": 0.46425,
+            "p_away_pl_+1.5": 0.7193333333333334,
+            "p_home_ml": 0.53575,
+            "p_home_pl_-1.5": 0.2806666666666667,
+            "p_over": 0.6078333333333333,
+            "p_under": 0.3921666666666666,
+            "period1_away_proj": 0.9971666666666666,
+            "period1_home_proj": 1.0658333333333334,
+            "period2_away_proj": 1.0265,
+            "period2_home_proj": 1.127,
+            "period3_away_proj": 1.0076666666666667,
+            "period3_home_proj": 1.0816666666666668,
+            "pl_line_used": 1.5,
+            "proj_away_goals": 3.0806666666666667,
+            "proj_home_goals": 3.325333333333333,
+            "segments": {
+              "final": {
+                "away_win_prob": 0.3814079104101424,
+                "home_win_prob": 0.4567768340038357,
+                "tie_prob": 0.161815255586022
+              },
+              "ot": {
+                "no_prob": 0.8381847444139781,
+                "yes_prob": 0.161815255586022
+              },
+              "p1": {
+                "away_win_prob": 0.3309787824466986,
+                "home_win_prob": 0.3664792871473656,
+                "tie_prob": 0.30254193040593574
+              },
+              "p2": {
+                "away_win_prob": 0.32720253348048756,
+                "home_win_prob": 0.3782265580702411,
+                "tie_prob": 0.2945709084492713
+              },
+              "p3": {
+                "away_win_prob": 0.3308711156452428,
+                "home_win_prob": 0.3689266740096862,
+                "tie_prob": 0.3002022103450709
+              }
+            },
+            "total_line_used": 5.5,
+            "under_odds": 105.0
+          }
+        ]
+      },
+      "recommendations": {
+        "count": 1,
+        "rows": [
+          {
+            "away": "Philadelphia Flyers",
+            "conf": 0.2193333333333333,
+            "ev": 0.2053693693693694,
+            "home": "Carolina Hurricanes",
+            "market": "PL",
+            "price": -148.0,
+            "prob": 0.7193333333333334,
+            "side": "Philadelphia Flyers +1.5",
+            "totals_line": 5.5
+          }
+        ]
+      },
+      "reconciliation": null
+    },
+    "props": {
+      "recommendations": {
+        "count": 0,
+        "rows": [],
+        "source": "props_recommendations_2026-05-02.csv"
+      },
+      "reconciliation": null
+    }
+  },
+  "date": "2026-05-02",
+  "files": {
+    "edges": "data/processed/edges_sim_2026-05-02.csv",
+    "game_recommendations": "data/processed/recommendations_sim_2026-05-02.csv",
+    "predictions": "data/processed/predictions_sim_2026-05-02.csv",
+    "props_recommendations": "data/processed/props_recommendations_2026-05-02.csv",
+    "reconciliation_games": null,
+    "reconciliation_props": null
+  },
+  "generated_at_utc": "2026-05-01T14:53:58+00:00",
+  "schema_version": 2
+}

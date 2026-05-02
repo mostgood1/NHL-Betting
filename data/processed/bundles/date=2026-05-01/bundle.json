@@ -358,7 +358,57 @@
         "count": 0,
         "rows": []
       },
-      "reconciliation": null
+      "reconciliation": {
+        "rows": [
+          {
+            "away": "Tampa Bay Lightning",
+            "bet": "over",
+            "date": "2026-05-01T23:00:00Z",
+            "ev": 0.1168,
+            "home": "Montréal Canadiens",
+            "market": "totals",
+            "payout": -100.0,
+            "price": -104,
+            "result": "loss",
+            "stake": 100.0
+          },
+          {
+            "away": "Vegas Golden Knights",
+            "bet": "home_ml",
+            "date": "2026-05-02T02:00:00Z",
+            "ev": 0.0326,
+            "home": "Utah Mammoth",
+            "market": "moneyline",
+            "payout": -100.0,
+            "price": 106,
+            "result": "loss",
+            "stake": 100.0
+          },
+          {
+            "away": "Vegas Golden Knights",
+            "bet": "away_pl_+1.5",
+            "date": "2026-05-02T02:00:00Z",
+            "ev": 0.4356,
+            "home": "Utah Mammoth",
+            "market": "puckline",
+            "payout": 0.0,
+            "price": null,
+            "result": "win",
+            "stake": 100.0
+          }
+        ],
+        "summary": {
+          "date": "2026-05-01",
+          "decided": 3,
+          "losses": 2,
+          "picks": 3,
+          "pnl": -200.0,
+          "pushes": 0,
+          "roi": -0.6666666666666666,
+          "staked": 300.0,
+          "wins": 1
+        }
+      }
     },
     "props": {
       "recommendations": {
@@ -493,7 +543,138 @@
         ],
         "source": "props_recommendations_2026-05-01.csv"
       },
-      "reconciliation": null
+      "reconciliation": {
+        "rows": [
+          {
+            "actual": 2.0,
+            "date": "2026-05-01",
+            "ev": 1.649735013249558,
+            "line": 0.5,
+            "market": "POINTS",
+            "odds": 165.0,
+            "payout": -100.0,
+            "player": "Tage Thompson",
+            "result": "loss",
+            "side": "Under",
+            "stake": 100.0
+          },
+          {
+            "actual": 0.0,
+            "date": "2026-05-01",
+            "ev": 0.5536971437016122,
+            "line": 0.5,
+            "market": "POINTS",
+            "odds": 110.0,
+            "payout": 110.00000000000001,
+            "player": "Brayden Point",
+            "result": "win",
+            "side": "Under",
+            "stake": 100.0
+          },
+          {
+            "actual": 0.0,
+            "date": "2026-05-01",
+            "ev": 0.4348024366498231,
+            "line": 0.5,
+            "market": "POINTS",
+            "odds": -110.0,
+            "payout": 90.90909090909092,
+            "player": "Ivan Demidov",
+            "result": "win",
+            "side": "Under",
+            "stake": 100.0
+          },
+          {
+            "actual": 2.0,
+            "date": "2026-05-01",
+            "ev": 0.378100221688695,
+            "line": 0.5,
+            "market": "ASSISTS",
+            "odds": -115.0,
+            "payout": -100.0,
+            "player": "Rasmus Dahlin",
+            "result": "loss",
+            "side": "Under",
+            "stake": 100.0
+          },
+          {
+            "actual": 3.0,
+            "date": "2026-05-01",
+            "ev": 0.1557546558670942,
+            "line": 0.5,
+            "market": "POINTS",
+            "odds": -155.0,
+            "payout": 64.51612903225805,
+            "player": "Mitch Marner",
+            "result": "win",
+            "side": "Over",
+            "stake": 100.0
+          },
+          {
+            "actual": 5.0,
+            "date": "2026-05-01",
+            "ev": 0.2468587764276783,
+            "line": 4.5,
+            "market": "SOG",
+            "odds": -166.0,
+            "payout": -100.0,
+            "player": "Tage Thompson",
+            "result": "loss",
+            "side": "Under",
+            "stake": 100.0
+          },
+          {
+            "actual": 1.0,
+            "date": "2026-05-01",
+            "ev": 0.2071826298268572,
+            "line": 0.5,
+            "market": "POINTS",
+            "odds": -120.0,
+            "payout": 83.33333333333334,
+            "player": "Ivan Barbashev",
+            "result": "win",
+            "side": "Over",
+            "stake": 100.0
+          },
+          {
+            "actual": 1.0,
+            "date": "2026-05-01",
+            "ev": 0.1939673441101668,
+            "line": 0.5,
+            "market": "ASSISTS",
+            "odds": -154.0,
+            "payout": -100.0,
+            "player": "Mark Stone",
+            "result": "loss",
+            "side": "Under",
+            "stake": 100.0
+          },
+          {
+            "actual": 1.0,
+            "date": "2026-05-01",
+            "ev": 0.0457911649940185,
+            "line": 0.5,
+            "market": "ASSISTS",
+            "odds": -160.0,
+            "payout": 62.5,
+            "player": "Jack Eichel",
+            "result": "win",
+            "side": "Over",
+            "stake": 100.0
+          }
+        ],
+        "summary": {
+          "date": "2026-05-01",
+          "decided": 9,
+          "losses": 4,
+          "picks": 9,
+          "pnl": 11.258553274682328,
+          "pushes": 0,
+          "roi": 0.01250950363853592,
+          "staked": 900.0,
+          "wins": 5
+        }
+      }
     }
   },
   "date": "2026-05-01",
@@ -502,9 +683,9 @@
     "game_recommendations": "data/processed/recommendations_sim_2026-05-01.csv",
     "predictions": "data/processed/predictions_sim_2026-05-01.csv",
     "props_recommendations": "data/processed/props_recommendations_2026-05-01.csv",
-    "reconciliation_games": null,
-    "reconciliation_props": null
+    "reconciliation_games": "data/processed/reconciliation_2026-05-01.json",
+    "reconciliation_props": "data/processed/reconciliation_props_2026-05-01.json"
   },
-  "generated_at_utc": "2026-05-01T15:09:13+00:00",
+  "generated_at_utc": "2026-05-02T13:38:11+00:00",
   "schema_version": 2
 }

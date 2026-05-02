@@ -1,0 +1,132 @@
+{
+  "summary": {
+    "date": "2026-05-01",
+    "picks": 9,
+    "decided": 9,
+    "wins": 5,
+    "losses": 4,
+    "pushes": 0,
+    "staked": 900.0,
+    "pnl": 11.258553274682328,
+    "roi": 0.01250950363853592
+  },
+  "rows": [
+    {
+      "date": "2026-05-01",
+      "market": "POINTS",
+      "player": "Tage Thompson",
+      "line": 0.5,
+      "side": "Under",
+      "odds": 165.0,
+      "ev": 1.649735013249558,
+      "actual": 2.0,
+      "result": "loss",
+      "stake": 100.0,
+      "payout": -100.0
+    },
+    {
+      "date": "2026-05-01",
+      "market": "POINTS",
+      "player": "Brayden Point",
+      "line": 0.5,
+      "side": "Under",
+      "odds": 110.0,
+      "ev": 0.5536971437016122,
+      "actual": 0.0,
+      "result": "win",
+      "stake": 100.0,
+      "payout": 110.00000000000001
+    },
+    {
+      "date": "2026-05-01",
+      "market": "POINTS",
+      "player": "Ivan Demidov",
+      "line": 0.5,
+      "side": "Under",
+      "odds": -110.0,
+      "ev": 0.4348024366498231,
+      "actual": 0.0,
+      "result": "win",
+      "stake": 100.0,
+      "payout": 90.90909090909092
+    },
+    {
+      "date": "2026-05-01",
+      "market": "ASSISTS",
+      "player": "Rasmus Dahlin",
+      "line": 0.5,
+      "side": "Under",
+      "odds": -115.0,
+      "ev": 0.378100221688695,
+      "actual": 2.0,
+      "result": "loss",
+      "stake": 100.0,
+      "payout": -100.0
+    },
+    {
+      "date": "2026-05-01",
+      "market": "POINTS",
+      "player": "Mitch Marner",
+      "line": 0.5,
+      "side": "Over",
+      "odds": -155.0,
+      "ev": 0.1557546558670942,
+      "actual": 3.0,
+      "result": "win",
+      "stake": 100.0,
+      "payout": 64.51612903225805
+    },
+    {
+      "date": "2026-05-01",
+      "market": "SOG",
+      "player": "Tage Thompson",
+      "line": 4.5,
+      "side": "Under",
+      "odds": -166.0,
+      "ev": 0.2468587764276783,
+      "actual": 5.0,
+      "result": "loss",
+      "stake": 100.0,
+      "payout": -100.0
+    },
+    {
+      "date": "2026-05-01",
+      "market": "POINTS",
+      "player": "Ivan Barbashev",
+      "line": 0.5,
+      "side": "Over",
+      "odds": -120.0,
+      "ev": 0.2071826298268572,
+      "actual": 1.0,
+      "result": "win",
+      "stake": 100.0,
+      "payout": 83.33333333333334
+    },
+    {
+      "date": "2026-05-01",
+      "market": "ASSISTS",
+      "player": "Mark Stone",
+      "line": 0.5,
+      "side": "Under",
+      "odds": -154.0,
+      "ev": 0.1939673441101668,
+      "actual": 1.0,
+      "result": "loss",
+      "stake": 100.0,
+      "payout": -100.0
+    },
+    {
+      "date": "2026-05-01",
+      "market": "ASSISTS",
+      "player": "Jack Eichel",
+      "line": 0.5,
+      "side": "Over",
+      "odds": -160.0,
+      "ev": 0.0457911649940185,
+      "actual": 1.0,
+      "result": "win",
+      "stake": 100.0,
+      "payout": 62.5
+    }
+  ]
+}

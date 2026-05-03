@@ -1,0 +1,292 @@
+{
+  "data": {
+    "games": {
+      "edges": {
+        "count": 8,
+        "rows": [
+          {
+            "away": "Philadelphia Flyers",
+            "bet": "over",
+            "book": null,
+            "edge_reasons": "total 6.41 vs line 5.5 (+0.91); p=0.608; P1 pace 2.06",
+            "edge_score": 0.5425386292144087,
+            "ev": 0.2156666666666666,
+            "home": "Carolina Hurricanes",
+            "market": "ev_over",
+            "market_group": "totals",
+            "price": 100.0,
+            "prob": 0.6078333333333333,
+            "side": "Over 5.5",
+            "totals_line": 5.5
+          },
+          {
+            "away": "Anaheim Ducks",
+            "bet": "under",
+            "book": null,
+            "edge_reasons": "total 6.46 vs line 6.5 (-0.04); p=0.520; P1 pace 2.03",
+            "edge_score": 0.2969819269438352,
+            "ev": -0.0642999999999999,
+            "home": "Vegas Golden Knights",
+            "market": "ev_under",
+            "market_group": "totals",
+            "price": -125.0,
+            "prob": 0.5198333333333334,
+            "side": "Under 6.5",
+            "totals_line": 6.5
+          },
+          {
+            "away": "Anaheim Ducks",
+            "bet": "over",
+            "book": null,
+            "edge_reasons": "total 6.46 vs line 6.5 (-0.04); p=0.480; P1 pace 2.03",
+            "edge_score": 0.2914259161934196,
+            "ev": -0.0156583333333334,
+            "home": "Vegas Golden Knights",
+            "market": "ev_over",
+            "market_group": "totals",
+            "price": 105.0,
+            "prob": 0.4801666666666667,
+            "side": "Over 6.5",
+            "totals_line": 6.5
+          },
+          {
+            "away": "Philadelphia Flyers",
+            "bet": "under",
+            "book": null,
+            "edge_reasons": "total 6.41 vs line 5.5 (+0.91); p=0.392; P1 pace 2.06",
+            "edge_score": 0.2032339198051991,
+            "ev": -0.2810277777777777,
+            "home": "Carolina Hurricanes",
+            "market": "ev_under",
+            "market_group": "totals",
+            "price": -120.0,
+            "prob": 0.3921666666666666,
+            "side": "Under 5.5",
+            "totals_line": 5.5
+          },
+          {
+            "away": "Anaheim Ducks",
+            "bet": "away_ml",
+            "book": null,
+            "edge_reasons": "p=0.448",
+            "edge_score": 0.1046666666666666,
+            "ev": 0.0743999999999999,
+            "home": "Vegas Golden Knights",
+            "market": "ev_away_ml",
+            "market_group": "moneyline",
+            "price": 140.0,
+            "prob": 0.4476666666666666,
+            "side": "Anaheim Ducks",
+            "totals_line": null
+          },
+          {
+            "away": "Anaheim Ducks",
+            "bet": "home_ml",
+            "book": null,
+            "edge_reasons": "p=0.552",
+            "edge_score": 0.1046666666666666,
+            "ev": -0.1149357429718875,
+            "home": "Vegas Golden Knights",
+            "market": "ev_home_ml",
+            "market_group": "moneyline",
+            "price": -166.0,
+            "prob": 0.5523333333333333,
+            "side": "Vegas Golden Knights",
+            "totals_line": null
+          },
+          {
+            "away": "Philadelphia Flyers",
+            "bet": "away_ml",
+            "book": null,
+            "edge_reasons": "p=0.464",
+            "edge_score": 0.0715,
+            "ev": 0.4391750000000001,
+            "home": "Carolina Hurricanes",
+            "market": "ev_away_ml",
+            "market_group": "moneyline",
+            "price": 210.0,
+            "prob": 0.46425,
+            "side": "Philadelphia Flyers",
+            "totals_line": null
+          },
+          {
+            "away": "Philadelphia Flyers",
+            "bet": "home_ml",
+            "book": null,
+            "edge_reasons": "p=0.536",
+            "edge_score": 0.0714999999999999,
+            "ev": -0.2565949612403101,
+            "home": "Carolina Hurricanes",
+            "market": "ev_home_ml",
+            "market_group": "moneyline",
+            "price": -258.0,
+            "prob": 0.53575,
+            "side": "Carolina Hurricanes",
+            "totals_line": null
+          }
+        ],
+        "source": "edges_sim_2026-05-04.csv"
+      },
+      "predictions": {
+        "count": 2,
+        "rows": [
+          {
+            "away": "Philadelphia Flyers",
+            "away_ml_odds": 210.0,
+            "away_pl_+1.5_odds": -130.0,
+            "date": "2026-05-04",
+            "home": "Carolina Hurricanes",
+            "home_ml_odds": -258.0,
+            "home_pl_-1.5_odds": 110.0,
+            "model_total": 6.406,
+            "over_odds": 100.0,
+            "p_away_ml": 0.46425,
+            "p_away_pl_+1.5": 0.7193333333333334,
+            "p_home_ml": 0.53575,
+            "p_home_pl_-1.5": 0.2806666666666667,
+            "p_over": 0.6078333333333333,
+            "p_under": 0.3921666666666666,
+            "period1_away_proj": 0.9971666666666666,
+            "period1_home_proj": 1.0658333333333334,
+            "period2_away_proj": 1.0265,
+            "period2_home_proj": 1.127,
+            "period3_away_proj": 1.0076666666666667,
+            "period3_home_proj": 1.0816666666666668,
+            "pl_line_used": 1.5,
+            "proj_away_goals": 3.0806666666666667,
+            "proj_home_goals": 3.325333333333333,
+            "segments": {
+              "final": {
+                "away_win_prob": 0.3814079104101424,
+                "home_win_prob": 0.4567768340038357,
+                "tie_prob": 0.161815255586022
+              },
+              "ot": {
+                "no_prob": 0.8381847444139781,
+                "yes_prob": 0.161815255586022
+              },
+              "p1": {
+                "away_win_prob": 0.3309787824466986,
+                "home_win_prob": 0.3664792871473656,
+                "tie_prob": 0.30254193040593574
+              },
+              "p2": {
+                "away_win_prob": 0.32720253348048756,
+                "home_win_prob": 0.3782265580702411,
+                "tie_prob": 0.2945709084492713
+              },
+              "p3": {
+                "away_win_prob": 0.3308711156452428,
+                "home_win_prob": 0.3689266740096862,
+                "tie_prob": 0.3002022103450709
+              }
+            },
+            "total_line_used": 5.5,
+            "under_odds": -120.0
+          },
+          {
+            "away": "Anaheim Ducks",
+            "away_ml_odds": 140.0,
+            "away_pl_+1.5_odds": -180.0,
+            "date": "2026-05-04",
+            "home": "Vegas Golden Knights",
+            "home_ml_odds": -166.0,
+            "home_pl_-1.5_odds": 150.0,
+            "model_total": 6.463166666666667,
+            "over_odds": 105.0,
+            "p_away_ml": 0.4476666666666666,
+            "p_away_pl_+1.5": 0.7268333333333333,
+            "p_home_ml": 0.5523333333333333,
+            "p_home_pl_-1.5": 0.2731666666666666,
+            "p_over": 0.4801666666666667,
+            "p_under": 0.5198333333333334,
+            "period1_away_proj": 0.9508333333333332,
+            "period1_home_proj": 1.0821666666666667,
+            "period2_away_proj": 1.0505,
+            "period2_home_proj": 1.1226666666666667,
+            "period3_away_proj": 1.039,
+            "period3_home_proj": 1.1203333333333334,
+            "pl_line_used": 1.5,
+            "proj_away_goals": 3.0853333333333333,
+            "proj_home_goals": 3.377833333333333,
+            "segments": {
+              "final": {
+                "away_win_prob": 0.37569472044433333,
+                "home_win_prob": 0.4635222699157229,
+                "tie_prob": 0.16078300963994374
+              },
+              "ot": {
+                "no_prob": 0.8392169903600563,
+                "yes_prob": 0.16078300963994374
+              },
+              "p1": {
+                "away_win_prob": 0.31358328112705947,
+                "home_win_prob": 0.3818532127165697,
+                "tie_prob": 0.30456350615637096
+              },
+              "p2": {
+                "away_win_prob": 0.3351402776100267,
+                "home_win_prob": 0.3716484173519682,
+                "tie_prob": 0.2932113050380051
+              },
+              "p3": {
+                "away_win_prob": 0.332240616895548,
+                "home_win_prob": 0.37349370191357983,
+                "tie_prob": 0.29426568119087215
+              }
+            },
+            "total_line_used": 6.5,
+            "under_odds": -125.0
+          }
+        ]
+      },
+      "recommendations": {
+        "count": 2,
+        "rows": [
+          {
+            "away": "Anaheim Ducks",
+            "conf": 0.2268333333333333,
+            "ev": 0.1306296296296296,
+            "home": "Vegas Golden Knights",
+            "market": "PL",
+            "price": -180.0,
+            "prob": 0.7268333333333333,
+            "side": "Anaheim Ducks +1.5",
+            "totals_line": 6.5
+          },
+          {
+            "away": "Philadelphia Flyers",
+            "conf": 0.2193333333333333,
+            "ev": 0.2726666666666667,
+            "home": "Carolina Hurricanes",
+            "market": "PL",
+            "price": -130.0,
+            "prob": 0.7193333333333334,
+            "side": "Philadelphia Flyers +1.5",
+            "totals_line": 5.5
+          }
+        ]
+      },
+      "reconciliation": null
+    },
+    "props": {
+      "recommendations": {
+        "count": 0,
+        "rows": [],
+        "source": "props_recommendations_2026-05-04.csv"
+      },
+      "reconciliation": null
+    }
+  },
+  "date": "2026-05-04",
+  "files": {
+    "edges": "data/processed/edges_sim_2026-05-04.csv",
+    "game_recommendations": "data/processed/recommendations_sim_2026-05-04.csv",
+    "predictions": "data/processed/predictions_sim_2026-05-04.csv",
+    "props_recommendations": "data/processed/props_recommendations_2026-05-04.csv",
+    "reconciliation_games": null,
+    "reconciliation_props": null
+  },
+  "generated_at_utc": "2026-05-03T14:32:29+00:00",
+  "schema_version": 2
+}

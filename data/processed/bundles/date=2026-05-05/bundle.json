@@ -1,0 +1,210 @@
+{
+  "data": {
+    "games": {
+      "edges": {
+        "count": 4,
+        "rows": [
+          {
+            "away": "Minnesota Wild",
+            "bet": "under",
+            "book": null,
+            "edge_reasons": "total 6.35 vs line 6.5 (-0.15); p=0.535; P1 pace 2.05",
+            "edge_score": 0.3349726350123811,
+            "ev": -9.42028985507215e-05,
+            "home": "Colorado Avalanche",
+            "market": "ev_under",
+            "market_group": "totals",
+            "price": -115.0,
+            "prob": 0.5348333333333334,
+            "side": "Under 6.5",
+            "totals_line": 6.5
+          },
+          {
+            "away": "Minnesota Wild",
+            "bet": "over",
+            "book": null,
+            "edge_reasons": "total 6.35 vs line 6.5 (-0.15); p=0.465; P1 pace 2.05",
+            "edge_score": 0.2802587375366384,
+            "ev": -0.0918174603174603,
+            "home": "Colorado Avalanche",
+            "market": "ev_over",
+            "market_group": "totals",
+            "price": -105.0,
+            "prob": 0.4651666666666667,
+            "side": "Over 6.5",
+            "totals_line": 6.5
+          },
+          {
+            "away": "Minnesota Wild",
+            "bet": "home_ml",
+            "book": null,
+            "edge_reasons": "p=0.515",
+            "edge_score": 0.0295,
+            "ev": -0.2341524390243902,
+            "home": "Colorado Avalanche",
+            "market": "ev_home_ml",
+            "market_group": "moneyline",
+            "price": -205.0,
+            "prob": 0.51475,
+            "side": "Colorado Avalanche",
+            "totals_line": null
+          },
+          {
+            "away": "Minnesota Wild",
+            "bet": "away_ml",
+            "book": null,
+            "edge_reasons": "p=0.485",
+            "edge_score": 0.0294999999999999,
+            "ev": 0.3101750000000001,
+            "home": "Colorado Avalanche",
+            "market": "ev_away_ml",
+            "market_group": "moneyline",
+            "price": 170.0,
+            "prob": 0.48525,
+            "side": "Minnesota Wild",
+            "totals_line": null
+          }
+        ],
+        "source": "edges_sim_2026-05-05.csv"
+      },
+      "predictions": {
+        "count": 1,
+        "rows": [
+          {
+            "away": "Minnesota Wild",
+            "away_ml_odds": 170.0,
+            "away_pl_+1.5_odds": -148.0,
+            "date": "2026-05-05",
+            "home": "Colorado Avalanche",
+            "home_ml_odds": -205.0,
+            "home_pl_-1.5_odds": 124.0,
+            "model_total": 6.35,
+            "over_odds": -105.0,
+            "p_away_ml": 0.48525,
+            "p_away_pl_+1.5": 0.755,
+            "p_home_ml": 0.51475,
+            "p_home_pl_-1.5": 0.245,
+            "p_over": 0.4651666666666667,
+            "p_under": 0.5348333333333334,
+            "period1_away_proj": 1.0138333333333334,
+            "period1_home_proj": 1.036333333333333,
+            "period2_away_proj": 1.0201666666666669,
+            "period2_home_proj": 1.0611666666666666,
+            "period3_away_proj": 1.0526666666666666,
+            "period3_home_proj": 1.0638333333333334,
+            "pl_line_used": 1.5,
+            "proj_away_goals": 3.137833333333333,
+            "proj_home_goals": 3.2121666666666666,
+            "segments": {
+              "final": {
+                "away_win_prob": 0.40675298824700457,
+                "home_win_prob": 0.4300299856440985,
+                "tie_prob": 0.16321702610889682
+              },
+              "ot": {
+                "no_prob": 0.8367829738911032,
+                "yes_prob": 0.16321702610889682
+              },
+              "p1": {
+                "away_win_prob": 0.3422167570006586,
+                "home_win_prob": 0.3538816749884445,
+                "tie_prob": 0.3039015680108969
+              },
+              "p2": {
+                "away_win_prob": 0.3388934237887735,
+                "home_win_prob": 0.3600157534061328,
+                "tie_prob": 0.30109082280509375
+              },
+              "p3": {
+                "away_win_prob": 0.3480682134056186,
+                "home_win_prob": 0.3537814790049844,
+                "tie_prob": 0.29815030758939687
+              }
+            },
+            "total_line_used": 6.5,
+            "under_odds": -115.0
+          }
+        ]
+      },
+      "recommendations": {
+        "count": 1,
+        "rows": [
+          {
+            "away": "Minnesota Wild",
+            "conf": 0.255,
+            "ev": 0.2651351351351351,
+            "home": "Colorado Avalanche",
+            "market": "PL",
+            "price": -148.0,
+            "prob": 0.755,
+            "side": "Minnesota Wild +1.5",
+            "totals_line": 6.5
+          }
+        ]
+      },
+      "reconciliation": null
+    },
+    "props": {
+      "recommendations": {
+        "count": 3,
+        "rows": [
+          {
+            "book": "pinnacle",
+            "edge_reasons": "MODEL UND · CONF60+ · MATCHUP+",
+            "edge_score": 0.4780490403000164,
+            "ev": 0.3269119945431921,
+            "line": 1.5,
+            "market": "POINTS",
+            "opp": "MIN",
+            "player": "Nathan MacKinnon",
+            "price": -108,
+            "prob": 0.6889735356281959,
+            "side": "Under",
+            "team": "COL"
+          },
+          {
+            "book": "pinnacle",
+            "edge_reasons": "MODEL UND · CONF60+ · MATCHUP+",
+            "edge_score": 0.4150153949098772,
+            "ev": 0.6369907372403567,
+            "line": 0.5,
+            "market": "ASSISTS",
+            "opp": "MIN",
+            "player": "Nathan MacKinnon",
+            "price": 165,
+            "prob": 0.6177323536756063,
+            "side": "Under",
+            "team": "COL"
+          },
+          {
+            "book": "betmgm",
+            "edge_reasons": "MODEL UND · CONF60+ · MATCHUP+",
+            "edge_score": 0.4127745296484689,
+            "ev": 0.1858379185649626,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "MIN",
+            "player": "Nazem Kadri",
+            "price": -105,
+            "prob": 0.6073803973137614,
+            "side": "Under",
+            "team": "COL"
+          }
+        ],
+        "source": "props_recommendations_2026-05-05.csv"
+      },
+      "reconciliation": null
+    }
+  },
+  "date": "2026-05-05",
+  "files": {
+    "edges": "data/processed/edges_sim_2026-05-05.csv",
+    "game_recommendations": "data/processed/recommendations_sim_2026-05-05.csv",
+    "predictions": "data/processed/predictions_sim_2026-05-05.csv",
+    "props_recommendations": "data/processed/props_recommendations_2026-05-05.csv",
+    "reconciliation_games": null,
+    "reconciliation_props": null
+  },
+  "generated_at_utc": "2026-05-04T14:09:44+00:00",
+  "schema_version": 2
+}

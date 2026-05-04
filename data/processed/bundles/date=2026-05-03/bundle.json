@@ -267,7 +267,45 @@
           }
         ]
       },
-      "reconciliation": null
+      "reconciliation": {
+        "rows": [
+          {
+            "away": "Montréal Canadiens",
+            "bet": "over",
+            "date": "2026-05-03T22:00:00Z",
+            "ev": 0.0859,
+            "home": "Tampa Bay Lightning",
+            "market": "totals",
+            "payout": -100.0,
+            "price": -115,
+            "result": "loss",
+            "stake": 100.0
+          },
+          {
+            "away": "Montréal Canadiens",
+            "bet": "away_pl_+1.5",
+            "date": "2026-05-03T22:00:00Z",
+            "ev": 0.0252,
+            "home": "Tampa Bay Lightning",
+            "market": "puckline",
+            "payout": 51.28205128205128,
+            "price": -195.0,
+            "result": "win",
+            "stake": 100.0
+          }
+        ],
+        "summary": {
+          "date": "2026-05-03",
+          "decided": 2,
+          "losses": 1,
+          "picks": 2,
+          "pnl": -48.71794871794872,
+          "pushes": 0,
+          "roi": -0.2435897435897436,
+          "staked": 200.0,
+          "wins": 1
+        }
+      }
     },
     "props": {
       "recommendations": {
@@ -341,9 +379,9 @@
     "game_recommendations": "data/processed/recommendations_sim_2026-05-03.csv",
     "predictions": "data/processed/predictions_sim_2026-05-03.csv",
     "props_recommendations": "data/processed/props_recommendations_2026-05-03.csv",
-    "reconciliation_games": null,
+    "reconciliation_games": "data/processed/reconciliation_2026-05-03.json",
     "reconciliation_props": null
   },
-  "generated_at_utc": "2026-05-03T14:32:27+00:00",
+  "generated_at_utc": "2026-05-04T14:09:38+00:00",
   "schema_version": 2
 }

@@ -1,0 +1,67 @@
+{
+  "summary": {
+    "date": "2026-05-03",
+    "picks": 4,
+    "decided": 4,
+    "wins": 2,
+    "losses": 2,
+    "pushes": 0,
+    "staked": 400.0,
+    "pnl": -39.44444444444446,
+    "roi": -0.09861111111111115
+  },
+  "rows": [
+    {
+      "date": "2026-05-03",
+      "market": "POINTS",
+      "player": "Brayden Point",
+      "line": 0.5,
+      "side": "Under",
+      "odds": 105.0,
+      "ev": 0.5167043545658593,
+      "actual": 0.0,
+      "result": "win",
+      "stake": 100.0,
+      "payout": 104.99999999999999
+    },
+    {
+      "date": "2026-05-03",
+      "market": "SOG",
+      "player": "Valeri Nichushkin",
+      "line": 1.5,
+      "side": "Over",
+      "odds": -180.0,
+      "ev": 0.1712275360459803,
+      "actual": 2.0,
+      "result": "win",
+      "stake": 100.0,
+      "payout": 55.55555555555556
+    },
+    {
+      "date": "2026-05-03",
+      "market": "POINTS",
+      "player": "Nathan MacKinnon",
+      "line": 1.5,
+      "side": "Under",
+      "odds": -105.0,
+      "ev": 0.345138807655049,
+      "actual": 3.0,
+      "result": "loss",
+      "stake": 100.0,
+      "payout": -100.0
+    },
+    {
+      "date": "2026-05-03",
+      "market": "ASSISTS",
+      "player": "Nathan MacKinnon",
+      "line": 0.5,
+      "side": "Under",
+      "odds": 154.0,
+      "ev": 0.56904017833604,
+      "actual": 2.0,
+      "result": "loss",
+      "stake": 100.0,
+      "payout": -100.0
+    }
+  ]
+}

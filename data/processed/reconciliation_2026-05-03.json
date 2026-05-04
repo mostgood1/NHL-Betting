@@ -1,0 +1,39 @@
+{
+  "summary": {
+    "date": "2026-05-03",
+    "picks": 2,
+    "decided": 2,
+    "wins": 1,
+    "losses": 1,
+    "pushes": 0,
+    "staked": 200.0,
+    "pnl": -48.71794871794872,
+    "roi": -0.2435897435897436
+  },
+  "rows": [
+    {
+      "date": "2026-05-03T22:00:00Z",
+      "home": "Tampa Bay Lightning",
+      "away": "Montr\u00e9al Canadiens",
+      "market": "totals",
+      "bet": "over",
+      "ev": 0.0859,
+      "price": -115,
+      "result": "loss",
+      "stake": 100.0,
+      "payout": -100.0
+    },
+    {
+      "date": "2026-05-03T22:00:00Z",
+      "home": "Tampa Bay Lightning",
+      "away": "Montr\u00e9al Canadiens",
+      "market": "puckline",
+      "bet": "away_pl_+1.5",
+      "ev": 0.0252,
+      "price": -195.0,
+      "result": "win",
+      "stake": 100.0,
+      "payout": 51.28205128205128
+    }
+  ]
+}

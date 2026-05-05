@@ -1,0 +1,419 @@
+{
+  "data": {
+    "games": {
+      "edges": {
+        "count": 8,
+        "rows": [
+          {
+            "away": "Montréal Canadiens",
+            "bet": "over",
+            "book": null,
+            "edge_reasons": "total 5.95 vs line 5.5 (+0.45); p=0.545; P1 pace 1.88",
+            "edge_score": 0.3946589648244291,
+            "ev": -0.0088852459016394,
+            "home": "Buffalo Sabres",
+            "market": "ev_over",
+            "market_group": "totals",
+            "price": -122.0,
+            "prob": 0.5446666666666666,
+            "side": "Over 5.5",
+            "totals_line": 5.5
+          },
+          {
+            "away": "Anaheim Ducks",
+            "bet": "over",
+            "book": null,
+            "edge_reasons": "total 6.46 vs line 6.5 (-0.04); p=0.480; P1 pace 2.06",
+            "edge_score": 0.295772673195601,
+            "ev": -0.0307366666666666,
+            "home": "Vegas Golden Knights",
+            "market": "ev_over",
+            "market_group": "totals",
+            "price": 102.0,
+            "prob": 0.4798333333333333,
+            "side": "Over 6.5",
+            "totals_line": 6.5
+          },
+          {
+            "away": "Anaheim Ducks",
+            "bet": "under",
+            "book": null,
+            "edge_reasons": "total 6.46 vs line 6.5 (-0.04); p=0.520; P1 pace 2.06",
+            "edge_score": 0.2932312483730265,
+            "ev": -0.0534672131147541,
+            "home": "Vegas Golden Knights",
+            "market": "ev_under",
+            "market_group": "totals",
+            "price": -122.0,
+            "prob": 0.5201666666666667,
+            "side": "Under 6.5",
+            "totals_line": 6.5
+          },
+          {
+            "away": "Montréal Canadiens",
+            "bet": "under",
+            "book": null,
+            "edge_reasons": "total 5.95 vs line 5.5 (+0.45); p=0.455; P1 pace 1.88",
+            "edge_score": 0.2381567214500806,
+            "ev": -0.0802266666666666,
+            "home": "Buffalo Sabres",
+            "market": "ev_under",
+            "market_group": "totals",
+            "price": 102.0,
+            "prob": 0.4553333333333333,
+            "side": "Under 5.5",
+            "totals_line": 5.5
+          },
+          {
+            "away": "Anaheim Ducks",
+            "bet": "away_ml",
+            "book": null,
+            "edge_reasons": "p=0.453",
+            "edge_score": 0.0949999999999999,
+            "ev": 0.0679000000000001,
+            "home": "Vegas Golden Knights",
+            "market": "ev_away_ml",
+            "market_group": "moneyline",
+            "price": 136.0,
+            "prob": 0.4525,
+            "side": "Anaheim Ducks",
+            "totals_line": null
+          },
+          {
+            "away": "Anaheim Ducks",
+            "bet": "home_ml",
+            "book": null,
+            "edge_reasons": "p=0.547",
+            "edge_score": 0.0949999999999999,
+            "ev": -0.1145370370370369,
+            "home": "Vegas Golden Knights",
+            "market": "ev_home_ml",
+            "market_group": "moneyline",
+            "price": -162.0,
+            "prob": 0.5475,
+            "side": "Vegas Golden Knights",
+            "totals_line": null
+          },
+          {
+            "away": "Montréal Canadiens",
+            "bet": "home_ml",
+            "book": null,
+            "edge_reasons": "p=0.546",
+            "edge_score": 0.092,
+            "ev": -0.0339999999999999,
+            "home": "Buffalo Sabres",
+            "market": "ev_home_ml",
+            "market_group": "moneyline",
+            "price": -130.0,
+            "prob": 0.546,
+            "side": "Buffalo Sabres",
+            "totals_line": null
+          },
+          {
+            "away": "Montréal Canadiens",
+            "bet": "away_ml",
+            "book": null,
+            "edge_reasons": "p=0.454",
+            "edge_score": 0.0919999999999999,
+            "ev": -0.0465999999999999,
+            "home": "Buffalo Sabres",
+            "market": "ev_away_ml",
+            "market_group": "moneyline",
+            "price": 110.0,
+            "prob": 0.454,
+            "side": "Montréal Canadiens",
+            "totals_line": null
+          }
+        ],
+        "source": "edges_sim_2026-05-06.csv"
+      },
+      "predictions": {
+        "count": 2,
+        "rows": [
+          {
+            "away": "Montréal Canadiens",
+            "away_ml_odds": 110.0,
+            "away_pl_+1.5_odds": -230.0,
+            "date": "2026-05-06",
+            "home": "Buffalo Sabres",
+            "home_ml_odds": -130.0,
+            "home_pl_-1.5_odds": 190.0,
+            "model_total": 5.951333333333333,
+            "over_odds": -122.0,
+            "p_away_ml": 0.454,
+            "p_away_pl_+1.5": 0.7351666666666667,
+            "p_home_ml": 0.546,
+            "p_home_pl_-1.5": 0.2648333333333333,
+            "p_over": 0.5446666666666666,
+            "p_under": 0.4553333333333333,
+            "period1_away_proj": 0.9046666666666666,
+            "period1_home_proj": 0.9748333333333332,
+            "period2_away_proj": 0.9491666666666668,
+            "period2_home_proj": 1.0426666666666666,
+            "period3_away_proj": 0.934,
+            "period3_home_proj": 1.0366666666666666,
+            "pl_line_used": 1.5,
+            "proj_away_goals": 2.841666666666667,
+            "proj_home_goals": 3.1096666666666666,
+            "segments": {
+              "final": {
+                "away_win_prob": 0.37307389455284684,
+                "home_win_prob": 0.4587593671111099,
+                "tie_prob": 0.1681667383360434
+              },
+              "ot": {
+                "no_prob": 0.8318332616639565,
+                "yes_prob": 0.1681667383360434
+              },
+              "p1": {
+                "away_win_prob": 0.3211269249483477,
+                "home_win_prob": 0.3588115080036828,
+                "tie_prob": 0.3200615670479695
+              },
+              "p2": {
+                "away_win_prob": 0.3210827685525013,
+                "home_win_prob": 0.3701172585145252,
+                "tie_prob": 0.3087999729329734
+              },
+              "p3": {
+                "away_win_prob": 0.3176128180393487,
+                "home_win_prob": 0.3716859905846395,
+                "tie_prob": 0.3107011913760118
+              }
+            },
+            "total_line_used": 5.5,
+            "under_odds": 102.0
+          },
+          {
+            "away": "Anaheim Ducks",
+            "away_ml_odds": 136.0,
+            "away_pl_+1.5_odds": -185.0,
+            "date": "2026-05-06",
+            "home": "Vegas Golden Knights",
+            "home_ml_odds": -162.0,
+            "home_pl_-1.5_odds": 154.0,
+            "model_total": 6.459833333333333,
+            "over_odds": 102.0,
+            "p_away_ml": 0.4525,
+            "p_away_pl_+1.5": 0.7343333333333333,
+            "p_home_ml": 0.5475,
+            "p_home_pl_-1.5": 0.2656666666666666,
+            "p_over": 0.4798333333333333,
+            "p_under": 0.5201666666666667,
+            "period1_away_proj": 0.9775,
+            "period1_home_proj": 1.0806666666666669,
+            "period2_away_proj": 1.028333333333333,
+            "period2_home_proj": 1.1268333333333334,
+            "period3_away_proj": 1.0491666666666666,
+            "period3_home_proj": 1.0858333333333334,
+            "pl_line_used": 1.5,
+            "proj_away_goals": 3.1028333333333333,
+            "proj_home_goals": 3.357,
+            "segments": {
+              "final": {
+                "away_win_prob": 0.3825429574860663,
+                "home_win_prob": 0.45617117029350585,
+                "tie_prob": 0.16128587222042784
+              },
+              "ot": {
+                "no_prob": 0.8387141277795722,
+                "yes_prob": 0.16128587222042784
+              },
+              "p1": {
+                "away_win_prob": 0.32198269523428613,
+                "home_win_prob": 0.3753561564525987,
+                "tie_prob": 0.3026611483131152
+              },
+              "p2": {
+                "away_win_prob": 0.3277762756070398,
+                "home_win_prob": 0.37776963345207626,
+                "tie_prob": 0.294454090940884
+              },
+              "p3": {
+                "away_win_prob": 0.34238727028255667,
+                "home_win_prob": 0.36107808943598785,
+                "tie_prob": 0.2965346402814555
+              }
+            },
+            "total_line_used": 6.5,
+            "under_odds": -122.0
+          }
+        ]
+      },
+      "recommendations": {
+        "count": 2,
+        "rows": [
+          {
+            "away": "Montréal Canadiens",
+            "conf": 0.2351666666666667,
+            "ev": 0.054804347826087,
+            "home": "Buffalo Sabres",
+            "market": "PL",
+            "price": -230.0,
+            "prob": 0.7351666666666667,
+            "side": "Montréal Canadiens +1.5",
+            "totals_line": 5.5
+          },
+          {
+            "away": "Anaheim Ducks",
+            "conf": 0.2343333333333332,
+            "ev": 0.1312702702702702,
+            "home": "Vegas Golden Knights",
+            "market": "PL",
+            "price": -185.0,
+            "prob": 0.7343333333333333,
+            "side": "Anaheim Ducks +1.5",
+            "totals_line": 6.5
+          }
+        ]
+      },
+      "reconciliation": null
+    },
+    "props": {
+      "recommendations": {
+        "count": 9,
+        "rows": [
+          {
+            "book": "pinnacle",
+            "edge_reasons": "MODEL UND · CONF60+ · MATCHUP+",
+            "edge_score": 0.7461497953534774,
+            "ev": 1.8397160141995264,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "MTL",
+            "player": "Tage Thompson",
+            "price": 184,
+            "prob": 0.9999000049998332,
+            "side": "Under",
+            "team": "BUF"
+          },
+          {
+            "book": "betmgm",
+            "edge_reasons": "MODEL UND · CONF60+ · MATCHUP+",
+            "edge_score": 0.6017887919039501,
+            "ev": 0.5139254293867338,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "BUF",
+            "player": "Ivan Demidov",
+            "price": -115,
+            "prob": 0.8097740668812763,
+            "side": "Under",
+            "team": "MTL"
+          },
+          {
+            "book": "draftkings",
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP-",
+            "edge_score": 0.5776038786912486,
+            "ev": 0.4357153472533807,
+            "line": 2.5,
+            "market": "SOG",
+            "opp": "VGK",
+            "player": "Leo Carlsson",
+            "price": -154,
+            "prob": 0.8704730845551993,
+            "side": "Over",
+            "team": "ANA"
+          },
+          {
+            "book": "draftkings",
+            "edge_reasons": "MODEL UND · CONF60+ · MATCHUP-",
+            "edge_score": 0.4865246029658199,
+            "ev": 0.2759927053860345,
+            "line": 0.5,
+            "market": "ASSISTS",
+            "opp": "ANA",
+            "player": "Shea Theodore",
+            "price": -145,
+            "prob": 0.7551793562488776,
+            "side": "Under",
+            "team": "VGK"
+          },
+          {
+            "book": "draftkings",
+            "edge_reasons": "MODEL UND · CONF60+ · MATCHUP+",
+            "edge_score": 0.4506569054859811,
+            "ev": 0.2599186817158494,
+            "line": 0.5,
+            "market": "ASSISTS",
+            "opp": "MTL",
+            "player": "Rasmus Dahlin",
+            "price": 100,
+            "prob": 0.6299593408579247,
+            "side": "Under",
+            "team": "BUF"
+          },
+          {
+            "book": "betmgm",
+            "edge_reasons": "MODEL OVR · CONF60+ · MATCHUP+",
+            "edge_score": 0.4460782657736956,
+            "ev": 0.0609222476606785,
+            "line": 0.5,
+            "market": "ASSISTS",
+            "opp": "ANA",
+            "player": "Jack Eichel",
+            "price": -165,
+            "prob": 0.6605742296755168,
+            "side": "Over",
+            "team": "VGK"
+          },
+          {
+            "book": "betmgm",
+            "edge_reasons": "MODEL UND · CONF60+",
+            "edge_score": 0.4333526345662351,
+            "ev": 0.2804427284942727,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "ANA",
+            "player": "Shea Theodore",
+            "price": -115,
+            "prob": 0.6848879710550762,
+            "side": "Under",
+            "team": "VGK"
+          },
+          {
+            "book": "pinnacle",
+            "edge_reasons": "MODEL UND · CONF60+",
+            "edge_score": 0.4260596079226985,
+            "ev": 0.2957457132099723,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "ANA",
+            "player": "Pavel Dorofeyev",
+            "price": -109,
+            "prob": 0.6757716877506554,
+            "side": "Under",
+            "team": "VGK"
+          },
+          {
+            "book": "pinnacle",
+            "edge_reasons": "MODEL OVR · CONF60+",
+            "edge_score": 0.4173261141092139,
+            "ev": 0.6151433945083344,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "ANA",
+            "player": "William Karlsson",
+            "price": 157,
+            "prob": 0.6284604647892351,
+            "side": "Over",
+            "team": "VGK"
+          }
+        ],
+        "source": "props_recommendations_2026-05-06.csv"
+      },
+      "reconciliation": null
+    }
+  },
+  "date": "2026-05-06",
+  "files": {
+    "edges": "data/processed/edges_sim_2026-05-06.csv",
+    "game_recommendations": "data/processed/recommendations_sim_2026-05-06.csv",
+    "predictions": "data/processed/predictions_sim_2026-05-06.csv",
+    "props_recommendations": "data/processed/props_recommendations_2026-05-06.csv",
+    "reconciliation_games": null,
+    "reconciliation_props": null
+  },
+  "generated_at_utc": "2026-05-05T19:23:24+00:00",
+  "schema_version": 2
+}

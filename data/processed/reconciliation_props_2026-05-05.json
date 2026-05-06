@@ -1,0 +1,67 @@
+{
+  "summary": {
+    "date": "2026-05-05",
+    "picks": 4,
+    "decided": 4,
+    "wins": 0,
+    "losses": 4,
+    "pushes": 0,
+    "staked": 400.0,
+    "pnl": -400.0,
+    "roi": -1.0
+  },
+  "rows": [
+    {
+      "date": "2026-05-05",
+      "market": "POINTS",
+      "player": "Nathan MacKinnon",
+      "line": 1.5,
+      "side": "Under",
+      "odds": 105.0,
+      "ev": 0.4935252500397002,
+      "actual": 3.0,
+      "result": "loss",
+      "stake": 100.0,
+      "payout": -100.0
+    },
+    {
+      "date": "2026-05-05",
+      "market": "GOALS",
+      "player": "Nathan MacKinnon",
+      "line": 0.5,
+      "side": "Under",
+      "odds": -110.0,
+      "ev": 0.345851858916407,
+      "actual": 1.0,
+      "result": "loss",
+      "stake": 100.0,
+      "payout": -100.0
+    },
+    {
+      "date": "2026-05-05",
+      "market": "POINTS",
+      "player": "Nazem Kadri",
+      "line": 0.5,
+      "side": "Under",
+      "odds": -105.0,
+      "ev": 0.2518840154640295,
+      "actual": 1.0,
+      "result": "loss",
+      "stake": 100.0,
+      "payout": -100.0
+    },
+    {
+      "date": "2026-05-05",
+      "market": "POINTS",
+      "player": "Gabriel Landeskog",
+      "line": 0.5,
+      "side": "Under",
+      "odds": 105.0,
+      "ev": 0.2324940423751368,
+      "actual": 2.0,
+      "result": "loss",
+      "stake": 100.0,
+      "payout": -100.0
+    }
+  ]
+}

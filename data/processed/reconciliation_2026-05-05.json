@@ -1,0 +1,39 @@
+{
+  "summary": {
+    "date": "2026-05-05",
+    "picks": 2,
+    "decided": 2,
+    "wins": 1,
+    "losses": 1,
+    "pushes": 0,
+    "staked": 200.0,
+    "pnl": -47.91666666666665,
+    "roi": -0.23958333333333326
+  },
+  "rows": [
+    {
+      "date": "2026-05-06T00:00:00Z",
+      "home": "Colorado Avalanche",
+      "away": "Minnesota Wild",
+      "market": "moneyline",
+      "bet": "home_ml",
+      "ev": 0.0037,
+      "price": -192,
+      "result": "win",
+      "stake": 100.0,
+      "payout": 52.08333333333335
+    },
+    {
+      "date": "2026-05-06T00:00:00Z",
+      "home": "Colorado Avalanche",
+      "away": "Minnesota Wild",
+      "market": "totals",
+      "bet": "under",
+      "ev": 0.0531,
+      "price": -112,
+      "result": "loss",
+      "stake": 100.0,
+      "payout": -100.0
+    }
+  ]
+}

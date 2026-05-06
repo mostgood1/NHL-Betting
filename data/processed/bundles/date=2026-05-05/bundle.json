@@ -142,7 +142,45 @@
           }
         ]
       },
-      "reconciliation": null
+      "reconciliation": {
+        "rows": [
+          {
+            "away": "Minnesota Wild",
+            "bet": "home_ml",
+            "date": "2026-05-06T00:00:00Z",
+            "ev": 0.0037,
+            "home": "Colorado Avalanche",
+            "market": "moneyline",
+            "payout": 52.08333333333335,
+            "price": -192,
+            "result": "win",
+            "stake": 100.0
+          },
+          {
+            "away": "Minnesota Wild",
+            "bet": "under",
+            "date": "2026-05-06T00:00:00Z",
+            "ev": 0.0531,
+            "home": "Colorado Avalanche",
+            "market": "totals",
+            "payout": -100.0,
+            "price": -112,
+            "result": "loss",
+            "stake": 100.0
+          }
+        ],
+        "summary": {
+          "date": "2026-05-05",
+          "decided": 2,
+          "losses": 1,
+          "picks": 2,
+          "pnl": -47.91666666666665,
+          "pushes": 0,
+          "roi": -0.23958333333333326,
+          "staked": 200.0,
+          "wins": 1
+        }
+      }
     },
     "props": {
       "recommendations": {
@@ -207,7 +245,73 @@
         ],
         "source": "props_recommendations_2026-05-05.csv"
       },
-      "reconciliation": null
+      "reconciliation": {
+        "rows": [
+          {
+            "actual": 3.0,
+            "date": "2026-05-05",
+            "ev": 0.4935252500397002,
+            "line": 1.5,
+            "market": "POINTS",
+            "odds": 105.0,
+            "payout": -100.0,
+            "player": "Nathan MacKinnon",
+            "result": "loss",
+            "side": "Under",
+            "stake": 100.0
+          },
+          {
+            "actual": 1.0,
+            "date": "2026-05-05",
+            "ev": 0.345851858916407,
+            "line": 0.5,
+            "market": "GOALS",
+            "odds": -110.0,
+            "payout": -100.0,
+            "player": "Nathan MacKinnon",
+            "result": "loss",
+            "side": "Under",
+            "stake": 100.0
+          },
+          {
+            "actual": 1.0,
+            "date": "2026-05-05",
+            "ev": 0.2518840154640295,
+            "line": 0.5,
+            "market": "POINTS",
+            "odds": -105.0,
+            "payout": -100.0,
+            "player": "Nazem Kadri",
+            "result": "loss",
+            "side": "Under",
+            "stake": 100.0
+          },
+          {
+            "actual": 2.0,
+            "date": "2026-05-05",
+            "ev": 0.2324940423751368,
+            "line": 0.5,
+            "market": "POINTS",
+            "odds": 105.0,
+            "payout": -100.0,
+            "player": "Gabriel Landeskog",
+            "result": "loss",
+            "side": "Under",
+            "stake": 100.0
+          }
+        ],
+        "summary": {
+          "date": "2026-05-05",
+          "decided": 4,
+          "losses": 4,
+          "picks": 4,
+          "pnl": -400.0,
+          "pushes": 0,
+          "roi": -1.0,
+          "staked": 400.0,
+          "wins": 0
+        }
+      }
     }
   },
   "date": "2026-05-05",
@@ -216,9 +320,9 @@
     "game_recommendations": "data/processed/recommendations_sim_2026-05-05.csv",
     "predictions": "data/processed/predictions_sim_2026-05-05.csv",
     "props_recommendations": "data/processed/props_recommendations_2026-05-05.csv",
-    "reconciliation_games": null,
-    "reconciliation_props": null
+    "reconciliation_games": "data/processed/reconciliation_2026-05-05.json",
+    "reconciliation_props": "data/processed/reconciliation_props_2026-05-05.json"
   },
-  "generated_at_utc": "2026-05-05T19:23:20+00:00",
+  "generated_at_utc": "2026-05-06T13:28:17+00:00",
   "schema_version": 2
 }

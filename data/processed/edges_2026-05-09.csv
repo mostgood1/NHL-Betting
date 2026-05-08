@@ -1,0 +1,9 @@
+date,home,away,market,ev
+2026-05-09T22:00:00Z,Philadelphia Flyers,Carolina Hurricanes,ev_over,0.1518
+2026-05-10T01:00:00Z,Minnesota Wild,Colorado Avalanche,ev_home_ml,0.0523
+2026-05-10T01:00:00Z,Minnesota Wild,Colorado Avalanche,ev_under,0.0302
+2026-05-09T22:00:00Z,Philadelphia Flyers,Carolina Hurricanes,ev_away_ml,-0.0388
+2026-05-09T22:00:00Z,Philadelphia Flyers,Carolina Hurricanes,ev_home_ml,-0.0433
+2026-05-10T01:00:00Z,Minnesota Wild,Colorado Avalanche,ev_away_ml,-0.1173
+2026-05-10T01:00:00Z,Minnesota Wild,Colorado Avalanche,ev_over,-0.1229
+2026-05-09T22:00:00Z,Philadelphia Flyers,Carolina Hurricanes,ev_under,-0.188

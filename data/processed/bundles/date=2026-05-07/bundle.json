@@ -142,7 +142,57 @@
           }
         ]
       },
-      "reconciliation": null
+      "reconciliation": {
+        "rows": [
+          {
+            "away": "Carolina Hurricanes",
+            "bet": "home_ml",
+            "date": "2026-05-08T00:00:00Z",
+            "ev": 0.0705,
+            "home": "Philadelphia Flyers",
+            "market": "moneyline",
+            "payout": -100.0,
+            "price": 146,
+            "result": "loss",
+            "stake": 100.0
+          },
+          {
+            "away": "Carolina Hurricanes",
+            "bet": "over",
+            "date": "2026-05-08T00:00:00Z",
+            "ev": 0.1528,
+            "home": "Philadelphia Flyers",
+            "market": "totals",
+            "payout": -100.0,
+            "price": 110,
+            "result": "loss",
+            "stake": 100.0
+          },
+          {
+            "away": "Carolina Hurricanes",
+            "bet": "away_pl_+1.5",
+            "date": "2026-05-08T00:00:00Z",
+            "ev": 0.3106,
+            "home": "Philadelphia Flyers",
+            "market": "puckline",
+            "payout": 0.0,
+            "price": null,
+            "result": "win",
+            "stake": 100.0
+          }
+        ],
+        "summary": {
+          "date": "2026-05-07",
+          "decided": 3,
+          "losses": 2,
+          "picks": 3,
+          "pnl": -200.0,
+          "pushes": 0,
+          "roi": -0.6666666666666666,
+          "staked": 300.0,
+          "wins": 1
+        }
+      }
     },
     "props": {
       "recommendations": {
@@ -193,7 +243,60 @@
         ],
         "source": "props_recommendations_2026-05-07.csv"
       },
-      "reconciliation": null
+      "reconciliation": {
+        "rows": [
+          {
+            "actual": 1.0,
+            "date": "2026-05-07",
+            "ev": 0.397252510321209,
+            "line": 0.5,
+            "market": "ASSISTS",
+            "odds": -160.0,
+            "payout": -100.0,
+            "player": "Sebastian Aho",
+            "result": "loss",
+            "side": "Under",
+            "stake": 100.0
+          },
+          {
+            "actual": 3.0,
+            "date": "2026-05-07",
+            "ev": 0.3729941486854361,
+            "line": 2.5,
+            "market": "SOG",
+            "odds": -125.0,
+            "payout": 80.0,
+            "player": "Andrei Svechnikov",
+            "result": "win",
+            "side": "Over",
+            "stake": 100.0
+          },
+          {
+            "actual": 3.0,
+            "date": "2026-05-07",
+            "ev": 0.2512189036118506,
+            "line": 1.5,
+            "market": "SOG",
+            "odds": -154.0,
+            "payout": 64.93506493506493,
+            "player": "Taylor Hall",
+            "result": "win",
+            "side": "Over",
+            "stake": 100.0
+          }
+        ],
+        "summary": {
+          "date": "2026-05-07",
+          "decided": 3,
+          "losses": 1,
+          "picks": 3,
+          "pnl": 44.93506493506493,
+          "pushes": 0,
+          "roi": 0.14978354978354977,
+          "staked": 300.0,
+          "wins": 2
+        }
+      }
     }
   },
   "date": "2026-05-07",
@@ -202,9 +305,9 @@
     "game_recommendations": "data/processed/recommendations_sim_2026-05-07.csv",
     "predictions": "data/processed/predictions_sim_2026-05-07.csv",
     "props_recommendations": "data/processed/props_recommendations_2026-05-07.csv",
-    "reconciliation_games": null,
-    "reconciliation_props": null
+    "reconciliation_games": "data/processed/reconciliation_2026-05-07.json",
+    "reconciliation_props": "data/processed/reconciliation_props_2026-05-07.json"
   },
-  "generated_at_utc": "2026-05-07T15:26:44+00:00",
+  "generated_at_utc": "2026-05-08T14:36:11+00:00",
   "schema_version": 2
 }

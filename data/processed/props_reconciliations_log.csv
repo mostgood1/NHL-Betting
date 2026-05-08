@@ -6115,3 +6115,6 @@ date,market,player,line,side,odds,ev,actual,result,stake,payout
 2026-05-06,ASSISTS,Rasmus Dahlin,0.5,Under,100.0,0.2599186817158494,0.0,win,100.0,100.0
 2026-05-06,POINTS,William Karlsson,0.5,Over,154.0,0.5962895805646572,0.0,loss,100.0,-100.0
 2026-05-06,POINTS,Shea Theodore,0.5,Under,-115.0,0.2056343979878585,1.0,loss,100.0,-100.0
+2026-05-07,ASSISTS,Sebastian Aho,0.5,Under,-160.0,0.397252510321209,1.0,loss,100.0,-100.0
+2026-05-07,SOG,Andrei Svechnikov,2.5,Over,-125.0,0.3729941486854361,3.0,win,100.0,80.0
+2026-05-07,SOG,Taylor Hall,1.5,Over,-154.0,0.2512189036118506,3.0,win,100.0,64.93506493506493

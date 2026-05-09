@@ -1,0 +1,63 @@
+{
+  "summary": {
+    "date": "2026-05-08",
+    "picks": 4,
+    "decided": 4,
+    "wins": 3,
+    "losses": 1,
+    "pushes": 0,
+    "staked": 400.0,
+    "pnl": 83.982683982684,
+    "roi": 0.20995670995670998
+  },
+  "rows": [
+    {
+      "date": "2026-05-08T23:00:00Z",
+      "home": "Buffalo Sabres",
+      "away": "Montr\u00e9al Canadiens",
+      "market": "totals",
+      "bet": "over",
+      "ev": 0.0476,
+      "price": 100,
+      "result": "win",
+      "stake": 100.0,
+      "payout": 100.0
+    },
+    {
+      "date": "2026-05-08T23:00:00Z",
+      "home": "Buffalo Sabres",
+      "away": "Montr\u00e9al Canadiens",
+      "market": "puckline",
+      "bet": "away_pl_+1.5",
+      "ev": 0.1049,
+      "price": -210.0,
+      "result": "win",
+      "stake": 100.0,
+      "payout": 47.61904761904763
+    },
+    {
+      "date": "2026-05-09T01:30:00Z",
+      "home": "Anaheim Ducks",
+      "away": "Vegas Golden Knights",
+      "market": "totals",
+      "bet": "under",
+      "ev": 0.0278,
+      "price": -108,
+      "result": "loss",
+      "stake": 100.0,
+      "payout": -100.0
+    },
+    {
+      "date": "2026-05-09T01:30:00Z",
+      "home": "Anaheim Ducks",
+      "away": "Vegas Golden Knights",
+      "market": "puckline",
+      "bet": "away_pl_+1.5",
+      "ev": 0.403,
+      "price": -275.0,
+      "result": "win",
+      "stake": 100.0,
+      "payout": 36.363636363636374
+    }
+  ]
+}

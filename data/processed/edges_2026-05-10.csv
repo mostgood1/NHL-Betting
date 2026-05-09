@@ -1,0 +1,11 @@
+date,home,away,market,ev
+2026-05-10T23:00:00Z,Montréal Canadiens,Buffalo Sabres,ev_over,0.0642
+2026-05-11T01:30:00Z,Anaheim Ducks,Vegas Golden Knights,ev_under,0.0442
+2026-05-10T23:00:00Z,Montréal Canadiens,Buffalo Sabres,ev_away_pl_+1.5,0.0392
+2026-05-11T01:30:00Z,Anaheim Ducks,Vegas Golden Knights,ev_away_ml,0.0302
+2026-05-10T23:00:00Z,Montréal Canadiens,Buffalo Sabres,ev_away_ml,-0.0291
+2026-05-10T23:00:00Z,Montréal Canadiens,Buffalo Sabres,ev_home_ml,-0.055
+2026-05-11T01:30:00Z,Anaheim Ducks,Vegas Golden Knights,ev_home_ml,-0.1236
+2026-05-11T01:30:00Z,Anaheim Ducks,Vegas Golden Knights,ev_over,-0.1334
+2026-05-10T23:00:00Z,Montréal Canadiens,Buffalo Sabres,ev_under,-0.1683
+2026-05-10T23:00:00Z,Montréal Canadiens,Buffalo Sabres,ev_home_pl_-1.5,-0.2138

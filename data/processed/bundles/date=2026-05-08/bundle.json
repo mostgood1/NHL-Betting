@@ -244,7 +244,69 @@
         "count": 0,
         "rows": []
       },
-      "reconciliation": null
+      "reconciliation": {
+        "rows": [
+          {
+            "away": "Montréal Canadiens",
+            "bet": "over",
+            "date": "2026-05-08T23:00:00Z",
+            "ev": 0.0476,
+            "home": "Buffalo Sabres",
+            "market": "totals",
+            "payout": 100.0,
+            "price": 100,
+            "result": "win",
+            "stake": 100.0
+          },
+          {
+            "away": "Montréal Canadiens",
+            "bet": "away_pl_+1.5",
+            "date": "2026-05-08T23:00:00Z",
+            "ev": 0.1049,
+            "home": "Buffalo Sabres",
+            "market": "puckline",
+            "payout": 47.61904761904763,
+            "price": -210.0,
+            "result": "win",
+            "stake": 100.0
+          },
+          {
+            "away": "Vegas Golden Knights",
+            "bet": "under",
+            "date": "2026-05-09T01:30:00Z",
+            "ev": 0.0278,
+            "home": "Anaheim Ducks",
+            "market": "totals",
+            "payout": -100.0,
+            "price": -108,
+            "result": "loss",
+            "stake": 100.0
+          },
+          {
+            "away": "Vegas Golden Knights",
+            "bet": "away_pl_+1.5",
+            "date": "2026-05-09T01:30:00Z",
+            "ev": 0.403,
+            "home": "Anaheim Ducks",
+            "market": "puckline",
+            "payout": 36.363636363636374,
+            "price": -275.0,
+            "result": "win",
+            "stake": 100.0
+          }
+        ],
+        "summary": {
+          "date": "2026-05-08",
+          "decided": 4,
+          "losses": 1,
+          "picks": 4,
+          "pnl": 83.982683982684,
+          "pushes": 0,
+          "roi": 0.20995670995670998,
+          "staked": 400.0,
+          "wins": 3
+        }
+      }
     },
     "props": {
       "recommendations": {
@@ -393,7 +455,151 @@
         ],
         "source": "props_recommendations_2026-05-08.csv"
       },
-      "reconciliation": null
+      "reconciliation": {
+        "rows": [
+          {
+            "actual": 0.0,
+            "date": "2026-05-08",
+            "ev": 1.649735013249558,
+            "line": 0.5,
+            "market": "POINTS",
+            "odds": 165.0,
+            "payout": 165.0,
+            "player": "Tage Thompson",
+            "result": "win",
+            "side": "Under",
+            "stake": 100.0
+          },
+          {
+            "actual": 0.0,
+            "date": "2026-05-08",
+            "ev": 0.3884811311889732,
+            "line": 0.5,
+            "market": "POINTS",
+            "odds": -118.0,
+            "payout": 84.7457627118644,
+            "player": "Ivan Demidov",
+            "result": "win",
+            "side": "Under",
+            "stake": 100.0
+          },
+          {
+            "actual": 3.0,
+            "date": "2026-05-08",
+            "ev": 0.1676211723057974,
+            "line": 1.5,
+            "market": "SOG",
+            "odds": -195.0,
+            "payout": 51.28205128205128,
+            "player": "Beckett Sennecke",
+            "result": "win",
+            "side": "Over",
+            "stake": 100.0
+          },
+          {
+            "actual": 3.0,
+            "date": "2026-05-08",
+            "ev": 0.2690946846046073,
+            "line": 1.5,
+            "market": "SOG",
+            "odds": -146.0,
+            "payout": 68.49315068493152,
+            "player": "John Carlson",
+            "result": "win",
+            "side": "Over",
+            "stake": 100.0
+          },
+          {
+            "actual": 2.0,
+            "date": "2026-05-08",
+            "ev": 0.3533501166468905,
+            "line": 2.5,
+            "market": "SOG",
+            "odds": -130.0,
+            "payout": 76.92307692307692,
+            "player": "Pavel Mintyukov",
+            "result": "win",
+            "side": "Under",
+            "stake": 100.0
+          },
+          {
+            "actual": 0.0,
+            "date": "2026-05-08",
+            "ev": 0.2733479704229768,
+            "line": 0.5,
+            "market": "ASSISTS",
+            "odds": -105.0,
+            "payout": 95.23809523809523,
+            "player": "Rasmus Dahlin",
+            "result": "win",
+            "side": "Under",
+            "stake": 100.0
+          },
+          {
+            "actual": 0.0,
+            "date": "2026-05-08",
+            "ev": 0.3684351245669726,
+            "line": 0.5,
+            "market": "POINTS",
+            "odds": 115.0,
+            "payout": 114.99999999999999,
+            "player": "Cole Caufield",
+            "result": "win",
+            "side": "Under",
+            "stake": 100.0
+          },
+          {
+            "actual": 0.0,
+            "date": "2026-05-08",
+            "ev": 0.3019797717412703,
+            "line": 0.5,
+            "market": "POINTS",
+            "odds": -127.0,
+            "payout": -100.0,
+            "player": "Jackson LaCombe",
+            "result": "loss",
+            "side": "Over",
+            "stake": 100.0
+          },
+          {
+            "actual": 1.0,
+            "date": "2026-05-08",
+            "ev": 0.0902848336055652,
+            "line": 0.5,
+            "market": "ASSISTS",
+            "odds": -140.0,
+            "payout": 71.42857142857144,
+            "player": "Jack Eichel",
+            "result": "win",
+            "side": "Over",
+            "stake": 100.0
+          },
+          {
+            "actual": 1.0,
+            "date": "2026-05-08",
+            "ev": 0.665420231691473,
+            "line": 0.5,
+            "market": "POINTS",
+            "odds": 165.0,
+            "payout": 165.0,
+            "player": "William Karlsson",
+            "result": "win",
+            "side": "Over",
+            "stake": 100.0
+          }
+        ],
+        "summary": {
+          "date": "2026-05-08",
+          "decided": 10,
+          "losses": 1,
+          "picks": 10,
+          "pnl": 793.1107082685908,
+          "pushes": 0,
+          "roi": 0.7931107082685908,
+          "staked": 1000.0,
+          "wins": 9
+        }
+      }
     }
   },
   "date": "2026-05-08",
@@ -402,9 +608,9 @@
     "game_recommendations": "data/processed/recommendations_sim_2026-05-08.csv",
     "predictions": "data/processed/predictions_sim_2026-05-08.csv",
     "props_recommendations": "data/processed/props_recommendations_2026-05-08.csv",
-    "reconciliation_games": null,
-    "reconciliation_props": null
+    "reconciliation_games": "data/processed/reconciliation_2026-05-08.json",
+    "reconciliation_props": "data/processed/reconciliation_props_2026-05-08.json"
   },
-  "generated_at_utc": "2026-05-08T14:55:12+00:00",
+  "generated_at_utc": "2026-05-09T14:09:52+00:00",
   "schema_version": 2
 }

@@ -284,6 +284,7 @@ def main() -> int:
                 period=rec.get("period"),
                 clock=rec.get("clock"),
                 remaining_min=rm,
+                game_pk=rec.get("gamePk"),
             )
             p_cal = _clamp_prob(_apply_cal_spec(spec, p_raw))
 

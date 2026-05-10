@@ -1243,6 +1243,8 @@ try {
     $llLedger = Join-Path $llPerfDir 'live_lens_bets_all.jsonl'
     $llPriors = Join-Path (Join-Path $ProcessedDir 'live_lens') 'live_lens_driver_tag_priors.json'
     $llTuningReport = Join-Path $llPerfDir 'live_lens_tuning_report.md'
+    $llPlayoffTuningReport = Join-Path $llPerfDir 'live_lens_tuning_report_playoff.md'
+    $llPlayoffGateDeltaReport = Join-Path $llPerfDir 'live_lens_playoff_gate_delta_report.md'
     if (Test-Path $llLedger) {
       Write-Host "[daily_update] Building Live Lens tuning report …" -ForegroundColor DarkCyan
       $oldPythonPath = $env:PYTHONPATH
@@ -1250,11 +1252,13 @@ try {
         $env:PYTHONPATH = $RepoRoot
         Push-Location $RepoRoot
         & $PyExe scripts/live_lens_tuning_report.py --ledger $llLedger --priors-json $llPriors --out $llTuningReport
+        & $PyExe scripts/live_lens_tuning_report.py --ledger $llLedger --priors-json $llPriors --season-type playoff --out $llPlayoffTuningReport
+        & $PyExe scripts/live_lens_playoff_gate_delta_report.py --ledger $llLedger --out $llPlayoffGateDeltaReport
       } finally {
         Pop-Location
         $env:PYTHONPATH = $oldPythonPath
       }
-      Assert-AnyPath -Label "live_lens_tuning_report" -Paths @($llTuningReport) -NonEmpty -Strict:$StrictOutputs
+      Assert-AnyPath -Label "live_lens_tuning_report" -Paths @($llTuningReport, $llPlayoffTuningReport, $llPlayoffGateDeltaReport) -NonEmpty -Strict:$StrictOutputs
     }
   } catch {
     Write-Warning "[daily_update] Live Lens tuning report failed: $($_.Exception.Message)"

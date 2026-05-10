@@ -24,6 +24,26 @@ def test_live_lens_calibration_segment_candidates_use_ot_15s_buckets():
     assert keys[-1] == "src=poisson"
 
 
+def test_live_lens_calibration_segment_candidates_prefer_playoff_specific_keys():
+    keys = live_lens_calibration_segment_candidates(
+        "poisson",
+        elapsed_min=20.25,
+        remaining_min=39.75,
+        game_pk=2025030131,
+    )
+
+    assert keys[:4] == [
+        "src=poisson|season=PLAYOFF|phase=REG|t15=20:15-20:30",
+        "src=poisson|season=PLAYOFF|phase=REG|t1=20:00-21:00",
+        "src=poisson|season=PLAYOFF|phase=REG",
+        "src=poisson|season=PLAYOFF|rm=20-40",
+    ]
+    assert "src=poisson|phase=REG|t15=20:15-20:30" in keys
+    assert "src=poisson|phase=REG|t1=20:00-21:00" in keys
+    assert "src=poisson|season=PLAYOFF|rm=20-40" in keys
+    assert "src=poisson|season=PLAYOFF" in keys
+
+
 def test_pick_live_lens_calibration_spec_prefers_finer_time_segment():
     obj = {
         "default": {"kind": "temp_shift", "t": 1.0, "b": 0.0},
@@ -42,6 +62,27 @@ def test_pick_live_lens_calibration_spec_prefers_finer_time_segment():
 
     assert key == "src=poisson|phase=REG|t1=20:00-21:00"
     assert pytest.approx(float(spec.get("t") or 0.0), abs=1e-9) == 0.9
+
+
+def test_pick_live_lens_calibration_spec_prefers_playoff_specific_segment():
+    obj = {
+        "default": {"kind": "temp_shift", "t": 1.0, "b": 0.0},
+        "segments": {
+            "src=poisson|season=PLAYOFF|phase=REG|t1=20:00-21:00": {"kind": "temp_shift", "t": 0.7, "b": 0.0},
+            "src=poisson|phase=REG|t1=20:00-21:00": {"kind": "temp_shift", "t": 1.4, "b": 0.0},
+        },
+    }
+
+    spec, key = pick_live_lens_calibration_spec(
+        obj,
+        "poisson",
+        elapsed_min=20.25,
+        remaining_min=39.75,
+        game_pk=2025030131,
+    )
+
+    assert key == "src=poisson|season=PLAYOFF|phase=REG|t1=20:00-21:00"
+    assert pytest.approx(float(spec.get("t") or 0.0), abs=1e-9) == 0.7
 
 
 def test_web_pick_live_lens_calibration_spec_falls_back_to_legacy_rm_key():
@@ -83,6 +124,30 @@ def test_web_apply_live_lens_winprob_calibration_prefers_15_second_key(monkeypat
         elapsed_min=20.25,
         period=2,
         clock="19:45",
+    )
+
+    assert calibrated > 0.60
+
+
+def test_web_apply_live_lens_winprob_calibration_prefers_playoff_specific_key(monkeypatch: pytest.MonkeyPatch):
+    obj = {
+        "default": {"kind": "temp_shift", "t": 1.0, "b": 0.0},
+        "segments": {
+            "src=poisson|season=PLAYOFF|phase=REG|t1=20:00-21:00": {"kind": "temp_shift", "t": 0.5, "b": 0.0},
+            "src=poisson|phase=REG|t1=20:00-21:00": {"kind": "temp_shift", "t": 2.0, "b": 0.0},
+        },
+    }
+
+    monkeypatch.setattr(web_app, "_load_live_lens_winprob_calibration", lambda: obj)
+
+    calibrated = web_app._apply_live_lens_winprob_calibration(
+        0.60,
+        39.75,
+        "poisson",
+        elapsed_min=20.25,
+        period=2,
+        clock="19:45",
+        game_pk=2025030131,
     )
 
     assert calibrated > 0.60

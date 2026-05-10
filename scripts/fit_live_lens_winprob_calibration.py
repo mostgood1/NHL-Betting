@@ -265,6 +265,7 @@ def main() -> int:
                     period=rec.get("period"),
                     clock=rec.get("clock"),
                     remaining_min=rm,
+                    game_pk=gpk,
                 )
                 primary_seg_key = seg_candidates[0] if seg_candidates else f"src={src or 'unknown'}"
 

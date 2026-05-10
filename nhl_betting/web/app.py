@@ -4083,6 +4083,7 @@ def _pick_live_lens_winprob_calibration_spec(
     elapsed_min: Optional[float] = None,
     period: Any = None,
     clock: Any = None,
+    game_pk: Any = None,
 ) -> dict:
     try:
         spec, _ = pick_live_lens_calibration_spec(
@@ -4092,6 +4093,7 @@ def _pick_live_lens_winprob_calibration_spec(
             period=period,
             clock=clock,
             remaining_min=remaining_min,
+            game_pk=game_pk,
         )
         if isinstance(spec, dict):
             return spec
@@ -4111,6 +4113,7 @@ def _apply_live_lens_winprob_calibration(
     elapsed_min: Optional[float] = None,
     period: Any = None,
     clock: Any = None,
+    game_pk: Any = None,
 ) -> float:
     try:
         p = float(max(1e-6, min(1.0 - 1e-6, float(p))))
@@ -4122,6 +4125,7 @@ def _apply_live_lens_winprob_calibration(
             elapsed_min=elapsed_min,
             period=period,
             clock=clock,
+            game_pk=game_pk,
         )
         kind = str((spec or {}).get("kind") or "temp_shift").strip().lower()
         if kind == "isotonic":
@@ -4315,6 +4319,33 @@ def _live_lens_driver_tag_edge_adjustment(market: Optional[str], driver_tags: An
         return out
 
 
+def _live_lens_use_prior_edge_in_decision() -> bool:
+    try:
+        return str(os.getenv("LIVE_LENS_PRIOR_EDGE_IN_DECISION", "0") or "0").strip().lower() in {"1", "true", "yes", "on"}
+    except Exception:
+        return False
+
+
+def _live_lens_required_edge_with_prior(required_edge: Optional[float], prior_adj: Any) -> Optional[float]:
+    try:
+        if required_edge is None:
+            return None
+        out = float(required_edge)
+        if not _live_lens_use_prior_edge_in_decision():
+            return out
+        edge_delta = None
+        if isinstance(prior_adj, dict):
+            try:
+                edge_delta = float(prior_adj.get("edge_delta")) if prior_adj.get("edge_delta") is not None else None
+            except Exception:
+                edge_delta = None
+        if edge_delta is None:
+            return out
+        return max(0.02, float(out) + float(edge_delta))
+    except Exception:
+        return required_edge
+
+
 def _live_lens_total_under_toxic_gate(elapsed_min: Optional[float], driver_tags: Any) -> dict:
     out = {"min_required_edge": None, "matched": []}
     try:
@@ -4437,6 +4468,412 @@ def _live_lens_total_under_early_gate(elapsed_min: Optional[float]) -> dict:
             return out
 
         out["blocked"] = float(em) <= float(min_elapsed)
+        return out
+    except Exception:
+        return out
+
+
+def _live_lens_is_playoff_game(game_pk: Any, game_type: Any = None) -> bool:
+    try:
+        gt = str(game_type or "").strip()
+        if gt:
+            return gt in {"03", "3", "P", "PLAYOFF", "PLAYOFFS", "POSTSEASON"}
+    except Exception:
+        pass
+    try:
+        s = str(int(game_pk))
+    except Exception:
+        s = str(game_pk or "").strip()
+    if len(s) >= 6:
+        return s[4:6] == "03"
+    return False
+
+
+def _live_lens_playoff_over_gate(
+    market: Optional[str],
+    side: Optional[str],
+    game_pk: Any,
+    *,
+    elapsed_min: Optional[float] = None,
+    period: Any = None,
+    period_elapsed_min: Optional[float] = None,
+    score_diff: Optional[int] = None,
+    pbp_ctx: Any = None,
+    game_type: Any = None,
+) -> dict:
+    out = {"blocked": False, "tag": None}
+    try:
+        if str(side or "").strip().upper() != "OVER":
+            return out
+        if not _live_lens_is_playoff_game(game_pk, game_type=game_type):
+            return out
+        mk = str(market or "").strip().upper()
+        if mk == "TOTAL":
+            try:
+                em = float(elapsed_min) if elapsed_min is not None else None
+            except Exception:
+                em = None
+            if em is None:
+                return out
+            try:
+                score_state_age_sec = None
+                if isinstance(pbp_ctx, dict):
+                    score_state_age_sec = pbp_ctx.get("score_state_age_sec")
+                score_state_age_sec = float(score_state_age_sec) if score_state_age_sec is not None else None
+            except Exception:
+                score_state_age_sec = None
+            try:
+                min_elapsed = float(os.getenv("LIVE_LENS_PLAYOFF_TOTAL_OVER_BLOCK_MIN_ELAPSED_MIN", "5.0"))
+            except Exception:
+                min_elapsed = 5.0
+            try:
+                max_elapsed = float(os.getenv("LIVE_LENS_PLAYOFF_TOTAL_OVER_BLOCK_MAX_ELAPSED_MIN", "20.0"))
+            except Exception:
+                max_elapsed = 20.0
+            if float(min_elapsed) <= float(em) < float(max_elapsed):
+                out["blocked"] = True
+                out["tag"] = f"gate:playoff_total_over_block_{float(min_elapsed):.0f}_{float(max_elapsed):.0f}"
+                return out
+            try:
+                if int(score_diff) == 0 and score_state_age_sec is not None:
+                    try:
+                        min_stale_sec = float(os.getenv("LIVE_LENS_PLAYOFF_TOTAL_OVER_TIED_STALE_MIN_SEC", "300"))
+                    except Exception:
+                        min_stale_sec = 300.0
+                    if float(score_state_age_sec) >= float(min_stale_sec):
+                        out["blocked"] = True
+                        out["tag"] = f"gate:playoff_total_over_tied_stale_{int(min_stale_sec // 60)}m"
+                        return out
+            except Exception:
+                pass
+            return out
+        if mk == "PERIOD_TOTAL":
+            try:
+                pn = int(period) if period is not None else None
+            except Exception:
+                pn = None
+            try:
+                pem = float(period_elapsed_min) if period_elapsed_min is not None else None
+            except Exception:
+                pem = None
+            if pn == 1 and pem is not None:
+                try:
+                    min_elapsed = float(os.getenv("LIVE_LENS_PLAYOFF_P1_OVER_BLOCK_MIN_ELAPSED_MIN", "5.0"))
+                except Exception:
+                    min_elapsed = 5.0
+                try:
+                    max_elapsed = float(os.getenv("LIVE_LENS_PLAYOFF_P1_OVER_BLOCK_MAX_ELAPSED_MIN", "15.0"))
+                except Exception:
+                    max_elapsed = 15.0
+                if float(min_elapsed) <= float(pem) < float(max_elapsed):
+                    out["blocked"] = True
+                    out["tag"] = f"gate:playoff_p1_over_block_{float(min_elapsed):.0f}_{float(max_elapsed):.0f}"
+                    return out
+            try:
+                score_state_age_sec = None
+                if isinstance(pbp_ctx, dict):
+                    score_state_age_sec = pbp_ctx.get("score_state_age_sec")
+                score_state_age_sec = float(score_state_age_sec) if score_state_age_sec is not None else None
+            except Exception:
+                score_state_age_sec = None
+            if score_state_age_sec is not None:
+                try:
+                    min_age_sec = float(os.getenv("LIVE_LENS_PLAYOFF_PERIOD_TOTAL_OVER_STALE_SCORE_STATE_MIN_SEC", "120"))
+                except Exception:
+                    min_age_sec = 120.0
+                try:
+                    max_age_sec = float(os.getenv("LIVE_LENS_PLAYOFF_PERIOD_TOTAL_OVER_STALE_SCORE_STATE_MAX_SEC", "600"))
+                except Exception:
+                    max_age_sec = 600.0
+                if float(min_age_sec) <= float(score_state_age_sec) < float(max_age_sec):
+                    out["blocked"] = True
+                    out["tag"] = f"gate:playoff_period_total_over_stale_score_state_{int(min_age_sec // 60)}_{int(max_age_sec // 60)}m"
+                    return out
+            try:
+                if int(score_diff) == 0:
+                    out["blocked"] = True
+                    out["tag"] = "gate:playoff_period_total_over_tied"
+            except Exception:
+                pass
+            return out
+        return out
+    except Exception:
+        return out
+
+
+def _live_lens_playoff_ml_gate(
+    side: Optional[str],
+    game_pk: Any,
+    *,
+    score_diff: Optional[int] = None,
+    elapsed_min: Optional[float] = None,
+    game_type: Any = None,
+) -> dict:
+    out = {"blocked": False, "min_required_edge": None, "tag": None}
+    try:
+        if not _live_lens_is_playoff_game(game_pk, game_type=game_type):
+            return out
+        ml_side = str(side or "").strip().upper()
+        try:
+            gd = int(score_diff)
+        except Exception:
+            gd = None
+
+        if ml_side == "HOME" and gd == 0:
+            try:
+                min_required_edge = float(os.getenv("LIVE_LENS_PLAYOFF_HOME_ML_TIED_REQUIRED_EDGE", "0.08"))
+            except Exception:
+                min_required_edge = 0.08
+            if min_required_edge is None or (not math.isfinite(min_required_edge)):
+                min_required_edge = 0.08
+            out["min_required_edge"] = float(min_required_edge)
+            out["tag"] = f"gate:playoff_home_ml_tied_edge>={float(min_required_edge):.02f}"
+            return out
+
+        if ml_side == "AWAY" and gd is not None and gd < 0:
+            try:
+                em = float(elapsed_min) if elapsed_min is not None else None
+            except Exception:
+                em = None
+            if em is None:
+                return out
+            try:
+                min_elapsed = float(os.getenv("LIVE_LENS_PLAYOFF_AWAY_ML_LEADING_BLOCK_MIN_ELAPSED_MIN", "35.0"))
+            except Exception:
+                min_elapsed = 35.0
+            try:
+                max_elapsed = float(os.getenv("LIVE_LENS_PLAYOFF_AWAY_ML_LEADING_BLOCK_MAX_ELAPSED_MIN", "50.0"))
+            except Exception:
+                max_elapsed = 50.0
+            if float(min_elapsed) <= float(em) < float(max_elapsed):
+                out["blocked"] = True
+                out["tag"] = f"gate:playoff_away_ml_leading_block_{float(min_elapsed):.0f}_{float(max_elapsed):.0f}"
+                return out
+        return out
+    except Exception:
+        return out
+
+
+def _live_lens_playoff_total_under_flow_gate(
+    side: Optional[str],
+    game_pk: Any,
+    *,
+    elapsed_min: Optional[float] = None,
+    score_diff: Optional[int] = None,
+    driver_tags: Any = None,
+    game_type: Any = None,
+) -> dict:
+    out = {"blocked": False, "tag": None}
+    try:
+        if str(side or "").strip().upper() != "UNDER":
+            return out
+        if not _live_lens_is_playoff_game(game_pk, game_type=game_type):
+            return out
+        try:
+            gd = int(score_diff)
+        except Exception:
+            gd = None
+        if gd is None or gd >= 0:
+            return out
+        try:
+            em = float(elapsed_min) if elapsed_min is not None else None
+        except Exception:
+            em = None
+        if em is None:
+            return out
+        try:
+            min_elapsed = float(os.getenv("LIVE_LENS_PLAYOFF_UNDER_AWAY_LEADING_STALE_MIN_ELAPSED_MIN", "35.0"))
+        except Exception:
+            min_elapsed = 35.0
+        try:
+            max_elapsed = float(os.getenv("LIVE_LENS_PLAYOFF_UNDER_AWAY_LEADING_STALE_MAX_ELAPSED_MIN", "60.0"))
+        except Exception:
+            max_elapsed = 60.0
+        if not (float(min_elapsed) <= float(em) < float(max_elapsed)):
+            return out
+
+        seen: set[str] = set()
+        try:
+            arr = driver_tags if isinstance(driver_tags, list) else [driver_tags]
+        except Exception:
+            arr = [driver_tags]
+        for x in arr:
+            try:
+                s = str(x or "").strip()
+            except Exception:
+                continue
+            if s:
+                seen.add(s)
+        if "goal_home" in seen or "goal_away" in seen:
+            return out
+
+        out["blocked"] = True
+        out["tag"] = f"gate:playoff_under_away_leading_stale_block_{float(min_elapsed):.0f}_{float(max_elapsed):.0f}"
+        return out
+    except Exception:
+        return out
+
+
+def _live_lens_flow_driver_meta(
+    *,
+    pbp_ctx: Any = None,
+    trigger_tags: Any = None,
+    home_goals: Any = None,
+    away_goals: Any = None,
+    elapsed_min: Any = None,
+    late_state_mode: Any = None,
+) -> dict[str, Any]:
+    out: dict[str, Any] = {}
+    try:
+        def _flow_float(x: Any) -> Optional[float]:
+            try:
+                v = float(x)
+                return v if math.isfinite(v) else None
+            except Exception:
+                return None
+
+        def _flow_int(x: Any) -> Optional[int]:
+            try:
+                return int(x) if x is not None else None
+            except Exception:
+                return None
+
+        seen: set[str] = set()
+        try:
+            arr = trigger_tags if isinstance(trigger_tags, list) else [trigger_tags]
+        except Exception:
+            arr = [trigger_tags]
+        norm_tags: list[str] = []
+        for x in arr:
+            try:
+                s = str(x or "").strip()
+            except Exception:
+                continue
+            if not s or s in seen:
+                continue
+            seen.add(s)
+            norm_tags.append(s)
+
+        score_state = None
+        score_diff = None
+        try:
+            hg = int(home_goals) if home_goals is not None else None
+            ag = int(away_goals) if away_goals is not None else None
+            if hg is not None and ag is not None:
+                score_diff = int(hg) - int(ag)
+                if int(score_diff) > 0:
+                    score_state = "home_leading"
+                elif int(score_diff) < 0:
+                    score_state = "away_leading"
+                else:
+                    score_state = "tied"
+        except Exception:
+            score_state = None
+            score_diff = None
+
+        recent_goal_team = "none"
+        if "goal_home" in seen and "goal_away" in seen:
+            recent_goal_team = "both"
+        elif "goal_home" in seen:
+            recent_goal_team = "home"
+        elif "goal_away" in seen:
+            recent_goal_team = "away"
+        recent_goal_state = "recent_goal" if recent_goal_team != "none" else "stale"
+
+        empty_net_state = "none"
+        if "empty_net:home" in seen and "empty_net:away" in seen:
+            empty_net_state = "both"
+        elif "empty_net:home" in seen:
+            empty_net_state = "home"
+        elif "empty_net:away" in seen:
+            empty_net_state = "away"
+
+        manpower_state = "even"
+        if "manpower:5v3" in seen:
+            manpower_state = "5v3"
+        elif "manpower:pp_home" in seen:
+            manpower_state = "pp_home"
+        elif "manpower:pp_away" in seen:
+            manpower_state = "pp_away"
+
+        xg_diff_l10 = None
+        att_diff_l5 = None
+        fo_diff_l10 = None
+        pp_state_age_sec = None
+        try:
+            if isinstance(pbp_ctx, dict):
+                hx = pbp_ctx.get("home_xg_proxy_l10")
+                ax = pbp_ctx.get("away_xg_proxy_l10")
+                if hx is not None and ax is not None:
+                    xg_diff_l10 = float(hx) - float(ax)
+        except Exception:
+            xg_diff_l10 = None
+        try:
+            if isinstance(pbp_ctx, dict):
+                ha5 = pbp_ctx.get("home_att_l5")
+                aa5 = pbp_ctx.get("away_att_l5")
+                if ha5 is not None and aa5 is not None:
+                    att_diff_l5 = int(ha5) - int(aa5)
+        except Exception:
+            att_diff_l5 = None
+        try:
+            if isinstance(pbp_ctx, dict):
+                hf = pbp_ctx.get("home_fo_pct_l10") if pbp_ctx.get("home_fo_pct_l10") is not None else pbp_ctx.get("home_fo_pct")
+                af = pbp_ctx.get("away_fo_pct_l10") if pbp_ctx.get("away_fo_pct_l10") is not None else pbp_ctx.get("away_fo_pct")
+                if hf is not None and af is not None:
+                    fo_diff_l10 = float(hf) - float(af)
+        except Exception:
+            fo_diff_l10 = None
+        try:
+            if isinstance(pbp_ctx, dict):
+                pp_team = str(pbp_ctx.get("pp_team") or "").strip().lower()
+                pp_rem = pbp_ctx.get("pp_sec_remaining_est")
+                if pp_team in {"home", "away"} and pp_rem is not None:
+                    pp_state_age_sec = int(max(0.0, min(120.0, 120.0 - float(pp_rem))))
+        except Exception:
+            pp_state_age_sec = None
+
+        out.update(
+            {
+                "score_state": score_state,
+                "score_diff": int(score_diff) if score_diff is not None else None,
+                "recent_goal_state": recent_goal_state,
+                "recent_goal_team": recent_goal_team,
+                "trigger_tags": norm_tags,
+                "manpower_state": manpower_state,
+                "empty_net_state": empty_net_state,
+                "late_state_mode": str(late_state_mode) if late_state_mode is not None else None,
+                "last_goal_team": (pbp_ctx or {}).get("last_goal_team") if isinstance(pbp_ctx, dict) else None,
+                "time_since_last_goal_sec": _flow_int((pbp_ctx or {}).get("time_since_last_goal_sec")) if isinstance(pbp_ctx, dict) else None,
+                "score_state_age_sec": _flow_int((pbp_ctx or {}).get("score_state_age_sec")) if isinstance(pbp_ctx, dict) else None,
+                "home_empty_net": bool((pbp_ctx or {}).get("home_empty_net")) if isinstance(pbp_ctx, dict) else None,
+                "away_empty_net": bool((pbp_ctx or {}).get("away_empty_net")) if isinstance(pbp_ctx, dict) else None,
+                "pp_team": (pbp_ctx or {}).get("pp_team") if isinstance(pbp_ctx, dict) else None,
+                "pp_sec_remaining_est": _flow_float((pbp_ctx or {}).get("pp_sec_remaining_est")) if isinstance(pbp_ctx, dict) else None,
+                "pp_state_age_sec": int(pp_state_age_sec) if pp_state_age_sec is not None else None,
+                "att_pace_60": _flow_float((pbp_ctx or {}).get("att_pace_60")) if isinstance(pbp_ctx, dict) else None,
+                "home_att_l5": _flow_int((pbp_ctx or {}).get("home_att_l5")) if isinstance(pbp_ctx, dict) else None,
+                "away_att_l5": _flow_int((pbp_ctx or {}).get("away_att_l5")) if isinstance(pbp_ctx, dict) else None,
+                "att_diff_l5": int(att_diff_l5) if att_diff_l5 is not None else None,
+                "home_fo_pct": _flow_float((pbp_ctx or {}).get("home_fo_pct")) if isinstance(pbp_ctx, dict) else None,
+                "away_fo_pct": _flow_float((pbp_ctx or {}).get("away_fo_pct")) if isinstance(pbp_ctx, dict) else None,
+                "home_fo_pct_l10": _flow_float((pbp_ctx or {}).get("home_fo_pct_l10")) if isinstance(pbp_ctx, dict) else None,
+                "away_fo_pct_l10": _flow_float((pbp_ctx or {}).get("away_fo_pct_l10")) if isinstance(pbp_ctx, dict) else None,
+                "fo_diff_l10": float(fo_diff_l10) if fo_diff_l10 is not None else None,
+                "home_xg_proxy": _flow_float((pbp_ctx or {}).get("home_xg_proxy")) if isinstance(pbp_ctx, dict) else None,
+                "away_xg_proxy": _flow_float((pbp_ctx or {}).get("away_xg_proxy")) if isinstance(pbp_ctx, dict) else None,
+                "home_xg_proxy_l10": _flow_float((pbp_ctx or {}).get("home_xg_proxy_l10")) if isinstance(pbp_ctx, dict) else None,
+                "away_xg_proxy_l10": _flow_float((pbp_ctx or {}).get("away_xg_proxy_l10")) if isinstance(pbp_ctx, dict) else None,
+                "xg_diff_l10": float(xg_diff_l10) if xg_diff_l10 is not None else None,
+                "pp_start_home": bool("pp_start_home" in seen),
+                "pp_start_away": bool("pp_start_away" in seen),
+                "pp_end_home": bool("pp_end_home" in seen),
+                "pp_end_away": bool("pp_end_away" in seen),
+                "pulled_goalie_home": bool("pulled_goalie_home" in seen),
+                "pulled_goalie_away": bool("pulled_goalie_away" in seen),
+                "elapsed_min": _flow_float(elapsed_min),
+            }
+        )
         return out
     except Exception:
         return out
@@ -7792,6 +8229,9 @@ async def v1_live_lens_combined(
                         home_att_l5 = away_att_l5 = 0
                         home_xg = away_xg = 0.0
                         home_xg_l10 = away_xg_l10 = 0.0
+                        last_goal_abs = None
+                        last_goal_team = None
+                        score_state_age_sec = None
 
                         # Faceoffs (wins + attempts) overall and recent window.
                         home_fo_w = away_fo_w = 0
@@ -7860,6 +8300,15 @@ async def v1_live_lens_combined(
                                         if abs_sec is not None and (cur_abs_sec - abs_sec) <= 10 * 60:
                                             away_xg_l10 += w
 
+                                    if td == "goal" and abs_sec is not None and abs_sec <= cur_abs_sec:
+                                        last_goal_abs = int(abs_sec)
+                                        if tid == home_id:
+                                            last_goal_team = "home"
+                                        elif tid == away_id:
+                                            last_goal_team = "away"
+                                        else:
+                                            last_goal_team = None
+
                                 # Faceoffs
                                 if td == "faceoff":
                                     # Each faceoff is an attempt for both teams.
@@ -7898,6 +8347,19 @@ async def v1_live_lens_combined(
                             "home_fo_taken_l10": int(home_fo_t_l10),
                             "away_fo_taken_l10": int(away_fo_t_l10),
                         })
+
+                        try:
+                            if cur_abs_sec is not None:
+                                if last_goal_abs is not None:
+                                    pbp_ctx["time_since_last_goal_sec"] = int(max(0, cur_abs_sec - last_goal_abs))
+                                    score_state_age_sec = int(max(0, cur_abs_sec - last_goal_abs))
+                                    pbp_ctx["last_goal_team"] = last_goal_team
+                                elif int(home_goals or 0) == 0 and int(away_goals or 0) == 0:
+                                    score_state_age_sec = int(max(0, cur_abs_sec))
+                            if score_state_age_sec is not None:
+                                pbp_ctx["score_state_age_sec"] = int(score_state_age_sec)
+                        except Exception:
+                            pass
 
                         # Derived FO% metrics (0..100) for UI + signal heuristics.
                         try:
@@ -8499,6 +8961,7 @@ async def v1_live_lens_combined(
                         action = "WATCH"
                         prior_adj = {"edge_delta": 0.0, "matched": []}
                         under_early_blocked = False
+                        playoff_over_blocked = False
 
                         # Baseline required edge vs game time (regulation minutes).
                         required_edge = 1e9
@@ -8566,12 +9029,16 @@ async def v1_live_lens_combined(
                                     driver_tags.append(t)
                         except Exception:
                             pass
+                        try:
+                            for t in trigger_tags:
+                                if t not in driver_tags:
+                                    driver_tags.append(t)
+                        except Exception:
+                            pass
 
                         try:
                             prior_adj = _live_lens_driver_tag_edge_adjustment("TOTAL", driver_tags, side=side)
-                            edge_delta = _to_float((prior_adj or {}).get("edge_delta"))
-                            if edge_delta is not None:
-                                required_edge = max(0.02, float(required_edge) + float(edge_delta))
+                            required_edge = _live_lens_required_edge_with_prior(required_edge, prior_adj)
                         except Exception:
                             prior_adj = {"edge_delta": 0.0, "matched": []}
 
@@ -8579,6 +9046,7 @@ async def v1_live_lens_combined(
                             if side == "UNDER":
                                 under_early_gate = _live_lens_total_under_early_gate(em)
                                 under_early_blocked = bool((under_early_gate or {}).get("blocked"))
+                                playoff_under_flow_blocked = False
                                 under_min_elapsed = _to_float((under_early_gate or {}).get("min_elapsed"))
                                 if under_early_blocked and under_min_elapsed is not None:
                                     under_early_tag = f"gate:under_min_elapsed>{float(under_min_elapsed):.0f}"
@@ -8598,10 +9066,36 @@ async def v1_live_lens_combined(
                                         driver_tags.append(toxic_gate_tag)
                                     if "gate:under_toxic_ctx" not in driver_tags:
                                         driver_tags.append("gate:under_toxic_ctx")
+
+                                playoff_under_flow_gate = _live_lens_playoff_total_under_flow_gate(
+                                    side,
+                                    gamePk,
+                                    elapsed_min=em,
+                                    score_diff=(int(home_goals) - int(away_goals)) if home_goals is not None and away_goals is not None else None,
+                                    driver_tags=driver_tags,
+                                    game_type=g.get("gameType"),
+                                )
+                                playoff_under_flow_blocked = bool((playoff_under_flow_gate or {}).get("blocked"))
+                                playoff_under_flow_tag = str((playoff_under_flow_gate or {}).get("tag") or "").strip()
+                                if playoff_under_flow_blocked and playoff_under_flow_tag and playoff_under_flow_tag not in driver_tags:
+                                    driver_tags.append(playoff_under_flow_tag)
+                            else:
+                                playoff_over_gate = _live_lens_playoff_over_gate(
+                                    "TOTAL",
+                                    side,
+                                    gamePk,
+                                    elapsed_min=em,
+                                    score_diff=(int(home_goals) - int(away_goals)) if home_goals is not None and away_goals is not None else None,
+                                    pbp_ctx=pbp_ctx,
+                                )
+                                playoff_over_blocked = bool((playoff_over_gate or {}).get("blocked"))
+                                playoff_over_tag = str((playoff_over_gate or {}).get("tag") or "").strip()
+                                if playoff_over_blocked and playoff_over_tag and playoff_over_tag not in driver_tags:
+                                    driver_tags.append(playoff_over_tag)
                         except Exception:
                             pass
 
-                        if (not under_early_blocked) and abs_edge >= float(required_edge):
+                        if (not under_early_blocked) and (not locals().get("playoff_under_flow_blocked", False)) and (not playoff_over_blocked) and abs_edge >= float(required_edge):
                             action = "BET"
 
                         try:
@@ -8642,6 +9136,14 @@ async def v1_live_lens_combined(
                         p_target = max(0.01, min(0.99, float(p_model) - 0.03))
                         fair = _prob_to_american(float(p_model))
                         max_price = _prob_to_american(float(p_target))
+                        flow_meta = _live_lens_flow_driver_meta(
+                            pbp_ctx=pbp_ctx,
+                            trigger_tags=trigger_tags,
+                            home_goals=home_goals,
+                            away_goals=away_goals,
+                            elapsed_min=em,
+                            late_state_mode=late_state_mode,
+                        )
                         signals.append(_signal(
                             action,
                             scope="game",
@@ -8673,10 +9175,7 @@ async def v1_live_lens_combined(
                                 "pace_mult": float(pace_mult) if pace_mult is not None else None,
                                 "goalie_mult": float(goalie_mult) if goalie_mult is not None else None,
                                 "odds_age_sec": float(odds_age_sec) if odds_age_sec is not None else None,
-                                "pp_team": pbp_ctx.get("pp_team"),
-                                "home_empty_net": bool(pbp_ctx.get("home_empty_net")),
-                                "away_empty_net": bool(pbp_ctx.get("away_empty_net")),
-                            },
+                            } | flow_meta,
                         ))
             except Exception:
                 pass
@@ -8876,6 +9375,7 @@ async def v1_live_lens_combined(
                                 abs_edge = abs(float(edge))
                                 action = "WATCH"
                                 required_edge = None
+                                playoff_over_blocked = False
                                 # Scale the game-total gates down for a 20-minute period.
                                 if per_elapsed_min >= 4.0:
                                     required_edge = 0.04
@@ -8892,6 +9392,22 @@ async def v1_live_lens_combined(
                                 except Exception:
                                     pass
                                 try:
+                                    playoff_over_gate = _live_lens_playoff_over_gate(
+                                        "PERIOD_TOTAL",
+                                        side,
+                                        gamePk,
+                                        period=per_i,
+                                        period_elapsed_min=per_elapsed_min,
+                                        score_diff=(int(home_goals) - int(away_goals)) if (home_goals is not None and away_goals is not None) else None,
+                                        pbp_ctx=pbp_ctx,
+                                    )
+                                    playoff_over_blocked = bool((playoff_over_gate or {}).get("blocked"))
+                                    playoff_over_tag = str((playoff_over_gate or {}).get("tag") or "").strip()
+                                    if playoff_over_blocked and playoff_over_tag and playoff_over_tag not in driver_tags:
+                                        driver_tags.append(playoff_over_tag)
+                                except Exception:
+                                    playoff_over_blocked = False
+                                try:
                                     # Sim-vs-act drift for the *period* (analogous to NBA Live Lens driver)
                                     mu_sofar = float((_to_float((period_proj or {}).get("mu_total_full_model")) or mu_per_full)) * (float(per_elapsed_min) / 20.0)
                                     drift = float(per_goals) - float(mu_sofar)
@@ -8902,12 +9418,10 @@ async def v1_live_lens_combined(
                                     prior_adj = {"edge_delta": 0.0, "matched": []}
                                     try:
                                         prior_adj = _live_lens_driver_tag_edge_adjustment("PERIOD_TOTAL", driver_tags, side=side)
-                                        edge_delta = _to_float((prior_adj or {}).get("edge_delta"))
-                                        if required_edge is not None and edge_delta is not None:
-                                            required_edge = max(0.02, float(required_edge) + float(edge_delta))
+                                        required_edge = _live_lens_required_edge_with_prior(required_edge, prior_adj)
                                     except Exception:
                                         prior_adj = {"edge_delta": 0.0, "matched": []}
-                                    if required_edge is not None and abs_edge >= float(required_edge):
+                                    if (not playoff_over_blocked) and required_edge is not None and abs_edge >= float(required_edge):
                                         action = "BET"
                                     try:
                                         if action == "BET" and required_edge is not None:
@@ -9008,8 +9522,14 @@ async def v1_live_lens_combined(
                                         "goalie_mult": float(goalie_mult) if goalie_mult is not None else None,
                                         "tag_prior_edge_delta": float(_to_float((prior_adj or {}).get("edge_delta")) or 0.0),
                                         "tag_prior_matches": [m.get("tag") for m in ((prior_adj or {}).get("matched") or []) if isinstance(m, dict) and m.get("tag")],
-                                        "pp_team": pbp_ctx.get("pp_team"),
-                                    },
+                                    } | _live_lens_flow_driver_meta(
+                                        pbp_ctx=pbp_ctx,
+                                        trigger_tags=trigger_tags,
+                                        home_goals=home_goals,
+                                        away_goals=away_goals,
+                                        elapsed_min=em,
+                                        late_state_mode=late_state_mode,
+                                    ),
                                 ))
                     except Exception:
                         pass
@@ -9153,9 +9673,7 @@ async def v1_live_lens_combined(
                                     prior_adj = {"edge_delta": 0.0, "matched": []}
                                     try:
                                         prior_adj = _live_lens_driver_tag_edge_adjustment("PERIOD_ML", driver_tags, side=side)
-                                        edge_delta = _to_float((prior_adj or {}).get("edge_delta"))
-                                        if required_edge is not None and edge_delta is not None:
-                                            required_edge = max(0.02, float(required_edge) + float(edge_delta))
+                                        required_edge = _live_lens_required_edge_with_prior(required_edge, prior_adj)
                                     except Exception:
                                         prior_adj = {"edge_delta": 0.0, "matched": []}
                                     if required_edge is not None and abs_edge >= float(required_edge):
@@ -9208,8 +9726,14 @@ async def v1_live_lens_combined(
                                             "goalie_mult": float(goalie_mult) if goalie_mult is not None else None,
                                             "tag_prior_edge_delta": float(_to_float((prior_adj or {}).get("edge_delta")) or 0.0),
                                             "tag_prior_matches": [m.get("tag") for m in ((prior_adj or {}).get("matched") or []) if isinstance(m, dict) and m.get("tag")],
-                                            "pp_team": pbp_ctx.get("pp_team"),
-                                        },
+                                        } | _live_lens_flow_driver_meta(
+                                            pbp_ctx=pbp_ctx,
+                                            trigger_tags=trigger_tags,
+                                            home_goals=home_goals,
+                                            away_goals=away_goals,
+                                            elapsed_min=em,
+                                            late_state_mode=late_state_mode,
+                                        ),
                                     ))
                     except Exception:
                         pass
@@ -9394,6 +9918,7 @@ async def v1_live_lens_combined(
                                     elapsed_min=em,
                                     period=g.get("period"),
                                     clock=g.get("clock"),
+                                    game_pk=g.get("gamePk"),
                                 )
                             )
                             p_home_live = float(max(0.01, min(0.99, p_home_live)))
@@ -9452,6 +9977,7 @@ async def v1_live_lens_combined(
                                 edge = (float(ml_watch_p) - float(implied)) if implied is not None else None
                                 action = "WATCH"
                                 prior_adj = {"edge_delta": 0.0, "matched": []}
+                                playoff_ml_gate = {"min_required_edge": None, "tag": None}
                                 required_edge = None
                                 try:
                                     if float(em) >= 8.0:
@@ -9463,13 +9989,34 @@ async def v1_live_lens_combined(
 
                                 try:
                                     prior_adj = _live_lens_driver_tag_edge_adjustment("ML", driver_tags, side=side)
-                                    edge_delta = _to_float((prior_adj or {}).get("edge_delta"))
-                                    if required_edge is not None and edge_delta is not None:
-                                        required_edge = max(0.02, float(required_edge) + float(edge_delta))
+                                    required_edge = _live_lens_required_edge_with_prior(required_edge, prior_adj)
                                 except Exception:
                                     prior_adj = {"edge_delta": 0.0, "matched": []}
 
-                                if edge is not None and float(edge) >= 0.03 and required_edge is not None and float(edge) >= float(required_edge):
+                                try:
+                                    playoff_ml_gate = _live_lens_playoff_ml_gate(
+                                        ml_watch_side,
+                                        g.get("gamePk"),
+                                        score_diff=gd,
+                                        elapsed_min=em,
+                                        game_type=g.get("gameType"),
+                                    )
+                                    playoff_min_edge = _to_float((playoff_ml_gate or {}).get("min_required_edge"))
+                                    if required_edge is None:
+                                        required_edge = playoff_min_edge
+                                    elif playoff_min_edge is not None:
+                                        required_edge = max(float(required_edge), float(playoff_min_edge))
+                                except Exception:
+                                    playoff_ml_gate = {"min_required_edge": None, "tag": None}
+
+                                try:
+                                    gate_tag = str((playoff_ml_gate or {}).get("tag") or "").strip()
+                                    if gate_tag:
+                                        driver_tags.append(gate_tag)
+                                except Exception:
+                                    pass
+
+                                if (playoff_ml_gate or {}).get("blocked") is not True and edge is not None and float(edge) >= 0.03 and required_edge is not None and float(edge) >= float(required_edge):
                                     action = "BET"
 
                                 if action == "BET":
@@ -9516,8 +10063,14 @@ async def v1_live_lens_combined(
                                         "book": str(book) if book is not None else None,
                                         "tag_prior_edge_delta": float(_to_float((prior_adj or {}).get("edge_delta")) or 0.0),
                                         "tag_prior_matches": [m.get("tag") for m in ((prior_adj or {}).get("matched") or []) if isinstance(m, dict) and m.get("tag")],
-                                        "pp_team": pbp_ctx.get("pp_team"),
-                                    },
+                                    } | _live_lens_flow_driver_meta(
+                                        pbp_ctx=pbp_ctx,
+                                        trigger_tags=trigger_tags,
+                                        home_goals=home_goals,
+                                        away_goals=away_goals,
+                                        elapsed_min=em,
+                                        late_state_mode=late_state_mode,
+                                    ),
                                 ))
                         except Exception:
                             pass
@@ -9596,9 +10149,7 @@ async def v1_live_lens_combined(
 
                                     try:
                                         prior_adj = _live_lens_driver_tag_edge_adjustment("PUCKLINE", driver_tags, side=side)
-                                        edge_delta = _to_float((prior_adj or {}).get("edge_delta"))
-                                        if required_edge is not None and edge_delta is not None:
-                                            required_edge = max(0.02, float(required_edge) + float(edge_delta))
+                                        required_edge = _live_lens_required_edge_with_prior(required_edge, prior_adj)
                                     except Exception:
                                         prior_adj = {"edge_delta": 0.0, "matched": []}
 
@@ -9649,8 +10200,14 @@ async def v1_live_lens_combined(
                                             "tag_prior_matches": [m.get("tag") for m in ((prior_adj or {}).get("matched") or []) if isinstance(m, dict) and m.get("tag")],
                                             "odds_age_sec": float(odds_age_sec) if odds_age_sec is not None else None,
                                             "book": str(book) if book is not None else None,
-                                            "pp_team": pbp_ctx.get("pp_team"),
-                                        },
+                                        } | _live_lens_flow_driver_meta(
+                                            pbp_ctx=pbp_ctx,
+                                            trigger_tags=trigger_tags,
+                                            home_goals=home_goals,
+                                            away_goals=away_goals,
+                                            elapsed_min=em,
+                                            late_state_mode=late_state_mode,
+                                        ),
                                     ))
                         except Exception:
                             pass
@@ -9724,9 +10281,7 @@ async def v1_live_lens_combined(
 
                                 try:
                                     prior_adj = _live_lens_driver_tag_edge_adjustment("REG_3WAY", driver_tags, side=side)
-                                    edge_delta = _to_float((prior_adj or {}).get("edge_delta"))
-                                    if required_edge is not None and edge_delta is not None:
-                                        required_edge = max(0.02, float(required_edge) + float(edge_delta))
+                                    required_edge = _live_lens_required_edge_with_prior(required_edge, prior_adj)
                                 except Exception:
                                     prior_adj = {"edge_delta": 0.0, "matched": []}
 
@@ -9790,8 +10345,14 @@ async def v1_live_lens_combined(
                                         "tag_prior_matches": [m.get("tag") for m in ((prior_adj or {}).get("matched") or []) if isinstance(m, dict) and m.get("tag")],
                                         "odds_age_sec": float(odds_age_sec) if odds_age_sec is not None else None,
                                         "book": str(book) if 'book' in locals() and book is not None else None,
-                                        "pp_team": pbp_ctx.get("pp_team"),
-                                    },
+                                    } | _live_lens_flow_driver_meta(
+                                        pbp_ctx=pbp_ctx,
+                                        trigger_tags=trigger_tags,
+                                        home_goals=home_goals,
+                                        away_goals=away_goals,
+                                        elapsed_min=em,
+                                        late_state_mode=late_state_mode,
+                                    ),
                                 ))
             except Exception:
                 pass
@@ -9885,9 +10446,7 @@ async def v1_live_lens_combined(
                                 out["required_edge"] = 0.06
                         prior_adj = _live_lens_driver_tag_edge_adjustment(market, driver_tags or [], side=side)
                         out["prior_adj"] = prior_adj if isinstance(prior_adj, dict) else {"edge_delta": 0.0, "matched": []}
-                        edge_delta = _to_float((out["prior_adj"] or {}).get("edge_delta"))
-                        if out.get("required_edge") is not None and edge_delta is not None:
-                            out["required_edge"] = max(0.02, float(out["required_edge"]) + float(edge_delta))
+                        out["required_edge"] = _live_lens_required_edge_with_prior(out.get("required_edge"), out["prior_adj"])
                         req = out.get("required_edge")
                         if req is not None and abs(float(edge)) >= float(req):
                             out["action"] = "BET"

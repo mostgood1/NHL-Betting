@@ -158,6 +158,28 @@ def live_lens_remaining_bucket(remaining_min: Any, *, missing_label: str = "unkn
     return "40-60"
 
 
+def live_lens_season_type(game_pk: Any = None, game_type: Any = None) -> Optional[str]:
+    try:
+        gt = str(game_type or "").strip().upper()
+    except Exception:
+        gt = ""
+    if gt in {"02", "2", "R", "REG", "REGULAR", "REGULAR_SEASON"}:
+        return "REGULAR"
+    if gt in {"03", "3", "P", "PLAYOFF", "PLAYOFFS", "POSTSEASON"}:
+        return "PLAYOFF"
+    try:
+        s = str(int(game_pk))
+    except Exception:
+        s = str(game_pk or "").strip()
+    if len(s) >= 6:
+        type_code = s[4:6]
+        if type_code == "02":
+            return "REGULAR"
+        if type_code == "03":
+            return "PLAYOFF"
+    return None
+
+
 def live_lens_calibration_segment_candidates(
     prob_source: Any,
     *,
@@ -165,9 +187,14 @@ def live_lens_calibration_segment_candidates(
     period: Any = None,
     clock: Any = None,
     remaining_min: Any = None,
+    game_pk: Any = None,
+    game_type: Any = None,
 ) -> list[str]:
     src = normalize_live_lens_prob_source(prob_source)
     out: list[str] = []
+    season_type = live_lens_season_type(game_pk=game_pk, game_type=game_type)
+    season_specific: list[str] = []
+    legacy: list[str] = []
 
     phase = live_lens_game_phase(elapsed_min=elapsed_min, period=period, clock=clock)
     if phase:
@@ -185,16 +212,28 @@ def live_lens_calibration_segment_candidates(
             bin_seconds=60,
             missing_label="",
         )
+        if season_type and bucket_15s:
+            season_specific.append(f"src={src}|season={season_type}|phase={phase}|t15={bucket_15s}")
         if bucket_15s:
-            out.append(f"src={src}|phase={phase}|t15={bucket_15s}")
+            legacy.append(f"src={src}|phase={phase}|t15={bucket_15s}")
+        if season_type and bucket_1m:
+            season_specific.append(f"src={src}|season={season_type}|phase={phase}|t1={bucket_1m}")
         if bucket_1m:
-            out.append(f"src={src}|phase={phase}|t1={bucket_1m}")
-        out.append(f"src={src}|phase={phase}")
+            legacy.append(f"src={src}|phase={phase}|t1={bucket_1m}")
+        if season_type:
+            season_specific.append(f"src={src}|season={season_type}|phase={phase}")
+        legacy.append(f"src={src}|phase={phase}")
 
     legacy_rm = live_lens_remaining_bucket(remaining_min, missing_label="")
+    if season_type and legacy_rm:
+        season_specific.append(f"src={src}|season={season_type}|rm={legacy_rm}")
     if legacy_rm:
-        out.append(f"src={src}|rm={legacy_rm}")
+        legacy.append(f"src={src}|rm={legacy_rm}")
 
+    if season_type:
+        season_specific.append(f"src={src}|season={season_type}")
+    out.extend(season_specific)
+    out.extend(legacy)
     out.append(f"src={src}")
 
     deduped: list[str] = []
@@ -215,6 +254,8 @@ def pick_live_lens_calibration_spec(
     period: Any = None,
     clock: Any = None,
     remaining_min: Any = None,
+    game_pk: Any = None,
+    game_type: Any = None,
 ) -> tuple[dict[str, Any], str]:
     default = obj.get("default") if isinstance(obj, dict) else None
     segments = obj.get("segments") if isinstance(obj, dict) else None
@@ -229,6 +270,8 @@ def pick_live_lens_calibration_spec(
         period=period,
         clock=clock,
         remaining_min=remaining_min,
+        game_pk=game_pk,
+        game_type=game_type,
     )
     for key in candidates:
         spec = segments.get(key)

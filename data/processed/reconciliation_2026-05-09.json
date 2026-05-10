@@ -1,0 +1,63 @@
+{
+  "summary": {
+    "date": "2026-05-09",
+    "picks": 4,
+    "decided": 4,
+    "wins": 2,
+    "losses": 2,
+    "pushes": 0,
+    "staked": 400.0,
+    "pnl": 4.03361344537818,
+    "roi": 0.010084033613445448
+  },
+  "rows": [
+    {
+      "date": "2026-05-09T22:00:00Z",
+      "home": "Philadelphia Flyers",
+      "away": "Carolina Hurricanes",
+      "market": "totals",
+      "bet": "over",
+      "ev": 0.1518,
+      "price": 120.0,
+      "result": "loss",
+      "stake": 100.0,
+      "payout": -100.0
+    },
+    {
+      "date": "2026-05-10T01:00:00Z",
+      "home": "Minnesota Wild",
+      "away": "Colorado Avalanche",
+      "market": "moneyline",
+      "bet": "home_ml",
+      "ev": 0.0511,
+      "price": 120,
+      "result": "win",
+      "stake": 100.0,
+      "payout": 120.00000000000001
+    },
+    {
+      "date": "2026-05-10T01:00:00Z",
+      "home": "Minnesota Wild",
+      "away": "Colorado Avalanche",
+      "market": "totals",
+      "bet": "under",
+      "ev": 0.0302,
+      "price": -119.0,
+      "result": "win",
+      "stake": 100.0,
+      "payout": 84.03361344537817
+    },
+    {
+      "date": "2026-05-10T01:00:00Z",
+      "home": "Minnesota Wild",
+      "away": "Colorado Avalanche",
+      "market": "puckline",
+      "bet": "away_pl_+1.5",
+      "ev": 0.574,
+      "price": NaN,
+      "result": "loss",
+      "stake": 100.0,
+      "payout": -100.0
+    }
+  ]
+}

@@ -267,7 +267,69 @@
           }
         ]
       },
-      "reconciliation": null
+      "reconciliation": {
+        "rows": [
+          {
+            "away": "Carolina Hurricanes",
+            "bet": "over",
+            "date": "2026-05-09T22:00:00Z",
+            "ev": 0.1518,
+            "home": "Philadelphia Flyers",
+            "market": "totals",
+            "payout": -100.0,
+            "price": 120.0,
+            "result": "loss",
+            "stake": 100.0
+          },
+          {
+            "away": "Colorado Avalanche",
+            "bet": "home_ml",
+            "date": "2026-05-10T01:00:00Z",
+            "ev": 0.0511,
+            "home": "Minnesota Wild",
+            "market": "moneyline",
+            "payout": 120.00000000000001,
+            "price": 120,
+            "result": "win",
+            "stake": 100.0
+          },
+          {
+            "away": "Colorado Avalanche",
+            "bet": "under",
+            "date": "2026-05-10T01:00:00Z",
+            "ev": 0.0302,
+            "home": "Minnesota Wild",
+            "market": "totals",
+            "payout": 84.03361344537817,
+            "price": -119.0,
+            "result": "win",
+            "stake": 100.0
+          },
+          {
+            "away": "Colorado Avalanche",
+            "bet": "away_pl_+1.5",
+            "date": "2026-05-10T01:00:00Z",
+            "ev": 0.574,
+            "home": "Minnesota Wild",
+            "market": "puckline",
+            "payout": -100.0,
+            "price": null,
+            "result": "loss",
+            "stake": 100.0
+          }
+        ],
+        "summary": {
+          "date": "2026-05-09",
+          "decided": 4,
+          "losses": 2,
+          "picks": 4,
+          "pnl": 4.03361344537818,
+          "pushes": 0,
+          "roi": 0.010084033613445448,
+          "staked": 400.0,
+          "wins": 2
+        }
+      }
     },
     "props": {
       "recommendations": {
@@ -360,7 +422,99 @@
         ],
         "source": "props_recommendations_2026-05-09.csv"
       },
-      "reconciliation": null
+      "reconciliation": {
+        "rows": [
+          {
+            "actual": 0.0,
+            "date": "2026-05-09",
+            "ev": 0.2905670102145375,
+            "line": 0.5,
+            "market": "ASSISTS",
+            "odds": -154.0,
+            "payout": 64.93506493506493,
+            "player": "Sebastian Aho",
+            "result": "win",
+            "side": "Under",
+            "stake": 100.0
+          },
+          {
+            "actual": 3.0,
+            "date": "2026-05-09",
+            "ev": 0.4686569897300013,
+            "line": 2.5,
+            "market": "SOG",
+            "odds": -114.0,
+            "payout": 87.71929824561404,
+            "player": "Andrei Svechnikov",
+            "result": "win",
+            "side": "Over",
+            "stake": 100.0
+          },
+          {
+            "actual": 3.0,
+            "date": "2026-05-09",
+            "ev": 0.2352928794279726,
+            "line": 1.5,
+            "market": "SOG",
+            "odds": -170.0,
+            "payout": 58.82352941176472,
+            "player": "Taylor Hall",
+            "result": "win",
+            "side": "Over",
+            "stake": 100.0
+          },
+          {
+            "actual": 0.0,
+            "date": "2026-05-09",
+            "ev": 0.5510891481013873,
+            "line": 0.5,
+            "market": "POINTS",
+            "odds": 120.0,
+            "payout": 120.00000000000001,
+            "player": "Seth Jarvis",
+            "result": "win",
+            "side": "Under",
+            "stake": 100.0
+          },
+          {
+            "actual": 3.0,
+            "date": "2026-05-09",
+            "ev": 0.5234978956481547,
+            "line": 0.5,
+            "market": "POINTS",
+            "odds": -110.0,
+            "payout": 90.90909090909092,
+            "player": "Taylor Hall",
+            "result": "win",
+            "side": "Over",
+            "stake": 100.0
+          },
+          {
+            "actual": 1.0,
+            "date": "2026-05-09",
+            "ev": 0.4393174789278393,
+            "line": 0.5,
+            "market": "POINTS",
+            "odds": -115.0,
+            "payout": 86.95652173913042,
+            "player": "Logan Stankoven",
+            "result": "win",
+            "side": "Over",
+            "stake": 100.0
+          }
+        ],
+        "summary": {
+          "date": "2026-05-09",
+          "decided": 6,
+          "losses": 0,
+          "picks": 6,
+          "pnl": 509.3435052406651,
+          "pushes": 0,
+          "roi": 0.8489058420677751,
+          "staked": 600.0,
+          "wins": 6
+        }
+      }
     }
   },
   "date": "2026-05-09",
@@ -369,9 +523,9 @@
     "game_recommendations": "data/processed/recommendations_sim_2026-05-09.csv",
     "predictions": "data/processed/predictions_sim_2026-05-09.csv",
     "props_recommendations": "data/processed/props_recommendations_2026-05-09.csv",
-    "reconciliation_games": null,
-    "reconciliation_props": null
+    "reconciliation_games": "data/processed/reconciliation_2026-05-09.json",
+    "reconciliation_props": "data/processed/reconciliation_props_2026-05-09.json"
   },
-  "generated_at_utc": "2026-05-10T01:40:55+00:00",
+  "generated_at_utc": "2026-05-10T14:25:10+00:00",
   "schema_version": 2
 }

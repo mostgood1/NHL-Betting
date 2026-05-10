@@ -1,0 +1,93 @@
+{
+  "summary": {
+    "date": "2026-05-09",
+    "picks": 6,
+    "decided": 6,
+    "wins": 6,
+    "losses": 0,
+    "pushes": 0,
+    "staked": 600.0,
+    "pnl": 509.3435052406651,
+    "roi": 0.8489058420677751
+  },
+  "rows": [
+    {
+      "date": "2026-05-09",
+      "market": "ASSISTS",
+      "player": "Sebastian Aho",
+      "line": 0.5,
+      "side": "Under",
+      "odds": -154.0,
+      "ev": 0.2905670102145375,
+      "actual": 0.0,
+      "result": "win",
+      "stake": 100.0,
+      "payout": 64.93506493506493
+    },
+    {
+      "date": "2026-05-09",
+      "market": "SOG",
+      "player": "Andrei Svechnikov",
+      "line": 2.5,
+      "side": "Over",
+      "odds": -114.0,
+      "ev": 0.4686569897300013,
+      "actual": 3.0,
+      "result": "win",
+      "stake": 100.0,
+      "payout": 87.71929824561404
+    },
+    {
+      "date": "2026-05-09",
+      "market": "SOG",
+      "player": "Taylor Hall",
+      "line": 1.5,
+      "side": "Over",
+      "odds": -170.0,
+      "ev": 0.2352928794279726,
+      "actual": 3.0,
+      "result": "win",
+      "stake": 100.0,
+      "payout": 58.82352941176472
+    },
+    {
+      "date": "2026-05-09",
+      "market": "POINTS",
+      "player": "Seth Jarvis",
+      "line": 0.5,
+      "side": "Under",
+      "odds": 120.0,
+      "ev": 0.5510891481013873,
+      "actual": 0.0,
+      "result": "win",
+      "stake": 100.0,
+      "payout": 120.00000000000001
+    },
+    {
+      "date": "2026-05-09",
+      "market": "POINTS",
+      "player": "Taylor Hall",
+      "line": 0.5,
+      "side": "Over",
+      "odds": -110.0,
+      "ev": 0.5234978956481547,
+      "actual": 3.0,
+      "result": "win",
+      "stake": 100.0,
+      "payout": 90.90909090909092
+    },
+    {
+      "date": "2026-05-09",
+      "market": "POINTS",
+      "player": "Logan Stankoven",
+      "line": 0.5,
+      "side": "Over",
+      "odds": -115.0,
+      "ev": 0.4393174789278393,
+      "actual": 1.0,
+      "result": "win",
+      "stake": 100.0,
+      "payout": 86.95652173913042
+    }
+  ]
+}

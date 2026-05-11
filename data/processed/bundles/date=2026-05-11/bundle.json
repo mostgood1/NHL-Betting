@@ -6,63 +6,63 @@
         "rows": [
           {
             "away": "Colorado Avalanche",
-            "bet": "under",
-            "book": null,
-            "edge_reasons": "total 6.25 vs line 6.5 (-0.25); p=0.559; P1 pace 1.96",
-            "edge_score": 0.398358015046795,
-            "ev": 0.0324209039548021,
-            "home": "Minnesota Wild",
-            "market": "ev_under",
-            "market_group": "totals",
-            "price": -118.0,
-            "prob": 0.5588333333333333,
-            "side": "Under 6.5",
-            "totals_line": 6.5
-          },
-          {
-            "away": "Colorado Avalanche",
             "bet": "over",
             "book": null,
-            "edge_reasons": "total 6.25 vs line 6.5 (-0.25); p=0.441; P1 pace 1.96",
-            "edge_score": 0.2597910045610481,
-            "ev": -0.1263169934640522,
+            "edge_reasons": "total 8.60 vs line 6.5 (+2.10); p=0.762; P1 pace 2.74",
+            "edge_score": 0.7794376221421443,
+            "ev": 0.5090588235294118,
             "home": "Minnesota Wild",
             "market": "ev_over",
             "market_group": "totals",
             "price": -102.0,
-            "prob": 0.4411666666666666,
+            "prob": 0.762,
             "side": "Over 6.5",
             "totals_line": 6.5
           },
           {
             "away": "Colorado Avalanche",
+            "bet": "away_ml",
+            "book": null,
+            "edge_reasons": "p=0.372",
+            "edge_score": 0.2566666666666667,
+            "ev": -0.331,
+            "home": "Minnesota Wild",
+            "market": "ev_away_ml",
+            "market_group": "moneyline",
+            "price": -125.0,
+            "prob": 0.3716666666666666,
+            "side": "Colorado Avalanche",
+            "totals_line": null
+          },
+          {
+            "away": "Colorado Avalanche",
             "bet": "home_ml",
             "book": null,
-            "edge_reasons": "p=0.475",
-            "edge_score": 0.0501666666666666,
-            "ev": -0.0264208333333334,
+            "edge_reasons": "p=0.628",
+            "edge_score": 0.2566666666666666,
+            "ev": 0.2880833333333331,
             "home": "Minnesota Wild",
             "market": "ev_home_ml",
             "market_group": "moneyline",
             "price": 105.0,
-            "prob": 0.4749166666666666,
+            "prob": 0.6283333333333333,
             "side": "Minnesota Wild",
             "totals_line": null
           },
           {
             "away": "Colorado Avalanche",
-            "bet": "away_ml",
+            "bet": "under",
             "book": null,
-            "edge_reasons": "p=0.525",
-            "edge_score": 0.0501666666666666,
-            "ev": -0.0548499999999999,
+            "edge_reasons": "total 8.60 vs line 6.5 (+2.10); p=0.238; P1 pace 2.74",
+            "edge_score": 0.2420212013872674,
+            "ev": -0.5603050847457627,
             "home": "Minnesota Wild",
-            "market": "ev_away_ml",
-            "market_group": "moneyline",
-            "price": -125.0,
-            "prob": 0.5250833333333333,
-            "side": "Colorado Avalanche",
-            "totals_line": null
+            "market": "ev_under",
+            "market_group": "totals",
+            "price": -118.0,
+            "prob": 0.238,
+            "side": "Under 6.5",
+            "totals_line": 6.5
           }
         ],
         "source": "edges_sim_2026-05-11.csv"
@@ -78,47 +78,47 @@
             "home": "Minnesota Wild",
             "home_ml_odds": 105.0,
             "home_pl_-1.5_odds": null,
-            "model_total": 6.245666666666667,
+            "model_total": 8.596666666666666,
             "over_odds": -102.0,
-            "p_away_ml": 0.5250833333333333,
-            "p_away_pl_+1.5": 0.7898333333333334,
-            "p_home_ml": 0.4749166666666666,
-            "p_home_pl_-1.5": 0.2101666666666666,
-            "p_over": 0.4411666666666666,
-            "p_under": 0.5588333333333333,
-            "period1_away_proj": 1.0111666666666668,
-            "period1_home_proj": 0.949,
-            "period2_away_proj": 1.0835,
-            "period2_home_proj": 1.0056666666666667,
-            "period3_away_proj": 1.0596666666666668,
-            "period3_home_proj": 1.0213333333333334,
+            "p_away_ml": 0.3716666666666666,
+            "p_away_pl_+1.5": 0.6258333333333334,
+            "p_home_ml": 0.6283333333333333,
+            "p_home_pl_-1.5": 0.3741666666666666,
+            "p_over": 0.762,
+            "p_under": 0.238,
+            "period1_away_proj": 1.223833333333333,
+            "period1_home_proj": 1.5155,
+            "period2_away_proj": 1.305,
+            "period2_home_proj": 1.5818333333333334,
+            "period3_away_proj": 1.305,
+            "period3_home_proj": 1.534166666666667,
             "pl_line_used": 1.5,
-            "proj_away_goals": 3.210166666666667,
-            "proj_home_goals": 3.0355,
+            "proj_away_goals": 3.887333333333333,
+            "proj_home_goals": 4.709333333333333,
             "segments": {
               "final": {
-                "away_win_prob": 0.4457867504943798,
-                "home_win_prob": 0.3897000206022244,
-                "tie_prob": 0.16451322890339584
+                "away_win_prob": 0.32752779459113956,
+                "home_win_prob": 0.5366385493359049,
+                "tie_prob": 0.1358336560729555
               },
               "ot": {
-                "no_prob": 0.8354867710966042,
-                "yes_prob": 0.16451322890339584
+                "no_prob": 0.8641663439270445,
+                "yes_prob": 0.1358336560729555
               },
               "p1": {
-                "away_win_prob": 0.36037579082440674,
-                "home_win_prob": 0.3275509964697739,
-                "tie_prob": 0.3120732127058194
+                "away_win_prob": 0.3069976957248739,
+                "home_win_prob": 0.4400992190664681,
+                "tie_prob": 0.252903085208658
               },
               "p2": {
-                "away_win_prob": 0.3699201402553021,
-                "home_win_prob": 0.3298930265596965,
-                "tie_prob": 0.3001868331850014
+                "away_win_prob": 0.3153709866641555,
+                "home_win_prob": 0.4388577496671294,
+                "tie_prob": 0.24577126366871507
               },
               "p3": {
-                "away_win_prob": 0.3593096504053293,
-                "home_win_prob": 0.3395596158647847,
-                "tie_prob": 0.301130733729886
+                "away_win_prob": 0.3239868841365337,
+                "home_win_prob": 0.4270669085228746,
+                "tie_prob": 0.24894620734059159
               }
             },
             "total_line_used": 6.5,
@@ -145,7 +145,7 @@
             "market": "ASSISTS",
             "opp": "MIN",
             "player": "Martin Necas",
-            "price": 100,
+            "price": 100.0,
             "prob": 0.616302194094221,
             "side": "Over",
             "team": "COL"
@@ -159,7 +159,7 @@
             "market": "POINTS",
             "opp": "MIN",
             "player": "Nazem Kadri",
-            "price": -120,
+            "price": -120.0,
             "prob": 0.6469411156390958,
             "side": "Under",
             "team": "COL"
@@ -179,6 +179,6 @@
     "reconciliation_games": null,
     "reconciliation_props": null
   },
-  "generated_at_utc": "2026-05-10T14:43:19+00:00",
+  "generated_at_utc": "2026-05-11T14:08:04+00:00",
   "schema_version": 2
 }

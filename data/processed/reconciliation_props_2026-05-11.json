@@ -1,0 +1,41 @@
+{
+  "summary": {
+    "date": "2026-05-11",
+    "picks": 2,
+    "decided": 2,
+    "wins": 1,
+    "losses": 1,
+    "pushes": 0,
+    "staked": 200.0,
+    "pnl": 0.0,
+    "roi": 0.0
+  },
+  "rows": [
+    {
+      "date": "2026-05-11",
+      "market": "ASSISTS",
+      "player": "Martin Necas",
+      "line": 0.5,
+      "side": "Over",
+      "odds": 100.0,
+      "ev": 0.2326043881884421,
+      "actual": 2.0,
+      "result": "win",
+      "stake": 100.0,
+      "payout": 100.0
+    },
+    {
+      "date": "2026-05-11",
+      "market": "POINTS",
+      "player": "Nazem Kadri",
+      "line": 0.5,
+      "side": "Under",
+      "odds": -120.0,
+      "ev": 0.1860587120050091,
+      "actual": 1.0,
+      "result": "loss",
+      "stake": 100.0,
+      "payout": -100.0
+    }
+  ]
+}

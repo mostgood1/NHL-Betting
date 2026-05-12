@@ -1,0 +1,420 @@
+{
+  "data": {
+    "games": {
+      "edges": {
+        "count": 4,
+        "rows": [
+          {
+            "away": "Minnesota Wild",
+            "bet": "under",
+            "book": null,
+            "edge_reasons": "total 6.23 vs line 6.5 (-0.27); p=0.554; P1 pace 1.98",
+            "edge_score": 0.3935921470622008,
+            "ev": 0.0354275362318838,
+            "home": "Colorado Avalanche",
+            "market": "ev_under",
+            "market_group": "totals",
+            "price": -115.0,
+            "prob": 0.5538333333333333,
+            "side": "Under 6.5",
+            "totals_line": 6.5
+          },
+          {
+            "away": "Minnesota Wild",
+            "bet": "over",
+            "book": null,
+            "edge_reasons": "total 6.23 vs line 6.5 (-0.27); p=0.446; P1 pace 1.98",
+            "edge_score": 0.255615696075054,
+            "ev": -0.1289126984126985,
+            "home": "Colorado Avalanche",
+            "market": "ev_over",
+            "market_group": "totals",
+            "price": -105.0,
+            "prob": 0.4461666666666666,
+            "side": "Over 6.5",
+            "totals_line": 6.5
+          },
+          {
+            "away": "Minnesota Wild",
+            "bet": "away_ml",
+            "book": null,
+            "edge_reasons": "p=0.477",
+            "edge_score": 0.0461666666666666,
+            "ev": 0.287675,
+            "home": "Colorado Avalanche",
+            "market": "ev_away_ml",
+            "market_group": "moneyline",
+            "price": 170.0,
+            "prob": 0.4769166666666666,
+            "side": "Minnesota Wild",
+            "totals_line": null
+          },
+          {
+            "away": "Minnesota Wild",
+            "bet": "home_ml",
+            "book": null,
+            "edge_reasons": "p=0.523",
+            "edge_score": 0.0461666666666666,
+            "ev": -0.2217540650406503,
+            "home": "Colorado Avalanche",
+            "market": "ev_home_ml",
+            "market_group": "moneyline",
+            "price": -205.0,
+            "prob": 0.5230833333333333,
+            "side": "Colorado Avalanche",
+            "totals_line": null
+          }
+        ],
+        "source": "edges_sim_2026-05-13.csv"
+      },
+      "predictions": {
+        "count": 1,
+        "rows": [
+          {
+            "away": "Minnesota Wild",
+            "away_ml_odds": 170.0,
+            "away_pl_+1.5_odds": -148.0,
+            "date": "2026-05-13",
+            "home": "Colorado Avalanche",
+            "home_ml_odds": -205.0,
+            "home_pl_-1.5_odds": 124.0,
+            "model_total": 6.2316666666666665,
+            "over_odds": -105.0,
+            "p_away_ml": 0.4769166666666666,
+            "p_away_pl_+1.5": 0.747,
+            "p_home_ml": 0.5230833333333333,
+            "p_home_pl_-1.5": 0.253,
+            "p_over": 0.4461666666666666,
+            "p_under": 0.5538333333333333,
+            "period1_away_proj": 0.9728333333333332,
+            "period1_home_proj": 1.0048333333333332,
+            "period2_away_proj": 0.999,
+            "period2_home_proj": 1.0721666666666667,
+            "period3_away_proj": 1.0116666666666667,
+            "period3_home_proj": 1.0608333333333333,
+            "pl_line_used": 1.5,
+            "proj_away_goals": 3.04,
+            "proj_home_goals": 3.191666666666667,
+            "segments": {
+              "final": {
+                "away_win_prob": 0.3933407337540402,
+                "home_win_prob": 0.44192346106276864,
+                "tie_prob": 0.16473580518319114
+              },
+              "ot": {
+                "no_prob": 0.8352641948168089,
+                "yes_prob": 0.16473580518319114
+              },
+              "p1": {
+                "away_win_prob": 0.3363039285638344,
+                "home_win_prob": 0.3531413714375358,
+                "tie_prob": 0.31055469999862984
+              },
+              "p2": {
+                "away_win_prob": 0.330223000378705,
+                "home_win_prob": 0.3679869256258194,
+                "tie_prob": 0.30179007399547564
+              },
+              "p3": {
+                "away_win_prob": 0.33640083793434555,
+                "home_win_prob": 0.3617743254750419,
+                "tie_prob": 0.30182483659061243
+              }
+            },
+            "total_line_used": 6.5,
+            "under_odds": -115.0
+          }
+        ]
+      },
+      "recommendations": {
+        "count": 1,
+        "rows": [
+          {
+            "away": "Minnesota Wild",
+            "conf": 0.247,
+            "ev": 0.2517297297297297,
+            "home": "Colorado Avalanche",
+            "market": "PL",
+            "price": -148.0,
+            "prob": 0.747,
+            "side": "Minnesota Wild +1.5",
+            "totals_line": 6.5
+          }
+        ]
+      },
+      "reconciliation": null
+    },
+    "props": {
+      "recommendations": {
+        "count": 18,
+        "rows": [
+          {
+            "book": "betmgm",
+            "edge_drivers": "MODEL UND · JUICE · CONF60+ · CONS4+ · MATCHUP+",
+            "edge_reasons": "MODEL UND · JUICE · CONF60+ · CONS4+ · MATCHUP+",
+            "edge_score": 0.5509734870424451,
+            "ev": 0.2834552530757364,
+            "line": 3.5,
+            "market": "SOG",
+            "opp": "COL",
+            "player": "Kirill Kaprizov",
+            "price": -160,
+            "side": "Under",
+            "team": "MIN"
+          },
+          {
+            "book": "fanduel",
+            "edge_drivers": "MODEL OVR · CONF60+ · CONS4+ · MATCHUP-",
+            "edge_reasons": "MODEL OVR · CONF60+ · CONS4+ · MATCHUP-",
+            "edge_score": 0.5218422542060821,
+            "ev": 0.5430538919529891,
+            "line": 3.5,
+            "market": "SOG",
+            "opp": "COL",
+            "player": "Matt Boldy",
+            "price": -108,
+            "side": "Over",
+            "team": "MIN"
+          },
+          {
+            "book": "betmgm",
+            "edge_drivers": "MODEL OVR · JUICE+ · CONF60+ · CONS3+ · MATCHUP+",
+            "edge_reasons": "MODEL OVR · JUICE+ · CONF60+ · CONS3+ · MATCHUP+",
+            "edge_score": 0.5187664272830672,
+            "ev": 0.0914309691612984,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "MIN",
+            "player": "Brent Burns",
+            "price": -175,
+            "side": "Over",
+            "team": "COL"
+          },
+          {
+            "book": "fanduel",
+            "edge_drivers": "MODEL OVR · JUICE+ · CONF60+ · SINGLE · MATCHUP-",
+            "edge_reasons": "MODEL OVR · JUICE+ · CONF60+ · SINGLE · MATCHUP-",
+            "edge_score": 0.5145019609483569,
+            "ev": 0.1961204338902721,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "COL",
+            "player": "Brock Faber",
+            "price": -196,
+            "side": "Over",
+            "team": "MIN"
+          },
+          {
+            "book": "pinnacle",
+            "edge_drivers": "MODEL OVR · CONF60+ · CONS2 · MATCHUP+",
+            "edge_reasons": "MODEL OVR · CONF60+ · CONS2 · MATCHUP+",
+            "edge_score": 0.5024773116483425,
+            "ev": 0.3102097234092922,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "MIN",
+            "player": "Josh Manson",
+            "price": -106,
+            "side": "Over",
+            "team": "COL"
+          },
+          {
+            "book": "fanduel",
+            "edge_drivers": "MODEL OVR · JUICE · CONF60+ · CONS4+ · MATCHUP+",
+            "edge_reasons": "MODEL OVR · JUICE · CONF60+ · CONS4+ · MATCHUP+",
+            "edge_score": 0.4520512325001565,
+            "ev": 0.008005575790716,
+            "line": 3.5,
+            "market": "SOG",
+            "opp": "MIN",
+            "player": "Nathan MacKinnon",
+            "price": -154,
+            "side": "Over",
+            "team": "COL"
+          },
+          {
+            "book": "draftkings",
+            "edge_drivers": "MODEL OVR · CONF60+ · CONS3+ · MATCHUP-",
+            "edge_reasons": "MODEL OVR · CONF60+ · CONS3+ · MATCHUP-",
+            "edge_score": 0.4369727597115986,
+            "ev": 0.3220113129803335,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "COL",
+            "player": "Mats Zuccarello",
+            "price": -130,
+            "side": "Over",
+            "team": "MIN"
+          },
+          {
+            "book": "pinnacle",
+            "edge_drivers": "MODEL OVR · CONF60+ · CONS3+ · MATCHUP-",
+            "edge_reasons": "MODEL OVR · CONF60+ · CONS3+ · MATCHUP-",
+            "edge_score": 0.4327799861852373,
+            "ev": 0.9040500989499456,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "COL",
+            "player": "Marcus Johansson",
+            "price": 176,
+            "side": "Over",
+            "team": "MIN"
+          },
+          {
+            "book": "fanduel",
+            "edge_drivers": "MODEL OVR · CONF55+ · CONS4+ · MATCHUP+",
+            "edge_reasons": "MODEL OVR · CONF55+ · CONS4+ · MATCHUP+",
+            "edge_score": 0.4167250544727155,
+            "ev": 0.0317454810529502,
+            "line": 2.5,
+            "market": "SOG",
+            "opp": "MIN",
+            "player": "Martin Necas",
+            "price": -122,
+            "side": "Over",
+            "team": "COL"
+          },
+          {
+            "book": "fanduel",
+            "edge_drivers": "MODEL OVR · CONS4+ · MATCHUP+",
+            "edge_reasons": "MODEL OVR · CONS4+ · MATCHUP+",
+            "edge_score": 0.4007290408475332,
+            "ev": 0.0832749996162034,
+            "line": 2.5,
+            "market": "SOG",
+            "opp": "MIN",
+            "player": "Nazem Kadri",
+            "price": -102,
+            "side": "Over",
+            "team": "COL"
+          },
+          {
+            "book": "draftkings",
+            "edge_drivers": "MODEL OVR · JUICE+ · CONF60+ · CONS3+ · MATCHUP-",
+            "edge_reasons": "MODEL OVR · JUICE+ · CONF60+ · CONS3+ · MATCHUP-",
+            "edge_score": 0.4002469267311425,
+            "ev": 0.0200967190865596,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "COL",
+            "player": "Kirill Kaprizov",
+            "price": -220,
+            "side": "Over",
+            "team": "MIN"
+          },
+          {
+            "book": "draftkings",
+            "edge_drivers": "MODEL OVR · JUICE+ · CONF60+ · CONS3+ · MATCHUP-",
+            "edge_reasons": "MODEL OVR · JUICE+ · CONF60+ · CONS3+ · MATCHUP-",
+            "edge_score": 0.3974976090734533,
+            "ev": 0.0468197709498474,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "COL",
+            "player": "Quinn Hughes",
+            "price": -200,
+            "side": "Over",
+            "team": "MIN"
+          },
+          {
+            "book": "draftkings",
+            "edge_drivers": "MODEL OVR · CONS3+ · MATCHUP+",
+            "edge_reasons": "MODEL OVR · CONS3+ · MATCHUP+",
+            "edge_score": 0.3967664030381452,
+            "ev": 0.1111962476418992,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "MIN",
+            "player": "Devon Toews",
+            "price": 105,
+            "side": "Over",
+            "team": "COL"
+          },
+          {
+            "book": "pinnacle",
+            "edge_drivers": "MODEL UND · CONF60+ · CONS3+ · MATCHUP-",
+            "edge_reasons": "MODEL UND · CONF60+ · CONS3+ · MATCHUP-",
+            "edge_score": 0.3940400549540961,
+            "ev": 0.2580712885879344,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "MIN",
+            "player": "Nazem Kadri",
+            "price": -104,
+            "side": "Under",
+            "team": "COL"
+          },
+          {
+            "book": "pinnacle",
+            "edge_drivers": "MODEL OVR · CONF60+ · CONS3+ · MATCHUP-",
+            "edge_reasons": "MODEL OVR · CONF60+ · CONS3+ · MATCHUP-",
+            "edge_score": 0.3841372723891309,
+            "ev": 0.5487332522262981,
+            "line": 0.5,
+            "market": "ASSISTS",
+            "opp": "COL",
+            "player": "Mats Zuccarello",
+            "price": 127,
+            "side": "Over",
+            "team": "MIN"
+          },
+          {
+            "book": "betmgm",
+            "edge_drivers": "MODEL OVR · CONF55+ · CONS3+ · MATCHUP+",
+            "edge_reasons": "MODEL OVR · CONF55+ · CONS3+ · MATCHUP+",
+            "edge_score": 0.3840977265629574,
+            "ev": 0.112734683440281,
+            "line": 0.5,
+            "market": "ASSISTS",
+            "opp": "MIN",
+            "player": "Martin Necas",
+            "price": -105,
+            "side": "Over",
+            "team": "COL"
+          },
+          {
+            "book": "draftkings",
+            "edge_drivers": "MODEL UND · CONF60+ · CONS3+ · MATCHUP-",
+            "edge_reasons": "MODEL UND · CONF60+ · CONS3+ · MATCHUP-",
+            "edge_score": 0.3820868231284745,
+            "ev": 0.2528562735059965,
+            "line": 1.5,
+            "market": "POINTS",
+            "opp": "MIN",
+            "player": "Nathan MacKinnon",
+            "price": 100,
+            "side": "Under",
+            "team": "COL"
+          },
+          {
+            "book": "draftkings",
+            "edge_drivers": "MODEL OVR · CONS3+ · MATCHUP+",
+            "edge_reasons": "MODEL OVR · CONS3+ · MATCHUP+",
+            "edge_score": 0.3450308876953712,
+            "ev": 0.0915614536424581,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "MIN",
+            "player": "Devon Toews",
+            "price": 105,
+            "side": "Over",
+            "team": "COL"
+          }
+        ],
+        "source": "props_recommendations_2026-05-13.csv"
+      },
+      "reconciliation": null
+    }
+  },
+  "date": "2026-05-13",
+  "files": {
+    "edges": "data/processed/edges_sim_2026-05-13.csv",
+    "game_recommendations": "data/processed/recommendations_sim_2026-05-13.csv",
+    "predictions": "data/processed/predictions_sim_2026-05-13.csv",
+    "props_recommendations": "data/processed/props_recommendations_2026-05-13.csv",
+    "reconciliation_games": null,
+    "reconciliation_props": null
+  },
+  "generated_at_utc": "2026-05-12T14:43:39+00:00",
+  "schema_version": 2
+}

@@ -1,3 +1,4 @@
 market,side,price,ev,prob,conf,home,away,totals_line
-PL,Buffalo Sabres +1.5,-225.0,0.24270370370370375,0.8603333333333334,0.3603333333333334,Montréal Canadiens,Buffalo Sabres,6.5
-PL,Anaheim Ducks +1.5,-192.0,0.007045138888889024,0.6621666666666667,0.16216666666666668,Vegas Golden Knights,Anaheim Ducks,6.5
+PL,Buffalo Sabres +1.5,-225.0,0.31444444444444447,0.91,0.41000000000000003,Montréal Canadiens,Buffalo Sabres,6.5
+PL,Anaheim Ducks +1.5,-192.0,0.11096875,0.7304999999999999,0.23049999999999993,Vegas Golden Knights,Anaheim Ducks,6.5
+ML,Buffalo Sabres,114.0,0.5545316666666665,0.7264166666666667,0.2264166666666667,Montréal Canadiens,Buffalo Sabres,6.5

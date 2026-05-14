@@ -1,0 +1,51 @@
+{
+  "summary": {
+    "date": "2026-05-12",
+    "picks": 3,
+    "decided": 3,
+    "wins": 2,
+    "losses": 1,
+    "pushes": 0,
+    "staked": 300.0,
+    "pnl": 60.55555555555554,
+    "roi": 0.2018518518518518
+  },
+  "rows": [
+    {
+      "date": "2026-05-12T23:00:00Z",
+      "home": "Montr\u00e9al Canadiens",
+      "away": "Buffalo Sabres",
+      "market": "moneyline",
+      "bet": "home_ml",
+      "ev": 0.0348,
+      "price": -140,
+      "result": "loss",
+      "stake": 100.0,
+      "payout": -100.0
+    },
+    {
+      "date": "2026-05-12T23:00:00Z",
+      "home": "Montr\u00e9al Canadiens",
+      "away": "Buffalo Sabres",
+      "market": "puckline",
+      "bet": "away_pl_+1.5",
+      "ev": 0.0563,
+      "price": -180,
+      "result": "win",
+      "stake": 100.0,
+      "payout": 55.55555555555556
+    },
+    {
+      "date": "2026-05-13T01:30:00Z",
+      "home": "Vegas Golden Knights",
+      "away": "Anaheim Ducks",
+      "market": "totals",
+      "bet": "under",
+      "ev": 0.1043,
+      "price": 105,
+      "result": "win",
+      "stake": 100.0,
+      "payout": 104.99999999999999
+    }
+  ]
+}

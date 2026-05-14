@@ -278,7 +278,57 @@
           }
         ]
       },
-      "reconciliation": null
+      "reconciliation": {
+        "rows": [
+          {
+            "away": "Buffalo Sabres",
+            "bet": "home_ml",
+            "date": "2026-05-12T23:00:00Z",
+            "ev": 0.0348,
+            "home": "Montréal Canadiens",
+            "market": "moneyline",
+            "payout": -100.0,
+            "price": -140,
+            "result": "loss",
+            "stake": 100.0
+          },
+          {
+            "away": "Buffalo Sabres",
+            "bet": "away_pl_+1.5",
+            "date": "2026-05-12T23:00:00Z",
+            "ev": 0.0563,
+            "home": "Montréal Canadiens",
+            "market": "puckline",
+            "payout": 55.55555555555556,
+            "price": -180,
+            "result": "win",
+            "stake": 100.0
+          },
+          {
+            "away": "Anaheim Ducks",
+            "bet": "under",
+            "date": "2026-05-13T01:30:00Z",
+            "ev": 0.1043,
+            "home": "Vegas Golden Knights",
+            "market": "totals",
+            "payout": 104.99999999999999,
+            "price": 105,
+            "result": "win",
+            "stake": 100.0
+          }
+        ],
+        "summary": {
+          "date": "2026-05-12",
+          "decided": 3,
+          "losses": 1,
+          "picks": 3,
+          "pnl": 60.55555555555554,
+          "pushes": 0,
+          "roi": 0.2018518518518518,
+          "staked": 300.0,
+          "wins": 2
+        }
+      }
     },
     "props": {
       "recommendations": {
@@ -427,7 +477,151 @@
         ],
         "source": "props_recommendations_2026-05-12.csv"
       },
-      "reconciliation": null
+      "reconciliation": {
+        "rows": [
+          {
+            "actual": 2.0,
+            "date": "2026-05-12",
+            "ev": 1.45975401229959,
+            "line": 0.5,
+            "market": "POINTS",
+            "odds": 146.0,
+            "payout": -100.0,
+            "player": "Tage Thompson",
+            "result": "loss",
+            "side": "Under",
+            "stake": 100.0
+          },
+          {
+            "actual": 1.0,
+            "date": "2026-05-12",
+            "ev": 0.4348024366498231,
+            "line": 0.5,
+            "market": "POINTS",
+            "odds": -110.0,
+            "payout": -100.0,
+            "player": "Ivan Demidov",
+            "result": "loss",
+            "side": "Under",
+            "stake": 100.0
+          },
+          {
+            "actual": null,
+            "date": "2026-05-12",
+            "ev": 0.1960058921065193,
+            "line": 0.5,
+            "market": "SOG",
+            "odds": -220.0,
+            "payout": null,
+            "player": "Owen Power",
+            "result": null,
+            "side": "Over",
+            "stake": 100.0
+          },
+          {
+            "actual": 4.0,
+            "date": "2026-05-12",
+            "ev": 0.1595490235441628,
+            "line": 1.5,
+            "market": "SOG",
+            "odds": -188.0,
+            "payout": 53.191489361702125,
+            "player": "Beckett Sennecke",
+            "result": "win",
+            "side": "Over",
+            "stake": 100.0
+          },
+          {
+            "actual": 6.0,
+            "date": "2026-05-12",
+            "ev": 0.5817253264218398,
+            "line": 1.5,
+            "market": "SOG",
+            "odds": 110.0,
+            "payout": 110.00000000000001,
+            "player": "Mason McTavish",
+            "result": "win",
+            "side": "Over",
+            "stake": 100.0
+          },
+          {
+            "actual": 1.0,
+            "date": "2026-05-12",
+            "ev": 0.1835813192983056,
+            "line": 0.5,
+            "market": "ASSISTS",
+            "odds": -130.0,
+            "payout": -100.0,
+            "player": "Rasmus Dahlin",
+            "result": "loss",
+            "side": "Under",
+            "stake": 100.0
+          },
+          {
+            "actual": 2.0,
+            "date": "2026-05-12",
+            "ev": 0.0983358310909845,
+            "line": 0.5,
+            "market": "ASSISTS",
+            "odds": -160.0,
+            "payout": 62.5,
+            "player": "Jack Eichel",
+            "result": "win",
+            "side": "Over",
+            "stake": 100.0
+          },
+          {
+            "actual": 0.0,
+            "date": "2026-05-12",
+            "ev": 0.1933022550177508,
+            "line": 0.5,
+            "market": "ASSISTS",
+            "odds": -145.0,
+            "payout": 68.96551724137932,
+            "player": "Shea Theodore",
+            "result": "win",
+            "side": "Under",
+            "stake": 100.0
+          },
+          {
+            "actual": 0.0,
+            "date": "2026-05-12",
+            "ev": 0.3197669760573938,
+            "line": 0.5,
+            "market": "POINTS",
+            "odds": 110.0,
+            "payout": -100.0,
+            "player": "William Karlsson",
+            "result": "loss",
+            "side": "Over",
+            "stake": 100.0
+          },
+          {
+            "actual": 0.0,
+            "date": "2026-05-12",
+            "ev": 0.0422229202152412,
+            "line": 0.5,
+            "market": "ASSISTS",
+            "odds": -140.0,
+            "payout": -100.0,
+            "player": "Mitch Marner",
+            "result": "loss",
+            "side": "Over",
+            "stake": 100.0
+          }
+        ],
+        "summary": {
+          "date": "2026-05-12",
+          "decided": 9,
+          "losses": 5,
+          "picks": 10,
+          "pnl": -205.3429933969186,
+          "pushes": 0,
+          "roi": -0.22815888155213176,
+          "staked": 900.0,
+          "wins": 4
+        }
+      }
     }
   },
   "date": "2026-05-12",
@@ -436,9 +630,9 @@
     "game_recommendations": "data/processed/recommendations_sim_2026-05-12.csv",
     "predictions": "data/processed/predictions_sim_2026-05-12.csv",
     "props_recommendations": "data/processed/props_recommendations_2026-05-12.csv",
-    "reconciliation_games": null,
-    "reconciliation_props": null
+    "reconciliation_games": "data/processed/reconciliation_2026-05-12.json",
+    "reconciliation_props": "data/processed/reconciliation_props_2026-05-12.json"
   },
-  "generated_at_utc": "2026-05-12T15:02:11+00:00",
+  "generated_at_utc": "2026-05-14T02:13:59+00:00",
   "schema_version": 2
 }

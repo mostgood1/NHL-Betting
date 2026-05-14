@@ -1,0 +1,67 @@
+{
+  "summary": {
+    "date": "2026-05-13",
+    "picks": 4,
+    "decided": 3,
+    "wins": 3,
+    "losses": 0,
+    "pushes": 0,
+    "staked": 300.0,
+    "pnl": 320.23809523809524,
+    "roi": 1.0674603174603174
+  },
+  "rows": [
+    {
+      "date": "2026-05-13",
+      "market": "SOG",
+      "player": "Kirill Kaprizov",
+      "line": 3.5,
+      "side": "Under",
+      "odds": -145.0,
+      "ev": 0.3575043073848603,
+      "actual": NaN,
+      "result": null,
+      "stake": 100.0,
+      "payout": null
+    },
+    {
+      "date": "2026-05-13",
+      "market": "ASSISTS",
+      "player": "Martin Necas",
+      "line": 0.5,
+      "side": "Over",
+      "odds": -105.0,
+      "ev": 0.247093884820295,
+      "actual": 2.0,
+      "result": "win",
+      "stake": 100.0,
+      "payout": 95.23809523809523
+    },
+    {
+      "date": "2026-05-13",
+      "market": "ASSISTS",
+      "player": "Cale Makar",
+      "line": 0.5,
+      "side": "Under",
+      "odds": 120.0,
+      "ev": 0.3643216704098543,
+      "actual": 0.0,
+      "result": "win",
+      "stake": 100.0,
+      "payout": 120.00000000000001
+    },
+    {
+      "date": "2026-05-13",
+      "market": "POINTS",
+      "player": "Nazem Kadri",
+      "line": 0.5,
+      "side": "Under",
+      "odds": 105.0,
+      "ev": 0.2306466871743538,
+      "actual": 0.0,
+      "result": "win",
+      "stake": 100.0,
+      "payout": 104.99999999999999
+    }
+  ]
+}

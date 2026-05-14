@@ -142,7 +142,33 @@
           }
         ]
       },
-      "reconciliation": null
+      "reconciliation": {
+        "rows": [
+          {
+            "away": "Minnesota Wild",
+            "bet": "under",
+            "date": "2026-05-14T00:00:00Z",
+            "ev": 0.0529,
+            "home": "Colorado Avalanche",
+            "market": "totals",
+            "payout": -100.0,
+            "price": -112,
+            "result": "loss",
+            "stake": 100.0
+          }
+        ],
+        "summary": {
+          "date": "2026-05-13",
+          "decided": 1,
+          "losses": 1,
+          "picks": 1,
+          "pnl": -100.0,
+          "pushes": 0,
+          "roi": -1.0,
+          "staked": 100.0,
+          "wins": 0
+        }
+      }
     },
     "props": {
       "recommendations": {
@@ -207,7 +233,73 @@
         ],
         "source": "props_recommendations_2026-05-13.csv"
       },
-      "reconciliation": null
+      "reconciliation": {
+        "rows": [
+          {
+            "actual": null,
+            "date": "2026-05-13",
+            "ev": 0.3575043073848603,
+            "line": 3.5,
+            "market": "SOG",
+            "odds": -145.0,
+            "payout": null,
+            "player": "Kirill Kaprizov",
+            "result": null,
+            "side": "Under",
+            "stake": 100.0
+          },
+          {
+            "actual": 2.0,
+            "date": "2026-05-13",
+            "ev": 0.247093884820295,
+            "line": 0.5,
+            "market": "ASSISTS",
+            "odds": -105.0,
+            "payout": 95.23809523809523,
+            "player": "Martin Necas",
+            "result": "win",
+            "side": "Over",
+            "stake": 100.0
+          },
+          {
+            "actual": 0.0,
+            "date": "2026-05-13",
+            "ev": 0.3643216704098543,
+            "line": 0.5,
+            "market": "ASSISTS",
+            "odds": 120.0,
+            "payout": 120.00000000000001,
+            "player": "Cale Makar",
+            "result": "win",
+            "side": "Under",
+            "stake": 100.0
+          },
+          {
+            "actual": 0.0,
+            "date": "2026-05-13",
+            "ev": 0.2306466871743538,
+            "line": 0.5,
+            "market": "POINTS",
+            "odds": 105.0,
+            "payout": 104.99999999999999,
+            "player": "Nazem Kadri",
+            "result": "win",
+            "side": "Under",
+            "stake": 100.0
+          }
+        ],
+        "summary": {
+          "date": "2026-05-13",
+          "decided": 3,
+          "losses": 0,
+          "picks": 4,
+          "pnl": 320.23809523809524,
+          "pushes": 0,
+          "roi": 1.0674603174603174,
+          "staked": 300.0,
+          "wins": 3
+        }
+      }
     }
   },
   "date": "2026-05-13",
@@ -216,9 +308,9 @@
     "game_recommendations": "data/processed/recommendations_sim_2026-05-13.csv",
     "predictions": "data/processed/predictions_sim_2026-05-13.csv",
     "props_recommendations": "data/processed/props_recommendations_2026-05-13.csv",
-    "reconciliation_games": null,
-    "reconciliation_props": null
+    "reconciliation_games": "data/processed/reconciliation_2026-05-13.json",
+    "reconciliation_props": "data/processed/reconciliation_props_2026-05-13.json"
   },
-  "generated_at_utc": "2026-05-14T02:28:49+00:00",
+  "generated_at_utc": "2026-05-14T14:41:25+00:00",
   "schema_version": 2
 }

@@ -1,0 +1,266 @@
+{
+  "data": {
+    "games": {
+      "edges": {
+        "count": 4,
+        "rows": [
+          {
+            "away": "Montréal Canadiens",
+            "bet": "over",
+            "book": null,
+            "edge_reasons": "total 6.15 vs line 5.5 (+0.65); p=0.560; P1 pace 1.95",
+            "edge_score": 0.4523874887096846,
+            "ev": 0.1486833333333332,
+            "home": "Buffalo Sabres",
+            "market": "ev_over",
+            "market_group": "totals",
+            "price": 105.0,
+            "prob": 0.5603333333333333,
+            "side": "Over 5.5",
+            "totals_line": 5.5
+          },
+          {
+            "away": "Montréal Canadiens",
+            "bet": "under",
+            "book": null,
+            "edge_reasons": "total 6.15 vs line 5.5 (+0.65); p=0.440; P1 pace 1.95",
+            "edge_score": 0.208443883839335,
+            "ev": -0.2086,
+            "home": "Buffalo Sabres",
+            "market": "ev_under",
+            "market_group": "totals",
+            "price": -125.0,
+            "prob": 0.4396666666666666,
+            "side": "Under 5.5",
+            "totals_line": 5.5
+          },
+          {
+            "away": "Montréal Canadiens",
+            "bet": "home_ml",
+            "book": null,
+            "edge_reasons": "p=0.518",
+            "edge_score": 0.0361666666666666,
+            "ev": -0.0193422619047619,
+            "home": "Buffalo Sabres",
+            "market": "ev_home_ml",
+            "market_group": "moneyline",
+            "price": -112.0,
+            "prob": 0.5180833333333333,
+            "side": "Buffalo Sabres",
+            "totals_line": null
+          },
+          {
+            "away": "Montréal Canadiens",
+            "bet": "away_ml",
+            "book": null,
+            "edge_reasons": "p=0.482",
+            "edge_score": 0.0361666666666666,
+            "ev": -0.0718641975308641,
+            "home": "Buffalo Sabres",
+            "market": "ev_away_ml",
+            "market_group": "moneyline",
+            "price": -108.0,
+            "prob": 0.4819166666666666,
+            "side": "Montréal Canadiens",
+            "totals_line": null
+          }
+        ],
+        "source": "edges_sim_2026-05-18.csv"
+      },
+      "predictions": {
+        "count": 1,
+        "rows": [
+          {
+            "away": "Montréal Canadiens",
+            "away_ml_odds": -108.0,
+            "away_pl_+1.5_odds": -270.0,
+            "date": "2026-05-18",
+            "home": "Buffalo Sabres",
+            "home_ml_odds": -112.0,
+            "home_pl_-1.5_odds": 220.0,
+            "model_total": 6.1505,
+            "over_odds": 105.0,
+            "p_away_ml": 0.4819166666666666,
+            "p_away_pl_+1.5": 0.7565,
+            "p_home_ml": 0.5180833333333333,
+            "p_home_pl_-1.5": 0.2435,
+            "p_over": 0.5603333333333333,
+            "p_under": 0.4396666666666666,
+            "period1_away_proj": 0.9571666666666668,
+            "period1_home_proj": 0.9926666666666668,
+            "period2_away_proj": 1.0226666666666666,
+            "period2_home_proj": 1.0285,
+            "period3_away_proj": 0.9926666666666668,
+            "period3_home_proj": 1.046,
+            "pl_line_used": 1.5,
+            "proj_away_goals": 3.0236666666666667,
+            "proj_home_goals": 3.1268333333333334,
+            "segments": {
+              "final": {
+                "away_win_prob": 0.40195990115457125,
+                "home_win_prob": 0.43196825540917116,
+                "tie_prob": 0.16607184343625758
+              },
+              "ot": {
+                "no_prob": 0.8339281565637424,
+                "yes_prob": 0.16607184343625758
+              },
+              "p1": {
+                "away_win_prob": 0.3339976532741352,
+                "home_win_prob": 0.35278503255752247,
+                "tie_prob": 0.3132173141683423
+              },
+              "p2": {
+                "away_win_prob": 0.3465696969330126,
+                "home_win_prob": 0.3495933939458989,
+                "tie_prob": 0.30383690912108857
+              },
+              "p3": {
+                "away_win_prob": 0.3337386201493662,
+                "home_win_prob": 0.36145002756010686,
+                "tie_prob": 0.304811352290527
+              }
+            },
+            "total_line_used": 5.5,
+            "under_odds": -125.0
+          }
+        ]
+      },
+      "recommendations": {
+        "count": 1,
+        "rows": [
+          {
+            "away": "Montréal Canadiens",
+            "conf": 0.2564999999999999,
+            "ev": 0.036685185185185,
+            "home": "Buffalo Sabres",
+            "market": "PL",
+            "price": -270.0,
+            "prob": 0.7565,
+            "side": "Montréal Canadiens +1.5",
+            "totals_line": 5.5
+          }
+        ]
+      },
+      "reconciliation": null
+    },
+    "props": {
+      "recommendations": {
+        "count": 7,
+        "rows": [
+          {
+            "book": "draftkings",
+            "edge_reasons": "MODEL UND · CONF60+ · MATCHUP+",
+            "edge_score": 0.763793740211899,
+            "ev": 1.69973001349955,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "MTL",
+            "player": "Tage Thompson",
+            "price": 170,
+            "prob": 0.9999000049998332,
+            "side": "Under",
+            "team": "BUF"
+          },
+          {
+            "book": "draftkings",
+            "edge_reasons": "MODEL OVR · CONF60+",
+            "edge_score": 0.5898775844712661,
+            "ev": 0.3603431878222842,
+            "line": 0.5,
+            "market": "SOG",
+            "opp": "BUF",
+            "player": "Phillip Danault",
+            "price": -180,
+            "prob": 0.8745063350286113,
+            "side": "Over",
+            "team": "MTL"
+          },
+          {
+            "book": "betmgm",
+            "edge_reasons": "MODEL UND · CONF60+ · MATCHUP+",
+            "edge_score": 0.5663882339240841,
+            "ev": 0.4378186877219414,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "MTL",
+            "player": "Jack Quinn",
+            "price": -110,
+            "prob": 0.7531431221400645,
+            "side": "Under",
+            "team": "BUF"
+          },
+          {
+            "book": "draftkings",
+            "edge_reasons": "MODEL OVR · CONF60+",
+            "edge_score": 0.5500245944800489,
+            "ev": 0.2082668870928872,
+            "line": 0.5,
+            "market": "SOG",
+            "opp": "BUF",
+            "player": "Zack Bolduc",
+            "price": -215,
+            "prob": 0.8246900975395898,
+            "side": "Over",
+            "team": "MTL"
+          },
+          {
+            "book": "pinnacle",
+            "edge_reasons": "MODEL UND · CONF60+ · MATCHUP+",
+            "edge_score": 0.4476251156997397,
+            "ev": 0.1874129996761491,
+            "line": 0.5,
+            "market": "ASSISTS",
+            "opp": "MTL",
+            "player": "Rasmus Dahlin",
+            "price": -103,
+            "prob": 0.6024804875204106,
+            "side": "Under",
+            "team": "BUF"
+          },
+          {
+            "book": "draftkings",
+            "edge_reasons": "MODEL UND · CONF60+",
+            "edge_score": 0.4125146113762371,
+            "ev": 0.4614298826927974,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "BUF",
+            "player": "Cole Caufield",
+            "price": 135,
+            "prob": 0.6218850564650201,
+            "side": "Under",
+            "team": "MTL"
+          },
+          {
+            "book": "pinnacle",
+            "edge_reasons": "MODEL UND · CONF60+",
+            "edge_score": 0.4125146113762371,
+            "ev": 0.1977045531918907,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "BUF",
+            "player": "Ivan Demidov",
+            "price": -108,
+            "prob": 0.6218850564650201,
+            "side": "Under",
+            "team": "MTL"
+          }
+        ],
+        "source": "props_recommendations_2026-05-18.csv"
+      },
+      "reconciliation": null
+    }
+  },
+  "date": "2026-05-18",
+  "files": {
+    "edges": "data/processed/edges_sim_2026-05-18.csv",
+    "game_recommendations": "data/processed/recommendations_sim_2026-05-18.csv",
+    "predictions": "data/processed/predictions_sim_2026-05-18.csv",
+    "props_recommendations": "data/processed/props_recommendations_2026-05-18.csv",
+    "reconciliation_games": null,
+    "reconciliation_props": null
+  },
+  "generated_at_utc": "2026-05-17T17:42:29+00:00",
+  "schema_version": 2
+}

@@ -1,0 +1,39 @@
+{
+  "data": {
+    "games": {
+      "edges": {
+        "count": 0,
+        "rows": [],
+        "source": null
+      },
+      "predictions": {
+        "count": 0,
+        "rows": []
+      },
+      "recommendations": {
+        "count": 0,
+        "rows": []
+      },
+      "reconciliation": null
+    },
+    "props": {
+      "recommendations": {
+        "count": 0,
+        "rows": [],
+        "source": "props_recommendations_2026-05-19.csv"
+      },
+      "reconciliation": null
+    }
+  },
+  "date": "2026-05-19",
+  "files": {
+    "edges": null,
+    "game_recommendations": null,
+    "predictions": "data/processed/predictions_2026-05-19.csv",
+    "props_recommendations": "data/processed/props_recommendations_2026-05-19.csv",
+    "reconciliation_games": null,
+    "reconciliation_props": null
+  },
+  "generated_at_utc": "2026-05-18T13:43:13+00:00",
+  "schema_version": 2
+}

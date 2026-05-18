@@ -1047,6 +1047,10 @@
     "2026-05-18": {
       "exists": true,
       "path": "data/processed/bundles/date=2026-05-18/bundle.json"
+    },
+    "2026-05-19": {
+      "exists": true,
+      "path": "data/processed/bundles/date=2026-05-19/bundle.json"
     }
   },
   "dates": [
@@ -1311,9 +1315,10 @@
     "2026-05-15",
     "2026-05-16",
     "2026-05-17",
-    "2026-05-18"
+    "2026-05-18",
+    "2026-05-19"
   ],
-  "generated_at_utc": "2026-05-17T17:42:33+00:00",
-  "latest": "2026-05-18",
+  "generated_at_utc": "2026-05-18T13:43:13+00:00",
+  "latest": "2026-05-19",
   "schema_version": 1
 }

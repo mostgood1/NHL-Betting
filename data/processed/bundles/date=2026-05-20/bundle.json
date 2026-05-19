@@ -1,0 +1,196 @@
+{
+  "data": {
+    "games": {
+      "edges": {
+        "count": 4,
+        "rows": [
+          {
+            "away": "Vegas Golden Knights",
+            "bet": "over",
+            "book": null,
+            "edge_reasons": "total 6.63 vs line 6.5 (+0.13); p=0.499; P1 pace 2.11",
+            "edge_score": 0.3308012142856953,
+            "ev": 0.0086533333333334,
+            "home": "Colorado Avalanche",
+            "market": "ev_over",
+            "market_group": "totals",
+            "price": 102.0,
+            "prob": 0.4993333333333333,
+            "side": "Over 6.5",
+            "totals_line": 6.5
+          },
+          {
+            "away": "Vegas Golden Knights",
+            "bet": "under",
+            "book": null,
+            "edge_reasons": "total 6.63 vs line 6.5 (+0.13); p=0.501; P1 pace 2.11",
+            "edge_score": 0.2233321190476379,
+            "ev": -0.088950819672131,
+            "home": "Colorado Avalanche",
+            "market": "ev_under",
+            "market_group": "totals",
+            "price": -122.0,
+            "prob": 0.5006666666666667,
+            "side": "Under 6.5",
+            "totals_line": 6.5
+          },
+          {
+            "away": "Vegas Golden Knights",
+            "bet": "home_ml",
+            "book": null,
+            "edge_reasons": "p=0.468",
+            "edge_score": 0.0633333333333333,
+            "ev": -0.2877430555555555,
+            "home": "Colorado Avalanche",
+            "market": "ev_home_ml",
+            "market_group": "moneyline",
+            "price": -192.0,
+            "prob": 0.4683333333333333,
+            "side": "Colorado Avalanche",
+            "totals_line": null
+          },
+          {
+            "away": "Vegas Golden Knights",
+            "bet": "away_ml",
+            "book": null,
+            "edge_reasons": "p=0.532",
+            "edge_score": 0.0633333333333332,
+            "ev": 0.3823333333333333,
+            "home": "Colorado Avalanche",
+            "market": "ev_away_ml",
+            "market_group": "moneyline",
+            "price": 160.0,
+            "prob": 0.5316666666666666,
+            "side": "Vegas Golden Knights",
+            "totals_line": null
+          }
+        ],
+        "source": "edges_sim_2026-05-20.csv"
+      },
+      "predictions": {
+        "count": 1,
+        "rows": [
+          {
+            "away": "Vegas Golden Knights",
+            "away_ml_odds": 160.0,
+            "away_pl_+1.5_odds": -166.0,
+            "date": "2026-05-20",
+            "home": "Colorado Avalanche",
+            "home_ml_odds": -192.0,
+            "home_pl_-1.5_odds": 140.0,
+            "model_total": 6.6321666666666665,
+            "over_odds": 102.0,
+            "p_away_ml": 0.5316666666666666,
+            "p_away_pl_+1.5": 0.7913333333333333,
+            "p_home_ml": 0.4683333333333333,
+            "p_home_pl_-1.5": 0.2086666666666666,
+            "p_over": 0.4993333333333333,
+            "p_under": 0.5006666666666667,
+            "period1_away_proj": 1.0941666666666667,
+            "period1_home_proj": 1.0145,
+            "period2_away_proj": 1.1375,
+            "period2_home_proj": 1.066,
+            "period3_away_proj": 1.1278333333333332,
+            "period3_home_proj": 1.0778333333333334,
+            "pl_line_used": 1.5,
+            "proj_away_goals": 3.4193333333333333,
+            "proj_home_goals": 3.212833333333333,
+            "segments": {
+              "final": {
+                "away_win_prob": 0.4510226437776785,
+                "home_win_prob": 0.3896683092259645,
+                "tie_prob": 0.15930904699635706
+              },
+              "ot": {
+                "no_prob": 0.8406909530036429,
+                "yes_prob": 0.15930904699635706
+              },
+              "p1": {
+                "away_win_prob": 0.37115531387939404,
+                "home_win_prob": 0.3303440569028524,
+                "tie_prob": 0.29850062921775344
+              },
+              "p2": {
+                "away_win_prob": 0.37258311219957996,
+                "home_win_prob": 0.33662235446064115,
+                "tie_prob": 0.2907945333397789
+              },
+              "p3": {
+                "away_win_prob": 0.36719539193741974,
+                "home_win_prob": 0.3420553563237544,
+                "tie_prob": 0.29074925173882576
+              }
+            },
+            "total_line_used": 6.5,
+            "under_odds": -122.0
+          }
+        ]
+      },
+      "recommendations": {
+        "count": 1,
+        "rows": [
+          {
+            "away": "Vegas Golden Knights",
+            "conf": 0.2913333333333333,
+            "ev": 0.2680401606425702,
+            "home": "Colorado Avalanche",
+            "market": "PL",
+            "price": -166.0,
+            "prob": 0.7913333333333333,
+            "side": "Vegas Golden Knights +1.5",
+            "totals_line": 6.5
+          }
+        ]
+      },
+      "reconciliation": null
+    },
+    "props": {
+      "recommendations": {
+        "count": 2,
+        "rows": [
+          {
+            "book": "pinnacle",
+            "edge_reasons": "MODEL UND · CONF60+ · MATCHUP+",
+            "edge_score": 0.5893006409140097,
+            "ev": 0.897709294873686,
+            "line": 0.5,
+            "market": "ASSISTS",
+            "opp": "VGK",
+            "player": "Cale Makar",
+            "price": 131,
+            "prob": 0.821519175269994,
+            "side": "Under",
+            "team": "COL"
+          },
+          {
+            "book": "draftkings",
+            "edge_reasons": "MODEL UND · CONF60+ · MATCHUP+",
+            "edge_score": 0.4158762267017707,
+            "ev": 0.2846750783185936,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "VGK",
+            "player": "Nazem Kadri",
+            "price": 114,
+            "prob": 0.6003154571582214,
+            "side": "Under",
+            "team": "COL"
+          }
+        ],
+        "source": "props_recommendations_2026-05-20.csv"
+      },
+      "reconciliation": null
+    }
+  },
+  "date": "2026-05-20",
+  "files": {
+    "edges": "data/processed/edges_sim_2026-05-20.csv",
+    "game_recommendations": "data/processed/recommendations_sim_2026-05-20.csv",
+    "predictions": "data/processed/predictions_sim_2026-05-20.csv",
+    "props_recommendations": "data/processed/props_recommendations_2026-05-20.csv",
+    "reconciliation_games": null,
+    "reconciliation_props": null
+  },
+  "generated_at_utc": "2026-05-19T18:34:16+00:00",
+  "schema_version": 2
+}

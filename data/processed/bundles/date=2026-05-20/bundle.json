@@ -142,7 +142,20 @@
           }
         ]
       },
-      "reconciliation": null
+      "reconciliation": {
+        "rows": [],
+        "summary": {
+          "date": "2026-05-20",
+          "decided": 0,
+          "losses": 0,
+          "picks": 0,
+          "pnl": 0.0,
+          "pushes": 0,
+          "roi": null,
+          "staked": 0.0,
+          "wins": 0
+        }
+      }
     },
     "props": {
       "recommendations": {
@@ -179,7 +192,47 @@
         ],
         "source": "props_recommendations_2026-05-20.csv"
       },
-      "reconciliation": null
+      "reconciliation": {
+        "rows": [
+          {
+            "actual": null,
+            "date": "2026-05-20",
+            "ev": 0.8402029526047867,
+            "line": 0.5,
+            "market": "ASSISTS",
+            "odds": 124.0,
+            "payout": null,
+            "player": "Cale Makar",
+            "result": null,
+            "side": "Under",
+            "stake": 100.0
+          },
+          {
+            "actual": 0.0,
+            "date": "2026-05-20",
+            "ev": 0.260662460032265,
+            "line": 0.5,
+            "market": "POINTS",
+            "odds": 110.0,
+            "payout": 110.00000000000001,
+            "player": "Nazem Kadri",
+            "result": "win",
+            "side": "Under",
+            "stake": 100.0
+          }
+        ],
+        "summary": {
+          "date": "2026-05-20",
+          "decided": 1,
+          "losses": 0,
+          "picks": 2,
+          "pnl": 110.00000000000001,
+          "pushes": 0,
+          "roi": 1.1,
+          "staked": 100.0,
+          "wins": 1
+        }
+      }
     }
   },
   "date": "2026-05-20",
@@ -188,9 +241,9 @@
     "game_recommendations": "data/processed/recommendations_sim_2026-05-20.csv",
     "predictions": "data/processed/predictions_sim_2026-05-20.csv",
     "props_recommendations": "data/processed/props_recommendations_2026-05-20.csv",
-    "reconciliation_games": null,
-    "reconciliation_props": null
+    "reconciliation_games": "data/processed/reconciliation_2026-05-20.json",
+    "reconciliation_props": "data/processed/reconciliation_props_2026-05-20.json"
   },
-  "generated_at_utc": "2026-05-20T15:26:41+00:00",
+  "generated_at_utc": "2026-05-21T15:22:51+00:00",
   "schema_version": 2
 }

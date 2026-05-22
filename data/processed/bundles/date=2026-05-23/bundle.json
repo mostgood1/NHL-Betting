@@ -1,0 +1,539 @@
+{
+  "data": {
+    "games": {
+      "edges": {
+        "count": 6,
+        "rows": [
+          {
+            "away": "Montréal Canadiens",
+            "ev": 0.1674,
+            "home": "Carolina Hurricanes",
+            "market": "ev_away_pl_+1.5"
+          },
+          {
+            "away": "Montréal Canadiens",
+            "ev": 0.0455,
+            "home": "Carolina Hurricanes",
+            "market": "ev_away_ml"
+          },
+          {
+            "away": "Montréal Canadiens",
+            "ev": -0.0221,
+            "home": "Carolina Hurricanes",
+            "market": "ev_under"
+          },
+          {
+            "away": "Montréal Canadiens",
+            "ev": -0.0546,
+            "home": "Carolina Hurricanes",
+            "market": "ev_over"
+          },
+          {
+            "away": "Montréal Canadiens",
+            "ev": -0.0883,
+            "home": "Carolina Hurricanes",
+            "market": "ev_home_ml"
+          },
+          {
+            "away": "Montréal Canadiens",
+            "ev": -0.3206,
+            "home": "Carolina Hurricanes",
+            "market": "ev_home_pl_-1.5"
+          }
+        ],
+        "source": "edges_2026-05-23.csv"
+      },
+      "predictions": {
+        "count": 1,
+        "rows": [
+          {
+            "away": "Montréal Canadiens",
+            "away_ml_odds": 170.0,
+            "away_pl_+1.5_odds": -148.0,
+            "date": "2026-05-23T23:00:00Z",
+            "home": "Carolina Hurricanes",
+            "home_ml_odds": -205.0,
+            "home_pl_-1.5_odds": 124.0,
+            "model_spread": 0.76,
+            "model_total": 6.16,
+            "over_odds": -130.0,
+            "p_away_ml": 0.3872325256236015,
+            "p_away_pl_+1.5": 0.6967,
+            "p_home_ml": 0.6127674743763984,
+            "p_home_pl_-1.5": 0.3033,
+            "p_over": 0.5343381879700099,
+            "p_under": 0.4656618120299901,
+            "period1_away_proj": 0.84,
+            "period1_home_proj": 1.03,
+            "period2_away_proj": 0.92,
+            "period2_home_proj": 0.99,
+            "period3_away_proj": 0.92,
+            "period3_home_proj": 0.97,
+            "pl_line_used": 1.5,
+            "proj_away_goals": 2.7,
+            "proj_home_goals": 3.46,
+            "segments": {
+              "final": {
+                "away_win_prob": 0.36421008028471286,
+                "home_win_prob": 0.4653386490548635,
+                "tie_prob": 0.1704512706604236
+              },
+              "ot": {
+                "no_prob": 0.8295487293395765,
+                "yes_prob": 0.1704512706604236
+              },
+              "p1": {
+                "away_win_prob": 0.28933317925366636,
+                "home_win_prob": 0.39142419401060974,
+                "tie_prob": 0.3192426267357239
+              },
+              "p2": {
+                "away_win_prob": 0.3228476144669531,
+                "home_win_prob": 0.36019870501155454,
+                "tie_prob": 0.3169536805214924
+              },
+              "p3": {
+                "away_win_prob": 0.32704141082212634,
+                "home_win_prob": 0.3538379517585737,
+                "tie_prob": 0.3191206374192999
+              }
+            },
+            "total_line_used": 5.5,
+            "under_odds": 110.0
+          }
+        ]
+      },
+      "recommendations": {
+        "count": 0,
+        "rows": []
+      },
+      "reconciliation": null
+    },
+    "props": {
+      "recommendations": {
+        "count": 29,
+        "rows": [
+          {
+            "book": "draftkings",
+            "edge_drivers": "MODEL UND · JUICE · CONF60+ · CONS2 · MATCHUP+",
+            "edge_reasons": "MODEL UND · JUICE · CONF60+ · CONS2 · MATCHUP+",
+            "edge_score": 0.6179451089707362,
+            "ev": 0.3976862552809914,
+            "line": 0.5,
+            "market": "ASSISTS",
+            "opp": "MTL",
+            "player": "Sebastian Aho",
+            "price": -154,
+            "side": "Under",
+            "team": "CAR"
+          },
+          {
+            "book": "fanduel",
+            "edge_drivers": "MODEL OVR · JUICE+ · CONF60+ · SINGLE · MATCHUP+",
+            "edge_reasons": "MODEL OVR · JUICE+ · CONF60+ · SINGLE · MATCHUP+",
+            "edge_score": 0.5856207311358247,
+            "ev": 0.208868311117332,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "MTL",
+            "player": "Taylor Hall",
+            "price": -205,
+            "side": "Over",
+            "team": "CAR"
+          },
+          {
+            "book": "draftkings",
+            "edge_drivers": "MODEL OVR · CONF60+ · CONS2 · MATCHUP+",
+            "edge_reasons": "MODEL OVR · CONF60+ · CONS2 · MATCHUP+",
+            "edge_score": 0.5264893124749331,
+            "ev": 0.5806120717613724,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "MTL",
+            "player": "Jordan Martinook",
+            "price": 114,
+            "side": "Over",
+            "team": "CAR"
+          },
+          {
+            "book": "fanduel",
+            "edge_drivers": "MODEL OVR · JUICE+ · CONF60+ · CONS3+ · MATCHUP+",
+            "edge_reasons": "MODEL OVR · JUICE+ · CONF60+ · CONS3+ · MATCHUP+",
+            "edge_score": 0.5106662839937297,
+            "ev": 0.1226592481875845,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "MTL",
+            "player": "Shayne Gostisbehere",
+            "price": -178,
+            "side": "Over",
+            "team": "CAR"
+          },
+          {
+            "book": "draftkings",
+            "edge_drivers": "MODEL OVR · CONF60+ · CONS2 · MATCHUP-",
+            "edge_reasons": "MODEL OVR · CONF60+ · CONS2 · MATCHUP-",
+            "edge_score": 0.4906261930155418,
+            "ev": 0.4422513006007516,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "MTL",
+            "player": "Taylor Hall",
+            "price": -120,
+            "side": "Over",
+            "team": "CAR"
+          },
+          {
+            "book": "pinnacle",
+            "edge_drivers": "MODEL UND · CONF60+ · CONS2 · MATCHUP+",
+            "edge_reasons": "MODEL UND · CONF60+ · CONS2 · MATCHUP+",
+            "edge_score": 0.4872364605332049,
+            "ev": 0.3746149830347217,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "CAR",
+            "player": "Cole Caufield",
+            "price": 121,
+            "side": "Under",
+            "team": "MTL"
+          },
+          {
+            "book": "fanduel",
+            "edge_drivers": "MODEL OVR · JUICE · CONF60+ · CONS3+ · MATCHUP+",
+            "edge_reasons": "MODEL OVR · JUICE · CONF60+ · CONS3+ · MATCHUP+",
+            "edge_score": 0.486675048120656,
+            "ev": 0.1542656315489801,
+            "line": 2.5,
+            "market": "SOG",
+            "opp": "MTL",
+            "player": "Andrei Svechnikov",
+            "price": -148,
+            "side": "Over",
+            "team": "CAR"
+          },
+          {
+            "book": "fanduel",
+            "edge_drivers": "MODEL OVR · CONF60+ · CONS3+ · MATCHUP+",
+            "edge_reasons": "MODEL OVR · CONF60+ · CONS3+ · MATCHUP+",
+            "edge_score": 0.4838323735203059,
+            "ev": 0.291727375288643,
+            "line": 2.5,
+            "market": "SOG",
+            "opp": "MTL",
+            "player": "Logan Stankoven",
+            "price": -113,
+            "side": "Over",
+            "team": "CAR"
+          },
+          {
+            "book": "pinnacle",
+            "edge_drivers": "MODEL OVR · CONF60+ · CONS2 · MATCHUP+",
+            "edge_reasons": "MODEL OVR · CONF60+ · CONS2 · MATCHUP+",
+            "edge_score": 0.4783498882744474,
+            "ev": 0.3435564441500127,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "MTL",
+            "player": "Jordan Staal",
+            "price": -102,
+            "side": "Over",
+            "team": "CAR"
+          },
+          {
+            "book": "pinnacle",
+            "edge_drivers": "MODEL OVR · CONF60+ · CONS2 · MATCHUP+",
+            "edge_reasons": "MODEL OVR · CONF60+ · CONS2 · MATCHUP+",
+            "edge_score": 0.4763409175612725,
+            "ev": 0.2039794330598399,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "MTL",
+            "player": "Jaccob Slavin",
+            "price": -128,
+            "side": "Over",
+            "team": "CAR"
+          },
+          {
+            "book": "pinnacle",
+            "edge_drivers": "MODEL UND · CONF55+ · CONS2 · MATCHUP+",
+            "edge_reasons": "MODEL UND · CONF55+ · CONS2 · MATCHUP+",
+            "edge_score": 0.4593082621639557,
+            "ev": 0.1804132746947088,
+            "line": 0.5,
+            "market": "ASSISTS",
+            "opp": "CAR",
+            "player": "Nick Suzuki",
+            "price": 101,
+            "side": "Under",
+            "team": "MTL"
+          },
+          {
+            "book": "fanduel",
+            "edge_drivers": "MODEL OVR · CONF60+ · CONS3+ · MATCHUP-",
+            "edge_reasons": "MODEL OVR · CONF60+ · CONS3+ · MATCHUP-",
+            "edge_score": 0.4480409311223163,
+            "ev": 0.4025732643459156,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "CAR",
+            "player": "Alex Newhook",
+            "price": -114,
+            "side": "Over",
+            "team": "MTL"
+          },
+          {
+            "book": "fanduel",
+            "edge_drivers": "MODEL OVR · JUICE · CONF60+ · CONS3+ · MATCHUP+",
+            "edge_reasons": "MODEL OVR · JUICE · CONF60+ · CONS3+ · MATCHUP+",
+            "edge_score": 0.4403838650829767,
+            "ev": 0.057304369780868,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "MTL",
+            "player": "Sean Walker",
+            "price": -148,
+            "side": "Over",
+            "team": "CAR"
+          },
+          {
+            "book": "draftkings",
+            "edge_drivers": "MODEL UND · CONF60+ · CONS2 · MATCHUP+",
+            "edge_reasons": "MODEL UND · CONF60+ · CONS2 · MATCHUP+",
+            "edge_score": 0.4397729319500555,
+            "ev": 0.4405276707951491,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "MTL",
+            "player": "Seth Jarvis",
+            "price": 130,
+            "side": "Under",
+            "team": "CAR"
+          },
+          {
+            "book": "pinnacle",
+            "edge_drivers": "MODEL UND · CONF60+ · CONS2 · MATCHUP+",
+            "edge_reasons": "MODEL UND · CONF60+ · CONS2 · MATCHUP+",
+            "edge_score": 0.4391585277706921,
+            "ev": 0.3887173889088888,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "MTL",
+            "player": "Andrei Svechnikov",
+            "price": 122,
+            "side": "Under",
+            "team": "CAR"
+          },
+          {
+            "book": "fanduel",
+            "edge_drivers": "MODEL OVR · CONF60+ · CONS3+ · MATCHUP-",
+            "edge_reasons": "MODEL OVR · CONF60+ · CONS3+ · MATCHUP-",
+            "edge_score": 0.4373598068691493,
+            "ev": 0.2773795631174236,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "CAR",
+            "player": "Ivan Demidov",
+            "price": -135,
+            "side": "Over",
+            "team": "MTL"
+          },
+          {
+            "book": "fanduel",
+            "edge_drivers": "MODEL OVR · JUICE+ · CONF60+ · CONS3+ · MATCHUP-",
+            "edge_reasons": "MODEL OVR · JUICE+ · CONF60+ · CONS3+ · MATCHUP-",
+            "edge_score": 0.4198802838598323,
+            "ev": 0.1164896081667028,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "CAR",
+            "player": "Nick Suzuki",
+            "price": -176,
+            "side": "Over",
+            "team": "MTL"
+          },
+          {
+            "book": "draftkings",
+            "edge_drivers": "MODEL OVR · CONF60+ · CONS2 · MATCHUP-",
+            "edge_reasons": "MODEL OVR · CONF60+ · CONS2 · MATCHUP-",
+            "edge_score": 0.4167095324357367,
+            "ev": 0.2497160633761764,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "MTL",
+            "player": "Jackson Blake",
+            "price": -125,
+            "side": "Over",
+            "team": "CAR"
+          },
+          {
+            "book": "draftkings",
+            "edge_drivers": "MODEL OVR · CONF60+ · CONS2 · MATCHUP-",
+            "edge_reasons": "MODEL OVR · CONF60+ · CONS2 · MATCHUP-",
+            "edge_score": 0.4155599553258248,
+            "ev": 0.2953277569997973,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "MTL",
+            "player": "Logan Stankoven",
+            "price": -115,
+            "side": "Over",
+            "team": "CAR"
+          },
+          {
+            "book": "fanduel",
+            "edge_drivers": "MODEL OVR · CONF55+ · CONS3+ · MATCHUP+",
+            "edge_reasons": "MODEL OVR · CONF55+ · CONS3+ · MATCHUP+",
+            "edge_score": 0.4072072463700354,
+            "ev": 0.1254113612381561,
+            "line": 2.5,
+            "market": "SOG",
+            "opp": "MTL",
+            "player": "Sebastian Aho",
+            "price": -110,
+            "side": "Over",
+            "team": "CAR"
+          },
+          {
+            "book": "draftkings",
+            "edge_drivers": "MODEL OVR · CONF55+ · CONS2 · MATCHUP+",
+            "edge_reasons": "MODEL OVR · CONF55+ · CONS2 · MATCHUP+",
+            "edge_score": 0.3996754262022812,
+            "ev": 0.0634917590188718,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "MTL",
+            "player": "Jalen Chatfield",
+            "price": -120,
+            "side": "Over",
+            "team": "CAR"
+          },
+          {
+            "book": "pinnacle",
+            "edge_drivers": "MODEL UND · CONF55+ · CONS2 · MATCHUP+",
+            "edge_reasons": "MODEL UND · CONF55+ · CONS2 · MATCHUP+",
+            "edge_score": 0.3972872531266872,
+            "ev": 0.3585059937833817,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "MTL",
+            "player": "Sebastian Aho",
+            "price": 137,
+            "side": "Under",
+            "team": "CAR"
+          },
+          {
+            "book": "pinnacle",
+            "edge_drivers": "MODEL UND · CONS2 · MATCHUP+",
+            "edge_reasons": "MODEL UND · CONS2 · MATCHUP+",
+            "edge_score": 0.3896382766292333,
+            "ev": 0.2030290556206401,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "CAR",
+            "player": "Nick Suzuki",
+            "price": 176,
+            "side": "Under",
+            "team": "MTL"
+          },
+          {
+            "book": "draftkings",
+            "edge_drivers": "MODEL OVR · CONF55+ · CONS2 · MATCHUP+",
+            "edge_reasons": "MODEL OVR · CONF55+ · CONS2 · MATCHUP+",
+            "edge_score": 0.3819514421845879,
+            "ev": 0.339035441571625,
+            "line": 2.5,
+            "market": "SOG",
+            "opp": "MTL",
+            "player": "Taylor Hall",
+            "price": 140,
+            "side": "Over",
+            "team": "CAR"
+          },
+          {
+            "book": "draftkings",
+            "edge_drivers": "MODEL OVR · CONF55+ · CONS2 · MATCHUP+",
+            "edge_reasons": "MODEL OVR · CONF55+ · CONS2 · MATCHUP+",
+            "edge_score": 0.3811907108035942,
+            "ev": 0.1919383122905409,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "MTL",
+            "player": "K'Andre Miller",
+            "price": 114,
+            "side": "Over",
+            "team": "CAR"
+          },
+          {
+            "book": "draftkings",
+            "edge_drivers": "MODEL UND · CONF60+ · CONS3+ · MATCHUP-",
+            "edge_reasons": "MODEL UND · CONF60+ · CONS3+ · MATCHUP-",
+            "edge_score": 0.3627037547932017,
+            "ev": 0.4637857712500406,
+            "line": 2.5,
+            "market": "SOG",
+            "opp": "MTL",
+            "player": "Seth Jarvis",
+            "price": 135,
+            "side": "Under",
+            "team": "CAR"
+          },
+          {
+            "book": "draftkings",
+            "edge_drivers": "MODEL UND · CONF60+ · CONS3+ · MATCHUP-",
+            "edge_reasons": "MODEL UND · CONF60+ · CONS3+ · MATCHUP-",
+            "edge_score": 0.3594645408624656,
+            "ev": 0.1814190401121304,
+            "line": 2.5,
+            "market": "SOG",
+            "opp": "MTL",
+            "player": "Nikolaj Ehlers",
+            "price": -110,
+            "side": "Under",
+            "team": "CAR"
+          },
+          {
+            "book": "draftkings",
+            "edge_drivers": "MODEL OVR · CONF60+ · CONS2 · MATCHUP-",
+            "edge_reasons": "MODEL OVR · CONF60+ · CONS2 · MATCHUP-",
+            "edge_score": 0.3545969858366786,
+            "ev": 0.607480010429181,
+            "line": 0.5,
+            "market": "ASSISTS",
+            "opp": "MTL",
+            "player": "Taylor Hall",
+            "price": 160,
+            "side": "Over",
+            "team": "CAR"
+          },
+          {
+            "book": "fanduel",
+            "edge_drivers": "MODEL OVR · CONS3+ · MATCHUP+",
+            "edge_reasons": "MODEL OVR · CONS3+ · MATCHUP+",
+            "edge_score": 0.3401950557487422,
+            "ev": 0.0822749350188118,
+            "line": 2.5,
+            "market": "SOG",
+            "opp": "MTL",
+            "player": "Jackson Blake",
+            "price": 114,
+            "side": "Over",
+            "team": "CAR"
+          }
+        ],
+        "source": "props_recommendations_2026-05-23.csv"
+      },
+      "reconciliation": null
+    }
+  },
+  "date": "2026-05-23",
+  "files": {
+    "edges": "data/processed/edges_2026-05-23.csv",
+    "game_recommendations": null,
+    "predictions": "data/processed/predictions_2026-05-23.csv",
+    "props_recommendations": "data/processed/props_recommendations_2026-05-23.csv",
+    "reconciliation_games": null,
+    "reconciliation_props": null
+  },
+  "generated_at_utc": "2026-05-22T16:18:20+00:00",
+  "schema_version": 2
+}

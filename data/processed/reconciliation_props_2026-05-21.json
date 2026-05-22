@@ -1,0 +1,106 @@
+{
+  "summary": {
+    "date": "2026-05-21",
+    "picks": 7,
+    "decided": 7,
+    "wins": 0,
+    "losses": 7,
+    "pushes": 0,
+    "staked": 700.0,
+    "pnl": -700.0,
+    "roi": -1.0
+  },
+  "rows": [
+    {
+      "date": "2026-05-21",
+      "market": "ASSISTS",
+      "player": "Sebastian Aho",
+      "line": 0.5,
+      "side": "Under",
+      "odds": -154.0,
+      "ev": 0.4197512278422172,
+      "actual": 1.0,
+      "result": "loss",
+      "stake": 100.0,
+      "payout": -100.0
+    },
+    {
+      "date": "2026-05-21",
+      "market": "POINTS",
+      "player": "Taylor Hall",
+      "line": 0.5,
+      "side": "Over",
+      "odds": -125.0,
+      "ev": 0.5547098136140504,
+      "actual": 0.0,
+      "result": "loss",
+      "stake": 100.0,
+      "payout": -100.0
+    },
+    {
+      "date": "2026-05-21",
+      "market": "POINTS",
+      "player": "Cole Caufield",
+      "line": 0.5,
+      "side": "Under",
+      "odds": 114.0,
+      "ev": 0.3308340208351429,
+      "actual": 2.0,
+      "result": "loss",
+      "stake": 100.0,
+      "payout": -100.0
+    },
+    {
+      "date": "2026-05-21",
+      "market": "POINTS",
+      "player": "Jackson Blake",
+      "line": 0.5,
+      "side": "Over",
+      "odds": -125.0,
+      "ev": 0.3885276009441313,
+      "actual": 0.0,
+      "result": "loss",
+      "stake": 100.0,
+      "payout": -100.0
+    },
+    {
+      "date": "2026-05-21",
+      "market": "POINTS",
+      "player": "Logan Stankoven",
+      "line": 0.5,
+      "side": "Over",
+      "odds": -120.0,
+      "ev": 0.4114237293362147,
+      "actual": 0.0,
+      "result": "loss",
+      "stake": 100.0,
+      "payout": -100.0
+    },
+    {
+      "date": "2026-05-21",
+      "market": "POINTS",
+      "player": "Seth Jarvis",
+      "line": 0.5,
+      "side": "Under",
+      "odds": 124.0,
+      "ev": 0.4054757616622642,
+      "actual": 1.0,
+      "result": "loss",
+      "stake": 100.0,
+      "payout": -100.0
+    },
+    {
+      "date": "2026-05-21",
+      "market": "POINTS",
+      "player": "Andrei Svechnikov",
+      "line": 0.5,
+      "side": "Under",
+      "odds": 120.0,
+      "ev": 0.3783089653827595,
+      "actual": 1.0,
+      "result": "loss",
+      "stake": 100.0,
+      "payout": -100.0
+    }
+  ]
+}

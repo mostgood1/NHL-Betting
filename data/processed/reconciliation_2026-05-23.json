@@ -1,0 +1,39 @@
+{
+  "summary": {
+    "date": "2026-05-23",
+    "picks": 2,
+    "decided": 2,
+    "wins": 1,
+    "losses": 1,
+    "pushes": 0,
+    "staked": 200.0,
+    "pnl": -25.925925925925924,
+    "roi": -0.12962962962962962
+  },
+  "rows": [
+    {
+      "date": "2026-05-23T23:00:00Z",
+      "home": "Carolina Hurricanes",
+      "away": "Montr\u00e9al Canadiens",
+      "market": "moneyline",
+      "bet": "away_ml",
+      "ev": 0.0455,
+      "price": 175,
+      "result": "loss",
+      "stake": 100.0,
+      "payout": -100.0
+    },
+    {
+      "date": "2026-05-23T23:00:00Z",
+      "home": "Carolina Hurricanes",
+      "away": "Montr\u00e9al Canadiens",
+      "market": "puckline",
+      "bet": "away_pl_+1.5",
+      "ev": 0.1674,
+      "price": -135.0,
+      "result": "win",
+      "stake": 100.0,
+      "payout": 74.07407407407408
+    }
+  ]
+}

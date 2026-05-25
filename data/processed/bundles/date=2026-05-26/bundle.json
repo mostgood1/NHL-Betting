@@ -1,0 +1,408 @@
+{
+  "data": {
+    "games": {
+      "edges": {
+        "count": 4,
+        "rows": [
+          {
+            "away": "Colorado Avalanche",
+            "bet": "over",
+            "book": null,
+            "edge_reasons": "total 6.47 vs line 6.5 (-0.03); p=0.476; P1 pace 2.06",
+            "edge_score": 0.3029242391793724,
+            "ev": -0.0248833333333333,
+            "home": "Vegas Golden Knights",
+            "market": "ev_over",
+            "market_group": "totals",
+            "price": 105.0,
+            "prob": 0.4756666666666667,
+            "side": "Over 6.5",
+            "totals_line": 6.5
+          },
+          {
+            "away": "Colorado Avalanche",
+            "bet": "under",
+            "book": null,
+            "edge_reasons": "total 6.47 vs line 6.5 (-0.03); p=0.524; P1 pace 2.06",
+            "edge_score": 0.2935306627814119,
+            "ev": -0.0562,
+            "home": "Vegas Golden Knights",
+            "market": "ev_under",
+            "market_group": "totals",
+            "price": -125.0,
+            "prob": 0.5243333333333333,
+            "side": "Under 6.5",
+            "totals_line": 6.5
+          },
+          {
+            "away": "Colorado Avalanche",
+            "bet": "home_ml",
+            "book": null,
+            "edge_reasons": "p=0.558",
+            "edge_score": 0.1168333333333333,
+            "ev": 0.1168333333333333,
+            "home": "Vegas Golden Knights",
+            "market": "ev_home_ml",
+            "market_group": "moneyline",
+            "price": 100.0,
+            "prob": 0.5584166666666667,
+            "side": "Vegas Golden Knights",
+            "totals_line": null
+          },
+          {
+            "away": "Colorado Avalanche",
+            "bet": "away_ml",
+            "book": null,
+            "edge_reasons": "p=0.442",
+            "edge_score": 0.1168333333333333,
+            "ev": -0.1904305555555555,
+            "home": "Vegas Golden Knights",
+            "market": "ev_away_ml",
+            "market_group": "moneyline",
+            "price": -120.0,
+            "prob": 0.4415833333333333,
+            "side": "Colorado Avalanche",
+            "totals_line": null
+          }
+        ],
+        "source": "edges_sim_2026-05-26.csv"
+      },
+      "predictions": {
+        "count": 1,
+        "rows": [
+          {
+            "away": "Colorado Avalanche",
+            "away_ml_odds": -120.0,
+            "away_pl_+1.5_odds": null,
+            "date": "2026-05-26",
+            "home": "Vegas Golden Knights",
+            "home_ml_odds": 100.0,
+            "home_pl_-1.5_odds": null,
+            "model_total": 6.471333333333333,
+            "over_odds": 105.0,
+            "p_away_ml": 0.4415833333333333,
+            "p_away_pl_+1.5": 0.7163333333333333,
+            "p_home_ml": 0.5584166666666667,
+            "p_home_pl_-1.5": 0.2836666666666667,
+            "p_over": 0.4756666666666667,
+            "p_under": 0.5243333333333333,
+            "period1_away_proj": 0.9665,
+            "period1_home_proj": 1.0945,
+            "period2_away_proj": 1.0143333333333333,
+            "period2_home_proj": 1.1376666666666666,
+            "period3_away_proj": 1.0355,
+            "period3_home_proj": 1.108,
+            "pl_line_used": 1.5,
+            "proj_away_goals": 3.0705,
+            "proj_home_goals": 3.4008333333333334,
+            "segments": {
+              "final": {
+                "away_win_prob": 0.3697516793496265,
+                "home_win_prob": 0.4696223232298171,
+                "tie_prob": 0.16062599742055633
+              },
+              "ot": {
+                "no_prob": 0.8393740025794436,
+                "yes_prob": 0.16062599742055633
+              },
+              "p1": {
+                "away_win_prob": 0.31586122952560824,
+                "home_win_prob": 0.38202618866920207,
+                "tie_prob": 0.3021125818051896
+              },
+              "p2": {
+                "away_win_prob": 0.32146945660052345,
+                "home_win_prob": 0.3840891455664427,
+                "tie_prob": 0.2944413978330338
+              },
+              "p3": {
+                "away_win_prob": 0.33373870865085437,
+                "home_win_prob": 0.37062733524182634,
+                "tie_prob": 0.2956339561073193
+              }
+            },
+            "total_line_used": 6.5,
+            "under_odds": -125.0
+          }
+        ]
+      },
+      "recommendations": {
+        "count": 0,
+        "rows": []
+      },
+      "reconciliation": null
+    },
+    "props": {
+      "recommendations": {
+        "count": 18,
+        "rows": [
+          {
+            "book": "pinnacle",
+            "edge_drivers": "MODEL UND · CONF60+ · CONS2 · MATCHUP+",
+            "edge_reasons": "MODEL UND · CONF60+ · CONS2 · MATCHUP+",
+            "edge_score": 0.6001994233922774,
+            "ev": 0.6793009162312408,
+            "line": 0.5,
+            "market": "ASSISTS",
+            "opp": "VGK",
+            "player": "Cale Makar",
+            "price": 107,
+            "side": "Under",
+            "team": "COL"
+          },
+          {
+            "book": "betmgm",
+            "edge_drivers": "MODEL OVR · JUICE · CONF60+ · CONS2 · MATCHUP+",
+            "edge_reasons": "MODEL OVR · JUICE · CONF60+ · CONS2 · MATCHUP+",
+            "edge_score": 0.5071146139902124,
+            "ev": 0.1644958509852912,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "VGK",
+            "player": "Brock Nelson",
+            "price": -150,
+            "side": "Over",
+            "team": "COL"
+          },
+          {
+            "book": "pinnacle",
+            "edge_drivers": "MODEL OVR · CONF60+ · CONS2 · MATCHUP+",
+            "edge_reasons": "MODEL OVR · CONF60+ · CONS2 · MATCHUP+",
+            "edge_score": 0.4678828417501504,
+            "ev": 0.4877163512166129,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "VGK",
+            "player": "Ross Colton",
+            "price": 129,
+            "side": "Over",
+            "team": "COL"
+          },
+          {
+            "book": "pinnacle",
+            "edge_drivers": "MODEL OVR · CONF60+ · CONS2 · MATCHUP+",
+            "edge_reasons": "MODEL OVR · CONF60+ · CONS2 · MATCHUP+",
+            "edge_score": 0.4486452840568198,
+            "ev": 0.1649305448765322,
+            "line": 2.5,
+            "market": "SOG",
+            "opp": "VGK",
+            "player": "Nazem Kadri",
+            "price": -116,
+            "side": "Over",
+            "team": "COL"
+          },
+          {
+            "book": "betmgm",
+            "edge_drivers": "MODEL OVR · JUICE · CONF60+ · CONS2 · MATCHUP+",
+            "edge_reasons": "MODEL OVR · JUICE · CONF60+ · CONS2 · MATCHUP+",
+            "edge_score": 0.4477091255035679,
+            "ev": 0.0273055854556879,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "VGK",
+            "player": "Sam Malinski",
+            "price": -155,
+            "side": "Over",
+            "team": "COL"
+          },
+          {
+            "book": "betmgm",
+            "edge_drivers": "MODEL OVR · CONF60+ · CONS2 · MATCHUP+",
+            "edge_reasons": "MODEL OVR · CONF60+ · CONS2 · MATCHUP+",
+            "edge_score": 0.4463797835406898,
+            "ev": 0.1889416748286094,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "VGK",
+            "player": "Brent Burns",
+            "price": -110,
+            "side": "Over",
+            "team": "COL"
+          },
+          {
+            "book": "fanduel",
+            "edge_drivers": "MODEL OVR · JUICE · CONF60+ · CONS3+ · MATCHUP-",
+            "edge_reasons": "MODEL OVR · JUICE · CONF60+ · CONS3+ · MATCHUP-",
+            "edge_score": 0.423172795413562,
+            "ev": 0.1762049659348404,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "COL",
+            "player": "Shea Theodore",
+            "price": -148,
+            "side": "Over",
+            "team": "VGK"
+          },
+          {
+            "book": "betmgm",
+            "edge_drivers": "MODEL OVR · CONF55+ · CONS2 · MATCHUP+",
+            "edge_reasons": "MODEL OVR · CONF55+ · CONS2 · MATCHUP+",
+            "edge_score": 0.4228373190319498,
+            "ev": 0.1327607936145707,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "VGK",
+            "player": "Artturi Lehkonen",
+            "price": -110,
+            "side": "Over",
+            "team": "COL"
+          },
+          {
+            "book": "betmgm",
+            "edge_drivers": "MODEL OVR · JUICE · CONF60+ · CONS2 · MATCHUP-",
+            "edge_reasons": "MODEL OVR · JUICE · CONF60+ · CONS2 · MATCHUP-",
+            "edge_score": 0.4000266748607249,
+            "ev": 0.0782103405476349,
+            "line": 0.5,
+            "market": "ASSISTS",
+            "opp": "COL",
+            "player": "Jack Eichel",
+            "price": -165,
+            "side": "Over",
+            "team": "VGK"
+          },
+          {
+            "book": "pinnacle",
+            "edge_drivers": "MODEL UND · CONS2 · MATCHUP+",
+            "edge_reasons": "MODEL UND · CONS2 · MATCHUP+",
+            "edge_score": 0.3919268835270367,
+            "ev": 0.3691080307598763,
+            "line": 0.5,
+            "market": "POINTS",
+            "opp": "VGK",
+            "player": "Cale Makar",
+            "price": 150,
+            "side": "Under",
+            "team": "COL"
+          },
+          {
+            "book": "pinnacle",
+            "edge_drivers": "MODEL OVR · CONF60+ · CONS3+ · MATCHUP-",
+            "edge_reasons": "MODEL OVR · CONF60+ · CONS3+ · MATCHUP-",
+            "edge_score": 0.3777684626380832,
+            "ev": 0.1093268461276383,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "COL",
+            "player": "Mark Stone",
+            "price": -139,
+            "side": "Over",
+            "team": "VGK"
+          },
+          {
+            "book": "pinnacle",
+            "edge_drivers": "MODEL OVR · CONF60+ · CONS2 · MATCHUP-",
+            "edge_reasons": "MODEL OVR · CONF60+ · CONS2 · MATCHUP-",
+            "edge_score": 0.3637526849872203,
+            "ev": 0.2678603365600995,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "COL",
+            "player": "Brett Howden",
+            "price": 102,
+            "side": "Over",
+            "team": "VGK"
+          },
+          {
+            "book": "pinnacle",
+            "edge_drivers": "MODEL OVR · CONF60+ · CONS2 · MATCHUP-",
+            "edge_reasons": "MODEL OVR · CONF60+ · CONS2 · MATCHUP-",
+            "edge_score": 0.3567249282277318,
+            "ev": 0.3862664166648299,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "COL",
+            "player": "Ivan Barbashev",
+            "price": 124,
+            "side": "Over",
+            "team": "VGK"
+          },
+          {
+            "book": "fanduel",
+            "edge_drivers": "MODEL OVR · CONF60+ · CONS3+ · MATCHUP-",
+            "edge_reasons": "MODEL OVR · CONF60+ · CONS3+ · MATCHUP-",
+            "edge_score": 0.3537992920883092,
+            "ev": 0.1501787524340294,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "COL",
+            "player": "William Karlsson",
+            "price": -115,
+            "side": "Over",
+            "team": "VGK"
+          },
+          {
+            "book": "betmgm",
+            "edge_drivers": "MODEL OVR · JUICE · CONF60+ · CONS3+ · MATCHUP-",
+            "edge_reasons": "MODEL OVR · JUICE · CONF60+ · CONS3+ · MATCHUP-",
+            "edge_score": 0.3512417239423139,
+            "ev": 0.0068632730119332,
+            "line": 2.5,
+            "market": "SOG",
+            "opp": "COL",
+            "player": "Jack Eichel",
+            "price": -155,
+            "side": "Over",
+            "team": "VGK"
+          },
+          {
+            "book": "pinnacle",
+            "edge_drivers": "MODEL OVR · CONS2 · MATCHUP+",
+            "edge_reasons": "MODEL OVR · CONS2 · MATCHUP+",
+            "edge_score": 0.3498315599692184,
+            "ev": 0.0092083230605136,
+            "line": 2.5,
+            "market": "SOG",
+            "opp": "VGK",
+            "player": "Cale Makar",
+            "price": 101,
+            "side": "Over",
+            "team": "COL"
+          },
+          {
+            "book": "pinnacle",
+            "edge_drivers": "MODEL OVR · CONS2 · MATCHUP+",
+            "edge_reasons": "MODEL OVR · CONS2 · MATCHUP+",
+            "edge_score": 0.3481566055172725,
+            "ev": 0.0705099895903363,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "VGK",
+            "player": "Valeri Nichushkin",
+            "price": 121,
+            "side": "Over",
+            "team": "COL"
+          },
+          {
+            "book": "fanduel",
+            "edge_drivers": "MODEL OVR · CONF60+ · CONS3+ · MATCHUP-",
+            "edge_reasons": "MODEL OVR · CONF60+ · CONS3+ · MATCHUP-",
+            "edge_score": 0.3477701202722994,
+            "ev": 0.2275043606549244,
+            "line": 1.5,
+            "market": "SOG",
+            "opp": "COL",
+            "player": "Rasmus Andersson",
+            "price": 102,
+            "side": "Over",
+            "team": "VGK"
+          }
+        ],
+        "source": "props_recommendations_2026-05-26.csv"
+      },
+      "reconciliation": null
+    }
+  },
+  "date": "2026-05-26",
+  "files": {
+    "edges": "data/processed/edges_sim_2026-05-26.csv",
+    "game_recommendations": "data/processed/recommendations_sim_2026-05-26.csv",
+    "predictions": "data/processed/predictions_sim_2026-05-26.csv",
+    "props_recommendations": "data/processed/props_recommendations_2026-05-26.csv",
+    "reconciliation_games": null,
+    "reconciliation_props": null
+  },
+  "generated_at_utc": "2026-05-25T13:45:08+00:00",
+  "schema_version": 2
+}

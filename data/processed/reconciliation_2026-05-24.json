@@ -1,0 +1,27 @@
+{
+  "summary": {
+    "date": "2026-05-24",
+    "picks": 1,
+    "decided": 1,
+    "wins": 1,
+    "losses": 0,
+    "pushes": 0,
+    "staked": 100.0,
+    "pnl": 135.0,
+    "roi": 1.35
+  },
+  "rows": [
+    {
+      "date": "2026-05-25T00:00:00Z",
+      "home": "Vegas Golden Knights",
+      "away": "Colorado Avalanche",
+      "market": "moneyline",
+      "bet": "home_ml",
+      "ev": 0.029,
+      "price": 135,
+      "result": "win",
+      "stake": 100.0,
+      "payout": 135.0
+    }
+  ]
+}

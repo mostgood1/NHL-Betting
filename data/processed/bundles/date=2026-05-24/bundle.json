@@ -38,6 +38,7 @@
             "away": "Colorado Avalanche",
             "away_ml_odds": -148.0,
             "date": "2026-05-25T00:00:00Z",
+            "game_state": "FINAL",
             "home": "Vegas Golden Knights",
             "home_ml_odds": 124.0,
             "model_spread": 0.68,
@@ -93,7 +94,33 @@
         "count": 0,
         "rows": []
       },
-      "reconciliation": null
+      "reconciliation": {
+        "rows": [
+          {
+            "away": "Colorado Avalanche",
+            "bet": "home_ml",
+            "date": "2026-05-25T00:00:00Z",
+            "ev": 0.029,
+            "home": "Vegas Golden Knights",
+            "market": "moneyline",
+            "payout": 135.0,
+            "price": 135,
+            "result": "win",
+            "stake": 100.0
+          }
+        ],
+        "summary": {
+          "date": "2026-05-24",
+          "decided": 1,
+          "losses": 0,
+          "picks": 1,
+          "pnl": 135.0,
+          "pushes": 0,
+          "roi": 1.35,
+          "staked": 100.0,
+          "wins": 1
+        }
+      }
     },
     "props": {
       "recommendations": {
@@ -298,7 +325,203 @@
         ],
         "source": "props_recommendations_2026-05-24.csv"
       },
-      "reconciliation": null
+      "reconciliation": {
+        "rows": [
+          {
+            "actual": null,
+            "date": "2026-05-24",
+            "ev": 0.1583669254537898,
+            "line": 1.5,
+            "market": "SOG",
+            "odds": -152.0,
+            "payout": null,
+            "player": "Brock Nelson",
+            "result": null,
+            "side": "Over",
+            "stake": 100.0
+          },
+          {
+            "actual": 1.0,
+            "date": "2026-05-24",
+            "ev": 0.3447916362525717,
+            "line": 1.5,
+            "market": "SOG",
+            "odds": 107.0,
+            "payout": -100.0,
+            "player": "Ross Colton",
+            "result": "loss",
+            "side": "Over",
+            "stake": 100.0
+          },
+          {
+            "actual": 3.0,
+            "date": "2026-05-24",
+            "ev": 0.2887583472393341,
+            "line": 2.5,
+            "market": "SOG",
+            "odds": 106.0,
+            "payout": 106.0,
+            "player": "Nazem Kadri",
+            "result": "win",
+            "side": "Over",
+            "stake": 100.0
+          },
+          {
+            "actual": 1.0,
+            "date": "2026-05-24",
+            "ev": 0.1867017837866931,
+            "line": 1.5,
+            "market": "SOG",
+            "odds": 100.0,
+            "payout": -100.0,
+            "player": "Artturi Lehkonen",
+            "result": "loss",
+            "side": "Over",
+            "stake": 100.0
+          },
+          {
+            "actual": null,
+            "date": "2026-05-24",
+            "ev": 0.1827019001258195,
+            "line": 1.5,
+            "market": "SOG",
+            "odds": -146.0,
+            "payout": null,
+            "player": "Shea Theodore",
+            "result": null,
+            "side": "Over",
+            "stake": 100.0
+          },
+          {
+            "actual": 0.0,
+            "date": "2026-05-24",
+            "ev": 0.0782103405476349,
+            "line": 0.5,
+            "market": "ASSISTS",
+            "odds": -165.0,
+            "payout": -100.0,
+            "player": "Jack Eichel",
+            "result": "loss",
+            "side": "Over",
+            "stake": 100.0
+          },
+          {
+            "actual": 1.0,
+            "date": "2026-05-24",
+            "ev": 0.1864079569250136,
+            "line": 0.5,
+            "market": "ASSISTS",
+            "odds": 126.0,
+            "payout": -100.0,
+            "player": "Nathan MacKinnon",
+            "result": "loss",
+            "side": "Under",
+            "stake": 100.0
+          },
+          {
+            "actual": 2.0,
+            "date": "2026-05-24",
+            "ev": 0.299243018158122,
+            "line": 1.5,
+            "market": "SOG",
+            "odds": 107.0,
+            "payout": 107.00000000000003,
+            "player": "Brett Howden",
+            "result": "win",
+            "side": "Over",
+            "stake": 100.0
+          },
+          {
+            "actual": null,
+            "date": "2026-05-24",
+            "ev": 0.3615116592243865,
+            "line": 1.5,
+            "market": "SOG",
+            "odds": 120.0,
+            "payout": null,
+            "player": "Ivan Barbashev",
+            "result": null,
+            "side": "Over",
+            "stake": 100.0
+          },
+          {
+            "actual": 1.0,
+            "date": "2026-05-24",
+            "ev": 0.203052247471835,
+            "line": 0.5,
+            "market": "POINTS",
+            "odds": 189.0,
+            "payout": -100.0,
+            "player": "Martin Necas",
+            "result": "loss",
+            "side": "Under",
+            "stake": 100.0
+          },
+          {
+            "actual": 2.0,
+            "date": "2026-05-24",
+            "ev": 0.1596471924622989,
+            "line": 1.5,
+            "market": "SOG",
+            "odds": -113.0,
+            "payout": 88.49557522123894,
+            "player": "William Karlsson",
+            "result": "win",
+            "side": "Over",
+            "stake": 100.0
+          },
+          {
+            "actual": 1.0,
+            "date": "2026-05-24",
+            "ev": 0.0146563324005706,
+            "line": 2.5,
+            "market": "SOG",
+            "odds": -152.0,
+            "payout": -100.0,
+            "player": "Jack Eichel",
+            "result": "loss",
+            "side": "Over",
+            "stake": 100.0
+          },
+          {
+            "actual": null,
+            "date": "2026-05-24",
+            "ev": 0.1360888400379196,
+            "line": 1.5,
+            "market": "SOG",
+            "odds": -115.0,
+            "payout": null,
+            "player": "Rasmus Andersson",
+            "result": null,
+            "side": "Over",
+            "stake": 100.0
+          },
+          {
+            "actual": 0.0,
+            "date": "2026-05-24",
+            "ev": 0.0421708372966117,
+            "line": 0.5,
+            "market": "POINTS",
+            "odds": -135.0,
+            "payout": -100.0,
+            "player": "Pavel Dorofeyev",
+            "result": "loss",
+            "side": "Over",
+            "stake": 100.0
+          }
+        ],
+        "summary": {
+          "date": "2026-05-24",
+          "decided": 10,
+          "losses": 7,
+          "picks": 14,
+          "pnl": -398.50442477876106,
+          "pushes": 0,
+          "roi": -0.3985044247787611,
+          "staked": 1000.0,
+          "wins": 3
+        }
+      }
     }
   },
   "date": "2026-05-24",
@@ -307,9 +530,9 @@
     "game_recommendations": null,
     "predictions": "data/processed/predictions_2026-05-24.csv",
     "props_recommendations": "data/processed/props_recommendations_2026-05-24.csv",
-    "reconciliation_games": null,
-    "reconciliation_props": null
+    "reconciliation_games": "data/processed/reconciliation_2026-05-24.json",
+    "reconciliation_props": "data/processed/reconciliation_props_2026-05-24.json"
   },
-  "generated_at_utc": "2026-05-24T19:32:42+00:00",
+  "generated_at_utc": "2026-05-25T13:45:07+00:00",
   "schema_version": 2
 }

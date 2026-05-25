@@ -121,6 +121,18 @@ $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot = Split-Path -Parent $ScriptDir
 $ProcessedDir = Join-Path $RepoRoot 'data/processed'
 $NpuScript = Join-Path $RepoRoot "activate_npu.ps1"
+$OriginalPythonPath = $env:PYTHONPATH
+
+Push-Location $RepoRoot
+try {
+if ([string]::IsNullOrWhiteSpace($OriginalPythonPath)) {
+  $env:PYTHONPATH = $RepoRoot
+} else {
+  $pythonPathEntries = @($OriginalPythonPath -split ';' | Where-Object { $_ -and $_.Trim() -ne '' })
+  if ($pythonPathEntries -notcontains $RepoRoot) {
+    $env:PYTHONPATH = "$RepoRoot;$OriginalPythonPath"
+  }
+}
 
 # Resolve anchor date for this run
 $AnchorNow = $null
@@ -1713,4 +1725,12 @@ Write-DailyUpdateReport
 
 if ($DailyUpdateExitCode -ne 0) {
   exit $DailyUpdateExitCode
+}
+} finally {
+  Pop-Location
+  if ($null -eq $OriginalPythonPath) {
+    Remove-Item Env:PYTHONPATH -ErrorAction SilentlyContinue
+  } else {
+    $env:PYTHONPATH = $OriginalPythonPath
+  }
 }

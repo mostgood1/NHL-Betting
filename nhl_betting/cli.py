@@ -7080,26 +7080,6 @@ def props_recommendations(
     print(f"Wrote {out_path} with {len(final)} rows (cols: {', '.join([c for c in ['proj_lambda','ev_over','edge_score'] if c in final.columns])}); took {dt}s")
 
 
-@app.command(name="props-collect")
-def props_collect(
-    date: str = typer.Option(..., help="Slate date YYYY-MM-DD (ET)"),
-    source: str = typer.Option("oddsapi", help="Source to collect: oddsapi"),
-):
-    """Collect player props lines for a date from a single source and write canonical Parquet/CSV.
-
-    Prints rows and output path, returns quickly. Use this to run step 1.
-    """
-    import time
-    from .data import player_props as _pp
-    from .data import bovada_scrape as _bov
-    t0 = time.monotonic()
-    src = source.strip().lower()
-    if src != "oddsapi":
-        print("Unsupported source. Only 'oddsapi' is supported now."); raise typer.Exit(code=1)
-    cfg = _pp.PropsCollectionConfig(output_root="data/props", book="oddsapi", source="oddsapi")
-    res = _pp.collect_and_write(date, roster_df=None, cfg=cfg)
-    dt = round(time.monotonic() - t0, 2)
-    print(f"[collect:{src}] raw={res.get('raw_count')} combined={res.get('combined_count')} path={res.get('output_path')} ({dt}s)")
 
 
 @app.command(name="props-collect-range")
@@ -10539,16 +10519,6 @@ def props_precompute_all(
     print(f"[props-precompute] wrote {out_path} rows={len(df)}")
 
 
-@app.command(name="props-project-all")
-def props_project_all(
-    date: str = typer.Option(..., help="Slate date YYYY-MM-DD (ET)"),
-    ensure_history_days: int = typer.Option(365, help="Minimum history window to ensure is collected"),
-    include_goalies: bool = typer.Option(True, help="Include goalies (SAVES) in projections"),
-    slate: Optional[str] = typer.Option(None, help="Forced slate list like 'CBJ@CHI, BOS@TOR' to bypass Web schedule"),
-):
-    """Alias for props_precompute_all with compatible options used by scripts/daily_update.ps1."""
-    # Currently props_precompute_all always includes goalies and uses ~365 days history; options provided for compatibility
-    return props_precompute_all(date=date, slate=slate)
 
 
 @app.command(name="props-fix-projections-teams")
